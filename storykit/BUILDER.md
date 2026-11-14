@@ -99,6 +99,15 @@ people and places.
   hero's own car** (its trunk, its glovebox, under its hood) write `"on": "ride"` (and `"part": "trunk"`, `"door"` or
   `"hood"`; trunk if left out): the ring and the hold are then at the car wherever the player parked it, and `at` is
   where he drives it to. Without it the hold is at the place, and a player who parked a block away finds nothing there.
+- **Every spot is outdoors, and the words name only what is there.** Nobody can go inside a building: every place a
+  mission sends the player (a walk, a search, a drive's end, a meet, a fight, a pickup) is a spot on the street, a
+  lot, a park or a sidewalk, never "inside the bar" or "upstairs". The runner holds a search's ring where a person can
+  stand, walked in from the place's street toward it and kept clear of the walls, with a marker over it seen through
+  the buildings. An objective that names a thing ("Take the log from **his truck**") gets that thing: Mog City parks
+  a plain vehicle of that kind there (truck, van, car, SUV, cab; its tailgate at the ring) or sets down a bag, a case
+  or a crate; `"prop"` names one when the words don't, `"prop": false` none. Where it has no room, the objective is
+  said as the place ("Take the log at **the boat-trailer lot**"). So write what happens outside: "Take the log from
+  Ruben's truck in **the boat-trailer lot**", not "Find the log in his office".
 - **Towing.** A `tow` is a real tow, for a ride with the `tow` ability (a `wrecker` sheet, or a `pickup` with it): a car
   stands at `target` (a city body, `car: "van"`, or one of your vehicles by id: an ambulance is a van sheet with a
   livery), the player drives up to it, backs the truck's tail up to its nose and holds F at the wheel; the light bar
