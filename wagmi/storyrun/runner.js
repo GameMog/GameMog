@@ -32,6 +32,7 @@ import { createSets } from './sets.js';
 import { createJuice } from './juice.js';
 import { armTo } from '../mission/m3-set.js';
 import { world as cityWorld } from '../world/index.js';
+import { createReach, reachReason } from './reach.js';
 
 const PI = Math.PI;
 export const KINDS_STUB = new Set(['patrol', 'wallet']);
@@ -75,7 +76,7 @@ const TIPS = {
   overrun: ['Meet each wave before it reaches the tents: ride out toward the ', { 'red marker': 'red' }, ' and they turn on you instead.'],
   chased: ['Hold [Shift] to gallop and keep to the ', { 'yellow line': 'yellow' }, ': it is never quite as fast as a gallop. Jump what is in the way with [Space].'],
 };
-class Fail extends Error { constructor(reason, kind = null, o = {}) { super(reason); this.reason = reason; this.kind = kind; this.tip = o.tip || null; this.sounded = !!o.sounded; } }
+class Fail extends Error { constructor(reason, kind = null, o = {}) { super(reason); this.reason = reason; this.kind = kind; this.tip = o.tip || null; this.sounded = !!o.sounded; this.reach = o.reach || null; } }
 class Stop extends Error {}
 
 export function createRunner(ctx) {
@@ -187,7 +188,7 @@ export function createRunner(ctx) {
   }
 
   /* --------------------------------------------------------------- the world -- */
-  const placeOf = (ref, why) => { const p = places.at(ref); if (!p) throw new Fail(`The story names a place this city doesn't have (${typeof ref === 'string' ? ref : ref?.site ? `a ${String(ref.site.kind || ref.site).replace('_', ' ')}` : ref?.['@']}).`, 'place'); return p; };
+  const placeOf = (ref, why) => { const p = places.at(ref); if (!p) throw new Fail(`The story names a place this city doesn't have (${typeof ref === 'string' ? ref : ref?.site ? `a ${String(ref.site.kind || ref.site).replace('_', ' ')}` : ref?.['@']}).`, 'place'); p.ref = ref; return p; };
   // can a person stand at x, z (the controllers' own arrival test: buildings and walls, not other people; New York's
   // controllers have none: the same test over their colliders, a person's 0.48 m and 0.1 m round him, by a collider's
   // outline, its turned box, else its bounds)
@@ -263,6 +264,29 @@ export function createRunner(ctx) {
     M?.log?.push(['footing', why, p.name || null, +x.toFixed(1), +z.toFixed(1), +p.x.toFixed(1), +p.z.toFixed(1)]);
     return { x: p.x, z: p.z };
   }
+  // (the test drive, ?autopilot: every spot a step sends him to is one a player can reach (reach.js: outdoors, on ground
+  // he can stand on, a way to it on foot from a street; a car's step, a spot a car stops on by a lane). The owner, 14
+  // Nov: "putting rings inside buildings does not work especially since you can NOT enter buildings on the platform".
+  // A spot that fails fails the mission at once with where and why (Fail kind 'reach', its `reach`: the mission, step,
+  // the pack's place key and the town's place it names), so the Story Kit's builder can swap the place
+  const reach = createReach(W, cityWorld);
+  const refInfo = (ref, p = null) => {
+    const key = typeof ref === 'string' ? ref.replace(/^@/, '') : ref && typeof ref === 'object' && typeof ref['@'] === 'string' ? ref['@'] : null;
+    const alias = key && def0.places && Object.prototype.hasOwnProperty.call(def0.places, key) ? def0.places[key] : null;
+    const place = alias && typeof alias['@'] === 'string' ? alias['@'] : key;
+    const kind = (place && places.lib?.[place]?.kind) || p?.kind || null;
+    return { ...(key ? { at: key } : {}), ...(place ? { place } : {}), ...(kind ? { kind } : {}), ...(p?.name || alias?.name ? { name: String(p?.name || alias?.name).slice(0, 60) } : {}) };
+  };
+  function mustReach(x, z, mode, d, p = null, more = {}) {
+    if (!M?.auto || !Number.isFinite(x) || !Number.isFinite(z)) return null;
+    const info = { mission: M.def.id, step: M.i, type: d?.type || null, ...refInfo(p?.ref, p), x: Math.round(x * 10) / 10, z: Math.round(z * 10) / 10, mode, ...more };
+    const r = reach.fromRoad(x, z, mode);
+    reach.note({ check: info, ok: r.ok, why: r.why, len: Math.round(r.len), cells: r.cells });
+    M.reachAt = info;
+    if (r.ok) { M.reachPath = mode === 'car' ? null : r.path; M.reachSpot = { x, z }; return r; }
+    M.reachPath = null;
+    throw new Fail(reachReason({ ...info, why: r.why }), 'reach', { reach: { ...info, why: r.why } });
+  }
   // the player at a place: at the wheel (the car on its lane) or on foot beside the car
   function putPlayer(p, mode = 'car') {
     if (mode === 'walk' || mode === 'person') {
@@ -319,7 +343,7 @@ export function createRunner(ctx) {
   /* --------------------------------------------------------------- the steps -- */
   const STEPS = {};
   // place: the player there (in the car, or on foot), the time of day
-  STEPS.place = async (d) => { const p = placeOf(d.at); putPlayer(p, (typeof d.at === 'object' && d.at.mode) || (M.def.vehicle ? 'car' : 'walk')); if (d.time) { if (M.pin) pinTo(d.time); else setTime(d.time); } M.timer.add(d.bonus || 0); };
+  STEPS.place = async (d) => { const p = placeOf(d.at), mode = (typeof d.at === 'object' && d.at.mode) || (M.def.vehicle ? 'car' : 'walk'); mustReach(p.x, p.z, mode === 'car' ? 'car' : 'person', d, p); putPlayer(p, mode); if (d.time) { if (M.pin) pinTo(d.time); else setTime(d.time); } M.timer.add(d.bonus || 0); };
   // (a say's `radio`: true or false forces the line's look, over the air or in person)
   STEPS.say = async (d, t) => { const who = castName(d.who), o = { secs: d.secs, radio: typeof d.radio === 'boolean' ? d.radio : null }; if (d.wait === false) { say(who, d.text, M.tok, o).catch(() => {}); return; } await say(who, d.text, t, o); };
   // (a wait for the calls, call: true: up to secs, over once the car phone is done and no call that rang beside the
@@ -346,6 +370,7 @@ export function createRunner(ctx) {
   // drive: the corona, the GPS ('get there' the Mog City way: gps.drive), there inside the radius and slowed down
   async function goTo(p, d, t, { name = p.name, objective = null, onFoot = 250, needsCar = false } = {}) {
     const radius = d.radius || 8, stopV = d.stopSpeed ?? 4;
+    mustReach(p.x, p.z, inCar() || needsCar || M.def.vehicle ? 'car' : 'person', d, p);
     marker.at(p.x, groundY(p.x, p.z), p.z); M.dest = p;
     const dest = { x: p.x, z: p.z, name };
     const nav = gps.drive({ dest, objective: objective ? parts(objective) : ['Go to ', { [name]: 'yellow' }, '.'], onFoot, needsCar });
@@ -421,9 +446,10 @@ export function createRunner(ctx) {
       return;
     }
     const r = d.radius || 3, pt = footAt(p, 'walk'), obj = parts(d.objective || `Walk to **${p.name}**.`);
+    mustReach(pt.x, pt.z, 'person', d, p);
     gps.objective(obj, { x: pt.x, z: pt.z, name: p.name });
     const ring = createMarker(THREE, app.scene, { color: '#FFC93C', radius: Math.max(1.2, r * 0.6), height: d.beam ? 6 : 1.1, alpha: 0.22 }); ring.at(pt.x, 0, pt.z);
-    const watch = footWatch(pt, p, 'walk', (q) => { ring.at(q.x, 0, q.z); gps.objective(obj, { x: q.x, z: q.z, name: p.name }); });
+    const watch = footWatch(pt, p, 'walk', (q) => { mustReach(q.x, q.z, 'person', d, p); ring.at(q.x, 0, q.z); gps.objective(obj, { x: q.x, z: q.z, name: p.name }); });
     try { await wait(() => { watch(); return !inCar() && dist(P.position, pt.x, pt.z) < r; }, t); } finally { ring.hide(); app.scene.remove(ring.group); gps.clear(); }
   };
   // search: hold F there on foot (the van's search, ui.holdAct). The hold counts at the spot its ring is drawn on (a
@@ -441,6 +467,7 @@ export function createRunner(ctx) {
     // Lane's salvage log, 14 Nov, a ring nobody could reach; a compiled town's places now come with their approach)
     const pt = footing(p.cx ?? p.x, p.cz ?? p.z, p, 'search');
     let hx = pt.x, hz = pt.z;
+    mustReach(hx, hz, 'person', d, p, { label: d.label });
     // (the route and the blip lead to that same spot: they went to the place's lane point, up to 7 m off the corner's
     // centre, so the autopilot stood at the lane point beside a ring it never reached; MCM, 5 Nov: a Mog of Mog City's
     // own story stuck at Mission 1's '@chelseapark' van search)
@@ -451,6 +478,7 @@ export function createRunner(ctx) {
     const act = ui.holdAct({ label: d.label, noun: d.noun || d.label.replace(/^\w+\s+((over|off|up|in|out|down|back|on|away|through|for)\s+)?/i, ''), secs: d.secs || 1.0, show: reach + 6, reach });
     M.holding = { x: hx, z: hz, act };
     const watch = footWatch(pt, p, 'search', (q) => {
+      mustReach(q.x, q.z, 'person', d, p, { label: d.label });
       hx = q.x; hz = q.z; ring.at(hx, 0.02, hz); M.holding.x = hx; M.holding.z = hz;
       gps.objective(obj, { x: hx, z: hz, name: d.label }, { blip: false }); gps.blip('search', { x: hx, z: hz, kind: 'object', edge: true, name: d.label });
     });
@@ -539,6 +567,14 @@ export function createRunner(ctx) {
       x = e.position.x - Math.cos(h) * r + Math.sin(h) * f; z = e.position.z + Math.sin(h) * r + Math.cos(h) * f;
     } else { const p = placeOf(d.at || '@' + Object.keys(def0.places || {})[0]); ({ x, z } = footAt(p, 'npc')); }
     if (d.at && d.at.rel === 'player') ({ x, z } = footing(x, z, null, 'npc'));
+    // (never stood up inside a building or a wall: moved out to the nearest ground he can stand on, within 6 m; none
+    // there, in the test drive, the mission fails as unreachable: reach.js)
+    if (!reach.clear(x, z)) {
+      const q = reach.nearestClear(x, z, 6);
+      reach.note({ npc: who, x: Math.round(x * 10) / 10, z: Math.round(z * 10) / 10, moved: q && [Math.round(q.x * 10) / 10, Math.round(q.z * 10) / 10] });
+      if (q) { x = q.x; z = q.z; }
+      else if (M.auto) { const info = { mission: M.def.id, step: M.i, type: 'npc', who, ...(d.at && !d.at.rel ? refInfo(d.at) : {}), x: Math.round(x * 10) / 10, z: Math.round(z * 10) / 10, mode: 'person', why: 'spawn' }; throw new Fail(reachReason(info), 'reach', { reach: info }); }
+    }
     const fig = await cast.spawn(who, { x, z, heading: Math.atan2(me().x - x, me().z - z) });
     if (fig) M.npcs.add(who);
   };
@@ -1190,6 +1226,7 @@ export function createRunner(ctx) {
     // (the library's creatures for foes, or a boss: creatureFight; New York's fights never name them)
     if (d.foes || d.boss || d.waves) return creatureFight(d, t);
     const p = placeOf(d.arena);
+    mustReach(p.x, p.z, 'person', d, p);
     if (inCar()) { putAt(W, { car: [car.position.x, car.position.z, car.heading] }); outBesideCar(W); }
     if (dist(P.position, p.x, p.z) > 30) { putPlayer(p, 'walk'); }
     const ax = P.position.x, az = P.position.z;
@@ -1492,7 +1529,7 @@ export function createRunner(ctx) {
   STEPS.collect = async (d, t) => {
     const kind = d.kind || 'supplies', label = d.label || kind.charAt(0).toUpperCase() + kind.slice(1), color = COLOUR6.test(d.color || '') ? d.color : '#FFC93C';
     const items = (d.items || []).map((r, i) => {
-      const q = Array.isArray(r) ? { x: r[0], z: r[1] } : r && Array.isArray(r.at) ? { x: r.at[0], z: r.at[1] } : (() => { const pp = placeOf(r); return footing(pp.cx ?? pp.x, pp.cz ?? pp.z, pp, 'collect'); })();
+      const q = Array.isArray(r) ? { x: r[0], z: r[1] } : r && Array.isArray(r.at) ? { x: r.at[0], z: r.at[1] } : (() => { const pp = placeOf(r), g = footing(pp.cx ?? pp.x, pp.cz ?? pp.z, pp, 'collect'); mustReach(g.x, g.z, 'person', d, pp); return g; })();
       if (q.moved == null) Object.assign(q, footing(q.x, q.z, null, 'collect'));
       return { i, x: q.x, z: q.z, taken: false, name: (r && r.name) || label };
     });
@@ -2234,6 +2271,7 @@ export function createRunner(ctx) {
     const h0 = p.heading ?? 0, side = 3.2, back = d.back ?? 18;
     const st = { fx: 0, fz: 0, rx: 0, rz: 0, fy: 0, pitch: 0, pv: 0, h: h0, spin: 0 };
     const b0 = carBase(p), { x: cx, z: cz } = carSpot(b0.x - Math.cos(h0) * side - Math.sin(h0) * back, b0.z + Math.sin(h0) * side - Math.cos(h0) * back, h0, p, 'tow');
+    mustReach(cx, cz, 'car', d, p, { what: 'the car to tow' });
     st.fx = cx + Math.sin(h0) * T.zF; st.fz = cz + Math.cos(h0) * T.zF; st.rx = cx + Math.sin(h0) * T.zR; st.rz = cz + Math.cos(h0) * T.zR;
     const pose = (dt = 0) => {
       // the body from its two axles: the front at the hitch's height (fy over the ground), the back on the road
@@ -2792,7 +2830,7 @@ export function createRunner(ctx) {
       M.timer.timers.restore(cp.timers);
     } else {
       M.cp = { ...snapshot(0) };
-      if (def.start) { const p = placeOf(def.start); putPlayer(p, (typeof def.start === 'object' && def.start.mode) || (def.vehicle ? 'car' : 'walk')); M.cp = snapshot(0); }
+      if (def.start) { const p = placeOf(def.start), mode = (typeof def.start === 'object' && def.start.mode) || (def.vehicle ? 'car' : 'walk'); mustReach(p.x, p.z, mode === 'car' ? 'car' : 'person', { type: 'start' }, p); putPlayer(p, mode); M.cp = snapshot(0); }
     }
     // (the mission's time of day: its own, pinned (holdPin), else the world's; a world that says none is in daylight)
     const own = def.time || act?.timeline?.[def.id]?.time || null;
@@ -2876,9 +2914,10 @@ export function createRunner(ctx) {
           if (!(e instanceof Fail)) { if (!(e instanceof Stop)) console.error('[storyrun]', def.id, e); return { how: 'quit' }; }
           fails++;
           const step = def.steps[at.i];
-          host.tell('mission-fail', { id: def.id, why: e.reason, step: step?.id || null, kind: step?.type || null });
+          host.tell('mission-fail', { id: def.id, why: e.reason, step: step?.id || null, kind: step?.type || null, ...(e.reach ? { reach: e.reach } : {}) });
           if (!e.sounded) sfx.play('failed');
-          if (ctx.flags.autopilot && (ctx.flags.failStop || fails >= 3 || e.kind === 'timeout' || e.kind === 'place')) return { how: 'fail', why: e.reason };
+          // (a spot a player cannot reach is the story's to fix, never the drive's to retry: reach.js)
+          if (ctx.flags.autopilot && (ctx.flags.failStop || fails >= 3 || e.kind === 'timeout' || e.kind === 'place' || e.kind === 'reach')) return { how: 'fail', why: e.reason, ...(e.reach ? { reach: e.reach } : {}) };
           const pick = ctx.flags.autoRetry ? (await new Promise((r) => setTimeout(r, 1200)), 'retry') : await ui.failed(e.reason, { skip: fails >= 3, tip: e.tip || TIPS[e.kind === 'time' && car.noBoost ? 'timeSlow' : e.kind] || null, retryLabel: at.cp && at.cp.i > 0 ? 'Retry: from the checkpoint' : 'Retry: from the start' });
           if (pick === 'quit') return { how: 'quit' };
           if (pick === 'skip') { cp = { ...at.cp, i: Math.min(def.steps.length, (at.i || 0) + 1) }; continue; }
@@ -2893,5 +2932,16 @@ export function createRunner(ctx) {
     if (!at) { keyL.intensity = 0; keyL.distance = 4.5; return; }
     keyL.position.set(at[0], at[1], at[2]); keyL.intensity = intensity; keyL.distance = reach;
   };
-  return { play, opening, get M() { return M; }, tidy: () => M && tidy(), say, putPlayer, placeOf, goTo, lamp, showMeters, streetAct };
+  // the test drive's autopilot could only finish this step by cheating (through a wall, from inside a building): the
+  // mission fails as unreachable, naming the step's place where a reach check named it (autopilot.js)
+  function unreachable(info = {}) {
+    if (!M || M.tok.dead) return;
+    const d = M.def.steps[M.i];
+    // (the place the step names, where no reach check named it: its at, to or arena)
+    const ref = d && [].concat(d.at ?? d.to ?? d.arena ?? [])[0];
+    const at = M.reachAt && M.reachAt.step === M.i ? M.reachAt : ref && !ref.rel ? (() => { try { return refInfo(ref, places.at(ref)); } catch { return {}; } })() : {};
+    const full = { mission: M.def.id, step: M.i, type: d?.type || null, ...(d?.label ? { label: d.label } : {}), ...at, ...info };
+    kill(M.tok, new Fail(reachReason(full), 'reach', { reach: full }));
+  }
+  return { play, opening, get M() { return M; }, tidy: () => M && tidy(), say, putPlayer, placeOf, goTo, lamp, showMeters, streetAct, reach, unreachable };
 }

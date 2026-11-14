@@ -108,7 +108,7 @@ export async function install(W) {
     if (pets) try { pets.update(dt); } catch (e) { console.warn('[storyrun] pets', e); pets = null; }
     document.body.classList.toggle('wg-onfoot', W.app.controllerManager.activeMode !== 'car');
   })();
-  W.storyrun = { world, places, cast, hud, runner, save, pets, host: hostLog, get choosing() { return hud.choosing; } };
+  W.storyrun = { world, places, cast, hud, runner, save, pets, host: hostLog, reach: runner.reach, get choosing() { return hud.choosing; } };
   // the missions in story order (the acts' order lists, then any left out)
   const acts = def.acts || [];
   const byId = new Map(def.missions.map((m) => [m.id, m]));
@@ -155,6 +155,9 @@ export async function install(W) {
     autopilot = startAutopilot(W, runner, {
       missionSecs: +(Q.get('missionsecs') || 240), skipScenes: +(Q.get('skipscenes') || 0), realPace: Q.has('realpace'), fair: Q.has('fair'),
       onTimeout: (m, d, i) => { tell('mission-fail', { id: m.id, why: `The test drive timed out at step ${i + 1} (${d?.type}${d?.id ? ' ' + d.id : ''}).`, step: d?.id || null, kind: d?.type || null, timeout: true }); runner.M?.fail?.({ reason: `The test drive timed out at step ${i + 1} (${d?.type}).` }); },
+      // (the autopilot could finish a step only as no player could: through a wall, from inside a building; reach.js)
+      onUnreachable: (info) => runner.unreachable(info),
+      reach: runner.reach,
     });
     W.storyrun.autopilot = autopilot;
   }
@@ -225,7 +228,7 @@ export async function install(W) {
       if (last && act.end) await actEnd(act.end, { holdNext: k === order.length - 1 });
       k++;
     } else if (r.how === 'fail') {
-      tell('mission-end', { id: m.id, how: 'fail', why: r.why }); break;
+      tell('mission-end', { id: m.id, how: 'fail', why: r.why, ...(r.reach ? { reach: r.reach } : {}) }); break;
     } else {
       tell('mission-end', { id: m.id, how: 'quit' });
       // (quit: free roam, the mission's start marked again)
