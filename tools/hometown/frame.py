@@ -15,8 +15,10 @@
 #   places                the tiles' place rule (confidence >= 0.45, open, a GENERIC kind; public names kept) over the
 #                         play box, snapped to those lanes within 80 m; named as the assembler always named them
 #                         (street names as a sign spells them, street_names.street_case: "N 3rd St", never
-#                         str.title()'s "N 3Rd St")
-#   spawns                downtown (the strongest ctx centre in the box, else its top-scoring cell, else the box
+#                         str.title()'s "N 3Rd St"); each with its approach ax, az (aHow): where a person on foot is
+#                         sent, outdoors, clear of every building, off the water and the carriageway, a straight walk
+#                         from its lane point (approach.py; none found: no ax, az)
+#   spawns               downtown (the strongest ctx centre in the box, else its top-scoring cell, else the box
 #                         centre, on a lane within 600 m) and the north / south / east / west arrivals
 #   district              the spawn's tile and 2 tiles each way (5 x 5, ~2.5 km), the first bundle a player drives in;
 #                         spawns and places inside it less DISTRICT_MARGIN carry district: true
@@ -38,6 +40,7 @@ from shapely.geometry import LineString, Point, box as sbox
 import grid
 import context
 import compile as C
+import approach as AP
 from street_names import street_case
 
 FRAME_FORMAT = 'hometown-frame'
@@ -228,7 +231,39 @@ def compute(pid, places, data, store, bid, log=print, W=None):
             continue
         x, z = S(p['gx'], p['gs'])
         places_raw.append({'id': p['id'], 'x': x, 'z': z, 'kind': kind, 'name': p['name'] if (kind in C.PUBLIC and p['name']) else ''})
-    out_places, seen = {}, {}
+    out_places, seen, hows = {}, {}, {}
+    # (the rows round a place, in session metres, each transformed once: buildings, water, carriageways)
+    ox, oz = TCM * c0 / 100.0, TCM * r0 / 100.0
+    geo_c = {}
+
+    def sess(key, r):
+        if (key, r['id']) not in geo_c:
+            geo_c[(key, r['id'])] = shapely.transform(r['geom'], lambda a: (a - np.array([ox, oz])) / k0)
+        return geo_c[(key, r['id'])]
+
+    def near(cx, cz, lx, lz):
+        R = AP.RING_R + 25.0
+        x0, x1, z0, z1 = min(cx, lx) - R, max(cx, lx) + R, min(cz, lz) - R, max(cz, lz) + R
+        q = sbox(x0 * k0 + ox, z0 * k0 + oz, x1 * k0 + ox, z1 * k0 + oz)
+        bl, ov = [], []
+        for r in W.src.query('buildings', q):
+            if r['is_underground']:
+                continue
+            g = sess('b', r)
+            g = g if g.is_valid else g.buffer(0)
+            # (a roof a person walks under: a carport, a shelter, a raised canopy)
+            (ov if (r['class'] or '').lower() in C.ROOFS or (r['min_height'] or 0) >= AP.MIN_H else bl).append(g)
+        wt = [sess('w', r) for r in W.src.query('water', q) if r['geom'].geom_type in ('Polygon', 'MultiPolygon')]
+        rd = []
+        for s in W.src.query('segments', q):
+            cls = s['class'] or 'unknown'
+            if s['subtype'] != 'road' or cls not in C.ROAD or s['subclass'] in AP.SKIP_SUBCLASS or s['geom'].geom_type != 'LineString':
+                continue
+            # (a whole tunnel is under the ground a person stands on)
+            if any('is_tunnel' in (r.get('values') or []) and not r.get('between') for r in s['road_flags'] or []):
+                continue
+            rd.append((sess('s', s), AP.road_half(cls, s['subclass'], s['width_rules'], C.ROAD) / k0))
+        return AP.Obstacles(bl, wt, rd, ov, clip=(x0, z0, x1, z1))
     for p in sorted(places_raw, key=lambda p: p['id']):
         ln = lane(p['x'], p['z'])
         if not ln:
@@ -240,6 +275,14 @@ def compute(pid, places, data, store, bid, log=print, W=None):
         key = p['kind'] + ('' if n == 0 else str(n + 1))
         out_places[key] = {'x': ln['x'], 'z': ln['z'], 'heading': ln['heading'], 'name': name, 'kind': p['kind'], 'cx': C.q1(p['x']), 'cz': C.q1(p['z']),
                            'street': street, 'overture': p['id']}
+        # (where a person on foot goes: outdoors, off the carriageway, clear of every building, a straight walk from
+        # the lane point; approach.py. None found: no ax, az, the engine keeps the lane point)
+        ap = AP.approach(p['x'], p['z'], ln['x'], ln['z'], near(p['x'], p['z'], ln['x'], ln['z']))
+        if ap:
+            out_places[key].update(ax=ap[0], az=ap[1], aHow=ap[2])
+        hows[ap[2].split('+')[0] if ap else 'none'] = hows.get(ap[2].split('+')[0] if ap else 'none', 0) + 1
+        if ap and ap[2].endswith('+relaxed'):
+            hows['relaxed'] = hows.get('relaxed', 0) + 1
 
     # ---- downtown and the arrivals (as the assembler always placed them)
     cc = context.CELL
@@ -306,6 +349,10 @@ def compute(pid, places, data, store, bid, log=print, W=None):
              datumRule={'posts': 'every %d grid m over the play box (%d posts)' % (grid.POST * POST_STEP, int(cmv.size)), 'wetPosts': int(wet.sum()),
                         'waters': {w: v for w, v in sorted(waters.items())}},
              lanesRule={'pieces': len(lines), 'excluded': 'motorway, private, pedestrian, tunnel, any bridge stretch, level > 0'},
+             approachRule={'rule': 'outdoors: %.1f m clear of every building, off the water and the carriageway (half its width + %.2f m), '
+                                   'a straight walk from the lane point; the place itself, else its front toward the lane, else the nearest '
+                                   'within %d m (approach.py)' % (AP.MARGIN, AP.CURB, AP.RING_R),
+                           'places': dict(sorted(hows.items()))},
              tilesId=lock['tiles'], lock=lock)
     return F, W
 

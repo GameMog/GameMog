@@ -374,3 +374,32 @@ test("a tail says how far it has to go, and free roam names the place, not the m
   assert.match(idx, /const own = at0 && Math\.hypot\(at0\.x - p\.x, at0\.z - p\.z\) < 40 \? words\(s0\.objective\) : null;/);
   assert.doesNotMatch(idx, /\['Go to ', \{ \[`\$\{m\.title\}`\]: 'yellow' \}, '\.'\]/);
 });
+
+test("every place a step sends him on foot is one he can stand on (owner, 14 Nov: \"putting rings inside buildings does not work especially since you can NOT enter buildings on the platform\")", () => {
+  const run = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/runner.js'), 'utf8');
+  const step = (k) => { const i = run.indexOf(`  STEPS.${k} = async`); assert.ok(i >= 0, k); const j = run.indexOf('\n  STEPS.', i + 10); return run.slice(i, j < 0 ? undefined : j); };
+  // (the guard: the controllers' own arrival test, the walk back toward the lane, rings round it, a warning)
+  assert.match(run, /function footing\(x, z, p, why\) \{\n    if \(!Number\.isFinite\(x\) \|\| !Number\.isFinite\(z\) \|\| standable\(x, z\)\) return \{ x, z, moved: false \};/);
+  assert.match(run, /console\.warn\(`\[storyrun\] \$\{why\}: \$\{p\?\.name \|\| 'a target'\} at/);
+  // (a compiled town's approach first: walk and npc went to the lane point, a man in the road)
+  assert.match(run, /const footAt = \(p, why\) => footing\(p\.ax \?\? p\.x, p\.az \?\? p\.z, p, why\);/);
+  assert.match(step('walk'), /pt = footAt\(p, 'walk'\)/);
+  assert.match(step('walk'), /ring\.at\(pt\.x, groundY\(pt\.x, pt\.z\), pt\.z\)/);
+  assert.match(step('walk'), /dist\(P\.position, pt\.x, pt\.z\) < r/);
+  // (a search's spot: the approach from its street (guidance), then the guard)
+  assert.match(step('search'), /const spot = p\.cx != null \? approach\(p, /);
+  assert.match(step('search'), /const g = footing\(spot\.x, spot\.z, p, 'search'\);/);
+  assert.match(step('npc'), /footAt\(p, 'npc'\)/);
+  assert.match(step('collect'), /footing\(pp\.cx \?\? pp\.x, pp\.cz \?\? pp\.z, pp, 'collect'\)/);
+  assert.match(step('stealth'), /footing\(dest0\.cx \?\? dest0\.x, dest0\.cz \?\? dest0\.z, dest0, 'stealth'\)/);
+  assert.match(run, /footing\(p\.cx \?\? p\.x, p\.cz \?\? p\.z, p, 'fight'\)/);
+  assert.match(step('fight'), /footing\(at0 \? \(at0\.cx \?\? at0\.x\)/);
+  // (and again once he is near, the buildings round it up: walk and search redraw the ring, the blip and the route)
+  assert.match(step('walk'), /footWatch\(pt, p, 'walk'/);
+  assert.match(step('search'), /footWatch\(pt, p, 'search'/);
+  // (a story car parked at a compiled town's place stands on its lane's kerb, never in a building)
+  assert.match(step('tow'), /carSpot\(/);
+  assert.match(step('car'), /carSpot\(/);
+  // (no ring is drawn at a place's raw centre any more)
+  assert.doesNotMatch(run, /ring\.at\(p\.x, 0, p\.z\)/);
+});

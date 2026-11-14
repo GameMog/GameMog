@@ -18,19 +18,39 @@
 //     with J; Mack's phone walked to and F held;
 //   - &skipscenes=<s>: an authored scene skipped after s seconds (W.cineSkip, the held Space's), for a run inside its time;
 //   - a mission over its time (opts.missionSecs, 240 s by default) is failed with where it stuck.
+// It moves as a player could (reach.js; the owner, 14 Nov: buildings cannot be entered): every jump and nudge lands on
+// ground a person (or a car) can stand on and a nudge on foot crosses no wall, or it is not made; on foot, when a wall
+// stands between him and the step's spot, he walks the way round that the runner's reach check found from the street.
+// A step it could finish only by cheating (the hero inside a building for over a second, or held up by a wall with no
+// way round three times running) fails the mission as unreachable (opts.onUnreachable -> runner.unreachable).
 // Calls are answered and choices taken by the runner's flags (?autoanswer, ?autochoose=<n>).
 // &realpace=1: a player's pace, to time what is timed to one (a call waiting `at` s into a drive): no leg, tail or convoy
 // jumped, the cruise 20 m/s (45 mph) where it is 15.
-//   startAutopilot(W, runner, { missionSecs, onTimeout, realPace }) -> { stop(), log }
+//   startAutopilot(W, runner, { missionSecs, onTimeout, onUnreachable, reach, realPace }) -> { stop(), log, cheats }
 import * as THREE from 'three/webgpu';
 import { world } from '../world/index.js';
 
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const wrapA = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 
-export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null, skipScenes = 0, realPace = false, fair = false } = {}) {
+export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null, onUnreachable = null, reach = null, skipScenes = 0, realPace = false, fair = false } = {}) {
   const app = W.app, cm = app.controllerManager, car = W.car, P = W.person, gps = W.gps;
-  const log = [];
+  const log = [], cheats = [];
+  // (where a move may land: ground a person stands on (a car: its middle clear of any building), and on foot a line
+  // that crosses no wall; without a reach check, anywhere, as before)
+  const footOk = (x, z) => !reach || reach.clear(x, z);
+  const carOk = (x, z) => !reach || reach.free(x, z, 0.8);
+  const footLine = (ax, az, bx, bz) => !reach || reach.line(ax, az, bx, bz);
+  let refusedN = 0, refusedKey = null, insideT = 0, failedFor = null;
+  // (a move refused: noted; on foot three times running in one step, the step is unreachable)
+  function refuse(what, x, z, foot = true) {
+    const k = `${runner.M?.def?.id}:${runner.M?.i}`;
+    if (k !== refusedKey) { refusedKey = k; refusedN = 0; }
+    refusedN++;
+    cheats.push({ t: +(performance.now() / 1000).toFixed(1), step: k, what, at: [Math.round(x * 10) / 10, Math.round(z * 10) / 10] }); if (cheats.length > 40) cheats.shift();
+    note(`refused: ${what}`);
+    if (foot && refusedN >= 3 && failedFor !== k) { failedFor = k; note(`unreachable: ${what}`); onUnreachable?.({ why: 'blocked', x: Math.round(P.position.x * 10) / 10, z: Math.round(P.position.z * 10) / 10 }); }
+  }
   let legKey = null, legT = 0;
   let on = true, stepKey = null, stepT = 0, jumped = false, lastProg = { t: 0, d: Infinity, x: 0, z: 0 }, fightT = 0, lastFin = 0, lastStrike = 0, mKey = null, mT = 0;
   const note = (what) => { log.push({ t: +(performance.now() / 1000).toFixed(1), what }); if (log.length > 80) log.shift(); };
@@ -75,6 +95,7 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
     }
   }
   function putCar(x, z, h) {
+    if (!carOk(x, z)) { refuse('the car put inside a building', x, z, false); return false; }
     const p = { x, z };
     car.position.set(p.x, cm.getGroundHeight(p.x, p.z, 'car'), p.z); car.heading = h; car.speed = 0; car.vx = car.vz = car.angularVel = 0;
     car.mesh.position.copy(car.position); car.mesh.rotation.y = h;
@@ -82,6 +103,25 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
     if (car.kind === 'horse' && W.horse?.drive?.S) Object.assign(W.horse.drive.S, { ground: null, air: false, jumpY: 0, jumpV: 0, rammed: 0 });
     if (inCar()) { P.position.copy(car.position); P.heading = h; }
     app.cameraSystem.resetForTeleport?.();
+    return true;
+  }
+  // a person moved on foot to (x, z): only where he can stand and over no wall (a time-saver along his way, never a
+  // way through a building)
+  function hop(x, z, what, h = null) {
+    if (!footOk(x, z) || !footLine(P.position.x, P.position.z, x, z)) { refuse(what, x, z); return false; }
+    P.position.set(x, cm.getGroundHeight(x, z, 'person'), z); if (h != null) P.heading = h;
+    return true;
+  }
+  // (the step's spot and the way to it from the street, the runner's reach check's: used on foot while a wall stands on
+  // the straight line to the spot; read again every half second)
+  let wayT = 0, way = null;
+  function wayRound(t) {
+    const M = runner.M, S = M?.reachSpot, path = M?.reachPath, dd = gps?.dest;
+    if (!reach || inCar() || !S || !path || path.length < 2 || !dd || Math.hypot(dd.x - S.x, dd.z - S.z) > 3) { way = null; return null; }
+    if (t - wayT > 0.5) { wayT = t; const was = way; way = Math.hypot(P.position.x - S.x, P.position.z - S.z) < 160 && !reach.line(P.position.x, P.position.z, S.x, S.z) ? path : null; if (way && !was) note(`on foot: the way round (${path.length - 1} legs)`); }
+    if (!way) return null;
+    let k = 0, bd = Infinity; for (let i = 0; i < way.length; i++) { const q = Math.hypot(way[i][0] - P.position.x, way[i][1] - P.position.z); if (q < bd) { bd = q; k = i; } }
+    return [[P.position.x, P.position.z], ...way.slice(Math.min(k + (bd < 1.5 ? 1 : 0), way.length - 1))];
   }
   // (a key pressed as a player would: the game's own listeners read it)
   const key = (code, type = 'keydown') => dispatchEvent(new KeyboardEvent(type, { code, key: code.replace(/^Key/, '').toLowerCase(), bubbles: true }));
@@ -171,6 +211,12 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
     // (a flee: the hero kept on his feet in a test drive, a fair one excepted)
     if (type === 'flee' && !fair && W.combat?.player) W.combat.player.hp = W.combat.player.maxHp;
     if (!['drive', 'stops', 'walk', 'search', 'pursuit', 'tail', 'place', 'tow', 'passenger', 'roadblock', 'stealth', 'collect', 'mount', 'sneak', 'flee', 'track', 'drove'].includes(type)) { release(); return; }
+    // (on foot inside a building's outline for over a second, on his way somewhere: no player gets there; the step is
+    // unreachable, whatever put him there)
+    if (reach && !inCar() && !W.ride?.phase) {
+      insideT = reach.inside(P.position.x, P.position.z) ? insideT + Math.min(0.1, frameDt) : 0;
+      if (insideT > 1 && failedFor !== key) { failedFor = key; insideT = 0; note('unreachable: inside a building'); cheats.push({ t: +t.toFixed(1), step: key, what: 'inside a building', at: [Math.round(P.position.x * 10) / 10, Math.round(P.position.z * 10) / 10] }); onUnreachable?.({ why: 'noclip', x: Math.round(P.position.x * 10) / 10, z: Math.round(P.position.z * 10) / 10 }); release(); return; }
+    } else insideT = 0;
     // a chase to lose: escape() (the pursuit's own 'lost' ends it)
     if (type === 'pursuit' && d.goal !== 'reach' && escape(t)) return;
     // in or out of the car as the step wants
@@ -189,11 +235,12 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
     if (type === 'collect' && M.dest) {
       const e = cm.getActiveEntity(), sd = Math.hypot(M.dest.x - e.position.x, M.dest.z - e.position.z);
       if (sd < 20) { if (!inCar() || Math.abs(car.speed || 0) < 6 || sd > 8) steerTo(M.dest.x, M.dest.z, inCar() ? 4 : 3.6); else { release(); cm.setTouchInput('backward', 0.6); }
-        if (sd < 6 && t - lastProg.t > 6) { lastProg = { t, d: sd, x: 0, z: 0 }; const k = Math.max(0, (sd - 1) / sd); e.position.x += (M.dest.x - e.position.x) * k; e.position.z += (M.dest.z - e.position.z) * k; note('collect: on to it'); }
+        if (sd < 6 && t - lastProg.t > 6) { lastProg = { t, d: sd, x: 0, z: 0 }; const k = Math.max(0, (sd - 1) / sd), nx = e.position.x + (M.dest.x - e.position.x) * k, nz = e.position.z + (M.dest.z - e.position.z) * k;
+          if (inCar() ? carOk(nx, nz) : footOk(nx, nz) && footLine(e.position.x, e.position.z, nx, nz)) { e.position.x = nx; e.position.z = nz; note('collect: on to it'); } else refuse('collect: on to it through a wall', nx, nz, !inCar()); }
         else if (sd < lastProg.d - 0.5) lastProg = { t, d: sd, x: 0, z: 0 };
         return; }
     }
-    const r = gps?.route;
+    const r = wayRound(t) || gps?.route;
     if (!r || r.length < 2) { release(); return; }
     const e = cm.getActiveEntity(), x = e.position.x, z = e.position.z, L = lenOf(r);
     footSp = 3.6;
@@ -227,7 +274,13 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
     const dd = gps?.dest, straight = dd ? Math.hypot(x - dd.x, z - dd.z) : Infinity;
     // a long leg: on to its last 110 m
     if (!realPace && inCar() && !jumped && t - stepT > 1.2 && L > 250 && type !== 'tail' && type !== 'pursuit') { jumped = true; const q = fromEnd(r, 110); putCar(q.x, q.z, q.h); note(`jump ${Math.round(L)} m`); return; }
-    if (!inCar() && !jumped && t - stepT > 1.2 && L > 60 && !(realPace && type === 'stealth')) { jumped = true; const q = fromEnd(r, 12); P.position.set(q.x, cm.getGroundHeight(q.x, q.z, 'person'), q.z); P.heading = q.h; note(`walk jump ${Math.round(L)} m`); return; }
+    if (!inCar() && !jumped && t - stepT > 1.2 && L > 60 && !(realPace && type === 'stealth')) {
+      jumped = true;
+      // (landing on his way, short of the end: the first spot back along the route a person can stand on)
+      let q = null; for (let back = 12; back <= 40 && !q; back += 2) { const c = fromEnd(r, back); if (footOk(c.x, c.z)) q = c; }
+      if (q) { P.position.set(q.x, cm.getGroundHeight(q.x, q.z, 'person'), q.z); P.heading = q.h; note(`walk jump ${Math.round(L)} m`); } else note('walk jump: nowhere to stand near the end');
+      return;
+    }
     // a world's tail (no ref): the route ends at the car being followed, so it is kept between the step's ring and its
     // lost distance (MM, 5 Nov: steering on to the van's bumper, the autopilot was spotted in 15 s): off the gas inside
     // 0.8 of the ring (braking, then backing off, inside 0.6), the boost past a third of the lost distance, and put back on the route at
@@ -265,7 +318,7 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
       // (near the end: put down on it; else back on the road, or 40 m on along the route)
       if (inCar() && (L < 45 || straight < 30)) { const q = fromEnd(r, 0.5); putCar(q.x, q.z, q.h); note('unstuck car: on the mark'); }
       else if (inCar()) { const q = along(r, x, z, 40), q2 = along(r, x, z, 46); putCar(q.x, q.z, Math.atan2(q2.x - q.x, q2.z - q.z)); note('unstuck car: 40 m on'); }
-      else { const q = along(r, x, z, 6); P.position.set(q.x, cm.getGroundHeight(q.x, q.z, 'person'), q.z); note('unstuck walk'); }
+      else { const q = along(r, x, z, 6); if (hop(q.x, q.z, 'unstuck walk through a wall')) note('unstuck walk'); }
       return;
     }
     // (a horse against a car left in the street, the city's abandoned traffic: the route's length can wobble as it is
@@ -420,7 +473,7 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
         if (inCar()) { getOut(); return true; }
         let b = null, bd = Infinity; for (const r of R.rigs) if (!r.down) { const q = Math.hypot(r.x - P.position.x, r.z - P.position.z); if (q < bd) { bd = q; b = r; } }
         if (!b) { release(); return true; }
-        if (bd > 1.7) { steerTo(b.x, b.z, 3); if (t - stepT > 3 && t - lastProg.t > 6) { lastProg = { t, d: bd, x: 0, z: 0 }; const k = Math.max(0, (bd - 1.4) / bd); P.position.x += (b.x - P.position.x) * k; P.position.z += (b.z - P.position.z) * k; note('rigs: up to the rig'); } if (bd < lastProg.d - 0.5) lastProg = { t, d: bd, x: 0, z: 0 }; return true; }
+        if (bd > 1.7) { steerTo(b.x, b.z, 3); if (t - stepT > 3 && t - lastProg.t > 6) { lastProg = { t, d: bd, x: 0, z: 0 }; const k = Math.max(0, (bd - 1.4) / bd); if (hop(P.position.x + (b.x - P.position.x) * k, P.position.z + (b.z - P.position.z) * k, 'rigs: up to the rig through a wall')) note('rigs: up to the rig'); } if (bd < lastProg.d - 0.5) lastProg = { t, d: bd, x: 0, z: 0 }; return true; }
         release(); P.heading = Math.atan2(b.x - P.position.x, b.z - P.position.z);
         if (t - lastKey > 0.5) { lastKey = t; key('KeyJ'); setTimeout(() => key('KeyJ', 'keyup'), 80); }
         return true;
@@ -430,5 +483,5 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
     }
   }
   tick();
-  return { stop() { on = false; release(); hold(null); }, log };
+  return { stop() { on = false; release(); hold(null); }, log, cheats };
 }
