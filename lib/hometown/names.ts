@@ -1,7 +1,7 @@
 /**
  * A town's street names as a player reads them, in the Story Kit's place list and so in the missions it writes.
  *
- * The town compiler (MogCity tools/hometown/frame.py, up to 0.8.0) title-cases its arrivals' and mission places' street
+ * The town compiler (MogCity tools/hometown/frame.py, up to 0.9.0) title-cases its arrivals' and mission places' street
  * names with Python's str.title(), which writes "N 3Rd St", "S 14Th St", "Mccord St", "St John'S Rd", "Us Hwy 62" and
  * "Ne 23Rd St"; the road graph keeps the capitals ("N 3RD ST"). Mog City puts the same names right when it loads a town
  * (cities/pkg/js/pkg-hud.js pkgNameCase, the same rules), so the builder's words and the game's labels agree.

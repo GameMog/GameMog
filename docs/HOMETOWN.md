@@ -30,9 +30,9 @@ its downtown.
 | gamemog.com (Render web, 1c-2g, 10 GB disk) | Create, the story writer, the job queue, the store of tiles and bundles, the dispatcher. It never compiles |
 | `gamemog-town-builder` (Render Workflow) | compiles. Each run is a 4c-8g instance started only while there is work, gone 20 s after |
 | mc.gamemog.com (GitHub Pages) | plays the story in the town, reading the town's bundles and tiles from gamemog.com |
-| The compiler | MogCity `tools/hometown`, version 0.8.0, pinned by commit in `deploy/town-builder/workflow-build.sh` |
+| The compiler | MogCity `tools/hometown`, version 0.9.0, pinned by commit in `deploy/town-builder/workflow-build.sh` |
 
-## Switches (render.yaml, 13 Nov 2026: on for everyone)
+## Switches (render.yaml, 14 Nov 2026: on for everyone)
 
 | Switch | Value | What it does |
 |---|---|---|
@@ -66,21 +66,36 @@ Wewoka, OK, never built, 196 tiles, from the pick on Create: admitted 16 s (the 
 learns the build), ready to write **58 s**, ready to drive **81 s**, whole town **351 s**, every builder ended 32 s after.
 231 CPU-s for the town. The story played on Mog City drivable 4 s after its title screen.
 
+## Status (14 Nov 2026)
+
+- **Live**: gamemog.com runs `main` 3ae12ea0 (the builder on for players; Wewoka, OK built cold on Render: drivable
+  110 s, whole 318 s, $0.08); mc.gamemog.com runs `mogcity` c2d9749 (compiler 0.8.0's engine).
+- **Ready to release, not pushed** (round 4, local branches): GameMog `prod-builder-clean` (the /admin crash fix
+  fc8ba0fc, the town builder fixes, street names, wardrobe), MogCity `prod-builder` (compiler **0.9.0**: Fort Pitt's
+  tunnel portals; engine: shop signs that do not repeat within sight, street names spelled right, a town's bus kept to
+  roads it can be passed on, street furniture on another level never stops the car, no deck parapet under another
+  deck's lanes), and its Mog City release commit (local branch `mogcity-release-2`, a fast-forward of the live
+  `mogcity`). The order is in [HOMETOWN-HOSTING.md](HOMETOWN-HOSTING.md#round-4-release-compiler-090).
+- **Fixed in round 4** (were open items): one failed tile no longer fails a town (it is built with a flat patch and
+  listed as degraded); "Try again" re-queues a failed town at once; the per-address limit survives deploys (queue.db);
+  the dispatcher's plan is cheap at 20,000 jobs; orphaned run rows are retired every pass; the first pick on a fresh
+  deploy is answered 202 at once; Phoenix's repeated shop names; Fort Pitt's 6.7 m jump.
+
 ## Open items
 
-- **mc.gamemog.com** needs MogCity's engine files on the `mogcity` branch (the growing town, the town loader "Loading
-  your town...", town-only map labels and radar names). Until then a town's story will not play there.
-- **The compiler commit** `aa0bc451...` must be pushed to the `hometown-compiler` branch of GameMog/GameMog before the
-  workflow's first build.
+- **A compiler upgrade with `HOMETOWN_BUILD` empty**: a town picked after the workflow rebuilds but before a run of the
+  new build has claimed is admitted at the web's cached old build, which no new run can claim. Release 0.9.0 by running
+  `build_jobs` once by hand right after the workflow's rebuild (the web then learns the new build), or pin
+  `HOMETOWN_BUILD`.
+- **A pinned build on an empty store** queues no regions jobs at the pick; each compile then finds its missing regions
+  one at a time (slow, not wrong).
+- **Street names in the compiler**: `frame.py` still title-cases with Python's `str.title()` ("N 3Rd St"); the engine and
+  `lib/hometown/names.ts` correct them when read. Fixing it at the source changes frame bytes (a compiler bump).
 - **Not proven before production**: the build on Render's native Python image (pip by hash, duckdb extensions, the
-  recipe id and so the real buildId on x86_64), a run's real spin-up, private networking from a run to the web,
-  `fromService ... property: slug` on a workflow, Hobby's per-minute run limits, cancelling a run from the dashboard.
-- **One failed tile fails the whole town** (after its retries): the town card says "We couldn't build this town right
-  now"; asking again rebuilds only what is missing.
+  recipe id and so the real buildId on x86_64), private networking from a run to the web, Hobby's per-minute run
+  limits, cancelling a run from the dashboard.
 - **The full bundle** compiles the far field it does not find stored (about 2 minutes on the Mac for a whole town).
-- **Phoenix repeats shop names** across blocks; **Fort Pitt** (Pittsburgh) has a 6.7 m jump at a bridge end.
-- **The dispatcher's plan** reads up to 20,000 queued jobs every 5 s: fine at today's scale, a cost at a viral one.
-- **Run rows** stuck in `starting` (the web died between the row and the start call) are re-sent with the same key,
-  then marked lost after 10 minutes; the /admin card lists them.
-- **The first pick on a fresh deploy** waits for one run to start (about a minute on Render) unless the owner runs
+- **A failing 12-tile block** costs 12 single-tile compiles before the town degrades; a failed tile inside the spawn
+  district still fails the town.
+- **The first pick on a fresh deploy** still waits for one run to start on Render (its spin-up) unless the owner runs
   `build_jobs` once by hand first.

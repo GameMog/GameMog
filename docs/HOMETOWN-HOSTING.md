@@ -17,7 +17,7 @@ API only while there is work, and gone 20 s after the queue is idle. **No town a
 | The worker protocol (claim, heartbeat, objects, complete, fail) | web, `/api/hometown/worker/*`, bearer `HOMETOWN_WORKER_TOKEN` | `lib/hometown-build/server.ts` |
 | Starting runs (never Python) | web: the dispatcher, a pass every 5 s and on every queue change | `lib/hometown-build/dispatch.ts` |
 | Compiling (regions, ctx, tiles, far, frame, bundles) | `gamemog-town-builder` workflow runs | `deploy/town-builder/workflow.py` (the task), `worker.py` (its loop), `workflow-build.sh` (the pinned build) |
-| The compiler | MogCity `tools/hometown` (compiler **0.8.0**), fetched at `MOGCITY_SHA` | github.com/GameMog/GameMog, branch `hometown-compiler` |
+| The compiler | MogCity `tools/hometown` (compiler **0.9.0**), fetched at `MOGCITY_SHA` | github.com/GameMog/GameMog, branch `hometown-compiler` |
 | The store: tiles, ctx, manifests, builds, frames, bundles, far, src, dem | web disk, `data/hometown/` | `lib/hometown-tiles/` (`keys.ts` grammar, `http.ts verifyObject`) |
 | Playing a town | **mc.gamemog.com** (GitHub Pages, branch `mogcity`), reading bundles and tiles from gamemog.com | MogCity `wagmi/world/town-src.js`, `growing.js`, `pkg-far.js` |
 | The owner's view | `/admin`, "Town builder" card; `GET /api/hometown/admin/builder` | `app/admin/dashboard.tsx` |
@@ -205,8 +205,8 @@ nothing and ends; empty or `0` builds). Optional: `HOMETOWN_RUN_CAP_S` (7200), `
 
 Workflows build on the native runtime only (`runtime: python`; no Dockerfile). The buildCommand installs the Render SDK
 (`workflow-requirements.txt`) and runs `workflow-build.sh`, which writes `.town-builder/`:
-- **the compiler at `MOGCITY_SHA`** (THE one line to re-pin; now `aa0bc4515ceff34f57f00ba92eb75d96b77a6cd3`, compiler
-  0.8.0), fetched by SHA from github.com/GameMog/GameMog; when a SHA alone cannot be fetched, the branch
+- **the compiler at `MOGCITY_SHA`** (THE one line to re-pin; now `dd7e82ec68a57786f65f0dfea1dc4b01df150816`, compiler
+  0.9.0), fetched by SHA from github.com/GameMog/GameMog; when a SHA alone cannot be fetched, the branch
   `HOMETOWN_MOGCITY_REF` (default `hometown-compiler`) and then the SHA inside it;
 - its packages from the compiler's own hash lock (`--require-hashes`, wheels only) in their own venv;
 - **the OSM lane table** (`osm-roads-us.parquet`, 17,100,621 bytes, ODbL) checked against
@@ -240,6 +240,15 @@ Runs: 2 (the probe and one more), both `exit: idle`; run wall 671 s, **CPU 231 s
 tile jobs dropped). The story (the fixture reply, no model call) was written 180 s after "Write the story"; on the local
 Mog City the whole town was drivable 3.4-4.0 s after the title screen, and the car drove 271 m in 9 s down W 5th St past
 a shop signed with the town's name.
+
+**Compiler 0.9.0, the round-4 merge** (14 Nov 2026, the same simulation, `SIM_LEARN_BUILD=1`, the Mac shared at load
+average 15-50). Wewoka, OK, cold: story ready 306 s, drive 338 s, whole 470 s, all runs ended 503 s; 2 runs, 51 jobs, none
+failed, CPU 274 s. The first 3 minutes were the two regions jobs reading Overture from S3 (08:04 to 08:07), and the
+frame then waited on a fifth region its downtown box needed; the frame itself compiled in 15 s. The 13 Nov run read the same
+regions in 15 s (story 41-58 s), so the difference is the network, not the code. Prague, OK, cold with tile
+`hg1-conus/0/5731/8563` forced to fail (`SIM_FAIL_TILE`): the tile block split, the tile failed 3 times, and the town
+became whole **degraded** at 899 s (story 275 s, drive 327 s) with that tile flat ground; no manifest was stored and the
+web's store never received that tile; 3 runs, all ended idle. The same forced failure before round 4 failed the town (409).
 
 The earlier run (Boley, OK, 121 tiles, compiler 0.7.0, `HOMETOWN_BUILD` pinned): story 59 s, drive 72 s, whole 411 s,
 181.5 CPU-s. A bug that run found is fixed (a 2-slot run ended after one job: now only a claim made with every slot free
@@ -303,6 +312,26 @@ is first created), and the workflow service is created and built the moment `mai
    owner test pick.
 
 Safe fallback while any step is open: `HOMETOWN_BUILDER=owner` and `NEXT_PUBLIC_HOMETOWN_SEARCH=off`.
+
+## Round 4 release (compiler 0.9.0)
+
+Everything is committed locally and nothing is pushed. A push of `main` restarts the web and stops builds in flight, so
+the owner picks the moment. In this order:
+
+1. **Mog City's engine** (no build needed, old towns keep playing): push the local MogCity branch `mogcity-release-2`
+   (commit `2ae63ee552d6f24ff1edc6423794e6098da6e0b5`, parent `c2d9749` = the live `mogcity`, so a fast-forward; the tree of
+   MogCity `prod-builder` `dd7e82ec68a57786f65f0dfea1dc4b01df150816` without `.scratch`, the live README paragraph and `CNAME` kept) to the `mogcity`
+   branch of GameMog/GameMog. `index.html`'s script version is `20261114-r4`, so browsers fetch the new engine files.
+2. **The compiler commit**: push MogCity `prod-builder` (tip `dd7e82ec68a57786f65f0dfea1dc4b01df150816`, compiler 0.9.0) to the
+   `hometown-compiler` branch of GameMog/GameMog BEFORE `main`.
+3. **Nothing building** on Render, then push GameMog `prod-builder-clean` to `main`. `deploy/town-builder/**` changed
+   (the pin, the worker), so the workflow rebuilds at compiler 0.9.0; the web deploys the /admin fix and the builder's
+   round-4 fixes.
+4. **Right after the workflow's rebuild** (its log ends `town-builder build: ok`), run `build_jobs` once by hand with
+   input `[]`: the web then learns the 0.9.0 build before any player picks (see the open item in
+   [HOMETOWN.md](HOMETOWN.md#open-items)). Towns built at 0.8.0 keep playing at their build; a town asked again is
+   built at 0.9.0.
+5. Check /admin opens (the Town builder card), then one owner test pick.
 
 ## Compiler upgrade
 
