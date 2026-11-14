@@ -36,6 +36,7 @@ const {
   cameraPosition,
   cameraProjectionMatrix,
   cameraViewMatrix,
+  modelViewMatrix,
   screenSize,
   uv,
   time,
@@ -2063,7 +2064,13 @@ function createTerrainMaterial(maskTexture, mask) {
   const paved = (c) => float(1.0).sub(step(1.5, c));
   const asphaltShare = paved(c00).mul(w00).add(paved(c10).mul(w10)).add(paved(c01).mul(w01)).add(paved(c11).mul(w11));
   const aa = max(fwidth(asphaltShare), 0.0001);
-  const asphalt = smoothstep(float(0.5).sub(aa), float(0.5).add(aa), asphaltShare);
+  // (a Hometown place: every bit of land there is a curb island's top (sf-ground.js), so the terrain is seen only on the
+  // roadway and the shore. Its mask (terrain-mesh.js makeRoadsideMaskTexture) has the land pulled back a cell from the
+  // asphalt, and the land shows only where all four cells round the fragment are land, inside the line through their
+  // centres: under the island's slab, never a stepped strip of grass on the asphalt along a curb)
+  const asphalt = window.NYC.PKG
+    ? smoothstep(float(0.0), aa.mul(2.0).add(0.002), asphaltShare)
+    : smoothstep(float(0.5).sub(aa), float(0.5).add(aa), asphaltShare);
   // the other classes, weighted among themselves
   const ow00 = w00.mul(step(1.5, c00));
   const ow10 = w10.mul(step(1.5, c10));
@@ -2112,9 +2119,15 @@ function createGroundCoverMaterial(maskTexture, mask, climate = 'humid') {
   const sampleClass = (dx, dz) => floor(texture(maskTexture, base.add(vec2(dx + 0.5, dz + 0.5)).div(size)).r.mul(255.0).add(0.5));
   const cs = [sampleClass(0, 0), sampleClass(1, 0), sampleClass(0, 1), sampleClass(1, 1)];
   const ws = [float(1.0).sub(f.x).mul(float(1.0).sub(f.y)), f.x.mul(float(1.0).sub(f.y)), float(1.0).sub(f.x).mul(f.y), f.x.mul(f.y)];
-  // the flags: classes 0 (a curb's own cells) and 1
-  const flagged = (c) => float(1.0).sub(step(1.5, c));
-  const share = cs.reduce((acc, c, i) => acc.add(flagged(c).mul(ws[i])), float(0.0));
+  // the flags: class 1, and class 0 (the roadway's cells a curb straddles) where nothing else is near. A roadway cell
+  // under the slab takes the classes round it: the flags beside a sidewalk band, the grass of a median or a yard that
+  // meets the curb with no sidewalk, a lot's paving at a driveway (it showed flags there, in cell-sized steps along the
+  // curb). The flags' share is of the cells that are not roadway
+  const is0 = (c) => float(1.0).sub(step(0.5, c));
+  const is1 = (c) => float(1.0).sub(step(0.5, abs(c.sub(1.0))));
+  const w0 = cs.reduce((acc, c, i) => acc.add(is0(c).mul(ws[i])), float(0.0));
+  const w1 = cs.reduce((acc, c, i) => acc.add(is1(c).mul(ws[i])), float(0.0));
+  const share = w1.add(w0.mul(step(0.999, w0))).div(max(float(1.0).sub(w0).add(w0.mul(step(0.999, w0))), 0.0001));
   const aa = max(fwidth(share), 0.0001);
   const flags = smoothstep(float(0.5).sub(aa), float(0.5).add(aa), share);
 
@@ -2202,11 +2215,14 @@ function createRoadPaintMaterial() {
   const side = attribute('side', 'vec2');
   const sideOffset = vec3(side.x, 0.0, side.y);
 
-  // How much to widen the strip so it is at least 1.5 px wide on screen (1 when it already is)
+  // How much to widen the strip so it is at least 1.5 px wide on screen (1 when it already is). (Through the mesh's
+  // own model matrix: under the floating origin (wagmi/world/origin.js, on in every Hometown place) the scene is drawn
+  // shifted by -origin, and the bare view-projection put the strip a kilometre or more away, where every line measured
+  // under a pixel: each was drawn 16 times as wide and faint, the lane dashes gone and the edge lines a brown band)
   const widen = Fn(() => {
-    const viewProjection = cameraProjectionMatrix.mul(cameraViewMatrix);
-    const edge = viewProjection.mul(vec4(positionGeometry, 1.0));
-    const centre = viewProjection.mul(vec4(positionGeometry.sub(sideOffset), 1.0));
+    const modelViewProjection = cameraProjectionMatrix.mul(modelViewMatrix);
+    const edge = modelViewProjection.mul(vec4(positionGeometry, 1.0));
+    const centre = modelViewProjection.mul(vec4(positionGeometry.sub(sideOffset), 1.0));
     const halfWidthPx = length(edge.xy.div(edge.w).sub(centre.xy.div(centre.w)).mul(screenSize).mul(0.5));
     const inFront = step(0.05, min(edge.w, centre.w));
     return clamp(float(0.75).div(max(halfWidthPx, 0.001)), 1.0, 16.0).mul(inFront).max(1.0);
