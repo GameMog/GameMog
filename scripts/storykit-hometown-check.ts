@@ -13,7 +13,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { gatePack, type PackV2 } from '../storykit/pack/gate.ts';
+import { gatePack, toRunnerPack, type PackV2 } from '../storykit/pack/gate.ts';
 import { PLACES, foreignIn } from '../storykit/pack/cities.ts';
 import { places as sfLibrary } from '../storykit/cities/sf/city.js';
 import { packageProblems, hometownBase, cityLock, tileSetHash, type CityPackage } from '../storykit/hometown/city-package.ts';
@@ -21,7 +21,7 @@ import { classify, displayName, withheldNames, SENSITIVE_KINDS, violenceIn } fro
 import { gateHometown, cityTableOf, storyPlan, violentMissions, unknownPlaces } from '../storykit/hometown/hometown-gate.ts';
 import { sfCityPackage, SF_PLACE_ID } from '../storykit/hometown/sf-package.ts';
 import { hometownPlaceList, hometownSystem, hometownTurn, checkHometownReply, REAL_PLACE_RULES } from '../lib/storykit-hometown.ts';
-import { storykitSystem, placeList } from '../lib/storykit-build.ts';
+import { storykitSystem, placeList, pacingProblems, CINEMATIC } from '../lib/storykit-build.ts';
 import { voicePlanOf } from '../storykit/pack/runner.ts';
 
 type Ok = (name: string, cond: boolean, detail?: string) => void;
@@ -222,6 +222,43 @@ export function runHometownChecks(ok: Ok) {
     const reply = R('okemah.reply.json'), pk = reply.pack ?? reply;
     const withTown = voicePlanOf(pk, '', cityTableOf(OK)).lines.length, without = voicePlanOf(pk, '').lines.length;
     ok('a hometown story\'s voice plan lists its spoken lines (with the town\'s table)', withTown > 0, `${withTown} lines (without the table: ${without})`);
+  }
+  // ── pacing and the action layer (r8, 14 Nov: the owner, "flat and uninteresting, need to be cinematic and adrenaline
+  // filled fun"; BUILDER.md Set pieces, lib/storykit-build.ts pacingProblems, Mog City's wagmi/storyrun/action.js) ──
+  {
+    const flat = R('okemah.reply.json');
+    const flatPace = pacingProblems(flat.pack);
+    ok('pacing sends back a flat story: missions with no set piece, too few kinds, Mission 1 not opening cold', flatPace.some((p) => /M1, M2, M5 have no set piece/.test(p)) && flatPace.some((p) => /three kinds/.test(p)) && flatPace.some((p) => /opens cold/.test(p)), flatPace.join(' | ').slice(0, 300));
+    ok('a town Create\'s turn asks for an action film (cold open, set pieces, cliffhangers, the town\'s landmarks as stages)', hometownTurn('a mechanic comes home', OK).includes(CINEMATIC) && /cliffhanger/.test(CINEMATIC));
+    ok('the builder\'s manual has the set-piece chapter and a Mission 1 that opens cold', hometownSystem(OK).includes('## Set pieces: make it cinematic and adrenaline-filled') && hometownSystem(OK).includes('**It opens cold, in motion**'));
+    const cine = clone(flat), ms = cine.pack.acts[0].missions;
+    ms[0].card = 'slam';
+    ms[0].steps = [
+      { type: 'timer', name: 'run', seconds: 150, label: 'RUN', fail: 'hard', why: 'Too slow. The ledger is gone.', checkpoint: true, sting: 'roar', shake: 0.3 },
+      { type: 'pursuit', goal: 'lose', kind: 'crew', name: "Hutch's pickups", count: 1, level: 1, loseDist: 150, loseTime: 3.5, cam: 'low', sting: 'screech', slowmo: 0.6, objective: 'Shake **the pickups**.',
+        during: [{ at: 1, type: 'call', who: 'ally', auto: true, inCar: true, lines: [{ who: 'ally', text: 'Two pickups behind you. Go!' }] }] },
+      ...ms[0].steps.slice(1, 4).map((x: PackV2) => (x.type === 'drive' ? { ...x, stopTimer: 'run' } : x)),
+      { type: 'cutscene', shots: [{ frame: 'push', on: 'hero', dur: 3, say: 'hero', line: 'Half a ledger. Somebody tore it clean.' }, { frame: 'ots', on: 'hero', at: 'ally', dur: 3, say: 'ally', line: 'Then somebody has the other half.' }, { frame: 'react', on: 'ally', dur: 2 }] },
+    ];
+    ms[0].steps.splice(2, 0, { type: 'npc', who: 'ally', id: 'ally-depot', at: { rel: 'player', right: 3, fwd: 1 } });
+    ms[1].steps = [{ type: 'timer', name: 'clinic', seconds: 200, label: 'CLINIC', fail: 'hard', why: 'Too late for the clinic.' }, { ...ms[1].steps[0], stopTimer: 'clinic' }, ...ms[1].steps.slice(1)];
+    ms[4].steps = [{ type: 'roadblock', at: '@town-square', cars: 2, kind: 'crew', crew: 1, text: 'Pickups across Broadway. Ram through.', sting: 'crash' }, ...ms[4].steps];
+    cine.pack.acts[0].end = { title: 'Dust on Broadway', story: ['The ledger was whole by dawn.'], cliff: { kicker: 'NEXT', text: 'THE SHERIFF HAD THE OTHER HALF', sub: 'And he knew where June lived.' } };
+    const cp = checkHometownReply(reply(cine), { pkg: OK, id: 'sk-okemah8' });
+    ok('a cinematic story passes the town\'s pass: a cold open, named chases with stings and a low camera, shot grammar, a roadblock in a Create, a cliffhanger', cp.problems.length === 0 && !!cp.pack, show(cp.problems));
+    ok('and pacing has nothing to send back', pacingProblems(cine.pack).length === 0, pacingProblems(cine.pack).join(' | '));
+    if (cp.pack) {
+      const w = toRunnerPack(cp.pack, { townName: 'Okemah, Oklahoma' }) as PackV2;
+      const shot = w.missions[0].steps.find((x: PackV2) => x.type === 'cutscene').shots[1];
+      ok('the runner pack keeps the action fields and names a frame\'s people as the engine does', shot.frame === 'ots' && shot.on === cp.pack.cast.find((c: PackV2) => c.id === 'hero').sheet.name && shot.at === cp.pack.cast.find((c: PackV2) => c.id === 'ally').sheet.name
+        && w.missions[0].card === 'slam' && w.missions[0].steps[1].name === "Hutch's pickups" && w.missions[0].steps[1].cam === 'low' && w.acts[0].end.cliff.text === 'THE SHERIFF HAD THE OTHER HALF', JSON.stringify(shot));
+    }
+    const atGoal = clone(cine); atGoal.pack.acts[0].missions[4].steps[0].at = '@water-tower'; atGoal.pack.acts[0].missions[4].steps.splice(1, 0, { type: 'drive', to: '@water-tower', objective: 'Back to **the water tower**.' });
+    const ag = checkHometownReply(reply(atGoal), { pkg: OK, id: 'sk-okemah8' }).problems;
+    ok('a roadblock at a place the mission drives to is sent back (the GPS routes round it: nowhere to arrive)', ag.some((p) => /stands where the mission goes/.test(p)), show(ag));
+    const bad = clone(cine); bad.pack.acts[0].missions[0].steps.find((x: PackV2) => x.type === 'cutscene').shots.push({ dur: 2 }, { frame: 'ots', on: 'hero', dur: 2 });
+    const bp = checkHometownReply(reply(bad), { pkg: OK, id: 'sk-okemah8' }).problems;
+    ok('a shot with neither a camera nor a frame, and an over-the-shoulder with nobody to look at, are sent back', bp.some((p) => /a camera \(cam\) or a frame/.test(p)) && bp.some((p) => /over-the-shoulder shot looks at someone/.test(p)), show(bp));
   }
 }
 

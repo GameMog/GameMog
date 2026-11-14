@@ -64,6 +64,9 @@ export const storykitOn = () => storykitLive();
 export const STORY_CLOSED = 'Story worlds are not open yet.';
 /** A Create needs a story, not a scene (the plan: a short 3-act game of 6 to 9 missions). */
 export const CREATE_MISSIONS = { min: 6, max: 9 };
+/** The story's pace of a Create (r8, the owner: "cinematic and adrenaline filled fun"; BUILDER.md, Set pieces). */
+export const CINEMATIC = 'Make it play like an action film, not a tour (BUILDER.md, Set pieces): a short opening and a cold open already in motion, every mission a goal, a twist and a set piece (chases, hard clocks, a tail, a fight, a roadblock to ram), the stakes rising, a reversal in each act, a cliffhanger on every act but the last and a big finale. Stage the set pieces at the most recognisable places on the place list, and let the talk happen on the car phone while the wheels turn.';
+
 
 /* ---------------------------------------------------------------- the kind -- */
 const SHAPE = /^\s*GameMog\.world\(\{ storykit: (\{[\s\S]*\}) \}\);\s*$/;
@@ -200,6 +203,8 @@ export function exampleWorld(): PackV2 {
   p.dressing = { ...p.dressing, weather: 'clear' };
   const stubs = new Set(CREATE_HELD as string[]);
   for (const a of p.acts) for (const m of a.missions) m.steps = m.steps.filter((x: PackV2) => !stubs.has(x.type)).map((x: PackV2) => (x.during ? { ...x, during: x.during.filter((d: PackV2) => !stubs.has(d.type)) } : x));
+  // (its chase as a set piece, BUILDER.md Set pieces (r8): who is on the cab named, the low camera, the engine's roar)
+  for (const a of p.acts) for (const m of a.missions) for (const x of m.steps) if (x.type === 'pursuit' && !x.name) Object.assign(x, { name: "Vic's grey car", cam: 'low', sting: 'roar' });
   // (the opening, BUILDER.md: Night Shift was written before it, so the example gives it one, and the man in the grey
   // car who wants Mrs. Kwon's books, the antagonist it brings on, a forged person from the fixer anchor)
   const ray = p.cast.find((c: PackV2) => c.id === 'ray');
@@ -304,7 +309,7 @@ Start from the original's pack and change what the idea asks for, and nothing el
 
 ${prompt}
 
-Its base is exactly ${JSON.stringify(baseOf(city))}. Write a new story pack: ${CREATE_MISSIONS.min} to ${CREATE_MISSIONS.max} missions in 1 to 3 acts, its own cast, rides and voices, set in ${CITY_NAME[city]}, with a title of its own that never names Mog City (Mog City is the engine, not a world's name), and an opening (BUILDER.md, The opening) that sets the place, brings on the hero and the antagonist with name cards and says the premise before Mission 1. A new world sets its own rules from the runtime's parts: its meters, its clock, its mission rules and HUD items.${heroTurn(input.hero)} Reply with the two blocks.`;
+Its base is exactly ${JSON.stringify(baseOf(city))}. Write a new story pack: ${CREATE_MISSIONS.min} to ${CREATE_MISSIONS.max} missions in 1 to 3 acts, its own cast, rides and voices, set in ${CITY_NAME[city]}, with a title of its own that never names Mog City (Mog City is the engine, not a world's name), and an opening (BUILDER.md, The opening) that sets the place, brings on the hero and the antagonist with name cards and says the premise before Mission 1. A new world sets its own rules from the runtime's parts: its meters, its clock, its mission rules and HUD items. ${CINEMATIC}${heroTurn(input.hero)} Reply with the two blocks.`;
 }
 
 /**
@@ -387,6 +392,44 @@ export function packTexts(pack: PackV2): { at: string; text: string }[] {
   return out;
 }
 
+/**
+ * Pacing (r8, 14 Nov: the owner on the first hometown stories, "flat and uninteresting, need to be cinematic and
+ * adrenaline filled fun"; BUILDER.md "Set pieces"): a new story's shape, checked from its steps. What it asks:
+ *   - set pieces: at least two missions in three have one (ACTION_KINDS, or a hard timer), and the last one does;
+ *   - variety: at least three kinds of set piece across the story;
+ *   - a cold open: Mission 1 is under pressure by its third step;
+ *   - talk while the wheels turn: never three standing lines (say, dm, voicemail steps) in a row;
+ *   - a cliffhanger on every act but the last (end.cliff).
+ * The build loop sends these back on a Create's first pass only, never failing a build over them (lib/storykit-build.ts
+ * generateStorykit): a second pass that still misses one ships, with the misses noted in its trail.
+ */
+export const ACTION_KINDS = ['pursuit', 'tail', 'fight', 'roadblock', 'tow'];
+const isAction = (x: PackV2) => !!x && (ACTION_KINDS.includes(x.type) || (x.type === 'timer' && !x.stop && x.add == null && x.fail === 'hard'));
+const STANDING = new Set(['say', 'dm', 'voicemail', 'voicenote']);
+export function pacingProblems(pack: PackV2): string[] {
+  const out: string[] = [];
+  const acts: PackV2[] = (pack.acts ?? []).filter((a: PackV2) => a && Array.isArray(a.missions));
+  const all: PackV2[] = acts.flatMap((a) => a.missions).filter((m: PackV2) => m && Array.isArray(m.steps));
+  if (!all.length) return out;
+  const flat = (steps: PackV2[] = []): PackV2[] => steps.flatMap((x) => [x, ...flat(x?.during)]);
+  const pieces = (m: PackV2) => flat(m.steps).filter(isAction);
+  const calm = all.filter((m) => !pieces(m).length);
+  const want = Math.ceil(all.length * 2 / 3);
+  if (all.length - calm.length < want) out.push(`Pacing: ${calm.map((m) => m.id).join(', ')} ${calm.length > 1 ? 'have' : 'has'} no set piece (a pursuit, a tail, a fight, a roadblock, a tow or a hard timer); at least ${want} of the ${all.length} missions need one (BUILDER.md, Set pieces). Give each a goal, a twist and the set piece the twist forces.`);
+  const last = all[all.length - 1];
+  if (!flat(last.steps).some((x) => x && ['pursuit', 'fight', 'roadblock'].includes(x.type))) out.push(`Pacing: the finale (${last.id}) needs the story's biggest set piece: a chase or a fight at the town's most recognisable place, then the payoff.`);
+  const kinds = new Set(all.flatMap((m) => pieces(m).map((x) => (x.type === 'timer' ? 'timer' : x.type))));
+  if (kinds.size < 3) out.push(`Pacing: the set pieces are all ${[...kinds].join(' and ') || 'missing'}; use at least three kinds across the story (a chase to shake, a run against a hard clock, a tail, a fight, a roadblock to ram).`);
+  const m1 = all[0], early = (m1.steps as PackV2[]).filter((x) => x && !['npc', 'set', 'label', 'car'].includes(x.type)).slice(0, 3);
+  if (!early.some((x) => isAction(x) || x.type === 'timer' || flat(x.during).some(isAction))) out.push(`Pacing: Mission 1 (${m1.id}) opens cold, in motion: a timer, a short chase or a lesson fight within its first three steps, the setup said on the car phone while they drive, not a standing scene first.`);
+  for (const m of all) {
+    let run = 0;
+    for (const x of m.steps as PackV2[]) { run = x && STANDING.has(x.type) && x.wait !== false ? run + 1 : 0; if (run >= 3) { out.push(`Pacing: ${m.id} has three standing lines in a row; put talk in the drive's or the chase's during (the car phone, a say with at), or in a short cutscene.`); break; } }
+  }
+  acts.slice(0, -1).forEach((a) => { if (!a.end?.cliff?.text) out.push(`Pacing: act "${a.id}" ends without a cliffhanger: give its end a cliff ({ "text": "THE VAULT WAS EMPTY", "sub": "..." }), the hook into the next act.`); });
+  return out;
+}
+
 /** The builder's own rules, beyond the gate. */
 export function builderProblems(pack: PackV2, input: StorykitInput, meta?: StorykitMeta): string[] {
   const out: string[] = [];
@@ -400,6 +443,18 @@ export function builderProblems(pack: PackV2, input: StorykitInput, meta?: Story
   for (const v of pack.vehicles ?? []) if (v && !v.stock && typeof v === 'object') for (const p of sheetBrandProblems(v) as string[]) out.push(`vehicles "${v.id}": ${p}.`);
   const all = (pack.acts ?? []).flatMap((a: PackV2) => a?.missions ?? []);
   const kinds = (steps: PackV2[] = []): PackV2[] => steps.flatMap((x) => [x, ...kinds(x?.during), ...kinds(x?.do)]);
+  // a roadblock stands on the way, never at a place the mission goes to: the GPS routes round it, so one at the goal
+  // leaves nowhere to arrive (r8: the test drive stood at the gas station's corner for good)
+  const key = (r: PackV2) => (typeof r === 'string' ? r.replace(/^@/, '') : r && typeof r === 'object' && typeof r['@'] === 'string' ? r['@'] : null);
+  for (const m of all) {
+    const steps = kinds(m?.steps);
+    const goals = new Set(steps.flatMap((x: PackV2) => [
+      ...(x?.type === 'drive' ? [x.to].flat() : []), ...(x?.type === 'stops' ? x.stops ?? [] : []), ...(['walk', 'pursuit', 'tow'].includes(x?.type) ? [x.to] : []),
+      ...(x?.type === 'tow' ? [x.target] : []), ...(x?.type === 'search' ? [x.at] : []), ...(x?.type === 'tail' ? (x.route ?? []).slice(-1) : [])].map(key).filter(Boolean)));
+    for (const x of steps) if (x?.type === 'roadblock' && key(x.at) && (goals.has(key(x.at)) || key(x.at) === key(x.to))) {
+      out.push(`${m.id}: the roadblock at "@${key(x.at)}" stands where the mission goes; a roadblock goes on the way (a corner they pass), never at a place they drive, walk, chase or search to.`); break;
+    }
+  }
   // a new story is written for what a Create may use: none of the kinds held back (CREATE_HELD: Mog City's stubs and the
   // play steps kept for GameMog's own showcase worlds first; a Mog may keep its parent's)
   const stubs = new Set(CREATE_HELD as string[]);
@@ -626,7 +681,7 @@ export async function generateStorykit(
   const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: 'user', content: first }];
   const draftId = randomUUID(), packId = `sk-${draftId.slice(0, 8)}`;
   let lastProblems: string[] = [];
-  const passes: { attempt: number; stop: string | null; replyChars: number; sentBack: string[] }[] = [];
+  const passes: { attempt: number; stop: string | null; replyChars: number; sentBack: string[]; pacing?: string[] }[] = [];
   for (let attempt = 1; attempt <= STORYKIT_MAX_ATTEMPTS; attempt++) {
     if (stopped()) return;
     emit({ type: 'stage', stage: attempt === 1 ? 'thinking' : 'repairing', attempt });
@@ -662,7 +717,7 @@ export async function generateStorykit(
     const text = final.content.filter((b) => b.type === 'text').map((b) => (b as Anthropic.Beta.BetaTextBlock).text).join('\n');
     emit({ type: 'stage', stage: 'checking', attempt });
     const { meta, pack: raw, problems } = parseStorykitReply(text);
-    const account = { attempt, stop: final.stop_reason ?? null, replyChars: text.length, sentBack: [] as string[] };
+    const account = { attempt, stop: final.stop_reason ?? null, replyChars: text.length, sentBack: [] as string[], pacing: [] as string[] };
     passes.push(account);
     if (final.stop_reason === 'max_tokens') problems.push('The reply was cut off at the length limit. Reply again with both blocks, the pack as compact JSON (no indentation), and shorter texts where you can.');
     let gated: ReturnType<typeof gatePack> | null = null;
@@ -680,6 +735,10 @@ export async function generateStorykit(
       if (gated.problems.length > 40) problems.push(`... and ${gated.problems.length - 40} more of the same kinds: check the whole pack against the rules.`);
       problems.push(...builderProblems(raw, sk, meta));
     } else if (raw) problems.push('The story pack is not a JSON object.');
+    // (pacing, a Create's: sent back on the first pass only, so it never fails a build; later misses go in the trail)
+    const pace = !sk.mog && raw && typeof raw === 'object' && !Array.isArray(raw) ? pacingProblems(raw) : [];
+    account.pacing = pace.map((p) => p.slice(0, 200));
+    if (attempt === 1) problems.push(...pace);
     if (raw && typeof raw === 'object' && !Array.isArray(raw) && gated) {
       if (!problems.length && meta && gated.pack) {
         const checked = fake ? { people: [], brands: [] } : await checkNames(client, input.model, namesBatches(gated.pack, meta, parent), gated.pack, attempt, input);

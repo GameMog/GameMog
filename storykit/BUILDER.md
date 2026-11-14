@@ -228,8 +228,71 @@ seen on screen, then MISSION PASSED. A payoff is something done with the hands: 
 (in a wrecker: a `tow` of the ambulance to the depot; on foot: a `search` at the spot), winning the fight, losing the chase.
 After it come at most the lines and a short cutscene of what it won. Never end Mission 1 on a call, a choice, a
 timer or a line that only says the job is done ("Good, it's towed"): the gate sends that back. Mission 1 also
-teaches: one drive with a call, one thing to do at the goal, one short scene. Save the hard fight and the long chase
-for later missions.
+teaches: one drive with a call, one thing to do at the goal, one short scene. **It opens cold, in motion**: its first
+or second step is already pressure (a `timer`, a short `pursuit` at `level` 1, a `"rules": "lesson"` fight), never a
+standing cutscene that explains. Keep it short and forgiving; save the hard fight and the long chase for later missions.
+
+## Set pieces: make it cinematic and adrenaline-filled
+
+The owner's verdict on the first hometown stories: the plots were clever, but they **played flat and uninteresting**.
+The Courtesy Lane (a valet heist in a beach town) spent its missions driving to a place, holding F, and standing still
+while people talked: ten standing lines in a row in one mission, two chases in seven missions, soft timers that cost
+nothing, close-ups of faces explaining the twist, and a finale that was a drive to a firehouse. Players want a movie
+they drive through: every mission a set piece, the pressure rising, the talk happening while the wheels turn.
+
+**The shape of the story.**
+
+1. **Cold open.** The opening is short (about 30 to 45 s) and Mission 1 starts already moving: the alarm is going, the
+   clock is running, someone is on the hero's bumper. The setup comes in lines on the car phone while they drive.
+2. **Every mission: a goal, a twist, a set piece.** The goal is clear in its first objective. Halfway, the twist: a call
+   that changes the job, a voicemail, a reveal at the goal, the person they trusted on the other side. Then the set
+   piece the twist forces: a chase, a run against the clock, a tail, a fight, a gauntlet through a roadblock.
+3. **Stakes escalate.** Each mission costs more than the last: from a job, to a friend, to the hero's own life or
+   family. The chase `level`, the count of cars and the clocks tighten across the acts.
+4. **A reversal mid-act.** Once per act the ground moves: the ally sells them out, the cops become the hunters, the
+   prize is fake. Put it where the player feels it: a `pursuit` starting the moment they think they are safe.
+5. **Every act ends on a cliffhanger** (`end.cliff`: the hook in red after the act's card), and the story ends on
+   **a big finale**: the longest chase or the hardest fight, at the town's most recognisable place, then the payoff.
+
+**The engine's set pieces** (write them with these steps; the numbers are where they feel good):
+
+| set piece | write |
+|---|---|
+| a chase to shake | `{ "type": "pursuit", "goal": "lose", "kind": "crew", "name": "Ruben's divers", "count": 2, "level": 2, "loseDist": 160, "loseTime": 4, "cam": "low", "sting": "roar", "alert": "Black SUVs off the causeway." }` |
+| run for it with them on you | `{ "type": "pursuit", "goal": "reach", "to": "@pier", "kind": "police", "count": 3, "level": 3, "sting": "siren", "objective": "Get to **the pier** with them on your tail." }` |
+| beat the clock | a hard `timer` (`"fail": "hard"`), the drive's `stopTimer`, and `{ "type": "timer", "name": "air", "add": -30 }` after the twist: the clock tightens |
+| follow without being seen | `{ "type": "tail", "route": ["@a", "@b", "@c"], "car": "suv", "name": "the grey SUV" }`, banter on the car phone while it runs |
+| the brawl | `{ "type": "fight", "enemies": ["kip", "kip", "ruben"], "arena": "@boat-lot", "win": "ko-all", "timer": 120 }`, with `"sting": "hit"` and `"shake": 0.4` |
+| a gauntlet | a `roadblock` across a street on the way (its `at` a corner they pass, never a place the mission drives, chases or searches to: the GPS routes round it), rammed at speed, inside a `pursuit` |
+| the moment it goes wrong | on the step that starts it: `"sting": "crash"`, `"shake": 0.6`, `"slowmo": 0.8` |
+
+**Talk while the wheels turn.** Most lines belong in a drive's or a chase's `during`: the car phone (`"auto": true,
+"inCar": true`), a passenger's `say` with `at`, a call that `interrupts`. Lines in action are short and punchy, 3 to
+12 words, people cutting each other off ("Left. LEFT." / "I see it!"). Never more than two standing `say` steps in a
+row: a third belongs in a cutscene shot or in the next drive.
+
+**Cutscenes are short and shot like a film**: 2 to 4 shots, about 3 s each, the shot grammar instead of hand-placed
+lenses: `{ "frame": "ots", "on": "mara", "at": "vale" }` (over Mara's shoulder onto her father: a confrontation),
+`"push"` (pushing in on a face: the reveal), `"react"` (the reaction after the twist), `"low"` (the hero deciding),
+`"two"` (two people together), `"wide"` (where we are), `"close"`. A frame needs the people standing there (`npc`
+steps or the hero). Cut on the line, not after it.
+
+**People with wants and conflict.** Every speaking person wants something that cuts against the hero, and says it.
+The antagonist calls during the chases to taunt; the ally argues with the hero's choices. No one only explains.
+
+**The town's landmarks are the stages.** Stage the biggest set pieces at the town's most recognisable places on its
+list (the bridge, the pier, the main street, the stadium, the water tower, the marina), name them on screen, and end
+the finale at one of them.
+
+**Punch.** Mog City adds the rest when a step asks: a mission's `"card": "slam"` slams its title in (a hometown story
+does it for every mission), a pursuit's `name` is the title of its alert, and a story's chases get a low camera,
+speed lines, near misses held in slow motion and a beat for each crash and each chaser taken out. Sounds are
+stings, never music: `sting` is `siren`, `screech`, `roar`, `boom`, `hit`, `whoosh` or `crash`. `sting`, `shake`
+and `slowmo` go on a drive, stops, pursuit, tail, tow, timer, fight, roadblock, cutscene, call, say, search or
+transition step; `cam` (`low`, `hood`) on the car steps (drive, stops, pursuit, tail, tow).
+
+**Before you reply, read each mission back**: does it start with pressure, turn halfway, and end on something the
+player did with the wheel or their fists? Is any mission only drive, hold F, talk? Rewrite that one.
 
 ## Places: names, never coordinates
 
@@ -287,11 +350,13 @@ without playing. No story writes them, and nothing in any story rests on one.
 
 ### What a Create does not write yet
 
-Mog City now plays **`passenger`, `comfort`, `convoy`, `ally`, `roadblock`, `stealth`, `car`** (below), but they are held for
+Mog City now plays **`passenger`, `comfort`, `convoy`, `ally`, `stealth`, `car`** (below), but they are held for
 GameMog's own showcase worlds first: **a Create never writes them** (the builder sends one back). In a Create:
 
 - someone riding along: they are in the story's words and calls (a `say` from them in the car, a call), not a seat;
 - a deadline is a `timer`; a lookout or a guard is a `fight` or a `pursuit`; money owed is a meter and a line.
+
+A Create **may write a `roadblock`** (since 14 Nov, for set pieces): a gauntlet inside a chase, as below.
 
 ### The showcase steps (GameMog's own worlds)
 

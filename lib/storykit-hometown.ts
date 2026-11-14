@@ -14,7 +14,7 @@
  *                                 parent's on a Mog), the hometown gate (gatePack with the town's table + the safety
  *                                 rules), and on a Create the builder's own rules
  */
-import { storykitSystem, parseStorykitReply, builderProblems, CREATE_MISSIONS, type StorykitMeta, type StoryHero } from './storykit-build';
+import { storykitSystem, parseStorykitReply, builderProblems, CREATE_MISSIONS, CINEMATIC, type StorykitMeta, type StoryHero } from './storykit-build';
 import { mogBase, type PackV2 } from '../storykit/pack/gate.ts';
 import { hometownBase, townName, type CityPackage } from '../storykit/hometown/city-package.ts';
 import { classify, displayName, sensitiveWord, descriptor } from '../storykit/hometown/safety.ts';
@@ -102,7 +102,7 @@ ${IN_TOWN(pkg)} Start from the original's pack and change what the idea asks for
 
 ${prompt}
 
-Its base is exactly ${JSON.stringify(hometownBase(pkg))}. ${IN_TOWN(pkg)} Write a new story pack: ${CREATE_MISSIONS.min} to ${CREATE_MISSIONS.max} missions in 1 to 3 acts in the town's real places, its own cast, rides and voices, a title of its own that never names Mog City, and an opening that sets the place, brings on the hero and the antagonist with name cards and says the premise before Mission 1. Hold to the real-place rules.${asDan ? '' : ` ${OWN_HERO(pkg)}`} Reply with the two blocks.`;
+Its base is exactly ${JSON.stringify(hometownBase(pkg))}. ${IN_TOWN(pkg)} Write a new story pack: ${CREATE_MISSIONS.min} to ${CREATE_MISSIONS.max} missions in 1 to 3 acts in the town's real places, its own cast, rides and voices, a title of its own that never names Mog City, and an opening that sets the place, brings on the hero and the antagonist with name cards and says the premise before Mission 1. ${CINEMATIC} Hold to the real-place rules.${asDan ? '' : ` ${OWN_HERO(pkg)}`} Reply with the two blocks.`;
 }
 
 /** A town's own hero (a Create not played as Dan): a forged person of this town, never one of Mog City's own people. */
