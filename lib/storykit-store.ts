@@ -575,6 +575,29 @@ export class StoryStore {
     return { ok: true, hash, url: blobUrl(hash, 'json'), bytes: body.length, was: prior, clips: clips.length, stored, bodies: bodies.size, worldBytes: total };
   }
 
+  /**
+   * A published (kept) world's voice as it should be, against what its sealed world carries (14 Nov: every hometown story
+   * published before the voice plan read the town's table was sealed with no lines, so its cast spoke only the
+   * placeholder mumble). `plan`: the pack's voice plan now (voicePlanOf with the town's table), what a patch must carry
+   * (StoryStore.patch compares it); `clips`: the sealed world's clips still for a line of the plan (kept as they are);
+   * `missing`: the plan's lines with no clip and no recording, which the owner's browser records
+   * (public/storykit/revoice.html) and sends as a patch. Null for anything that is not a kept world.
+   */
+  voiceGap(id: string): { hash: string; world: Record<string, any>; plan: ReturnType<typeof voicePlanOf>; clips: Record<string, unknown>; missing: any[]; stale: boolean } | null {
+    const d = this.draft(id);
+    if (!d || d.state !== 'kept' || !d.world) return null;
+    const old = this.read(`${d.world}.json`); if (!old) return null;
+    let world: Record<string, any>;
+    try { world = JSON.parse(old.bytes.toString('utf8')); } catch { return null; }
+    const pack = JSON.parse(d.pack), plan = voicePlanOf(pack, '', townOf(pack).city ?? null);
+    const lineClips = new Set(plan.lines.map((l: any) => l.clip));
+    const clips = Object.fromEntries(Object.entries((world.voice?.clips ?? {}) as Record<string, unknown>).filter(([base]) => lineClips.has(base)));
+    const missing = plan.lines.filter((l: any) => !l.rec && !clips[l.clip]);
+    // (stale: the sealed world's plan is not the pack's; a patch with the plan's lines puts that right even with no clip)
+    const stale = stable(world.voice?.lines ?? null) !== stable(plan.lines) || stable(world.voice?.cast ?? null) !== stable(plan.cast);
+    return { hash: d.world, world, plan, clips, missing, stale };
+  }
+
   /** Abandon a draft now (the creator's DELETE): its rows go, then every blob nothing else points at. */
   abandon(d: DraftRow): { ok: true; freed: number } | Fail {
     if (d.state === 'kept') return fail(409, 'A published world is not deleted here.');

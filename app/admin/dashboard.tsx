@@ -274,6 +274,7 @@ function StoryKitCard({ k }: { k: StoryKitAdmin }) {
         ? `New story worlds are paused: the store is past its guard (${guardPct}% of ${mb(k.disk)}). Published worlds still play. Raise STORYKIT_DISK_MB if the disk has room, or move the store off the disk.`
         : `New story worlds stop at ${guardPct}% (${mb(k.guard)}), ${mb(Math.max(0, k.guard - k.used))} from now; drafts already open can finish. STORYKIT_DISK_MB sets the size.`}</p>
       <p className="fine">A published story world with no key art (its test drive never played it): <a href="/storykit/keyart.html">take its key art</a> in this browser.</p>
+      <p className="fine">A published story world whose lines have no voice (every hometown story before 14 Nov): <a href="/storykit/revoice.html">record its voices</a> in this browser.</p>
     </section>
   );
 }

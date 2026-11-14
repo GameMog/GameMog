@@ -361,3 +361,45 @@ export async function saveStoryKeyArt(slug: unknown, wide: Uint8Array, square: U
   const titled = await titleStoryArt(g.slug, true).catch(() => null);
   return { ok: true, slug: g.slug, titled: !!titled };
 }
+
+/**
+ * A published story world's voices recorded again (14 Nov): every hometown story published before the voice plan read
+ * the town's table (fbc60528) was sealed with no lines, so its cast spoke only the placeholder mumble. Kokoro runs only
+ * in a browser (the server has no model), so the owner's browser records them: /storykit/revoice.html lists the worlds
+ * whose voice plan has lines with no clip (storyWorldsToRevoice), records the missing ones with the voice studio's own
+ * pass (studio.html?revoice=<slug>: the plan from storyRevoiceOf, the clips kept in that browser, never stored one by
+ * one) and sends them as the owner's patch (POST /api/storykit/admin/patch: StoryStore.patch checks the world's voice
+ * lines against the pack's plan with the town's table, and every clip against a line). Nothing else about the world
+ * changes. Owner only: app/api/storykit/admin/revoice/route.ts.
+ */
+type StoryRow = { id: string; slug: string; title: string; meta: string | null; hidden: number };
+const storyRows = (): StoryRow[] => db.prepare("SELECT id, slug, title, meta, hidden FROM games WHERE json_extract(meta, '$.storykit.world') IS NOT NULL ORDER BY created_at DESC LIMIT 500").all() as StoryRow[];
+const gapOf = (g: StoryRow) => {
+  const id = storeDraftOf(g.meta), w = sealedWorldOf(g.meta);
+  if (!id || !w) return null;
+  const gap = storyStore().voiceGap(id);
+  // (the game plays another world than its store draft's: a patch would be refused, StoryStore.patch `from`)
+  return gap && gap.hash === w ? gap : null;
+};
+/** The published story worlds with lines to record (a line with no clip and no recording), newest first. */
+export function storyWorldsToRevoice(): { slug: string; title: string; city: string | null; hidden: boolean; lines: number; voiced: number; missing: number; stale: boolean }[] {
+  const out = [];
+  for (const g of storyRows()) {
+    let gap; try { gap = gapOf(g); } catch { gap = null; }
+    if (!gap || (!gap.missing.length && !gap.stale)) continue;
+    out.push({ slug: g.slug, title: g.title, city: storyCityOf(g.meta), hidden: !!g.hidden, lines: gap.plan.lines.length, voiced: gap.plan.lines.length - gap.missing.length, missing: gap.missing.length, stale: gap.stale });
+  }
+  return out;
+}
+/**
+ * One world to record: its title, the world it plays now (`from`, its SHA-256, and `world`, the sealed world itself, which
+ * the patch sends back with only its voice changed) and `voice`, the plan the studio records against (the pack's plan, its
+ * kept clips in `clips`). Null for anything that is not a published story world.
+ */
+export function storyRevoiceOf(slug: unknown): { slug: string; title: string; from: string; world: Record<string, unknown>; voice: Record<string, unknown>; missing: number } | null {
+  if (typeof slug !== 'string' || !/^[a-z0-9-]{1,80}$/.test(slug)) return null;
+  const g = db.prepare('SELECT id, slug, title, meta, hidden FROM games WHERE slug = ?').get(slug) as StoryRow | undefined;
+  const gap = g ? gapOf(g) : null;
+  if (!g || !gap) return null;
+  return { slug: g.slug, title: g.title, from: gap.hash, world: gap.world, voice: { ...gap.plan, clips: gap.clips }, missing: gap.missing.length };
+}
