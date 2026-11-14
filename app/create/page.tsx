@@ -200,7 +200,13 @@ export default function Create() {
     setTown({ place, progress: null, request: null });
     // (a town ready to write while it keeps building is followed: whole, or refused after all, the card says so)
     const later = (request: CityRequest) => { if (!ctl.signal.aborted) setTown({ place, progress: null, request }); };
-    requestCity(sel, (progress) => { if (!ctl.signal.aborted) setTown({ place, progress, request: null }); }, ctl.signal, later)
+    // (r7: and each step meanwhile: ready to drive, with its test drive, and how far the whole town is)
+    const step = (progress: TownProgress) => {
+      if (ctl.signal.aborted) return;
+      setTown((t) => (t && t.place.placeId === place.placeId && t.request?.status === 'ready' && t.request.growing
+        ? { ...t, request: { ...t.request, progress, ...(progress.drive ? { drive: progress.drive } : {}) } } : t));
+    };
+    requestCity(sel, (progress) => { if (!ctl.signal.aborted) setTown({ place, progress, request: null }); }, ctl.signal, later, step)
       .then((request) => { if (!ctl.signal.aborted) setTown({ place, progress: null, request }); });
   }
   function clearTown() { townAsk.current?.abort(); setTown(null); }
@@ -219,6 +225,20 @@ export default function Create() {
   const [asDan, setAsDan] = useState(false);
   const telling = storykit && story;
   const phone = usePhone();
+  // (r7) the hometown entry: "Your hometown" beside the kind of world (or /create#hometown) picks Story world and puts
+  // the cursor in the town box, which shows only in a story world; Arcade world is as it was
+  const [toTown, setToTown] = useState(0);
+  function openHometown() { setStory(true); setToTown((n) => n + 1); }
+  useEffect(() => {
+    if (!storykit || !HOMETOWN) return;
+    if (/^#hometown$/.test(location.hash) || new URLSearchParams(location.search).get('hometown') === '1') openHometown();
+  }, [storykit, HOMETOWN]);
+  useEffect(() => {
+    if (!toTown || !telling) return;
+    const box = document.getElementById('hometown');
+    box?.scrollIntoView({ block: 'center' });
+    box?.querySelector<HTMLInputElement>('input[role="combobox"]')?.focus({ preventScroll: true });
+  }, [toTown, telling]);
 
   async function onFile(file: File | undefined) {
     if (!file) return;
@@ -308,6 +328,11 @@ export default function Create() {
               <button type="button" role="radio" aria-checked={story} className={story ? 'on' : undefined} disabled={busy} onClick={() => setStory(true)}>Story world<span className="cnew">New</span></button>
             </div>
           )}
+          {storykit && HOMETOWN && (
+            <button type="button" className="chome" disabled={busy} onClick={openHometown} aria-describedby="chome-d">
+              Your hometown<span id="chome-d" className="chome-d">Build your own town to drive and tell a story in</span>
+            </button>
+          )}
         </div>
 
         <div className="cgrid">
@@ -317,7 +342,7 @@ export default function Create() {
                 <StoryCityField value={city} onChange={setCity} disabled={busy || !!town} town={HOMETOWN && town ? `${town.place.name}, ${town.place.state}` : null} />
               </div>
               {HOMETOWN && (
-                <div className="ctown">
+                <div className="ctown" id="hometown">
                   <p className="lbl">Or your hometown</p>
                   <PlaceSearch disabled={busy} onPick={pickTown} />
                   {town && <TownCard town={town} onClear={busy ? undefined : clearTown} />}

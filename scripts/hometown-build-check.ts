@@ -25,7 +25,9 @@ import { verifyObject } from '../lib/hometown-tiles/http.ts';
 import { planGc } from '../lib/hometown-tiles/gc.ts';
 import { hometownConfig } from '../lib/hometown-tiles/config.ts';
 import { BuildQueue, LEASE_MS, MAX_ATTEMPTS, BACKOFF_MS, maskBits } from '../lib/hometown-build/queue.ts';
-import { requestTown, townStatus, townGraph, gazetteerOf, blocksOf, quadsOf, QUAD_RING, townRegions, promisedOutputs, afterJobDone, storyReadyLock, cityPackageFromStore, PHASE_WORDS, BUSY_WORDS, bestVariant, onBundleStored, fatalFailures, townsStatus, type BuilderDeps } from '../lib/hometown-build/towns.ts';
+import { requestTown, townStatus, townGraph, gazetteerOf, blocksOf, quadsOf, QUAD_RING, townRegions, promisedOutputs, afterJobDone, storyReadyLock, cityPackageFromStore, PHASE_WORDS, BUSY_WORDS, bestVariant, onBundleStored, fatalFailures, townsStatus, type BuilderDeps,
+  STEP_WORDS, WAIT_SEED, ETA_FLOOR_S, honestEta, waitHistory, pctOf, stageOf, type TownSteps, type Progress } from '../lib/hometown-build/towns.ts';
+import { townDriveUrl, withDrive } from '../lib/storykit-publish.ts';
 import { workerResponse, builderAdminResponse, regionsJobOf, argsOf } from '../lib/hometown-build/server.ts';
 import type { Job } from '../lib/hometown-build/queue.ts';
 import { townsAccess, townBoxEnabled } from '../lib/hometown-build/access.ts';
@@ -58,6 +60,7 @@ export async function runBuildChecks(ok: Ok) {
     g7(ok);
     await robustness(ok, dir);
     await createCard(ok);
+    honestCard(ok, dir);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 }
 
@@ -84,6 +87,69 @@ async function createCard(ok: Ok) {
     const whole = await run([{ status: 503, body: { error: 'busy' } }, { status: 200, body: { state: 'ready', lock: growing.body.lock, town: growing.body.town } }]);
     ok('...and when it is whole the card says so (a server busy for a moment is no failure)', whole.got.length === 1 && whole.got[0].status === 'ready' && !(whole.got[0] as { growing?: boolean }).growing, JSON.stringify(whole.got));
   } finally { globalThis.fetch = real; setFollowMsForChecks(FOLLOW_MS); }
+}
+
+// ------------------------------------------- the Create card's honest progress (r7: live QA 14 Nov, Cedar Key, FL)
+// (it sat on "Reading the map, 0 of 169" for 2.5 min while its estimate rose from 50 s; it said "about 50 seconds" to
+// drive and took 201 s; it never said "Ready to drive" and had no way to drive the town)
+function honestCard(ok: Ok, dir: string) {
+  const steps = (o: Partial<TownSteps> = {}): TownSteps => ({ regions: { done: 0, total: 3 }, ctx: { done: 0, total: 4 }, frame: false, tiles: { done: 0, total: 169 }, district: false, full: false, running: 1, ...o });
+  ok('the card names the step a town is on, with its count: a builder starting, map areas fetched, map sections read, its plan, streets',
+    stageOf('asked', steps(), true, true, false) === STEP_WORDS.starting && stageOf('asked', steps(), false, true, false) === PHASE_WORDS.asked
+      && stageOf('framing', steps({ regions: { done: 1, total: 3 } }), false, true, false) === 'Fetching map data: 1 of 3 areas'
+      && stageOf('framing', steps({ regions: { done: 3, total: 3 }, ctx: { done: 2, total: 4 } }), false, true, false) === 'Reading the map: 2 of 4 sections'
+      && stageOf('framing', steps({ regions: { done: 3, total: 3 }, ctx: { done: 4, total: 4 } }), false, false, false) === STEP_WORDS.planning
+      && stageOf('framing', steps({ regions: { done: 3, total: 3 }, ctx: { done: 4, total: 4 } }), false, false, true) === STEP_WORDS.building
+      && stageOf('growing', steps(), false, false, true) === PHASE_WORDS.growing && stageOf('full', steps(), false, false, true) === PHASE_WORDS.full);
+  ok('...in words that name no tool, vendor or model', Object.values(STEP_WORDS).every((w) => !FORBIDDEN.test(w)));
+  // the bar: by work done, rising through every step, never 100 before the town is whole
+  const seq: [TownSteps, Progress['phase']][] = [
+    [steps(), 'asked'], [steps(), 'framing'], [steps({ regions: { done: 1, total: 3 } }), 'framing'], [steps({ regions: { done: 3, total: 3 } }), 'framing'],
+    [steps({ regions: { done: 3, total: 3 }, ctx: { done: 4, total: 4 } }), 'framing'], [steps({ regions: { done: 3, total: 3 }, ctx: { done: 4, total: 4 }, frame: true, tiles: { done: 4, total: 169 } }), 'district'],
+    [steps({ regions: { done: 3, total: 3 }, ctx: { done: 4, total: 4 }, frame: true, tiles: { done: 60, total: 169 }, district: true }), 'growing'],
+    [steps({ regions: { done: 3, total: 3 }, ctx: { done: 4, total: 4 }, frame: true, tiles: { done: 169, total: 169 }, district: true }), 'growing'],
+    [steps({ regions: { done: 3, total: 3 }, ctx: { done: 4, total: 4 }, frame: true, tiles: { done: 169, total: 169 }, district: true, full: true }), 'full'],
+  ];
+  const pcts = seq.map(([st, ph]) => pctOf(st, ph));
+  ok('the bar rises with the work through every step (areas, sections, plan, tiles), under 100 until the town is whole', pcts.every((v, i) => i === 0 || v >= pcts[i - 1]) && pcts[2] > pcts[1] && pcts[3] > pcts[2] && pcts.slice(0, -1).every((v) => v < 100) && pcts.at(-1) === 100, pcts.join(' '));
+  // the waits: never less than what towns really took (Cedar Key: "about 50 seconds" to drive, 201 s in fact)
+  const seed = { driveS: 208, fullS: 404, n: 0, driveRatio: 1, fullRatio: 1 };
+  const at0 = honestEta({ etaDriveS: 50, etaFullS: 90 }, seed, 0, 'asked'), at150 = honestEta({ etaDriveS: 50, etaFullS: 90 }, seed, 150, 'framing');
+  ok('a fresh pick is never promised less than the median town took (the estimate said 50 s; history says 208 s)', at0.etaDriveS === 208 && at0.etaFullS === 404 && !at0.slow, JSON.stringify(at0));
+  ok('...and as it waits, the wait left is the median less the time so far, never under the estimate or the floor', at150.etaDriveS === 58 && honestEta({ etaDriveS: 5, etaFullS: 5 }, seed, 400, 'framing').etaDriveS === ETA_FLOOR_S && honestEta({ etaDriveS: 120, etaFullS: 200 }, seed, 150, 'framing').etaDriveS === 120);
+  ok('...a town far past the median says it is slow; a drivable town waits only for the whole town', honestEta({ etaDriveS: 5, etaFullS: 5 }, seed, 400, 'framing').slow && !honestEta({ etaDriveS: 5, etaFullS: 5 }, seed, 220, 'framing').slow && honestEta({ etaDriveS: 30, etaFullS: 60 }, seed, 220, 'growing').etaDriveS === 0 && honestEta({ etaDriveS: 30, etaFullS: 60 }, seed, 220, 'growing').etaFullS === 184);
+  // (step by step, Boley, OK in the local sim: drivable at 431 s, past the 404 s median whole wait, the card said "whole town
+  // in about 40 seconds" and it took 570 s more: once drivable, the median drive-to-whole (Cedar Key 156 s, Bal Harbour 235 s)
+  // less the time since drive is a floor too, and a step past 1.25 x its median is slow)
+  const steps2 = { ...seed, driveAfterFrameS: 18, fullAfterDriveS: 196 };
+  ok('step by step: once drivable, the whole town is never sooner than the median drive-to-whole less the time since; a fresh pick waits drive + that',
+    honestEta({ etaDriveS: 10, etaFullS: 40 }, steps2, 431, 'growing', { sinceDriveS: 0, sinceFrameS: 15 }).etaFullS === 196
+      && honestEta({ etaDriveS: 50, etaFullS: 90 }, steps2, 0, 'asked').etaFullS === 404 && honestEta({ etaDriveS: 10, etaFullS: 40 }, steps2, 431, 'growing', { sinceDriveS: 250 }).slow
+      && honestEta({ etaDriveS: 10, etaFullS: 40 }, steps2, 300, 'district', { sinceFrameS: 2 }).etaDriveS === 16);
+  ok('...and the estimate is scaled by how far towns overran it (actual / promised)', honestEta({ etaDriveS: 100, etaFullS: 100 }, { ...seed, driveRatio: 4 }, 300, 'framing').etaDriveS === 400);
+  // the recorded timings: the towns table (first ask to district_at and full_at), the seed while it has under 3
+  const t = { now: Date.now() };
+  const d = fakeDeps(dir, 'r7', { HOMETOWN_BUILDER: 'on' }, t);
+  try {
+    const h0 = waitHistory(d);
+    ok('with no town recorded, the live r6 builds stand in (Cedar Key 201/357 s, Bal Harbour 215/450 s)', h0.n === 0 && h0.driveS === Math.round((WAIT_SEED[0].driveS + WAIT_SEED[1].driveS) / 2) && h0.fullS === Math.round((WAIT_SEED[0].fullS + WAIT_SEED[1].fullS) / 2) && h0.driveRatio === 1, JSON.stringify(h0));
+    const ins = d.queue.db.prepare("INSERT INTO towns (place, build, box, state, first_asked, district_at, full_at, tiles_total, tiles_done, asks, source, meta) VALUES (?, ?, '[]', 'full', ?, ?, ?, 1, 1, 1, ?, ?)");
+    const T0 = t.now - 3600_000;
+    [[300, 600, 'player', 60], [320, 640, 'player', 80], [280, 500, 'owner-test', 70], [20, 40, 'prewarm', 10]].forEach(([dr, fu, src, pr], i) =>
+      ins.run(`us-90000${i}0`, B, T0 + i, T0 + i + Number(dr) * 1000, T0 + i + Number(fu) * 1000, String(src), JSON.stringify({ promised: { driveS: pr, fullS: Number(pr) * 2 } })));
+    t.now += 16_000;
+    const h = waitHistory(d);
+    ok('with 3 or more, the median of the towns players and the owner asked for (pre-warm left out), and their overrun of the promise', h.n === 3 && h.driveS === 300 && h.fullS === 600 && h.driveRatio === 4 && h.fullRatio === 4, JSON.stringify(h));
+  } finally { d.queue.close(); }
+  // the test drive: Mog City, the town's bundle by its playable variant, no story, ?host= this site
+  const play = { build: B, tilesId: 'a'.repeat(64), variant: 'district-5806-4290' };
+  const url = new URL(townDriveUrl('us-1211225', play, 'https://gamemog.com'));
+  ok('"Drive around <town>": Mog City with city=pkg, the town, its build, tiles and variant, and this site as host (no story, no pack)',
+    url.origin === 'https://mc.gamemog.com' && url.searchParams.get('city') === 'pkg' && url.searchParams.get('town') === 'us-1211225' && url.searchParams.get('tc') === B
+      && url.searchParams.get('ts') === play.tilesId && url.searchParams.get('tv') === play.variant && url.searchParams.get('host') === 'https://gamemog.com' && !url.searchParams.has('pack') && !url.searchParams.has('story'), url.href);
+  const w = withDrive({ status: 202, body: { placeId: 'us-1211225', phase: 'growing', play } }, 'http://localhost:4985') as { body: { drive?: string } };
+  const none = withDrive({ status: 202, body: { placeId: 'us-1211225', phase: 'framing' } }) as { body: { drive?: string } };
+  ok('a towns answer carries `drive` only once a variant is playable (its host the asking site)', w.body.drive === townDriveUrl('us-1211225', play, 'http://localhost:4985') && none.body.drive === undefined, w.body.drive);
 }
 
 // ---------------------------------------------------------------------------------------- G1: one box, stage 1

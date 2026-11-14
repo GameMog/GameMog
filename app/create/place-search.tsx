@@ -104,33 +104,76 @@ export function PlaceSearch({ onPick, disabled }: { onPick: (place: PlaceSelecti
   );
 }
 
+/** About how long, in a player's words ('' when unknown). */
+const wait = (s: number | null | undefined) => (s == null ? '' : s < 90 ? `about ${Math.max(10, Math.round(s / 10) * 10)} seconds` : `about ${Math.round(s / 60)} minutes`);
+const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+
 /**
- * The picked town's card (Hometown): its build while it runs (the stage in plain words, tiles done of all, the wait and
- * its place in line), then ready (its places and streets) or why not. The story can be typed meanwhile; Write the
- * story waits for ready (app/create/page.tsx).
+ * The picked town's card (Hometown): its build while it runs, in honest steps (r7): the step it is on with its count
+ * (a builder starting, map areas fetched, map sections read, its plan, map tiles built), a bar of the whole town that
+ * never goes back, the waits to drive and to the whole town as the server calibrates them from the towns it really
+ * built (lib/hometown-build/towns.ts honestEta), and the time so far. Then its three ready states, each said plainly:
+ * Ready to write (the story may start: Write the story waits for this, app/create/page.tsx), Ready to drive (with
+ * "Drive around <town>", the town's free-roam test drive in Mog City, a new tab) and Your whole town is built; or why not.
  */
 export function TownCard({ town, onClear }: { town: { place: Place; progress: TownProgress | null; request: CityRequest | null }; onClear?: () => void }) {
-  const { place, progress, request } = town;
+  const { place, request } = town;
   const name = `${place.name}, ${place.stateName}`;
-  const pct = progress && progress.total ? Math.round((100 * progress.done) / progress.total) : 0;
-  const wait = (s: number | null) => (s == null ? '' : s < 90 ? `about ${Math.max(10, Math.round(s / 10) * 10)} seconds` : `about ${Math.round(s / 60)} minutes`);
+  const ready = request?.status === 'ready' ? request : null;
+  const p = ready ? ready.progress ?? null : town.progress;
+  // (the three ready states: the story may start; drivable; whole)
+  const whole = !!ready && !ready.growing;
+  const drivable = whole || (!!ready && (p?.phase === 'growing' || p?.phase === 'full' || !!ready.drive));
+  const writable = !!ready;
+  const drive = ready?.drive ?? p?.drive ?? null;
+  // (the bar: the server's work-based share of the whole town, never shown going back while the card shows this town)
+  const top = useRef<{ id: string; pct: number }>({ id: '', pct: 0 });
+  if (top.current.id !== place.placeId) top.current = { id: place.placeId, pct: 0 };
+  const raw = whole ? 100 : p?.pct ?? (p && p.total ? Math.round((95 * p.done) / p.total) : 0);
+  const pct = (top.current.pct = Math.max(top.current.pct, Math.min(100, raw)));
+  const state = request ? (request.status === 'ready' ? (whole ? 'whole' : drivable ? 'drive' : 'write') : 'error') : p?.state ?? 'asking';
+
+  let head = '', note = '';
+  if (request?.status === 'error') head = request.error;
+  else if (whole && ready) head = `Your whole town is built: ${ready.town.places} places on ${ready.town.streets} streets.`;
+  else if (drivable) head = 'Ready to drive. The rest of town keeps building.';
+  else if (writable && ready) head = `Ready to write: ${ready.town.places} places. ${p?.stage ? `${p.stage}.` : 'The streets near you are being laid.'}`;
+  else head = `${p ? p.stage : 'Finding your town'}${p && p.position > 1 ? ` (number ${p.position} in line)` : ''}`;
+  if (!request || (ready && !whole)) {
+    const bits: string[] = [];
+    const s = p?.steps;
+    const tilesOn = s ? s.tiles.total > 0 && (s.ctx.total === 0 || s.ctx.done >= s.ctx.total) : !!p?.total;
+    if (p && p.total && tilesOn) bits.push(`${p.done} of ${p.total} map tiles`);
+    // (a town past what towns usually take gets no time it cannot back: it says it is slow instead, below)
+    if (!p?.slow && !drivable && p?.etaDriveS != null) bits.push(`ready to drive in ${wait(p.etaDriveS)}`);
+    if (!p?.slow && p?.etaFullS != null && (drivable || p.etaFullS > (p.etaDriveS ?? 0) + 30)) bits.push(`whole town in ${wait(p.etaFullS)}`);
+    if (p?.elapsedS != null) bits.push(`${clock(p.elapsedS)} so far`);
+    note = bits.length ? `${bits.join(', ')}.` : 'Building its real streets.';
+    note = note.charAt(0).toUpperCase() + note.slice(1);
+    if (p?.slow) note += ' This one is taking longer than usual; it keeps building.';
+    if (!writable) note += ' You can write your story meanwhile.';
+  }
   return (
-    <div className={`ttown ${request?.status ?? 'building'}`} data-place-id={place.placeId} data-state={request ? request.status : progress?.state ?? 'asking'} role="status" aria-live="polite">
+    <div className={`ttown ${request?.status ?? 'building'}`} data-place-id={place.placeId} data-state={state} data-pct={pct} role="status" aria-live="polite">
       <div className="ttown-head">
         <b>{name}</b>
         {onClear && <button type="button" className="ttown-x" onClick={onClear} aria-label="Pick another town">Change</button>}
       </div>
-      {!request && (
+      <p className="ttown-stage">{head}</p>
+      {request?.status !== 'error' && (
         <>
-          <p className="ttown-stage">{progress ? progress.stage : 'Finding your town'}{progress && progress.position > 1 ? ` (number ${progress.position} in line)` : ''}</p>
-          <div className="ttown-bar" aria-hidden="true"><i style={{ width: `${pct}%` }} /></div>
-          <p className="ttown-note">
-            {progress && progress.total ? `${progress.done} of ${progress.total} map tiles` : 'Building its real streets'}{progress?.etaDriveS != null && progress.phase !== 'growing' ? `, ready to drive in ${wait(progress.etaDriveS)}` : progress?.etaS != null ? `, ${wait(progress.etaS)} left` : ''}. You can write your story meanwhile.
-          </p>
+          {!whole && <div className="ttown-bar" role="progressbar" aria-label="Town built" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}><i style={{ width: `${pct}%` }} /></div>}
+          {note && <p className="ttown-note">{note}</p>}
+          <ul className="ttown-steps" aria-label="Your town">
+            <li className={writable ? 'on' : undefined}>{writable ? 'Ready to write' : 'Write the story'}</li>
+            <li className={drivable ? 'on' : undefined}>{drivable ? 'Ready to drive' : 'Drive'}</li>
+            <li className={whole ? 'on' : undefined}>{whole ? 'Whole town built' : 'Whole town'}</li>
+          </ul>
+          {drivable && drive && (
+            <a className="btn outline ttown-drive" href={drive} target="_blank" rel="noopener noreferrer">Drive around {place.name}</a>
+          )}
         </>
       )}
-      {request?.status === 'ready' && <p className="ttown-stage">{request.growing ? `Ready to write: ${request.town.places} places. The rest of town keeps building.` : `Ready: ${request.town.places} places on ${request.town.streets} streets.`}</p>}
-      {request?.status === 'error' && <p className="ttown-stage">{request.error}</p>}
     </div>
   );
 }

@@ -16,7 +16,10 @@ const LIMIT_MS = 4 * 60_000;
 async function getJson(url, opts = {}) {
   const r = await fetch(url, { cache: 'no-store', credentials: 'same-origin', ...opts });
   const j = await r.json().catch(() => ({}));
-  if (r.status === 404 && !j.error) throw new Error('Not found: sign in at /admin first (the owner only).');
+  // (the route answers 404 'Not found.' to anyone not signed in as the owner, and to everyone while the Story Kit is off:
+  // the page says the same to all of them, with nothing about what the owner would see; an owner asking for a slug that
+  // is not published reads the route's own words)
+  if (r.status === 404 && (!j.error || j.error === 'Not found.')) throw new Error('Sign in at /admin first. This page is for the site\'s owner.');
   if (!r.ok) throw new Error(j.error || `${url}: ${r.status}`);
   return j;
 }

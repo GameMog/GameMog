@@ -126,6 +126,20 @@ export function playOf(v: { variant: string; tilesId: string; full: boolean } | 
   if (v.full) return { variant: 'full', tilesId: v.tilesId };
   return v.tilesId === town.tiles ? { variant: v.variant, tilesId: v.tilesId } : null;
 }
+/**
+ * A town's free-roam test drive in Mog City (r7, the Create card's "Drive around <town>"): the town's bundle by the play
+ * variant the builder answered (`play`: build, tiles id, variant), no story, ?host= this site (where the bundle is). The
+ * same address the live QA built by hand from the status lock (city=pkg&town&tc&ts&tv&host).
+ */
+export function townDriveUrl(place: string, play: { build: string; tilesId: string; variant: string }, site = storySite()): string {
+  return `${storykitMc()}/?city=pkg&town=${encodeURIComponent(place)}&tc=${encodeURIComponent(play.build)}&ts=${encodeURIComponent(play.tilesId)}&tv=${encodeURIComponent(play.variant)}&host=${encodeURIComponent(site)}`;
+}
+/** A towns answer (POST /api/towns, GET /api/towns/{place}) with its `drive` address when it has a playable variant. */
+export function withDrive<T extends { status: number; body: object }>(a: T, reqOrigin?: string | null): T {
+  const b = a.body as { placeId?: unknown; play?: { build: string; tilesId: string; variant: string } };
+  if (!b.play || typeof b.placeId !== 'string' || !/^us-[0-9]{7}$/.test(b.placeId)) return a;
+  return { ...a, body: { ...a.body, drive: townDriveUrl(b.placeId, b.play, storySite(reqOrigin)) } };
+}
 /** The variant alone (townPlay), as before. */
 export const townVariant = (town?: HometownLock | null): string | null => townPlay(town)?.variant ?? null;
 /** A story world's city as its meta names it (storykit.city), or null. */

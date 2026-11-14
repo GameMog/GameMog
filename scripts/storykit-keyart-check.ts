@@ -46,6 +46,9 @@ export async function runKeyArtChecks(ok: Ok) {
     ok('the route is the owner\'s only (404 to anyone else, the Story Kit switch first), the page hears Mog City\'s keyart message from Mog City\'s origin only',
       (route.match(/if \(!ownerRequest\(req\)\) return json\(\{ error: 'Not found\.' \}, 404\);/g) ?? []).length === 2 && (route.match(/storykitOff\(req\)/g) ?? []).length === 2
         && /e\.origin !== g\.mc/.test(page) && /d\.type === 'keyart'/.test(page) && /e\.source !== f\.contentWindow/.test(page));
+    // (r7, live QA 14 Nov: the page said only "Not found." to the owner when not signed in)
+    ok('the page tells anyone the route turns away (its \'Not found.\') to sign in at /admin first, and nothing more',
+      /r\.status === 404 && \(!j\.error \|\| j\.error === 'Not found\.'\)\) throw new Error\('Sign in at \/admin first\./.test(page));
   } finally { db.prepare('DELETE FROM games WHERE id = ?').run(id); }
 }
 
