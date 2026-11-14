@@ -327,6 +327,11 @@ button.tag:hover{border-color:var(--ink)}
 .crumbs a:hover{color:var(--ink);text-decoration:underline}
 .gstage .gframe{width:100%;aspect-ratio:16/9;box-shadow:var(--elev)}
 .gstage .panel{margin-top:12px}
+/* a story world on a phone (./g/[slug]/desk-only.tsx): its art in the frame's place, this note under it */
+.gdesk{display:grid;gap:8px}
+.gdesk-title{font-size:18px;line-height:24px;font-weight:700;color:var(--ink)}
+.gdesk-text{font-size:15px;line-height:1.5;color:var(--ink-2)}
+.gdesk-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px}
 .gbar{display:flex;align-items:center;justify-content:space-between;gap:28px;margin-top:16px;padding:22px 26px;
   background:var(--surface);border-radius:var(--r);box-shadow:var(--elev)}
 .gtitle{min-width:0}

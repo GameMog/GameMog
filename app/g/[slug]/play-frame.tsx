@@ -487,6 +487,8 @@ function KartPanel({ result, score, tier, gmOn, provisional = false, children }:
  */
 export function startPlay() {
   const box = document.getElementById('play');
+  // (a story world on a phone holds no game, only its note: Play shows the note, ./desk-only.tsx)
+  if (box?.dataset.deskOnly) { box.scrollIntoView({ block: 'start', behavior: 'smooth' }); return; }
   const frame = box?.querySelector('iframe');
   frame?.contentWindow?.postMessage({ source: 'gamemog-host', type: 'play' }, frame.dataset.origin || '*');
   track('play');
