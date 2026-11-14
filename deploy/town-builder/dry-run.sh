@@ -8,15 +8,18 @@
 #   3. the bundle's lock equals the --id package's lock
 #
 #   deploy/town-builder/dry-run.sh            (defaults: Okemah, port 4841)
-# Environment: HOMETOWN_VENV (the pinned venv), HOMETOWN_COMPILER_DIR (MogCity tools/hometown), HOMETOWN_DRY_DATA (the
-# compiler's local data: regions/, dem/, osm/), PORT (4840-4859 only: the machine is shared), PLACE (us-<GEOID>).
+# Environment (the first three required): HOMETOWN_VENV (the pinned venv: a python built from the compiler's
+# requirements.lock), HOMETOWN_COMPILER_DIR (a MogCity checkout's tools/hometown), HOMETOWN_DRY_DATA (the compiler's
+# local data: regions/, dem/, osm/), PORT (4840-4859 only: the machine is shared), PLACE (us-<GEOID>).
 # Offline when the town's regions and DEM are in HOMETOWN_DRY_DATA: they are staged into the web store (the src family)
 # with the owner's token, as region pre-staging does in production, and the DEM mirror seeds the worker's data dir.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-VENV="${HOMETOWN_VENV:?set HOMETOWN_VENV (the pinned venv)}"
-COMPILER="${HOMETOWN_COMPILER_DIR:-$ROOT/../MogCity-hometown-int/tools/hometown}"
-DATA="${HOMETOWN_DRY_DATA:-$ROOT/../MogCity-hometown-int/.scratch/hometown-m2/data}"
+need() { [ -n "${!1:-}" ] || { echo "$1 is required (see the header of $0)"; exit 2; }; }
+need HOMETOWN_VENV; need HOMETOWN_COMPILER_DIR; need HOMETOWN_DRY_DATA
+VENV="$HOMETOWN_VENV"
+COMPILER="$HOMETOWN_COMPILER_DIR"
+DATA="$HOMETOWN_DRY_DATA"
 PORT="${PORT:-4841}"
 PLACE="${PLACE:-us-4054200}"
 PY="$VENV/bin/python"
@@ -25,7 +28,9 @@ RUN="$(mktemp -d "${TMPDIR:-/tmp}/town-dry.XXXXXX")"
 echo "dry run in $RUN (place $PLACE, port $PORT)"
 WTOK="dry-worker-$(openssl rand -hex 16)"; ATOK="dry-admin-$(openssl rand -hex 16)"
 TSN=(node --import "$ROOT/scripts/ts-resolve.mjs")
-cleanup() { [ -n "${WPID:-}" ] && kill "$WPID" 2>/dev/null || true; [ -n "${NPID:-}" ] && kill "$NPID" 2>/dev/null && sleep 1; pkill -f "next dev -p $PORT" 2>/dev/null || true; }
+# (only what this run started: the worker, and next dev with its own children; never a match by command line, since
+# another session may run a next dev on the same port range)
+cleanup() { [ -n "${WPID:-}" ] && kill "$WPID" 2>/dev/null || true; if [ -n "${NPID:-}" ]; then pkill -TERM -P "$NPID" 2>/dev/null || true; kill "$NPID" 2>/dev/null || true; sleep 1; fi; }
 trap cleanup EXIT
 
 # the build the worker will report (the same compiler, venv and data: the same buildId)

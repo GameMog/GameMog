@@ -66,7 +66,10 @@ export const DISTRICT_RADIUS = 2;
 
 export type BuilderDeps = { cfg: HometownConfig; store: TileStore; queue: BuildQueue; now?: () => number; build?: () => string | null; place?: (id: string) => Place | null;
   /** on-demand builders (dispatch.ts, HOMETOWN_RUNS=workflows): the estimate counts the runs it may start */
-  runs?: RunsConfig | null };
+  runs?: RunsConfig | null;
+  /** why on-demand builders are switched on (HOMETOWN_RUNS=workflows) but none can start (dispatch.ts runsProblem: no
+   * Render API key or workflow slug); null when they can, or when the builder is not on-demand */
+  runsDown?: string | null };
 
 // ------------------------------------------------------------------------------------------------ the job graph
 /**
@@ -353,6 +356,13 @@ export function requestTown(d: BuilderDeps, placeId: string, ip: string, source:
   if (typeof placeId !== 'string' || !TOWN_ID.test(placeId)) return { status: 400, body: { error: TOWN_WORDS.unknown } };
   const place = (d.place ?? ((id: string) => placeById(id)))(placeId);
   if (!place) return { status: 404, body: { placeId, error: TOWN_WORDS.unknown } };
+  // (on-demand builders switched on but none can start (the owner's status page shows the runs problem): a town built in
+  // full is served as ever; any other pick is refused at once, with no retryS, never left waiting its turn for a run
+  // that cannot come)
+  if (d.runsDown) {
+    const b = currentBuild(d), row = b ? rowOf(d.queue, placeId, b) : undefined;
+    if (!row || row.state !== 'full') return { status: 503, body: { placeId, error: TOWN_WORDS.closed } };
+  }
   const build = currentBuild(d);
   if (!build) {
     d.queue.log(BUILD_UNKNOWN, { place: placeId });

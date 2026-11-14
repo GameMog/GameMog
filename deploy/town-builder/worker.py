@@ -181,6 +181,10 @@ class Web:
 # ---------------------------------------------------------------------------------------------------- the worker
 class Worker:
     def __init__(self):
+        # (a clear stop, not a KeyError: the token is render.yaml's generateValue on the web, read through fromService)
+        for k in ('HOMETOWN_WEB', 'HOMETOWN_WORKER_TOKEN'):
+            if not os.environ.get(k):
+                raise SystemExit('%s is not set: the gamemog web service must have it (render.yaml, docs/HOMETOWN-HOSTING.md)' % k)
         self.web = Web(os.environ['HOMETOWN_WEB'], os.environ['HOMETOWN_WORKER_TOKEN'])
         self.python = os.environ.get('HOMETOWN_PYTHON') or sys.executable
         self.compiler = os.path.abspath(os.environ.get('HOMETOWN_COMPILER_DIR') or '/opt/mogcity/tools/hometown')

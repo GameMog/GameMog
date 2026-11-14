@@ -12,5 +12,6 @@ export const TOWN_WORDS = {
   slow: 'This town took too long to build. Try again in a few minutes.',
   interrupted: 'The town build was cut short. Ask again to pick it up.',
   notReady: 'Your town is still being built.',
+  closed: 'New towns aren\'t being built right now. Try a town that\'s already built, or come back later.',
   stage: { queued: 'Waiting its turn', reading: 'Reading the map', fetching: 'Reading the map', compiling: 'Building streets', assembling: 'Putting it together', ready: 'Ready', error: 'Not built', interrupted: 'Cut short' } as Record<TownState, string>,
 };

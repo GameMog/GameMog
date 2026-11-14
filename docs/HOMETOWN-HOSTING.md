@@ -78,6 +78,10 @@ run to learn it (`plan().probe`). Create's card shows "Waiting its turn" and ask
 admitted. Measured locally: the pick admitted **16 s** after it was made. The breaker (below) bounds a probe that never
 claims.
 
+When `HOMETOWN_RUNS=workflows` but no run can start (no `HOMETOWN_RENDER_API_KEY`, or no slug: the status page's "runs
+problem"), a pick of any town not built in full is refused at once with "New towns aren't being built right now"
+(503, no `retryS`), so nobody waits on a run that cannot come. Towns built in full keep playing.
+
 ## The store (`data/hometown`, `lib/hometown-tiles/store.ts`)
 
 The compiler's own layout, objects immutable, each written once through a temp file and `link(2)`:
@@ -120,7 +124,8 @@ Web service (`render.yaml`, all set **on for players** since 13 Nov):
 | `NEXT_PUBLIC_HOMETOWN_SEARCH` | `on` | the town box built into Create and `/api/places` (the builder's runtime probe answers the same) |
 | `STORYKIT` | `on` | Story Kit for everyone (the town box lives on Create's "Story world") |
 | `HOMETOWN_COMPILE` | `off` | the web never compiles; stays off |
-| `HOMETOWN_WORKER_TOKEN`, `HOMETOWN_RENDER_API_KEY`, `HOMETOWN_ADMIN_TOKEN` | `sync: false` | secrets, entered by the owner on the Environment page |
+| `HOMETOWN_RENDER_API_KEY`, `HOMETOWN_ADMIN_TOKEN` | `sync: false` | secrets, entered by the owner on the Environment page (by hand: see the release order) |
+| `HOMETOWN_WORKER_TOKEN` | `generateValue: true` | Render makes it (256 bits) on the first sync and keeps one already there; nobody types or sees it |
 | `HOMETOWN_BUILD` | `sync: false` | optional pin of the build (unset: learned, above) |
 | `HOMETOWN_WORKFLOW_SLUG` | from the workflow | `fromService ... property: slug`; the task is `<slug>/build_jobs` |
 | `HOMETOWN_DAILY_COLD` | `100` | new towns players may ask a UTC day: THE spend cap (built towns are never limited) |
@@ -221,6 +226,27 @@ $0.08-0.12 for a town built alone (its jobs wait on each other: regions, ctx, fr
 - **Limits on new towns**: `HOMETOWN_DAILY_COLD`, `HOMETOWN_PER_IP_HOUR`, `HOMETOWN_QUEUE_MAX`, `HOMETOWN_MAX_WAIT_S`.
   A built town is never limited.
 - **Determinism canary**: 1% of tile jobs are recompiled on another run and compared byte for byte.
+
+## Release order (the first push that turns the builder on)
+
+A Blueprint update **ignores new `sync: false` keys** (Render's Blueprint spec: they are asked for only when a Blueprint
+is first created), and the workflow service is created and built the moment `main` carries it. So, in this order:
+
+1. **Mog City's engine first.** mc.gamemog.com (branch `mogcity`, GitHub Pages) must play `?city=pkg&town=..&tv=..`
+   before any player can pick a town. Release it as a fast-forward of the live `mogcity` (tree-only release commit,
+   `.scratch` left out), after the SF 2040, Pickup Time and New York regressions.
+2. **The compiler commit on GitHub.** Push the commit `MOGCITY_SHA` names to the `hometown-compiler` branch of
+   GameMog/GameMog BEFORE `main`. The workflow builds at once when it is created and is rebuilt only by
+   `deploy/town-builder/**` changes, so a compiler pushed later is never picked up (start a manual deploy of
+   gamemog-town-builder if the order was missed).
+3. **The owner enters `HOMETOWN_RENDER_API_KEY`** (and `HOMETOWN_ADMIN_TOKEN` if not there yet) on the gamemog
+   service's Environment page by hand. `HOMETOWN_WORKER_TOKEN` needs nothing: Render generates it.
+4. **Nothing building** on Render (a deploy stops builds in flight), then push `main`; the Blueprint must sync.
+5. Check: the workflow's build log ends `town-builder build: ok`; the workflow service shows `HOMETOWN_WORKER_TOKEN`;
+   the web shows `HOMETOWN_WORKFLOW_SLUG` filled in; the owner's builder status page shows no "runs problem". Then one
+   owner test pick.
+
+Safe fallback while any step is open: `HOMETOWN_BUILDER=owner` and `NEXT_PUBLIC_HOMETOWN_SEARCH=off`.
 
 ## Compiler upgrade
 

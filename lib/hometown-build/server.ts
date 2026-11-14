@@ -57,7 +57,8 @@ export function builderDeps(cfg: HometownConfig = hometownConfig(), env: Record<
     G.__hometownBuilder = { file, q, reaper, dispatcher, runs };
   }
   const h = G.__hometownBuilder;
-  return { cfg, store: hometownStore(cfg), queue: h.q, runs: h.dispatcher ? h.runs : null };
+  const runsDown = cfg.builder !== 'off' && h.runs.mode === 'workflows' && !h.dispatcher ? (runsProblem(h.runs) ?? 'no dispatcher') : null;
+  return { cfg, store: hometownStore(cfg), queue: h.q, runs: h.dispatcher ? h.runs : null, runsDown };
 }
 /** The dispatcher of this server, if it runs one (the owner's status page). */
 export const builderDispatcher = (): Dispatcher | null => G.__hometownBuilder?.dispatcher ?? null;
