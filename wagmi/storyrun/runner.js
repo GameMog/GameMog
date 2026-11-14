@@ -188,6 +188,81 @@ export function createRunner(ctx) {
 
   /* --------------------------------------------------------------- the world -- */
   const placeOf = (ref, why) => { const p = places.at(ref); if (!p) throw new Fail(`The story names a place this city doesn't have (${typeof ref === 'string' ? ref : ref?.site ? `a ${String(ref.site.kind || ref.site).replace('_', ' ')}` : ref?.['@']}).`, 'place'); return p; };
+  // can a person stand at x, z (the controllers' own arrival test: buildings and walls, not other people; New York's
+  // controllers have none: the same test over their colliders, a person's 0.48 m and 0.1 m round him, by a collider's
+  // outline, its turned box, else its bounds)
+  const standable = (x, z) => {
+    try {
+      const y = cm.getGroundHeight(x, z, 'person');
+      if (typeof cm.isWorldPositionClear === 'function') return cm.isWorldPositionClear({ x, z, y }, 0, 'person', 0.1) !== false;
+      const r = 0.58;
+      for (const c of cm.nearColliders?.(x, z, r + 2) || []) {
+        if (y + 1 > (c.maxY ?? Infinity) + 1.5 || y + 1 < (c.minY ?? -Infinity) - 2) continue;
+        const P = c.polygon, o = c.obb;
+        if (Array.isArray(P) && P.length >= 3) {
+          let inside = false, d = Infinity;
+          for (let i = 0, j = P.length - 1; i < P.length; j = i++) {
+            const a = P[i], q = P[j], dx = q.x - a.x, dz = q.z - a.z, t = Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / (dx * dx + dz * dz || 1e-9)));
+            if ((a.z > z) !== (q.z > z) && x < ((q.x - a.x) * (z - a.z)) / (q.z - a.z) + a.x) inside = !inside;
+            d = Math.min(d, Math.hypot(a.x + dx * t - x, a.z + dz * t - z));
+          }
+          if (inside || d < r) return false;
+        } else if (o && Number.isFinite(o.cx)) {
+          const dx = x - o.cx, dz = z - o.cz, lx = dx * o.cs - dz * o.sn, lz = dx * o.sn + dz * o.cs;
+          if (Math.hypot(Math.max(Math.abs(lx) - o.hx, 0), Math.max(Math.abs(lz) - o.hz, 0)) < r) return false;
+        } else if (Math.hypot(Math.max(c.minX - x, 0, x - c.maxX), Math.max(c.minZ - z, 0, z - c.maxZ)) < r) return false;
+      }
+      return true;
+    } catch { return true; }
+  };
+  // THE GUARD (the owner's rule, 14 Nov: every place a mission sends him is outdoors, on ground a person stands on; nobody
+  // can enter a building on the platform). footing(x, z, p, why) -> { x, z, moved }: a target he could not stand on (a
+  // place's centre inside its building, a ring in a wall) walks back toward the place's lane point p.x, p.z, 1 m at a
+  // time, until he can (d7e6092's search walk-back, for every step); else the nearest spot round it he can stand on
+  // (rings out to 12 m), else the lane point itself. A warning names it once. (A compiled town's places come with an
+  // approach already, wagmi/world/pkg.js: this catches what the data missed and every package compiled before it)
+  const warnedFoot = new Set();
+  function footing(x, z, p, why) {
+    if (!Number.isFinite(x) || !Number.isFinite(z) || standable(x, z)) return { x, z, moved: false };
+    const lx = Number.isFinite(p?.x) ? p.x : x, lz = Number.isFinite(p?.z) ? p.z : z, L = Math.hypot(lx - x, lz - z);
+    let to = null;
+    for (let k = 1; k <= Math.ceil(L) && !to; k++) { const f = Math.min(1, k / L), qx = x + (lx - x) * f, qz = z + (lz - z) * f; if (standable(qx, qz)) to = { x: qx, z: qz }; }
+    for (let r = 1; r <= 12 && !to; r++) for (let j = 0; j < 16 && !to; j++) { const a = (j / 16) * 2 * PI, qx = x + Math.sin(a) * r, qz = z + Math.cos(a) * r; if (standable(qx, qz)) to = { x: qx, z: qz }; }
+    if (!to) to = { x: lx, z: lz };
+    const key = `${why}|${Math.round(x * 10)}|${Math.round(z * 10)}`;
+    if (!warnedFoot.has(key)) {
+      warnedFoot.add(key);
+      console.warn(`[storyrun] ${why}: ${p?.name || 'a target'} at ${x.toFixed(1)}, ${z.toFixed(1)} is where nobody can stand (inside a building); moved ${Math.hypot(to.x - x, to.z - z).toFixed(1)} m to ${to.x.toFixed(1)}, ${to.z.toFixed(1)}`);
+      M?.log?.push(['footing', why, p?.name || null, +x.toFixed(1), +z.toFixed(1), +to.x.toFixed(1), +to.z.toFixed(1)]);
+    }
+    return { ...to, moved: true };
+  }
+  // the guard again once he is within 120 m (the buildings round a target far off may not be up yet when the step
+  // starts): once; onMove(pt) redraws the ring, the blip and the route there
+  function footWatch(pt, p, why, onMove) {
+    let done = false;
+    return () => {
+      if (done || dist(me(), pt.x, pt.z) > 120) return;
+      done = true;
+      const g = footing(pt.x, pt.z, p, why);
+      if (g.moved) { pt.x = g.x; pt.z = g.z; onMove(pt); }
+    };
+  }
+  // where he is sent on foot at a place: its approach (a compiled town's, ax, az) where it has one, else its lane point
+  // (walk, npc: as they always were in New York and San Francisco), guarded
+  const footAt = (p, why) => footing(p.ax ?? p.x, p.az ?? p.z, p, why);
+  // a story car parked at a place (tow, car): from the place's lane point in a compiled town (a car stops on its lane;
+  // the approach, cx there, is the sidewalk), its cx elsewhere (New York's and San Francisco's, as always); where the car
+  // would stand in a building, on the lane point itself
+  const carBase = (p) => (p.ax != null ? { x: p.x, z: p.z } : { x: p.cx ?? p.x, z: p.cz ?? p.z });
+  function carSpot(x, z, h, p, why) {
+    let ok = true;
+    try { ok = cm.isWorldPositionClear({ x, z, y: cm.getGroundHeight(x, z, 'car') }, h, 'car', 0) !== false; } catch {}
+    if (ok || !p) return { x, z };
+    console.warn(`[storyrun] ${why}: the car at ${p.name || 'a place'} (${x.toFixed(1)}, ${z.toFixed(1)}) would stand in a building; on its lane point instead`);
+    M?.log?.push(['footing', why, p.name || null, +x.toFixed(1), +z.toFixed(1), +p.x.toFixed(1), +p.z.toFixed(1)]);
+    return { x: p.x, z: p.z };
+  }
   // the player at a place: at the wheel (the car on its lane) or on foot beside the car
   function putPlayer(p, mode = 'car') {
     if (mode === 'walk' || mode === 'person') {
@@ -345,10 +420,11 @@ export function createRunner(ctx) {
       try { await wait(inCar, t); } finally { gps.unblip('car'); ui.help(null); }
       return;
     }
-    const r = d.radius || 3;
-    gps.objective(parts(d.objective || `Walk to **${p.name}**.`), { x: p.x, z: p.z, name: p.name });
-    const ring = createMarker(THREE, app.scene, { color: '#FFC93C', radius: Math.max(1.2, r * 0.6), height: d.beam ? 6 : 1.1, alpha: 0.22 }); ring.at(p.x, 0, p.z);
-    try { await wait(() => !inCar() && dist(P.position, p.x, p.z) < r, t); } finally { ring.hide(); app.scene.remove(ring.group); gps.clear(); }
+    const r = d.radius || 3, pt = footAt(p, 'walk'), obj = parts(d.objective || `Walk to **${p.name}**.`);
+    gps.objective(obj, { x: pt.x, z: pt.z, name: p.name });
+    const ring = createMarker(THREE, app.scene, { color: '#FFC93C', radius: Math.max(1.2, r * 0.6), height: d.beam ? 6 : 1.1, alpha: 0.22 }); ring.at(pt.x, 0, pt.z);
+    const watch = footWatch(pt, p, 'walk', (q) => { ring.at(q.x, 0, q.z); gps.objective(obj, { x: q.x, z: q.z, name: p.name }); });
+    try { await wait(() => { watch(); return !inCar() && dist(P.position, pt.x, pt.z) < r; }, t); } finally { ring.hide(); app.scene.remove(ring.group); gps.clear(); }
   };
   // search: hold F there on foot (the van's search, ui.holdAct). The hold counts at the spot its ring is drawn on (a
   // corner's centre, cx/cz, when the place is a corner: the ring and the hold were 7 m apart there, VR 5 Nov).
@@ -356,35 +432,30 @@ export function createRunner(ctx) {
   // car by name: carSearch) is held at the car wherever he parked it: its trunk (or door, or hood), the ring, the blip and
   // the route following the car; the place stays the route's target while he is still driving there, more than 40 m out.
   // F at the car then searches it rather than getting in (W.carF, as the tow's hook-up)
-  // can a person stand at x, z (the controllers' own arrival test: buildings and walls, not other people)
-  const standable = (x, z) => {
-    try { const y = cm.getGroundHeight(x, z, 'person'); return cm.isWorldPositionClear({ x, z, y }, 0, 'person', 0.1) !== false; }
-    catch { return true; }
-  };
   STEPS.search = async (d, t) => {
     const p = placeOf(d.at), on = carSearch(d);
     if (on) return searchCar(d, p, on, t);
     const reach = d.radius || 3.2;
-    let hx = p.cx ?? p.x, hz = p.cz ?? p.z;
-    // (a place's centre a person cannot stand on, inside a building: the ring walks back toward the place's lane point
-    // until he can. A town's parking place can be a tower's garage, its centre inside the tower: The Courtesy Lane's
-    // salvage log, 14 Nov, a ring nobody could reach)
-    if (p.cx != null && !standable(hx, hz)) {
-      for (let k = 1; k <= 24; k++) {
-        const f = k / 24, x = hx + (p.x - hx) * f, z = hz + (p.z - hz) * f;
-        if (standable(x, z) || k === 24) { hx = x; hz = z; break; }
-      }
-    }
+    // (a place's centre a person cannot stand on, inside a building: the guard walks the ring back toward the place's
+    // lane point until he can. A town's parking place can be a tower's garage, its centre inside the tower: The Courtesy
+    // Lane's salvage log, 14 Nov, a ring nobody could reach; a compiled town's places now come with their approach)
+    const pt = footing(p.cx ?? p.x, p.cz ?? p.z, p, 'search');
+    let hx = pt.x, hz = pt.z;
     // (the route and the blip lead to that same spot: they went to the place's lane point, up to 7 m off the corner's
     // centre, so the autopilot stood at the lane point beside a ring it never reached; MCM, 5 Nov: a Mog of Mog City's
     // own story stuck at Mission 1's '@chelseapark' van search)
-    gps.objective(parts(d.objective || `Search **${d.label}**.`, 'green'), { x: hx, z: hz, name: d.label }, { blip: false });
+    const obj = parts(d.objective || `Search **${d.label}**.`, 'green');
+    gps.objective(obj, { x: hx, z: hz, name: d.label }, { blip: false });
     gps.blip('search', { x: hx, z: hz, kind: 'object', edge: true, name: d.label });
     const ring = createMarker(THREE, app.scene, { color: '#4ADE80', radius: d.ring || reach * 0.8, height: 1.1, alpha: 0.2 }); ring.at(hx, 0.02, hz);
     const act = ui.holdAct({ label: d.label, noun: d.noun || d.label.replace(/^\w+\s+((over|off|up|in|out|down|back|on|away|through|for)\s+)?/i, ''), secs: d.secs || 1.0, show: reach + 6, reach });
     M.holding = { x: hx, z: hz, act };
+    const watch = footWatch(pt, p, 'search', (q) => {
+      hx = q.x; hz = q.z; ring.at(hx, 0.02, hz); M.holding.x = hx; M.holding.z = hz;
+      gps.objective(obj, { x: hx, z: hz, name: d.label }, { blip: false }); gps.blip('search', { x: hx, z: hz, kind: 'object', edge: true, name: d.label });
+    });
     let last = now();
-    try { await wait(() => { const tt = now(), dt = Math.min(0.05, (tt - last) / 1000); last = tt; return act.step(dt, dist(P.position, hx, hz), !inCar()) || (M.auto && !inCar() && dist(P.position, hx, hz) < reach); }, t); }
+    try { await wait(() => { watch(); const tt = now(), dt = Math.min(0.05, (tt - last) / 1000); last = tt; return act.step(dt, dist(P.position, hx, hz), !inCar()) || (M.auto && !inCar() && dist(P.position, hx, hz) < reach); }, t); }
     finally { act.stop(); ring.hide(); app.scene.remove(ring.group); gps.unblip('search'); gps.clear(); M.holding = null; }
     sfx.play('ding', { gain: 0.25 });
   };
@@ -466,7 +537,8 @@ export function createRunner(ctx) {
     if (d.at && d.at.rel === 'player') {
       const e = cm.getActiveEntity(), h = e.heading, r = d.at.right || 0, f = d.at.fwd || 0;
       x = e.position.x - Math.cos(h) * r + Math.sin(h) * f; z = e.position.z + Math.sin(h) * r + Math.cos(h) * f;
-    } else { const p = placeOf(d.at || '@' + Object.keys(def0.places || {})[0]); x = p.x; z = p.z; }
+    } else { const p = placeOf(d.at || '@' + Object.keys(def0.places || {})[0]); ({ x, z } = footAt(p, 'npc')); }
+    if (d.at && d.at.rel === 'player') ({ x, z } = footing(x, z, null, 'npc'));
     const fig = await cast.spawn(who, { x, z, heading: Math.atan2(me().x - x, me().z - z) });
     if (fig) M.npcs.add(who);
   };
@@ -1132,7 +1204,8 @@ export function createRunner(ctx) {
     const n = Math.max(1, d.enemies.length), f = P.heading;
     // (where they stand: the step's place, else 7 m ahead of him)
     const at0 = d.crewAt ? placeOf(d.crewAt) : null;
-    const crews = [combat.spawnCrew({ x: at0 ? (at0.cx ?? at0.x) : ax + Math.sin(f) * 7, z: at0 ? (at0.cz ?? at0.z) : az + Math.cos(f) * 7, count: n, props: true }).engage()];
+    const c0 = footing(at0 ? (at0.cx ?? at0.x) : ax + Math.sin(f) * 7, at0 ? (at0.cz ?? at0.z) : az + Math.cos(f) * 7, at0 || { x: ax, z: az }, 'fight');
+    const crews = [combat.spawnCrew({ x: c0.x, z: c0.z, count: n, props: true }).engage()];
     // (a forged man in his own body: puppet)
     const puppets = d.enemies.map((who, k) => (crews[0].enemies[k] ? puppet(crews[0].enemies[k], castName(who)) : null)).filter(Boolean);
     const crew = { alive: () => crews.reduce((a, c) => a + c.alive(), 0) };
@@ -1194,7 +1267,7 @@ export function createRunner(ctx) {
   async function creatureFight(d, t) {
     const combat = W.combat, C = W.creatures;
     if (!C?.fight) { console.warn('[storyrun] no creatures on this page: the fight passes'); return; }
-    const p = placeOf(d.arena), cx = p.cx ?? p.x, cz = p.cz ?? p.z;
+    const p = placeOf(d.arena), { x: cx, z: cz } = footing(p.cx ?? p.x, p.cz ?? p.z, p, 'fight');
     // (too far to have ridden there: put at the arena's edge, as a fight of men puts him in it)
     if (dist(me(), cx, cz) > 80) putPlayer(p, inCar() ? 'car' : 'walk');
     const ex = me().x, ez = me().z;
@@ -1419,7 +1492,8 @@ export function createRunner(ctx) {
   STEPS.collect = async (d, t) => {
     const kind = d.kind || 'supplies', label = d.label || kind.charAt(0).toUpperCase() + kind.slice(1), color = COLOUR6.test(d.color || '') ? d.color : '#FFC93C';
     const items = (d.items || []).map((r, i) => {
-      const q = Array.isArray(r) ? { x: r[0], z: r[1] } : r && Array.isArray(r.at) ? { x: r.at[0], z: r.at[1] } : (() => { const pp = placeOf(r); return { x: pp.cx ?? pp.x, z: pp.cz ?? pp.z }; })();
+      const q = Array.isArray(r) ? { x: r[0], z: r[1] } : r && Array.isArray(r.at) ? { x: r.at[0], z: r.at[1] } : (() => { const pp = placeOf(r); return footing(pp.cx ?? pp.x, pp.cz ?? pp.z, pp, 'collect'); })();
+      if (q.moved == null) Object.assign(q, footing(q.x, q.z, null, 'collect'));
       return { i, x: q.x, z: q.z, taken: false, name: (r && r.name) || label };
     });
     const need = Math.min(items.length, d.need || items.length);
@@ -2159,7 +2233,7 @@ export function createRunner(ctx) {
     // (mid-block, before the corner the place names: back along its lane, on the kerb side)
     const h0 = p.heading ?? 0, side = 3.2, back = d.back ?? 18;
     const st = { fx: 0, fz: 0, rx: 0, rz: 0, fy: 0, pitch: 0, pv: 0, h: h0, spin: 0 };
-    const cx = (p.cx ?? p.x) - Math.cos(h0) * side - Math.sin(h0) * back, cz = (p.cz ?? p.z) + Math.sin(h0) * side - Math.cos(h0) * back;
+    const b0 = carBase(p), { x: cx, z: cz } = carSpot(b0.x - Math.cos(h0) * side - Math.sin(h0) * back, b0.z + Math.sin(h0) * side - Math.cos(h0) * back, h0, p, 'tow');
     st.fx = cx + Math.sin(h0) * T.zF; st.fz = cz + Math.cos(h0) * T.zF; st.rx = cx + Math.sin(h0) * T.zR; st.rz = cz + Math.cos(h0) * T.zR;
     const pose = (dt = 0) => {
       // the body from its two axles: the front at the hitch's height (fy over the ground), the back on the road
@@ -2444,7 +2518,9 @@ export function createRunner(ctx) {
     // Pickup Time's sneak says 2.5: time to see the bar empty and step back out of the cone. Up close it is at once.)
     if (d.detect > 0) S.rate = 0.92 / d.detect;
     M.stealth = S;
-    const dest = d.to ? placeOf(d.to) : null, secs = d.secs || 0, onD = d.onDetect || 'fail';
+    const dest0 = d.to ? placeOf(d.to) : null, secs = d.secs || 0, onD = d.onDetect || 'fail';
+    // (where he gets to, guarded: cx, cz a spot he can stand on)
+    const dest = dest0 ? (() => { const g = footing(dest0.cx ?? dest0.x, dest0.cz ?? dest0.z, dest0, 'stealth'); return { ...dest0, cx: g.x, cz: g.z }; })() : null;
     if (d.hint) ui.help(parts(d.hint), 8);
     if (dest) gps.objective(parts(d.objective || `Get to **${dest.name}** without being seen.`, 'yellow'), { x: dest.cx ?? dest.x, z: dest.cz ?? dest.z, name: dest.name });
     else if (secs) gps.objective(parts(d.objective || "Stay out of their sight."), null);
@@ -2505,7 +2581,7 @@ export function createRunner(ctx) {
     const p = placeOf(d.at), h = d.heading != null ? (d.heading * PI) / 180 : p.heading ?? 0, back = d.back ?? 16, side = d.kerb ?? 3.2;
     const T = await towCar({ car: d.car, color: d.color || '#2F5D3A' });
     T.obj.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-    const x = (p.cx ?? p.x) - Math.cos(h) * side - Math.sin(h) * back, z = (p.cz ?? p.z) + Math.sin(h) * side - Math.cos(h) * back;
+    const b0 = carBase(p), { x, z } = carSpot(b0.x - Math.cos(h) * side - Math.sin(h) * back, b0.z + Math.sin(h) * side - Math.cos(h) * back, h, p, 'car');
     // (ahead of the car's body: the lane point is its middle)
     T.obj.position.set(x, cm.getGroundHeight(x, z, 'car'), z); T.obj.rotation.set(0, h, 0);
     T.obj.name = 'wagmi-parked';

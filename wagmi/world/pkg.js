@@ -29,13 +29,19 @@ export function buildPlaces({ N, lib, missing, nearestLane }) {
   for (const [key, p] of Object.entries(PKG()?.places || {})) {
     if (!ok(p.x, p.z)) { missing.push(key); continue; }
     const lane = nearestLane(p.x, p.z, PLACE_NEAR) || nearestLane(p.x, p.z, PLACE_FAR);
-    if (lane) lib[key] = { x: lane.x, z: lane.z, heading: lane.heading, name: p.name, kind: p.kind, cx: p.cx, cz: p.cz };
+    // (on foot, cx, cz: the place's approach, ax, az, where the compiler has one (tools/hometown/approach.py: outdoors,
+    // clear of every building, off the water and the carriageway, a straight walk from its lane), the place itself, ox,
+    // oz, kept; the owner's rule, 14 Nov: nobody is sent to a ring inside a building, no one can enter one. A package
+    // compiled before it has the place's centre, often inside its building: the story runner's guard moves those)
+    const foot = Number.isFinite(p.ax) && Number.isFinite(p.az);
+    if (lane) lib[key] = { x: lane.x, z: lane.z, heading: lane.heading, name: p.name, kind: p.kind, cx: foot ? p.ax : p.cx, cz: foot ? p.az : p.cz, ...(foot ? { ax: p.ax, az: p.az, ox: p.cx, oz: p.cz } : {}) };
     else missing.push(key);
   }
 }
 
 // the compiled mission places as the world's points of interest by mission-site kind (city.pois, MISSION-SITES.md):
-// the compiler's Overture categories (compile.py GENERIC) that are each kind, at the place itself (cx, cz)
+// the compiler's Overture categories (compile.py GENERIC) that are each kind, at the place's approach (ax, az: outdoors,
+// where a person stands) where the compiler has one, else at the place itself (cx, cz)
 const POI_KINDS = {
   gas_station: ['gas_station', 'fuel'],
   store: ['grocery_store', 'supermarket', 'convenience_store', 'pharmacy', 'hardware_store'],
@@ -44,7 +50,7 @@ const POI_KINDS = {
 function pois(kind) {
   const want = POI_KINDS[kind]; if (!want) return [];
   return Object.entries(PKG()?.places || {}).filter(([, p]) => want.includes(p.kind) && Number.isFinite(p.cx) && Number.isFinite(p.cz))
-    .map(([key, p]) => ({ id: key, name: p.name, x: p.cx, z: p.cz }));
+    .map(([key, p]) => (Number.isFinite(p.ax) && Number.isFinite(p.az) ? { id: key, name: p.name, x: p.ax, z: p.az } : { id: key, name: p.name, x: p.cx, z: p.cz }));
 }
 
 // The package's tiles. On the national grid hg1 (compiler 0.3.0, PKG.grid 'hg1'; wagmi/world/grid.js): the session

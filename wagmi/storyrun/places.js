@@ -135,7 +135,7 @@ export function createPlaces(W, world) {
     if (off && typeof off === 'object') {
       const r = Math.max(-60, Math.min(60, +off.right || 0)), f = Math.max(-60, Math.min(60, +off.fwd || 0)), h = p.heading ?? 0;
       const dx = Math.sin(h) * f - Math.cos(h) * r, dz = Math.cos(h) * f + Math.sin(h) * r;
-      p.x += dx; p.z += dz; if (p.cx != null) { p.cx += dx; p.cz += dz; }
+      p.x += dx; p.z += dz; if (p.cx != null) { p.cx += dx; p.cz += dz; } if (p.ax != null) { p.ax += dx; p.az += dz; }
     }
     return p;
   }

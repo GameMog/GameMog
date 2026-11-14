@@ -9,6 +9,8 @@ globalThis.NYC = { PKG: { id: 'us-1211225', places: {
   dock: { x: 1119.8, z: 1683.4, heading: 2.48, name: 'the bar on Dock St', kind: 'bar', cx: 1133.1, cz: 1693.7 },
   main: { x: 0, z: 0, heading: 0, name: 'the diner on 2nd St', kind: 'restaurant', cx: 5, cz: 5 },
   nowhere: { x: 9000, z: 9000, heading: 0, name: 'the bar out at sea', kind: 'bar', cx: 9000, cz: 9000 },
+  // (a tower's garage: its centre inside the tower, its approach at the garage's open edge toward its lane)
+  parking: { x: 2, z: 1, heading: 0, name: 'the parking lot', kind: 'parking', cx: 27.4, cz: 4.6, ax: 6.4, az: 4.6, aHow: 'near' },
 } } };
 const { buildPlaces, PLACE_NEAR, PLACE_FAR } = await import('../wagmi/world/pkg.js');
 
@@ -30,4 +32,22 @@ test('a place with no lane within PLACE_NEAR m keeps the nearest lane within PLA
   assert.equal(lib.dock.z, 1580);
   assert.equal(lib.dock.name, 'the bar on Dock St');
   assert.equal(lib.dock.cx, 1133.1);
+});
+
+test("a compiled place's approach (ax, az) is where he goes on foot (cx, cz); the place itself stays as ox, oz", () => {
+  const lib = {}, missing = [];
+  buildPlaces({ N: globalThis.NYC, lib, missing, nearestLane });
+  const p = lib.parking;
+  assert.deepEqual([p.x, p.z], [3, 0], 'a car still stops on its lane');
+  assert.deepEqual([p.cx, p.cz, p.ax, p.az, p.ox, p.oz], [6.4, 4.6, 6.4, 4.6, 27.4, 4.6]);
+  // (a package compiled before the approach: its centre as before, no ax; the story runner's guard moves it)
+  assert.equal(lib.main.cx, 5);
+  assert.equal(lib.main.ax, undefined);
+});
+
+test("a town's points of interest for mission sites stand at their approach", async () => {
+  const { createPkg } = await import('../wagmi/world/pkg.js');
+  const src = (await import('node:fs')).readFileSync(new URL('../wagmi/world/pkg.js', import.meta.url), 'utf8');
+  assert.match(src, /Number\.isFinite\(p\.ax\) && Number\.isFinite\(p\.az\) \? \{ id: key, name: p\.name, x: p\.ax, z: p\.az \}/);
+  assert.equal(typeof createPkg, 'function');
 });
