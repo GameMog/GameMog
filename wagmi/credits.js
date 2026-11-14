@@ -31,6 +31,29 @@ const cityLines = () => world.id === 'pkg' ? PKGLINES() : SF ? [
   { what: 'City data', who: 'NYC Open Data', note: 'the borough line, the street centrelines and the parks (NYC DCP Borough Boundaries, NYC Street Centerline (CSCL), NYC Parks Properties)', licence: null, licenceUrl: null, src: 'https://opendata.cityofnewyork.us' },
 ];
 
+// (a Hometown town's cars: realistic models, CC BY 4.0, adapted: assets/vehicles/fleet; the game calls each only by its kind)
+const FLEET_NOTE = 'a town car: modified (badges, lettering and plate characters removed, repainted, simplified); a look-alike with no connection to any car maker';
+const FLEET_LINES = () => [
+  { what: '"Saba V12 \'95 - Low poly model"', who: 'Daniel Zhabotinsky', note: FLEET_NOTE, licence: 'CC BY 4.0', licenceUrl: 'https://creativecommons.org/licenses/by/4.0/', src: 'https://sketchfab.com/3d-models/3ab977050c334c13b6abb5de078b4957' },
+  { what: '"Hazer Turbo \'81 - Low poly model"', who: 'Daniel Zhabotinsky', note: FLEET_NOTE, licence: 'CC BY 4.0', licenceUrl: 'https://creativecommons.org/licenses/by/4.0/', src: 'https://sketchfab.com/3d-models/ef6411864cd24046aad6ae75dbdb7ea7' },
+  { what: '"JDM Sport \'99 - Low Poly model"', who: 'Daniel Zhabotinsky', note: FLEET_NOTE, licence: 'CC BY 4.0', licenceUrl: 'https://creativecommons.org/licenses/by/4.0/', src: 'https://sketchfab.com/3d-models/6dd4ae19c454414d9eed2bc524515d78' },
+  { what: '"Tiara GT \'83 - Low Poly model"', who: 'Daniel Zhabotinsky', note: FLEET_NOTE, licence: 'CC BY 4.0', licenceUrl: 'https://creativecommons.org/licenses/by/4.0/', src: 'https://sketchfab.com/3d-models/8918b07a427443cd8d1b334d9ad213a5' },
+  { what: '"Roadster \'00 - Low poly model"', who: 'Daniel Zhabotinsky', note: FLEET_NOTE, licence: 'CC BY 4.0', licenceUrl: 'https://creativecommons.org/licenses/by/4.0/', src: 'https://sketchfab.com/3d-models/82fd2008ce304df688ec4dfcd42d41ce' },
+  { what: '"Duke \'69 - Low Poly Model"', who: 'Daniel Zhabotinsky', note: FLEET_NOTE, licence: 'CC BY 4.0', licenceUrl: 'https://creativecommons.org/licenses/by/4.0/', src: 'https://sketchfab.com/3d-models/46fed79f600c4fc69e060991f9e3e4f9' },
+  { what: '"Kiri \'10 - Low poly model"', who: 'Daniel Zhabotinsky', note: FLEET_NOTE, licence: 'CC BY 4.0', licenceUrl: 'https://creativecommons.org/licenses/by/4.0/', src: 'https://sketchfab.com/3d-models/7fd6e15785fa4aa9bfd6e31eb7c97ba6' },
+  { what: '"Ace \'11 - Low Poly model"', who: 'Daniel Zhabotinsky', note: FLEET_NOTE, licence: 'CC BY 4.0', licenceUrl: 'https://creativecommons.org/licenses/by/4.0/', src: 'https://sketchfab.com/3d-models/055ff8a21b8d4d279debca089e2fafcd' },
+  { what: '"Compact \'07 - Low poly model"', who: 'Daniel Zhabotinsky', note: FLEET_NOTE, licence: 'CC BY 4.0', licenceUrl: 'https://creativecommons.org/licenses/by/4.0/', src: 'https://sketchfab.com/3d-models/25c6874d173a4f6ca63e150bbd505686' },
+  { what: '"Negotiator \'80 - Low poly model"', who: 'Daniel Zhabotinsky', note: FLEET_NOTE, licence: 'CC BY 4.0', licenceUrl: 'https://creativecommons.org/licenses/by/4.0/', src: 'https://sketchfab.com/3d-models/892b2684fb37442299bfad9222cf331c' },
+  { what: '"Urban \'10 - Low poly model"', who: 'Daniel Zhabotinsky', note: FLEET_NOTE, licence: 'CC BY 4.0', licenceUrl: 'https://creativecommons.org/licenses/by/4.0/', src: 'https://sketchfab.com/3d-models/2866efdfa943484391ef8313768e074d' },
+  { what: '"Shvan \'92 - Low poly model"', who: 'Daniel Zhabotinsky', note: FLEET_NOTE, licence: 'CC BY 4.0', licenceUrl: 'https://creativecommons.org/licenses/by/4.0/', src: 'https://sketchfab.com/3d-models/09d718c9cf72401b8534d265a06a803f' },
+  { what: '"Conquer \'89 Pickup - Low poly model"', who: 'Daniel Zhabotinsky', note: FLEET_NOTE, licence: 'CC BY 4.0', licenceUrl: 'https://creativecommons.org/licenses/by/4.0/', src: 'https://sketchfab.com/3d-models/6c48c94be8974dc7a5932f697c0ba68f' },
+  { what: '"Canyon \'75 Taxi - Low poly model"', who: 'Daniel Zhabotinsky', note: FLEET_NOTE, licence: 'CC BY 4.0', licenceUrl: 'https://creativecommons.org/licenses/by/4.0/', src: 'https://sketchfab.com/3d-models/9e8f92a215784f3d8aaaaeab1bef54c4' },
+  { what: '"Illinois \'90 Police cruiser - Low poly model"', who: 'Daniel Zhabotinsky', note: FLEET_NOTE, licence: 'CC BY 4.0', licenceUrl: 'https://creativecommons.org/licenses/by/4.0/', src: 'https://sketchfab.com/3d-models/dc81625478a744649b210c7f248b0b6a' },
+  { what: '"LCT 3000 \'95 - Low poly model"', who: 'Daniel Zhabotinsky', note: FLEET_NOTE, licence: 'CC BY 4.0', licenceUrl: 'https://creativecommons.org/licenses/by/4.0/', src: 'https://sketchfab.com/3d-models/663a0953c038434a918cb85725c88ffa' },
+  { what: '"Generic civil service vehicles pack"', who: 'Comrade1280', note: FLEET_NOTE, licence: 'CC BY 4.0', licenceUrl: 'https://creativecommons.org/licenses/by/4.0/', src: 'https://sketchfab.com/3d-models/8ff2a13f30914932a70c7950cfa58465' },
+  { what: '"Generic passenger car pack"', who: 'Comrade1280', note: FLEET_NOTE, licence: 'CC BY 4.0', licenceUrl: 'https://creativecommons.org/licenses/by/4.0/', src: 'https://sketchfab.com/3d-models/20f9af9b8a404d5cb022ac6fe87f21f5' },
+];
+
 const music = () => {
   // (the car radio's one station: the owner's own songs, media/mog-music; all rights reserved, not MIT)
   const lines = [{ what: 'Mog Music', who: 'the owner\'s own songs', note: 'the car radio: all rights reserved by their owner, not covered by the MIT License', licence: 'All rights reserved', licenceUrl: null, src: null }], seen = new Set();
@@ -73,8 +96,8 @@ export const CREDITS = [
     { what: '"Metal Trash Can"', who: 'GurJas Studios, from Poly Haven', note: '', licence: 'CC0 1.0', licenceUrl: LICENCES['CC0 1.0'], src: 'https://polyhaven.com/a/metal_trash_can' },
   ] },
   // (a model a Story Kit world's car wears adds its own line when it is built, wagmi/storyrun/vantor.js: empty, and so
-  // left out, in Mog City's own game)
-  { heading: 'Vehicles', lines: [] },
+  // left out, in Mog City's own game; a Hometown town: its ready-made cars, assets/vehicles/fleet/CREDITS.md)
+  { heading: 'Vehicles', lines: world.id === 'pkg' ? FLEET_LINES() : [] },
   // (a world's UI theme adds its typefaces when it is applied, wagmi/storyrun/theme.js: empty in Mog City's own game)
   { heading: 'Type', lines: [] },
   { heading: 'Voices', lines: [

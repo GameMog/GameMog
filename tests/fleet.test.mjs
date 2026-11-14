@@ -73,3 +73,66 @@ test('every kind of the fleet is a sheet the Story Kit builds, no real maker nam
   }
   assert.equal(sheetFor('nonsense', '#ffffff').id, 'jack-sedan');
 });
+
+// ---- the ready-made cars (cities/sf/js/fleet-data.js, fleet-models.js; assets/vehicles/fleet) ----
+import { createHash } from 'node:crypto';
+import { MODEL_SHEETS } from '../wagmi/jack-sheets.js';
+const dataSrc = readFileSync(new URL('../cities/sf/js/fleet-data.js', import.meta.url), 'utf8');
+const NYCD = {}; vm.runInNewContext(dataSrc, { window: { NYC: NYCD } });
+const FD = NYCD.FLEET_DATA;
+const fleetWith = (PKG) => vm.runInNewContext(`${block}\nFLEET;`, {
+  window: { NYC: { PKG, Fleet: { data: FD } } }, BODY_SPECS: Object.fromEntries(KINDS.map((k) => [k, {}])), DENSITY: PKG ? PKG.density ?? 1 : 1,
+});
+const share = (F, c) => { const n = Object.values(c).reduce((a, b) => a + b, 0); return Object.entries(c).filter(([k]) => FD.models[k] && FD.models[k].group === 'sports').reduce((a, [, v]) => a + v, 0) / n; };
+
+test('the ready-made fleet: every model of the mixes is in the data, its stand-in a body kind', () => {
+  assert.ok(FD && Object.keys(FD.models).length >= 16);
+  for (const [id, m] of Object.entries(FD.models)) {
+    assert.ok(KINDS.includes(m.proc) || m.proc === 'bus', `${id}: its stand-in ${m.proc}`);
+    for (const k of ['length', 'width', 'height', 'axle', 'zF', 'zR']) assert.ok(Number.isFinite(m[k]) && Math.abs(m[k]) < 12, `${id}.${k}`);
+    assert.ok(m.wheels.front.r > 0.2 && m.wheels.front.r < 0.7 && m.wheels.front.z > 0 && m.wheels.rear.z < 0, `${id} wheels`);
+    assert.ok(m.zF > 0 && m.zR < 0 && m.length > 2.5, `${id}: the nose to +z, the origin between the axles`);
+  }
+});
+
+test('the ready-made fleet is mainly sports cars: ~40% in a resort or a city, a third in suburbs, a quarter in the country', () => {
+  const bal = fleetWith(balHarbour), pit = fleetWith(pittsburgh), oke = fleetWith(okemah);
+  const sub = fleetWith({ id: 'us-3900000', name: 'Somewhere, OH', density: 0.5, frame: { lat0: 39.9 }, places: {} });
+  assert.ok(bal.models && bal.region === 'resort' && pit.region === 'city' && oke.region === 'rural' && sub.region === 'suburbs');
+  const s = (F) => share(F, draw(F, 4000));
+  assert.ok(Math.abs(s(bal) - 0.4) < 0.06, `resort ${s(bal)}`);
+  assert.ok(Math.abs(s(pit) - 0.4) < 0.06, `city ${s(pit)}`);
+  assert.ok(Math.abs(s(sub) - 0.33) < 0.06, `suburbs ${s(sub)}`);
+  assert.ok(Math.abs(s(oke) - 0.25) < 0.06, `rural ${s(oke)}`);
+  // (the snow belt: no open car; parked: no cab, no fire truck, ambulance, garbage or tow truck)
+  assert.equal(draw(pit, 2000).roadster00 || 0, 0);
+  const parked = draw(bal, 2000, true);
+  for (const k of ['taxi75', 'taxi20', 'ambulance', 'firetruck', 'garbage', 'tow']) assert.equal(parked[k] || 0, 0, k);
+  // (the same town, the same fleet)
+  assert.deepEqual(draw(fleetWith(balHarbour), 300), draw(fleetWith(balHarbour), 300));
+});
+
+test('a taken ready-made car: its class sheet (the brand rule), a generic name, the model it wears', () => {
+  for (const id of Object.keys(FD.models)) {
+    if (/^(police|bus|schoolbus)/.test(id) || FD.models[id].group === 'bus' || FD.models[id].group === 'police') continue;
+    assert.ok(MODEL_SHEETS[id], `a sheet for ${id}`);
+    const sh = sheetFor(id, '#b3121a');
+    assert.equal(sh.fleet, id);
+    const { fleet, ...plain } = sh;
+    const { ok, problems } = checkSheet(plain);
+    assert.ok(ok, `${id}: ${problems.join('; ')}`);
+    assert.match(NOUN[id], /^[a-zA-Z ]+$/);
+    // (never the model's own name)
+    assert.ok(!/saba|hazer|tiara|duke|kiri|ace|negotiator|urban|shvan|conquer|canyon|illinois|lct|jdm/i.test(NOUN[id] + ' ' + sh.label), `${id}: ${NOUN[id]} / ${sh.label}`);
+  }
+});
+
+test('the fleet files are the ones fleet.json lists (sha256)', () => {
+  const man = JSON.parse(readFileSync(new URL('../assets/vehicles/fleet/fleet.json', import.meta.url), 'utf8'));
+  for (const [f, { sha256 }] of Object.entries(man.files)) {
+    const got = createHash('sha256').update(readFileSync(new URL('../assets/vehicles/fleet/' + f, import.meta.url))).digest('hex');
+    assert.equal(got, sha256, f);
+  }
+  for (const [id, m] of Object.entries(FD.models)) assert.ok(man.files[m.file], `${id}: ${m.file} listed`);
+  for (const m of Object.values(man.models)) assert.ok(m.licence === 'CC-BY-4.0' && /^https:\/\/sketchfab\.com\/3d-models\/[0-9a-f]{32}$/.test(m.source) && m.creator && /^[0-9a-f]{64}$/.test(m.sourceSha256), m.file);
+});

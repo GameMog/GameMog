@@ -73,6 +73,24 @@ const KIND_PAINTS = {
   muscle: [0x8f1a1d, 0x111214, 0xf2f2ef, 0x24406e, 0xf08a1c, 0x2b3f33, 0xe0b52a]
 };
 const PACE = { pickup: 9.4, van: 9, minivan: 9.6, oldsedan: 9.8, coupe: 11.4, muscle: 11.2, convertible: 11 };
+// (Mog City, Hometown) The ready-made cars (fleet-models.js, window.NYC.Fleet: realistic models, CC BY 4.0, every
+// badge and maker-like lettering taken off; each stands in for one of the bodies above, its proc, which is drawn while
+// it loads or if it cannot). With them a town's mix is of models, by the same regions, the owner's sports cars leading
+// (14 Nov: "mainly sports cars"): about 40% in a resort or a city, a third in the suburbs, a quarter in the country.
+// Their roles (group: sports, everyday, taxi, police, service, bus) come with the models (fleet-data.js).
+const FMD = (window.NYC.Fleet && window.NYC.Fleet.data && window.NYC.Fleet.data.models) || null;
+const MODEL_FLEETS = {
+  rural: { muscle69: 8, gt83: 5, sport99: 4, turbo81: 3, gt95: 2, roadster00: 3,
+    pickup89: 22, sedan80: 13, suv10: 12, sedan10: 9, minivan20: 4, van92: 5, hatch11: 3, box95: 3, utility: 1, mailvan: 1, tow: 1 },
+  resort: { gt95: 9, turbo81: 6, sport99: 8, gt83: 5, roadster00: 8, muscle69: 4,
+    suv10: 15, sedan10: 13, hatch11: 6, city07: 4, minivan20: 4, van92: 3, pickup89: 4, sedan80: 2, box95: 2, taxi75: 3, taxi20: 2, ambulance: 1, mailvan: 1 },
+  city: { gt95: 7, turbo81: 6, sport99: 9, gt83: 7, roadster00: 5, muscle69: 6,
+    sedan10: 13, hatch11: 8, city07: 6, suv10: 9, sedan80: 3, van92: 4, box95: 3, minivan20: 3, pickup89: 2, taxi75: 3, taxi20: 3, garbage: 1, mailvan: 1, ambulance: 1, utility: 1, firetruck: 0.5 },
+  suburbs: { gt95: 5, turbo81: 5, sport99: 7, gt83: 6, roadster00: 5, muscle69: 5,
+    suv10: 15, sedan10: 13, minivan20: 7, pickup89: 9, hatch11: 6, city07: 3, sedan80: 5, van92: 3, box95: 2, taxi75: 1, mailvan: 1, utility: 1, tow: 0.5 }
+};
+// (the sports cars' paint: bright and dark show colours)
+const SPORTS_PAINTS = [0xb3121a, 0xf2c230, 0xf08a1c, 0x2f63b8, 0x111214, 0xf6f6f3, 0xd8dade, 0x1c8a8c, 0x1f6b3a, 0x7a1e22, 0x6a2fb8, 0x1d3b6c];
 const FLEET = (() => {
   const P = window.NYC.PKG;
   if (!P) return null;
@@ -83,32 +101,38 @@ const FLEET = (() => {
   const snow = Number.isFinite(lat) && lat > 39.5 && !/^(CA|OR|WA)$/.test(state);
   const resort = warm && places.length >= 20 && hotels / places.length >= 0.06;
   const region = resort ? 'resort' : d >= 0.7 ? 'city' : d < 0.3 ? 'rural' : 'suburbs';
-  const F = FLEETS[region], mix = { ...F.mix };
-  if (snow) { mix.convertible = 0; mix.suv = (mix.suv || 0) + 4; }
-  if (warm && region !== 'resort') mix.convertible = (mix.convertible || 0) + 3;
-  if (/^(TX|OK|KS|NE|WY|MT|ND|SD|AR|LA|MS|AL|NM|ID)$/.test(state)) mix.pickup = (mix.pickup || 0) + 6;
+  // (the models' mix when their numbers are here, each model's procedural body standing in; else the bodies' own)
+  const models = !!FMD;
+  const F = FLEETS[region], mix = models ? Object.fromEntries(Object.entries(MODEL_FLEETS[region]).filter(([k]) => FMD[k])) : { ...F.mix };
+  const K = models ? { conv: 'roadster00', suv: 'suv10', pickup: 'pickup89' } : { conv: 'convertible', suv: 'suv', pickup: 'pickup' };
+  if (snow) { mix[K.conv] = 0; mix[K.suv] = (mix[K.suv] || 0) + 4; }
+  if (warm && region !== 'resort') mix[K.conv] = (mix[K.conv] || 0) + 3;
+  if (/^(TX|OK|KS|NE|WY|MT|ND|SD|AR|LA|MS|AL|NM|ID)$/.test(state)) mix[K.pickup] = (mix[K.pickup] || 0) + 6;
+  // (a model's procedural body and its role)
+  const proc = (k) => (models && FMD[k] ? FMD[k].proc : k), group = (k) => (models && FMD[k] ? FMD[k].group : k === 'taxi' ? 'taxi' : 'everyday');
   // a small seeded random (the town's id), so the same town always has the same fleet
   const random = (salt) => {
     let h = 2166136261;
     for (const c of String(P.id || name) + ':' + salt) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); }
     return () => { h ^= h << 13; h ^= h >>> 17; h ^= h << 5; return ((h >>> 0) % 1000003) / 1000003; };
   };
-  const kinds = Object.keys(mix).filter((k) => mix[k] > 0 && BODY_SPECS[k]);
+  const kinds = Object.keys(mix).filter((k) => mix[k] > 0 && BODY_SPECS[proc(k)]);
   const total = kinds.reduce((a, k) => a + mix[k], 0);
-  // (parked: never a cab)
+  // (parked: never a cab, a fire truck, an ambulance or a garbage truck)
+  const noPark = (k) => group(k) === 'taxi' || /^(ambulance|firetruck|garbage|tow)$/.test(k);
   const pick = (rnd, parkedOnly = false) => {
     for (;;) {
       let r = rnd() * total;
-      for (const k of kinds) { r -= mix[k]; if (r <= 0) { if (parkedOnly && k === 'taxi') break; return k; } }
+      for (const k of kinds) { r -= mix[k]; if (r <= 0) { if (parkedOnly && noPark(k)) break; return k; } }
       if (!parkedOnly) return kinds[kinds.length - 1];
     }
   };
   const paint = (kind, rnd) => {
-    const own = KIND_PAINTS[kind];
-    const list = own && (kind === 'van' || rnd() < 0.75) ? own : F.paints;
+    const own = group(kind) === 'sports' ? SPORTS_PAINTS : KIND_PAINTS[proc(kind)];
+    const list = own && (proc(kind) === 'van' || rnd() < 0.8) ? own : F.paints;
     return list[Math.floor(rnd() * list.length)];
   };
-  return { id: P.id || name, region, mix, parked: Math.round(F.parked * (0.6 + 0.4 * Math.min(1, d + 0.4))), pick, paint, random, pace: PACE };
+  return { id: P.id || name, region, mix, parked: Math.round(F.parked * (0.6 + 0.4 * Math.min(1, d + 0.4))), pick, paint, random, pace: PACE, proc, group, models };
 })();
 
 // Intelligent Driver Model: max acceleration, comfortable braking, time headway, standstill gap; and the sideways
@@ -281,17 +305,23 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
     return { half: Math.max(1.9, half), hw: hw - 0.06, axle: spec.wheelZ, roof: Math.max(...spec.cabin.roofY.map((p) => p[1])) };
   };
   const BIG_KINDS = { suv: 1, van: 1, minivan: 1, pickup: 1 };
+  // (a ready-made car's numbers, fleet-data.js: its box (the mirrors' width left out), axles and roof)
+  const modelDims = (M) => ({ half: Math.max(1.9, M.zF, -M.zR), hw: M.hw * 0.94, axle: M.axle, roof: M.height });
+  const modelCounts = {};
   function makeCar(kind, col, i, isNYPD = false) {
-    const d = dimsOf(kind), big = !!BIG_KINDS[kind];
+    // (a model's id: its procedural body (bodyType) stands in for it; car.model names it)
+    const M = FLEET && FLEET.models && FMD[kind] ? FMD[kind] : null, proc = M ? M.proc : kind;
+    const d = M ? modelDims(M) : dimsOf(proc), big = !!BIG_KINDS[proc] || (M && M.height > 1.7);
     const car = FLEET
-      ? createVehicle(false, d.half, d.hw, d.axle, CAR_DRIVER, (FLEET.pace[kind] || 10) + (i % 5) * 0.9)
+      ? createVehicle(false, d.half, d.hw, d.axle, CAR_DRIVER, (FLEET.pace[proc] || 10) * (M && M.group === 'sports' ? 1.08 : M && M.group === 'service' ? 0.9 : 1) + (i % 5) * 0.9)
       : createVehicle(false, kind === 'suv' || kind === 'van' ? 2.3 : 2.25, kind === 'suv' || kind === 'van' ? 0.92 : 0.86, kind === 'suv' || kind === 'van' ? 1.4 : 1.38, CAR_DRIVER, 10 + (i % 5) * 0.9);
     // paint as float32 values, so renderCar() can tell whether an instance slot's paint changes by comparing
     const paint = [Math.fround(col.r), Math.fround(col.g), Math.fround(col.b)];
-    Object.assign(car, { isTaxi: kind === 'taxi', isNYPD, isSUV: big, bodyType: kind, paint });
+    Object.assign(car, { isTaxi: proc === 'taxi', isNYPD, isSUV: big, bodyType: proc, paint, model: M ? kind : null });
     // (a town's fleet: its true box and roof, for the crash, the chase and the fight; San Francisco's as before)
     if (FLEET) Object.assign(car, { bodyW: d.hw, bodyL: d.half, roof: d.roof });
-    counts[kind] = (counts[kind] || 0) + 1;
+    counts[proc] = (counts[proc] || 0) + 1;
+    if (M) modelCounts[kind] = (modelCounts[kind] || 0) + 1;
     if (isNYPD) nypdCount++;
     return car;
   }
@@ -312,9 +342,11 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
     // a Hometown's own: 1 in 20 still a police cruiser; every other car drawn from the town's mix (FLEET.mix: its region,
     // climate and density), each in a colour of its kind from the town's palette, the same town always the same fleet
     const rnd = FLEET.random('traffic');
+    // (the police: the town's cruiser model, the newer one in a city)
+    const cop = FLEET.models && FMD.police90 ? (FLEET.region === 'city' && FMD.police20 ? ['police90', 'police20'] : ['police90']) : ['sedan'];
     for (let i = 0; i < NUM_CARS; i++) {
       const isNYPD = (i % 20) === 6;
-      const kind = isNYPD ? 'sedan' : FLEET.pick(rnd);
+      const kind = isNYPD ? cop[Math.floor(i / 20) % cop.length] : FLEET.pick(rnd);
       cars.push(makeCar(kind, isNYPD ? nypdWhite : kind === 'taxi' ? taxiYellow : new THREE.Color(FLEET.paint(kind, rnd)), i, isNYPD));
     }
   }
@@ -350,10 +382,55 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
       shadow: FLEET ? [2 * d.hw + 0.4, spec.zFront - spec.zRear + 0.6] : [2.22, 5.05] };
   }
   const bodyMeshes = Object.values(bodies).flatMap((b) => [b.near, b.far]);
-  if (FLEET) window.NYC.fleetProfile = { id: FLEET.id, region: FLEET.region, counts: { ...counts }, parked: parked.length };
+  if (FLEET) window.NYC.fleetProfile = { id: FLEET.id, region: FLEET.region, counts: { ...counts }, models: { ...modelCounts }, parked: parked.length };
 
   const carWheelLeftInst = new THREE.InstancedMesh(carWheelLeftGeo, carWheelMat, (NUM_CARS + parked.length) * 2);
   const carWheelRightInst = new THREE.InstancedMesh(carWheelRightGeo, carWheelMat, (NUM_CARS + parked.length) * 2);
+
+  // (Mog City, Hometown) The ready-made cars of the town's mix (window.NYC.Fleet), loaded as the town boots (only the
+  // models its own fleet drives); each, once here, is drawn in place of its procedural stand-in: per model, instanced
+  // like the bodies, LOD0 (the full model: body, glass, lamps, decals, and its wheels, spun and steered) near the camera,
+  // LOD1 (~4k triangles, wheels and glass in it) further, LOD2 (~700, no cast shadow) far. Their bodies read the same per-instance paint
+  // and lamp state (paintColor, carState) as the procedural ones, and join bodyMeshes for it; glass, decals and wheels
+  // are counted in modelAux.
+  const modelBodies = {};
+  const modelAux = [];
+  const FM = FLEET && FLEET.models ? window.NYC.Fleet : null;
+  function buildModelMeshes(id, model) {
+    const n = Math.max(1, modelCounts[id] || 0), m = model.meta, g = model.geo, own = m.own ? id : null;
+    const inst = (geo, mat, cap, body) => {
+      if (body) {
+        geo.setAttribute('paintColor', new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3));
+        geo.setAttribute('carState', new THREE.InstancedBufferAttribute(new Float32Array(cap * 4), 4));
+      }
+      const im = new THREE.InstancedMesh(geo, mat, cap);
+      im.name = 'fleet-' + id; im.frustumCulled = false; im.castShadow = im.receiveShadow = true;
+      for (let i = 0; i < cap; i++) im.setMatrixAt(i, zero);
+      im.count = 0;
+      group.add(im);
+      (body ? bodyMeshes : modelAux).push(im);
+      return im;
+    };
+    const bodyMat = FM.material('body', { livery: m.livery, instanced: true, own });
+    const wheels = FM.wheelsOf(m), nR = wheels.filter((w) => w.rearMesh).length;
+    const MB = {
+      meta: m, wheels, lod0: inst(g.body, bodyMat, n, true), glass: inst(g.glass, FM.material('glass'), n),
+      lod1: inst(g.lod1, bodyMat, n, true), lod2: inst(g.lod2, bodyMat, n, true),
+      wheel: inst(g.wheel, FM.material('wheel', { own }), n * (wheels.length - nR)),
+      // (the size of its contact shadow; where its headlamps' spots go, as placeVehicleHeadlight reads a spec)
+      shadow: [2 * m.hw * 0.94 + 0.4, m.length + 0.6], lampSpec: { headlight: m.head ? [Math.abs(m.head[0]), m.head[1]] : [m.hw * 0.7, 0.7], zFront: m.zF - 0.25 }
+    };
+    if (nR && g.wheelR) MB.wheelR = inst(g.wheelR, FM.material('wheel', { own }), n * nR);
+    if (g.optics) MB.optics = inst(g.optics, FM.material('optics', { instanced: true, own }), n, true);
+    if (g.decal) MB.decal = inst(g.decal, FM.material('decal', { own }), n);
+    if (g.lod1glass) MB.lod1glass = inst(g.lod1glass, FM.material('glass'), n);
+    // (no shadow from the glass, nor from the far cars: their contact shadow is enough at that distance)
+    MB.glass.castShadow = false; MB.lod2.castShadow = false;
+    // (its shaders compile with the frame it first shows in: the models share a handful of materials, and a
+    // compileAsync() of our own could run into the boot's precompilation, main.js, which keeps one state on the renderer)
+    modelBodies[id] = MB;
+  }
+
 
   // 3D Collision Spark & Debris Particle Pool
   const MAX_SPARKS = 120;
@@ -388,7 +465,8 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
 
   // NYPD roof light bars (the blue & white livery is painted by the sedan material from the instance's carState)
   const nypdBarInst = new THREE.InstancedMesh(buildLightbarGeometry(BODY_SPECS.sedan), createLightbarMaterial(), Math.max(1, nypdCount));
-  const carShadowInst = new THREE.InstancedMesh(unitPlane, contactShadowMat, NUM_CARS + parked.length);
+  // (a town's ready-made buses draw their contact shadow here too)
+  const carShadowInst = new THREE.InstancedMesh(unitPlane, contactShadowMat, NUM_CARS + parked.length + NUM_BUSES);
   carShadowInst.renderOrder = 998;
   // (SF 2040, abandon: a front door left hanging open on some of the near cars; the panel's origin at its hinge, the
   // door running back along -z, painted by the instance's colour, its window dark)
@@ -453,8 +531,42 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
   busWheelRightInst.castShadow = busWheelRightInst.receiveShadow = true;
 
   const buses = [];
-  for (let i = 0; i < NUM_BUSES; i++) buses.push(createVehicle(true, 6.0, 1.3, 3.6, BUS_DRIVER, 8 + (i % 3)));
+  // (a town: the ready-made city bus, every third one a school bus outside the cities; its own size)
+  for (let i = 0; i < NUM_BUSES; i++) {
+    const id = FLEET && FLEET.models ? (FLEET.region !== 'city' && i % 3 === 2 && FMD.schoolbus ? 'schoolbus' : FMD.bus ? 'bus' : null) : null;
+    const M = id ? FMD[id] : null, d = M ? modelDims(M) : null;
+    const b = createVehicle(true, d ? d.half : 6.0, d ? d.hw : 1.3, d ? d.axle : 3.6, BUS_DRIVER, 8 + (i % 3));
+    if (M) { Object.assign(b, { model: id, bodyW: d.hw, bodyL: d.half, roof: d.roof, paint: [1, 1, 1] }); modelCounts[id] = (modelCounts[id] || 0) + 1; }
+    buses.push(b);
+  }
   const vehicles = [...cars, ...buses];
+  // (a town's ready-made city bus: its destination sign the town's own name (pkg-hud.js pkgVehicleSigns), as the lofted
+  // buses' was, painted over the model's own in its lettering's place (that texture holds it upside down), in amber)
+  if (FM && !headless && window.NYC.PKG && window.NYC.pkgVehicleSigns) {
+    const signs = window.NYC.pkgVehicleSigns(window.NYC.PKG), town = signs && signs.town ? String(signs.town).toUpperCase() : 'LOCAL';
+    (window.NYC.fleetDecalPaint || (window.NYC.fleetDecalPaint = {})).bus = (img) => {
+      const w = img.width, h = img.height, c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      const x = c.getContext('2d');
+      x.drawImage(img, 0, 0);
+      const y0 = Math.floor(h * 0.44), y1 = Math.ceil(h * 0.525), yc = (y0 + y1) / 2;
+      x.clearRect(0, y0, w, y1 - y0);
+      x.setTransform(1, 0, 0, -1, 0, 2 * yc);
+      let px = Math.round((y1 - y0) * 0.78);
+      const fit = () => { x.font = `800 ${px}px JetBrains Mono, monospace`; return x.measureText(town).width <= w * 0.94; };
+      while (!fit() && px > 6) px--;
+      x.fillStyle = '#ffb81c'; x.textBaseline = 'middle'; x.textAlign = 'left';
+      x.fillText(fit() ? town : 'LOCAL', w * 0.03, yc);
+      return c;
+    };
+  }
+  // (the town's ready-made cars and buses loaded now, the most driven first; each drawn as soon as it is here)
+  if (FM && !headless) {
+    for (const id of Object.keys(modelCounts).sort((a, b) => modelCounts[b] - modelCounts[a])) {
+      FM.load(id).then((model) => { try { buildModelMeshes(id, model); } catch (e) { console.warn('[fleet]', id, e); } })
+        .catch((e) => console.warn('[fleet] load', id, String((e && e.message) || e)));
+    }
+  }
   group.add(busBodyInst, busHeaderInst, busWheelLeftInst, busWheelRightInst);
 
   // =========================================================================
@@ -2064,6 +2176,9 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
   }
 
   function renderCar(c) {
+    // (a ready-made car, once its model has loaded; its procedural body until then)
+    const MB = c.model ? modelBodies[c.model] : null;
+    if (MB) return renderModelCar(c, MB);
     const rotY = c.yaw + c.yawOffset + (abandoned ? c.askew || 0 : 0);
     const sinY = Math.sin(rotY);
     const cosY = Math.cos(rotY);
@@ -2153,7 +2268,97 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
     }
   }
 
+  // A ready-made car (or bus) of the town's fleet: its LOD by its distance from the camera (LOD0 within 40 m, a parked
+  // one's within 28; LOD1 to 130 m), the body instance's paint and lamps as the procedural bodies', and near the camera its glass, lamps, decals
+  // and wheels, each wheel turned on its axle and the front ones steered
+  const LOD0_DIST = 40, LOD0_PARKED = 28, LOD1_DIST = 130;
+  const _wl = new THREE.Matrix4(), _wa = new THREE.Matrix4(), _wb = new THREE.Matrix4(), _ww = new THREE.Matrix4();
+  function slotState(inst, slot, c, b0, b1, b2, b3) {
+    const attrs = inst.geometry.attributes;
+    const paint = attrs.paintColor.array, o3 = slot * 3, cp = c.paint || [1, 1, 1];
+    if (paint[o3] !== cp[0] || paint[o3 + 1] !== cp[1] || paint[o3 + 2] !== cp[2]) {
+      paint[o3] = cp[0]; paint[o3 + 1] = cp[1]; paint[o3 + 2] = cp[2];
+      dirtyPaint.add(inst);
+    }
+    const state = attrs.carState.array, o4 = slot * 4;
+    if (state[o4] !== b0 || state[o4 + 1] !== b1 || state[o4 + 2] !== b2 || state[o4 + 3] !== b3) {
+      state[o4] = b0; state[o4 + 1] = b1; state[o4 + 2] = b2; state[o4 + 3] = b3;
+      dirtyState.add(inst);
+    }
+  }
+  function renderModelCar(c, MB) {
+    const m = MB.meta;
+    const rotY = c.yaw + c.yawOffset + (abandoned ? c.askew || 0 : 0);
+    const sinY = Math.sin(rotY);
+    const cosY = Math.cos(rotY);
+    const forwardDist = (c.x - c.prevX) * sinY + (c.z - c.prevZ) * cosY;
+    const rawStep = forwardDist / m.wheels.front.r;
+    c.wheelSpin = (c.wheelSpin + Math.sign(rawStep) * Math.min(Math.abs(rawStep), 0.48)) % (Math.PI * 2);
+    c._lampSpec = MB.lampSpec;
+    if (hasView && !visible(c.x, c.z, Math.max(18, m.length))) return;
+    const dCam = Math.hypot(c.x - camX, c.z - camZ);
+    const lod = dCam < (c.parked ? LOD0_PARKED : LOD0_DIST) ? 0 : dCam < LOD1_DIST ? 1 : 2;
+    const bodyInst = lod === 0 ? MB.lod0 : lod === 1 ? MB.lod1 : MB.lod2;
+    const slot = bodyInst.count++;
+    dummy.position.set(c.x, c.y, c.z);
+    dummy.rotation.set(c.pitch - c.gradePitch, rotY, c.roll + c.gradeRoll, 'YXZ');
+    dummy.scale.set(1, 1, 1);
+    dummy.updateMatrix();
+    bodyInst.setMatrixAt(slot, dummy.matrix);
+    const blinkOn = c.blink !== 0 && (clock + c.blinkPhase) % 0.8 <= 0.4;
+    const b0 = !abandoned && !c.parked && (c.acc < -0.8 || c.speed < 0.3) ? 1 : 0;
+    const b1 = blinkOn && (c.blink < 0 || c.blink === 2) ? 1 : 0;
+    const b2 = blinkOn && c.blink > 0 ? 1 : 0;
+    const b3 = c.isNYPD ? 1 : c.parked ? 2 : 0;
+    slotState(bodyInst, slot, c, b0, b1, b2, b3);
+    if (lod === 0) {
+      MB.glass.setMatrixAt(MB.glass.count++, dummy.matrix);
+      if (MB.optics) { const s2 = MB.optics.count++; MB.optics.setMatrixAt(s2, dummy.matrix); slotState(MB.optics, s2, c, b0, b1, b2, b3); }
+      if (MB.decal) MB.decal.setMatrixAt(MB.decal.count++, dummy.matrix);
+      // the wheels: on the axle (x), steered (y) at the front, the right-hand ones the same wheel turned round
+      for (const w of MB.wheels) {
+        const inst = w.rearMesh && MB.wheelR ? MB.wheelR : MB.wheel;
+        _wa.makeRotationY(w.side < 0 ? Math.PI : 0);
+        _wb.makeRotationX(c.wheelSpin);
+        _wl.multiplyMatrices(_wb, _wa);
+        if (w.front && c.steer) { _wa.makeRotationY(c.steer); _wl.premultiply(_wa); }
+        _wl.setPosition(w.x, w.y, w.z);
+        _ww.multiplyMatrices(dummy.matrix, _wl);
+        inst.setMatrixAt(inst.count++, _ww);
+      }
+    } else if (lod === 1 && MB.lod1glass) MB.lod1glass.setMatrixAt(MB.lod1glass.count++, dummy.matrix);
+
+    // Soft Under-Car Contact Shadow (AO) stays flat on the asphalt
+    const visIdx = visibleCars++;
+    dummy.rotation.set(-c.gradePitch, rotY, c.gradeRoll, 'YXZ');
+    dummy.position.set(c.x, c.y + 0.018, c.z);
+    dummy.scale.set(MB.shadow[0], 1.0, MB.shadow[1]);
+    dummy.updateMatrix();
+    carShadowInst.setMatrixAt(visIdx, dummy.matrix);
+
+    const dxCam = c.x - camX;
+    const dzCam = c.z - camZ;
+    const dyCam = camY - c.y;
+    const distSq = dxCam * dxCam + dzCam * dzCam + dyCam * dyCam;
+    if (distSq < MAX_LIGHT_DIST_SQ && !abandoned && !c.parked) {
+      const d = Math.sqrt(distSq);
+      const forwardDot = dxCam * camFwdX + dzCam * camFwdZ;
+      const effDist = d + Math.max(0, 5.0 - forwardDot) * 3.2;
+      if (effDist < MAX_LIGHT_DIST) {
+        c._camDistSq = distSq;
+        c._effDist = effDist;
+        c._sinY = sinY;
+        c._cosY = cosY;
+        c._braking = b0;
+        litVehicles[litVehicleCount++] = c;
+      }
+    }
+  }
+
   function renderBus(b) {
+    // (a town's ready-made bus, once loaded)
+    const MB = b.model ? modelBodies[b.model] : null;
+    if (MB) return renderModelCar(b, MB);
     const rotY = b.yaw + b.yawOffset;
     const sinY = Math.sin(rotY);
     const cosY = Math.cos(rotY);
@@ -2225,7 +2430,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
         const v = litVehicles[i];
         const fade = smoothDistFade(v._effDist, vehCutoff * 0.62, vehCutoff);
         if (fade <= 0.001) continue;
-        const spec = v.bus ? BUS_SPEC : BODY_SPECS[v.bodyType];
+        const spec = v._lampSpec || (v.bus ? BUS_SPEC : BODY_SPECS[v.bodyType]);
         const fullReach = HEADLIGHTS.distance;
         let maxReach = fullReach;
         if (player.active && v.pAhead > 0 && v.pAhead < 30) {
@@ -2370,6 +2575,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
     // 1. Cars & buses
     buildOccupancy();
     for (const m of bodyMeshes) m.count = 0;
+    for (const m of modelAux) m.count = 0;
     litVehicleCount = 0;
     wheelCars = 0;
     visibleCars = 0;
@@ -2405,7 +2611,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
       if (abandoned) { v.x += v.offX || 0; v.z += v.offZ || 0; }
       knock(v, dt);
       pose(v, dt);
-      if (player.active) collideWithPlayer(v, v.yaw + v.yawOffset + (abandoned ? v.askew || 0 : 0), v.bus ? 1.30 : v.bodyW ?? (v.isSUV ? 0.92 : 0.86), v.bus ? 5.72 : v.bodyL ?? (v.isSUV ? 2.22 : 2.18));
+      if (player.active) collideWithPlayer(v, v.yaw + v.yawOffset + (abandoned ? v.askew || 0 : 0), v.bus ? v.bodyW ?? 1.30 : v.bodyW ?? (v.isSUV ? 0.92 : 0.86), v.bus ? v.bodyL ?? 5.72 : v.bodyL ?? (v.isSUV ? 2.22 : 2.18));
       if (v.vx * v.vx + v.vz * v.vz > 0.36) knockOn(v);
 
       if (headless) continue;
@@ -2484,6 +2690,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
       inst.count = n;
       flagRange(inst.instanceMatrix, n);
     };
+    for (const m of modelAux) syncInst(m, m.count);
     syncInst(carWheelLeftInst, wheelCars * 2);
     syncInst(carWheelRightInst, wheelCars * 2);
     syncInst(nypdBarInst, nypdDrawn);

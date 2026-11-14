@@ -50,12 +50,13 @@ export function install(W) {
     for (const v of TS.cars) {
       if (!v.edge || v.taken || v.disabled || v.isNYPD || Math.abs(v.speed || 0) > TAKE_SPEED || Math.abs(v.y - person.position.y) > 2.5) continue;
       const d = boxDist(v.x, v.z, v.yaw + (v.yawOffset || 0), v.bodyW ?? v.halfWidth, v.bodyL ?? v.half);
-      if (d < bd) { bd = d; best = { v, kind: v.bodyType }; }
+      // (a town's ready-made car: its model's id, so he drives that model; its body kind otherwise)
+      if (d < bd) { bd = d; best = { v, kind: v.model || v.bodyType }; }
     }
     for (const v of TS.parked || []) {
       if (!v.placed || v.taken || Math.abs(v.y - person.position.y) > 2.5) continue;
       const d = boxDist(v.x, v.z, v.yaw, v.bodyW, v.bodyL);
-      if (d < bd) { bd = d; best = { v, kind: v.bodyType }; }
+      if (d < bd) { bd = d; best = { v, kind: v.model || v.bodyType }; }
     }
     for (const L of left) {
       const d = boxDist(L.x, L.z, L.h, L.hw, L.hl);
@@ -137,7 +138,8 @@ export function install(W) {
       const w = st.rigs[id]; delete st.rigs[id];
       w.group.parent?.remove(w.group);
       const mats = new Set();
-      w.group.traverse((o) => { if (o.geometry) o.geometry.dispose(); for (const m of [].concat(o.material || [])) mats.add(m); });
+      // (a ready-made body's geometry, materials and textures are the town traffic's own (userData.shared): kept)
+      w.group.traverse((o) => { if (o.userData.shared) return; if (o.geometry) o.geometry.dispose(); for (const m of [].concat(o.material || [])) mats.add(m); });
       for (const m of mats) { for (const v of Object.values(m)) if (v && v.isTexture) v.dispose(); m.dispose(); }
     }
   }

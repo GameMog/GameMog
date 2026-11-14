@@ -39,9 +39,30 @@ installDriveMode(WAGMI);
   // (the horse, Ranger: wagmi/horse/ranger.js, the same interface; a world's sheet car or model car is then not built)
   let horseRs = null;
   if (HORSE) try { horseRs = await HORSE.buildRanger(THREE, { label: PACK?.modelCar?.label }); } catch (err) { console.warn('[horse] Ranger', err); }
+  // (a Hometown town whose story names no car of its own (no sheet, model or stock car), or a town with no story: one
+  // of the town fleet's ready-made sports cars (the owner, 14 Nov: "mainly sports cars"; cities/sf/js/fleet-models.js),
+  // the same for the same town, in the story's paint or a bold one; wagmi/fleet-car.js wears it on a sports sheet. If
+  // it can't load in time, Dan's roadster as before)
+  let heroSheet = null;
+  if (!horseRs && window.NYC?.CITY === 'pkg' && window.NYC.Fleet && !(PACK?.ok && (PACK.sheetCar || PACK.modelCar || PACK.stockCar))) {
+    try {
+      const F = window.NYC.Fleet, have = (k) => !!F.data.models[k];
+      const pool = [['gt95', 3], ['sport99', 3], ['turbo81', 2], ['muscle69', 2], ['gt83', 1], ['roadster00', 1]].filter(([k]) => have(k));
+      let h = 2166136261; for (const c of String(window.NYC.PKG?.id || window.NYC.PKG?.name || 'town') + ':hero') { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); }
+      let r = ((h >>> 0) % 10007) / 10007 * pool.reduce((a, [, w]) => a + w, 0), id = pool[0]?.[0];
+      for (const [k, w] of pool) { r -= w; if (r <= 0) { id = k; break; } }
+      const PAINTS = ['#B3121A', '#F2C230', '#2F63B8', '#111214', '#F6F6F3', '#F08A1C', '#1C8A8C', '#D8DADE'];
+      if (id) {
+        await Promise.race([F.load(id), new Promise((res, rej) => setTimeout(() => rej(new Error('slow')), 12000))]);
+        const { MODEL_SHEETS } = await import('./jack-sheets.js');
+        const { say, ...base } = MODEL_SHEETS[id];
+        heroSheet = { v: 1, id: 'fleet-hero-' + id, family: 'car4', ...base, label: ['Your', 'car'].join(' '), fleet: id, paint: { base: story.paint && !/^#e7e7e3$/i.test(story.paint) ? story.paint : PAINTS[(h >>> 7) % PAINTS.length], finish: 'metallic' } };
+      }
+    } catch (err) { console.warn('[fleet] hero car', err); heroSheet = null; }
+  }
   // (a world's own car, from its vehicle sheet: wagmi/storyrun/ride.js; else, and always without ?pack=, Dan's roadster)
-  const RIDE = !horseRs && PACK?.ok && PACK.sheetCar ? await import('./storyrun/ride.js').catch(() => null) : null;
-  let sheetRs = null; if (RIDE) try { sheetRs = RIDE.buildSheetCar(THREE, PACK.sheetCar); } catch (err) { console.warn('[storyrun] car', err); }
+  const RIDE = !horseRs && ((PACK?.ok && PACK.sheetCar) || heroSheet) ? await import('./storyrun/ride.js').catch(() => null) : null;
+  let sheetRs = null; if (RIDE) try { sheetRs = RIDE.buildSheetCar(THREE, heroSheet || PACK.sheetCar); } catch (err) { console.warn('[storyrun] car', err); }
   // (or one of Mog City's own models a world names, wagmi/storyrun/gt.js: the Vantor GT, on the roadster's handling)
   const MODEL = !horseRs && PACK?.ok && !sheetRs && PACK.modelCar && PACK.modelCar.model !== 'mogcity/horse' ? await import('./storyrun/gt.js').catch(() => null) : null;
   // (it wears its downloaded body, wagmi/storyrun/vantor.js, the same interface; gt.js's own with car.body 'built' or if

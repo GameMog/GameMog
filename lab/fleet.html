@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mog City: town fleet studio</title>
+  <style>html, body { margin: 0; height: 100%; background: #15171c; overflow: hidden; font: 13px system-ui, sans-serif; color: #ccd; } canvas { display: block; } #lab { position: fixed; left: 8px; top: 6px; opacity: 0.8; }</style>
+  <script>window.__errs = []; addEventListener('error', (e) => window.__errs.push(String(e.message || e))); addEventListener('unhandledrejection', (e) => window.__errs.push(String(e.reason && e.reason.stack || e.reason)));</script>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/gh/mrdoob/three.js@bc7d0b3c3838d5da9495b5e603afd77ed3154d57/build/three.webgpu.js",
+        "three/webgpu": "https://cdn.jsdelivr.net/gh/mrdoob/three.js@bc7d0b3c3838d5da9495b5e603afd77ed3154d57/build/three.webgpu.js",
+        "three/tsl": "https://cdn.jsdelivr.net/gh/mrdoob/three.js@bc7d0b3c3838d5da9495b5e603afd77ed3154d57/build/three.tsl.js",
+        "three/addons/": "https://cdn.jsdelivr.net/gh/mrdoob/three.js@bc7d0b3c3838d5da9495b5e603afd77ed3154d57/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+<div id="lab"></div>
+<script type="module">
+// The town fleet's ready-made cars (cities/sf/js/fleet-models.js) in a studio. ?car=<id> one car (?car=all: the whole
+// fleet in rows), ?view= front34 | rear34 | side | front | rear | top | low | wheel, ?paint=#hex, ?night=1 (its lamps lit),
+// ?brake=1, ?left=1 / ?right=1 (an indicator), ?beacon=1 (a cruiser's bar), ?lod=0|1|2, ?steer=-1..1, ?bg=#hex
+import * as THREE from 'three/webgpu';
+import * as TSL from 'three/tsl';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const q = new URLSearchParams(location.search), view = q.get('view') || 'front34', carId = q.get('car') || 'gt95';
+window.NYC = { THREE, TSL, quality: { tier: q.get('lo') ? 'low' : 'high' }, __fleetGlow: TSL.uniform(q.get('night') ? 1.5 : 0.3) };
+const addScript = (src) => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
+await addScript('../cities/sf/js/fleet-data.js?v=' + Date.now());
+await addScript('../cities/sf/js/fleet-models.js?v=' + Date.now());
+const F = window.NYC.Fleet;
+
+const renderer = new THREE.WebGPURenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(2, devicePixelRatio)); renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = q.get('dbg') ? THREE.NoToneMapping : THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = q.get('night') ? 0.7 : 1.0;
+if (q.get('dbg')) renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
+renderer.shadowMap.enabled = true;
+document.body.appendChild(renderer.domElement);
+await renderer.init();
+const scene = new THREE.Scene(); scene.background = new THREE.Color(q.get('bg') || (q.get('night') ? '#07080b' : '#c9d2dc'));
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environmentIntensity = q.get('night') ? 0.15 : 0.9;
+const sun = new THREE.DirectionalLight(0xffffff, q.get('night') ? 0.15 : 2.6); sun.position.set(6, 10, 4); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -16, right: 16, top: 16, bottom: -16, near: 0.5, far: 40 });
+scene.add(sun, new THREE.HemisphereLight(0xdde6f0, 0x50483c, q.get('night') ? 0.05 : 0.6));
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.MeshStandardMaterial({ color: q.get('night') ? '#16171a' : '#8e8f92', roughness: 0.9 }));
+floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+
+const ids = carId === 'all' ? Object.keys(F.data.models) : carId.split(',');
+const cars = [];
+const cols = Math.ceil(Math.sqrt(ids.length)), lod = +(q.get('lod') || 0);
+for (const [i, id] of ids.entries()) {
+  const model = await F.load(id);
+  const c = F.buildCar(model, { paint: q.get('paint') || undefined, hero: !!q.get('hero') });
+  if (lod) { c.group.children.forEach((o) => (o.visible = false)); const m = new THREE.Mesh(model.geo[lod === 1 ? 'lod1' : 'lod2'], c.body.material); m.castShadow = true; c.group.add(m); }
+  c.setState(q.get('brake') ? 1 : 0, q.get('left') ? 1 : 0, q.get('right') ? 1 : 0, q.get('beacon') ? 1 : 0);
+  // (?dbg=uv: the body's atlas uv as its colour, unlit, to find where a part's texture comes from)
+  if (q.get('dbg') === 'uv') { const dm = new THREE.MeshBasicNodeMaterial(); dm.colorNode = TSL.vec3(TSL.uv().x, TSL.uv().y, 0); c.body.material = dm; }
+  if (ids.length > 1) c.group.position.set((i % cols - (cols - 1) / 2) * 3.4, 0, -Math.floor(i / cols) * 7);
+  const st = +(q.get('steer') || 0); for (const w of c.wheels) if (w.front) w.W.rotation.y = st * 0.5;
+  scene.add(c.group); cars.push(c);
+}
+document.getElementById('lab').textContent = ids.length === 1 ? `${ids[0]}: ${F.data.models[ids[0]].label} · ${F.data.models[ids[0]].length} m` : `${ids.length} cars`;
+const m0 = F.data.models[ids[0]], L = ids.length > 1 ? Math.max(cols * 3.4, Math.ceil(ids.length / cols) * 7) : m0.length;
+const Z = q.get('zoom') ? +q.get('zoom') : 1;
+const V = {
+  front34: { cam: [L * 0.85, L * 0.28, L * 1.1], at: [0, 0.6, ids.length > 1 ? -L * 0.35 : 0], fov: 32 },
+  rear34: { cam: [-L * 0.85, L * 0.3, -L * 1.1], at: [0, 0.6, 0], fov: 32 },
+  side: { cam: [L * 2.4, 0.8, 0], at: [0, 0.75, 0], fov: 24 },
+  front: { cam: [0, 1.0, L * 2.2], at: [0, 0.7, 0], fov: 22 },
+  rear: { cam: [0, 1.1, -L * 2.2], at: [0, 0.7, 0], fov: 22 },
+  top: { cam: [0.01, L * 2.6, 0], at: [0, 0, 0], fov: 28 },
+  low: { cam: [L * 0.55, 0.45, L * 0.75], at: [0, 0.55, 0.3], fov: 40 },
+  wheel: { cam: [m0.width * 1.6, 0.45, m0.wheels.front.z + 0.6], at: [m0.wheels.front.x, m0.wheels.front.y, m0.wheels.front.z], fov: 30 },
+}[view] || { cam: [6, 2, 7], at: [0, 0.6, 0], fov: 32 };
+const cam = new THREE.PerspectiveCamera(V.fov / Z, innerWidth / innerHeight, 0.05, 400);
+cam.position.set(...V.cam); cam.lookAt(new THREE.Vector3(...V.at));
+renderer.setAnimationLoop(() => { renderer.render(scene, cam); });
+window.__ready = true;
+</script>
+</body>
+</html>
