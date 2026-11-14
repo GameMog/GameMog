@@ -41,14 +41,16 @@ const personGround = (controllers, x, z) => controllers.getGroundHeight(x, z, 'p
 // road leaves the ground (grade-separation.js) the active entity's height (`level`, set every update) says whether it
 // is in the tunnel or on the hill above, on the bridge or under it
 const level = { y: null };
-const deckY = (x, z) => {
+// (y: something else's own height, for the grade-separated decks of a Hometown package: a car under a deck the player
+// is on stays on the ground; default the active entity's)
+const deckY = (x, z, y = level.y) => {
   const G = window.NYC.GradeSeparation;
-  return G && level.y !== null ? G.floorAt(x, z, level.y) : null;
+  return G && y !== null && y !== undefined ? G.floorAt(x, z, y) : null;
 };
-const terrainY = (x, z) => {
+const terrainY = (x, z, y) => {
   const T = window.NYC.Terrain;
   if (!(T && T.loaded)) return 0;
-  const d = deckY(x, z);
+  const d = deckY(x, z, y);
   return d !== null ? d : T.groundAt(x, z);
 };
 const inBay = (x, z) => {
@@ -67,6 +69,8 @@ const STEP_DOWN = 0.4;
 // Colliders are ignored more than this far below the building's lowest ground (minY): tunnels run under buildings, but a
 // road a little below a building's terrace must still bump into it (PLAN.md P2-8)
 const BELOW_COLLIDER = 3;
+// (a collider's own `below` stands in for it: a package deck's parapet counts only for what is on its deck, never for a
+// car passing under the deck, grade-separation.js)
 // (Mog City) on foot the way to go is the camera's (readFootMove, walkToward): how briskly he turns to it, and how
 // lazily the view comes round behind him as he walks away from it
 const FOOT_TURN = 11; // rad/s
@@ -801,10 +805,21 @@ class ThirdPersonControllerManager {
   // The terrain (the roadway), plus the curb on a curb island: for the pedestrian, and (Mog City, as New York's) for a
   // car's wheels too, so a car driven up the curb rides on the sidewalk (updateCar) and the game's curb checks see it
   // (wagmi/game.js). Not the bike's (the fork's own, unused by the game)
-  getGroundHeight(x, z, mode = 'person') {
-    const ground = terrainY(x, z);
-    if ((mode === 'person' || mode === 'car') && this.isPointOnSidewalk(x, z)) return ground + ISLAND_BOUNDS.sidewalkHeight;
+  // (y, optional: the height of the thing asking, on or under a package's deck; on a deck there is no curb)
+  getGroundHeight(x, z, mode = 'person', y) {
+    const ground = terrainY(x, z, y);
+    if ((mode === 'person' || mode === 'car') && this.isPointOnSidewalk(x, z)) {
+      const G = window.NYC.GradeSeparation;
+      if (G && G.onDeckAt && G.onDeckAt(x, z, y === undefined ? level.y : y)) return ground;
+      return ground + ISLAND_BOUNDS.sidewalkHeight;
+    }
     return ground;
+  }
+
+  // (Mog City) The terrain alone under (x, z): no deck, no curb (things known to be on the ground)
+  groundAt(x, z) {
+    const T = window.NYC.Terrain;
+    return T && T.loaded ? T.groundAt(x, z) : 0;
   }
 
   // (Mog City) The bare ground under (x, z), no curb: the terrain, or a bridge deck or tunnel floor at the active
@@ -1009,7 +1024,7 @@ class ThirdPersonControllerManager {
     const shape=mode==='car'?G.carShape(pos,heading,padding,this.entities.car&&this.entities.car.body):G.circleShape(pos,({person:.48,cyclist:.65,helicopter:4.5}[mode]||.48)+padding);
     const y=pos.y+(mode==='helicopter'?0:1);
     for(const c of this.nearColliders(pos.x,pos.z,shape.reach)){
-      if(y>c.maxY+1.5||y<(c.minY??-Infinity)-BELOW_COLLIDER)continue;
+      if(y>c.maxY+1.5||y<(c.minY??-Infinity)-(c.below??BELOW_COLLIDER))continue;
       if(G.contact(shape,c))return false;
     }
     return true;
@@ -1071,7 +1086,7 @@ class ThirdPersonControllerManager {
       let shape=shapeAt(),moved=false;
       const near=this.nearColliders(pos.x,pos.z,shape.reach+1);
       for(const c of near){
-        if(yHeight>c.maxY+1.5||yHeight<(c.minY??-Infinity)-BELOW_COLLIDER)continue;
+        if(yHeight>c.maxY+1.5||yHeight<(c.minY??-Infinity)-(c.below??BELOW_COLLIDER))continue;
         const hit=G.contact(shape,c);if(!hit)continue;
         const {nx,nz,depth,point}=hit;
         pos.x+=nx*(depth+G.SKIN);pos.z+=nz*(depth+G.SKIN);moved=true;

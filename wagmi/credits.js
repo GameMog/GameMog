@@ -6,10 +6,20 @@
 // The music comes from the radio's own list (radio/stations.js: each track's by, lic, src, samples), so a track added
 // there is credited here with nothing else to do.
 import { STATIONS, LICENCES } from './radio/stations.js';
+import { world } from './world/index.js';
 
-// (the city this page plays, by index.html's rule (wagmi/city.js): its own map's credits under 'The city')
-const SF = typeof location !== 'undefined' && new URLSearchParams(location.search).get('city') === 'sf';
-const cityLines = () => SF ? [
+// (the city this page plays (wagmi/world: world.id): its own map's credits under 'The city')
+const SF = world.id === 'sf';
+// (a Hometown package: the place compiled from open data, tools/hometown, on San Francisco's engine; its own name, from
+// the package (world.name is the engine's 'Hometown'))
+const place = () => { const n = globalThis.window?.NYC?.PKG?.name; return n ? String(n).split(',')[0] : world.name; };
+const PKGLINES = () => [
+  { what: 'Slop San Francisco', who: 'Kamil (@unable0_) and Mr.doob', note: 'the city engine this place is played on', licence: 'MIT', licenceUrl: 'https://opensource.org/license/mit', src: 'https://github.com/unable12/slop-sanfrancisco' },
+  { what: 'Map data', who: '© OpenStreetMap contributors', note: `${place()}'s streets, their names and classes, water and parks (via Overture Maps)`, licence: 'ODbL 1.0', licenceUrl: 'https://opendatacommons.org/licenses/odbl/1-0/', src: 'https://www.openstreetmap.org/copyright' },
+  { what: 'Overture Maps Foundation', who: 'Overture Maps', note: 'the building footprints and heights, the places', licence: 'CDLA Permissive 2.0 / ODbL 1.0', licenceUrl: 'https://cdla.dev/permissive-2-0/', src: 'https://overturemaps.org' },
+  { what: 'Elevation', who: 'USGS 3D Elevation Program', note: 'the ground: 1/3 arc-second terrain in town, 1 arc-second out to the horizon', licence: 'public domain', licenceUrl: null, src: 'https://www.usgs.gov/3d-elevation-program' },
+];
+const cityLines = () => world.id === 'pkg' ? PKGLINES() : SF ? [
   { what: 'Slop San Francisco', who: 'Kamil (@unable0_) and Mr.doob', note: 'the city: San Francisco\'s streets, hills, buildings, landmarks and traffic', licence: 'MIT', licenceUrl: 'https://opensource.org/license/mit', src: 'https://github.com/unable12/slop-sanfrancisco' },
   { what: 'Slop New York', who: 'Mr.doob', note: 'the city engine both of Mog City\'s cities are built on', licence: 'MIT', licenceUrl: 'https://opensource.org/license/mit', src: null },
   { what: 'Map data', who: '© OpenStreetMap contributors', note: 'San Francisco\'s piers, water, landmarks\' footprints, bridges, lanes, coast and ferry routes', licence: 'ODbL 1.0', licenceUrl: 'https://opendatacommons.org/licenses/odbl/1-0/', src: 'https://www.openstreetmap.org/copyright' },
@@ -22,7 +32,8 @@ const cityLines = () => SF ? [
 ];
 
 const music = () => {
-  const lines = [], seen = new Set();
+  // (the car radio's one station: the owner's own songs, media/mog-music; all rights reserved, not MIT)
+  const lines = [{ what: 'Mog Music', who: 'the owner\'s own songs', note: 'the car radio: all rights reserved by their owner, not covered by the MIT License', licence: 'All rights reserved', licenceUrl: null, src: null }], seen = new Set();
   for (const s of STATIONS) for (const t of s.tracks) {
     if (seen.has(t.file)) continue; seen.add(t.file);
     if (t.lic === 'original') { lines.push({ what: `"${t.title}"`, who: 'original to Mog City', note: s.name, licence: 'MIT', licenceUrl: null, src: null }); continue; }
@@ -70,6 +81,8 @@ export const CREDITS = [
     { what: 'Dan, Jane, Mr. Big, Knox, Mack, Gears, Fiona, Brick, Dash, Bea and the camp', who: 'synthesised voices', note: 'invented voices; the tools and their licences are in NOTICE', licence: 'Apache-2.0', licenceUrl: 'https://www.apache.org/licenses/LICENSE-2.0', src: null },
   ] },
 ];
+// (a Hometown town: its map's data first, where a player opening the credits sees it: OpenStreetMap's ODbL credit)
+if (world.id === 'pkg') CREDITS.unshift(...CREDITS.splice(CREDITS.findIndex((c) => c.heading === 'The city'), 1).map((c) => ({ ...c, heading: `The map: ${place()}` })));
 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const link = (url, text) => (url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="color:inherit">${esc(text)}</a>` : esc(text));

@@ -2047,6 +2047,12 @@ function createTrafficSystem(scene, sidewalks, obstacles) {
   // Put v in a free spot of a random lane rMin..rMax metres from the focus, out of view if `hidden` (Mog City: or
   // behind a building; in plain view past FAR_VIEW_SPAWN m only after 8 tries); `ahead`, the first 8 tries 60 m or
   // more ahead of the camera. (From 7fdaf15: on a long road, a spot within rMax of the focus along it)
+  // (Mog City, Hometown) a growing town (wagmi/world/growing.js): nothing is placed outside its window less 150 m
+  // (window.NYC.townWindow { minX, maxX, minZ, maxZ }, set only while the rest of town is still being built)
+  function outsideTown(x, z) {
+    const w = globalThis.window && globalThis.window.NYC && globalThis.window.NYC.townWindow;
+    return !!w && (x < w.minX || x > w.maxX || z < w.minZ || z > w.maxZ);
+  }
   function spawnVehicle(v, rMin, rMax, hidden, ahead = false) {
     for (let attempt = 0; attempt < 12; attempt++) {
       const e = nearEdges[Math.floor(Math.random() * nearEdges.length)];
@@ -2060,7 +2066,7 @@ function createTrafficSystem(scene, sidewalks, obstacles) {
       const x = e.sx + e.dx * s + e.rx * e.lanes[lane];
       const z = e.sz + e.dz * s + e.rz * e.lanes[lane];
       const d = Math.hypot(x - focusX, z - focusZ);
-      if (d < rMin || d > rMax) continue;
+      if (d < rMin || d > rMax || outsideTown(x, z)) continue;
       if (ahead && attempt < 8 && (x - camX) * camFwdX + (z - camZ) * camFwdZ < 60) continue;
       if (hidden && visible(x, z, v.half + 4) && !occluded(x, z) && (attempt < 8 || nearView(x, z, v.half + 4, FAR_VIEW_SPAWN))) continue;
       if (player.active && Math.hypot(x - player.x, z - player.z) < 25) continue;
@@ -2309,7 +2315,7 @@ function createTrafficSystem(scene, sidewalks, obstacles) {
       const x = track.ax + track.ux * t;
       const z = track.az + track.uz * t;
       const d = Math.hypot(x - focusX, z - focusZ);
-      if (d < rMin || d > rMax || (hidden && visible(x, z, 2))) continue;
+      if (d < rMin || d > rMax || (hidden && visible(x, z, 2)) || outsideTown(x, z)) continue;
       if (holds.length && held(x, z, 1)) continue; // (Mog City: a hold zone)
       if (crosswalk && track.node.curb.some((q) => Math.hypot(q.x - x, q.z - z) < QUEUE_GAP)) continue;
       Object.assign(p, track);

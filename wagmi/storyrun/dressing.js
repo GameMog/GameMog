@@ -20,6 +20,7 @@
 import * as THREE from 'three/webgpu';
 import { buildChaseCar } from '../pursuit/cars.js';
 import { BLACKOUTS, asksDressing as asks } from './pack.js';
+import { world as cityWorld } from '../world/index.js';
 
 // a small seeded random, so a city dresses the same way every time
 function rng(seed) { let s = seed >>> 0; return () => { s = (s + 0x6D2B79F5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
@@ -29,9 +30,9 @@ const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a)
 export function createDressing(W, dressing = {}) {
   if (!asks(dressing)) return null;
   // (every look here is New York's: Manhattan's streets and avenues, its blocks' and parks' groups, its sets'
-  // corners. Another city (?city=sf: window.NYC.CITY) wears none of them: the world plays in the city as it is)
-  if ((window.NYC?.CITY || 'ny') !== 'ny') { console.info('[storyrun] dressing: New York only; this city is left as it is'); return null; }
-  const N = window.NYC, T = N.TSL, app = W.app, scene = app.scene;
+  // corners. Another city (wagmi/world: world.id) wears none of them: the world plays in the city as it is)
+  if (cityWorld.id !== 'ny') { console.info('[storyrun] dressing: New York only; this city is left as it is'); return null; }
+  const N = cityWorld.assets, L = cityWorld.look, T = N.TSL, app = W.app, scene = app.scene;
   const { Fn, float, vec2, vec3, vec4, uniform, mix, smoothstep, step, max, min, abs, fract, sin, cos, dot, length, floor, mod,
     positionWorld, normalWorld, cameraPosition, materialColor, attribute, instanceIndex, time, varying, mrt, color } = T;
   const want = {
@@ -40,11 +41,13 @@ export function createDressing(W, dressing = {}) {
     weather: ['snow', 'rain', 'storm'].includes(dressing.weather) ? dressing.weather : null,
   };
   const out = { want, ready: false, dark: () => 0, parts: {} };
-  const U = N.cityUniforms;
+  const U = L.cityUniforms;
   const groups = (names) => names.map((n) => scene.getObjectByName(n)).filter(Boolean);
   const ground = (x, z) => { try { const y = app.controllerManager.getGroundHeight(x, z, 'person'); return Number.isFinite(y) ? y : 0; } catch { return 0; } };
-  const Z = (n) => N.streetZ(n);
-  const ave = (id) => N.ALL_AVENUES.find((a) => a.id === String(id));
+  // (Manhattan's grid, the world contract's: a numbered street's z, an avenue by id; its scene's groups by what they hold)
+  const G = cityWorld.grid, SG = cityWorld.sceneGroups;
+  const Z = (n) => G.streetLine(n);
+  const ave = (id) => G.avenue(id);
   const STATIC = new THREE.Group(); STATIC.name = 'storyrun-dressing'; scene.add(STATIC);
   // (a transparent effect writes no normal and no roughness: the reflections pass keeps seeing what is behind it)
   const noMRT = () => (mrt ? mrt({ normal: vec4(0, 0, 0, 0), metalRough: vec4(0, 0, 0, 0) }) : null);
@@ -89,7 +92,7 @@ export function createDressing(W, dressing = {}) {
     if (!m.isMeshBasicNodeMaterial) return;
     // (an unlit material is a light: a lamp, a lens, a screen, a sign; the ones with no colour node are textured screens)
     const c = vec4(m.colorNode || materialColor);
-    if (group === 'ManhattanStreetDetails' && isSignalLens(o)) {
+    if (group === SG.streetDetails && isSignalLens(o)) {
       // dead signals: dark lenses, and at about half the corners the amber one flashing
       const p = positionWorld, cell = floor(p.xz.div(36));
       const h = fract(sin(dot(cell, vec2(127.1, 311.7))).mul(43758.5453));
@@ -110,8 +113,8 @@ export function createDressing(W, dressing = {}) {
     if (m.roughnessNode) m.roughnessNode = mix(m.roughnessNode, float(0.82), snowCover);
     m.needsUpdate = true;
   }
-  const DARK_GROUPS = ['ManhattanCityGrid', 'ManhattanLandmarks', 'ManhattanCityBlocks', 'ManhattanStreetDetails'];
-  const SNOW_GROUPS = ['ManhattanCityGrid', 'Boroughs', 'ManhattanLandmarks', 'ManhattanCityBlocks', 'ManhattanStreetDetails', 'ManhattanTrafficAndPedestrians', 'HighwayTraffic'];
+  const DARK_GROUPS = [SG.grid, SG.landmarks, SG.blocks, SG.streetDetails];
+  const SNOW_GROUPS = [SG.grid, SG.boroughs, SG.landmarks, SG.blocks, SG.streetDetails, SG.traffic, SG.highway];
   function scan() {
     if (want.blackout) for (const g of groups(DARK_GROUPS)) g.traverse((o) => { const m = o.material; if (m && !Array.isArray(m)) patchDark(m, o, g.name); });
     if (want.weather === 'snow') {
@@ -442,7 +445,7 @@ export function createDressing(W, dressing = {}) {
     // the block party on West 46th Street between Eighth and Ninth (Restaurant Row's walk-ups): string lights over the
     // street, a light tower, tables, a grill, a generator, its own warm light
     const zP = Z(46), xs = [-1125, -870];
-    const sP = N.STREETS.find((s) => s.number === 46), half = ((sP && sP.width) || 11) / 2;
+    const sP = G.street(46), half = ((sP && sP.width) || 11) / 2;
     const yL = 6.4, wall = half + 4.4;
     for (let x = xs[0]; x < xs[1]; x += 9) string([x, yL, zP - wall], [x + 9, yL, zP + wall], 0.55, 0.42, (i) => [PALETTE.warm, PALETTE.amber, PALETTE.red][i % 3]);
     for (let x = xs[0]; x < xs[1]; x += 9) string([x + 9, yL, zP - wall], [x + 18, yL, zP + wall], 0.55, 0.42, (i) => [PALETTE.warm, PALETTE.green, PALETTE.warm][i % 3]);
@@ -465,7 +468,7 @@ export function createDressing(W, dressing = {}) {
   }
 
   function christmasSet() {
-    const lawn = N.bryantParkLawn || { minX: -277, maxX: -134, minZ: 27, maxZ: 140 };
+    const lawn = cityWorld.street.parkLawn || { minX: -277, maxX: -134, minZ: 27, maxZ: 140 };
     tree(lawn.minX + 78, (lawn.minZ + lawn.maxZ) / 2 - 14, 14);
     const x7 = ave('7') ? ave('7').x : -585;
     tree(x7 - 30, Z(45) - 30, 8);

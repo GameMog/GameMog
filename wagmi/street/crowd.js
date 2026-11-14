@@ -8,6 +8,7 @@
 //   The lane at o runs between the corners of the outline set in by o (aStart .. aEnd).
 import * as THREE from 'three/webgpu';
 import { Thrown } from './thrown.js';
+import { world } from '../world/index.js';
 
 const MAX = 560; // the crowd's own people (and up to EXTRA taken over from the city's when knocked down)
 const EXTRA = 48;
@@ -18,17 +19,19 @@ const POP = 78; // off, GTA's way: the sidewalks ahead of a car filled before it
 const LEAD = 3; // (where he's headed: this many seconds on at his speed, up to 50 m)
 const LANE = [2.2, 4.1]; // m in from the curb: clear of the tree pits and the lamp posts, short of the shop fronts
 const PARK_LANE = [1.0, 2.2]; // (round a park: its perimeter walk, short of the fence or the terrace)
-const COMMERCIAL = new Set(['midtown', 'times_square', 'billionaires_row', 'garment', 'fidi', 'civic_center', 'hudson_yards', 'flatiron', 'nomad',
-  'koreatown', 'murray_hill', 'chelsea', 'union_square', 'soho', 'theater_district']);
 const rand = (a, b) => a + Math.random() * (b - a);
 
 export function createCrowd(W) {
-  const NYC = window.NYC, app = W.app, cm = app.controllerManager;
-  const { PersonCrowd, PersonRig, blockAt, blocksInRect, walkSignal } = NYC;
+  const app = W.app, cm = app.controllerManager;
+  const { PersonCrowd, PersonRig } = world.assets;
+  // (the city's blocks, its busy districts and its WALK signals: the world contract's)
+  const { blockAt, blocksInRect } = world, busy = (b) => world.commercial(b.district);
   const drawn = new PersonCrowd(MAX + EXTRA, { farShadow: false, name: 'StreetPeople' });
   for (const m of drawn.meshes) app.scene.add(m);
-  const ground = (owner, x, z) => cm.getGroundHeight(x, z, 'person');
-  const groundXZ = (x, z) => cm.getGroundHeight(x, z, 'person');
+  // (a Hometown package's decks: the people on the sidewalks are on the ground, whatever level the player is on)
+  const PKG = !!globalThis.window?.NYC?.PKG && typeof cm.groundAt === 'function';
+  const groundXZ = PKG ? (x, z) => cm.getGroundHeight(x, z, 'person', cm.groundAt(x, z)) : (x, z) => cm.getGroundHeight(x, z, 'person');
+  const ground = (owner, x, z) => groundXZ(x, z);
   const collide = (pos, r) => cm.resolveHorizontalCollision(pos, r, pos.y + 1.0);
   // (under a body thrown about: the street, the sidewalk, a park's raised lawn; never Dan's car, see carAt)
   const bodyGround = groundXZ;
@@ -88,7 +91,7 @@ export function createCrowd(W) {
   const walkable = (S, o) => aEnd(S, o) - aStart(S, o) > 2;
   // street furniture (js/street-details.js footprints: poles, subway stairs, barricades) in 8 m cells
   const FP = new Map(), FCELL = 8, fkey = (ix, iz) => (ix + 8192) * 16384 + (iz + 8192);
-  for (const f of NYC.streetFootprints || []) {
+  for (const f of world.street.streetFootprints || []) {
     for (let ix = Math.floor(f.minX / FCELL); ix <= Math.floor(f.maxX / FCELL); ix++) {
       for (let iz = Math.floor(f.minZ / FCELL); iz <= Math.floor(f.maxZ / FCELL); iz++) {
         const k = fkey(ix, iz); let l = FP.get(k); if (!l) FP.set(k, (l = [])); l.push(f);
@@ -160,12 +163,12 @@ export function createCrowd(W) {
     // (weighted by curb length, busier in the commercial districts and nearer him)
     near = blocksInRect(lead.x - R_IN, lead.x + R_IN, lead.z - R_IN, lead.z + R_IN).filter(usable).map((b) => {
       const len = sidesOf(b).reduce((s, S) => s + S.len, 0), d = Math.hypot(b.cx - lead.x, b.cz - lead.z);
-      return { b, len, w: len * (COMMERCIAL.has(b.district) ? 1 : 0.6) * (b.park > 0.6 ? 0.5 : 1) / (1 + d / 55) };
+      return { b, len, w: len * (busy(b) ? 1 : 0.6) * (b.park > 0.6 ? 0.5 : 1) / (1 + d / 55) };
     });
     nearW = near.reduce((s, n) => s + n.w, 0);
     // (how many of them are out: all of them in the commercial districts, under half on the quieter streets)
-    const cw = near.reduce((s, n) => s + (COMMERCIAL.has(n.b.district) ? n.w : 0), 0);
-    active = Math.min(limit, Math.round(MAX * (0.45 + 0.55 * (nearW ? cw / nearW : 1))));
+    const cw = near.reduce((s, n) => s + (busy(n.b) ? n.w : 0), 0);
+    active = Math.min(limit, Math.round(MAX * (world.crowd ?? 1) * (0.45 + 0.55 * (nearW ? cw / nearW : 1))));
   }
 
   // the view (with a margin for the people's own height and shadows)
@@ -209,6 +212,8 @@ export function createCrowd(W) {
       if (Math.random() < 0.22) p.a = p.dir > 0 ? a1 - rand(0, 6) : a0 + rand(0, 6); // (near a corner)
       p.a = Math.min(a1, Math.max(a0, p.a));
       laneXZ(p);
+      const tw = globalThis.window?.NYC?.townWindow; // (a growing town: no one outside its window less 150 m, growing.js)
+      if (tw && (p.x < tw.minX || p.x > tw.maxX || p.z < tw.minZ || p.z > tw.maxZ)) continue;
       if (Math.hypot(p.x - focus.x, p.z - focus.z) < rMin || Math.hypot(p.x - lead.x, p.z - lead.z) > rMax || held(p.x, p.z, 2) || furnitureAt(p.x, p.z, 0.45) || inWall(p.x, p.z) || (hidden && !unseen(p.x, p.z))) continue;
       p.placed = true; p.fresh = false; p.rig.placed = false; p.state = 'walk'; p.v = p.walk; p.t = 0; p.flee = 0; p.cross = null; p.shove = null;
       if (Math.random() < 0.1) {
@@ -420,7 +425,7 @@ export function createCrowd(W) {
       if (d > 0.05) { const sp = Math.min(p.walk, d * 2.5); p.x += (dx / d) * sp * dt; p.z += (dz / d) * sp * dt; }
       p.yaw = d > 0.4 ? Math.atan2(dx, dz) : Math.atan2(c.dx, c.dz);
       p.t += dt;
-      if (d < 0.5 && walkSignal(clock, Math.abs(c.dz) > Math.abs(c.dx)) && p.t > 0.4 + c.back * 0.6) { p.state = 'cross'; p.t = 0; }
+      if (d < 0.5 && world.walkSignal(c, clock) && p.t > 0.4 + c.back * 0.6) { p.state = 'cross'; p.t = 0; }
       else if (p.t > 75) { leaveCorner(p); p.state = 'walk'; p.dir = -p.dir; p.cross = null; laneXZ(p); }
       return;
     }

@@ -9,6 +9,7 @@
 import * as THREE from 'three/webgpu';
 import { clamp, damp, angWrap, hdist, rnd } from '../combat/util.js';
 import { cue, stepsAt, warm } from './voice.js';
+import { world } from '../world/index.js';
 
 const _v = new THREE.Vector3(), _q = new THREE.Quaternion(), _pq = new THREE.Quaternion(), _ax = new THREE.Vector3(), _r = new THREE.Vector3();
 const turnTo = (cur, goal, rate, dt) => { const d = angWrap(goal - cur); return angWrap(cur + clamp(d * (1 - Math.exp(-6 * dt)), -rate * dt, rate * dt)); };
@@ -111,7 +112,7 @@ export function createHerd(c, kit, P, { at, count = 4, radius = 10, height } = {
           let dx = ax / L + (center.x - h.pos.x) * 0.02 + Math.sin(i * 1.7) * 0.25, dz = az / L + (center.z - h.pos.z) * 0.02 + Math.cos(i * 1.7) * 0.25;
           // (the park's water ahead: round it)
           const look = 6 * k;
-          if (cm.inParkWater?.(h.pos.x + Math.sin(h.yaw) * look, h.pos.z + Math.cos(h.yaw) * look)) { const s = (i % 2 ? 1 : -1); const nx = dx * Math.cos(s * 1.4) - dz * Math.sin(s * 1.4), nz = dx * Math.sin(s * 1.4) + dz * Math.cos(s * 1.4); dx = nx; dz = nz; }
+          if (world.inWater(h.pos.x + Math.sin(h.yaw) * look, h.pos.z + Math.cos(h.yaw) * look)) { const s = (i % 2 ? 1 : -1); const nx = dx * Math.cos(s * 1.4) - dz * Math.sin(s * 1.4), nz = dx * Math.sin(s * 1.4) + dz * Math.cos(s * 1.4); dx = nx; dz = nz; }
           h.yaw = turnTo(h.yaw, Math.atan2(dx, dz), 3.2, dt);
           h.want = (P.speed || 5) * k * clamp(1.2 - h.t * 0.02, 0.75, 1);
           if (dT > Math.max(40, T.reach * 1.6) && h.t > 3) { h.state = 'wander'; h.t = 0; h.goal = h.pos.clone().addScaledVector(_v.set(Math.sin(h.yaw), 0, Math.cos(h.yaw)), 5 * k); }
@@ -122,7 +123,7 @@ export function createHerd(c, kit, P, { at, count = 4, radius = 10, height } = {
       h.spd = damp(h.spd, h.want, h.want > h.spd ? 2.2 : 3.5, dt);
       if (h.spd > 0.02) {
         const step = h.spd * dt, x = h.pos.x + Math.sin(h.yaw) * step, z = h.pos.z + Math.cos(h.yaw) * step;
-        if (!cm.inParkWater?.(x, z)) { h.pos.x = x; h.pos.z = z; }
+        if (!world.inWater(x, z)) { h.pos.x = x; h.pos.z = z; }
         else h.yaw += (i % 2 ? 1 : -1) * 2 * dt;
       }
       for (let j = 0; j < animals.length; j++) {

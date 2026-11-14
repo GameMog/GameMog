@@ -31,6 +31,7 @@ import { createTimers, meterText, deltaText, progress, seen as inSight, band as 
 import { createSets } from './sets.js';
 import { createJuice } from './juice.js';
 import { armTo } from '../mission/m3-set.js';
+import { world as cityWorld } from '../world/index.js';
 
 const PI = Math.PI;
 export const KINDS_STUB = new Set(['patrol', 'wallet']);
@@ -113,7 +114,9 @@ export function createRunner(ctx) {
   const COLOUR6 = /^#[0-9A-Fa-f]{6}$/;
   const tokens = (s) => String(s ?? '')
     .replace(/\{ride\.name\}|\{ride\}/g, car.label || 'your car').replace(/\{ride\.board\}/g, rideWord('board', 'Get in')).replace(/\{ride\.go\}/g, rideWord('go', 'Drive')).replace(/\{ride\.park\}/g, rideWord('park', 'Stop'))
-    .replace(/\{name\}/g, heroName);
+    .replace(/\{name\}/g, heroName)
+    // (a site of the mission by its id, its name in this city: 'Fill up at **{site.gas}**', places.js)
+    .replace(/\{site\.([a-z][a-z0-9_-]{0,31})\}/g, (all, id) => (M && places.siteName?.(M.def, id)) || 'there');
   // '**bold**' -> Mog City's one coloured noun (yellow: a place); '**bold**{red}' names its colour (yellow, red, blue, green)
   const parts = (s, color = 'yellow') => {
     const out = []; const re = /\*\*(.+?)\*\*(?:\{(yellow|red|blue|green)\})?/g; let at = 0, m; s = tokens(s);
@@ -184,7 +187,7 @@ export function createRunner(ctx) {
   }
 
   /* --------------------------------------------------------------- the world -- */
-  const placeOf = (ref, why) => { const p = places.at(ref); if (!p) throw new Fail(`The story names a place this city doesn't have (${typeof ref === 'string' ? ref : ref?.['@']}).`, 'place'); return p; };
+  const placeOf = (ref, why) => { const p = places.at(ref); if (!p) throw new Fail(`The story names a place this city doesn't have (${typeof ref === 'string' ? ref : ref?.site ? `a ${String(ref.site.kind || ref.site).replace('_', ' ')}` : ref?.['@']}).`, 'place'); return p; };
   // the player at a place: at the wheel (the car on its lane) or on foot beside the car
   function putPlayer(p, mode = 'car') {
     if (mode === 'walk' || mode === 'person') {
@@ -1396,7 +1399,8 @@ export function createRunner(ctx) {
     g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
     return g;
   }
-  const groundY = (x, z) => (window.NYC?.CITY === 'sf' ? cm.getGroundHeight(x, z, 'person') : 0);
+  // (the ground a pickup, a marker or a ring stands on: the world's surface there, a hill's or a sidewalk's)
+  const groundY = (x, z) => cityWorld.sampleSurface(x, z).y;
   STEPS.collect = async (d, t) => {
     const kind = d.kind || 'supplies', label = d.label || kind.charAt(0).toUpperCase() + kind.slice(1), color = COLOUR6.test(d.color || '') ? d.color : '#FFC93C';
     const items = (d.items || []).map((r, i) => {
@@ -1904,7 +1908,7 @@ export function createRunner(ctx) {
     const pts = [];
     for (let k = 0; k + 1 < route.length; k++) { const seg = gps.plan({ x: route[k].x, z: route[k].z }, { x: route[k + 1].x, z: route[k + 1].z }, route[k].heading) || [[route[k].x, route[k].z], [route[k + 1].x, route[k + 1].z]]; for (const q of seg) if (!pts.length || Math.hypot(q[0] - pts[pts.length - 1][0], q[1] - pts[pts.length - 1][1]) > 3) pts.push(q); }
     const { createDriver } = await import('../mission/m2-drive.js');
-    const N = window.NYC, g = new THREE.Group(), spec = N.BODY_SPECS?.[d.car === 'lowered' ? 'sedan' : d.car || 'sedan'];
+    const N = cityWorld.assets, g = new THREE.Group(), spec = N.BODY_SPECS?.[d.car === 'lowered' ? 'sedan' : d.car || 'sedan'];
     if (spec && N.buildCarGeometry) { const m = new THREE.Mesh(N.buildCarGeometry(spec, true), N.createLoftedCarMaterial(spec, new THREE.Color(d.color || '#1b1d22').getHex())); m.castShadow = true; g.add(m); }
     else { const m = new THREE.Mesh(new THREE.BoxGeometry(1.9, 1.4, 4.6), new THREE.MeshStandardMaterial({ color: d.color || '#1b1d22' })); m.position.y = 0.8; g.add(m); }
     app.scene.add(g);
@@ -2116,7 +2120,7 @@ export function createRunner(ctx) {
   const parked = [];
   const _tv = new THREE.Vector3(), _tq = new THREE.Quaternion(), _te = new THREE.Euler(0, 0, 0, 'YXZ');
   async function towCar(d) {
-    const N = window.NYC, ride = d.car && def0.rides?.[d.car];
+    const N = cityWorld.assets, ride = d.car && def0.rides?.[d.car];
     if (ride) {
       try {
         const { buildVehicle } = await import('./vehicles/build-vehicle.js');
@@ -2212,7 +2216,7 @@ export function createRunner(ctx) {
       if (L > wb * 3) { dx = -Math.sin(car.heading); dz = -Math.cos(car.heading); L = 1; }
       st.rx = st.fx + dx / L * wb; st.rz = st.fz + dz / L * wb;
       // (into a wall: knocked back out of it)
-      const q = { x: st.rx, y: 0, z: st.rz }; cm.resolveHorizontalCollision(q, T.half, (cm.baseHeight?.(st.rx, st.rz) || 0) + 1.0); st.rx = q.x; st.rz = q.z;
+      const q = { x: st.rx, y: 0, z: st.rz }; cm.resolveHorizontalCollision(q, T.half, cityWorld.roadY(st.rx, st.rz) + 1.0); st.rx = q.x; st.rz = q.z;
       // (the truck's starts and stops rock it on its back springs)
       const acc = dt > 0 ? ((car.speed || 0) - lastV) / dt : 0; lastV = car.speed || 0;
       st.pv += -acc * 0.006; st.spin = car.speed || 0;
@@ -2753,6 +2757,8 @@ export function createRunner(ctx) {
   // a mission, with Mog City's fail screen: Retry (from its checkpoint), Quit, and Skip after three fails
   // (resume: a checkpoint saved in an earlier session (index.js Continue), its snapshot as attempt() took it)
   async function play(def, { act = null, from = null, resume = null } = {}) {
+    // (the mission's sites, the places it asks for by what they are: picked once, here at its start, and kept: places.js)
+    places.prepare?.(def);
     let cp = resume && Number.isInteger(resume.i) && resume.i > 0 && resume.i < def.steps.length && resume.at ? resume : null, fails = 0;
     // (?step=<id>: from that step, where its `from` puts him; a dev and Mission select start)
     if (from) { const i = def.steps.findIndex((s) => s.id === from); if (i >= 0) cp = { i, from: def.steps[i].from || def.start, state: { meters: { ...ctx.save.meters }, flags: { ...ctx.save.flags }, forks: {} }, timers: [] }; }

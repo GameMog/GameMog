@@ -5,6 +5,7 @@
 // browser's rule), and a pack is decoded the first time it is asked for: warm(W) asks for the creatures' packs ahead of
 // the first creature, warm(W, P) a kind's own (the herd's horse pack).
 import { preload } from '../library/sounds.js';
+import { world } from '../world/index.js';
 
 export const PACKS = ['sounds-impact', 'sounds-scifi'];
 let warmed = false;
@@ -15,9 +16,7 @@ export function warm(W, P = null) {
 }
 // grass underfoot (a park: Central Park's lawns, the city's park blocks), as Dan's own steps tell it (wagmi/audio)
 export function grassAt(x, z) {
-  const N = window.NYC || {}, CP = N.CENTRAL_PARK_BOUNDS;
-  if (CP && x > CP.minX && x < CP.maxX && z > CP.minZ && z < CP.maxZ) return true;
-  const b = N.blockAt?.(x, z); return !!(b && b.park > 0.5 && !b.median);
+  return world.isPark(x, z);
 }
 // a creature's footfall: its grass steps on grass when it has them
 export const stepsAt = (P, x, z) => (P.stepsGrass && grassAt(x, z) ? P.stepsGrass : P.steps);

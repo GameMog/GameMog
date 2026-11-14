@@ -48,6 +48,20 @@
     })();
   </script>
   <script>
+    // Which city this page plays, read from the address once, here: ?city=sf is San Francisco (cities/sf: Slop San
+    // Francisco, by Kamil (@unable0_) and Mr.doob, MIT; its own scripts and data, the shared engine modules from js/),
+    // anything else New York, exactly as before. One city a page: another city is another page load. The title below
+    // and the city's scripts are picked by it, and window.NYC.CITY carries it to the game (wagmi/world/city.js)
+    // ?city=pkg&pkg=<id>: a Hometown package (cities/pkg: a place compiled from open map data by tools/hometown) on San
+    // Francisco's engine base; MC_PKG its id (letters, digits, '-' only), its folder cities/pkg/packages/<id>/
+    const MC_Q = new URLSearchParams(location.search);
+    // ?city=pkg&town=us-<GEOID>&tc=<buildId>&ts=<tile set hash>[&tv=district-<c>-<r>|full]: a town GameMog built, its
+    // bundle fetched from GameMog (wagmi/world/town-src.js; the same rule as here, checked again there); MC_TOWN its id
+    const MC_TOWN = MC_Q.get('city') === 'pkg' && /^us-[0-9]{7}$/.test(MC_Q.get('town') || '') && /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(MC_Q.get('tc') || '') && /^[0-9a-f]{64}$/.test(MC_Q.get('ts') || '') && (!MC_Q.has('tv') || /^(full|district-[0-9]{1,7}-[0-9]{1,7})$/.test(MC_Q.get('tv'))) ? MC_Q.get('town') : null;
+    const MC_PKG = MC_TOWN ? null : MC_Q.get('city') === 'pkg' && /^[a-z0-9-]{1,40}$/.test(MC_Q.get('pkg') || '') ? MC_Q.get('pkg') : null;
+    const MC_CITY = MC_Q.get('city') === 'sf' ? 'sf' : MC_PKG || MC_TOWN ? 'pkg' : 'ny';
+  </script>
+  <script>
     // (Mog City: the instant title, #wg-boot in the body. On every start that shows the start gate the first thing
     // on screen is the gate itself, its title over a still of its own aerial, while the city loads behind it; the
     // other starts (?nointro, ?nogate, ?fight, ?m1=, ?m2=, ?m3=) keep the loading screen. wg-t-save: a saved game,
@@ -59,9 +73,11 @@
       if (Q.has('pack')) H.classList.add('wg-pk');
       // (?city=sf: San Francisco, html[data-city=sf]. With no story told there yet it starts in free roam, as ?nointro
       // does: wagmi/city.js. Midtown's aerial is never its still)
-      const sf = Q.get('city') === 'sf';
-      if (sf) H.dataset.city = 'sf';
-      if (Q.has('nointro') || Q.has('nogate') || Q.has('fight') || Q.get('m1') || Q.get('m2') || Q.get('m3') || (sf && !Q.has('pack'))) return;
+      // (?city=pkg: a Hometown package, html[data-city=pkg], free roam on the SF engine base as San Francisco is)
+      const sf = MC_CITY !== 'ny';
+      if (sf) H.dataset.city = MC_CITY;
+      // (?start=chase: the chase-first opening, wagmi/chase-start.js, straight in, no gate)
+      if (Q.has('nointro') || Q.has('nogate') || Q.has('fight') || Q.get('m1') || Q.get('m2') || Q.get('m3') || (sf && !Q.has('pack')) || (Q.get('start') === 'chase' && !Q.has('pack'))) return;
       H.classList.add('wg-t');
       // (a Mog's own save (wagmi/story S.save: the key with its story's id), Mog City's without ?story=)
       let key = 'wagmi.save.v1';
@@ -112,21 +128,22 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,500;0,600;0,700;0,800;1,700;1,800&display=block" />
   <script>
-    // Which city this page plays: ?city=sf is San Francisco (cities/sf: Slop San Francisco, by Kamil (@unable0_) and
-    // Mr.doob, MIT; its own scripts and data, the shared engine modules from js/), anything else New York, exactly as
-    // before. One city a page: another city is another page load.
-    const MC_CITY = new URLSearchParams(location.search).get('city') === 'sf' ? 'sf' : 'ny';
+    // (the city's scripts: MC_CITY, read from the address in the head's first city script)
     // Download the city scripts while Three.js loads; execute them only after its imports are ready below.
-    const nycAppScripts = MC_CITY === 'sf' ? (() => {
+    const nycAppScripts = MC_CITY !== 'ny' ? (() => {
       // (San Francisco's own modules from cities/sf/js; the ones both cities share as they are (the people, the touch
       // and pad controls, the cameras with their hill clearance, the culling, the lamps) from js/. Not SF's settings
       // dialog or its robotaxi ride: Mog City's pause menu and Dan's car are the game's)
-      const v = '20261111-atmos';
+      const v = '20261113-hg1';
       const sf = (f) => `./cities/sf/js/${f}?v=${v}`, shared = (f) => `./js/${f}?v=${v}`;
+      // (a Hometown package: its own geodata.js (window.NYC.GEO, PLACE_DATA and PKG, tools/hometown/compile.py) in
+      // place of San Francisco's geodata and places, then the same engine)
+      // (a town from GameMog: its bundle's geodata.json in that place, fetched as data below, never run as a script)
+      const pkg = MC_PKG ? [`./cities/pkg/packages/${MC_PKG}/geodata.js?v=${v}`, `./cities/pkg/js/pkg-hud.js?v=${v}`, `./cities/pkg/js/pkg-buildings.js?v=${v}`]
+        : MC_TOWN ? ['town:geodata.json', `./cities/pkg/js/pkg-hud.js?v=${v}`, `./cities/pkg/js/pkg-buildings.js?v=${v}`] : [sf('sf-geodata.js'), sf('sf-places.js')];
       return [
         sf('sf-hud.js'),
-        sf('sf-geodata.js'),
-        sf('sf-places.js'),
+        ...pkg,
         sf('city-config.js'),
         sf('data-loader.js'),
         sf('terrain.js'),
@@ -141,6 +158,8 @@
         sf('lighting.js'),
         sf('terrain-mesh.js'),
         sf('region.js'),
+        // (the far field for a town from GameMog too: without it a ?town= booted on the old 60 km sea plane)
+        ...(MC_PKG || MC_TOWN ? [`./cities/pkg/js/pkg-far.js?v=${v}`] : []),
         sf('sf-ground.js'),
         sf('sf-style.js'),
         sf('buildings.js'),
@@ -282,7 +301,7 @@
     @media (max-aspect-ratio: 3/4) { html.wg-t #wg-boot .wg-boot-pic { background-image: url(assets/ui/gate-aerial-port.webp); } }
     @media (min-aspect-ratio: 2/1) { html.wg-t #wg-boot .wg-boot-pic { background-image: url(assets/ui/gate-aerial-wide.webp); } }
     /* (San Francisco: not Midtown's still under its title; the veil's own dusk until its live city is up) */
-    html[data-city='sf'] #wg-boot .wg-boot-pic { background-image: none !important; }
+    html[data-city='sf'] #wg-boot .wg-boot-pic, html[data-city='pkg'] #wg-boot .wg-boot-pic { background-image: none !important; }
     html.wg-t #wg-boot .wg-boot-bar { display: block; left: 0; right: 0; height: var(--bar); background: #000; z-index: 5; }
     #wg-boot .wg-boot-bar.top { top: 0; } #wg-boot .wg-boot-bar.bot { bottom: 0; }
     html.wg-t #wg-boot .wg-boot-veil { display: block; inset: 0; z-index: 2;
@@ -448,6 +467,12 @@
       <div id="loading-status">Loading Manhattan…</div>
     </div>
   </div>
+  <!-- (Mog City: the loading line's first words are the city's from the first frame: a Hometown town's (?city=pkg) never
+       New York's or San Francisco's, before its package or bundle has loaded and cities/pkg/js/pkg-hud.js names it) -->
+  <script>
+    (() => { const c = new URLSearchParams(location.search).get('city'), el = document.getElementById('loading-status');
+      if (el && c === 'pkg') el.textContent = 'Loading your town…'; else if (el && c === 'sf') el.textContent = 'Loading San Francisco…'; })();
+  </script>
 
   <!-- 3D WebGPU Viewport Container -->
   <main id="canvas-container" aria-label="MOG CITY"></main>
@@ -465,7 +490,7 @@
   <script>
     (() => {
       const H = document.documentElement, boot = document.getElementById('wg-boot'), load = document.getElementById('wg-load');
-      if (/[?&](nointro|nogate|fight)\b/.test(location.search) || (H.dataset.city === 'sf' && !/[?&]pack=/.test(location.search))) { boot.remove(); load.remove(); return; }
+      if (/[?&](nointro|nogate|fight)\b/.test(location.search) || ((H.dataset.city === 'sf' || H.dataset.city === 'pkg' || /[?&]start=chase\b/.test(location.search)) && !/[?&]pack=/.test(location.search))) { boot.remove(); load.remove(); return; }
       const T = (window.__wgTitle = { adopted: false, started: null, typeAt: 0 });
       const t = setInterval(() => {
         if (!window.__NYC_APP || !window.__NYC_APP.ready) return;
@@ -801,9 +826,15 @@
     import { SunLightNode } from 'three/addons/lights/SunLightNode.js';
     import { ClusteredLighting } from 'three/addons/lighting/ClusteredLighting.js';
 
+    // (?origin=float, wagmi/world/origin.js: the scene is drawn rebased round the player; the city's shaders read
+    // positionWorld and cameraPosition in the absolute frame, NYC.ORIGIN (the render origin) added back)
+    // (on by default for a Hometown place, ?city=pkg | hometown, unless ?origin=off: wagmi/world/origin.js floatingOriginWanted)
+    const OQ = new URLSearchParams(location.search);
+    const ORIGIN = (OQ.get('origin') === 'float' || (/^(pkg|hometown)$/.test(OQ.get('city') || '') && OQ.get('origin') !== 'off')) ? TSL.uniform(new THREE.Vector3()) : null;
     window.NYC = {
       THREE,
-      TSL,
+      TSL: ORIGIN ? { ...TSL, positionWorld: TSL.positionWorld.add(ORIGIN), cameraPosition: TSL.cameraPosition.add(ORIGIN) } : TSL,
+      ORIGIN,
       PostFX: { bloom, ssr },
       Addons: {
         mergeGeometries,
@@ -815,13 +846,55 @@
       }
     };
     // (San Francisco's data is fetched from its own folder: cities/sf/js/data-loader.js, region.js)
-    if (MC_CITY === 'sf') Object.assign(window.NYC, { CITY: 'sf', BASE: new URL('./cities/sf/', document.baseURI).href });
+    window.NYC.CITY = MC_CITY;
+    if (MC_CITY === 'sf') Object.assign(window.NYC, { BASE: new URL('./cities/sf/', document.baseURI).href });
+    // (a Hometown package's data/*.bin.gz from its own folder)
+    if (MC_PKG) Object.assign(window.NYC, { BASE: new URL(`./cities/pkg/packages/${MC_PKG}/`, document.baseURI).href });
 
-    for (const src of nycAppScripts) {
+    const addCityScript = (src) => {
       const s = document.createElement('script');
       s.src = src;
       s.async = false;
       document.head.appendChild(s);
+      return s;
+    };
+    // (a Hometown package: the engine's scripts only once its geodata.js has loaded. An id with no package compiled
+    // under cities/pkg/packages/ says so, instead of booting the engine on no data and failing on TypeErrors)
+    const pkgAt = MC_PKG ? nycAppScripts.findIndex((src) => src.includes('/cities/pkg/packages/')) : MC_TOWN ? nycAppScripts.indexOf('town:geodata.json') : -1;
+    for (const src of pkgAt < 0 ? nycAppScripts : nycAppScripts.slice(0, pkgAt)) addCityScript(src);
+    const bootError = (text) => {
+      const overlay = document.getElementById('loading-overlay'), status = document.getElementById('loading-status');
+      overlay?.classList.remove('hidden');
+      overlay?.classList.add('boot-error');
+      const track = overlay?.querySelector('.loader-track'); if (track) track.hidden = true;
+      if (status) { status.textContent = text; status.setAttribute('role', 'alert'); }
+    };
+    if (MC_TOWN) {
+      // (a town from GameMog: its bundle's objects in the globals a package's geodata.js sets, its data folder as the
+      // city's BASE, then the same engine; a town that cannot be loaded, or is not the one the address names, says so)
+      // (NYC.townReady: a story world set in the town waits on it before its check, wagmi/storyrun/pack.js)
+      window.NYC.townReady = import('./wagmi/world/town-src.js').then(async (T) => {
+        const t = T.townFromQuery(MC_Q);
+        if (!t) throw new Error('not a town address');
+        const b = await T.loadTown(t);
+        Object.assign(window.NYC, { GEO: b.GEO, PLACE_DATA: b.PLACE_DATA, PKG: b.PKG, BASE: t.base, TOWN: t });
+        // (a growing town, &tv=: its far tiles by store key from GameMog's public store, and the district's edge, the
+        // swap to the whole town and the time-to-first-drive beacons, wagmi/world/growing.js; nothing of it without tv)
+        if (t.tv) {
+          try { performance.mark('mc:town:bundle'); } catch (e) {}
+          window.NYC.FAR_BASE = `${t.host}/api/hometown/`;
+          // (before the city's scripts: the traffic and the people are placed inside a district's window from the start)
+          try { (await import('./wagmi/world/growing.js')).startGrowing({ town: t, PKG: b.PKG }); } catch (e) { console.warn('[town] growing', e); }
+        }
+        for (const src of nycAppScripts.slice(pkgAt + 1)) addCityScript(src);
+      }).catch((e) => { bootError('This town could not be loaded. Try again.'); console.warn('[town]', MC_TOWN, String(e && e.message || e)); });
+    } else if (pkgAt >= 0) {
+      const g = addCityScript(nycAppScripts[pkgAt]);
+      g.onload = () => { for (const src of nycAppScripts.slice(pkgAt + 1)) addCityScript(src); };
+      g.onerror = () => {
+        bootError(`No city package "${MC_PKG}" here. Compile it with tools/hometown/compile.py --id ${MC_PKG}.`);
+        console.warn('[pkg] no package', MC_PKG);
+      };
     }
   </script>
   <!-- Mog City: Dan, his car, getting in and out (waits for the city app) -->

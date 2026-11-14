@@ -47,7 +47,7 @@ const touchPlayer = () => coarse.matches || document.body.classList.contains('wg
 /* ------------------------------------------------------------- auto-pause -- */
 (function wait() {
   const W = window.WAGMI;
-  if (!(W && W.ready && window.__NYC_APP && window.__NYC_APP.ready)) { setTimeout(wait, 100); return; }
+  if (!(W && W.ready && W.world.app && W.world.app.ready)) { setTimeout(wait, 100); return; }
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden || !touchPlayer()) return;
     const pause = window.WAGMI?.ui?.pause;

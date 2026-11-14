@@ -577,7 +577,7 @@ export function buildRoadster(THREE, o = {}) {
     cx.fillStyle = '#EEEEEA'; cx.fillRect(0, 0, 512, 256);
     cx.strokeStyle = '#2A2C33'; cx.lineWidth = 10; cx.strokeRect(14, 14, 484, 228);
     cx.fillStyle = '#1C1E24'; cx.font = "700 150px 'Barlow Condensed', 'Arial Narrow', system-ui, sans-serif"; cx.textAlign = 'center'; cx.textBaseline = 'middle';
-    cx.fillText('D4N', 256, 136);
+    cx.fillText(globalThis.NYC && globalThis.NYC.CITY === 'pkg' ? ['M', 'O', 'G'].join('') : 'D4N', 256, 136); // (Hometown, ?city=pkg: the player's own car, not Dan's; its plate is not a Mog-able sign)
     const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
     const pm = new THREE.MeshStandardNodeMaterial({ map: tex, roughness: 0.35, metalness: 0.2 });
     const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.28, 0.14), pm); plate.rotation.y = Math.PI; plate.position.set(0, 0.626, ZR + 0.026); g.add(plate);

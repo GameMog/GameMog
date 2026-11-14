@@ -28,6 +28,7 @@ import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
 import { clamp, damp, dampAngle, angWrap, yawTo, hdist, rnd, pick, smooth } from './util.js';
 import { createRagdolls } from '../physics/ragdoll.js';
 import { S as story } from '../story/index.js';
+import { world } from '../world/index.js';
 // (the ragdolls, made once Jolt is in: wagmi/physics, loaded by the crash's first hit or the first Suit on the street)
 let RAGS = null;
 const rags = () => { const P = window.WAGMI?.physics; if (!P || !P.ready || RAG_OFF) return null; return RAGS || (RAGS = createRagdolls(P)); };
@@ -240,7 +241,7 @@ export class Enemy {
     const hit = cm.lowAhead(p.x, p.z, p.y, ux, uz, r, 0.45);
     if (!hit || hit.depth > 2.6 || hit.o.top - p.y > 1.35) return false;
     const d = hit.enter + hit.exit + 0.1, lx = p.x + ux * d, lz = p.z + uz * d, gL = this.c.world.ground(lx, lz);
-    if (Math.abs(gL - p.y) > 0.35 || cm.inParkWater?.(lx, lz)) return false;
+    if (Math.abs(gL - p.y) > 0.35 || world.inWater(lx, lz)) return false;
     _hp.set(lx, gL, lz); cm.resolveHorizontalCollision(_hp, r, gL + 1.0);
     if (Math.hypot(_hp.x - lx, _hp.z - lz) > 0.05) return false;
     if (cm.lowAhead(lx - ux * 0.3, lz - uz * 0.3, gL, ux, uz, r, 0.3, [hit.o])) return false;

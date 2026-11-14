@@ -122,7 +122,8 @@ async function initApp() {
     loadingFill.style.transform = `scaleX(${k})`;
   };
   // (Mog City: plain words for the player while it loads, not the engine's steps)
-  const LOADING_TEXT = 'Loading San Francisco…';
+  // (a Hometown package: its own place's name, cities/pkg)
+  const LOADING_TEXT = window.NYC.PKG ? `Loading ${String(window.NYC.PKG.name).split(',')[0]}…` : 'Loading San Francisco…';
 
   if (loadingStatus) {
     loadingStatus.textContent = LOADING_TEXT;
@@ -578,7 +579,7 @@ async function initApp() {
         near.textContent = 'near';
         row.appendChild(near);
       }
-      for (const name of streets.split(' & ')) {
+      for (const name of streets.split(' & ').filter((n) => n.trim())) {
         const sign = document.createElement('span');
         sign.className = 'street-sign';
         sign.textContent = name;
@@ -595,6 +596,7 @@ async function initApp() {
     let best = null;
     for (const e of trafficSystem.network?.edges || []) {
       if (e.len < 12) continue;
+      if (e.bore && e.bore.kind === 'deck') continue; // (a Hometown package's deck: arrivals are on the ground)
       const mx = e.sx + e.dx * e.len / 2, mz = e.sz + e.dz * e.len / 2;
       if (Math.abs(mx - x) > R + e.len / 2 || Math.abs(mz - z) > R + e.len / 2) continue;
       const t = Math.max(6, Math.min(e.len - 6, (x - e.sx) * e.dx + (z - e.sz) * e.dz));
@@ -723,13 +725,18 @@ async function initApp() {
   const urlParams = new URLSearchParams(location.search);
   // (the fork's fog presets, ?fog=clear|haze|marine; Mog City has no fog menu: the haze, the fork's own default)
   lightingSystem.setFogPreset(urlParams.get('fog') || 'haze');
+  // (a Hometown package's far field picks its fog when it arrives after boot, cities/pkg/js/pkg-far.js; an explicit ?fog wins)
+  window.NYC.setFogPreset = (id) => { if (!urlParams.has('fog')) lightingSystem.setFogPreset(id); };
+  if (window.NYC.pkgFarFog) window.NYC.setFogPreset(window.NYC.pkgFarFog);
   const urlMode = { heli: 'helicopter', helicopter: 'helicopter', person: 'person', car: 'car', cyclist: 'cyclist' }[urlParams.get('mode')];
   // Every player model starts parked on the ground at the first teleport, clear of buildings & each other. (Mog City:
   // on the Embarcadero by the Ferry Building, the car first, onto the lane nearest Embarcadero Plaza (652, -683) and
   // facing along it, and Dan by it (the game puts him out at its door: wagmi/city.js); the sandbox's bike and helicopter,
   // which the game doesn't use, parked out of the way at Market & Montgomery. Market & Montgomery for all if the lanes
   // are missing)
-  const spawn = laneNear(652, -683, 90) || window.NYC.TELEPORT_LOCATIONS.market;
+  // (a Hometown package: its compiled arrival, downtown, onto the lane nearest it)
+  const PKG_SPAWN = window.NYC.PKG && window.NYC.PKG.spawn;
+  const spawn = PKG_SPAWN ? laneNear(PKG_SPAWN.x, PKG_SPAWN.z, 150) || PKG_SPAWN : laneNear(652, -683, 90) || window.NYC.TELEPORT_LOCATIONS.market;
   const parking = window.NYC.TELEPORT_LOCATIONS.market || spawn;
   if (spawn) {
     for (const [mode, at] of [['car', spawn], ['person', spawn], ['cyclist', parking], ['helicopter', parking]]) {

@@ -1,15 +1,18 @@
 // Mog City: the turn-by-turn cue. In the car, with a place to go, the next turn on the GPS route and the street it
 // turns onto, at the top of the screen ('Right on W 42nd St · 120 m'); past the last turn, the place itself and how far
-// ('Times Square · 80 m'). The streets are named by the city's own roads (window.NYC.nearestRoads). Hidden on foot, in a
+// ('Times Square · 80 m'). The streets are named by the city's own roads (wagmi/world: world.streetNameAt). Hidden on foot, in a
 // cutscene, paused, on the full map, in the clean view, and for a target on the move (a car he chases: the radar's line
 // does that job, a cue would flick with its every turn).
 //   const turns = createTurns(W, gps);  turns.step() (the GPS calls it from the radar's draw: 5 times a second at most)
 //   turns.cue             { kind: 'turn', dir: 'L' | 'R' | 'U', dist, name, at: [x, z], ux, uz } | { kind: 'arrive', dist }
 //                         | null (hidden); at is the corner, (ux, uz) the way out of it (the radar's turn chevron)
-//   nextTurn(route, nameAt)   the pure part: the next turn on a route (gps.route), its street named by nameAt(x, z, horiz)
+//   nextTurn(route, nameAt)   the pure part: the next turn on a route (gps.route), its street named by nameAt(x, z, ux, uz)
+//                         (the way the route runs there); a bend that keeps to the same street is not a turn
 // Where it sits: on a computer, the top middle. On a phone it heads the column beside the radar (sideways) or under it
 // (upright): the objective tracker, the help, an offer or a DM, and M2's meters move down a row while it shows
 // (body.wg-turnon), so it covers none of them, the toolbar, the car's pills or a call.
+
+import { world } from '../world/index.js';
 
 // route = gps.route: pts[0] is where he is, pts[1] the lane under him (the snap: never a turn), the last point the
 // target itself (the arrival leg: never a turn); x east, z south, so cross > 0 is a RIGHT turn
@@ -29,7 +32,10 @@ export function nextTurn(route, nameAt) {
     let j = i; while (j + 1 < S.length && S[j + 1].at - S[i].at < 30) j++;
     const out = S.slice(i, j + 1).reduce((m, s) => (s.L > m.L ? s : m)), net = ang(S[i - 1], out);
     if (Math.abs(net) < 35 * D) { i = j; continue; }                            // a jog: not a turn
-    const name = nameAt(out.a[0] + out.ux * Math.min(18, out.L * 0.5), out.a[1] + out.uz * Math.min(18, out.L * 0.5), Math.abs(out.ux) > Math.abs(out.uz));
+    const name = nameAt(out.a[0] + out.ux * Math.min(18, out.L * 0.5), out.a[1] + out.uz * Math.min(18, out.L * 0.5), out.ux, out.uz);
+    // (the street the route is on before it: the same name after the bend, it only bends with the road)
+    const inn = S[i - 1], was = Math.abs(net) > 150 * D ? null : nameAt(S[i].a[0] - inn.ux * Math.min(18, inn.L * 0.5), S[i].a[1] - inn.uz * Math.min(18, inn.L * 0.5), inn.ux, inn.uz);
+    if (name && was === name) { i = j; continue; }
     return { kind: 'turn', dir: Math.abs(net) > 150 * D ? 'U' : net > 0 ? 'R' : 'L', dist: S[i].at, name, at: [S[i].a[0], S[i].a[1]], ux: out.ux, uz: out.uz };
   }
   // (the arrival leg is a turn only when it is a real stretch: a place off the traffic's roads, the yard on 12th Ave
@@ -37,18 +43,16 @@ export function nextTurn(route, nameAt) {
   if (last > 40 && S.length) {
     const p = S[S.length - 1], q = seg(route[n - 2], route[n - 1]), net = ang(p, q);
     if (Math.abs(net) >= 35 * D) {
-      const name = nameAt(q.a[0] + q.ux * 18, q.a[1] + q.uz * 18, Math.abs(q.ux) > Math.abs(q.uz));
+      const name = nameAt(q.a[0] + q.ux * 18, q.a[1] + q.uz * 18, q.ux, q.uz);
       return { kind: 'turn', dir: Math.abs(net) > 150 * D ? 'U' : net > 0 ? 'R' : 'L', dist: along, name, at: [q.a[0], q.a[1]], ux: q.ux, uz: q.uz };
     }
   }
   return { kind: 'arrive', dist: total };
 }
 
-// the street at (x, z): of the city's roads within 30 m, the nearest that runs the way the route does
-export function nameAt(x, z, horiz) {
-  const N = window.NYC; if (!N?.nearestRoads) return null;
-  const near = N.nearestRoads(x, z, 30);
-  return (near.find((r) => r.horizontal === horiz) || near[0])?.road.name || null;
+// the street at (x, z): of the city's roads within 30 m, the nearest that runs the way the route does (ux, uz)
+export function nameAt(x, z, ux, uz) {
+  return world.streetNameAt(x, z, ux == null ? { r: 30 } : { dir: { ux, uz }, r: 30 });
 }
 
 // '120 m' (10 m steps), '1.2 km', 'now' under 25 m (at a place: 'here')
@@ -118,6 +122,28 @@ export function createTurns(W, gps) {
     el = document.createElement('div'); el.className = 'wg-turn'; el.setAttribute('aria-live', 'polite'); root.appendChild(el);
     return el;
   };
+  // (a chase: the cue keeps clear of the HEAT meter (wagmi/pursuit/hud.js, beside the toolbar): a long street name
+  // centred at the top ran under its label. It moves left as far as it has to, then gets narrower)
+  const clearHeat = () => {
+    if (!el) return;
+    el.style.marginLeft = ''; el.style.maxWidth = '';
+    const heat = document.getElementById('wg-heat');
+    if (!heat || !heat.classList.contains('on')) return;
+    let b = heat.getBoundingClientRect();
+    const st = heat.querySelector('.st');
+    if (st && heat.classList.contains('live')) { const r = st.getBoundingClientRect(); b = { left: Math.min(b.left, r.left), right: Math.max(b.right, r.right), top: b.top, bottom: Math.max(b.bottom, r.bottom) }; }
+    const a = el.getBoundingClientRect(), gap = 14, edge = 16;
+    if (a.bottom <= b.top || a.top >= b.bottom || a.right + gap <= b.left || a.left >= b.right + gap) return;
+    // (on a phone it sits beside the radar: it only gets narrower)
+    if (body.classList.contains('touch-enabled')) { el.style.maxWidth = `${Math.max(120, Math.floor(b.left - gap - a.left))}px`; return; }
+    const over = a.right + gap - b.left, room = Math.max(0, a.left - edge);
+    if (over <= room) { el.style.marginLeft = `${-over}px`; return; }
+    // (centred on left: 50%: narrower, then moved so its left edge is at the screen's edge)
+    const w = Math.max(120, Math.floor(b.left - gap - edge));
+    el.style.maxWidth = `${w}px`;
+    const w2 = el.getBoundingClientRect().width;
+    el.style.marginLeft = `${Math.round(edge - (a.left + a.width / 2) + w2 / 2)}px`;
+  };
   const hide = () => { cue = null; if (on) { on = false; el?.classList.remove('on'); body.classList.remove('wg-turnon'); } };
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
   const T = {
@@ -153,6 +179,7 @@ export function createTurns(W, gps) {
         if (k !== head) { head = k; el.classList.remove('new'); void el.offsetWidth; el.classList.add('new'); }
       }
       if (!on) { on = true; el.classList.add('on'); cls.add('wg-turnon'); }
+      clearHeat();
     },
     hide,
     get cue() { return cue; },

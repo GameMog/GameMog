@@ -14,6 +14,9 @@ const { SunLight } = window.NYC.Addons;
 const { SunLightNode } = window.NYC.Addons;
 const { cityUniforms } = window.NYC;
 
+// (sunDir is a preset in world axes, not geography. On the national grid hg1 (a Hometown place) -z is grid north, whose
+// true bearing is GEO.frame.bearingDeg = gamma0: an astronomical sun would turn by it, azimuth_world = azimuth_true -
+// gamma0, i.e. rotate sunDir about +y by gamma0. No behaviour change today: every city keeps its presets.)
 const TIME_PRESETS = {
   golden: {
     id: 'golden',

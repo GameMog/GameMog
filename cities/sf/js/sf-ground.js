@@ -127,11 +127,18 @@ function buildSFGround(scene) {
   const group = new THREE.Group();
   group.name = 'SFGround';
 
-  // 1. The bay
-  const water = new THREE.Mesh(new THREE.PlaneGeometry(60000, 60000, 1, 1).rotateX(-Math.PI / 2), createWaterMaterial());
-  water.position.y = Terrain.waterLevel;
-  water.name = 'SFBay';
-  group.add(water);
+  // 1. The bay. (A Hometown package: no sea round a place that has none. Its engine water, when its core has one (a
+  // waterLevel over the dry sentinel -10), is a plane over the core's own height field only; past it the far field,
+  // cities/pkg/js/pkg-far.js, draws the land and its own water at their heights. ?far=none: the old 60 km plane.)
+  const pkgPlane = window.NYC.PKG && new URLSearchParams(location.search).get('far') !== 'none';
+  if (!pkgPlane || Terrain.waterLevel > -9.99) {
+    const cw = pkgPlane ? (Terrain.w - 1) * Terrain.cell : 60000, ch = pkgPlane ? (Terrain.h - 1) * Terrain.cell : 60000;
+    const water = new THREE.Mesh(new THREE.PlaneGeometry(cw, ch, 1, 1).rotateX(-Math.PI / 2), createWaterMaterial());
+    water.position.y = Terrain.waterLevel;
+    if (pkgPlane) water.position.set(Terrain.originX + cw / 2, Terrain.waterLevel, Terrain.originZ + ch / 2);
+    water.name = 'SFBay';
+    group.add(water);
+  }
 
   // 2. Land: the terrain surface (its own group, outside the static culling: its tiles rebuild as the camera moves)
   const terrain = buildTerrainMesh(scene);
@@ -148,16 +155,26 @@ function buildSFGround(scene) {
     return c;
   };
   const sidewalks = [];
+  // (a Hometown package: a block the compiler cut at the core's edge has no curb there, the land goes on past it
+  // (cities/pkg/js/pkg-far.js): a dark granite line along the box edge would draw the box)
+  const pkgEdge = window.NYC.PKG && Terrain.loaded ? (() => {
+    const x0 = Terrain.originX, z0 = Terrain.originZ, x1 = x0 + (Terrain.w - 1) * Terrain.cell, z1 = z0 + (Terrain.h - 1) * Terrain.cell;
+    const near = (p) => Math.min(Math.abs(p.x - x0), Math.abs(x1 - p.x), Math.abs(p.z - z0), Math.abs(z1 - p.z)) < 4;
+    return (a, b) => near(a) && near(b);
+  })() : undefined;
   for (const b of BLOCKS) {
     if (b.poly.length < 3) continue;
     const ring = Drape.densify(b.poly, OUTLINE_STEP);
     const c = cellOf(b);
     Drape.polygon(ring, ground, normal, CURB_H, c.top);
-    Drape.wall(ring, ground, -CURB_BURY, CURB_H, c.curb);
+    Drape.wall(ring, ground, -CURB_BURY, CURB_H, c.curb, pkgEdge);
     if (b.park > 0.5 && !b.median) Drape.polygon(ring, ground, normal, CURB_H + 0.012, c.lawn);
     sidewalks.push({ minX: b.minX, maxX: b.maxX, minZ: b.minZ, maxZ: b.maxZ, block: b });
   }
-  const sidewalkMat = createSidewalkMaterial();
+  // (a Hometown package: a block is mostly yards, fields and hillsides, not one paved slab: its top shows the ground
+  // mask under it, flags only along the streets (createGroundCoverMaterial))
+  const cover = window.NYC.PKG && window.NYC.DATA && window.NYC.DATA.groundMask && window.NYC.createGroundCoverMaterial && window.NYC.groundMaskTexture;
+  const sidewalkMat = cover ? window.NYC.createGroundCoverMaterial(window.NYC.groundMaskTexture(), window.NYC.DATA.groundMask.header, window.NYC.PKG.climate) : createSidewalkMaterial();
   const curbMat = createCurbMaterial();
   const lawnMat = createParkLawnMaterial(false);
   let islandTris = 0;

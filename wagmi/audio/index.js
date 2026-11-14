@@ -16,6 +16,7 @@ import { createPlayerCar } from './playercar.js';
 import { createSteps } from './steps.js';
 import { createMotors } from './motors.js';
 import { warmCrunch } from './crunch.js';
+import { world } from '../world/index.js';
 
 const NOOP = { set() { return NOOP; }, stop() {} };
 
@@ -87,15 +88,15 @@ export function install(W) {
   });
 
   /* ---------------------------------------------------- the game, per frame -- */
-  const app = W.app, cm = app.controllerManager, NYC = window.NYC || {};
-  // where the avenues run: 20 m cells their lanes pass through
+  const app = W.app, cm = app.controllerManager;
+  // where the avenues run (the city's main roads: world.isAvenue, the road graph's own class): 20 m cells their lanes pass through
   let aveCells = null;
   const CELL = 20, key = (x, z) => Math.floor(x / CELL) * 100003 + Math.floor(z / CELL);
   function avenueNear(x, z) {
     if (!aveCells) {
       aveCells = new Set();
       for (const e of app.trafficSystem?.network?.edges || []) {
-        if (e.axis !== 'ave') continue;
+        if (!world.isAvenue(e)) continue;
         const sx = e.sx ?? e.x0, sz = e.sz ?? e.z0, len = e.len ?? e.span ?? 0;
         for (let s = 0; s <= len; s += 8) aveCells.add(key(sx + e.dx * s, sz + e.dz * s));
       }
@@ -104,12 +105,8 @@ export function install(W) {
     for (const [ox, oz] of [[0, 0], [CELL, 0], [-CELL, 0], [0, CELL], [0, -CELL]]) if (aveCells.has(key(x + ox, z + oz))) n++;
     return Math.min(1, n / 2);
   }
-  const CP = NYC.CENTRAL_PARK_BOUNDS;
-  function parkAt(x, z) {
-    if (CP && x > CP.minX && x < CP.maxX && z > CP.minZ && z < CP.maxZ) return 1;
-    const b = NYC.blockAt?.(x, z);
-    return b && b.park > 0.5 && !b.median ? 1 : 0;
-  }
+  // (a park: Central Park, the city's park blocks; world.isPark)
+  const parkAt = (x, z) => (world.isPark(x, z) ? 1 : 0);
   const where = { traffic: 0.5, crowd: 0.3, park: 0, avenue: 0.5 };
   let surface = 'hard', placeT = 0;
   function place() {

@@ -14,6 +14,7 @@
 // Debug: WAGMI.vault { state(), try(how) }.
 import * as THREE from 'three/webgpu';
 import { clamp, smooth, angWrap, fwd, right } from './combat/util.js';
+import { world } from './world/index.js';
 
 const MAX = 1.35;        // the highest he goes over (m above where he stands: the parks' fences are 1.27)
 const R = 0.48;          // his body (as the city's collision has it)
@@ -51,9 +52,9 @@ export function installVault(W, c) {
     const gL = ground(L.x, L.z);
     if (gL < g0 - 0.3 || gL > g0 + 0.55) return 'drop';
     // (the road and the curb by their height over the bare ground: a hill's, cm.baseHeight; New York's street is y 0)
-    const bare = (x, z) => cm.baseHeight?.(x, z) || 0;
+    const bare = (x, z) => world.roadY(x, z);
     if (gL - bare(L.x, L.z) < 0.1 && g0 - bare(pos.x, pos.z) > 0.15) return 'road';
-    if (cm.inParkWater(L.x, L.z)) return 'water';
+    if (world.inWater(L.x, L.z)) return 'water';
     _probe.set(L.x, gL, L.z);
     cm.resolveHorizontalCollision(_probe, R, gL + 1.0);
     if (Math.hypot(_probe.x - L.x, _probe.z - L.z) > 0.05) return 'wall';

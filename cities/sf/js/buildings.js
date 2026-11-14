@@ -2015,6 +2015,7 @@ function buildCityBlocks(scene, opts = {}) {
   //     fronts (storefronts where the parcel has retail floor space, else an entrance), walls against another mass are
   //     party walls, the rest rear walls. Cornices on the masonry roofs, a bulkhead on the highest; footprints the
   //     rectangles cover badly are drawn as their outline in world-u mode.
+  let pkgSigns = null; // ({ themes, per }: a package's shop-sign names, set by buildSFMasses)
   function buildSFMasses() {
     const { header, table, verts, masses } = window.NYC.DATA.buildings;
     const T = window.NYC.Terrain;
@@ -2026,6 +2027,14 @@ function buildCityBlocks(scene, opts = {}) {
     const PODIUM_STOREYS = 4; // estimate (PLAN.md P4-3)
     const CROWN_MIN = 6;
     const hash = (a, b) => Math.abs(Math.sin(a * 12.9898 + b * 78.233) * 43758.5453) % 1;
+    const MF = (header.massFields && header.massFields.length) || 4; // the mass stride
+    const FI = Object.fromEntries(header.fields.map((f, k) => [f, k]));
+    // A Hometown package with sf-buildings v4 fields (kind, roofShape, front, minH ...): pitched roofs over the masses of
+    // its houses, garages, sheds and churches (and wherever Overture names a pitched roof), porches, chimneys and a
+    // church's tower, gas-station canopies as open slabs, awnings on its shops, building parts raised to their minH, walls
+    // and roofs coloured by its region (cities/pkg/js/pkg-buildings.js). Older packages and San Francisco: as before
+    const PK = FI.kind !== undefined && header.kinds && window.NYC.PkgBuildings ? window.NYC.PkgBuildings : null;
+    const pb = PK ? PK.createPkgBuilder() : null;
 
     // Footprints typed `landmark` under a modelled landmark (js/landmarks.js, built first) are left to the model (P5.1)
     const covered = new Set();
@@ -2047,7 +2056,7 @@ function buildCityBlocks(scene, opts = {}) {
       const [, , , , , theta, start, count] = r;
       const cs = Math.cos(theta), sn = Math.sin(theta);
       for (let k = start; k < start + count; k++) {
-        const [cx, cz, w, d] = masses.subarray(k * 4, k * 4 + 4);
+        const [cx, cz, w, d] = masses.subarray(k * MF, k * MF + 4);
         all.push({ i, cx, cz, w, d, cs, sn });
       }
     }
@@ -2086,7 +2095,11 @@ function buildCityBlocks(scene, opts = {}) {
       const at = (u, out) => [m.cx + nx * (half + out) + ax * u * len, m.cz + nz * (half + out) + az * u * len];
       const samples = [-0.35, 0, 0.35];
       let party = 0;
-      for (const u of samples) if (massAt(...at(u, PARTY_GAP), m)) party++;
+      for (const u of samples) {
+        const o = massAt(...at(u, PARTY_GAP), m);
+        // (a package: a wall over a much lower neighbour is not a party wall above it, so it keeps its windows)
+        if (o && !(PK && table[o.i * F + 1] < table[m.i * F + 1] - 4)) party++;
+      }
       if (party >= 2) return WALL_KINDS.lotLine;
       for (const u of samples) {
         for (let o = 1.5; o <= FRONT_REACH; o += 1.5) {
@@ -2102,7 +2115,6 @@ function buildCityBlocks(scene, opts = {}) {
     // row houses, flats, apartments & sheds are painted (1); warehouses and SoMa's low offices brick & concrete (2);
     // towers by the Tall Building Inventory's facade material (glass and metal: curtain walls by era; concrete, stone &
     // terracotta: masonry 0 in panels), unknown ones half each; midrise, civic and the rest masonry (0)
-    const FI = Object.fromEntries(header.fields.map((f, k) => [f, k]));
     const typeName = (v) => header.types[v] || 'apartment';
     const FACADE_PAINT = { 2: [0xb9b4aa, 0xc8c2b4, 0xa9a7a2, 0xd2cab8], 3: [0xd6ccb8, 0xc9bda4, 0xe0d8c6], 5: [0xe2d6c0, 0xd9c9ab] }; // concrete, stone, terracotta
     const { sfPaint } = window.NYC.SFStyle;
@@ -2127,21 +2139,64 @@ function buildCityBlocks(scene, opts = {}) {
       return { mat, paint };
     }
 
-    const polyGeos = [];
+    let awningN = 0;
+    const pkgShops = []; // (a package's shops, for their signs' names: PkgBuildings.signPlan)
+    function shopAwnings(blk, box, shop) {
+      // the longest shop wall of the box (createFacadeBoxes faces: local -x, +x, -z, +z): canvas awnings in 6 m bays
+      // 2.8 m up, each turned with the wall (a.ry), its fascia sign over it (a.signY)
+      let f = -1;
+      const len = (k) => (WALLS[k][0] ? box.d : box.w);
+      for (let k = 0; k < 4; k++) if (box.faces[k] === WALL_KINDS.shop && (f < 0 || len(k) > len(f))) f = k;
+      if (f < 0) return;
+      const [lx, lz] = WALLS[f];
+      const cs = Math.cos(box.ry), sn = Math.sin(box.ry);
+      const half = lx ? box.w * 0.5 : box.d * 0.5, L = len(f);
+      const n = Math.max(1, Math.round(L / 6)), seg = L / n;
+      if (seg < 3) return;
+      const nx = lx * cs + lz * sn, nz = -lx * sn + lz * cs;
+      const ax = lx ? sn : cs, az = lx ? cs : -sn; // along the wall
+      const ry = lx ? box.ry : box.ry + Math.PI / 2;
+      pkgShops.push({ i: shop, x: box.x + nx * (half + 0.8), z: box.z + nz * (half + 0.8), nx, nz });
+      for (let k = 0; k < n; k++) {
+        if (hash(box.x + k, box.z) < 0.25) continue;
+        const u = -L / 2 + seg * (k + 0.5);
+        const x = box.x + nx * (half + 0.8) + ax * u, z = box.z + nz * (half + 0.8) + az * u;
+        const y = window.NYC.Terrain.groundAt(x, z) + 2.8;
+        blk.awnings.push({ x, y, z, w: 1.6, d: Math.min(5.5, seg - 0.8), ry, sideDir: 1, colorIdx: Math.floor(hash(box.x, box.z + k) * 5), signY: y + 0.95, shop });
+        awningN++;
+      }
+    }
+    const polyGeos = [[], [], []]; // outlines by facade material (0 masonry, 1 painted, 2 brick & concrete; San Francisco: all 0)
     let massCount = 0;
+
     for (let i = 0; i < header.count; i++) {
       if (covered.has(i)) { massCount += table[i * F + 7]; continue; } // massCount: the masses' index in `all`
       const rec = table.subarray(i * F, i * F + F);
-      const [base, roof, , ringStart, ringCount, theta, start, count, shopsFlag] = rec;
+      const [base, roofRec, , ringStart, ringCount, theta, start, count, shopsFlag] = rec;
       const type = typeName(rec[FI.type]);
+      const kind = PK ? header.kinds[rec[FI.kind]] || 'unknown' : null;
+      const minH = PK ? rec[FI.minH] || 0 : 0;
+      const look = PK ? PK.styleFor({
+        kind, roofShape: header.roofShapes[rec[FI.roofShape]] || '', wall: header.walls[rec[FI.wall]] || '', wallRGB: rec[FI.wallRGB], roofRGB: rec[FI.roofRGB],
+        region: header.region, hash: (a) => hash(i, a)
+      }) : null;
+      // (a package house the region gives a flat roof: its walls up to the data's top, which the compiler split into eave
+      // and roof)
+      const flatHouse = PK && (kind === 'house' || kind === 'garage') && look.roof === 'flat';
+      const roof = flatHouse && rec[2] - roofRec < 3.5 ? rec[2] : roofRec;
       const pts = [];
       for (let k = 0; k < ringCount; k++) pts.push({ x: verts[2 * (ringStart + k)], z: verts[2 * (ringStart + k) + 1] });
       const xs = pts.map((p) => p.x), zs = pts.map((p) => p.z);
       const minX = Math.min(...xs), maxX = Math.max(...xs), minZ = Math.min(...zs), maxZ = Math.max(...zs);
       const height = roof - base;
       const tone = hash(i, base);
-      const vict = victorianBlock(type, height, (minX + maxX) * 0.5, (minZ + maxZ) * 0.5);
-      const { mat, paint } = styleOf(i, type, rec[FI.palette], rec[FI.era], rec[FI.facade], height, vict);
+      const vict = !PK && victorianBlock(type, height, (minX + maxX) * 0.5, (minZ + maxZ) * 0.5);
+      let { mat, paint } = styleOf(i, type, rec[FI.palette], rec[FI.era], rec[FI.facade], height, vict);
+      if (PK && mat <= 2) {
+        // (region walls: painted wood / siding / stucco / brick by the record's kind; curtain walls stay)
+        paint = look.paint;
+        mat = kind === 'warehouse' ? 2 : kind === 'church' || kind === 'school' || kind === 'civic' || ((kind === 'office' || kind === 'shop') && height >= 12) || type === 'midrise' || type === 'tower' ? 0 : 1;
+      }
       const storeyH = rec[FI.storeyH] || (type === 'tower' ? 3.9 : 0);
       const blk = {
         id: `sf_${i}`, cx: (minX + maxX) * 0.5, cz: (minZ + maxZ) * 0.5, minX, maxX, minZ, maxZ, district: 'sf', ry: theta,
@@ -2149,7 +2204,21 @@ function buildCityBlocks(scene, opts = {}) {
         footprints: [{ x0: minX, x1: maxX, z0: minZ, z1: maxZ, h: height, tone, pts }], maxH: height
       };
       rand = mulberry32((Math.imul(Math.round(blk.cx * 4), 73856093) ^ Math.imul(Math.round(blk.cz * 4), 19349663) ^ 10019) >>> 0);
-      const bottom = base - FOUNDATION;
+      const bottom = minH > 0 ? base + minH : base - FOUNDATION;
+      if (PK && kind === 'canopy') {
+        // a gas station's canopy: a slab on columns, clear of a car (its masses only place it)
+        const ms = [];
+        for (let k = start; k < start + count; k++) ms.push(all[massCount++]);
+        const m = ms.length ? ms.reduce((a, b) => (b.w * b.d > a.w * a.d ? b : a)) : { cx: (minX + maxX) / 2, cz: (minZ + maxZ) / 2, w: maxX - minX, d: maxZ - minZ };
+        const clear = Math.max(4.9, minH);
+        for (const c of pb.canopy(m, ms.length ? theta : 0, base, clear)) colliders.push(c);
+        const cs0 = Math.cos(ms.length ? theta : 0), sn0 = Math.sin(ms.length ? theta : 0);
+        const ex = (Math.abs(cs0) * m.w + Math.abs(sn0) * m.d) * 0.5, ez = (Math.abs(sn0) * m.w + Math.abs(cs0) * m.d) * 0.5;
+        colliders.push({ minX: m.cx - ex, maxX: m.cx + ex, minZ: m.cz - ez, maxZ: m.cz + ez, minY: base + clear, maxY: base + clear + 0.75, obb: { cx: m.cx, cz: m.cz, hx: m.w * 0.5, hz: m.d * 0.5, cs: cs0, sn: sn0 } });
+        quadtree.insert(blk);
+        allBlocks.push(blk);
+        continue;
+      }
       if (count === 0) {
         // badly covered by rectangles: the outline itself, world-u facades counted from its base
         const shape = new THREE.Shape();
@@ -2172,8 +2241,8 @@ function buildCityBlocks(scene, opts = {}) {
         ng.setAttribute('boxBase', new THREE.BufferAttribute(bb, 3));
         ng.setAttribute('paintWall', new THREE.BufferAttribute(pw, 4));
         ng.setAttribute('paintTrim', new THREE.BufferAttribute(pt, 4));
-        polyGeos.push(ng);
-        colliders.push({ minX, maxX, minZ, maxZ, minY: base, maxY: roof, polygon: pts, buildingId: i });
+        polyGeos[PK && mat <= 2 ? mat : 0].push(ng);
+        colliders.push({ minX, maxX, minZ, maxZ, minY: minH > 0 ? bottom : base, maxY: roof, polygon: pts, buildingId: i });
       }
       const cs = Math.cos(theta), sn = Math.sin(theta);
       let top = null;
@@ -2185,6 +2254,16 @@ function buildCityBlocks(scene, opts = {}) {
       for (let k = start; k < start + count; k++) if (biggest < 0 || all[k].w * all[k].d > all[biggest].w * all[biggest].d) biggest = k;
       const podiumShare = type === 'tower' ? rec[FI.podium] : 0;
       const podiumTop = podiumShare > 0 && podiumShare < 0.75 ? Math.min(base + PODIUM_STOREYS * (storeyH || storeys[mat]), base + height * 0.4) : roof;
+      // (a package roof: its rise from the record (peak - roof; houses by the region's pitch), each mass's in
+      // proportion to its span, so the wings of an L-shaped house sit under the main ridge)
+      let rise0 = 0, kRise = 0;
+      const pitched = PK && look.roof !== 'flat' && count > 0;
+      if (pitched) {
+        const big = all[biggest];
+        const span = Math.min(big.w, big.d) * 0.5;
+        rise0 = rec[2] - roof < 0.4 ? Math.min(1.2, Math.max(0.4, 0.3 * span)) : (rec[2] - roof) * (kind === 'house' || kind === 'garage' ? look.pitch : 1);
+        kRise = rise0 / Math.max(0.5, span);
+      }
       for (let k = start; k < start + count; k++) {
         const m = all[massCount++];
         // lowest & highest ground under the mass (corners, edge midpoints & centre)
@@ -2197,17 +2276,20 @@ function buildCityBlocks(scene, opts = {}) {
             g1 = Math.max(g1, g);
           }
         }
-        g0 = Math.max(g0, base);
-        const plinth = g1 - g0 > PLINTH_MIN ? Math.min(g1 - g0, roof - g0 - (storeyH || storeys[mat])) : 0;
+        g0 = minH > 0 ? bottom : Math.max(g0, base);
+        const plinth = minH <= 0 && g1 - g0 > PLINTH_MIN ? Math.min(g1 - g0, roof - g0 - (storeyH || storeys[mat])) : 0;
         const box = {
           x: m.cx, y: (bottom + roof) * 0.5, z: m.cz, w: m.w, h: roof - bottom, d: m.d, ry: theta, tone,
           base: g0, plinth: Math.max(0, plinth), storeyH, paint,
           faces: WALLS.map(([lx, lz]) => wallKind(m, lx, lz, shopsFlag > 0))
         };
+        // (a package's houses, apartments and public buildings stand back from the road on their lots: every wall but a
+        // shared one gets windows, not the blank rear of a city block)
+        if (PK && kind !== 'shop' && kind !== 'warehouse') box.faces = box.faces.map((f) => (f === WALL_KINDS.rear ? WALL_KINDS.entry : f));
         const collider = (mm, maxY) => colliders.push({
           minX: mm.cx - (Math.abs(cs) * mm.w + Math.abs(sn) * mm.d) * 0.5, maxX: mm.cx + (Math.abs(cs) * mm.w + Math.abs(sn) * mm.d) * 0.5,
           minZ: mm.cz - (Math.abs(sn) * mm.w + Math.abs(cs) * mm.d) * 0.5, maxZ: mm.cz + (Math.abs(sn) * mm.w + Math.abs(cs) * mm.d) * 0.5,
-          minY: base, maxY, obb: { cx: mm.cx, cz: mm.cz, hx: mm.w * 0.5, hz: mm.d * 0.5, cs, sn }
+          minY: minH > 0 ? bottom : base, maxY, obb: { cx: mm.cx, cz: mm.cz, hx: mm.w * 0.5, hz: mm.d * 0.5, cs, sn }
         });
         if (podiumTop < roof) {
           // the podium part of every mass, and the tower over the largest
@@ -2228,11 +2310,12 @@ function buildCityBlocks(scene, opts = {}) {
         }
         buckets[mat].push(box);
         collider(m, roof);
-        if (mat <= 2 && m.w > 3 && m.d > 3) blk.cornices.push({ x: m.cx, y: roof, z: m.cz, w: m.w + 1.0, h: 0.8, d: m.d + 1.0 });
+        if (pitched) { if (m.w * m.d >= 6 || k === biggest) pb.roof(m, theta, roof, Math.min(rise0, kRise * Math.min(m.w, m.d) * 0.5), look.roof, look.roofColor, paint[0]); }
+        else if (mat <= 2 && m.w > 3 && m.d > 3) blk.cornices.push({ x: m.cx, y: roof, z: m.cz, w: m.w + 1.0, h: 0.8, d: m.d + 1.0 });
         if (!top || m.w * m.d > top.w * top.d) { top = m; topBox = box; }
       }
       // row houses, flats & apartments: bay windows, garage door, stoop & false-front gable on the main front (sf-buildings.js)
-      if (mat === 1 && topBox && (type === 'rowhouse' || type === 'flats' || type === 'apartment' || vict)) {
+      if (mat === 1 && topBox && (PK ? kind === 'rowhouse' : (type === 'rowhouse' || type === 'flats' || type === 'apartment' || vict))) {
         window.NYC.sfFrontDetails(details, topBox, {
           i, roof, bays: vict ? Math.max(rec[FI.bays], 2 + Math.floor(hash(i, 21.7) * 3)) : rec[FI.bays], garage: rec[FI.garage] > 0, storey: storeys[1], windowWidth: facades[1][1].windowWidth,
           cornerPier: facades[1][1].cornerPier, groundAt: (x, z) => T.groundAt(x, z), roadAt: onRoadway, gable: type !== 'apartment' && !vict && hash(i, 13.7) < 0.3, hash: (a) => hash(i, a)
@@ -2246,10 +2329,19 @@ function buildCityBlocks(scene, opts = {}) {
       }
       // towers & midrise: the crown the lidar's highest return shows over the main roof (peak - roof > CROWN_MIN m):
       // a penthouse up to 12 m, a setback storey block up to 45 m, higher a setback and a spire (sf-buildings.js)
+      // (a package shop: canvas awnings along its longest shop wall; a house: a chimney and a porch on the road side; a
+      // church: its tower)
+      if (PK && kind === 'shop' && topBox) shopAwnings(blk, topBox, i);
+      if (pitched && biggest >= 0) {
+        const big = all[biggest], fr = rec[FI.front], fa = (fr * Math.PI) / 180;
+        if (look.chimney) pb.chimney(big, theta, roof, kRise * Math.min(big.w, big.d) * 0.5, (a) => hash(i, a));
+        if (look.porch && fr >= 0 && rec[FI.frontDist] / 4 >= 3) pb.porch(big, theta, base, roof, Math.cos(fa), Math.sin(fa), look.roofColor, paint[1]);
+        if (kind === 'church') pb.tower(big, theta, base, roof, roof + rise0, fr >= 0 ? Math.cos(fa) : 1, fr >= 0 ? Math.sin(fa) : 0, paint[0], look.roofColor);
+      }
       const crown = rec[2] - roof;
-      if (top && topBox && crown > CROWN_MIN && (type === 'tower' || type === 'midrise' || type === 'landmark')) {
+      if (top && topBox && crown > CROWN_MIN && (type === 'tower' || type === 'midrise' || type === 'landmark') && (!PK || look.roof === 'flat')) {
         window.NYC.sfCrown(details, blk, topBox, { roof, crown, storey: storeyH || storeys[mat], bucket: buckets[mat] });
-      } else if (top && top.w >= 6 && top.d >= 6 && !(type === 'rowhouse' || type === 'flats' || type === 'shed')) {
+      } else if (top && top.w >= 6 && top.d >= 6 && !(type === 'rowhouse' || type === 'flats' || type === 'shed') && (!PK || look.roof === 'flat')) {
         // a bulkhead / mechanical penthouse on the largest roof (not on row houses, flats and sheds)
         const hw = Math.min(top.w - 1.2, Math.max(2.4, top.w * range(0.25, 0.45)));
         const hd = Math.min(top.d - 1.2, Math.max(2.4, top.d * range(0.25, 0.45)));
@@ -2260,14 +2352,33 @@ function buildCityBlocks(scene, opts = {}) {
     }
     for (const b of details.bays) buckets[1].push(b);
     window.NYC.buildSFDetailMeshes(group, details);
-    if (polyGeos.length) {
-      const mesh = new THREE.Mesh(mergeGeometries(polyGeos, false), createPreWarBuildingMaterial({ ...facades[0][1], groundBase: true }));
-      mesh.name = 'SFBuildingOutlines';
+    polyGeos.forEach((geos, m) => {
+      if (!geos.length) return;
+      const mesh = new THREE.Mesh(mergeGeometries(geos, false), createPreWarBuildingMaterial({ ...facades[m][1], groundBase: true }));
+      mesh.name = m ? `SFBuildingOutlines${m}` : 'SFBuildingOutlines';
       mesh.castShadow = true;
       mesh.receiveShadow = true;
       group.add(mesh);
+    });
+    const nOutlines = polyGeos.reduce((n, g) => n + g.length, 0);
+    console.info(`[buildings] v1: ${header.count} footprints (${covered.size} left to landmark models), ${massCount} masses, ${nOutlines} outlines`);
+    if (pb) {
+      const me = pb.mesh('PkgRoofs');
+      if (me) group.add(me);
+      const kinds = {};
+      for (let i = 0; i < header.count; i++) { const k = header.kinds[table[i * F + FI.kind]] || 'unknown'; kinds[k] = (kinds[k] || 0) + 1; }
+      console.info(`[roofs] ${header.region}: ${JSON.stringify(pb.stats)} kinds ${JSON.stringify(kinds)} awnings ${awningN}`);
     }
-    console.info(`[buildings] v1: ${header.count} footprints (${covered.size} left to landmark models), ${massCount} masses, ${polyGeos.length} outlines`);
+    // a package's shop signs: named after the town's own streets and name, one name per shop (PkgBuildings.signPlan)
+    if (PK && PK.signPlan && pkgShops.length) {
+      const G = window.NYC.GEO || {}, plan = PK.signPlan(G.roadGraph, (window.NYC.PKG && window.NYC.PKG.name) || G.city, pkgShops);
+      const per = plan.themes.map(() => 0);
+      for (const blk of allBlocks) for (const a of blk.awnings) if (a.shop !== undefined) { a.signIdx = plan.pick.get(a.shop); per[a.signIdx]++; }
+      pkgSigns = { themes: plan.themes, per };
+      // (for the survey and screenshots: every shop's name and front)
+      window.NYC.pkgSignPlan = { themes: plan.themes.map((t, k) => ({ text: t.text, awnings: per[k] })),
+        shops: pkgShops.map((s) => ({ i: s.i, x: +s.x.toFixed(1), z: +s.z.toFixed(1), nx: +s.nx.toFixed(3), nz: +s.nz.toFixed(3), text: plan.themes[plan.pick.get(s.i)].text })) };
+    }
   }
 
   if (sf) buildSFMasses();
@@ -2600,7 +2711,7 @@ function buildCityBlocks(scene, opts = {}) {
   }
   group.add(awningInst);
 
-  const signThemes = [
+  const sfSignThemes = [
     // (Mog City: San Francisco's own shop names, made up, and no chain's: the fork still had New York's, a real chain's
     // among them)
     { bg: '#161210', border: '#c89d54', text: 'MARKET ST BISTRO · EST. 1928', color: '#ffe4a8' },
@@ -2609,8 +2720,12 @@ function buildCityBlocks(scene, opts = {}) {
     { bg: '#280a10', border: '#ff5252', text: 'MISSION DELI & GRILL · 24HR', color: '#ffd180' },
     { bg: '#101318', border: '#e0e6ed', text: 'BAYSIDE WATCHES · SAN FRANCISCO', color: '#f5f9ff' }
   ];
+  // (a Hometown package: its own names in San Francisco's five sign colours, and each shop keeps its name: a.signIdx)
+  const signThemes = pkgSigns ? pkgSigns.themes.map((t) => ({ ...sfSignThemes[t.style], text: t.text })) : sfSignThemes;
   const MAX_SIGNS_PER_THEME = Math.ceil(MAX_AWNINGS / signThemes.length) + 32;
-  const signInsts = signThemes.map((st) => {
+  const signCap = (k) => (pkgSigns ? Math.max(1, Math.min(MAX_AWNINGS, pkgSigns.per[k])) : MAX_SIGNS_PER_THEME);
+  const signCaps = signThemes.map((_, k) => signCap(k));
+  const signInsts = signThemes.map((st, k) => {
     const c = document.createElement('canvas');
     c.width = 512;
     c.height = 96;
@@ -2622,6 +2737,8 @@ function buildCityBlocks(scene, opts = {}) {
     ctx.strokeRect(6, 6, 500, 84);
     ctx.fillStyle = st.color;
     ctx.font = '800 26px Inter, Arial, sans-serif';
+    // (a long name is set smaller to fit inside the border)
+    for (let px = 26; px > 14 && ctx.measureText(st.text).width > 476; px--) ctx.font = `800 ${px - 1}px Inter, Arial, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(st.text, 256, 50);
@@ -2629,7 +2746,7 @@ function buildCityBlocks(scene, opts = {}) {
     const tex = new THREE.CanvasTexture(c);
     tex.colorSpace = THREE.SRGBColorSpace;
     const sMat = new THREE.MeshBasicNodeMaterial({ map: tex });
-    const sInst = new THREE.InstancedMesh(unitBox, sMat, MAX_SIGNS_PER_THEME);
+    const sInst = new THREE.InstancedMesh(unitBox, sMat, signCap(k));
     sInst.frustumCulled = false;
     group.add(sInst);
     return sInst;
@@ -2770,23 +2887,25 @@ function buildCityBlocks(scene, opts = {}) {
       // 5. Retail awnings & illuminated storefront fascia signs
       for (let i = 0; i < blk.awnings.length && awningCount < MAX_AWNINGS; i++) {
         const a = blk.awnings[i];
+        if (a.ry !== undefined) dummy.rotation.set(0, a.ry, 0); // (a package's awnings: turned with their own wall)
         dummy.position.set(a.x, a.y, a.z);
         dummy.scale.set(a.w, 0.75, a.d);
         dummy.updateMatrix();
         awningInst.setMatrixAt(awningCount, dummy.matrix);
         awningInst.setColorAt(awningCount, awningPalette[a.colorIdx % awningPalette.length]);
 
-        const themeIdx = awningCount % signInsts.length;
-        if (signCounts[themeIdx] < MAX_SIGNS_PER_THEME) {
-          dummy.position.set(a.x, 4.68, a.z);
+        const themeIdx = a.signIdx !== undefined ? a.signIdx : awningCount % signInsts.length;
+        if (signCounts[themeIdx] < signCaps[themeIdx]) {
+          dummy.position.set(a.x, a.signY !== undefined ? a.signY : 4.68, a.z);
           dummy.scale.set(0.28, 0.86, a.d * 0.92);
           dummy.updateMatrix();
           signInsts[themeIdx].setMatrixAt(signCounts[themeIdx]++, dummy.matrix);
         }
         if (collectNearLights) {
-          activeAwnings.push({ a, themeIdx, ry: blk.ry || 0 });
+          activeAwnings.push({ a, themeIdx, ry: a.ry !== undefined ? a.ry : blk.ry || 0 });
         }
         awningCount++;
+        if (a.ry !== undefined) dummy.rotation.set(0, blk.ry || 0, 0);
       }
 
       // 6. Sidewalk construction sheds
@@ -2887,7 +3006,7 @@ function buildCityBlocks(scene, opts = {}) {
         spot.position.set(a.x + outX * 0.45, 4.35, a.z + outZ * 0.45);
         spot.target.position.set(a.x + outX * 1.85, 0.0, a.z + outZ * 1.85);
         spot.target.updateMatrixWorld();
-        spot.color.copy(storeThemeColors[themeIdx % storeThemeColors.length]);
+        spot.color.copy(storeThemeColors[(pkgSigns ? pkgSigns.themes[themeIdx].style : themeIdx) % storeThemeColors.length]);
         spot.intensity = spotIntensity * fade;
       } else {
         spot.intensity = 0;

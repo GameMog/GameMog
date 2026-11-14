@@ -64,6 +64,7 @@ import { createNav } from './nav.js';
 import { clamp, smooth, angWrap, yawTo, hdist, rnd, fwd } from './util.js';
 // (the story pack, wagmi/story: here Story, `story` being the fights' own word for the men in the story's scenes)
 import { S as Story } from '../story/index.js';
+import { world } from '../world/index.js';
 
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -1098,7 +1099,7 @@ export async function install(W) {
   // (only where a world has them: San Francisco, ?city=sf, or the creatures' own test scenes, ?dev=creatures; New York's
   // own game never loads them)
   { const U = new URLSearchParams(location.search);
-    if (U.get('city') === 'sf' || U.get('dev') === 'creatures') {
+    if (world.id === 'sf' || U.get('dev') === 'creatures') {
       try { const m = await import('../creatures/index.js'); await m.install(W, c); } catch (err) { console.error('[combat] creatures', err); }
     } }
   return api;

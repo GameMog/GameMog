@@ -176,6 +176,8 @@ function decodeRegionRLE(runs, count) {
   return mask;
 }
 async function loadSFRegion(fetchBin) {
+  // (a Hometown package, cities/pkg: no regional scenery round it in v0; its own terrain is all the ground there is)
+  if (window.NYC.PKG) return null;
   const response = await fetch(new URL('data/region/manifest.json', window.NYC.BASE || location.href));
   if (!response.ok) throw Error(`Region manifest: HTTP ${response.status}`);
   const manifest = await response.json();
@@ -205,12 +207,16 @@ async function loadSFRegion(fetchBin) {
   return { manifest, city, horizon, mask, buildings:b, trees, roads };
 }
 function installRegionTerrain(data) {
+  if (!data) return;
   const h=data.manifest.horizon;
   window.NYC.FLIGHT_BOUNDS={minX:h.x0,maxX:h.x1,minZ:h.z0,maxZ:h.z1};
   // Fine landmark patches precede these. Core sampling remains authoritative inside its own grid.
   for (const g of [data.city,data.horizon]) Terrain.addPatch({x0:g.x0,z0:g.z0,step:g.step,nx:g.w,nz:g.h,h:g.heights,rect:true});
 }
 function buildSFRegion(scene) {
+  // (a Hometown package: its far field, cities/pkg/js/pkg-far.js: the land past the compiled tiles to the horizon,
+  // loaded after boot; San Francisco's path below is untouched)
+  if(window.NYC.PKG)return window.NYC.PkgFar?window.NYC.PkgFar.build(scene):{update(){},stats:()=>({})};
   const data=window.NYC.DATA.fullRegion;
   if(!data || new URLSearchParams(location.search).get('region')==='0')return { update(){}, stats:()=>({}) };
   const group=new THREE.Group();group.name='SFRegion';scene.add(group);

@@ -84,7 +84,7 @@ test('conditions and values (the Story Kit semantics)', () => {
 });
 
 test("the place library is the Story Kit's New York list (no drift)", () => {
-  const src = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/places.js'), 'utf8');
+  const src = fs.readFileSync(path.join(ROOT, 'wagmi/world/places-ny.js'), 'utf8');
   const corners = [...src.matchAll(/^\s*\['([a-z0-9-]+)', '[^']+', '/gm)].map((m) => m[1]);
   const mine = new Set([...corners, 'empire', 'timessq', 'chrysler', 'grandcentral', 'bryant', 'flatiron', 'centralpark', 'owtc', 'timessquare', 'fdr', 'fdr-un']);
   // (GameMog's Story Kit checkout: GAMEMOG_DIR, else the GameMog checkout this one sits in; skipped when it has no Story Kit)

@@ -14,7 +14,7 @@ cd mog-city
 python3 -m http.server 8000
 ```
 
-Open http://localhost:8000 and click, or press any key, for sound. A recent Chrome or Edge works best. It falls back to WebGL2 when WebGPU isn't there, and phones work too.
+Open http://localhost:8000 and click, or press any key, for sound (`node tools/serve.mjs 8000` serves byte ranges too, as GitHub Pages does, for the radio's streamed songs; `?stations=all` puts the old radio stations back on the dial for testing). A recent Chrome or Edge works best. It falls back to WebGL2 when WebGPU isn't there, and phones work too.
 
 ## URL switches
 

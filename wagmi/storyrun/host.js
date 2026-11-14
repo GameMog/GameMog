@@ -24,6 +24,8 @@ export function tell(type, data = {}, transfer = []) {
   const msg = { source: 'gamemog', ...data, type };
   const shown = Object.fromEntries(Object.entries(data).map(([k, v]) => [k, v instanceof ArrayBuffer ? { bytes: v.byteLength } : v]));
   log.push({ ...shown, type, at: +(performance.now() / 1000).toFixed(2) }); if (log.length > 200) log.shift();
+  // (in the page too: a growing town swaps to the whole town at a mission's end, wagmi/world/growing.js)
+  try { window.dispatchEvent(new CustomEvent('mc:tell', { detail: { ...shown, type } })); } catch {}
   if (!framed || !parentAt) return false;
   try { window.parent.postMessage(msg, parentAt, transfer); return true; } catch { return false; }
 }

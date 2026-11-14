@@ -1,0 +1,88 @@
+{
+ "format": "hometown-places",
+ "note": "v0 boxes (fetch.json bbox); a place given by bbox (no gazetteer row) anchors on the bbox centre",
+ "places": {
+  "okemah": {
+   "anchor": [
+    -96.300309,
+    35.429269
+   ],
+   "anchorSource": "Census 2025 Gazetteer INTPTLAT/INTPTLONG (Okemah city, GEOID 4054200)",
+   "bbox": [
+    -96.325485,
+    35.413307,
+    -96.2802,
+    35.442535
+   ],
+   "bboxSource": "Overture division 1f5b1f77-e66e-4f56-9e99-fcb91914ba75 (area bbox, capped at 4500 m)",
+   "geoid": "4054200",
+   "name": "Okemah, OK"
+  },
+  "okemah-ne": {
+   "bbox": [
+    -96.308985,
+    35.424307,
+    -96.2637,
+    35.453535
+   ],
+   "bboxSource": "the okemah box moved ~1.5 km east, ~1.2 km north (an overlapping place for the overlap proof)",
+   "domain": "conus",
+   "name": "Okemah NE (overlap test box)"
+  },
+  "phoenix": {
+   "bbox": [
+    -112.08,
+    33.444,
+    -112.062,
+    33.458
+   ],
+   "bboxSource": "given bbox",
+   "domain": "conus",
+   "name": "Phoenix, AZ"
+  },
+  "pittsburgh": {
+   "bbox": [
+    -79.99,
+    40.417,
+    -79.97,
+    40.431
+   ],
+   "bboxSource": "given bbox",
+   "domain": "conus",
+   "name": "Pittsburgh, PA"
+  },
+  "pittsburgh-bridges": {
+   "bbox": [
+    -80.025,
+    40.425,
+    -79.988,
+    40.446
+   ],
+   "bboxSource": "grade-lanes check box (spec section 6): Fort Pitt Bridge and tunnel portal, Smithfield St and Liberty bridges, the I-376 ramps at the Point",
+   "domain": "conus",
+   "name": "Pittsburgh Bridges (grade test box)"
+  },
+  "pittsburgh-bridges-ne": {
+   "bbox": [
+    -80.013,
+    40.428,
+    -79.976,
+    40.449
+   ],
+   "bboxSource": "the pittsburgh-bridges box moved ~1 km east, ~0.3 km north (an overlapping place sharing the Fort Pitt, Smithfield St and Liberty bridges, for the overlap proof)",
+   "domain": "conus",
+   "name": "Pittsburgh Bridges NE (overlap test box)"
+  },
+  "phoenix-stack": {
+   "bbox": [
+    -112.102,
+    33.455,
+    -112.088,
+    33.47
+   ],
+   "bboxSource": "grade-lanes check box (spec section 6), moved 1.6 km east to the fetched regions: the I-10/I-17 Stack's east half in the play box, all of it in the tiles",
+   "domain": "conus",
+   "name": "Phoenix Stack (grade test box)"
+  }
+ }
+}

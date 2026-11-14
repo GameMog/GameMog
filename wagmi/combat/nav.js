@@ -6,7 +6,7 @@
 // and the walls of what stands on it, from what the game already collides with: the city's colliders (the buildings,
 // a set's containers, rigs and fences: m2-set.js, m3-set.js push theirs in), the low things that are solid to the men
 // below their tops (js/controllers.js lowObstacles: the parks' iron fences and lawn hoops, the benches, granite and
-// planters; a man with no way round, or only a long one, hops them as before: enemy.js tryHop), and the street furniture that stands (window.NYC.breakables:
+// planters; a man with no way round, or only a long one, hops them as before: enemy.js tryHop), and the street furniture that stands (world.street.breakables:
 // the trees, lamp posts, hydrants, mailboxes, subway stairs). Built in a worker (nav-worker.js), so the frame never waits
 // for it; the islands it can't reach from the fight (inside a building) pruned.
 // Each Suit is a crowd agent while the fight's footwork walks him (enemy.js stepTo: circling his slot, closing in,
@@ -18,7 +18,7 @@
 //   const nav = createNav(c);  nav.want(x, z) (a fight is coming here: build now) · nav.frame(dt, frozen) (before the
 //   Suits' update) · nav.steer(e, p, sp) -> { x, z, vx, vz } | null · nav.resync(e) · nav.path(a, b) -> [{ x, y, z }] | null
 //   nav.ready() · nav.stats · URL ?nav=0 (off: the old steering), ?navdebug (the navmesh drawn, each agent's way ahead)
-import * as THREE from 'three/webgpu';
+import * as THREE from 'three/webgpu'; import { world } from '../world/index.js';
 
 const VENDOR = new URL('../../js/vendor/recast/', import.meta.url).href;
 const QS = new URLSearchParams(location.search);
@@ -101,7 +101,7 @@ export function createNav(c) {
     for (const col of [...cm.nearColliders(cx, cz, R2)]) {
       // (an overhang starting 2.2 m or more over the bare ground is no wall: by its height over a hill's ground,
       // cm.baseHeight, San Francisco's colliders' minY being the ground they stand on; New York's street is y 0)
-      if (col.carOnly || (col.minY != null && col.minY - (cm.baseHeight?.((col.minX + col.maxX) / 2, (col.minZ + col.maxZ) / 2) || 0) >= 2.2)) continue;
+      if (col.carOnly || (col.minY != null && col.minY - world.roadY((col.minX + col.maxX) / 2, (col.minZ + col.maxZ) / 2) >= 2.2)) continue;
       const o = col.obb;
       wall(o ? obbPoly(o.cx, o.cz, o.cs, o.sn, o.hx, o.hz) : [[col.minX, col.minZ], [col.maxX, col.minZ], [col.maxX, col.maxZ], [col.minX, col.maxZ]], col.maxY);
     }
@@ -109,7 +109,7 @@ export function createNav(c) {
       if (o.top - ground(o.cx, o.cz) <= 0.42) continue; // (stepped over)
       wall(obbPoly(o.cx, o.cz, o.cs, o.sn, Math.max(o.hx, 0.12), Math.max(o.hz, 0.12)), o.top);
     }
-    for (const b of window.NYC?.breakables || []) {
+    for (const b of world.street.breakables || []) {
       if (b.taken || Math.abs(b.x - cx) > HALF + 4 || Math.abs(b.z - cz) > HALF + 4 || LOW.has(b.kind)) continue;
       if (b.w && b.d) { const yaw = b.yaw || 0; wall(obbPoly(b.x, b.z, Math.cos(yaw), Math.sin(yaw), b.w / 2, b.d / 2), (b.y || 0) + 2); continue; }
       if (!ROUND.has(b.kind) || !b.r) continue;

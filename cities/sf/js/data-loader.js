@@ -17,8 +17,9 @@ async function inflate(buf) {
   return new Response(stream).arrayBuffer();
 }
 
-async function fetchBin(url, onBytes) {
-  const res = await fetch(new URL(url + '.gz', window.NYC.BASE || location.href)); // (Story Kit: data relative to the city's folder)
+// (exact: url is the object itself, no '.gz' added: a Hometown far tile by its store key, pkg-far.js)
+async function fetchBin(url, onBytes, exact = false) {
+  const res = await fetch(new URL(exact ? url : url + '.gz', window.NYC.BASE || location.href)); // (Story Kit: data relative to the city's folder)
   if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
   let buf = await res.arrayBuffer();
   if (GZIP(buf)) buf = await inflate(buf);
@@ -29,6 +30,11 @@ async function fetchBin(url, onBytes) {
   const header = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 8, n)));
   return { header, buf, offset: 8 + n };
 }
+
+// (Mog City) window.NYC.dataReady: resolved with DATA once the city's data is in memory (the world contract's
+// ensureLoaded waits on it: wagmi/world/pkg.js)
+let dataLoaded;
+window.NYC.dataReady = new Promise((r) => { dataLoaded = r; });
 
 async function loadCityData(onProgress) {
   const d = GEO.data;
@@ -49,8 +55,9 @@ async function loadCityData(onProgress) {
   window.NYC.DATA = DATA;
   window.NYC.Terrain.load(DATA.terrain.header, DATA.terrain.q);
   window.NYC.installRegionTerrain(fullRegion);
+  dataLoaded(DATA);
   return DATA;
 }
 
-Object.assign(window.NYC, { loadCityData });
+Object.assign(window.NYC, { loadCityData, fetchBin });
 })();

@@ -14,6 +14,10 @@ import { packUrl, packHash, assetUrl, hostOf } from './allow.js';
 import { watch, error as hostError } from './host.js';
 import { showTitle, plainTitle, isOwn } from './title.js';
 import { applyTheme, THEMES } from './theme.js';
+import { world as cityWorld, CITIES, cityQuery } from '../world/index.js';
+import { townLockMismatch } from '../world/town-src.js';
+import { SITE_KINDS } from '../world/common.js';
+import { isSiteRef, siteRefs, SITE_KEYS } from './places.js';
 // (a hero's wear: wear.js WEARS, kept here too so the check needs no three.js)
 const WEARS = new Set(['rider']);
 
@@ -27,10 +31,10 @@ export const MODEL_CARS = new Set(['mogcity/gt', 'mogcity/horse']);
 const MAX_BYTES = 1_000_000, MAX_TEXT = 600;
 const q = new URLSearchParams(location.search);
 const COLOUR = /^#[0-9A-Fa-f]{6}$/;
-// the cities Mog City's engine plays (index.html: ?city=sf San Francisco, New York without it): a world plays in the
-// city the page has loaded, one city a page (GameMog's frame names it with &city=)
-const CITY_NAMES = { ny: 'New York', sf: 'San Francisco' };
-const PAGE_CITY = q.get('city') === 'sf' ? 'sf' : 'ny';
+// the cities Mog City's engine plays (wagmi/world: San Francisco or New York): a world plays in the city the page has
+// loaded, one city a page (GameMog's frame names it in the address)
+const CITY_NAMES = CITIES;
+const PAGE_CITY = cityWorld.id;
 
 async function sha256(buf) {
   try { const d = await crypto.subtle.digest('SHA-256', buf); return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, '0')).join(''); } catch { return null; }
@@ -60,7 +64,31 @@ export function asksApocalypse(d, city) { return city === 'sf' && !!d && typeof 
 export const CREATURES = new Set(['creature-knight', 'creature-ogre', 'creature-centaur', 'creature-ape', 'creature-mech', 'creature-scorpion', 'creature-trex']);
 const CREATURE_CAP = 8, LOOKS = new Set(['crate', 'case', 'bag', 'can']), MAX_SUPPLIES = 24;
 const isMark = (v) => Array.isArray(v) && v.length === 2 && v.every((n) => typeof n === 'number' && Number.isFinite(n) && Math.abs(n) < 20000);
-const isPlaceRef = (v) => (typeof v === 'string' && /^@[\w-]{1,40}$/.test(v)) || (v && typeof v === 'object' && !Array.isArray(v) && typeof v['@'] === 'string');
+const isPlaceRef = (v) => (typeof v === 'string' && /^@[\w-]{1,40}$/.test(v)) || (v && typeof v === 'object' && !Array.isArray(v) && typeof v['@'] === 'string') || isSiteRef(v);
+// a mission's sites (places.js, wagmi/world/MISSION-SITES.md): the closed vocabulary, every number in range, every
+// { site: '<id>' } naming a site the mission picks before it. [] when sound
+const SITE_ID = /^[a-z][a-z0-9_-]{0,31}$/;
+export function siteErrors(m) {
+  const errs = [], ids = new Set(), num = (v, lo, hi) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
+  siteRefs(m).forEach((r, i) => {
+    const at = `site ${i}`;
+    if (typeof r.site === 'string') { if (!ids.has(r.site)) errs.push(`${at}: no earlier site ${r.site}`); return; }
+    const s = r.site;
+    for (const k of Object.keys(s)) if (!SITE_KEYS.includes(k)) errs.push(`${at}: ${k}`);
+    if (!SITE_KINDS.includes(s.kind)) errs.push(`${at}: kind ${s.kind} (one of ${SITE_KINDS.join(', ')})`);
+    if (s.id != null) { if (typeof s.id !== 'string' || !SITE_ID.test(s.id) || ids.has(s.id)) errs.push(`${at}: id`); else ids.add(s.id); }
+    const n = s.near;
+    if (n != null && !(n === 'start' || isMark(n) || (typeof n === 'string' && (/^@[\w-]{1,40}$/.test(n) || (SITE_ID.test(n) && ids.has(n)))))) errs.push(`${at}: near`);
+    for (const k of ['min', 'max', 'reach', 'minLen', 'maxLen', 'apart']) if (s[k] != null && !num(s[k], 0, 20000)) errs.push(`${at}: ${k}`);
+    if (s.open != null && !num(s.open, 0, 60)) errs.push(`${at}: open`);
+    if (s.road != null && !['avenue', 'street', 'any'].includes(s.road)) errs.push(`${at}: road`);
+    if (s.access != null && !['car', 'foot'].includes(s.access)) errs.push(`${at}: access`);
+    for (const k of ['roadView', 'signal', 'fallback']) if (s[k] != null && typeof s[k] !== 'boolean') errs.push(`${at}: ${k}`);
+    if (s.name != null && (typeof s.name !== 'string' || s.name.length > 80)) errs.push(`${at}: name`);
+    if (s.seed != null && !(typeof s.seed === 'string' || num(s.seed, -1e12, 1e12))) errs.push(`${at}: seed`);
+  });
+  return errs;
+}
 // a creature fight's and a collect's shapes (runner.js creatureFight, STEPS.collect): [] when sound, else what is wrong
 export function creatureStep(s, city) {
   const errs = [];
@@ -162,8 +190,13 @@ export function check(w) {
   if (w.storykit !== 1) bad('storykit: not a runner world (1)');
   if (typeof w.id !== 'string' || !/^[a-z0-9][a-z0-9-]{1,39}$/.test(w.id)) bad('id');
   if (typeof w.title !== 'string' || !w.title) bad('title');
-  if (w.city && !CITY_NAMES[w.city]) bad(`city ${w.city}: Mog City's engine plays New York and San Francisco`);
-  else if ((w.city || 'ny') !== PAGE_CITY) bad(`city ${w.city || 'ny'}: this page plays ${CITY_NAMES[PAGE_CITY]} (?city=${w.city || 'ny'} for ${CITY_NAMES[w.city || 'ny']})`);
+  // (a hometown world, GameMog's base.city 'hometown': it plays only on a page that loaded its exact town, a GameMog town
+  // bundle (?city=pkg&town=...), its pin (world.hometown) the bundle's lock field by field: wagmi/world/town-src.js)
+  if (w.city === 'hometown') {
+    const T = globalThis.window?.NYC?.TOWN, miss = PAGE_CITY === 'pkg' && T ? townLockMismatch(w.hometown, globalThis.window.NYC.PKG?.lock) : 'no town loaded';
+    if (miss) bad(`city hometown: this page has not loaded the town the world pins (${miss})`);
+  } else if (w.city && !CITY_NAMES[w.city]) bad(`city ${w.city}: Mog City's engine plays New York and San Francisco`);
+  else if ((w.city || 'ny') !== PAGE_CITY) bad(`city ${w.city || 'ny'}: this page plays ${CITY_NAMES[PAGE_CITY]} (${cityQuery(w.city || 'ny')} for ${CITY_NAMES[w.city || 'ny']})`);
   if (!w.cast || typeof w.cast !== 'object') bad('cast');
   else for (const [name, c] of Object.entries(w.cast)) {
     if (!c || typeof c !== 'object') { bad(`cast ${name}`); continue; }
@@ -190,6 +223,7 @@ export function check(w) {
       shapes(s.during, `${at}[${i}].during`);
     } };
     shapes(m.steps, 'steps');
+    for (const e of siteErrors(m)) bad(`${m.id} ${e}`);
     if (m.vehicle != null && typeof m.vehicle !== 'string') bad(`${m.id}: vehicle`);
   }
   if (!Array.isArray(w.acts) || !w.acts.length) bad('acts');
@@ -259,6 +293,8 @@ export async function load() {
     const h = await sha256(bytes), want = packHash(url);
     if (want && h !== want) throw new Error('its bytes do not match its name');
     const def = JSON.parse(new TextDecoder().decode(bytes));
+    // (a hometown world is checked against the town the page loaded: index.html's NYC.townReady, the bundle fetched)
+    if (def && def.city === 'hometown' && globalThis.window?.NYC?.townReady) await globalThis.window.NYC.townReady;
     const errs = check(def);
     if (errs.length) throw new Error('refused: ' + errs.slice(0, 4).join('; '));
     Object.assign(out, { ok: true, hash: h, id: def.id, title: def.title, def });

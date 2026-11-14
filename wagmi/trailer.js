@@ -31,7 +31,7 @@ import * as THREE from 'three/webgpu';
 import { createVapor } from './pursuit/vapor.js';
 import { keys, clamp, smooth, lerp, ease, handheld, shotFov } from './mission/cine.js';
 import { dropFace } from './face.js';
-import { S as story } from './story/index.js';
+import { S as story } from './story/index.js'; import { world } from './world/index.js';
 
 const Q = new URLSearchParams(location.search);
 const PI = Math.PI;
@@ -272,8 +272,8 @@ async function play(W, T, borrow, getPage) {
   // (?trailer=only&trat=s: from s seconds in, the cast given time to be built first)
   const AT0 = T.mode === 'only' ? clamp(+(Q.get('trat') || 0) || 0, 0, END - 1) : 0;
   if (AT0 && T.cast) await Promise.race([T.cast.ready, sleep(20000)]);
-  const N = window.NYC;
-  const X5 = N?.avenueX ? N.avenueX('5') : 0.4;
+  const G = world.grid; // (Manhattan's grid through the world contract: world.grid, New York's)
+  const X5 = G ? G.avenueLine('5') : 0.4;
   const grade = app.postFX?.colorGrade;
   // Jane (buildCast: ready or not when her shot comes)
   const KC = T.cast || { okJane: false, drop() {} };
@@ -351,7 +351,7 @@ async function play(W, T, borrow, getPage) {
   const ground = (x, z, k = 'person') => cm.getGroundHeight(x, z, k);
   const LANE = X5 - 3.4;                       // 5th Ave, northbound (heading PI: -z)
   // the drifts: 5th Ave north into 28th St west (a left)
-  const Z28 = N?.streetZ ? N.streetZ(28) : 1117.1;
+  const Z28 = G ? G.streetLine(28) : 1117.1;
   // the bird's-eye: straight down on 5th Ave by Madison Square, the car rolling north from ZB
   const ZB = 1336;
 

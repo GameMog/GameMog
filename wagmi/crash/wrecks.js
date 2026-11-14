@@ -9,7 +9,7 @@
 // friction, bounces off the buildings and the other wrecks, rides up the curb, settles on its wheels, its side or its
 // roof. Upright and still it is handed back to its lane as before; on its side or its roof it stays a wreck until it
 // is out of view. The city's cars still in their lanes, the street furniture and Dan's car meet it as before.
-import * as THREE from 'three/webgpu';
+import * as THREE from 'three/webgpu'; import { world } from '../world/index.js';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 const wrap = (a) => a - Math.round(a / (Math.PI * 2)) * Math.PI * 2;
@@ -53,7 +53,11 @@ function near(px, pz, bx, bz, by, bw, bl, out) {
   return out;
 }
 
+// off the road in a Hometown package (world.onRoadway: its lawns and lots, no buildings at the curb to stop it), a
+// wreck's slide and spin are damped this much more (1/s); New York and San Francisco as before
+const LAWN = { v: 2.5, w: 3 };
 export function createWrecks({ TS, cm, fx, play, props, camera, physics: PH = null }) {
+  const lawn = (x, z) => world.id === 'pkg' && !!world.onRoadway && !world.onRoadway(x, z);
   const vehicles = [...(TS.cars || []), ...(TS.buses || [])];
   const live = new Set();
   const stats = { taken: 0, square: 0, backed: 0, away: 0, backing: 0, waiting: 0, inWay: 0 }; // (handed back how, for a test)
@@ -159,6 +163,12 @@ export function createWrecks({ TS, cm, fx, play, props, camera, physics: PH = nu
     if (!B.frozen && !PH.inside(B.p.x, B.p.z, 3)) PH.freeze(B);
     readJ(R, v);
     R.t += dt;
+    // (off the asphalt and on the ground, a lawn's grip: its slide and spin damped harder than the road's friction)
+    if (!B.frozen && (Math.abs(R.vx) + Math.abs(R.vz) > 0.3 || Math.abs(R.w) > 0.3) && B.p.y < cm.getGroundHeight(R.x, R.z, 'person') + 0.9 && lawn(R.x, R.z)) {
+      const k = Math.max(0, 1 - LAWN.v * dt), kw = Math.max(0, 1 - LAWN.w * dt);
+      PH.vel(B, _lv); PH.angVel(B, _av); PH.setVel(B, { x: _lv.x * k, y: _lv.y, z: _lv.z * k }, { x: _av.x, y: _av.y * kw, z: _av.z });
+      R.vx *= k; R.vz *= k; R.w *= kw;
+    }
     const sp = Math.hypot(R.vx, R.vz), [hw, hl] = dims(v), m = massOf(v);
     if (!B.frozen && (sp > 0.05 || R.wl > 0.05) && R.upY > -2) {
       // the city's cars still in their lanes (and any wreck not in Jolt): shoved, and wrecked too when hit hard
@@ -231,6 +241,8 @@ export function createWrecks({ TS, cm, fx, play, props, camera, physics: PH = nu
     lat = Math.sign(lat) * Math.max(0, Math.abs(lat) - 9 * dt);
     R.vx = fwd * c + lat * s; R.vz = fwd * s - lat * c;
     R.w = Math.sign(R.w) * Math.max(0, Math.abs(R.w) - (2.2 + Math.abs(R.w) * 1.2) * dt);
+    // (off the asphalt, a lawn's grip: it stops in a few metres, not a long slide across the grass)
+    if (lawn(R.x, R.z)) { const k = Math.max(0, 1 - LAWN.v * dt); R.vx *= k; R.vz *= k; R.w *= Math.max(0, 1 - LAWN.w * dt); }
     R.x += R.vx * dt; R.z += R.vz * dt; R.yaw += R.w * dt;
     const sp = Math.hypot(R.vx, R.vz);
     const [hw, hl] = dims(v), m = massOf(v);
@@ -239,7 +251,7 @@ export function createWrecks({ TS, cm, fx, play, props, camera, physics: PH = nu
       proxy.heading = R.yaw; proxy.body.hx = hw; proxy.body.z0 = -hl; proxy.body.z1 = hl; proxy.vx = proxy.vz = 0; proxy.speed = 0;
       _pos.set(R.x, 0, R.z);
       // (a metre over the bare ground there: a hill's, cm.baseHeight; New York's street is y 0)
-      cm.resolveHorizontalCollision(_pos, 1.35, (cm.baseHeight?.(R.x, R.z) || 0) + 1.0, proxy);
+      cm.resolveHorizontalCollision(_pos, 1.35, world.roadY(R.x, R.z) + 1.0, proxy);
       const ox = _pos.x - R.x, oz = _pos.z - R.z, o = Math.hypot(ox, oz);
       if (o > 1e-4) {
         const nx = ox / o, nz = oz / o, vn = R.vx * nx + R.vz * nz;
@@ -327,7 +339,7 @@ export function createWrecks({ TS, cm, fx, play, props, camera, physics: PH = nu
     let x = R.x + (L.x - R.x) * k, z = R.z + (L.z - R.z) * k;
     // (kept out of the buildings, as it slides)
     proxy.heading = yaw; proxy.body.hx = hw; proxy.body.z0 = -hl; proxy.body.z1 = hl; proxy.vx = proxy.vz = 0; proxy.speed = 0;
-    _pos.set(x, 0, z); cm.resolveHorizontalCollision(_pos, 1.35, (cm.baseHeight?.(x, z) || 0) + 1.0, proxy); x = _pos.x; z = _pos.z;
+    _pos.set(x, 0, z); cm.resolveHorizontalCollision(_pos, 1.35, world.roadY(x, z) + 1.0, proxy); x = _pos.x; z = _pos.z;
     // (not into another vehicle, nor Dan's car: no deeper into one than it already is)
     const deeper = (ox, oz, oy, ow, ol) => {
       if (Math.abs(ox - x) > 9 || Math.abs(oz - z) > 9 || !boxes(x, z, yaw, hw, hl, ox, oz, oy, ow, ol, hit)) return false;

@@ -23,6 +23,10 @@ const RADAR_SCALE = 0.32; // radar pixels per metre on the ground (zooms out wit
 // (Mog City, as js/nyc-map.js: a click on the map teleports only behind ?debug, the sandbox's; in play it sets a waypoint)
 const DEBUG_TELEPORT = /[?&]debug\b/.test(location.search);
 const GRID_BEARING = GEO.frame?.bearingDeg ?? 0; // SF world north is true north
+// (Mog City, Hometown on the national grid hg1: -z is grid north, its true bearing gamma0 = GEO.frame.bearingDeg. The
+// radar is drawn turned clockwise by gamma0 so true north is up; the full map stays grid-up and its compass needle
+// turns by -gamma0. San Francisco and New York (no frame.grid) are untouched.)
+const RADAR_ROT = GEO.frame?.grid === 'hg1' ? (GRID_BEARING * Math.PI) / 180 : 0;
 
 // Map palette, shared by the radar & the atlas (in step with css/style.css): graphite ground with the streets a shade
 // lighter than the blocks they run between, muted parks & water; a yellow waypoint bearing, white landmarks & player,
@@ -61,8 +65,11 @@ const MAP = {
 const MODELLED_LANDMARKS = Object.keys(window.NYC.LANDMARK_SITES || {});
 
 // Labels share the city's georeferenced landmark positions.
+// (a Hometown town, window.NYC.PKG: its own name over its downtown, and no San Francisco or its bay)
+const PKG_ = window.NYC.PKG;
 const AREA_LABELS = [
-  ['SAN FRANCISCO', -1800, 1800, 0], ['SAN FRANCISCO BAY', 3000, -1000, 1],
+  ...(PKG_ ? [[String(PKG_.name).split(',')[0].toUpperCase(), PKG_.downtown?.x ?? PKG_.spawn?.x ?? 0, PKG_.downtown?.z ?? PKG_.spawn?.z ?? 0, 0]]
+    : [['SAN FRANCISCO', -1800, 1800, 0], ['SAN FRANCISCO BAY', 3000, -1000, 1]]),
   ...(NYC_LANDMARKS || []).map((l) => [(l.name || 'Landmark').toUpperCase(), l.x, l.z, 2])
 ];
 
@@ -296,7 +303,7 @@ for (const r of ROADS) {
   ROAD_LABELS.push({
     text,
     lower: text.toLowerCase(),
-    raw: r.name.toLowerCase(),
+    raw: (text === 'Lane' ? text : r.raw || r.name).toLowerCase(), // (the data's own spelling too: 'ofarrell' finds O'Farrell St; a hidden name stays hidden)
     road: r,
     major: r.highway || r.w >= 15,
     highway: r.highway,
@@ -450,7 +457,8 @@ class NYCMapSystem {
     this.searchPath = null;
     this.textWidths = new Map();
     // Start the map waypoint at the Ferry Building.
-    const ts = NYC_LANDMARKS.find((l) => l.id === 'ferrybuilding') || { x: 0, z: 0 };
+    // (a Hometown town: its downtown, under the town's name)
+    const ts = NYC_LANDMARKS.find((l) => l.id === 'ferrybuilding') || (PKG_ ? { x: PKG_.downtown?.x ?? 0, z: PKG_.downtown?.z ?? 0, name: String(PKG_.name).split(',')[0] } : { x: 0, z: 0 });
     this.waypoint = { x: ts.x, z: ts.z, name: ts.name || 'Market St & Montgomery St' };
     // (Mog City, as js/nyc-map.js) the player's own waypoint (a click on the map, or Enter on a search hit); onWaypoint(wp)
     // hands it to the game's GPS (wagmi/mission/gps.js), which routes there and draws it; searchExtra: () => [{ name, sub,
@@ -1029,10 +1037,12 @@ class NYCMapSystem {
     ctx.fillStyle = MAP.water;
     ctx.fillRect(0, 0, bw, bh);
     const k = scale / c.s;
+    if (RADAR_ROT) { ctx.translate(bw / 2, bh / 2); ctx.rotate(RADAR_ROT); ctx.translate(-bw / 2, -bh / 2); }
     ctx.drawImage(c.canvas, dpr * ((c.cx - w / c.s - px) * scale + w * 0.5), dpr * ((c.cz - h / c.s - pz) * scale + h * 0.5),
       dpr * w * 2 * k, dpr * h * 2 * k);
 
     v.screen(ctx);
+    if (RADAR_ROT) ctx.rotate(RADAR_ROT);
     const toX = (wx) => v.toX(wx);
     const toY = (wz) => v.toY(wz);
 

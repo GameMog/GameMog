@@ -32,8 +32,8 @@ const hdist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 (async function boot() {
   if (window.__wgTouch) return;
   window.__wgTouch = true;
-  while (!(window.WAGMI?.ready && window.__NYC_APP?.ready)) await sleep(100);
-  try { install(window.WAGMI, window.__NYC_APP); } catch (err) { console.error(TAG, err); }
+  while (!(window.WAGMI?.ready && window.WAGMI.world.app?.ready)) await sleep(100);
+  try { install(window.WAGMI, window.WAGMI.world.app); } catch (err) { console.error(TAG, err); }
 })();
 
 function install(W, app) {
@@ -283,7 +283,7 @@ ${T} #wg .m2-prompt kbd::after { content: 'TAKE DOWN'; }`;
       case 'exit': tap('KeyF'); return null;
       case 'drive': tap('KeyQ'); return null;
       case 'radio': {
-        // (a tap: the next station, R; held 0.6 s: off or on, T)
+        // (a tap: R, the radio on or the next song; held 0.6 s: T, off or on)
         let done = false; const t = setTimeout(() => { done = true; tap('KeyT'); }, 600);
         return (cancelled) => { clearTimeout(t); if (!done && !cancelled) tap('KeyR'); };
       }
