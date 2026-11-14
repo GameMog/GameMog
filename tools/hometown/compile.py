@@ -1,4 +1,4 @@
-# tools/hometown/compile.py: Hometown compiler 0.8.0 on the national grid hg1 (grid.py). A TILE is compiled from its
+# tools/hometown/compile.py: Hometown compiler 0.8.1 on the national grid hg1 (grid.py). A TILE is compiled from its
 # own sources and context alone: tile = f(buildId, key, sources over tile + halo, ctx blocks). It never reads a whole
 # place's inputs nor a neighbour's output, so neighbouring towns share identical tiles, any tile can be compiled on first
 # request, and a 4 x 4 block compiled in one process gives the same bytes as its 16 tiles compiled one by one.
@@ -60,8 +60,11 @@ import shapely.ops  # noqa: E402
 # the fill (grade reach), clearance over the lower road's own ground, capped-town box centred on its downtown;
 # 0.7.0 production builder: the frame descriptor (frame.py: yOffset / waterLevel / spawns / places from ctx, regions and
 # the DEM, never from tiles), lock v3 (tiles named by id), windowed bundles, machine + spatial in the build record;
-# 0.8.0 the merge of both (round 3's rules in 0.7.0's builder; the frame's play box is round 3's downtown-centred box)
-COMPILER_VERSION = '0.8.0'
+# 0.8.0 the merge of both (round 3's rules in 0.7.0's builder; the frame's play box is round 3's downtown-centred box);
+# 0.8.1 bridges: both portals of a tunnel split its segment, a portal within PORTAL_SNAP m of a connector is at it (with a
+# bridge that starts there; its roadway as before the move), a tunnel leaving another underground starts at that tunnel's
+# road
+COMPILER_VERSION = '0.8.1'
 OVERTURE_RELEASE = '2026-10-21.0'
 TILE, TCM = grid.TILE, grid.TILE_CM
 ROAD_HALO = 160      # m: segments read round a tile (owned pieces, curb islands' roadway, sidewalk bands)
@@ -96,6 +99,10 @@ DECK_UNDER = 1.4     # m: the deck's thickness (its underside: the profile minus
 ISLAND_W = 6.0       # m: a curb island narrower than this is a median or a strip (sidewalk), wider ground is a block
 TUNNEL_COVER = 6.0   # m: a building over a tunnel's road with less ground than this over it is dropped (a portal's cut)
 PORTAL_PAD = 30.0    # m: a tunnel link's roadway runs this far in from a portal (the cut before the bore)
+PORTAL_SNAP = 30.0   # m: a tunnel portal nearer a connector than this moves onto it (PORTAL_PAD: the cut before the
+                     # bore). No link this short at a portal: the engine (road-network.js) joins a link under 8 m into its
+                     # junction (JUNCTION_MERGE), measuring the tunnel's arcs from there, and loses a short one between a
+                     # portal and a fork from its traffic network, the tunnel with it
 PROMOTE_PAD = 25.0   # m: a mis-tagged crossing's deck runs this far past the road under it, each side
 OVERLAP_END = 40.0   # m: a lower road running under a deck counts from this far in from an abutment
 CLUSTER_CAP = 6000.0  # m: a grade group's extent; past it the group is cut at its pieces' L3 home cells (clusterSplit)
@@ -730,7 +737,7 @@ class World:
         self.ctxs = {}
         self.pieces_c, self.junction_c, self.brec_c, self.bridge_c, self.k_c = {}, {}, {}, {}, {}
         self.lanes_c, self.osm_c, self.deck_c, self.prof_c, self.gstats = {}, None, {}, {}, {}
-        self.seg_rows, self.iv_c, self.cross_c = {}, {}, {}
+        self.seg_rows, self.iv_c, self.cross_c, self.moved_c = {}, {}, {}, {}
         self.files_c, self.grp_c, self.near_c, self.base_c, self.l4_c, self.tline_c = {}, {}, {}, {}, {}, {}
         self.data = data
         self.log = log or (lambda *a: None)
@@ -826,11 +833,34 @@ class World:
         cs = sorted([(c['at'], c['connector_id']) for c in s['connectors'] or [] if c.get('connector_id') is not None and c.get('at') is not None])
         if len(cs) < 2:
             return out
+        # (a portal within PORTAL_SNAP m of a connector is at it: Fort Pitt's southbound portal 2.2 m past the deck's
+        # end made a 2.2 m link the engine folds into one junction, its tunnel's floor then stopping 0.6 m short of the
+        # next link's, a crack a car's wheel dropped through onto the hill; its northbound portal 12 m past the fork of
+        # a crossover and its southbound one 18 m short of another, links the engine's traffic network loses, and the
+        # whole tunnel with them. The tunnel's line, its pieces and the
+        # tunnel stretches of every piece all read the snapped span, and a bridge that starts or ends at the portal
+        # moves with it: Fort Pitt's deck starts at the tunnel's end)
+        def at_connector(t):
+            a = min((a for a, _ in cs), key=lambda a: (abs(a - t), a))
+            return a if abs(a - t) * L < PORTAL_SNAP else t
+        # (not a short tunnel whose two portals would meet at one connector: it stays as the data has it)
+        moved = {}
+        for t0, t1 in spans['is_tunnel']:
+            m0, m1 = at_connector(t0), at_connector(t1)
+            if m1 - m0 > 1e-9:
+                moved[t0], moved[t1] = m0, m1
+        spans['is_tunnel'] = [(moved.get(t0, t0), moved.get(t1, t1)) for t0, t1 in spans['is_tunnel']]
+        spans['is_bridge'] = [(b0s, b1s) for b0s, b1s in ((moved.get(b0, b0), moved.get(b1, b1)) for b0, b1 in spans['is_bridge']) if b1s - b0s > 1e-9]
+        self.moved_c[sid] = moved
         # (a tunnel's portals split the road too (node 'p:{segment}:{portal at, 1e-9}'), so a piece is all tunnel or
-        # none of it: the bridge that runs into Fort Pitt's tunnel ends at the portal, the tunnel link starts there)
+        # none of it: the bridge that runs into Fort Pitt's tunnel ends at the portal, the tunnel link starts there.
+        # Both portals: the bounds are the segment's own connectors, not a portal just added (its first portal, appended
+        # last, kept the second out: Fort Pitt's northbound tunnel ran on 12 m past its portal under the deck's first
+        # 12 m, its road there 7 m under the deck's start)
+        lo, hi = cs[0][0], cs[-1][0]
         for t0, t1 in spans['is_tunnel']:
             for t in (t0, t1):
-                if cs[0][0] < t < cs[-1][0] and all(abs(t - a) * L >= 1.0 for a, _ in cs):
+                if lo < t < hi and all(abs(t - a) * L >= 1.0 for a, _ in cs):
                     cs.append((t, 'p:%s:%d' % (sid, round(t * 1e9))))
         cs.sort()
         verts = shapely.get_coordinates(g)
@@ -850,7 +880,7 @@ class World:
             # (a piece more than half underground is a tunnel link: kept, so the road through it connects (Fort Pitt's
             # bridge runs straight into its tunnel); the engine bores it where the hill stands over it, and the ground
             # above its interior is not roadway (ground_lines))
-            under = sum(max(0, min(a1, t1) - max(a0, t0)) for t0, t1 in spans['is_tunnel'] if (t0, t1) != (0.0, 1.0))
+            under = sum(max(0, min(a1, t1) - max(a0, t0)) for t0, t1 in spans['is_tunnel'])
             pflags = flags | (FLAGS['tunnel'] if under > 0.5 * (a1 - a0) else 0)
             pts = [(cm(x), cm(z)) for x, z in shapely.get_coordinates(piece.simplify(0.4))]
             pts[0], pts[-1] = snap(Point(piece.coords[0])), snap(Point(piece.coords[-1]))
@@ -1080,6 +1110,9 @@ class World:
             if 'is_bridge' not in (rr.get('values') or []):
                 continue
             b0, b1 = tuple(rr['between']) if rr.get('between') else (0.0, 1.0)
+            # (an end at a tunnel's portal moved with it, pieces())
+            mv = self.moved_c.get(s['id'], {})
+            b0, b1 = mv.get(b0, b0), mv.get(b1, b1)
             if b1 - b0 <= 1e-6:
                 continue
             line = shapely.ops.substring(g, b0 * L, b1 * L)
@@ -1157,17 +1190,46 @@ class World:
         w = wet[np.rint(fj).astype(int), np.rint(fi).astype(int)]
         return g, w
 
-    def tunnel_line(self, p):
-        """A tunnel link's road (pure per segment): straight from the ground at one portal of its tunnel to the ground at
-        the other (the stretch of the segment its piece lies in). -> (t0, y0, t1, y1): segment fractions, m NAVD88."""
-        t0, t1 = p['tspan']
-
+    def portal_line(self, sid, t0, t1):
+        """The straight line between the ground at a tunnel's two portals (fractions t0, t1 of segment sid), pure per
+        segment. -> (t0, y0, t1, y1): segment fractions, m NAVD88."""
         def f():
-            g = self.seg_rows[p['seg']]['geom']
+            g = self.seg_rows[sid]['geom']
             pa, pb = g.interpolate(t0, normalized=True), g.interpolate(t1, normalized=True)
             self.ensure(min(pa.x, pb.x) - 50, min(pa.y, pb.y) - 50, max(pa.x, pb.x) + 50, max(pa.y, pb.y) + 50)
             y, _ = self.ground_at([pa.x, pb.x], [pa.y, pb.y])
             return (t0, float(y[0]), t1, float(y[1]))
+        return self.memo(self.tline_c, ('g', sid, t0, t1), f)
+
+    def tunnel_line(self, p):
+        """A tunnel link's road (pure per segment and the tunnels it branches from): straight from the ground at one
+        portal of its tunnel to the ground at the other (the stretch of the segment its piece lies in), portal_line();
+        but a portal at a connector inside ANOTHER tunnel (a road leaving that tunnel underground: the crossover just in
+        from Fort Pitt's north portal) is at that tunnel's road there, not on the hill over it.
+        -> (t0, y0, t1, y1): segment fractions, m NAVD88."""
+        t0, t1 = p['tspan']
+
+        def f():
+            _, y0, _, y1 = self.portal_line(p['seg'], t0, t1)
+            row = self.seg_rows[p['seg']]
+            g = row['geom']
+            ends = []
+            for t in (t0, t1):
+                cid = next((c['connector_id'] for c in row['connectors'] or [] if c.get('connector_id') and c.get('at') is not None and abs(c['at'] - t) < 1e-12), None)
+                at = None
+                if cid is not None:
+                    pt = g.interpolate(t, normalized=True)
+                    for r in self.node_pieces(cid, (cm(pt.x), cm(pt.y))):
+                        if r['seg'] == p['seg'] or not (r['flags'] & FLAGS['tunnel'] and r.get('tspan')):
+                            continue
+                        fr = r['f0'] if r['a'] == cid else r['f1']
+                        r0, r1 = r['tspan']
+                        if r0 + 1e-9 < fr < r1 - 1e-9:
+                            _, ya, _, yb = self.portal_line(r['seg'], r0, r1)
+                            at = ya + (yb - ya) * (fr - r0) / (r1 - r0)
+                            break
+                ends.append(at)
+            return (t0, y0 if ends[0] is None else ends[0], t1, y1 if ends[1] is None else ends[1])
         return self.memo(self.tline_c, (p['seg'], t0, t1), f)
 
     def pground(self, p):
@@ -1464,7 +1526,8 @@ class World:
 
     def ground_lines(self, p):
         """The piece's centreline where it is on the ground: all of it, less a deck's interior (DECK_SHRINK m in from each
-        abutment) and, on a tunnel link, its tunnel stretches' interior (PORTAL_PAD m in from a portal inside the piece).
+        abutment) and, on a tunnel link, its tunnel stretches' interior (PORTAL_PAD m in from a portal inside the piece,
+        or from where the data has a portal moved onto the piece's end).
         The roadway, the sidewalk bands and the buildings-on-roads rule use these."""
         line, L, _ = self.pgeom(p)
         cut = []
@@ -1472,8 +1535,21 @@ class World:
         if iv is not None:
             cut.append((iv[0] + (DECK_SHRINK if iv[0] > 0 else 0), iv[1] - (DECK_SHRINK if iv[1] < L else 0)))
         if p['flags'] & FLAGS['tunnel']:
+            # (a portal moved onto the piece's end (pieces(), PORTAL_SNAP): the road runs on to where the data has the
+            # portal and PORTAL_PAD m on from there, the roadway it had before the move, so the junction there (Fort
+            # Pitt's, where the deck, the tunnel and a crossover meet) keeps its roadway, not a curb island the engine's
+            # traffic finds in its way)
+            back = {v: k for k, v in self.moved_c.get(p['seg'], {}).items() if k != v}
+            segL = self.seg_rows[p['seg']]['geom'].length
+
+            def pad(f, inside):
+                if inside:
+                    return PORTAL_PAD
+                t = p['f0'] + (p['f1'] - p['f0']) * f
+                to = next((o for sn, o in back.items() if abs(sn - t) < 1e-12), None)
+                return 0.0 if to is None else PORTAL_PAD + abs(to - t) * segL
             for f0, f1 in p['tun']:
-                cut.append((f0 * L + (PORTAL_PAD if f0 > 0 else 0), f1 * L - (PORTAL_PAD if f1 < 1 else 0)))
+                cut.append((f0 * L + pad(f0, f0 > 0), f1 * L - pad(f1, f1 < 1)))
         cut = sorted((a, b) for a, b in cut if b - a >= 1.0)
         if not cut:
             return [line]
