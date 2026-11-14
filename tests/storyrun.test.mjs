@@ -403,3 +403,17 @@ test("every place a step sends him on foot is one he can stand on (owner, 14 Nov
   // (no ring is drawn at a place's raw centre any more)
   assert.doesNotMatch(run, /ring\.at\(p\.x, 0, p\.z\)/);
 });
+
+test("a story world's lines are heard clearly (14 Nov: \"I can't hear anyone talk ... or it comes out very muffled\")", () => {
+  const v = fs.readFileSync(path.join(ROOT, 'wagmi/radio/voices.js'), 'utf8');
+  // the street (amb: the city's bed and the traffic) and the effects (sfx: the car's engine, hits) dip under a story line
+  assert.match(v, /if \(l\.pack && out\.via\(\) === 'mixer'\) \{ W\.audio\.duck\('sfx', 0\.45, wait \+ secs \+ 0\.2\); W\.audio\.duck\('amb', 0\.45, wait \+ secs \+ 0\.2\); \}/);
+  // a story world's call is the call band (one high-pass, a presence lift, a gentle low-pass, its level given back), not
+  // the landline band Mog City's own calls keep
+  assert.match(v, /const fx = l\.pack && kind === 'phone' \? 'call' : kind;/);
+  assert.match(v, /if \(kind === 'call'\) return \[f\('highpass', 260, 0\.7\), f\('peaking', 2200, 0\.9, 4\), f\('lowpass', 5200, 0\.6\)\];/);
+  assert.match(v, /if \(kind === 'phone'\) return \[f\('highpass', 320, 0\.8\), f\('highpass', 320, 0\.8\), f\('peaking', 1800, 1, 4\), f\('lowpass', 3400, 0\.8\), f\('lowpass', 3400, 0\.8\)\];/);
+  // the voices never go through the in-car muffle (core.js: only the amb bus and the reverb are low-passed in the cabin)
+  const core = fs.readFileSync(path.join(ROOT, 'wagmi/audio/core.js'), 'utf8');
+  assert.match(core, /if \(k === 'amb'\) \{ g\.connect\(muffle\); muffle\.connect\(muffleGain\); muffleGain\.connect\(d\); \} else g\.connect\(d\);/);
+});
