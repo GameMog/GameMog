@@ -558,7 +558,12 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
         case 'beat': for (const k of ['cam', 'look', 'to', 'lookTo']) cam(s.shot[k], `${at}.shot.${k}`); if (s.say) { who(s.say.who, `${at}.say.who`); line(`${lid}.say`, s.say.who, s.say.text); } break;
         case 'place': place(s.at, `${at}.at`, 'start'); break;
         case 'transition': if (s.place) place(s.place, `${at}.place`, 'start'); break;
-        case 'cutscene': if (s.place) place(s.place, `${at}.place`, 'any'); if (s.set) { for (const p of setProblems(s.set, `${at}.set`, cast, pack.hero)) refuse(p); s.shots.forEach((sh: Json, j: number) => { for (const p of setShotProblems(s.set, sh, `${at}.shots[${j}]`, pack.hero)) refuse(p); }); } s.shots.forEach((sh: Json, j: number) => { for (const k of ['cam', 'look', 'to', 'lookTo']) cam(sh[k], `${at}.shots[${j}].${k}`); if (sh.line && !sh.say) refuse(`${at}.shots[${j}]: a line needs a speaker (say).`); if (sh.say) { who(sh.say, `${at}.shots[${j}].say`); line(`${lid}.c${j}`, sh.say, sh.line); } }); break;
+        case 'cutscene': if (s.place) place(s.place, `${at}.place`, 'any'); if (s.set) { for (const p of setProblems(s.set, `${at}.set`, cast, pack.hero)) refuse(p); s.shots.forEach((sh: Json, j: number) => { for (const p of setShotProblems(s.set, sh, `${at}.shots[${j}]`, pack.hero)) refuse(p); }); } s.shots.forEach((sh: Json, j: number) => { for (const k of ['cam', 'look', 'to', 'lookTo']) cam(sh[k], `${at}.shots[${j}].${k}`); if (sh.line && !sh.say) refuse(`${at}.shots[${j}]: a line needs a speaker (say).`); if (sh.say) { who(sh.say, `${at}.shots[${j}].say`); line(`${lid}.c${j}`, sh.say, sh.line); }
+            // (a shot is a lens (cam) or a shot by its grammar (frame, on, at: the people it is on stand on the street))
+            if (!sh.cam && !sh.frame) refuse(`${at}.shots[${j}]: a shot has a camera (cam) or a frame (frame, on, at).`);
+            if (sh.frame && !sh.cam && s.set) refuse(`${at}.shots[${j}]: a shot in a set writes its camera (cam); frame is for the street.`);
+            if (sh.frame) { if (sh.on && sh.on !== 'player') who(sh.on, `${at}.shots[${j}].on`, true); if (sh.at && sh.at !== 'player') who(sh.at, `${at}.shots[${j}].at`, true); if (sh.frame === 'ots' && !sh.at) refuse(`${at}.shots[${j}]: an over-the-shoulder shot looks at someone (at).`); }
+            else if (sh.on || sh.at) refuse(`${at}.shots[${j}]: on and at belong to a frame.`); }); break;
         case 'vignette': if (s.place) place(s.place, `${at}.place`, 'any'); s.shots.forEach((sh: Json, j: number) => { for (const k of ['cam', 'look', 'to', 'lookTo']) cam(sh[k], `${at}.shots[${j}].${k}`); if (sh.line && !sh.say) refuse(`${at}.shots[${j}]: a line needs a speaker (say).`); if (sh.say) { who(sh.say, `${at}.shots[${j}].say`); line(`${lid}.v${j}`, sh.say, sh.line); } }); break;
         case 'say': who(s.who, `${at}.who`); line(lid, s.who, s.text); break;
         case 'voicemail': case 'voicenote': who(s.who, `${at}.who`); line(lid, s.who, s.text); break;
@@ -807,7 +812,7 @@ export function toRunnerPack(pack: PackV2, opts: { cast?: Record<string, string>
   const ref = (id: Json) => (typeof id === 'string' && id !== 'player' ? name(id) : id);
   const personOf = (p: Json) => { const o: Json = { ...p, who: ref(p.who) }; if (typeof p.face === 'string') o.face = ref(p.face); if (p.look && p.look !== 'lens' && p.look !== 'prop') o.look = ref(p.look); if (p.hug) o.hug = ref(p.hug); if (p.hold) o.hold = { ...p.hold, who: ref(p.hold.who) }; return o; };
   const setOf = (d: Json) => (d ? { ...d, people: (d.people || []).map(personOf) } : d);
-  const shots = (list: Json[]) => list.map((sh: Json) => { const c: Json = { ...sh }; for (const k of ['cam', 'look', 'to', 'lookTo']) if (c[k]) c[k] = camRef(c[k]); if (c.act) c.act = c.act.map(personOf); return c; });
+  const shots = (list: Json[]) => list.map((sh: Json) => { const c: Json = { ...sh }; for (const k of ['cam', 'look', 'to', 'lookTo']) if (c[k]) c[k] = camRef(c[k]); if (c.act) c.act = c.act.map(personOf); if (c.frame) { for (const k of ['on', 'at']) if (typeof c[k] === 'string') c[k] = ref(c[k]); } return c; });
   const choiceOf = (s: Json): Json => {
     const o: Json = { ...s, who: s.who ? name(s.who) : s.who };
     o.options = s.options.map((op: Json) => (op.reply ? { ...op, reply: tuple(s.who, op.reply) } : op));
@@ -855,6 +860,8 @@ export function toRunnerPack(pack: PackV2, opts: { cast?: Record<string, string>
     // town, wagmi/storyrun/pack.js, comparing it field by field with the bundle's lock, compiler = the bundle's buildId)
     ...(town && pack.base.hometown ? { hometown: pack.base.hometown } : {}),
     car: heroSheet ? { sheet: heroSheet } : carOf(heroRide), hud: pack.hud, dressing: pack.dressing,
+    // (the action layer: Mog City's wagmi/storyrun/action.js; left out, on in a hometown world and off elsewhere)
+    ...(pack.cine ? { cine: pack.cine } : {}),
     ...(sheets.some((v: Json) => v !== heroSheet) ? { rides: Object.fromEntries(sheets.filter((v: Json) => v !== heroSheet).map((v: Json) => [v.id, v])) } : {}),
     // a seen person's body: their forged GLB (opts.cast: cast id -> path next to the page) and the shared clip pack
     cast: Object.fromEntries([

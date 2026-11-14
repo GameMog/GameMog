@@ -65,13 +65,20 @@ export const MOGCITY_STUBS = ['patrol', 'wallet'];
 // the kinds a Create (the builder) does not write yet: the stubs, and the play steps Mog City's runner plays now
 // (passenger rides, comfort, convoy, an ally's car, roadblocks, stealth) held for GameMog's own showcase worlds first.
 // lib/storykit-build.ts drops them from its worked example and sends a Create that writes one back
-export const CREATE_HELD = [...MOGCITY_STUBS, 'passenger', 'comfort', 'convoy', 'ally', 'roadblock', 'stealth', 'car'];
+// (a roadblock was held too, until 14 Nov: a Create writes one now, a gauntlet in a chase, BUILDER.md Set pieces)
+export const CREATE_HELD = [...MOGCITY_STUBS, 'passenger', 'comfort', 'convoy', 'ally', 'stealth', 'car'];
 // the cast registry (public/storykit/cast/registry.json): shipped, hand-polished people (a GLB with its own clips and face,
 // its recorded lines), voice-only people with recorded lines, and pets. storykit/cast/README.md
 export const CAST_MODELS = Object.entries(REGISTRY.models).filter(([, m]) => m.kind !== 'pet').map(([k]) => k);
 export const PET_MODELS = Object.entries(REGISTRY.models).filter(([, m]) => m.kind === 'pet').map(([k]) => k);
 // the world's opening (Mog City's runner plays it once before Mission 1, as Mog City's own opening: the city, the place
 // card, a name card for each person who matters, the premise in a few lines, the title): gate.ts rule 14
+// the action layer (r8, 14 Nov: Mog City's wagmi/storyrun/action.js, on by itself in a hometown world): a step's sting
+// (a sound as it starts), its camera, a cutscene shot's grammar (who the lens is on and who at), a mission's title slam,
+// an act's cliffhanger card. All optional; a story without them plays as before
+export const STINGS = ['siren', 'screech', 'roar', 'boom', 'hit', 'whoosh', 'crash'];
+export const STEP_CAMS = ['low', 'hood'];
+export const FRAMES = ['ots', 'close', 'push', 'react', 'two', 'low', 'wide'];
 export const OPENING = { secs: [30, 75], lines: [2, 4], allies: 3, shots: 16, wide: 8 };
 export const LIMITS = { bytes: 160_000, acts: 3, missions: 9, steps: 60, cast: 12, pets: 3, vehicles: 6, lines: 600 };
 // A first-party showcase world (gate.ts gatePack(pack, { showcase: true })): hand-authored by GameMog and shipped from the
@@ -97,6 +104,9 @@ const COMMON = {
   id: R('stepId'), if: R('cond'), checkpoint: B, at: N(0, 600, { description: 'a side step only (during, do): seconds in' }), after: R('set'), goto: R('stepId'), end: B, persist: B, until: R('stepId'),
   backdrop: O({ place: R('placeRef'), text: R('label'), sub: R('line'), color: R('colour') })
 };
+// (the action layer's moment as a step starts, on the steps a set piece is made of; cam on the car steps: $defs say what)
+const FX = { sting: R('sting'), shake: R('shake'), slowmo: R('slowmo') }, FXCAR = { ...FX, cam: R('stepCam') };
+const fx = (kinds, steps) => { for (const k of kinds) Object.assign(steps[k].properties, ['drive', 'stops', 'pursuit', 'tail', 'tow'].includes(k) ? FXCAR : FX); return steps; };
 const step = (type, props, required = []) => O({ type: { const: type }, ...COMMON, during: A(R('sideStep'), 6), ...props }, ['type', ...required]);
 const camRef = R('camRef');
 // a set (Mog City's runner: wagmi/storyrun/sets.js): a cutscene staged in a room or a closed exterior of its own, drawn
@@ -117,7 +127,10 @@ const setDef = O({ room: E(SET_ROOMS), light: E(['day', 'golden', 'night']), sig
   { description: "a set: the room (or closed exterior) the cutscene is staged in, its light (else the mission's time), its people and where they stand" });
 const setAct = A(O(setPersonProps, ['who']), 7, 0, { description: "a shot's changes to its set's people as it starts: where they stand, whom they face, their pose, a walk, a hug" });
 // a cutscene shot: `say` + `line` is a cast member's spoken line under the shot (a subtitle until its clip is ready)
-const shot = O({ cam: camRef, to: camRef, look: camRef, lookTo: camRef, dur: N(0.5, 12), fov: N(20, 90), sub: R('line'), say: R('castRef'), line: R('speech'), caption: R('label'), act: setAct }, ['cam']);
+// (or, with no cam, a shot by its grammar: frame, on whom, at whom; the engine works the lens out from where they stand)
+const shot = O({ cam: camRef, to: camRef, look: camRef, lookTo: camRef, dur: N(0.5, 12), fov: N(20, 90), sub: R('line'), say: R('castRef'), line: R('speech'), caption: R('label'), act: setAct,
+  frame: E(FRAMES, { description: "the shot by its grammar, in place of cam: ots (over on's shoulder onto at), close (on's face), push (pushing in on on's face), react (a quick close-up of on's reaction), two (on and at together), low (a low hero angle on on), wide (high and wide over on)" }),
+  on: { ...R('slug'), description: "a frame's subject: a cast id with a body on the street, or 'player'" }, at: { ...R('slug'), description: "a frame's other person (ots: whom we look at over on's shoulder; two: who is with on)" } }, []);
 // a choice's fields: a choice step, or the choice at the end of an answered call (call.choice)
 const CHOICE = {
   prompt: S(120), who: R('castRef'), timeout: N(3, 30), default: ONE(I(0, 3), { type: 'null' }), defaultText: S(80),
@@ -129,10 +142,11 @@ const actEndCard = O({
   title: R('label'), heading: R('label'), stats: A(O({ label: S(24), value: S(24) }, ['label', 'value']), 6),
   story: A(R('line'), 4), quote: O({ text: R('line'), by: R('castRef'), tag: R('slug'), missing: R('line') }, ['text']),
   meter: R('slug'), minSecs: N(0, 12), signed: S(40),
-  next: O({ kicker: S(24), text: S(80), sub: R('line'), at: N(0, 1000), secs: N(1, 8) }, ['text'])
+  next: O({ kicker: S(24), text: S(80), sub: R('line'), at: N(0, 1000), secs: N(1, 8) }, ['text']),
+  cliff: O({ kicker: S(24), text: S(80), sub: R('line') }, ['text'], { description: "the act's cliffhanger: after its end card, a hard cut to black and the hook into the next act in red ('THE VAULT WAS EMPTY')" })
 });
 
-const STEPS = {
+const STEPS = fx(['drive', 'stops', 'pursuit', 'tail', 'tow', 'timer', 'fight', 'roadblock', 'cutscene', 'call', 'say', 'search', 'transition'], {
   drive: step('drive', { to: ONE(R('placeRef'), A(R('placeRef'), 6, 1)), radius: N(3, 60), stop: B, objective: R('objective'), bonus: N(0, 600), flag: R('flag'), uTurns: B, snap: B,
     stopTimer: ONE(B, R('slug'), { description: "on arrival, stop a running timer by its name (true: every one): the clock beaten" }) }, ['to']),
   stops: step('stops', { stops: A(R('stopRef'), 8, 1), radius: N(3, 60), objective: R('objective') }, ['stops']),
@@ -140,7 +154,8 @@ const STEPS = {
   pursuit: step('pursuit', {
     count: R('value'), level: I(1, 5), kind: E(['crew', 'police']), goal: E(['lose', 'reach', 'escort']), to: R('placeRef'), radius: N(3, 60),
     los: N(0, 20), roles: A(E(['chaser', 'cutter', 'pacer', 'blocker']), 6), until: N(5, 600), loseDist: N(40, 400), loseTime: N(1, 30),
-    alert: R('label'), peelText: R('label'), objective: R('objective'), bonus: N(0, 600), flag: R('flag')
+    alert: R('label'), peelText: R('label'), objective: R('objective'), bonus: N(0, 600), flag: R('flag'),
+    name: S(40, { description: "who is on him, the chase alert's title (\"Ruben's divers\"); Police for police when left out" })
   }, ['goal']),
   // a mission timer, by name: it runs across the steps after it (a drive, a call, a search...) until a timer step stops
   // it, a drive's stopTimer beats it, or it runs out: hard fails the mission (MISSION FAILED, Retry), soft costs its set
@@ -276,7 +291,7 @@ const STEPS = {
   // one of Mog City's authored set pieces (MOGCITY_SCENES), as the shipped game plays it; mogcity-1 only
   scene: step('scene', { name: E(Object.keys(MOGCITY_SCENES), { description: Object.entries(MOGCITY_SCENES).map(([k, v]) => `${k}: ${v}`).join('; ') }), time: E(TIMES, { description: 'the time of day after it' }) }, ['name']),
   npc: step('npc', { who: R('beingRef'), at: ONE(R('placeRef'), O({ rel: { const: 'player' }, right: N(-20, 20), fwd: N(-20, 20) }, ['rel'], { description: "beside the player (the kerb is to the right), facing him" })), color: R('colour'), remove: R('slug') })
-};
+});
 
 
 
@@ -307,7 +322,8 @@ const mission = O({
   id: R('missionId'), title: S(48), vehicle: R('rideRef'), verbs: A(E(VERBS), 8, 0, { uniqueItems: true }),
   start: R('placeRef'), traffic: N(0, 1), stakes: R('line'), passLine: R('line'), note: R('line'), timerLine: S(80), label: S(24),
   time: E(TIMES, { description: "the mission's time of day, pinned: held through its cutscenes and set pieces (left out: the act's timeline's, else the dressing's)" }),
-  reward: R('set'), hiddenMeters: A(R('slug'), 4), next: R('missionId'), hidden: B, steps: A({ $ref: '#/$defs/step' }, LIMITS.steps, 1)
+  reward: R('set'), hiddenMeters: A(R('slug'), 4), next: R('missionId'), hidden: B, steps: A({ $ref: '#/$defs/step' }, LIMITS.steps, 1),
+  card: ONE(E(['slam']), { const: false }, { description: "the mission's title card: slam (slammed in with a hit), false (none: its first cutscene titles it); a hometown story slams every one" })
 }, ['id', 'title', 'vehicle', 'start', 'steps']);
 
 const voice = {
@@ -346,6 +362,7 @@ export const SCHEMA = {
     dressing: O({ time: E(TIMES), season: E(SEASONS), weather: E(WEATHER), holiday: A(E(HOLIDAYS), 2, 0, { uniqueItems: true }),
       blackout: E(BLACKOUTS, { description: 'the power is out there (midtown: 34th to 59th St; downtown: below 34th St; manhattan: all of it, the boroughs over the rivers lit): dark windows, street lights and billboards, dead signals, emergency cars, stranded cars, generator-lit islands. Left out, the power is on' }) }, ['time', 'season', 'weather']),
     hero: { ...R('castRef'), description: 'the player character (a cast id)' },
+    cine: O({ action: { ...B, description: "the action layer: chase cameras, speed lines, near misses held in slow motion, crash beats, title slams. On by itself in a hometown story" } }),
     opening,
     ride: { ...R('rideId'), description: 'the free-drive ride (a vehicle id); the first vehicle when left out' },
     hud: O({
@@ -415,6 +432,10 @@ export const SCHEMA = {
     }),
     set: ONE(R('setOne'), A(R('setOne'), 6, 1)),
     actEndCard,
+    sting: E(STINGS, { description: "a sound as the step starts (a story's own moment): siren, screech (tyres), roar (an engine), boom, hit, whoosh, crash" }),
+    shake: N(0, 1, { description: 'the camera jolted as the step starts (0.3 a bump, 0.7 a hit)' }),
+    slowmo: N(0.2, 2, { description: 'seconds of slow motion as the step starts: the moment it all goes wrong' }),
+    stepCam: E(STEP_CAMS, { description: "the follow camera while the step runs: low (the low action angle, a chase), hood (the driver's view, a tense approach)" }),
     sideStep: { $ref: '#/$defs/step', description: 'a step started alongside another (during, a trigger\'s do); gate.ts refuses a side step inside a side step' },
     step: { oneOf: Object.values(STEPS) }
   }

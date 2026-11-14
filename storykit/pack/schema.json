@@ -224,6 +224,17 @@
    "$ref": "#/$defs/castRef",
    "description": "the player character (a cast id)"
   },
+  "cine": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [],
+   "properties": {
+    "action": {
+     "type": "boolean",
+     "description": "the action layer: chase cameras, speed lines, near misses held in slow motion, crash beats, title slams. On by itself in a hometown story"
+    }
+   }
+  },
   "opening": {
    "type": "object",
    "additionalProperties": false,
@@ -1537,6 +1548,21 @@
          },
          "minItems": 1,
          "maxItems": 60
+        },
+        "card": {
+         "oneOf": [
+          {
+           "enum": [
+            "slam"
+           ]
+          },
+          {
+           "const": false
+          },
+          {
+           "description": "the mission's title card: slam (slammed in with a hit), false (none: its first cutscene titles it); a hometown story slams every one"
+          }
+         ]
         }
        }
       },
@@ -2179,8 +2205,60 @@
        "maximum": 8
       }
      }
+    },
+    "cliff": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "text"
+     ],
+     "properties": {
+      "kicker": {
+       "type": "string",
+       "maxLength": 24
+      },
+      "text": {
+       "type": "string",
+       "maxLength": 80
+      },
+      "sub": {
+       "$ref": "#/$defs/line"
+      }
+     },
+     "description": "the act's cliffhanger: after its end card, a hard cut to black and the hook into the next act in red ('THE VAULT WAS EMPTY')"
     }
    }
+  },
+  "sting": {
+   "enum": [
+    "siren",
+    "screech",
+    "roar",
+    "boom",
+    "hit",
+    "whoosh",
+    "crash"
+   ],
+   "description": "a sound as the step starts (a story's own moment): siren, screech (tyres), roar (an engine), boom, hit, whoosh, crash"
+  },
+  "shake": {
+   "type": "number",
+   "minimum": 0,
+   "maximum": 1,
+   "description": "the camera jolted as the step starts (0.3 a bump, 0.7 a hit)"
+  },
+  "slowmo": {
+   "type": "number",
+   "minimum": 0.2,
+   "maximum": 2,
+   "description": "seconds of slow motion as the step starts: the moment it all goes wrong"
+  },
+  "stepCam": {
+   "enum": [
+    "low",
+    "hood"
+   ],
+   "description": "the follow camera while the step runs: low (the low action angle, a chase), hood (the driver's view, a tense approach)"
   },
   "sideStep": {
    "$ref": "#/$defs/step",
@@ -2308,6 +2386,18 @@
          "description": "on arrival, stop a running timer by its name (true: every one): the clock beaten"
         }
        ]
+      },
+      "sting": {
+       "$ref": "#/$defs/sting"
+      },
+      "shake": {
+       "$ref": "#/$defs/shake"
+      },
+      "slowmo": {
+       "$ref": "#/$defs/slowmo"
+      },
+      "cam": {
+       "$ref": "#/$defs/stepCam"
       }
      }
     },
@@ -2394,6 +2484,18 @@
       },
       "objective": {
        "$ref": "#/$defs/objective"
+      },
+      "sting": {
+       "$ref": "#/$defs/sting"
+      },
+      "shake": {
+       "$ref": "#/$defs/shake"
+      },
+      "slowmo": {
+       "$ref": "#/$defs/slowmo"
+      },
+      "cam": {
+       "$ref": "#/$defs/stepCam"
       }
      }
     },
@@ -2630,6 +2732,23 @@
       },
       "flag": {
        "$ref": "#/$defs/flag"
+      },
+      "name": {
+       "type": "string",
+       "maxLength": 40,
+       "description": "who is on him, the chase alert's title (\"Ruben's divers\"); Police for police when left out"
+      },
+      "sting": {
+       "$ref": "#/$defs/sting"
+      },
+      "shake": {
+       "$ref": "#/$defs/shake"
+      },
+      "slowmo": {
+       "$ref": "#/$defs/slowmo"
+      },
+      "cam": {
+       "$ref": "#/$defs/stepCam"
       }
      }
     },
@@ -2737,6 +2856,15 @@
        "minimum": -600,
        "maximum": 600,
        "description": "with a name and no seconds: seconds onto that running timer (negative takes them off)"
+      },
+      "sting": {
+       "$ref": "#/$defs/sting"
+      },
+      "shake": {
+       "$ref": "#/$defs/shake"
+      },
+      "slowmo": {
+       "$ref": "#/$defs/slowmo"
       }
      }
     },
@@ -3024,6 +3152,15 @@
         }
        },
        "description": "a timed choice when the call is answered, after its lines"
+      },
+      "sting": {
+       "$ref": "#/$defs/sting"
+      },
+      "shake": {
+       "$ref": "#/$defs/shake"
+      },
+      "slowmo": {
+       "$ref": "#/$defs/slowmo"
       }
      }
     },
@@ -3435,9 +3572,7 @@
        "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": [
-         "cam"
-        ],
+        "required": [],
         "properties": {
          "cam": {
           "$ref": "#/$defs/camRef"
@@ -3685,6 +3820,26 @@
           "minItems": 0,
           "maxItems": 7,
           "description": "a shot's changes to its set's people as it starts: where they stand, whom they face, their pose, a walk, a hug"
+         },
+         "frame": {
+          "enum": [
+           "ots",
+           "close",
+           "push",
+           "react",
+           "two",
+           "low",
+           "wide"
+          ],
+          "description": "the shot by its grammar, in place of cam: ots (over on's shoulder onto at), close (on's face), push (pushing in on on's face), react (a quick close-up of on's reaction), two (on and at together), low (a low hero angle on on), wide (high and wide over on)"
+         },
+         "on": {
+          "$ref": "#/$defs/slug",
+          "description": "a frame's subject: a cast id with a body on the street, or 'player'"
+         },
+         "at": {
+          "$ref": "#/$defs/slug",
+          "description": "a frame's other person (ots: whom we look at over on's shoulder; two: who is with on)"
          }
         }
        },
@@ -3942,6 +4097,15 @@
         }
        },
        "description": "a set: the room (or closed exterior) the cutscene is staged in, its light (else the mission's time), its people and where they stand"
+      },
+      "sting": {
+       "$ref": "#/$defs/sting"
+      },
+      "shake": {
+       "$ref": "#/$defs/shake"
+      },
+      "slowmo": {
+       "$ref": "#/$defs/slowmo"
       }
      }
     },
@@ -4181,6 +4345,15 @@
       },
       "wait": {
        "type": "boolean"
+      },
+      "sting": {
+       "$ref": "#/$defs/sting"
+      },
+      "shake": {
+       "$ref": "#/$defs/shake"
+      },
+      "slowmo": {
+       "$ref": "#/$defs/slowmo"
       }
      }
     },
@@ -4587,6 +4760,15 @@
       },
       "set": {
        "$ref": "#/$defs/set"
+      },
+      "sting": {
+       "$ref": "#/$defs/sting"
+      },
+      "shake": {
+       "$ref": "#/$defs/shake"
+      },
+      "slowmo": {
+       "$ref": "#/$defs/slowmo"
       }
      }
     },
@@ -4995,6 +5177,27 @@
          "maximum": 8
         }
        }
+      },
+      "cliff": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [
+        "text"
+       ],
+       "properties": {
+        "kicker": {
+         "type": "string",
+         "maxLength": 24
+        },
+        "text": {
+         "type": "string",
+         "maxLength": 80
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        }
+       },
+       "description": "the act's cliffhanger: after its end card, a hard cut to black and the hook into the next act in red ('THE VAULT WAS EMPTY')"
       }
      }
     },
@@ -5281,6 +5484,18 @@
       },
       "objective": {
        "$ref": "#/$defs/objective"
+      },
+      "sting": {
+       "$ref": "#/$defs/sting"
+      },
+      "shake": {
+       "$ref": "#/$defs/shake"
+      },
+      "slowmo": {
+       "$ref": "#/$defs/slowmo"
+      },
+      "cam": {
+       "$ref": "#/$defs/stepCam"
       }
      }
     },
@@ -6283,6 +6498,15 @@
       },
       "flag": {
        "$ref": "#/$defs/flag"
+      },
+      "sting": {
+       "$ref": "#/$defs/sting"
+      },
+      "shake": {
+       "$ref": "#/$defs/shake"
+      },
+      "slowmo": {
+       "$ref": "#/$defs/slowmo"
       }
      }
     },
@@ -6726,6 +6950,15 @@
       },
       "why": {
        "$ref": "#/$defs/line"
+      },
+      "sting": {
+       "$ref": "#/$defs/sting"
+      },
+      "shake": {
+       "$ref": "#/$defs/shake"
+      },
+      "slowmo": {
+       "$ref": "#/$defs/slowmo"
       }
      }
     },
@@ -6916,6 +7149,15 @@
         "hood"
        ],
        "description": "with on: 'ride', which part of the car (trunk if left out; door for the glovebox, the seats or the door pockets)"
+      },
+      "sting": {
+       "$ref": "#/$defs/sting"
+      },
+      "shake": {
+       "$ref": "#/$defs/shake"
+      },
+      "slowmo": {
+       "$ref": "#/$defs/slowmo"
       }
      }
     },
@@ -7036,6 +7278,18 @@
       },
       "flag": {
        "$ref": "#/$defs/flag"
+      },
+      "sting": {
+       "$ref": "#/$defs/sting"
+      },
+      "shake": {
+       "$ref": "#/$defs/shake"
+      },
+      "slowmo": {
+       "$ref": "#/$defs/slowmo"
+      },
+      "cam": {
+       "$ref": "#/$defs/stepCam"
       }
      }
     },
