@@ -2315,7 +2315,7 @@ def write_stream(dom, keys, body_of, id_of):
         try:
             b = body_of(*k)
             w.write(struct.pack('<I', len(b)) + b)
-        except (RefusedTile, MissingRegion) as e:
+        except (RefusedTile, MissingRegion, demlib.DemUnavailable) as e:
             why = str(e).encode()
             w.write(struct.pack('<II', 0xffffffff, len(why)) + why)
     w.flush()
@@ -2413,7 +2413,7 @@ if __name__ == '__main__':
                     try:
                         b = compile_tiles(Wd, store, [(c, r)], log)[(c, r)]
                         w.write(struct.pack('<I', len(b)) + b)
-                    except (RefusedTile, MissingRegion) as e:
+                    except (RefusedTile, MissingRegion, demlib.DemUnavailable) as e:
                         why = str(e).encode()
                         w.write(struct.pack('<II', 0xffffffff, len(why)) + why)
                 w.flush()
@@ -2488,6 +2488,6 @@ if __name__ == '__main__':
                 assemble.compile_place(pid, json.load(open(a.places))['places'], a.data, store, bid, a.out or (P['out'] if a.id else None), log=log)
         else:
             ap.error('--tile, --tiles, --block, --ctx, --far, --far-list, --frame, --assemble, --descriptor or --id')
-    except (MissingRegion, RefusedTile) as e:
+    except (MissingRegion, RefusedTile, demlib.DemUnavailable) as e:
         print(jdump({'refused': str(e)}), file=sys.stderr)
         sys.exit(3)
