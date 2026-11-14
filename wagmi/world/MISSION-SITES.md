@@ -31,7 +31,7 @@ nearest first (`[{ key, x, z, heading, name, d }]`).
 | `kind` | the kind asked for |
 | `name` | a name a player can read: the park's or the landmark's own name, or one made from the streets (`the gas station at Powell St & California St`) |
 | `x, z, heading` | where a car stops for it: on a drivable lane, facing along the lane |
-| `cx, cz` | the place itself, where a man on foot goes: the sidewalk at a building's front, a few metres into a park, out on a pier, the junction's centre |
+| `cx, cz` | the place itself, where a man on foot goes: the sidewalk at a building's front, a few metres into a park, out on a pier, the junction's centre. (A compiled town's place, `city.pois`, is found from its approach, `ax, az` in the town's `PKG.places`: outdoors, clear of every building; and whatever a step is sent to, the story runner's guard moves off any spot a person cannot stand on: the owner's rule of 14 Nov, no ring inside a building) |
 | `front` | (a building, a landmark, a kerb) how its front was found: `'sidewalk'` (a raised curb, a park's ground, or the city's own sidewalk data: San Francisco's ground mask), `'face'` (no sidewalk in the data: the open ground just short of its wall, by the building's real outline) or `false` (neither: `cx, cz` is where the city's data puts the place, and every test is of that point) |
 | `road` | the class of the lane at `x, z`: `'avenue'` (a main road of the city's road graph) or `'street'` |
 | `reach` | metres from the car's stop to the place itself (`cx, cz`): with no front found, the whole way to the place |

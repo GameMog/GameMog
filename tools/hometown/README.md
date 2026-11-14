@@ -132,6 +132,17 @@ from a compiled tile**, so it exists seconds after a town is picked and is the s
   downtown from ctx; nearest-lane ties broken by (segment, piece), never by an index's order. Their street names are
   spelled as a sign spells them (`street_names.street_case`: "N 3rd St", "NE 2nd Ave", "McDonald Ave", "US Hwy 1",
   "St John's Rd"; before 0.10.0 Python's `str.title()` wrote "N 3Rd St"). Tests: `test_street_names.py`.
+- each story place's **approach** `ax, az` (`approach.py`; `aHow` says how it was found, `approachRule` counts them):
+  where a person on foot is sent, never inside a building (the owner's rule, 14 Nov: nobody can enter one on the
+  platform). Outdoors, 1.5 m clear of every Overture footprint (a roof a person walks under, ROOFS or raised 3 m, is
+  no wall on the way but no place to stand), off the water and off the carriageway (half its class width, or its width
+  rule, plus 0.75 m), with a straight walk 0.5 m clear of every wall to the place's lane point (or, that lane point
+  under a roof, to the nearest open road point within 25 m). The place itself when a person can stand there (a park,
+  an open lot), else its front toward its lane (the first free point from its centre toward the lane), else the
+  nearest free point round it within 60 m; once more at a relaxed clearance; none: no `ax, az` (the engine keeps the
+  lane point, and the story runner's guard moves any target a person cannot stand on). The tiles are untouched: only
+  the frame (and so the bundle's `PKG.places`) gains the fields. Tests: `test_approach.py`; `reach_scan.py <package>`
+  checks a compiled town's places against its own compiled buildings and ground mask.
 - the **spawn district**: the spawn's tile and 2 tiles each way (5 x 5); spawns and places inside it less 300 m carry
   `district: true` (the Story Kit keeps mission 1 there).
 - `streets` (names and metres in the box) and `density` (ctx building counts per km2 of land).
