@@ -270,7 +270,7 @@ export class StoryStore {
         // (a person's body: their sheet, or a hand-built one's model, as Pickup Time's people are)
         const sheet = (p: any) => new Map<string, string>((p.cast || []).filter((c: any) => c.sheet || (!c.voiceOnly && handBuilt(c.model))).map((c: any) => [c.id, c.sheet ? stable(c.sheet) : `model:${c.model}`]));
         const was = sheet(parentPack), now = sheet(g.pack);
-        const clips = new Set(voicePlanOf(g.pack, '').lines.map((l: any) => l.clip));
+        const clips = new Set(voicePlanOf(g.pack, '', townOf(g.pack).city ?? null).lines.map((l: any) => l.clip));
         const ins = this.db.prepare('INSERT INTO files (draft_id, kind, name, hash, ext, bytes, meta, inherited, at) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)');
         for (const f of this.files(parent.id)) {
           const keep = (f.kind === 'glb' && now.has(f.name) && now.get(f.name) === was.get(f.name)) || (f.kind === 'voice' && clips.has(f.name.replace(/\.(ogg|wav)$/, '')));
@@ -299,7 +299,7 @@ export class StoryStore {
       ext = 'glb'; max = L.glb.each; total = L.glb.total;
     } else if (kind === 'voice') {
       if (!(m = CLIP.exec(name))) return fail(400, 'A clip is <line hash>-<voice key>.ogg or .wav.');
-      const line = voicePlanOf(pack, '').lines.find((l: any) => l.clip === `${m![1]}-${m![2]}` && !l.rec);
+      const line = voicePlanOf(pack, '', townOf(pack).city ?? null).lines.find((l: any) => l.clip === `${m![1]}-${m![2]}` && !l.rec);
       if (!line) return fail(409, `${m[1]}-${m[2]} is no line of this world in its speaker's current voice.`);
       ext = m[3]; max = L.voice.each; total = L.voice.total; count = L.voice.count;
       keep = { line: line.id, who: line.who, voice: line.voice, codec: ext === 'ogg' ? 'opus' : 'pcm16', secs: num(meta.secs, 0, 120), renderMs: num(meta.renderMs, 0, 6e5),
@@ -366,7 +366,7 @@ export class StoryStore {
       else if (f.kind === 'art') art[f.name.replace(/\.[a-z]+$/, '')] = url;
       else if (f.kind === 'voice') { const base = f.name.replace(/\.(ogg|wav)$/, ''); clips[base] = { file: f.name, url, bytes: f.bytes, ...(f.meta ? JSON.parse(f.meta) : {}) }; }
     }
-    const voice: Record<string, unknown> = { ...voicePlanOf(pack, ''), clips };
+    const voice: Record<string, unknown> = { ...voicePlanOf(pack, '', townOf(pack).city ?? null), clips };
     return { ...toRunnerPack(pack, { cast, clips: 'cast/cast-clips.glb', townName: townOf(pack).townName }), voice, ...(Object.keys(art).length ? { art } : {}) };
   }
 
@@ -374,7 +374,7 @@ export class StoryStore {
   status(d: DraftRow) {
     const pack = JSON.parse(d.pack), files = this.files(d.id);
     const has = (k: Kind, n: string) => files.some((f) => f.kind === k && f.name.replace(/\.[a-z]+$/, '') === n);
-    const lines = voicePlanOf(pack, '').lines;
+    const lines = voicePlanOf(pack, '', townOf(pack).city ?? null).lines;
     return {
       id: d.id, state: d.state, parent: d.parent, title: pack.title, city: pack.base?.city,
       world: d.world ? blobUrl(d.world, 'json') : null,
@@ -459,7 +459,7 @@ export class StoryStore {
     const parent = d.parent ? this.draft(d.parent) : undefined;
     const g = gatePack(pack, { parent: parent ? JSON.parse(parent.pack) : null, showcaseLine: !!parent && this.showcaseLine(parent.id), city: townOf(pack).city });
     if (!g.ok || !g.pack) return { ...fail(422, 'The pack with this opening was refused.'), problems: g.problems };
-    const made = toRunnerPack(g.pack, { townName: townOf(g.pack).townName }), plan = voicePlanOf(g.pack, '');
+    const made = toRunnerPack(g.pack, { townName: townOf(g.pack).townName }), plan = voicePlanOf(g.pack, '', townOf(g.pack).city ?? null);
     if (stable(w.opening ?? null) !== stable(made.opening ?? null)) problems.push(w.opening && !g.pack.opening ? 'world.opening: send the same opening in story-pack form (opening) so the pack is gated with it.' : 'world.opening: it is not the opening the pack makes (toRunnerPack).');
     if (stable(w.voice?.cast ?? null) !== stable(plan.cast)) problems.push('world.voice.cast: not the pack\'s speakers and voices (voicePlanOf).');
     if (stable(w.voice?.lines ?? null) !== stable(plan.lines)) problems.push('world.voice.lines: not the pack\'s lines (voicePlanOf).');

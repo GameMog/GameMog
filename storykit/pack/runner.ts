@@ -1,3 +1,4 @@
+import type { CityTable } from './cities.ts';
 // Story Kit: a passed v2 pack's voice plan, shared by `npm run storykit:pack` (scripts/storykit-pack.ts, repo packs in
 // public/) and the world store (lib/storykit-store.ts, a creator's world on GameMog's own disk). No file system here.
 import { gatePack, personName } from './gate.ts';
@@ -19,13 +20,16 @@ export function voiceBlockOf(c: any) {
  * `dir`: where the clips are, relative to the Story Kit page (a stored world's clips are content-hashed URLs instead,
  * listed in the plan's own `clips`, so its dir is '').
  */
-export function voicePlanOf(pack: any, dir = `packs/${pack.id}/voice/`) {
+// `city`: a hometown world's town table (lib/storykit-store.ts townOf(pack).city). Without it the gate refuses a hometown
+// pack before it lists a line, and every hometown story was voiced with no lines at all (14 Nov: The Courtesy Lane's cast
+// spoke only the placeholder mumble)
+export function voicePlanOf(pack: any, dir = `packs/${pack.id}/voice/`, city: CityTable | null = null) {
   const name = (id: string) => personName(pack.cast.find((c: any) => c.id === id)) || id.replace(/(^|-)([a-z])/g, (_: string, a: string, b: string) => (a ? ' ' : '') + b.toUpperCase());
   const blocks = new Map(pack.cast.map((c: any) => [c.id, voiceBlockOf(c)]));
   // (a showcase (SHOWCASE_PACKS) is gated as one, and every other pack under the showcase's longer limits, as a Mog of a
   // showcase is (showcaseLine): longer than a Create, the plain gate would refuse it before it lists a line. Only the
   // lines are read here; the pack was gated with its own limits where it was stored)
-  const lines = gatePack(pack, SHOWCASE_PACKS.includes(pack.id) ? { showcase: true } : { showcaseLine: true }).lines.filter((l) => !/\.p$/.test(l.id));
+  const lines = gatePack(pack, { ...(SHOWCASE_PACKS.includes(pack.id) ? { showcase: true } : { showcaseLine: true }), ...(city ? { city } : {}) }).lines.filter((l) => !/\.p$/.test(l.id));
   return {
     model: VOICE_MODEL, dir,
     cast: Object.fromEntries(pack.cast.map((c: any) => { const b: any = blocks.get(c.id); return [name(c.id), { id: c.id, voice: b.id, key: voiceKey(b), block: b }]; })),

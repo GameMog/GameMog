@@ -22,6 +22,7 @@ import { gateHometown, cityTableOf, storyPlan, violentMissions, unknownPlaces } 
 import { sfCityPackage, SF_PLACE_ID } from '../storykit/hometown/sf-package.ts';
 import { hometownPlaceList, hometownSystem, hometownTurn, checkHometownReply, REAL_PLACE_RULES } from '../lib/storykit-hometown.ts';
 import { storykitSystem, placeList } from '../lib/storykit-build.ts';
+import { voicePlanOf } from '../storykit/pack/runner.ts';
 
 type Ok = (name: string, cond: boolean, detail?: string) => void;
 const R = (p: string) => JSON.parse(readFileSync(`storykit/hometown/fixtures/${p}`, 'utf8'));
@@ -215,6 +216,13 @@ export function runHometownChecks(ok: Ok) {
   const town = 'city=pkg&town=us-1203275&tc=htc-0.8.0-hg1-b9120c8ae&ts=095fbb92b1411bbf0fb0d7432eb2f6cfa653bb9580943761d46e22c96d492d15&tv=district-9011-10385';
   ok('the test drive keeps a town\'s frame with its bundle variant (town, tc, ts, tv)', !!frameRe && frameRe.test(town) && frameRe.test(town + '&') && frameRe.test('city=sf') && frameRe.test(''));
   ok('the test drive still refuses a frame with anything else in it', !!frameRe && !frameRe.test('city=pkg&town=x&evil=<b>') && !frameRe.test('city=ny&x=1'));
+  // ── a hometown story's voice plan lists its lines (storykit/pack/runner.ts voicePlanOf with the town's table): without
+  // the table the gate refused the pack before listing a line, and every hometown story was voiced with none (14 Nov)
+  {
+    const reply = R('okemah.reply.json'), pk = reply.pack ?? reply;
+    const withTown = voicePlanOf(pk, '', cityTableOf(OK)).lines.length, without = voicePlanOf(pk, '').lines.length;
+    ok('a hometown story\'s voice plan lists its spoken lines (with the town\'s table)', withTown > 0, `${withTown} lines (without the table: ${without})`);
+  }
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
