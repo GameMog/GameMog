@@ -13,7 +13,10 @@
 // - malls (the compiler's kind 'mall', 0.8.2: a large low retail building): cream and white stucco (beige outside the warm
 //   and dry regions), storefronts on every open wall, a colonnade along each long one (a flat canopy on square columns,
 //   planters between them, pilasters up the wall over it) and a tall parapet (colonnade(); buildings.js splits the
-//   mass into a storefront storey and a plain band over it). Generic: no names, no signs;
+//   mass into a storefront storey and a plain band over it). Generic: no names, no signs. r7: its roof a light grey
+//   membrane (not a white one that glares at midday) with darker rooftop units and glazed skylight runs (mallRoof());
+// - r7: South Florida's taller condo towers banded (deeper slabs, a share with solid white balustrades) and a curved
+//   tower's balconies following its own outline (outlineBalconies(): a round-ended footprint gets round-ended bands);
 // - everything merged into one vertex-coloured mesh per build (dispose() frees it), so a per-tile build can call it.
 // Masses are three.js boxes turned by theta about +y: world = c + R_y(theta) local, local +x along (cos t, -sin t).
 
@@ -129,6 +132,7 @@ const MALL_COLORS = {
   beige: [0xe6dcc8, 0xddd0b8, 0xece4d4, 0xd8ccb4, 0xe9e1cf]
 };
 const MALL_TRIMS = [0xffffff, 0xf7f5ef, 0xece7dc];
+const MALL_ROOFS = [0x8e8e89, 0x878883, 0x96958f];
 const SURFACE = { brick: 0, stucco: 1, siding: 2, clapboard: 2, wood: 2, stone: 3, concrete: 3, metal: 3, glass: 3 };
 const ROOF_TAG = { gabled: 'gabled', hipped: 'hipped', half_hipped: 'half_hipped', gambrel: 'gambrel', mansard: 'mansard', pyramidal: 'pyramidal',
   skillion: 'skillion', saltbox: 'saltbox', dome: 'hipped', round: 'gabled', sawtooth: 'skillion', flat: 'flat' };
@@ -155,7 +159,8 @@ function styleFor(o) {
     const pal = R.walls[0][0] === 'stucco' ? MALL_COLORS.bright : MALL_COLORS.beige;
     return {
       wall, paint: [o.wallRGB || pickA(pal, h(4.1)), pickA(MALL_TRIMS, h(5.3)), SURFACE[wall] ?? 1, 0.3], roof: 'flat',
-      roofColor: o.roofRGB || pickA([0xe4e2dc, 0xd6d3cc, 0xcfccc4], h(7.9)), pitch: R.pitch, parapet: 1.1, chimney: false, porch: false
+      // (r7: a light grey membrane, as a mall's flat roof reads from the air, not a near-white one: that glared at midday)
+      roofColor: o.roofRGB || pickA(MALL_ROOFS, h(7.9)), pitch: R.pitch, parapet: 1.1, chimney: false, porch: false
     };
   }
   if (!wall) {
@@ -354,7 +359,7 @@ function createPkgBuilder() {
   // under the roof, a white slab `out` m past each wall (wrapping the corners: its top, underside and outer edge; the
   // mesh is double-sided) and a pale glass railing on its edge. y0: where the facade counts its storeys from (its base
   // and plinth), so the slabs sit on its storey lines; yMin: none at or below it (a podium's roof)
-  function balconies(m, theta, y0, roofY, storey, slabHex, railHex, out = 1.35, yMin = -Infinity) {
+  function balconies(m, theta, y0, roofY, storey, slabHex, railHex, out = 1.35, yMin = -Infinity, rh = 1.05) {
     const { L, S, P } = frame(m.cx, m.cz, m.w, m.d, theta);
     const n = Math.floor((roofY - y0) / storey + 0.05);
     const inner = [[-L, -S], [L, -S], [L, S], [-L, S]];
@@ -363,7 +368,7 @@ function createPkgBuilder() {
       const y = y0 + k * storey;
       if (y > roofY - 1.0) break;
       if (y < yMin + 0.5) continue;
-      const t = 0.28, rh = 1.05;
+      const t = 0.28;
       for (let e = 0; e < 4; e++) {
         const a = inner[e], b = inner[(e + 1) % 4], A = outer[e], B = outer[(e + 1) % 4];
         quad(P(a[0], a[1], y), P(b[0], b[1], y), P(B[0], B[1], y), P(A[0], A[1], y), slabHex);
@@ -425,6 +430,76 @@ function createPkgBuilder() {
     const { L, S, P } = frame(m.cx, m.cz, m.w, m.d, theta);
     quad(P(-L, -S, y), P(L, -S, y), P(L, S, y), P(-L, S, y), hex);
   }
+  // a mall's roof (r7): the membrane, glazed skylight runs along the mass (one down the middle of a mass 24 m deep or
+  // more, two more either side of it past 60 m: low glass monitors in 10 m lengths, as over a mall's walkways) and
+  // rooftop units (a lattice every 15 x 13 m, 4 m in from the parapet and clear of the skylights, about half of its
+  // points by hash(seed)): darker metal boxes with a pale lid. hash(seed) -> [0, 1), the building's own
+  function mallRoof(m, theta, y, hex, hash) {
+    const F = frame(m.cx, m.cz, m.w, m.d, theta);
+    const { L, S, P } = F;
+    quad(P(-L, -S, y), P(L, -S, y), P(L, S, y), P(-L, S, y), hex);
+    const runs = S >= 12 ? (S >= 30 ? [0, -S * 0.5, S * 0.5] : [0]) : [];
+    const GLASS = 0x46545b, FRAME = 0xa9a8a2;
+    for (const v of runs) {
+      for (let u = -L + 6; u + 4 <= L - 6; u += 12) {
+        const u1 = Math.min(u + 10, L - 6);
+        boxUV(F, u, u1, v - 1.6, v + 1.6, y, y + 0.25, FRAME);
+        // (the glass: a low pitched monitor, both slopes and its ends)
+        const a = P(u, v - 1.45, y + 0.25), b = P(u1, v - 1.45, y + 0.25), c = P(u1, v + 1.45, y + 0.25), d = P(u, v + 1.45, y + 0.25);
+        const e = P(u, v, y + 0.85), f = P(u1, v, y + 0.85);
+        quad(a, b, f, e, GLASS); quad(f, c, d, e, GLASS); tri(a, e, d, GLASS); tri(b, c, f, GLASS);
+        stats.skylights = (stats.skylights || 0) + 1;
+      }
+    }
+    let k = 0;
+    for (let u = -L + 5; u <= L - 5; u += 15) {
+      for (let v = -S + 5; v <= S - 5; v += 13) {
+        k++;
+        if (runs.some((r) => Math.abs(v - r) < 3.5) || hash(31.7 + k * 1.37) < 0.5) continue;
+        const w = 1.4 + hash(41.3 + k * 0.71) * 1.6, d = 1.2 + hash(53.9 + k * 0.53) * 0.8, hh = 0.9 + hash(61.1 + k * 0.91) * 0.6;
+        boxUV(F, u - w, u + w, v - d, v + d, y, y + hh, 0x5a5e60, false);
+        boxUV(F, u - w + 0.1, u + w - 0.1, v - d + 0.1, v + d - 0.1, y + hh, y + hh + 0.06, 0x7c7f7e);
+        stats.rooftopUnits = (stats.rooftopUnits || 0) + 1;
+      }
+    }
+  }
+  // balconies along a tower's own outline (r7, South Florida: a curved or many-sided footprint, which the boxes only
+  // approximate): on every storey from the second up to the one under the roof, a slab ring `out` m past the outline
+  // (each vertex moved out along its corner's bisector, capped at 2.5 x out) with a railing on its edge. pts: the
+  // outline [{x, z}] (either winding), y0 / roofY / storey / yMin as balconies()
+  function outlineBalconies(pts, y0, roofY, storey, slabHex, railHex, out = 1.35, yMin = -Infinity, rh = 1.05) {
+    const n = pts.length;
+    if (n < 3) return;
+    let a2 = 0;
+    for (let i = 0, j = n - 1; i < n; j = i++) a2 += pts[j].x * pts[i].z - pts[i].x * pts[j].z;
+    const sg = a2 > 0 ? 1 : -1;
+    // (an edge's outward normal: right of the way round for a positive (x, z) area, left otherwise)
+    const nrm = (p, q) => { const dx = q.x - p.x, dz = q.z - p.z, l = Math.hypot(dx, dz) || 1; return [(sg * dz) / l, (-sg * dx) / l]; };
+    const outer = pts.map((p, i) => {
+      const a = nrm(pts[(i + n - 1) % n], p), b = nrm(p, pts[(i + 1) % n]);
+      let bx = a[0] + b[0], bz = a[1] + b[1];
+      const bl = Math.hypot(bx, bz);
+      if (bl < 1e-6) { bx = b[0]; bz = b[1]; } else { bx /= bl; bz /= bl; }
+      const cosh = Math.max(0.4, bx * b[0] + bz * b[1]);
+      const k = Math.min(2.5, 1 / cosh) * out;
+      return { x: p.x + bx * k, z: p.z + bz * k };
+    });
+    const nf = Math.floor((roofY - y0) / storey + 0.05);
+    const t = 0.3;
+    for (let f = 1; f < nf; f++) {
+      const y = y0 + f * storey;
+      if (y > roofY - 1.0) break;
+      if (y < yMin + 0.5) continue;
+      for (let i = 0; i < n; i++) {
+        const j = (i + 1) % n, p = pts[i], q = pts[j], A = outer[i], B = outer[j];
+        quad([p.x, y, p.z], [q.x, y, q.z], [B.x, y, B.z], [A.x, y, A.z], slabHex);
+        quad([A.x, y - t, A.z], [B.x, y - t, B.z], [q.x, y - t, q.z], [p.x, y - t, p.z], slabHex);
+        quad([A.x, y - t, A.z], [B.x, y - t, B.z], [B.x, y, B.z], [A.x, y, A.z], slabHex);
+        quad([A.x, y, A.z], [B.x, y, B.z], [B.x, y + rh, B.z], [A.x, y + rh, A.z], railHex);
+      }
+      stats.balconies = (stats.balconies || 0) + 1;
+    }
+  }
   function mesh(name) {
     if (!pos.length) return null;
     const g = new THREE.BufferGeometry();
@@ -439,7 +514,7 @@ function createPkgBuilder() {
     me.userData.dispose = () => { g.dispose(); mat.dispose(); };
     return me;
   }
-  return { roof, chimney, porch, tower, canopy, balconies, colonnade, membrane, mesh, stats };
+  return { roof, chimney, porch, tower, canopy, balconies, outlineBalconies, colonnade, membrane, mallRoof, mesh, stats };
 }
 
 // Shop signs: a town's storefronts are named after its own streets, its own name and its side of town ("COLUMBIA ST

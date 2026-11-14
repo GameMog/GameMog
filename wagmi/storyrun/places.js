@@ -14,6 +14,7 @@
 //   one of them is asked for (prepare(mission) at its start), seeded by the world's seed (or id), the mission's id and
 //   the site's own id (or its place in that order): the same world gives the same sites in the same city every run, a
 //   Mog of it the same ones as its parent. Each is then fixed for the page's life.
+//   (a site he walks to, access 'foot', is at its centre: lx, lz keep its lane point, where the way in starts)
 //   prepare(mission) -> [{ i, kind, key, name, x, z, cx, cz }];  sites() -> every site picked so far;  siteName(mission,
 //   id) -> a site's name here (the runner's {site.<id>} in a line or an objective)
 import { world as cityWorld } from '../world/index.js';
@@ -60,7 +61,7 @@ export function createPlaces(W, world) {
     if (!got) { console.warn('[storyrun] no site in this city for', m ? m.id : '-', label, JSON.stringify(spec).slice(0, 160)); return null; }
     const foot = spec.access === 'foot';
     const p = { x: foot ? got.cx : got.x, z: foot ? got.cz : got.z, heading: foot ? Math.atan2(got.cx - got.x, got.cz - got.z) : got.heading, name: spec.name || got.name,
-      cx: got.cx, cz: got.cz, site: got.key, kind: got.kind, ...(foot ? { foot: true } : {}), ...(got.fallback ? { fallback: got.fallback } : {}), ...(got.ex != null ? { ex: got.ex, ez: got.ez, length: got.length } : {}) };
+      cx: got.cx, cz: got.cz, site: got.key, kind: got.kind, ...(foot ? { foot: true, lx: got.x, lz: got.z } : {}), ...(got.fallback ? { fallback: got.fallback } : {}), ...(got.ex != null ? { ex: got.ex, ez: got.ez, length: got.length } : {}) };
     return p;
   }
   function nearOf(n, m, ids, prev) {
@@ -135,7 +136,7 @@ export function createPlaces(W, world) {
     if (off && typeof off === 'object') {
       const r = Math.max(-60, Math.min(60, +off.right || 0)), f = Math.max(-60, Math.min(60, +off.fwd || 0)), h = p.heading ?? 0;
       const dx = Math.sin(h) * f - Math.cos(h) * r, dz = Math.cos(h) * f + Math.sin(h) * r;
-      p.x += dx; p.z += dz; if (p.cx != null) { p.cx += dx; p.cz += dz; }
+      p.x += dx; p.z += dz; if (p.cx != null) { p.cx += dx; p.cz += dz; } if (p.ax != null) { p.ax += dx; p.az += dz; }
     }
     return p;
   }

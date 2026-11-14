@@ -1047,6 +1047,9 @@ class ThirdPersonControllerManager {
       if (!this._dry) this._dry = new WeakMap();
       const dry = this._dry.get(pos);
       if (inBay(pos.x, pos.z)) {
+        // (Mog City: the car's hit on the water, before it is put back: where and how fast, for the game, wagmi/game.js
+        // (a town's car goes in: it sinks, and is put back on the road))
+        if (carEntity && pos === this.entities.car.position) carEntity.bayHit = { x: pos.x, z: pos.z, speed: carEntity.speed, dryX: dry ? dry.x : pos.x, dryZ: dry ? dry.z : pos.z };
         if (dry) {
           pos.x = dry.x;
           pos.z = dry.z;

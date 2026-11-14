@@ -47,6 +47,11 @@ export async function createVoice(W, out) {
     const f = (type, freq, q = 0.7, gain = 0) => { const b = ctx.createBiquadFilter(); b.type = type; b.frequency.value = freq; b.Q.value = q; b.gain.value = gain; return b; };
     if (kind === 'phone') return [f('highpass', 320, 0.8), f('highpass', 320, 0.8), f('peaking', 1800, 1, 4), f('lowpass', 3400, 0.8), f('lowpass', 3400, 0.8)];
     if (kind === 'video') return [f('highpass', 160), f('peaking', 2500, 1, 2), f('lowpass', 6500)];
+    // (a story world's call, 14 Nov: the owner heard the story lines "very muffled". Mog City's phone band above, two
+    // high-passes at 320 Hz and two low-passes at 3,400 Hz, is a landline's, made for its own recorded calls; on a
+    // creator's Kokoro lines it took the words' consonants away. A call still sounds like one: one high-pass, a
+    // presence lift and one gentler low-pass, the words kept)
+    if (kind === 'call') return [f('highpass', 260, 0.7), f('peaking', 2200, 0.9, 4), f('lowpass', 5200, 0.6)];
     return [];
   };
   // (a line that runs on past the next one's subtitle, said at a natural pace, is let finish if it is nearly done: the
@@ -66,8 +71,11 @@ export async function createVoice(W, out) {
       if (!wait) V.stop(0.05);
       if (!l.dur) l.dur = buf.duration; // (a world's clip: its length known once decoded, wagmi/storyrun)
       const src = ctx.createBufferSource(); src.buffer = buf;
-      const g = ctx.createGain(); g.gain.value = 1;
-      const chain = filters(l.speaker in fxOf ? fxOf[l.speaker] : l.fx);
+      const kind = l.speaker in fxOf ? fxOf[l.speaker] : l.fx;
+      // (a story world's line down a phone gets the story's call band; a band takes level with it, given back)
+      const fx = l.pack && kind === 'phone' ? 'call' : kind;
+      const g = ctx.createGain(); g.gain.value = fx === 'call' ? 1.3 : 1;
+      const chain = filters(fx);
       let n = src; for (const f of chain) { n.connect(f); n = f; } n.connect(g); g.connect(bus);
       src.start(ctx.currentTime + wait, late);
       const secs = buf.duration - late;
@@ -76,8 +84,10 @@ export async function createVoice(W, out) {
       V.log.push({ id: l.id, at: +(performance.now() / 1000).toFixed(3), late: +late.toFixed(3), wait: +wait.toFixed(3), intro: W.intro?.t != null ? +W.intro.t.toFixed(2) : null }); if (V.log.length > 60) V.log.shift();
       src.onended = () => { live.delete(me); if (cur === me) cur = null; };
       if (out.via() === 'mixer') W.audio.duck('music', 0.6, wait + secs + 0.2); else W.radio?.duck?.(0.3, wait + secs + 0.2);
-      // (a story world's line dips the effects a little too: a creature's roar or a fight's hits never bury the words)
-      if (l.pack && out.via() === 'mixer') W.audio.duck('sfx', 0.3, wait + secs + 0.2);
+      // (a story world's line dips the effects and the street under it: a creature's roar, a fight's hits, the car's
+      // engine or the traffic never bury the words. 14 Nov: the street was left at full level under the cast's lines,
+      // the effects dipped 3 dB; both now about 5 dB, the music 8 dB as before)
+      if (l.pack && out.via() === 'mixer') { W.audio.duck('sfx', 0.45, wait + secs + 0.2); W.audio.duck('amb', 0.45, wait + secs + 0.2); }
     }).catch(() => {});
   }
   // ---- the browser's voice, for a Mog's changed lines

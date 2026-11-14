@@ -276,7 +276,8 @@ test("the action beats have punch: a chase's alarm, a roadblock rammed in slow m
   assert.doesNotMatch(juice, /M\.(timer|state|tok)|throw new/);
   assert.match(juice, /if \(!text \|\| W\.cutscene\) return;/);
   const pu = run.slice(run.indexOf('STEPS.pursuit = '), run.indexOf('STEPS.tail = '));
-  assert.match(pu, /juice\.alert\(d\.kind === 'police' \? 'Police' : "Delgado's crew"/);
+  // (r8: a step's name first, and an action world (a hometown) never names Mog City's Delgado)
+  assert.match(pu, /juice\.alert\(d\.name \? tokens\(d\.name\) : d\.kind === 'police' \? 'Police' : action\.on \? 'On your tail' : "Delgado's crew"/);
   assert.match(pu, /juice\.alert\('Lost them'/);
   const rb = run.slice(run.indexOf('STEPS.roadblock = '), run.indexOf('function dropBlock'));
   assert.match(rb, /juice\.slow\(0\.7, 0\.3\)/);
@@ -362,6 +363,25 @@ test("a hand-built body's arms hang at its sides on Dan's clips: its armhang bon
   assert.ok(fs.existsSync(path.join(ROOT, 'tools/storyrun/arms.mts')));
 });
 
+test("a forged person is finished for the close lens (owner: \"smoother looking characters\"): soft hair edges and a graded skin, Mog City's own people as they shipped", () => {
+  const pack = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/pack.js'), 'utf8');
+  const cast = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/cast.js'), 'utf8');
+  const polish = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/polish.js'), 'utf8');
+  const face = fs.readFileSync(path.join(ROOT, 'wagmi/face.js'), 'utf8');
+  // (the cast's forged and hand-built bodies, never a native one; the forged hero's body too)
+  assert.match(cast, /if \(!nat\) try \{ polishBody\(inner\); \}/);
+  const hero = pack.slice(pack.indexOf('W.heroGLTF = async'), pack.indexOf('};', pack.indexOf('W.heroGLTF = async')));
+  assert.match(hero, /import\('\.\/polish\.js'\)\)\.polishBody\(g\.scene\)/);
+  // (materials only: hair cards to alpha to coverage under MSAA, a skin without a relief map graded; ?polish=0 leaves them)
+  assert.match(polish, /n\.alphaToCoverage = true/);
+  assert.match(polish, /m\.name === 'skin' && !m\.normalMap && m\.map/);
+  assert.match(polish, /\[\?&\]polish=0/);
+  assert.doesNotMatch(polish, /setXYZ|needsUpdate/);
+  // (the mouth's shade keeps the graded colour and the bump: face.js shadeMouth)
+  assert.match(face, /nm\.colorNode = \(m\.colorNode \|\| materialColor\)\.mul/);
+  assert.match(face, /'bumpMap', 'bumpScale'/);
+});
+
 test("a tail says how far it has to go, and free roam names the place, not the mission's title (owner, PT-7: \"I followed for 5 minutes but nothing happened\", \"i think i'm in the VIG\")", () => {
   const hud = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/hud.js'), 'utf8');
   const idx = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/index.js'), 'utf8');
@@ -373,4 +393,47 @@ test("a tail says how far it has to go, and free roam names the place, not the m
   // (between missions: the first step's own walk or drive objective, else the place and then the title; never "Go to <title>.")
   assert.match(idx, /const own = at0 && Math\.hypot\(at0\.x - p\.x, at0\.z - p\.z\) < 40 \? words\(s0\.objective\) : null;/);
   assert.doesNotMatch(idx, /\['Go to ', \{ \[`\$\{m\.title\}`\]: 'yellow' \}, '\.'\]/);
+});
+
+test("every place a step sends him on foot is one he can stand on (owner, 14 Nov: \"putting rings inside buildings does not work especially since you can NOT enter buildings on the platform\")", () => {
+  const run = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/runner.js'), 'utf8');
+  const step = (k) => { const i = run.indexOf(`  STEPS.${k} = async`); assert.ok(i >= 0, k); const j = run.indexOf('\n  STEPS.', i + 10); return run.slice(i, j < 0 ? undefined : j); };
+  // (the guard: the controllers' own arrival test, the walk back toward the lane, rings round it, a warning)
+  assert.match(run, /function footing\(x, z, p, why\) \{\n    if \(!Number\.isFinite\(x\) \|\| !Number\.isFinite\(z\) \|\| standable\(x, z\)\) return \{ x, z, moved: false \};/);
+  assert.match(run, /console\.warn\(`\[storyrun\] \$\{why\}: \$\{p\?\.name \|\| 'a target'\} at/);
+  // (a compiled town's approach first: walk and npc went to the lane point, a man in the road)
+  assert.match(run, /const footAt = \(p, why\) => footing\(p\.ax \?\? p\.x, p\.az \?\? p\.z, p, why\);/);
+  assert.match(step('walk'), /pt = footAt\(p, 'walk'\)/);
+  assert.match(step('walk'), /ring\.at\(pt\.x, groundY\(pt\.x, pt\.z\), pt\.z\)/);
+  assert.match(step('walk'), /dist\(P\.position, pt\.x, pt\.z\) < r/);
+  // (a search's spot: the approach from its street (guidance), then the guard)
+  assert.match(step('search'), /const spot = p\.cx != null \? approach\(p, /);
+  assert.match(step('search'), /const g = footing\(spot\.x, spot\.z, p, 'search'\);/);
+  assert.match(step('npc'), /footAt\(p, 'npc'\)/);
+  assert.match(step('collect'), /footing\(pp\.cx \?\? pp\.x, pp\.cz \?\? pp\.z, pp, 'collect'\)/);
+  assert.match(step('stealth'), /footing\(dest0\.cx \?\? dest0\.x, dest0\.cz \?\? dest0\.z, dest0, 'stealth'\)/);
+  assert.match(run, /footing\(p\.cx \?\? p\.x, p\.cz \?\? p\.z, p, 'fight'\)/);
+  assert.match(step('fight'), /footing\(at0 \? \(at0\.cx \?\? at0\.x\)/);
+  // (and again once he is near, the buildings round it up: walk and search redraw the ring, the blip and the route)
+  assert.match(step('walk'), /footWatch\(pt, p, 'walk'/);
+  assert.match(step('search'), /footWatch\(pt, p, 'search'/);
+  // (a story car parked at a compiled town's place stands on its lane's kerb, never in a building)
+  assert.match(step('tow'), /carSpot\(/);
+  assert.match(step('car'), /carSpot\(/);
+  // (no ring is drawn at a place's raw centre any more)
+  assert.doesNotMatch(run, /ring\.at\(p\.x, 0, p\.z\)/);
+});
+
+test("a story world's lines are heard clearly (14 Nov: \"I can't hear anyone talk ... or it comes out very muffled\")", () => {
+  const v = fs.readFileSync(path.join(ROOT, 'wagmi/radio/voices.js'), 'utf8');
+  // the street (amb: the city's bed and the traffic) and the effects (sfx: the car's engine, hits) dip under a story line
+  assert.match(v, /if \(l\.pack && out\.via\(\) === 'mixer'\) \{ W\.audio\.duck\('sfx', 0\.45, wait \+ secs \+ 0\.2\); W\.audio\.duck\('amb', 0\.45, wait \+ secs \+ 0\.2\); \}/);
+  // a story world's call is the call band (one high-pass, a presence lift, a gentle low-pass, its level given back), not
+  // the landline band Mog City's own calls keep
+  assert.match(v, /const fx = l\.pack && kind === 'phone' \? 'call' : kind;/);
+  assert.match(v, /if \(kind === 'call'\) return \[f\('highpass', 260, 0\.7\), f\('peaking', 2200, 0\.9, 4\), f\('lowpass', 5200, 0\.6\)\];/);
+  assert.match(v, /if \(kind === 'phone'\) return \[f\('highpass', 320, 0\.8\), f\('highpass', 320, 0\.8\), f\('peaking', 1800, 1, 4\), f\('lowpass', 3400, 0\.8\), f\('lowpass', 3400, 0\.8\)\];/);
+  // the voices never go through the in-car muffle (core.js: only the amb bus and the reverb are low-passed in the cabin)
+  const core = fs.readFileSync(path.join(ROOT, 'wagmi/audio/core.js'), 'utf8');
+  assert.match(core, /if \(k === 'amb'\) \{ g\.connect\(muffle\); muffle\.connect\(muffleGain\); muffleGain\.connect\(d\); \} else g\.connect\(d\);/);
 });

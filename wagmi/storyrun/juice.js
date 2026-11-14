@@ -77,7 +77,7 @@ export function createJuice(W) {
       else if (close.has(o) && d > R + 1.2) {
         const c = close.get(o); close.delete(o);
         if (lastHit < c.t - 150 && c.d > 2.1 && t - lastMiss > 6000 && v > 16) {
-          lastMiss = t; api.nearMisses++;
+          lastMiss = t; api.nearMisses++; try { api.onMiss?.(); } catch {}
           api.alert('Near miss', { tone: 'yellow', secs: 1.1 }); sfx?.play?.('whoosh', { gain: 0.28 });
           try { W.crash?.jolt?.(0.18, 0, 0); } catch {}
         }
@@ -88,6 +88,8 @@ export function createJuice(W) {
   requestAnimationFrame(nearLoop);
   const api = {
     live: false, nearMisses: 0,
+    // (a near miss's own moment, set while a chase is on in an action world: action.js)
+    onMiss: null,
     alert(text, { sub = '', tone = 'red', sting = null, secs = 2.4, jolt = 0 } = {}) {
       if (!text || W.cutscene) return;
       const t = performance.now();

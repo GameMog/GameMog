@@ -108,7 +108,7 @@ export async function install(W) {
     if (pets) try { pets.update(dt); } catch (e) { console.warn('[storyrun] pets', e); pets = null; }
     document.body.classList.toggle('wg-onfoot', W.app.controllerManager.activeMode !== 'car');
   })();
-  W.storyrun = { world, places, cast, hud, runner, save, pets, host: hostLog, get choosing() { return hud.choosing; } };
+  W.storyrun = { world, places, cast, hud, runner, save, pets, host: hostLog, reach: runner.reach, get choosing() { return hud.choosing; } };
   // the missions in story order (the acts' order lists, then any left out)
   const acts = def.acts || [];
   const byId = new Map(def.missions.map((m) => [m.id, m]));
@@ -155,6 +155,9 @@ export async function install(W) {
     autopilot = startAutopilot(W, runner, {
       missionSecs: +(Q.get('missionsecs') || 240), skipScenes: +(Q.get('skipscenes') || 0), realPace: Q.has('realpace'), fair: Q.has('fair'),
       onTimeout: (m, d, i) => { tell('mission-fail', { id: m.id, why: `The test drive timed out at step ${i + 1} (${d?.type}${d?.id ? ' ' + d.id : ''}).`, step: d?.id || null, kind: d?.type || null, timeout: true }); runner.M?.fail?.({ reason: `The test drive timed out at step ${i + 1} (${d?.type}).` }); },
+      // (the autopilot could finish a step only as no player could: through a wall, from inside a building; reach.js)
+      onUnreachable: (info) => runner.unreachable(info),
+      reach: runner.reach,
     });
     W.storyrun.autopilot = autopilot;
   }
@@ -225,7 +228,7 @@ export async function install(W) {
       if (last && act.end) await actEnd(act.end, { holdNext: k === order.length - 1 });
       k++;
     } else if (r.how === 'fail') {
-      tell('mission-end', { id: m.id, how: 'fail', why: r.why }); break;
+      tell('mission-end', { id: m.id, how: 'fail', why: r.why, ...(r.reach ? { reach: r.reach } : {}) }); break;
     } else {
       tell('mission-end', { id: m.id, how: 'quit' });
       // (quit: free roam, the mission's start marked again)
@@ -349,6 +352,8 @@ export async function install(W) {
         await hud.passed({ head: e.title || 'END OF ACT', title: e.heading || '', stats: e.stats.map((x) => [x.label, x.value]), line: e.quote ? `"${e.quote.text}"${e.quote.by ? ' · ' + e.quote.by : ''}` : '' }, flags.autoCard ? 1.6 : Math.max(5, e.minSecs || 0));
         await ui.fade(ACT_DIM, 0.4);
       }
+      // (the act's cliffhanger, r8: a hard cut to black on the hook into the next act, action.js)
+      if (e.cliff && W.action) { await ui.fade(0, 0.2); await W.action.cliff(e.cliff, flags.autoCard ? 1.2 : 3.6); }
       if (e.next && !holdNext) await hud.card({ kicker: e.next.kicker || 'NEXT', text: e.next.text, sub: e.next.sub || '' }, flags.autoCard ? 0.8 : Math.min(4, e.next.secs || 3.4));
     } finally { await ui.fade(0, 0.5); }
   }

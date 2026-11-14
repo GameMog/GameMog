@@ -87,3 +87,59 @@ test('the whole town: the status answer and the swap address; the words', () => 
   assert.equal(G.poseKey({ place: 'us-4054200', tiles: TS }), `mc.town.pose.us-4054200.${TS}`);
   for (const w of Object.values(G.WORDS)) assert.doesNotMatch(w, /claude|anthropic|\bai\b|gta|gen z quant|model|compiler|overture|usgs/i);
 });
+
+test('the upgrade: the world the page plays, the answer\'s upgrade checked, the newer whole town\'s address with the re-pinned world', () => {
+  const H = 'http://localhost:4841', W = 'a'.repeat(64), W2 = 'b'.repeat(64), TS2 = 'c'.repeat(64), TC2 = 'htc-0.10.0-hg1-b2b48fbe8';
+  const href = `http://localhost:4840/${SEARCH}&tv=district-5805-8582&pack=${encodeURIComponent(`${H}/storykit/f/${W}.json`)}&game=g1`;
+  assert.equal(G.worldOf(href, H), W);
+  assert.equal(G.worldOf(href, 'https://gamemog.com'), null, 'a world on another host is not named');
+  assert.equal(G.worldOf(`http://localhost:4840/${SEARCH}`, H), null);
+  const up = { build: TC2, tilesId: TS2, variant: 'full', url: 'x', pack: `/storykit/f/${W2}.json` };
+  assert.deepEqual(G.upgradeOf({ state: 'district', full: false, upgrade: up }), { build: TC2, tilesId: TS2, pack: `/storykit/f/${W2}.json` });
+  for (const bad of [{ ...up, variant: 'district-1-2' }, { ...up, build: '../x' }, { ...up, tilesId: 'nope' }, { ...up, pack: 'https://elsewhere/storykit/f/x.json' }, { ...up, pack: `/storykit/f/${W2}.glb` }, null, 'full'])
+    assert.equal(G.upgradeOf({ state: 'district', upgrade: bad }), null, JSON.stringify(bad));
+  assert.equal(G.upgradeOf({ state: 'full', full: true }), null, 'a plain whole town is fullReady, not an upgrade');
+  const u = new URL(G.upgradeHref(href, G.upgradeOf({ upgrade: up }), H));
+  assert.equal(u.searchParams.get('tc'), TC2);
+  assert.equal(u.searchParams.get('ts'), TS2);
+  assert.equal(u.searchParams.get('tv'), 'full');
+  assert.equal(u.searchParams.get('pack'), `${H}/storykit/f/${W2}.json`);
+  assert.equal(u.searchParams.get('town'), 'us-4054200');
+  assert.equal(u.searchParams.get('game'), 'g1');
+  // (the new address is one town-src.js reads: the newer build's whole town on the same host)
+  const t = T.townFromQuery(u.searchParams, { hostname: 'localhost' });
+  assert.equal(t.base, `${H}/towns/us-4054200/${TC2}/${TS2}/full/`);
+});
+
+test('the poll names the world and swaps to the upgrade', async () => {
+  const H = 'http://localhost:4841', W = 'a'.repeat(64), W2 = 'b'.repeat(64), TS2 = 'c'.repeat(64), TC2 = 'htc-0.10.0-hg1-b2b48fbe8';
+  const seen = [];
+  const store = new Map();
+  const listeners = {};
+  const saved = { location: globalThis.location, document: globalThis.document, sessionStorage: globalThis.sessionStorage, raf: globalThis.requestAnimationFrame, add: globalThis.addEventListener };
+  let replaced = null;
+  globalThis.location = { replace: (x) => { replaced = x; } };
+  globalThis.sessionStorage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v), removeItem: (k) => store.delete(k) };
+  globalThis.document = { body: { appendChild() {} }, createElement: () => ({ style: {} }), getElementById: () => null };
+  globalThis.requestAnimationFrame = () => 0;
+  globalThis.addEventListener = (n, f) => { listeners[n] = f; };
+  globalThis.__NYC_APP = { controllerManager: { activeMode: 'car', getActiveEntity: () => ({ position: { x: 1, z: 2 }, heading: 0, speed: 3 }) } };
+  try {
+    const href = `http://localhost:4840/${SEARCH}&tv=district-5805-8582&pack=${encodeURIComponent(`${H}/storykit/f/${W}.json`)}`;
+    const town = T.townFromQuery(new URL(href).searchParams, { hostname: 'localhost' });
+    const fetchFn = async (url) => { seen.push(url); return { ok: true, json: async () => ({ state: 'district', full: false, upgrade: { build: TC2, tilesId: TS2, variant: 'full', url: 'x', pack: `/storykit/f/${W2}.json` } }) }; };
+    const st = G.startGrowing({ town, PKG: { ...PKG, variant: 'district-5805-8582' }, fetchFn, href });
+    await new Promise((r) => setTimeout(r, 1700));
+    assert.equal(seen.length, 1);
+    assert.ok(seen[0].endsWith(`/api/towns/us-4054200?build=${TC}&world=${W}`), seen[0]);
+    assert.ok(st.armed && st.upgrade && st.upgrade.build === TC2);
+    listeners['mc:checkpoint']();
+    await new Promise((r) => setTimeout(r, G.FADE_MS + 100));
+    const u = new URL(replaced);
+    assert.deepEqual([u.searchParams.get('tc'), u.searchParams.get('ts'), u.searchParams.get('tv'), u.searchParams.get('pack')], [TC2, TS2, 'full', `${H}/storykit/f/${W2}.json`]);
+    assert.ok(store.has(G.poseKey({ place: 'us-4054200', tiles: TS2 })), 'the pose is kept for the newer town');
+  } finally {
+    Object.assign(globalThis, { location: saved.location, document: saved.document, sessionStorage: saved.sessionStorage, requestAnimationFrame: saved.raf, addEventListener: saved.add });
+    delete globalThis.__NYC_APP;
+  }
+});

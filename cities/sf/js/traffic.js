@@ -1632,9 +1632,66 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
   // Along the sidewalk on either side of edge e, between its crosswalks: every 1.5 m on the curb island
   // (city-config.js blockAt) and clear of obstacles
   const { blockAt } = window.NYC;
+  // (r7, a town: no one walks along a median. The curb island on one side of an edge is a median where, at two of
+  // three points along the edge, it ends within MEDIAN_W m of the curb on more roadway (not water): a strip between two
+  // carriageways, or a traffic island. Measured once per edge and side)
+  const MEDIAN_W = 20;
+  const medianSides = new Map();
+  function medianSide(e, sgn) {
+    let m = medianSides.get(e);
+    if (!m) medianSides.set(e, (m = {}));
+    if (m[sgn] !== undefined) return m[sgn];
+    const T = window.NYC.Terrain;
+    let hits = 0;
+    for (const f of [0.3, 0.5, 0.7]) {
+      const bx = e.sx + e.dx * e.len * f, bz = e.sz + e.dz * e.len * f;
+      let r = e.half + 0.5;
+      while (r < e.half + 4 && !blockAt(bx + e.rx * sgn * r, bz + e.rz * sgn * r)) r += 0.5; // (to the curb)
+      if (!blockAt(bx + e.rx * sgn * r, bz + e.rz * sgn * r)) continue;
+      for (const r0 = r; r < r0 + MEDIAN_W; r += 0.5) {
+        const x = bx + e.rx * sgn * r, z = bz + e.rz * sgn * r;
+        if (blockAt(x, z)) continue;
+        if (!T || !T.loaded || T.groundAt(x, z) > T.waterLevel + 0.05) hits++;
+        break;
+      }
+    }
+    return (m[sgn] = hits >= 2);
+  }
+  // (and a divided road's median however wide (up to 40 m across on average, 2 x area / perimeter): the curb island on the
+  // inner (left) side of two one-way edges of one street running opposite ways; no one walks along it, from any edge)
+  let townMedians = null;
+  function onTownMedian(b) {
+    if (!townMedians) {
+      townMedians = new Set();
+      const left = new Map();
+      for (const e of network.edges) {
+        if (!e.name || !(e.cand && e.cand[0] <= 0) || e.bore) continue;
+        for (const f of [0.25, 0.5, 0.75]) {
+          const k = blockAt(e.sx + e.dx * e.len * f - e.rx * (e.half + 2.5), e.sz + e.dz * e.len * f - e.rz * (e.half + 2.5));
+          if (!k) continue;
+          let l = left.get(k);
+          if (!l) left.set(k, (l = []));
+          l.push(e);
+        }
+      }
+      for (const [k, l] of left) {
+        let per = 0;
+        for (let i = 0, j = k.poly.length - 1; i < k.poly.length; j = i++) per += Math.hypot(k.poly[i].x - k.poly[j].x, k.poly[i].z - k.poly[j].z);
+        if (per > 0 && (2 * k.area) / per < 40 && l.some((a) => l.some((c) => c.name === a.name && a.dx * c.dx + a.dz * c.dz < -0.5))) townMedians.add(k);
+      }
+    }
+    return townMedians.has(b);
+  }
+  // (marked on the blocks themselves, for the game's own street crowd (wagmi/street/crowd.js), which walks round blocks)
+  if (inTown()) {
+    onTownMedian(null);
+    for (const b of townMedians) b.townMedian = true;
+  }
   function sidewalkTrack(e) {
     if (e.noWalk || e.bore) return false; // stairs (Lombard's crooked block), tunnels and bridges
     const off = (Math.random() < 0.5 ? 1 : -1) * (e.half + 1.4 + Math.random() * 2.6);
+    const town = inTown();
+    if (town && medianSide(e, Math.sign(off))) return false;
     const ax = e.sx + e.rx * off;
     const az = e.sz + e.rz * off;
     for (let s = 0; s < e.len + 1.5; s += 1.5) {
@@ -1643,6 +1700,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
       const z = az + e.dz * t;
       const b = blockAt(x, z);
       if (!walkable(x - 0.4, x + 0.4, z - 0.4, z + 0.4) || !b || b.rail) return false; // (not on the rail medians)
+      if (town && onTownMedian(b)) return false;
     }
     Object.assign(track, { ax, az, ux: e.dx, uz: e.dz, len: e.len, node: null, side: 0, line: 0 });
     return true;

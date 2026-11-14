@@ -14,6 +14,13 @@
 //                tv=full. The pose (x, z, heading, speed, mode) rides along in sessionStorage; the story's Continue is its
 //                own save (mc.pack.{id}.v1), per world, not per variant. The frame is the same (lock v3), so is every
 //                coordinate.
+//   the upgrade  a story world pinned to an older build of its town (GameMog lib/storykit-upgrade.ts, 14 Nov: The Courtesy
+//                Lane kept the 0.8.0 district of its town for ever once the builder moved on): the poll names the world
+//                the page plays (&world=<sha256> of ?pack=), and when the town's CURRENT build has its whole town and every
+//                place of the world is the same place there, the answer carries `upgrade` { build, tilesId, pack }: the
+//                swap then goes to that build's whole town (tc, ts, tv=full) with the world re-pinned to it (pack), so
+//                the story's check (wagmi/storyrun/pack.js) still sees its pin equal the bundle's lock. The frame is the
+//                same (GameMog checked it), so is every coordinate and the pose.
 //   beacons      performance marks for time to first drive: mc:town:boot (this module), mc:town:bundle (index.html),
 //                mc:first-drive (the player in control); window.__mcTTFD { bootMs, bundleMs, driveMs, variant }
 // Player text never names a tool, a vendor or a model.
@@ -24,6 +31,8 @@ export const POLL_MS = 10000;
 export const FADE_MS = 1200;
 export const POSE_TTL_MS = 5 * 60 * 1000;
 export const WORDS = { edge: 'The rest of town is still being built', ready: 'Your whole town is ready' };
+
+import { BUILD_ID, TILE_SET } from './town-src.js';
 
 const N = () => globalThis.window?.NYC || {};
 
@@ -81,6 +90,30 @@ export const fullReady = (body) => !!body && (body.state === 'full' || body.full
 export function fullHref(href) {
   const u = new URL(href);
   u.searchParams.set('tv', 'full');
+  return u.href;
+}
+// the story world the page plays: the SHA-256 in its ?pack= (<host>/storykit/f/<sha256>.json, on the town's own host), or null
+export function worldOf(href, host) {
+  try {
+    const p = new URL(href).searchParams.get('pack') || '', m = /^(.*)\/storykit\/f\/([0-9a-f]{64})\.json$/.exec(p);
+    return m && m[1] === host ? m[2] : null;
+  } catch { return null; }
+}
+// the poll's answer -> the newer whole town the world may play instead ({ build, tilesId, pack }), or null
+export function upgradeOf(body) {
+  const u = body && body.upgrade;
+  if (!u || typeof u !== 'object' || u.variant !== 'full') return null;
+  if (typeof u.build !== 'string' || !BUILD_ID.test(u.build) || u.build.includes('..') || typeof u.tilesId !== 'string' || !TILE_SET.test(u.tilesId)) return null;
+  if (typeof u.pack !== 'string' || !/^\/storykit\/f\/[0-9a-f]{64}\.json$/.test(u.pack)) return null;
+  return { build: u.build, tilesId: u.tilesId, pack: u.pack };
+}
+// the address of the newer whole town: its build, tiles and variant, and the world re-pinned to it (on the same host)
+export function upgradeHref(href, up, host) {
+  const u = new URL(href);
+  u.searchParams.set('tc', up.build);
+  u.searchParams.set('ts', up.tilesId);
+  u.searchParams.set('tv', 'full');
+  u.searchParams.set('pack', host + up.pack);
   return u.href;
 }
 export const poseKey = (t) => `mc.town.pose.${t.place}.${t.tiles}`;
@@ -153,10 +186,12 @@ export function startGrowing({ town, PKG, fetchFn = globalThis.fetch, href = glo
   function swap(why) {
     if (state.swapping) return;
     state.swapping = true; state.why = why;
-    try { const p = pose(); if (p) sessionStorage.setItem(poseKey(town), JSON.stringify(p)); } catch {}
+    // (an upgrade: the newer build's whole town, its pose under its own tiles id, the address the new page reads it by)
+    const up = state.upgrade, to = up ? { place: town.place, tiles: up.tilesId } : town;
+    try { const p = pose(); if (p) sessionStorage.setItem(poseKey(to), JSON.stringify(p)); } catch {}
     fade.style.pointerEvents = 'auto';
     requestAnimationFrame(() => { fade.style.opacity = '1'; });
-    setTimeout(() => { try { W.location.replace(fullHref(href)); } catch (e) { console.warn('[growing] swap', e); } }, FADE_MS);
+    setTimeout(() => { try { W.location.replace(up ? upgradeHref(href, up, town.host) : fullHref(href)); } catch (e) { console.warn('[growing] swap', e); } }, FADE_MS);
   }
   const soon = (why) => { if (state.armed) setTimeout(() => swap(why), 0); };
   W.addEventListener('mc:checkpoint', () => soon('checkpoint'));
@@ -166,12 +201,14 @@ export function startGrowing({ town, PKG, fetchFn = globalThis.fetch, href = glo
     if (state.armed || state.swapping) return;
     state.polls++;
     try {
-      const r = await fetchFn(`${town.host}/api/towns/${encodeURIComponent(town.place)}?build=${encodeURIComponent(town.buildId)}`, { cache: 'no-store', credentials: 'omit', redirect: 'error' });
+      const world = worldOf(href, town.host);
+      const r = await fetchFn(`${town.host}/api/towns/${encodeURIComponent(town.place)}?build=${encodeURIComponent(town.buildId)}${world ? `&world=${world}` : ''}`, { cache: 'no-store', credentials: 'omit', redirect: 'error' });
       if (r.ok) {
         const b = await r.json();
         state.last = b && b.state || null;
-        if (fullReady(b)) {
-          state.armed = true;
+        const up = world ? upgradeOf(b) : null;
+        if (up || fullReady(b)) {
+          state.armed = true; state.upgrade = up;
           toast.style.opacity = '1';
           setTimeout(() => { toast.style.opacity = '0'; }, 6000);
           return;

@@ -4,7 +4,10 @@
 //   result        { game, mission, passed: true, story, secs }              a mission passed, once a session per mission
 //                                                                           (only with ?game=)
 //   progress      { mission, step, kind, i, n }                             each step as it starts (kind: the step's type)
-//   mission-start { id, title } · mission-end { id, how, secs | why } · mission-fail { id, why, step, kind } · story-end { id }
+//   mission-start { id, title } · mission-end { id, how, secs | why, reach? } · mission-fail { id, why, step, kind, reach? } · story-end { id }
+//                 reach (the test drive only, reach.js): a step a player could not do, { mission, step (its index), type,
+//                 at (the pack's place key), place (the town's place it names), kind, name, x, z, mode, why: inside |
+//                 water | enclosed | off-road | noclip | blocked | spawn }
 //   keyart        { wide, square }                                          JPEG bytes, transferred ArrayBuffers
 //   hidden        { hidden }                                                the page went behind (true: Chrome stops
 //                                                                           drawing it, the drive is paused) or came back

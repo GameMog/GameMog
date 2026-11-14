@@ -187,7 +187,8 @@ body.wg-story .wg-help { top: 20px; }
 
 .wg-hold { position: absolute; left: 50%; top: 58%; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 10px; padding: 8px 14px 8px 10px; background: rgba(8,10,14,0.62); border-radius: 10px; font: 700 17px/1 'Barlow Condensed'; opacity: 0; transition: opacity .2s; z-index: 5; }
 .wg-hold.on { opacity: 1; }
-.wg-hold.far { opacity: .78; }
+/* (far: dimmer while it is up; never up on its own: a ring walked away from left 'far' on, 0.78 over the street) */
+.wg-hold.on.far { opacity: .78; }
 .wg-hold svg { width: 26px; height: 26px; transform: rotate(-90deg); }
 .wg-hold circle { fill: none; stroke-width: 3.5; }
 /* (the ring says what to do: the objective line under it would only say it twice) */

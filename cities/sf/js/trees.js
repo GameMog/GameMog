@@ -994,7 +994,7 @@ function hashPos(x, y, z) {
 }
 
 /**
- * Builds the instanced tree field for `sites` ({ x, y, z, scale, species, yaw?, sx?, sz?, tier? }) and keeps each
+ * Builds the instanced tree field for `sites` ({ x, y, z, scale, species, yaw?, sx?, sy?, sz?, tier?, exact?, mix? }) and keeps each
  * tree's level of detail up to date from the camera of every view pass (scene.onBeforeRender). Returns
  * { group, material, atlas, update(cameraPosition) }.
  */
@@ -1039,6 +1039,7 @@ function createTreeField(scene, sites) {
 
   const dummy = new THREE.Object3D();
   const tint = new THREE.Color();
+  const mixC = new THREE.Color();
   sites.forEach((t, i) => {
     const sp = Math.min(SPECIES.length - 1, Math.max(0, t.species || 0));
     const r1 = hashPos(t.x, 1.3, t.z);
@@ -1049,11 +1050,13 @@ function createTreeField(scene, sites) {
     const s = t.exact ? t.scale : t.scale * (0.9 + r1 * 0.2);
     dummy.position.set(t.x, t.y || 0, t.z);
     dummy.rotation.set(0, t.yaw ?? r2 * Math.PI * 2, 0);
-    if (t.exact) dummy.scale.set(s * (t.sx || 1), s, s * (t.sz || 1));
+    if (t.exact) dummy.scale.set(s * (t.sx || 1), s * (t.sy || 1), s * (t.sz || 1));
     else dummy.scale.set(s * (0.9 + r3 * 0.2) * (t.sx || 1), s * (0.88 + r1 * 0.24), s * (0.9 + r2 * 0.2) * (t.sz || 1));
     dummy.updateMatrix();
     dummy.matrix.toArray(mats, i * 16);
     tint.setHex(SPECIES[sp].tints[Math.floor(r3 * 2.999)]).multiplyScalar(0.82 + r1 * 0.36);
+    // (t.mix: [hex, share]: the tint pulled towards another colour, a hedge's lighter or yellower stretches)
+    if (t.mix) tint.lerp(mixC.setHex(t.mix[0]).multiplyScalar(0.82 + r1 * 0.36), t.mix[1]);
     data.set([tint.r, tint.g, tint.b, sp + r2 * 0.999], i * 4);
     px[i] = t.x;
     py[i] = (t.y || 0) + 6 * s;

@@ -2,7 +2,8 @@
 // (__NYC_APP.trafficSystem.network: lane edges joined by the turns the graph allows, so one-way streets are kept),
 // edge to edge, re-planned every second and whenever the player strays 25 m off it. The route (yellow on a dark casing),
 // the destination and the blips are drawn on the radar and the full map over the city's own layers, in place of its
-// L-shaped line (mapSystem.waypoint still names the destination). On foot and close (150 m) the route is a straight line;
+// L-shaped line (mapSystem.waypoint still names the destination). On foot and close (150 m) the route is a straight line
+// (where nothing stands in its way);
 // on foot and further, a walking route (planWalk: junction to junction, a one-way street walked either way).
 // The rule (every mission, GTA's): the route always goes where the current objective says. An objective about the car
 // routes to the car, one about a place to the place, a fight has none.
@@ -138,9 +139,20 @@ export function createGPS(W) {
   }
   // (a man on foot cuts across a park or a plaza: from each end, straight to the furthest of the next few corners he can
   // walk to in a line, on land and clear of the buildings, 400 m at most)
+  // (and clear of the controllers' own colliders where the city has them, San Francisco's and a town's: a town's road
+  // network knows its kerbs, not its buildings, and a cut 'across the block' went through a tower)
+  const personClear = (x, z) => { if (!cm.isWorldPositionClear) return true; try { return cm.isWorldPositionClear({ x, z, y: cm.getGroundHeight(x, z, 'person') }, 0, 'person', 0.2) !== false; } catch { return true; } };
   const clear = (a, b) => {
     const L = Math.hypot(b[0] - a[0], b[1] - a[1]); if (L > 400) return false;
-    for (let i = 1, n = Math.ceil(L / 5); i < n; i++) { const x = a[0] + (b[0] - a[0]) * i / n, z = a[1] + (b[1] - a[1]) * i / n; if (!net.walkable(x - 0.6, x + 0.6, z - 0.6, z + 0.6)) return false; }
+    for (let i = 1, n = Math.ceil(L / 5); i < n; i++) { const x = a[0] + (b[0] - a[0]) * i / n, z = a[1] + (b[1] - a[1]) * i / n; if (!net.walkable(x - 0.6, x + 0.6, z - 0.6, z + 0.6) || !personClear(x, z)) return false; }
+    return true;
+  };
+  // the straight line on foot (FOOT_LINE): only where a man can walk it, every 2 m clear of the buildings; else the
+  // walking route, so the radar's line never runs through a tower to a spot behind it (The Courtesy Lane, 14 Nov)
+  const lineClear = (a, b) => {
+    if (!cm.isWorldPositionClear) return true;
+    const L = Math.hypot(b.x - a.x, b.z - a.z);
+    for (let i = 1, n = Math.ceil(L / 2); i < n; i++) if (!personClear(a.x + (b.x - a.x) * i / n, a.z + (b.z - a.z) * i / n)) return false;
     return true;
   };
   function trimWalk(pts) {
@@ -261,7 +273,7 @@ export function createGPS(W) {
       if (force || moved || swap || !gps.route || t0 - gps.lastPlan > 1000 || offRoute(p.x, p.z, gps.route) > 25) {
         gps.lastPlan = t0; gps._to = { x: t.x, z: t.z }; gps._foot = foot;
         // (a horse rides a one-way street either way, as a man walks it: the walking route, never round the block)
-        const r = foot && dist(p, t) < FOOT_LINE ? null : foot ? planWalk({ x: p.x, z: p.z }, t) : W.car?.kind === 'horse' ? planWalk({ x: p.x, z: p.z }, t, true) : plan({ x: p.x, z: p.z }, t, ent.heading);
+        const r = foot && dist(p, t) < FOOT_LINE && lineClear(p, t) ? null : foot ? planWalk({ x: p.x, z: p.z }, t) : W.car?.kind === 'horse' ? planWalk({ x: p.x, z: p.z }, t, true) : plan({ x: p.x, z: p.z }, t, ent.heading);
         // (still on the route it had, a new plan much longer is not taken: crossing a junction straight on, a cross
         // street's lane can look like the way he is going for a moment, and the line must not flick round a block)
         const old = !force && !moved && !swap && r && gps.route && gps.route.length > 2 && offRoute(p.x, p.z, gps.route) < 10 ? onFrom(gps.route, p.x, p.z) : null;

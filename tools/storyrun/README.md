@@ -157,6 +157,14 @@ A test drive of a long mission inside the 4-minute Chrome budget: `drive.mts ...
 (authored scenes skipped after 4 s, as a held Space would); `flowfast=0&autocontinue=1` plays the free roam between
 missions too (the test drive is put down by the next one's corona).
 
+## The cast close up (`lab/people.html`)
+
+`/lab/people.html?a=<glb>,<glb>!,dan&view=face|close|mid|full&t=1` stands bodies side by side, each built as `cast.js`
+builds a forged person (Dan's clips, the face, the set's key, fill and rim on a close shot), the same lens on each
+head; a name ending in `!` is drawn with `polish.js` (soft hair edges, the skin graded), so `x.glb,x.glb!` is a before
+and after. `&hide=<regex>` hides pieces by material name (`^suit` the made jacket, `^clothes` the pack's garments),
+`&clip=bind` the rest pose, `&light=golden|night|street`.
+
 ## Address switches
 
 | Switch | What it does |
@@ -175,3 +183,4 @@ missions too (the test drive is put down by the next one's corona).
 | `&realpace=1` | under the autopilot, a player's pace: no leg jumped, a sneak walked round its sleepers |
 | `&fair=1` | under the autopilot, no health topped up and no finishing blow (is the fight winnable?) |
 | `&nosave` | no Continue checkpoint saved |
+| `&polish=0` | every forged person as their GLB has them (no `polish.js`: hard hair cards, the skin ungraded), for a look at the difference |
