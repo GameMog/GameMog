@@ -19,6 +19,7 @@ const SLOT = new THREE.Color(0x141414);
 const GAUGE = 1.435; // standard gauge, between the rails' centres (near enough)
 const HEIGHT = 0.012; // above the asphalt
 const STEP = 1; // metres between the vertex pairs of a strip
+const LANE_PAINT = 3.4; // a lane's width, for the edge lines beside the outer lanes (js/road-network.js LANE_W)
 
 function buildRoadPaint(scene, network) {
   const position = [];
@@ -306,6 +307,23 @@ function buildRoadPaint(scene, network) {
       } else {
         along(e, mid - 0.12, 0.11, YELLOW);
         along(e, mid + 0.12, 0.11, YELLOW);
+      }
+    }
+
+    // (a Hometown package) Solid edge lines along a multi-lane road (two or more lanes one way): white on the right of
+    // the travel, yellow on the left of a one-way roadway (a divided road's carriageway), beside its outer lanes and no
+    // nearer the curb than 0.35 m. San Francisco's and New York's streets keep their own paint
+    if (plan) {
+      const edge = (f, sign) => {
+        const L = f.lanes, w = L.length > 1 ? Math.min(LANE_PAINT, L[1] - L[0]) : LANE_PAINT;
+        return sign > 0 ? Math.min(f.half - 0.35, L[L.length - 1] + w / 2) : Math.max(-f.half + 0.35, L[0] - w / 2);
+      };
+      if (!back && e.lanes.length >= 2) {
+        along(e, edge(e, 1), 0.12, WHITE);
+        along(e, edge(e, -1), 0.12, YELLOW);
+      } else if (back) {
+        if (e.lanes.length >= 2) along(e, edge(e, 1), 0.12, WHITE);
+        if (back.lanes.length >= 2) along(e, -edge(back, 1), 0.12, WHITE);
       }
     }
 

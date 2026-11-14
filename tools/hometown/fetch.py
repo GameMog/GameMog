@@ -338,7 +338,10 @@ if __name__ == '__main__':
         raise SystemExit(0)
     if a.regions:
         dom, _, rest = a.regions.partition(':')
-        fetch_regions(dom, [tuple(int(v) for v in b.split(',')) for b in rest.split(';')], os.path.abspath(a.data), use_index=not a.no_index, parallel=not a.serial)
+        blocks = [tuple(int(v) for v in b.split(',')) for b in rest.split(';')]
+        fetch_regions(dom, blocks, os.path.abspath(a.data), use_index=not a.no_index, parallel=not a.serial)
+        # (and their segment extras: a region without them is refused by the compiler, sources.py)
+        fetch_extras(dom, blocks, os.path.abspath(a.data))
         raise SystemExit(0)
     if a.extras:
         dom, _, rest = a.extras.partition(':')

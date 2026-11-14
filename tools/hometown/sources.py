@@ -70,7 +70,10 @@ class Sources:
         dirs = []
         for C, R in sorted(set(blocks)):
             d = os.path.join(data_dir, 'regions', 'hg1-%s' % dom, '4', str(C), str(R))
-            if not os.path.exists(os.path.join(d, 'region.json')):
+            # (a region without its segment extras is not fetched yet either: the OSM lanes, sidewalks and speed limits
+            # join through them, and a town built without them silently falls back to class defaults (fid-roads: Bal
+            # Harbour's Collins Ave came out one lane a carriageway); fetch.py --regions now fetches both)
+            if not os.path.exists(os.path.join(d, 'region.json')) or not os.path.exists(os.path.join(d, EXTRAS_FILE)):
                 if skip_missing:
                     self.missing.append((C, R))
                     continue
