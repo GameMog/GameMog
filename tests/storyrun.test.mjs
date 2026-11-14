@@ -276,7 +276,8 @@ test("the action beats have punch: a chase's alarm, a roadblock rammed in slow m
   assert.doesNotMatch(juice, /M\.(timer|state|tok)|throw new/);
   assert.match(juice, /if \(!text \|\| W\.cutscene\) return;/);
   const pu = run.slice(run.indexOf('STEPS.pursuit = '), run.indexOf('STEPS.tail = '));
-  assert.match(pu, /juice\.alert\(d\.kind === 'police' \? 'Police' : "Delgado's crew"/);
+  // (r8: a step's name first, and an action world (a hometown) never names Mog City's Delgado)
+  assert.match(pu, /juice\.alert\(d\.name \? tokens\(d\.name\) : d\.kind === 'police' \? 'Police' : action\.on \? 'On your tail' : "Delgado's crew"/);
   assert.match(pu, /juice\.alert\('Lost them'/);
   const rb = run.slice(run.indexOf('STEPS.roadblock = '), run.indexOf('function dropBlock'));
   assert.match(rb, /juice\.slow\(0\.7, 0\.3\)/);

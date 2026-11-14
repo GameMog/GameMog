@@ -78,6 +78,23 @@ export function createAudio() {
       g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.06); g.gain.setValueAtTime(v, t + dur * 0.7); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
       n.start(t); n.stop(t + dur + 0.1);
     },
+    // (a story's action stings, wagmi/storyrun/action.js) a siren going by: a two-tone wail, the pitch swinging up and
+    // down, a little Doppler fall at the end as it passes, from one side to the other
+    siren({ gain: v = 0.22, dur = 2.6, p = -0.6 } = {}) {
+      const t = now(), o = osc('square', 760), lp = filt('lowpass', 2200, 0.8), g = gain(0, pan(p)); o.connect(lp); lp.connect(g); send(g, 0.6);
+      const sw = osc('triangle', 1.6), sg = ctx.createGain(); sg.gain.value = 210; sw.connect(sg); sg.connect(o.frequency);
+      o.frequency.setValueAtTime(820, t); o.frequency.linearRampToValueAtTime(700, t + dur);
+      const pn = g.gain; pn.setValueAtTime(0.0001, t); pn.exponentialRampToValueAtTime(v, t + dur * 0.35); pn.setValueAtTime(v, t + dur * 0.6); pn.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.start(t); o.stop(t + dur + 0.1); sw.start(t); sw.stop(t + dur + 0.1);
+    },
+    // an engine roaring up: a growl of saw and noise, its pitch climbing as the revs do, then let off
+    roar({ gain: v = 0.3, dur = 1.5 } = {}) {
+      const t = now(), lp = filt('lowpass', 500, 1.6), g = gain(0); lp.connect(g); send(g, 0.15);
+      for (const [m, d] of [[1, 0], [2.01, 6], [0.5, -4]]) { const o = osc('sawtooth', 55 * m); o.detune.value = d; o.frequency.setValueAtTime(48 * m, t); o.frequency.exponentialRampToValueAtTime(150 * m, t + dur * 0.75); o.frequency.exponentialRampToValueAtTime(110 * m, t + dur); o.connect(lp); o.start(t); o.stop(t + dur + 0.1); }
+      lp.frequency.setValueAtTime(400, t); lp.frequency.exponentialRampToValueAtTime(1800, t + dur * 0.75);
+      const n = noise(brownBuf), nl = filt('lowpass', 900), ng = gain(0); n.connect(nl); nl.connect(ng); env(ng, t, 0.1, v * 0.5, dur); n.start(t); n.stop(t + dur + 0.1);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.12); g.gain.setValueAtTime(v, t + dur * 0.75); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    },
     // the sliding door: a rolling rattle along the rail, the latch, the thud at the end of travel
     doorSlide({ gain: v = 0.4, dur = 0.55 } = {}) {
       // (the rattle: the envelope, then a gain that a square wave swings between 0.1 and 1, so the level stays the envelope's)

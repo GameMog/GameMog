@@ -31,6 +31,7 @@ import { createTimers, meterText, deltaText, progress, seen as inSight, band as 
 import { createSets } from './sets.js';
 import { createJuice } from './juice.js';
 import { createGuide, propOf, reword, PROP_RIDES } from './guide.js';
+import { createAction } from './action.js';
 import { armTo } from '../mission/m3-set.js';
 import { world as cityWorld } from '../world/index.js';
 import { createReach, reachReason } from './reach.js';
@@ -99,6 +100,9 @@ export function createRunner(ctx) {
     return { x: q.x, z: q.z, name: g.name || '', hold: h ? { reach: h.reach, label: h.label } : null,
       key: `${ui.stepId}|${g.follow ? 'follow' : `${Math.round(q.x / 4)},${Math.round(q.z / 4)}`}` };
   };
+  // (the action layer, r8: title slams, a step's sting / shake / slow motion / camera, the chase's lens, speed lines and
+  // its moments, an act's cliffhanger, a cutscene shot's grammar: action.js; on by itself in a hometown world)
+  const action = W.action || (W.action = createAction(W, juice, world.def));
   const def0 = world.def;
   const now = () => (W.clock ? W.clock.now() : performance.now());
   const inCar = () => cm.activeMode === 'car';
@@ -699,6 +703,13 @@ export function createRunner(ctx) {
     }
     return [e.position.x, e.position.y + 1.5, e.position.z];
   }
+  // (a frame's people, action.js frame(): a head on the street, [x, y, z] with its heading h; the hero's 'player')
+  function headOf(ref) {
+    const e = cm.getActiveEntity();
+    if (!ref || ref === 'player' || cast.isHero?.(castName(ref)) || castName(ref) === heroName) { const o = [e.position.x, e.position.y + (inCar() ? 1.2 : 1.55), e.position.z]; o.h = e.heading; o.car = inCar() && car.kind !== 'horse'; return o; }
+    const fig = cast.get(castName(ref)); if (!fig || !fig.head) return null;
+    const v = fig.head(new THREE.Vector3()), o = [v.x, v.y, v.z]; o.h = fig.heading || 0; return o;
+  }
   // the cutscene's key light on the face it looks at, placed as Mog City's night scene places it (m2-scenes.js
   // burnerMeet's keyL: loc(0.8, 0.5, 1.9), 1.9 m out in front of the face, 0.8 m to one side, 0.5 m up, 2.6): from the
   // camera's side of the face but off its axis, so the face is modelled, not flattened. (VR, 5 Nov: it was put between
@@ -952,7 +963,13 @@ export function createRunner(ctx) {
         if (setRun) { const id = s.set === false ? null : (s.set || set); setRun.use(id && setRun.has(id) ? id : null); if (s.act) setRun.act(s.act); }
         // (on the street: the shot's changes to the people in it, a run to someone and a hug: streetAct)
         if (s.act && !setRun?.active) streetAct(s.act);
-        const dur = s.dur || 3, A = camPt(s.cam), B = s.to ? camPt(s.to) : A, LA = camPt(s.look, 1.4), LB = s.lookTo ? camPt(s.lookTo, 1.4) : LA;
+        // (a shot by its grammar, action.js frame(): the lens from where its people stand; a lens written out wins)
+        const fr = !s.cam && s.frame && !setRun?.active ? action.frame(s, headOf) : null;
+        // (a worked-out lens is never under the street: kept 0.35 m over the ground where it stands)
+        if (fr) for (const q of [fr.A, fr.B]) q[1] = Math.max(q[1], cm.getGroundHeight(q[0], q[2], 'person') + 0.35);
+        const sc = fr ? null : (s.cam || (s.frame ? { rel: s.on && s.on !== 'player' && cast.get(castName(s.on)) ? s.on : 'player', fwd: 1.6, right: 0.4, up: 0.05 } : s.cam));
+        const scL = s.look || (!fr && s.frame ? { rel: sc.rel } : s.look);
+        const dur = s.dur || 3, A = fr ? fr.A : camPt(sc), B = fr ? fr.B : s.to ? camPt(s.to) : A, LA = fr ? fr.LA : camPt(scL, 1.4), LB = fr ? fr.LB : s.lookTo ? camPt(s.lookTo, 1.4) : LA;
         // (an opening's name card: the lens settles on its person through the first part of the shot, then the frame
         // freezes on them, their body held mid-move, as their name and role come up: openCard())
         const card = opening && s.card && s.card.who ? s.card : null, hold = card ? Math.min(dur * 0.42, 1.6) : dur;
@@ -971,7 +988,7 @@ export function createRunner(ctx) {
             const k = Math.min(dur, (now() - t0) / 1000), still = card && k >= hold, hh = handheld(k + t0 / 1000, still ? 0 : 0.4);
             if (still && !frozen) frozen = openCard(card, dur - hold);
             const p = pos(Math.min(k, hold)), l = look(Math.min(k, hold));
-            D.camera = { pos: [p[0] + hh.x, p[1] + hh.y, p[2]], look: l, fov: s.fov || 40, roll: 0, shake: hh };
+            D.camera = { pos: [p[0] + hh.x, p[1] + hh.y, p[2]], look: l, fov: s.fov || fr?.fov || 40, roll: 0, shake: hh };
             if (setRun?.active) setRun.frame({ pos: D.camera.pos, look: l, fov: s.fov || 40 });
             { const n = keyLight(p, l, !!s.warm), ssr = ssrOf(); if (ssr) ssr.intensity.value = n < CLOSE ? 0 : ssr0; }
             if (!beat) stepSkip();
@@ -1136,6 +1153,7 @@ export function createRunner(ctx) {
     const stats = (d.stats || []).map((s) => [s.label, s.value]);
     ui.passed({ title: tokens(d.heading || d.title || ''), stats, note: d.quote ? `"${d.quote.text}"${d.quote.by ? ' · ' + d.quote.by : ''}` : '' }, ctx.flags.autoCard ? 1.5 : Math.max(4, d.minSecs || 0));
     await delay(ctx.flags.autoCard ? 1.6 : Math.max(4, d.minSecs || 0) + 0.4, t);
+    if (d.cliff) await action.cliff(d.cliff, ctx.flags.autoCard ? 1.2 : 3.6);
     if (d.next) await hud.card({ kicker: d.next.kicker || 'NEXT', text: d.next.text, sub: d.next.sub || '' }, ctx.flags.autoCard ? 0.8 : (d.next.secs || 3));
   };
 
@@ -2085,8 +2103,10 @@ export function createRunner(ctx) {
     let lost = false, caught = false;
     chase?.on?.('lost', () => { lost = true; juice.alert('Lost them', { tone: 'green', sting: 'down', secs: 1.8 }); }); chase?.on?.('caught', () => { caught = true; });
     // (the chase's alarm: who is on him, and the camera jolted)
-    juice.alert(d.kind === 'police' ? 'Police' : "Delgado's crew", { sub: d.alert ? tokens(d.alert) : d.kind === 'police' ? 'Lose the cops.' : ride ? 'They found you. Keep moving.' : 'Lose them.', tone: 'red', sting: 'up', jolt: 0.35 });
+    // (who is on him: the step's name, else Police, else Mog City's own crew; an action world never names Delgado)
+    juice.alert(d.name ? tokens(d.name) : d.kind === 'police' ? 'Police' : action.on ? 'On your tail' : "Delgado's crew", { sub: d.alert ? tokens(d.alert) : d.kind === 'police' ? 'Lose the cops.' : ride ? 'They found you. Keep moving.' : 'Lose them.', tone: 'red', sting: 'up', jolt: 0.35 });
     M.chase = chase;
+    const chaseFx = action.chase(chase, d);
     // (a chase that starts with his car standing, parked or in a queue at a light: the traffic round it cleared, and for
     // a chase to a place the first 180 m of the way there too (d.clear m round the car, 32 by default; 0 leaves it),
     // kept clear until he has driven past it, 25 s at most. PT-14's chase began with the car boxed in by a bus and two
@@ -2125,7 +2145,7 @@ export function createRunner(ctx) {
         await wait(() => { if (caught) throw new Fail('They caught you.', 'caught'); return d.goal === 'escort' ? (now() - t0) / 1000 > (d.until || 45) : lost || (M.auto && M.loseAssist); }, t);
       }
       M.timer.add(d.bonus || 0); if (d.flag) M.state.flags[flagName(d.flag)] = true;
-    } finally { if (clearT) { clearInterval(clearT); try { app.trafficSystem.hold?.([]); } catch {} } try { chase?.stop?.(); } catch {} M.chase = null; M.loseAssist = false; gps.clear(); }
+    } finally { if (clearT) { clearInterval(clearT); try { app.trafficSystem.hold?.([]); } catch {} } try { chaseFx(); } catch {} try { chase?.stop?.(); } catch {} M.chase = null; M.loseAssist = false; gps.clear(); }
   };
 
   // a tail: a car on the planner's route through the step's places (m2-drive.js: it lives in the traffic, brakes for
@@ -2864,7 +2884,7 @@ export function createRunner(ctx) {
     if (M.kept) { for (const h of M.kept.values()) try { h.remove(); } catch {} M.kept = null; }
     M.wild = null; hud.bar?.(null);
     if (M.herds) { for (const h of M.herds.values()) try { h.remove(); } catch {} M.herds = null; }
-    hud.clear(); M.timer.stop(); juice.clear(); juice.live = false;
+    hud.clear(); M.timer.stop(); juice.clear(); juice.live = false; action.clear();
     ui.objective(null); ui.sub(null); ui.help(null); ui.counter(null); ui.caller(null); ui.hold(null); ui.phone?.hide?.(); ui.offer?.(null);
     gps.clear(); app.mapSystem.waypoint = null; for (const id of [...gps.blips.keys()]) gps.unblip(id); marker.hide();
     for (const n of M.npcs) cast.hide(n); M.npcs.clear();
@@ -2939,7 +2959,11 @@ export function createRunner(ctx) {
     if (cp?.pin) pinTo(cp.pin); else if (own) pinTo(own); else setTime(def0.dressing ? (def0.dressing.time || 'day') : null);
     M.live = true;
     // (the title card, unless the mission's first scene draws its own: Mog City's opening ends on ACT I · BAGGED)
-    if (def.card !== false && !(cp && cp.from)) ui.title(act?.name || '', def.title, ctx.flags.autoCard ? 1.2 : 2.6);
+    if (def.card !== false && !(cp && cp.from)) {
+      // (an action world, or a mission that asks: its title slammed in with a hit, action.js)
+      if (action.on || def.card === 'slam') action.slam({ kicker: act?.name || '', title: def.title }, ctx.flags.autoCard ? 1.2 : 2.4);
+      else ui.title(act?.name || '', def.title, ctx.flags.autoCard ? 1.2 : 2.6);
+    }
     host.tell('mission-start', { id: def.id, title: def.title });
     let i = M.i;
     while (i < steps.length) {
@@ -2962,9 +2986,12 @@ export function createRunner(ctx) {
       if (IDLE_STEPS.has(d.type) && !d.ref) idleNudge(d, st);
       for (const k of ['trigger', 'comfort', 'patrol', 'stealth']) for (const x of [].concat(d[k] || [])) side({ at: 0, ...x, type: k }, st);
       let r;
+      // (the step's own moment as it starts, action.js: its sting, shake, slow motion, and its camera while it runs)
+      let undoFx = null; try { undoFx = action.stepFx(d); } catch (e) { console.warn('[storyrun] action', e); }
       const run = d.ref && partOf(d.ref) && d.type !== 'call' ? runPart(d.ref, d, st) : STEPS[d.type](d, st);
       try { r = (await Promise.race([run, wait(() => M.gotoNow || M.endNow, st).then(() => ({}))])) || {}; }
       finally {
+        try { undoFx?.(); } catch {}
         kill(st, new Stop());
         for (const s of [...M.sides]) if (s.tok.parent === st || (s.until && steps[i + 1]?.id === s.until)) kill(s.tok, new Stop());
       }

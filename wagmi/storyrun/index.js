@@ -352,6 +352,8 @@ export async function install(W) {
         await hud.passed({ head: e.title || 'END OF ACT', title: e.heading || '', stats: e.stats.map((x) => [x.label, x.value]), line: e.quote ? `"${e.quote.text}"${e.quote.by ? ' · ' + e.quote.by : ''}` : '' }, flags.autoCard ? 1.6 : Math.max(5, e.minSecs || 0));
         await ui.fade(ACT_DIM, 0.4);
       }
+      // (the act's cliffhanger, r8: a hard cut to black on the hook into the next act, action.js)
+      if (e.cliff && W.action) { await ui.fade(0, 0.2); await W.action.cliff(e.cliff, flags.autoCard ? 1.2 : 3.6); }
       if (e.next && !holdNext) await hud.card({ kicker: e.next.kicker || 'NEXT', text: e.next.text, sub: e.next.sub || '' }, flags.autoCard ? 0.8 : Math.min(4, e.next.secs || 3.4));
     } finally { await ui.fade(0, 0.5); }
   }
