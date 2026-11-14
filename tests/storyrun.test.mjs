@@ -362,6 +362,25 @@ test("a hand-built body's arms hang at its sides on Dan's clips: its armhang bon
   assert.ok(fs.existsSync(path.join(ROOT, 'tools/storyrun/arms.mts')));
 });
 
+test("a forged person is finished for the close lens (owner: \"smoother looking characters\"): soft hair edges and a graded skin, Mog City's own people as they shipped", () => {
+  const pack = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/pack.js'), 'utf8');
+  const cast = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/cast.js'), 'utf8');
+  const polish = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/polish.js'), 'utf8');
+  const face = fs.readFileSync(path.join(ROOT, 'wagmi/face.js'), 'utf8');
+  // (the cast's forged and hand-built bodies, never a native one; the forged hero's body too)
+  assert.match(cast, /if \(!nat\) try \{ polishBody\(inner\); \}/);
+  const hero = pack.slice(pack.indexOf('W.heroGLTF = async'), pack.indexOf('};', pack.indexOf('W.heroGLTF = async')));
+  assert.match(hero, /import\('\.\/polish\.js'\)\)\.polishBody\(g\.scene\)/);
+  // (materials only: hair cards to alpha to coverage under MSAA, a skin without a relief map graded; ?polish=0 leaves them)
+  assert.match(polish, /n\.alphaToCoverage = true/);
+  assert.match(polish, /m\.name === 'skin' && !m\.normalMap && m\.map/);
+  assert.match(polish, /\[\?&\]polish=0/);
+  assert.doesNotMatch(polish, /setXYZ|needsUpdate/);
+  // (the mouth's shade keeps the graded colour and the bump: face.js shadeMouth)
+  assert.match(face, /nm\.colorNode = \(m\.colorNode \|\| materialColor\)\.mul/);
+  assert.match(face, /'bumpMap', 'bumpScale'/);
+});
+
 test("a tail says how far it has to go, and free roam names the place, not the mission's title (owner, PT-7: \"I followed for 5 minutes but nothing happened\", \"i think i'm in the VIG\")", () => {
   const hud = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/hud.js'), 'utf8');
   const idx = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/index.js'), 'utf8');

@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mog City: people studio</title>
+  <style>html, body { margin: 0; height: 100%; background: #15171c; overflow: hidden; } canvas { display: block; }
+    #lab { position: fixed; left: 0; right: 0; top: 6px; display: flex; color: #fff; font: 600 13px system-ui; pointer-events: none; }
+    #lab div { flex: 1; text-align: center; text-shadow: 0 1px 2px #000; }</style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/gh/mrdoob/three.js@bc7d0b3c3838d5da9495b5e603afd77ed3154d57/build/three.webgpu.js",
+        "three/webgpu": "https://cdn.jsdelivr.net/gh/mrdoob/three.js@bc7d0b3c3838d5da9495b5e603afd77ed3154d57/build/three.webgpu.js",
+        "three/tsl": "https://cdn.jsdelivr.net/gh/mrdoob/three.js@bc7d0b3c3838d5da9495b5e603afd77ed3154d57/build/three.tsl.js",
+        "three/addons/": "https://cdn.jsdelivr.net/gh/mrdoob/three.js@bc7d0b3c3838d5da9495b5e603afd77ed3154d57/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+<div id="lab"></div>
+<script type="module">
+// The story runner's people side by side, each built as wagmi/storyrun/cast.js builds a forged person (the GLB cloned,
+// the arm-hang bones levelled, the armature turn out, Dan's clips under its own, its idle, a face from face.js), each in
+// its own column with the same lens on its own head, lit as a set's cutscene lights a close shot (sets.js: low sky fill,
+// the sun, a key 43 degrees off the lens above the eyes, a fill low on the other side, a rim behind).
+//   ?a=<glb>,<glb>,...   the bodies (a path on this server); a name ending in '!' is drawn with the cast's polish
+//                        (cast.js polishBody), any other as the GLB has it. 'dan' is assets/characters/dan.glb
+//   ?view=face|close|mid|full   ?light=day|golden|night|street   ?clip=<name>  ?t=<seconds> (a frozen frame)
+//   ?talk=0.6 (the jaw held that open)   ?turn=<degrees> (every body turned)   ?draws=<n> (each drawn n times a frame)
+import * as THREE from 'three/webgpu';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
+import { loadGLB } from '../wagmi/glb.js';
+import { createFace } from '../wagmi/face.js';
+import { polishBody, POLISH } from '../wagmi/storyrun/polish.js';
+
+const q = new URLSearchParams(location.search);
+const list = (q.get('a') || 'dan').split(',').filter(Boolean), view = q.get('view') || 'close', mood = q.get('light') || 'day';
+if (q.get('bump')) POLISH.skin.bump = +q.get('bump');
+if (q.get('tune')) { const T = JSON.parse(q.get('tune')); for (const k in T) Object.assign(POLISH[k], T[k]); }
+const only = q.get('only') ? Object.fromEntries(['hair', 'skin'].map((k) => [k, q.get('only').split('+').includes(k)])) : {};
+// (?draws=n: each column drawn n times a frame, a load test of the bodies' shaders)
+const DRAWS = Math.max(1, +q.get('draws') || 1);
+const freeze = q.get('t'), turn = (+q.get('turn') || 0) * Math.PI / 180;
+const W = { app: null, faces: new Set(), paused: false };
+const renderer = new THREE.WebGPURenderer({ antialias: true });
+renderer.setPixelRatio(1); renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0; renderer.shadowMap.enabled = true; 
+renderer.setScissorTest(true);
+document.body.appendChild(renderer.domElement); await renderer.init();
+const env = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.03).texture;
+const danClips = loadGLB('../assets/characters/dan.glb').then((g) => g.animations);
+
+const night = mood === 'night', golden = mood === 'golden', street = mood === 'street';
+// the lens on the head: [distance in front, height above the eyes' bone, fov]
+const LENS = { face: [0.62, 0.0, 30], close: [1.05, 0.03, 30], mid: [2.3, -0.32, 34], full: [4.6, -0.75, 34] }[view] || [1.05, 0.03, 30];
+
+async function column(src, i) {
+  const polish = src.endsWith('!'), path = polish ? src.slice(0, -1) : src;
+  const url = path === 'dan' ? '../assets/characters/dan.glb' : path === 'mrbig' ? '../assets/characters/mrbig.glb' : path;
+  const scene = new THREE.Scene(); scene.background = new THREE.Color(street ? '#9FB6CC' : night ? '#070A14' : golden ? '#E9C9A0' : '#BFD6EE');
+  scene.environment = env; scene.environmentIntensity = street ? 1.0 : night ? 0.16 : 0.5;
+  scene.add(new THREE.HemisphereLight(night ? '#3A4A78' : golden ? '#FFE2BC' : '#DCE8FF', night ? '#1A1410' : '#7A6A58', street ? 1.1 : (night ? 0.5 : golden ? 0.8 : 0.85) * 0.5));
+  const sun = new THREE.DirectionalLight(night ? '#9DB4FF' : golden ? '#FFC98A' : '#FFEFD6', night ? 0.5 : golden ? 2.6 : 3.0);
+  sun.position.set(2, 6, -8); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02;
+  Object.assign(sun.shadow.camera, { left: -3, right: 3, top: 3, bottom: -3, near: 0.5, far: 30 }); scene.add(sun, sun.target);
+  const floor = new THREE.Mesh(new THREE.CircleGeometry(8, 64), new THREE.MeshStandardMaterial({ color: '#77736C', roughness: 0.9 }));
+  floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+  // (each column its own load: the polish changes a body's geometry in place, and loadGLB shares one parse per address)
+  const g = await loadGLB(url + '?col=' + i);
+  const root = new THREE.Group(), inner = skClone(g.scene); root.add(inner);
+  inner.traverse((o) => { if (/^armhang_[LR]$/.test(o.name)) o.quaternion.identity(); });
+  const arm = inner.getObjectByName('root')?.parent;
+  const native = path === 'dan' || path === 'mrbig';
+  if (arm && arm !== inner && !native) { arm.quaternion.identity(); arm.position.y += 0.02; }
+  inner.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; } });
+  if (q.get('hide')) { const re = new RegExp(q.get('hide')); inner.traverse((o) => { if (o.isMesh && re.test(o.material?.name + ':' + (o.material?.userData?.garment || ''))) o.visible = false; }); }
+  if (polish) { const t0 = performance.now(); const r = polishBody(inner, only); console.log('polish', path, JSON.stringify(r), (performance.now() - t0).toFixed(1) + ' ms'); window.__polish = (window.__polish || []).concat([{ path, ...r, ms: +(performance.now() - t0).toFixed(1) }]); }
+  const bones = {}; inner.traverse((o) => { if (o.isBone) bones[o.name] = o; });
+  const own = g.animations.slice(), names = new Set(own.map((a) => a.name));
+  for (const a of await danClips) if (!names.has(a.name)) own.push(a);
+  const mixer = new THREE.AnimationMixer(inner);
+  const clip = THREE.AnimationClip.findByName(own, q.get('clip') || 'idle') || own[0];
+  if (clip && q.get('clip') !== 'bind') mixer.clipAction(clip).play();
+  let face = null;
+  if (path !== 'dan') try { face = createFace(W, { speaker: 'x' + i, inner, bones, head: true, open: 0.45, auto: false }); } catch (e) { console.warn('face', e); }
+  root.rotation.y = turn; scene.add(root);
+  if (freeze != null) mixer.setTime(+freeze); else mixer.update(0.5);
+  root.updateMatrixWorld(true);
+  if (face && q.get('talk')) face.jaw(+q.get('talk'));
+  const cam = new THREE.PerspectiveCamera(LENS[2], 1, 0.05, 100);
+  const key = new THREE.SpotLight(night ? '#FFD2A0' : golden ? '#FFE0B8' : '#FFF2E2', 0, 4.5, 0.42, 0.95, 2);
+  key.castShadow = true; key.shadow.mapSize.set(1024, 1024); key.shadow.bias = -0.0006; key.shadow.normalBias = 0.015; key.shadow.radius = 6; key.shadow.camera.near = 0.2; key.shadow.camera.far = 7;
+  const fill = new THREE.PointLight(night ? '#8EA2D8' : '#FFE9D2', 0, 5, 2);
+  const rim = new THREE.SpotLight(night ? '#A9C0FF' : golden ? '#FFC98A' : '#F2F6FF', 0, 7, 0.6, 0.9, 2);
+  if (!street) scene.add(key, key.target, fill, rim, rim.target);
+  const place = () => {
+    const h = (bones.head || inner).getWorldPosition(new THREE.Vector3()); h.y += 0.07;
+    const look = h.clone().setY(h.y + LENS[1] - 0.03);
+    const p = h.clone().add(new THREE.Vector3(Math.sin(turn) * LENS[0], LENS[1], Math.cos(turn) * LENS[0]));
+    cam.position.copy(p); cam.lookAt(look);
+    const dx = p.x - look.x, dz = p.z - look.z, n = Math.hypot(dx, p.y - look.y, dz), hh = Math.hypot(dx, dz) || 1, fx = dx / hh, fz = dz / hh, rx = fz, rz = -fx;
+    const close = Math.max(0, Math.min(1, (7 - n) / 4)), base = night ? 2.4 : 1.6, side = 1, kc = Math.cos(0.75), ks = Math.sin(0.75);
+    key.position.set(look.x + (fx * kc + rx * side * ks) * 1.9, look.y + 0.55, look.z + (fz * kc + rz * side * ks) * 1.9); key.target.position.set(look.x, look.y - 0.15, look.z); key.target.updateMatrixWorld();
+    key.intensity = (2.2 + 4.2 * close) * base;
+    fill.position.set(look.x + (fx * 0.6 - rx * side * 0.8) * 2, look.y - 0.1, look.z + (fz * 0.6 - rz * side * 0.8) * 2); fill.intensity = (0.5 + close) * base;
+    rim.position.set(look.x - fx * 1.7 - rx * side * 0.9, look.y + 0.9, look.z - fz * 1.7 - rz * side * 0.9); rim.target.position.set(look.x, look.y - 0.2, look.z); rim.target.updateMatrixWorld(); rim.intensity = (3 + 6 * close) * base;
+  };
+  place();
+  let tris = 0; inner.traverse((o) => { if (o.isMesh && o.visible) tris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; });
+  return { src, scene, cam, mixer, face, place, tris };
+}
+const cols = await Promise.all(list.map(column));
+document.getElementById('lab').innerHTML = cols.map((c) => `<div>${c.src.split('/').pop()}</div>`).join('');
+window.__info = { cols: cols.map((c) => ({ src: c.src, tris: Math.round(c.tris) })), polish: window.__polish };
+let last = performance.now(), frames = 0, t0 = 0;
+const ft = [];
+renderer.setAnimationLoop(() => {
+  const now = performance.now(), dt = Math.min(0.05, (now - last) / 1000); ft.push(now - last); if (ft.length > 240) ft.shift(); last = now;
+  const w = innerWidth / cols.length, h = innerHeight;
+  cols.forEach((c, i) => {
+    if (freeze == null) { c.mixer.update(dt); c.face?.tick?.(dt); }
+    c.cam.aspect = w / h; c.cam.updateProjectionMatrix(); if (freeze == null && view !== 'full') c.place();
+    renderer.setViewport(i * w, 0, w, h); renderer.setScissor(i * w, 0, w, h);
+    for (let k = 0; k < DRAWS; k++) renderer.render(c.scene, c.cam);
+  });
+  if (++frames === 30) window.__ready = true;
+});
+window.__fps = () => { const s = [...ft].sort((a, b) => a - b); return { median: s[s.length >> 1], p95: s[Math.floor(s.length * 0.95)] }; };
+</script>
+</body>
+</html>

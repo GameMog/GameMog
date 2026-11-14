@@ -317,6 +317,8 @@ export async function load() {
       const g = await loadGLB(W.heroGlb);
       const names = new Set(dan.animations.map((c) => c.name));
       g.animations = [...dan.animations, ...g.animations.filter((c) => !names.has(c.name))];
+      // (their surfaces finished as the cast's are: polish.js)
+      try { (await import('./polish.js')).polishBody(g.scene); } catch (err) { console.warn('[storyrun] hero polish', err); }
       unhang(g.scene);
       return g;
     } catch (err) { console.warn('[storyrun] hero body', err); return dan; }
