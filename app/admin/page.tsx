@@ -44,8 +44,9 @@ export default async function AdminPage() {
   // opened (data/storykit is not made) and nothing is shown
   const mode = storykitMode();
   const storykit = mode === 'off' ? null : { mode, ...storyStore().usage() };
-  // the production town builder (lib/hometown-build): only while HOMETOWN_BUILDER is owner or on (off: the queue is never opened)
+  // the production town builder (lib/hometown-build): only while HOMETOWN_BUILDER is owner or on (off: the queue is never opened).
+  // (JSON round trip: node:sqlite rows have a null prototype, which a Client Component prop refuses)
   let towns = null;
-  if (builderMode() !== 'off') { try { towns = builderStatus(builderDeps()); } catch (e) { console.error('admin: town builder status', String((e as Error).message).slice(0, 200)); } }
+  if (builderMode() !== 'off') { try { towns = JSON.parse(JSON.stringify(builderStatus(builderDeps()))); } catch (e) { console.error('admin: town builder status', String((e as Error).message).slice(0, 200)); } }
   return <Dashboard towns={towns} stats={all} worlds={adminWorlds()} builds={builds} scores={adminScores()} active={activeNow()} reports={kartReports()} slots={slots} loop={dareLoop(now)} mc={mc} storykit={storykit} />;
 }
