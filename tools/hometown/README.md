@@ -227,9 +227,11 @@ stays the same bytes in any compile that holds it (the seam / block / overlap pr
   front: shop; industrial: warehouse), then size, height and `row` (1 + the buildings within 0.5 m).
   **mall** (0.8.2, fid2-mall; checked after tower, before warehouse): a building of 1,500 m2 or more under 18 m, not of
   an industrial / warehouse class (`WAREHOUSE`), a residential, hotel, office or parking class (`MALL_NOT`) nor on
-  industrial land, with any of: a `shopping_mall` / `shopping_center` / `outlet_mall` / `department_store` place inside
-  it, a retail / commercial / supermarket / shop class (`SHOPS`), 3 or more shop places inside it (`SHOP_WORDS`), retail
-  land use under it, or Overture car parks (less its own footprint) of 800 m2 and a quarter of its area within 12 m.
+  industrial land (subtype or class), with any of: a `shopping_mall` / `shopping_center` / `outlet_mall` /
+  `department_store` place inside it, a retail / supermarket / shop class (`MALL_CLASSES`), 3 or more shop places inside
+  it (`SHOP_WORDS`), retail land use under it; or one shop place inside it and either the `commercial` class (offices
+  and storage have it too) or commercial land use with Overture car parks (less its own footprint) of 800 m2 and a
+  quarter of its area within 12 m.
   It gets `shops` = 1 and a paved lot round it; the engine (`cities/sf/js/buildings.js`, `cities/pkg/js/pkg-buildings.js`)
   draws it as a storefront storey on every open wall with a plain stucco band over it, cream and white (beige outside
   the stucco regions), a colonnade along each wall 8 m or longer (canopy on square columns, planters, pilasters) and a

@@ -72,8 +72,9 @@ import shapely.ops  # noqa: E402
 # on the property lines, more yard trees (palms, sea grape) and the south-florida building region; climateZone in the header;
 # 0.8.1 fid-beach: beaches and sand (Overture base/land subtype sand) as ground classes beach (10) and wet sand (11), no
 # yard trees on them, and a region fetched without the land layer refused;
-# 0.8.2 fid2-mall: a large low retail building is a 'mall' (kind 14: a shopping-centre place in it, a retail / commercial
-# class, MALL_SHOPS shop places in it, retail land use under it, or a car park beside it), shops on every open wall; the
+# 0.8.2 fid2-mall: a large low retail building is a 'mall' (kind 14: a shopping-centre place in it, a retail class,
+# MALL_SHOPS shop places in it, retail land use under it, or a shop in it and a commercial class or commercial land and a
+# car park beside it), shops on every open wall; the
 # warm band's hedges along trunk / primary / secondary roads are hedge walls (tall, on lawn, scrub or a paved lot; the
 # fourth field's yaw + 180) on WARM_WALL_P of their sides, and hedge walls ring its car parks (kind 4)
 COMPILER_VERSION = '0.8.2'
@@ -559,10 +560,13 @@ INDUSTRIAL_LU = {'industrial', 'quarry', 'landfill'}
 FRONT_REACH = 12.0
 # (0.8.2) the mall: a large low retail building (a shopping centre, a strip of shops, a big store) of MALL_MIN_AREA m2 or
 # more under MALL_MAX_H m, not an industrial, residential, hotel, office or parking class nor on industrial land, with
-# one of: a shopping-centre place inside it, a retail / commercial class, MALL_SHOPS shop places inside it, retail land
-# use under it, or car parks (Overture parking polygons, less its own footprint) of MALL_PARK_MIN m2 and a quarter of its
-# area within MALL_PARK_REACH m. The engine draws it as one: storefronts on every open wall, cream stucco, a colonnade
+# one of: a shopping-centre place inside it, a retail class (MALL_CLASSES), MALL_SHOPS shop places inside it, retail land
+# use under it; or a shop place inside it and either a commercial class or commercial land use with car parks (Overture
+# parking polygons, less its own footprint) of MALL_PARK_MIN m2 and a quarter of its area within MALL_PARK_REACH m (a
+# theatre, a jail or a school beside a car park is no mall). The engine draws it as one: storefronts on every open wall,
+# cream stucco, a colonnade
 MALL_PLACES = {'shopping_mall', 'shopping_center', 'outlet_mall', 'department_store'}
+MALL_CLASSES = {'retail', 'supermarket', 'shop', 'kiosk', 'department_store'}   # ('commercial' is offices and storage too: with a shop in it)
 MALL_NOT = {'apartments', 'dormitory', 'hotel', 'office', 'parking', 'garage', 'garages', 'house', 'detached', 'semidetached_house',
             'residential', 'bungalow', 'cabin', 'farm', 'static_caravan', 'hut'}
 MALL_MIN_AREA = 1500.0
@@ -687,7 +691,9 @@ def shape_building(W, r, rec, near, downtown):
     elif h >= 45:
         kind = 'tower'
     elif (area >= MALL_MIN_AREA and h < MALL_MAX_H and cls not in WAREHOUSE and cls not in MALL_NOT and lu_sub not in INDUSTRIAL_LU
-          and (pcat & MALL_PLACES or cls in SHOPS or nshops >= MALL_SHOPS or 'retail' in (lu_sub, lu_cls) or _parking_by(src, wg, area))):
+          and lu_cls not in INDUSTRIAL_LU
+          and (pcat & MALL_PLACES or cls in MALL_CLASSES or nshops >= MALL_SHOPS or 'retail' in (lu_sub, lu_cls)
+               or (nshops >= 1 and (cls == 'commercial' or (lu_cls in RETAIL_LU and _parking_by(src, wg, area)))))):
         kind = 'mall'
     elif cls in WAREHOUSE or (lu_sub in INDUSTRIAL_LU and area > 400) or (area > 1500 and h < 12):
         kind = 'warehouse'
