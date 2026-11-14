@@ -20,6 +20,7 @@
 import type { CityPackage, PackagePlace, SpawnPoint, District, PackageLandmark } from '../../storykit/hometown/city-package.ts';
 import { classify } from '../../storykit/hometown/safety.ts';
 import { storyLock, tilesIdOf, type ServiceLock } from '../hometown/ids.ts';
+import { nameCase, titleStreet } from '../hometown/names.ts';
 
 export type FramePlace = { kind: string; name: string; x: number; z: number; heading?: number; inDistrict?: boolean };
 export type FrameSpawn = { id: string; name: string; x: number; z: number; heading: number; inDistrict?: boolean };
@@ -92,21 +93,23 @@ export function cityPackageOfFrame(f: TownFrame, town: { placeId: string; name: 
   const L = f.lock;
   const places: PackagePlace[] = [], spawnPoints: SpawnPoint[] = [], districts: District[] = [];
   for (const s of f.spawns) {
-    places.push({ id: s.id, kind: 'arrival', name: s.id === 'pkg_downtown' ? `downtown ${town.name}` : s.name, x: s.x, z: s.z, heading: s.heading, tags: ['arrival'], inDistrict: !!s.inDistrict });
-    spawnPoints.push({ id: s.id, x: s.x, z: s.z, heading: s.heading, mode: 'car', name: s.name, inDistrict: !!s.inDistrict });
+    // (the compiler's title case put right: "N 3rd St", not "N 3Rd St"; lib/hometown/names.ts)
+    places.push({ id: s.id, kind: 'arrival', name: s.id === 'pkg_downtown' ? `downtown ${town.name}` : nameCase(s.name), x: s.x, z: s.z, heading: s.heading, tags: ['arrival'], inDistrict: !!s.inDistrict });
+    spawnPoints.push({ id: s.id, x: s.x, z: s.z, heading: s.heading, mode: 'car', name: nameCase(s.name), inDistrict: !!s.inDistrict });
     const d = s.id.replace(/^pkg_/, '');
     districts.push({ id: d, name: d === 'downtown' ? 'Downtown' : `the ${d[0].toUpperCase()}${d.slice(1)} Side`, x: s.x, z: s.z });
   }
   for (const [k, p] of Object.entries(f.places)) {
     if (!/^[a-z0-9][a-z0-9_-]{0,39}$/.test(k) || places.some((q) => q.id === k)) continue;
-    places.push({ id: k, kind: String(p.kind), name: String(p.name).slice(0, 80), x: p.x, z: p.z, heading: p.heading, tags: [`overture=${p.kind}`], inDistrict: !!p.inDistrict });
+    places.push({ id: k, kind: String(p.kind), name: nameCase(String(p.name)).slice(0, 80), x: p.x, z: p.z, heading: p.heading, tags: [`overture=${p.kind}`], inDistrict: !!p.inDistrict });
   }
   const landmarks: PackageLandmark[] = places.filter((p) => p.kind !== 'arrival' && !classify(p).business && !classify(p).residence)
     .map((p) => ({ id: p.id, name: p.name, kind: p.kind, x: p.x, z: p.z }));
   return {
     v: 1, placeId: town.placeId, name: town.name, state: town.stateName, compilerVersion: L.buildId,
     tileSet: { hash: L.tiles, count: f.tiles.length }, places, landmarks, districts, spawnPoints,
-    roadsSummary: f.roads ?? { streets: 0, km: 0, main: [] },
+    // (the compiler's street list is the road graph's capitals, "N 3RD ST": as the game shows them, "N 3rd St")
+    roadsSummary: f.roads ? { ...f.roads, main: f.roads.main.map((n) => (/[a-z]/.test(n) ? nameCase(n) : titleStreet(n))) } : { streets: 0, km: 0, main: [] },
     grid: 'hg1', domain: L.domain as CityPackage['domain'], buildId: L.buildId, origin: { c0: L.origin.c0, r0: L.origin.r0 }, k0: L.k0, gamma0: L.gamma0,
     yOffset: L.yOffset, waterLevel: L.waterLevel, lockVersion: 3, spawnDistrict: f.spawnDistrict,
   };

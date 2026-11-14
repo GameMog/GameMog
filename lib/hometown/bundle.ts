@@ -18,6 +18,7 @@ import { readFileSync } from 'node:fs';
 import type { CityPackage, PackagePlace, SpawnPoint, District, PackageLandmark } from '../../storykit/hometown/city-package.ts';
 import { classify } from '../../storykit/hometown/safety.ts';
 import { storyLock, type ServiceLock } from './ids.ts';
+import { nameCase, titleStreet } from './names.ts';
 
 export const BUNDLE_FORMAT = 'hometown-bundle';
 export const BUNDLE_FILES = ['geodata.json', 'citypackage.json', 'lock.json', 'data/terrain.bin.gz', 'data/buildings.bin.gz', 'data/groundmask.bin.gz'] as const;
@@ -38,8 +39,6 @@ export function readGeodataJs(file: string): Geodata {
 
 /** geodata.json's body. */
 export const geodataJson = (g: Geodata) => ({ format: BUNDLE_FORMAT, formatVersion: 1, GEO: g.GEO, PLACE_DATA: g.PLACE_DATA, PKG: g.PKG });
-
-const titleStreet = (s: string) => s.toLowerCase().replace(/(^|[\s-])([a-z])/g, (_, a, b) => a + b.toUpperCase()).replace(/\b(\d+)(St|Nd|Rd|Th)\b/g, (_, n, x) => n + x.toLowerCase());
 
 /** The road graph in words: named streets, km of road, the longest few. */
 function roadsOf(GEO: Json) {
@@ -71,14 +70,15 @@ export function cityPackageOf(g: Geodata, town: { placeId: string; name: string;
   const places: PackagePlace[] = [];
   const spawnPoints: SpawnPoint[] = [], districts: District[] = [];
   for (const [k, s] of Object.entries((g.PLACE_DATA.regional || {}) as Record<string, Json>)) {
-    places.push({ id: k, kind: 'arrival', name: k === 'pkg_downtown' ? `downtown ${town.name}` : String(s.name), x: s.x, z: s.z, heading: s.heading, tags: ['arrival'] });
-    spawnPoints.push({ id: k, x: s.x, z: s.z, heading: s.heading, mode: 'car', name: String(s.name) });
+    // (the compiler's title case put right: "N 3rd St", not "N 3Rd St"; lib/hometown/names.ts)
+    places.push({ id: k, kind: 'arrival', name: k === 'pkg_downtown' ? `downtown ${town.name}` : nameCase(String(s.name)), x: s.x, z: s.z, heading: s.heading, tags: ['arrival'] });
+    spawnPoints.push({ id: k, x: s.x, z: s.z, heading: s.heading, mode: 'car', name: nameCase(String(s.name)) });
     const d = k.replace(/^pkg_/, '');
     districts.push({ id: d, name: d === 'downtown' ? 'Downtown' : `the ${d[0].toUpperCase()}${d.slice(1)} Side`, x: s.x, z: s.z });
   }
   for (const [k, p] of Object.entries((P.places || {}) as Record<string, Json>)) {
     if (!/^[a-z0-9][a-z0-9_-]{0,39}$/.test(k)) continue;
-    places.push({ id: k, kind: String(p.kind), name: String(p.name).slice(0, 80), x: p.x, z: p.z, heading: p.heading, tags: [`overture=${p.kind}`] });
+    places.push({ id: k, kind: String(p.kind), name: nameCase(String(p.name)).slice(0, 80), x: p.x, z: p.z, heading: p.heading, tags: [`overture=${p.kind}`] });
   }
   const landmarks: PackageLandmark[] = places.filter((p) => p.kind !== 'arrival' && !classify(p).business && !classify(p).residence)
     .map((p) => ({ id: p.id, name: p.name, kind: p.kind, x: p.x, z: p.z }));
