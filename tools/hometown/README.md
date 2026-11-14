@@ -307,9 +307,27 @@ table `osm_roads.py` builds from Geofabrik's US extract (`lanes`, `lanes:forward
 width follows the lanes (3.4 m each + 1 m; motorway carriageway + 4.2 m shoulders; link + 2.2 m; a centre turn lane
 +3.4 m), streets keep their class width where wider; no halving. One-ways: heading denials for motor vehicles (or no
 mode), per piece where the rule has `between`. Segments' way ids and speed limits come from
-`fetch.py --extras <regions>` (`overture-transportation-segment-extras.parquet` per region; used only when every loaded
-region has one). The side table: `--osm-roads <parquet>` or `<data>/osm/osm-roads-us.parquet`; its sha256 is in the
+`overture-transportation-segment-extras.parquet` per region, which `fetch.py --regions` fetches with the region since
+0.8.1 (`--extras <regions>` adds it to a region fetched before). A region without it counts as not fetched: the
+compiler refuses its tiles with the `fetch.py --regions` command (`prewarm.py` runs it and retries), because a town
+built without it silently fell back to the class defaults (production Bal Harbour, FL, 0.8.0: Collins Ave one lane
+and 9 m a carriageway instead of OSM's three and 11.2 m). The side table: `--osm-roads <parquet>` or `<data>/osm/osm-roads-us.parquet`; its sha256 is in the
 build record (a new table, a new buildId).
+
+**Sides** (0.8.1, fid-roads; World.pair / World.sides, per segment, left / right of the segment's own direction, which
+is the OSM way's): a one-way carriageway's **pair** is the other half of a divided road: a one-way road of the same name
+(both unnamed: the same main class) running the other way, parallel within ~25 degrees, 3-45 m off the centreline and
+abeam of its middle (else a quarter or three quarters along). **Sidewalks** from the side table's `sidewalk`,
+`sidewalk:left/right/both` (`separate` counts as one: the tiles draw no footways; a class with none by default gets
+2 m), else a paired carriageway has its class sidewalk on its outer side only, else both sides as before. **Bike lanes**
+from `cycleway`, `cycleway:left/right/both` (0 none, 1 shared lane, 2 lane, 3 track; a one-way's plain tag on the right
+of travel). A paired carriageway with OSM lanes is as wide as its lanes (3.4 m each + 1 m, no class floor). The tiles'
+links carry `swl`, `swr`, `cyl`, `cyr`; the sidewalk bands follow each side (`side_band`: the round-capped buffer when
+both sides match, as before, else the bare side cut off flat); a narrow curb island inside a pair's median (each
+carriageway's inner side, half way to the other) is open ground (lawn in a humid place) instead of paving. The package's
+links: [8] / [9] the sidewalk left / right (they were the one class width twice), [14] / [15] the bike lanes. The engine
+(`cities/sf/js/road-paint.js`, packages only) paints solid edge lines along a road with two or more lanes one way:
+white on the right of the travel, yellow on the left of a one-way roadway, beside the outer lanes.
 
 Building the side table (offline, the dev Mac, once per Overture release; never on Render):
 
@@ -321,8 +339,10 @@ python tools/hometown/fetch.py --extras "conus:C,R;C,R..."      # the regions' w
 ```
 
 First build (13 Nov 2026): `us-261112.osm.pbf` (12,264,531,947 B, md5 11b2a6f5dcfe611cbba52cafe354edf1), 52.2 M highway
-ways read, 3,670,803 kept, 17.1 MB, sha256 `555ea001a758b77b...`, 36 min on a loaded 10-core Mac. ODbL 1.0
-(© OpenStreetMap contributors), a derived database: keep `osm_roads.py` public with the compiler.
+ways read, 3,670,803 kept, 17.1 MB, sha256 `555ea001a758b77b...`, 36 min on a loaded 10-core Mac. Second build
+(14 Nov 2026, 0.8.1, the same extract, + the sidewalk and cycleway tags): 3,727,594 kept (every earlier row's lane
+columns unchanged; 56,791 more ways that carry only the new tags), 19.4 MB, sha256 `369b9debd00efaef...`, 20 min.
+ODbL 1.0 (© OpenStreetMap contributors), a derived database: keep `osm_roads.py` public with the compiler.
 
 That build is committed beside the compiler: `tools/hometown/osm/osm-roads-us.parquet` (+ `.json`, its record; ODbL
 notice in `tools/hometown/osm/NOTICE.md`), so a checkout of this repository at a pinned commit carries the exact bytes

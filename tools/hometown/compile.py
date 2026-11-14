@@ -63,7 +63,10 @@ import shapely.ops  # noqa: E402
 # 0.8.0 the merge of both (round 3's rules in 0.7.0's builder; the frame's play box is round 3's downtown-centred box);
 # 0.8.1 malls: a site's own roads (service, private) never drop a building of 150 m2 or more, and the stretches of
 # them inside a kept building's footprint are no roads (World.footprint / site_cut: Bal Harbour's mall, garages,
-# campuses); a drive cut back from one ends in a dead-end node 'x:{segment}:{piece}:a|b'
+# campuses); a drive cut back from one ends in a dead-end node 'x:{segment}:{piece}:a|b';
+# 0.8.1 fid-roads: each carriageway's sides (OSM sidewalk / cycleway tags, else a divided road's sidewalk on its outer
+# side only), a divided road's OSM-laned carriageway as wide as its lanes, a narrow median as open ground, and a region
+# without its segment extras refused (the OSM lanes join through them)
 COMPILER_VERSION = '0.8.1'
 OVERTURE_RELEASE = '2026-10-21.0'
 TILE, TCM = grid.TILE, grid.TILE_CM
@@ -173,6 +176,69 @@ def class_lanes(cls, link, oneway, divided, urban, spd, w_rule):
             return (2 if urban and (spd or 0) >= 40 else 1), 'class'
         return (2 if urban and (spd or 0) >= 40 else 1), 'class'
     return 1, 'class'
+
+
+# ---- each carriageway's sides (fid-roads): sidewalks and bike lanes left / right of a segment's own direction (Overture
+# keeps an OSM way's direction), from the OSM side table's sidewalk / cycleway tags, else from a divided road's other
+# carriageway (PAIR_REACH): its inner side, towards the median, has no sidewalk
+PAIR_REACH = 45.0    # m: the other carriageway of a divided road lies within this of a one-way carriageway's centreline
+PAIR_COS = 0.9       # ... runs within ~25 degrees of it
+PAIR_MIN = 3.0       # ... and at least this far off it (centreline to centreline)
+SW_TAGGED = 2.0      # m: a sidewalk the OSM tags give a class with none by default (trunk, unclassified)
+CYCLE = {'lane': 2, 'opposite_lane': 2, 'track': 3, 'opposite_track': 3, 'shared_lane': 1, 'share_busway': 1, 'opposite_share_busway': 1,
+         'shoulder': 0, 'separate': 0, 'no': 0, 'none': 0}   # 0 none, 1 shared (sharrows), 2 a painted bike lane, 3 a track
+
+
+def osm_sidewalk(osm, side):
+    """True / False / None (not tagged): a sidewalk on `side` ('left' | 'right' of the way's own direction). A `separate`
+    sidewalk (mapped as its own footway, which the tiles do not draw) counts as one."""
+    for k in ('sidewalk_' + side, 'sidewalk_both'):
+        v = str(osm.get(k) or '').strip().lower()
+        if v in ('yes', 'separate', 'sidepath', 'both'):
+            return True
+        if v in ('no', 'none'):
+            return False
+    v = str(osm.get('sidewalk') or '').strip().lower()
+    if v in ('both', 'yes', 'separate'):
+        return True
+    if v in ('no', 'none'):
+        return False
+    if v in ('left', 'right'):
+        return v == side
+    return None
+
+
+def osm_cycleway(osm, side, d):
+    """CYCLE code of the bike lane on `side` of the way: cycleway:<side> / :both, else the plain tag (a two-way road:
+    both sides; a one-way: the right of travel, `opposite_*` the left)."""
+    for k in ('cycleway_' + side, 'cycleway_both'):
+        v = str(osm.get(k) or '').strip().lower()
+        if v in CYCLE:
+            return CYCLE[v]
+    v = str(osm.get('cycleway') or '').strip().lower()
+    if v not in CYCLE:
+        return 0
+    if not d:
+        return CYCLE[v]
+    right = 'right' if d > 0 else 'left'
+    want = ('left' if right == 'right' else 'right') if v.startswith('opposite') else right
+    return CYCLE[v] if side == want else 0
+
+
+RIGHT = 1   # shapely's single-sided buffer sign (positive: its left in a y-up frame) for a road's right in the grid frame (z south)
+
+
+def side_band(gl, w, swl, swr):
+    """The sidewalk band along a carriageway's centreline gl: w / 2 + the side's sidewalk, each side (left / right of its
+    own direction). Both sides alike: the round-capped buffer (as before fid-roads); one side narrower or none: that side
+    cut off by a flat single-sided buffer (the round caps stay on the other)."""
+    if swl == swr:
+        return gl.buffer(w / 2 + swl, quad_segs=4)
+    hi, lo, sgn = (swl, swr, RIGHT) if swl > swr else (swr, swl, -RIGHT)
+    out = gl.buffer(w / 2 + hi, quad_segs=4).difference(gl.buffer(sgn * (w / 2 + hi + 0.05), single_sided=True))
+    if lo > 0:
+        out = out.union(gl.buffer(sgn * (w / 2 + lo), single_sided=True))
+    return out
 # Road classes: curb-to-curb width (m), lanes (both ways), sidewalk (m each side, 0 none), rank. Estimates by class.
 ROAD = {
     'motorway': (22.0, 4, 0.0, 6), 'trunk': (18.0, 4, 0.0, 5), 'primary': (15.0, 4, 2.4, 5), 'secondary': (13.0, 2, 2.2, 4),
@@ -826,6 +892,7 @@ class World:
         self.pieces_c, self.junction_c, self.brec_c, self.bridge_c, self.k_c = {}, {}, {}, {}, {}
         self.kept_c, self.foot_c, self.inside_c = {}, {}, {}
         self.lanes_c, self.osm_c, self.deck_c, self.prof_c, self.gstats = {}, None, {}, {}, {}
+        self.pair_c, self.side_c = {}, {}
         self.seg_rows, self.iv_c, self.cross_c = {}, {}, {}
         self.files_c, self.grp_c, self.near_c, self.base_c, self.l4_c, self.tline_c = {}, {}, {}, {}, {}, {}
         self.data = data
@@ -909,6 +976,8 @@ class World:
         d = access_dir(s['access_restrictions'])
         LN = self.lanes(s, d)
         w, lanes = LN['w'], LN['lf'] + LN['lb']
+        SD, PR = self.sides(s, d), self.pair(s, d)
+        sw = max(SD['swl'], SD['swr'])
         flags = 0
         if s['subclass'] == 'alley':
             flags |= FLAGS['alley']
@@ -986,6 +1055,7 @@ class World:
                 return o
             out.append({'seg': sid, 'i': k, 'a': c0, 'b': c1, 'pts': q, 'w': w, 'lanes': lf + lb, 'dir': dp, 'flags': pflags, 'sw': sw,
                         'cls': cls, 'rank': rank, 'name': name, 'lf': lf, 'lb': lb, 'spd': LN['spd'], 'lsrc': LN['src'], 'lvl': lvl,
+                        'swl': SD['swl'], 'swr': SD['swr'], 'cyl': SD['cyl'], 'cyr': SD['cyr'], 'pair': PR,
                         'link': s['subclass'] == 'link', 'br': frac(spans['is_bridge']), 'tun': frac(spans['is_tunnel']), 'f0': a0, 'f1': a1, 'soft': soft,
                         'tspan': next(((t0, t1) for t0, t1 in spans['is_tunnel'] if t0 <= mid <= t1), None),
                         'brs': [(t0, t1) for t0, t1 in spans['is_bridge'] if min(a1, t1) - max(a0, t0) > 1e-6]})
@@ -1041,6 +1111,89 @@ class World:
                     self.osm_c[r['way_id']] = r
         w = ex.get(sid, (None, None))[0]
         return self.osm_c.get(w) if w is not None else None
+
+    def pair(self, s, d):
+        """A one-way carriageway's other half of a divided road: (side, gap) with side +1 when it lies to the right of
+        the segment's own direction (grid frame: x east, z south; right of (tx, tz) is (-tz, tx)), -1 to the left, and
+        gap the centreline-to-centreline distance (m); None for a two-way road or none found. The other carriageway: a
+        one-way road of the same name (both unnamed: the same main class) running the other way, parallel within
+        ~25 degrees, PAIR_MIN..PAIR_REACH m off the centreline, abeam (not end to end) at the middle, else a quarter or
+        three quarters along. Pure per segment."""
+        sid = s['id']
+        if sid in self.pair_c:
+            return self.pair_c[sid]
+        res = None
+        g = s['geom']
+        cls = s['class'] or 'unknown'
+        if d and g.geom_type == 'LineString' and g.length >= 2.0:
+            L = g.length
+            for f in (0.5, 0.25, 0.75):
+                u = f * L
+                m = g.interpolate(u)
+                a, b = g.interpolate(max(0.0, u - 1.0)), g.interpolate(min(L, u + 1.0))
+                tl = math.hypot(b.x - a.x, b.y - a.y)
+                if tl < 1e-6:
+                    continue
+                tx, tz = (b.x - a.x) / tl, (b.y - a.y) / tl
+                best = None
+                for o in self.src.query('segments', m.buffer(PAIR_REACH)):
+                    if o['id'] == sid or o['subtype'] != 'road' or o['geom'].geom_type != 'LineString' or o['subclass'] in SKIP_SUBCLASS:
+                        continue
+                    if s['name']:
+                        if o['name'] != s['name']:
+                            continue
+                    elif o['name'] or (o['class'] or 'unknown') != cls or cls not in ('trunk', 'primary', 'secondary', 'tertiary'):
+                        continue
+                    od = access_dir(o['access_restrictions'])
+                    if not od:
+                        continue
+                    og = o['geom']
+                    ou = og.project(m)
+                    q = og.interpolate(ou)
+                    p0, p1 = og.interpolate(max(0.0, ou - 1.0)), og.interpolate(min(og.length, ou + 1.0))
+                    ol = math.hypot(p1.x - p0.x, p1.y - p0.y)
+                    if ol < 1e-6:
+                        continue
+                    ox, oz = (p1.x - p0.x) / ol, (p1.y - p0.y) / ol
+                    cos = ox * tx + oz * tz
+                    if abs(cos) < PAIR_COS or cos * od * d > 0:
+                        continue   # (not parallel, or travelling the same way)
+                    vx, vz = q.x - m.x, q.y - m.y
+                    along, across = vx * tx + vz * tz, vx * -tz + vz * tx
+                    if abs(along) > 10.0 or not (PAIR_MIN <= abs(across) <= PAIR_REACH):
+                        continue
+                    k = (round(abs(across), 3), o['id'])
+                    if best is None or k < best[0]:
+                        best = (k, 1 if across > 0 else -1, abs(across))
+                if best is not None:
+                    res = (best[1], round(best[2], 2))
+                    break
+        self.pair_c[sid] = res
+        return res
+
+    def sides(self, s, d):
+        """{'swl', 'swr': sidewalk m, 'cyl', 'cyr': CYCLE code} left / right of the segment's own direction: the OSM tags
+        where they say (a tagged sidewalk on a class with none by default is SW_TAGGED m), else a divided road's
+        carriageway has its sidewalk on its outer side only, else the class's on both."""
+        sid = s['id']
+        if sid in self.side_c:
+            return self.side_c[sid]
+        sw = ROAD[s['class'] or 'unknown'][2]
+        osm = self.osm_tags(sid) or {}
+        pr = self.pair(s, d)
+        out = {}
+        for side, sign in (('l', -1), ('r', 1)):
+            t = osm_sidewalk(osm, 'left' if side == 'l' else 'right') if osm else None
+            if t is not None:
+                v = (sw or SW_TAGGED) if t else 0.0
+            elif pr is not None and pr[0] == sign:
+                v = 0.0
+            else:
+                v = sw
+            out['sw' + side] = v
+            out['cy' + side] = osm_cycleway(osm, 'left' if side == 'l' else 'right', d) if osm else 0
+        self.side_c[sid] = out
+        return out
 
     def lanes(self, s, d):
         sid = s['id']
@@ -1124,7 +1277,8 @@ class World:
             wmin = 2 * (3.0 * max(lf, lb) + 0.5)
         if w_rule and w_rule >= wmin:
             w = w_rule
-        elif link or cls in MAINLINE:
+        elif link or cls in MAINLINE or (d and src == 'osm' and self.pair(s, d) is not None):
+            # (a divided road's carriageway with its lanes from OSM: as wide as its lanes, no class floor)
             w = wl
         else:
             # (streets keep their class width where it is wider: parking lanes, gutters)
@@ -1949,7 +2103,8 @@ def _compile_tile(Wd, c, r, dem_files):
             links.append({'a': node(sb['na'], pts[0]), 'b': node(sb['nb'], pts[-1]), 'pts': [[x - c * TCM, z - r * TCM] for x, z in pts],
                           'w': p['w'], 'lanes': p['lanes'], 'dir': p['dir'], 'flags': p['flags'], 'sw': p['sw'], 'cls': p['cls'], 'rank': p['rank'],
                           'name': p['name'], 'seg': p['seg'], 'piece': p['i'], 'sub': sb['j'], 'stopA': stops[0], 'stopB': stops[1],
-                          'lf': p['lf'], 'lb': p['lb'], 'spd': -1 if p['spd'] is None else p['spd'], 'lsrc': p['lsrc'], 'lvl': p['lvl'], **extra})
+                          'lf': p['lf'], 'lb': p['lb'], 'spd': -1 if p['spd'] is None else p['spd'], 'lsrc': p['lsrc'], 'lvl': p['lvl'],
+                          'swl': p['swl'], 'swr': p['swr'], 'cyl': p['cyl'], 'cyr': p['cyr'], **extra})
             if extra.get('deck'):
                 links[-1]['flags'] = p['flags'] | FLAGS['deck']
     links.sort(key=lambda l: (l['seg'], l['piece'], l['sub']))
@@ -2137,13 +2292,18 @@ def _compile_tile(Wd, c, r, dem_files):
     # the sidewalk bands
     paved = [rec['g'].buffer(12 if rec['downtown'] else 8, quad_segs=2) for bid, (b, rec) in sorted(brecs_near.items()) if rec['btype'] not in ('rowhouse', 'shed')]
     paved_u = unary_union(paved) if paved else None
-    bands = []
+    bands, medz = [], []
     for p in sorted(pieces, key=lambda p: (p['seg'], p['i'])):
-        if p['sw'] <= 0 or p['flags'] & FLAGS['pedestrian']:
+        if p['flags'] & FLAGS['pedestrian']:
             continue
         for gl in Wd.ground_lines(p):
-            bands.append(gl.buffer(p['w'] / 2 + p['sw'], quad_segs=4))
+            if p['sw'] > 0:
+                bands.append(side_band(gl, p['w'], p['swl'], p['swr']))
+            if p['pair'] is not None:
+                # (a divided road's median: from this carriageway's centreline half way to the other's, on its inner side)
+                medz.append(gl.buffer(RIGHT * p['pair'][0] * p['pair'][1] / 2, single_sided=True))
     band = unary_union(bands) if bands else None
+    medz = unary_union(medz) if medz else None
     # ---- ground mask: 512 x 512 global 1 m cells (MASK). Off the curb islands it is roadway (asphalt). On them the
     # ground is the climate's open land (climate.py: green grass, dry scrub or bare desert ground) unless the map says
     # otherwise: land use (LU_GROUND; larger areas first, so a smaller one inside wins), then what is paved: the car
@@ -2193,7 +2353,11 @@ def _compile_tile(Wd, c, r, dem_files):
     a[landm & raster(lots)] = MASK['lot']
     a[landm & raster([rec['g'].buffer(12, quad_segs=2) for bid, (b, rec) in sorted(brecs_near.items())
                       if rec['downtown'] and rec['btype'] not in ('rowhouse', 'shed')])] = MASK['sidewalk']
-    a[raster([pp for pp, kind in islands if kind == 'island'])] = MASK['sidewalk']
+    nar = raster([pp for pp, kind in islands if kind == 'island'])
+    a[nar] = MASK['sidewalk']
+    if medz is not None:
+        # (a narrow island down a divided road's median is open ground, grass in a humid place, not paving)
+        a[nar & landm & raster([medz])] = 255
     if band is not None:
         a[landm & raster([band])] = MASK['sidewalk']
     opn = a == 255

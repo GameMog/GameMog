@@ -1,5 +1,5 @@
-# tools/hometown/osm_roads.py: the national OSM lane side table (grade-lanes, spec Option A), built OFFLINE once per
-# Overture release on the dev Mac, never on Render:
+# tools/hometown/osm_roads.py: the national OSM lane side table (grade-lanes, spec Option A; its sidewalks and bike lanes
+# since fid-roads), built OFFLINE once per Overture release on the dev Mac, never on Render:
 #
 #   curl -L -o <dl>/us-YYMMDD.osm.pbf https://download.geofabrik.de/north-america/us-YYMMDD.osm.pbf   (~12 GB, no account)
 #   python -I tools/hometown/osm_roads.py <dl>/us-YYMMDD.osm.pbf <out>/osm-roads-us.parquet
@@ -22,7 +22,9 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 ROADS = {'motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'motorway_link', 'trunk_link', 'primary_link', 'secondary_link', 'tertiary_link'}
-TAGS = ['lanes', 'lanes:forward', 'lanes:backward', 'oneway', 'width', 'turn:lanes', 'layer', 'bridge', 'tunnel', 'maxspeed']
+TAGS = ['lanes', 'lanes:forward', 'lanes:backward', 'oneway', 'width', 'turn:lanes', 'layer', 'bridge', 'tunnel', 'maxspeed',
+        # (fid-roads: each carriageway's sidewalks and bike lanes, left / right of the way's own direction)
+        'sidewalk', 'sidewalk:both', 'sidewalk:left', 'sidewalk:right', 'cycleway', 'cycleway:both', 'cycleway:left', 'cycleway:right']
 COLS = ['highway'] + [t.replace(':', '_') for t in TAGS]
 
 

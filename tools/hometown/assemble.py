@@ -193,7 +193,7 @@ def assemble(pid, places, data, store, bid, out_root, window='full', frame=None,
         if l.get('elev'):
             elev = [round(l['elev'][0] / 100.0 / k0, 4)] + [round(v / 100.0 - y_off, 2) for v in l['elev'][1:]]
         rl.append({'a': a, 'b': b, 'ni': name_idx(l['name']), 'w': l['w'], 'lanes': l['lanes'], 'dir': l['dir'], 'inner': inner, 'flags': l['flags'],
-                   'sw': l['sw'], 'cls': l['cls'], 'rank': l['rank'], 'stopA': l['stopA'], 'stopB': l['stopB'],
+                   'sw': l['sw'], 'swl': l.get('swl', l['sw']), 'swr': l.get('swr', l['sw']), 'cyl': l.get('cyl', 0), 'cyr': l.get('cyr', 0), 'cls': l['cls'], 'rank': l['rank'], 'stopA': l['stopA'], 'stopB': l['stopB'],
                    'lf': l.get('lf', -1), 'lb': l.get('lb', -1), 'elev': elev, 'spd': l.get('spd', -1), 'lsrc': l.get('lsrc'), 'seg': l['seg'],
                    'len': sum(math.hypot(x1 - x0, z1 - z0) for (x0, z0), (x1, z1) in zip(l['pts'], l['pts'][1:])) / 100.0})
         inc.setdefault(a, []).append((idx, 'A'))
@@ -205,9 +205,10 @@ def assemble(pid, places, data, store, bid, out_root, window='full', frame=None,
             if rl[li]['stop' + end]:
                 stop_mask[i] |= 1 << slot
     rg = {'nodes': [v for p in nodes for v in (C.q1(p[0]), C.q1(p[1]))], 'names': names,
-          # links: [a, b, name, w, lanes, dir, inner, flags, swL, swR, lanesFwd, lanesBack, elev|null, maxSpeedMph] (README)
-          'links': [[l['a'], l['b'], l['ni'], C.q1(l['w']), l['lanes'], l['dir'], [v for p in l['inner'] for v in (C.q1(p[0]), C.q1(p[1]))], l['flags'], C.q1(l['sw']), C.q1(l['sw']),
-                     l['lf'], l['lb'], l['elev'], l['spd']] for l in rl],
+          # links: [a, b, name, w, lanes, dir, inner, flags, swL, swR, lanesFwd, lanesBack, elev|null, maxSpeedMph, cycleL,
+          # cycleR] (README; swL / swR and cycleL / cycleR left / right of the link's own direction)
+          'links': [[l['a'], l['b'], l['ni'], C.q1(l['w']), l['lanes'], l['dir'], [v for p in l['inner'] for v in (C.q1(p[0]), C.q1(p[1]))], l['flags'], C.q1(l['swl']), C.q1(l['swr']),
+                     l['lf'], l['lb'], l['elev'], l['spd'], l['cyl'], l['cyr']] for l in rl],
           'control': control, 'stopMask': stop_mask, 'nhoods': [D1['name'].split(',')[0]], 'linkNhood': [0] * len(rl), 'decks': []}
 
     # ---- curb islands: pieces merged back across the tiles' cut edges (by kind)
