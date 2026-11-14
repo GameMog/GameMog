@@ -438,6 +438,12 @@ table.bd td:nth-child(2){font-weight:600}
 .ttown-bar{height:6px;margin-top:8px;border-radius:3px;background:var(--line);overflow:hidden}
 .ttown-bar i{display:block;height:100%;background:var(--brand)}
 .ttown.error .ttown-stage{color:var(--err-ink)}
+.ttown-steps{display:flex;flex-wrap:wrap;gap:6px 14px;margin:10px 0 0;padding:0;list-style:none;font-size:13px;color:var(--ink-3)}
+.ttown-steps li{display:inline-flex;align-items:center;gap:6px}
+.ttown-steps li::before{content:'';width:8px;height:8px;border-radius:50%;border:1.5px solid var(--ink-3)}
+.ttown-steps li.on{color:var(--ink);font-weight:700}
+.ttown-steps li.on::before{background:var(--brand);border-color:var(--brand)}
+.ttown-drive{margin-top:12px}
 .psearch{position:relative}
 .psearch input[type=text]{font-size:17px;height:48px}
 .psearch-list{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:30;list-style:none;margin:0;padding:6px;background:var(--surface);border-radius:var(--r);box-shadow:var(--elev-hover);max-height:min(360px,60vh);overflow-y:auto;overscroll-behavior:contain}
@@ -654,6 +660,10 @@ table.bd td:nth-child(2){font-weight:600}
 .ckind button:hover{color:var(--ink)}
 .ckind button.on{background:var(--surface);color:var(--ink);border-color:var(--line);box-shadow:var(--elev-hair)}
 .ckind button:disabled{cursor:default}
+.chome{display:inline-flex;align-items:center;gap:10px;height:42px;margin:18px 0 0 8px;padding:0 16px;border-radius:var(--r);border:1.5px solid var(--line);background:var(--surface);font-size:14px;font-weight:700;color:var(--ink);vertical-align:top;cursor:pointer}
+.chome:hover{border-color:var(--ink)}
+.chome:disabled{cursor:default;opacity:.6}
+.chome-d{font-weight:500;font-size:13px;color:var(--ink-3)}
 .cnew{display:inline-flex;align-items:center;height:18px;padding:0 6px;border-radius:var(--r-btn);background:var(--gold);color:#0B0B0F;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
 .skcity{min-width:240px}
 .skcity select{flex:1}
@@ -726,6 +736,8 @@ table.bd td:nth-child(2){font-weight:600}
 @media(max-width:760px){
   .ckind{display:flex;width:100%}
   .ckind button{flex:1;justify-content:center;padding:0 10px}
+  .chome{display:flex;width:100%;justify-content:center;margin:8px 0 0}
+  .chome-d{display:none}
   .skcity{min-width:0;width:100%}
   .skchange{grid-template-columns:minmax(0,1fr);gap:10px}
   .sks-acts{gap:8px}

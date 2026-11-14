@@ -59,7 +59,16 @@ export type Progress = {
   phase: TownPhase; district: boolean; etaDriveS: number | null; etaFullS: number | null;
   /** lock v3 once the frame is in: the story may be written now */
   lock?: HometownLock; town?: TownSummary; play?: { build: string; tilesId: string; variant: string };
+  /** (r7, the Create card) the build's steps as counts: map areas fetched, map sections read, the town's plan (frame),
+   * map tiles built, the drivable district and the whole town; `running` jobs of the town on a builder now */
+  steps?: TownSteps;
+  /** (r7) how far the whole town is, 0..100, by its work done (the card's bar; the card never lets it go back) */
+  pct?: number;
+  /** (r7) seconds since the town was first asked for; `starting`: no builder is up yet and one is being started for it;
+   * `slow`: it has taken well over what towns usually take (the card says so) */
+  elapsedS?: number; starting?: boolean; slow?: boolean;
 };
+export type TownSteps = { regions: { done: number; total: number }; ctx: { done: number; total: number }; frame: boolean | null; tiles: { done: number; total: number }; district: boolean; full: boolean; running: number };
 export type TownAnswer =
   | { status: 200; body: { state: 'ready'; placeId: string; lock: HometownLock; town: TownSummary; phase: 'full'; play?: Progress['play'] } }
   | { status: 202; body: Progress }
@@ -69,6 +78,11 @@ export type TownAnswer =
 export const PHASE_WORDS: Record<TownPhase, string> = {
   asked: 'Waiting its turn', framing: 'Reading the map', district: 'Laying the streets near you',
   growing: 'Ready to drive: the rest of town keeps building', full: 'Your whole town is built', failed: 'Not built',
+};
+/** (r7) the Create card's words for the steps inside 'asked' and 'framing' (no tool, model or vendor names) */
+export const STEP_WORDS = {
+  starting: 'Starting a builder for your town', fetching: 'Fetching map data', reading: 'Reading the map', planning: 'Planning your town\'s streets and places',
+  building: 'Building streets',
 };
 export const BUSY_WORDS = (min: number) => `Lots of towns are being built. Yours would take about ${min} minute${min === 1 ? '' : 's'}.`;
 
@@ -381,11 +395,17 @@ function progressOf(d: BuilderDeps, r: TownRow): Progress {
   const done = Math.min(total, m.tiles ? m.tiles.filter((t) => { const [g, , c, rr] = t.split('/'); return d.store.has(tileKey(r.build, g.slice(4) as Domain, Number(c), Number(rr))); }).length : 0);
   const e = estimate(d, r.place, r.build);
   const position = r.state === 'asked' ? (q.db.prepare("SELECT COUNT(*) n FROM towns WHERE state = 'asked' AND build = ? AND first_asked < ?").get(r.build, r.first_asked) as { n: number }).n + 1 : 0;
-  const stage = r.state === 'framing' && !reading && tiles.some((j) => j.state === 'done') ? 'Building streets' : PHASE_WORDS[r.state];
+  const now = (d.now ?? Date.now)(), elapsedS = Math.max(0, Math.round((now - r.first_asked) / 1000));
+  const steps = stepsOf(jobs, done, total, r.state);
+  // (r7: no builder up and nothing of this town running yet: one is being started for it, Render Workflows on demand)
+  const starting = r.state === 'asked' && !steps.running && q.liveSlots() === 0 && !!d.runs;
+  const stage = stageOf(r.state, steps, starting, reading, tiles.some((j) => j.state === 'done'));
+  const h = honestEta(e, waitHistory(d), elapsedS, r.state);
   const out: Progress = {
     state: r.state === 'asked' ? 'queued' : r.state === 'framing' ? (reading ? 'reading' : 'compiling') : r.state === 'full' ? 'ready' : 'compiling',
-    placeId: r.place, stage, done, total, position, etaS: r.state === 'growing' ? e.etaFullS : e.etaDriveS,
-    phase: r.state, district: r.state === 'growing' || r.state === 'full', etaDriveS: r.state === 'growing' || r.state === 'full' ? 0 : e.etaDriveS, etaFullS: e.etaFullS,
+    placeId: r.place, stage, done, total, position, etaS: r.state === 'growing' ? h.etaFullS : h.etaDriveS,
+    phase: r.state, district: r.state === 'growing' || r.state === 'full', etaDriveS: r.state === 'growing' || r.state === 'full' ? 0 : h.etaDriveS, etaFullS: h.etaFullS,
+    steps, pct: pctOf(steps, r.state), elapsedS, starting, slow: h.slow,
   };
   if (r.state === 'district' || r.state === 'growing') {
     const lock = storyReadyLock(d, r.place, r.build), pin = lock && storyLock(lock), pkg = pin ? cityPackageFromStore(d.store, pin) : null;
@@ -393,6 +413,92 @@ function progressOf(d: BuilderDeps, r: TownRow): Progress {
     if (m.district) out.play = { build: r.build, tilesId: m.district.tilesId, variant: m.district.variant };
   }
   return out;
+}
+
+// ------------------------------------------------------------------------------- the Create card's honest progress (r7)
+/** The town's build as counts (TownSteps): map areas (regions jobs: the areas each fetches), map sections (ctx jobs), the
+ * plan (the frame: null without one), tiles stored, the district bundle, the whole town; jobs running now. */
+export function stepsOf(jobs: Job[], done: number, total: number, phase: TownPhase): TownSteps {
+  const of = (k: JobKind) => jobs.filter((j) => j.kind === k);
+  const areas = (j: Job) => Math.max(1, ((j.args.regions as string[] | undefined) ?? []).length);
+  const regions = of('regions'), ctx = of('ctx'), frame = of('frame');
+  const bundles = of('bundle');
+  return {
+    regions: { done: regions.filter((j) => j.state === 'done').reduce((a, j) => a + areas(j), 0), total: regions.reduce((a, j) => a + areas(j), 0) },
+    ctx: { done: ctx.filter((j) => j.state === 'done').length, total: ctx.length },
+    frame: frame.length ? frame.some((j) => j.state === 'done') : null,
+    tiles: { done, total },
+    district: phase === 'growing' || phase === 'full' || bundles.some((j) => j.args.variant !== 'full' && j.state === 'done'),
+    full: phase === 'full',
+    running: jobs.filter((j) => j.state === 'leased').length,
+  };
+}
+/** The card's stage words: the phase's, and inside 'asked' and 'framing' the step the town is on, with its count. */
+export function stageOf(phase: TownPhase, s: TownSteps, starting: boolean, reading: boolean, anyTile: boolean): string {
+  if (phase === 'asked') return starting ? STEP_WORDS.starting : PHASE_WORDS.asked;
+  if (phase !== 'framing') return PHASE_WORDS[phase];
+  if (s.regions.total && s.regions.done < s.regions.total) return `${STEP_WORDS.fetching}: ${s.regions.done} of ${s.regions.total} areas`;
+  if (s.ctx.total && s.ctx.done < s.ctx.total) return `${STEP_WORDS.reading}: ${s.ctx.done} of ${s.ctx.total} sections`;
+  if (reading) return PHASE_WORDS.framing;
+  return !anyTile && s.frame === false ? STEP_WORDS.planning : STEP_WORDS.building;
+}
+/** How far the whole town is, 0..100, by its work: the map (areas, then sections) to 30, the plan to 35, the tiles to 95,
+ * the whole town 100. Never 100 before the town is whole; the card keeps the highest it has shown. */
+export function pctOf(s: TownSteps, phase: TownPhase): number {
+  if (phase === 'full') return 100;
+  const f = (x: { done: number; total: number }) => (x.total ? Math.min(1, x.done / x.total) : 1);
+  let p = 2;
+  if (phase !== 'asked') p = 2 + 18 * f(s.regions) + 10 * f(s.ctx) + (s.frame === false ? 0 : 5) + 60 * f(s.tiles);
+  if (s.ctx.total && f(s.ctx) < 1 && s.tiles.done === 0) p = Math.min(p, 30);
+  return Math.max(0, Math.min(97, Math.round(p)));
+}
+
+/**
+ * What towns really took (r7): the recorded timings of the last towns built (first ask to drive, district_at, and to the
+ * whole town, full_at; towns players and the owner asked for, within 14 days, under an hour), their medians, and how much
+ * longer they took than the estimate promised them (meta.promised: the median of actual / promised, at least 1). With
+ * fewer than 3 towns recorded, the live r6 builds measured on 14 Nov stand in (WAIT_SEED). Cached 15 s per queue.
+ */
+export type WaitHistory = { driveS: number; fullS: number; n: number; driveRatio: number; fullRatio: number };
+/** (live r6, 14 Nov: Cedar Key, FL drive 201 s / whole 357 s; Bal Harbour, FL 215 s / 450 s) */
+export const WAIT_SEED: { driveS: number; fullS: number }[] = [{ driveS: 201, fullS: 357 }, { driveS: 215, fullS: 450 }];
+const median = (xs: number[]) => { const a = [...xs].sort((x, y) => x - y); const n = a.length; return n ? (n % 2 ? a[(n - 1) / 2] : (a[n / 2 - 1] + a[n / 2]) / 2) : NaN; };
+const histCache = new WeakMap<BuildQueue, { at: number; h: WaitHistory }>();
+export function waitHistory(d: Pick<BuilderDeps, 'queue' | 'now'>): WaitHistory {
+  const now = (d.now ?? Date.now)(), c = histCache.get(d.queue);
+  if (c && now - c.at < 15_000 && now >= c.at) return c.h;
+  const rows = d.queue.db.prepare(`SELECT first_asked, district_at, full_at, meta FROM towns WHERE source IN ('player', 'owner-test') AND first_asked > ?
+    AND (district_at IS NOT NULL OR full_at IS NOT NULL) ORDER BY first_asked DESC LIMIT 20`).all(now - 14 * 86400_000) as Pick<TownRow, 'first_asked' | 'district_at' | 'full_at' | 'meta'>[];
+  const drive: number[] = [], full: number[] = [], rd: number[] = [], rf: number[] = [];
+  for (const r of rows) {
+    const m = metaOf(r as TownRow);
+    const ds = r.district_at != null ? (r.district_at - r.first_asked) / 1000 : r.full_at != null ? (r.full_at - r.first_asked) / 1000 : NaN;
+    const fs = r.full_at != null ? (r.full_at - r.first_asked) / 1000 : NaN;
+    if (ds > 0 && ds < 3600) { drive.push(ds); if (m.promised?.driveS) rd.push(ds / m.promised.driveS); }
+    if (fs > 0 && fs < 3600) { full.push(fs); if (m.promised?.fullS) rf.push(fs / m.promised.fullS); }
+  }
+  const seeded = (xs: number[], k: 'driveS' | 'fullS') => (xs.length >= 3 ? xs : [...xs, ...WAIT_SEED.map((x) => x[k])]);
+  const ratio = (xs: number[]) => (xs.length ? Math.min(6, Math.max(1, median(xs))) : 1);
+  const h: WaitHistory = { driveS: Math.round(median(seeded(drive, 'driveS'))), fullS: Math.round(median(seeded(full, 'fullS'))), n: Math.max(drive.length, full.length), driveRatio: ratio(rd), fullRatio: ratio(rf) };
+  histCache.set(d.queue, { at: now, h });
+  return h;
+}
+/** A town past this share of the median wait is slow: the card says so and stops giving a time it cannot back. */
+export const SLOW_PAST = 1.25;
+/** Never shown as less than this while a step is still to come (s). */
+export const ETA_FLOOR_S = 15;
+/**
+ * The waits the card shows (r7): never less than history says. The estimate (the work ahead in the queue and the live
+ * slots: estimate) scaled by how far towns overran it (WaitHistory ratios), and never under what the median town still
+ * had to go at this point (its median minus the time this town has waited). `slow`: past SLOW_PAST x the median already.
+ * The admission rule and meta.promised keep the plain estimate, so the ratio stays measured against it.
+ */
+export function honestEta(e: { etaDriveS: number | null; etaFullS: number | null }, h: WaitHistory, elapsedS: number, phase: TownPhase | 'pending'): { etaDriveS: number | null; etaFullS: number | null; slow: boolean } {
+  const drivable = phase === 'growing' || phase === 'full';
+  const drive = drivable ? 0 : e.etaDriveS == null ? null : Math.max(ETA_FLOOR_S, Math.round(e.etaDriveS * h.driveRatio), Math.round(h.driveS - elapsedS));
+  const full = phase === 'full' ? 0 : e.etaFullS == null ? null : Math.max(ETA_FLOOR_S, drive ?? 0, Math.round(e.etaFullS * h.fullRatio), Math.round(h.fullS - elapsedS));
+  const slow = drivable ? elapsedS > h.fullS * SLOW_PAST : elapsedS > h.driveS * SLOW_PAST;
+  return { etaDriveS: drive, etaFullS: full, slow };
 }
 
 /** The spawn district's tile window: the frame's; without the frame (compiler 0.5.0) the anchor's 5 x 5; null while a
@@ -464,7 +570,10 @@ function pendingAnswer(d: BuilderDeps, placeId: string): TownAnswer | null {
   }
   const e = estimate(d, '\u0000new', '');
   const position = (d.queue.db.prepare('SELECT COUNT(*) n FROM pending WHERE asked < ?').get(p.asked) as { n: number }).n + 1;
-  return { status: 202, body: { state: 'queued', placeId, stage: PHASE_WORDS.asked, done: 0, total: 0, position, etaS: e.etaDriveS, phase: 'asked', district: false, etaDriveS: e.etaDriveS, etaFullS: e.etaFullS } };
+  // (r7: no build known yet: a builder is being started to learn it; the waits as history says, from the pick)
+  const elapsedS = Math.max(0, Math.round((now - p.asked) / 1000)), h = honestEta(e, waitHistory(d), elapsedS, 'pending');
+  const steps: TownSteps = { regions: { done: 0, total: 0 }, ctx: { done: 0, total: 0 }, frame: null, tiles: { done: 0, total: 0 }, district: false, full: false, running: 0 };
+  return { status: 202, body: { state: 'queued', placeId, stage: STEP_WORDS.starting, done: 0, total: 0, position, etaS: h.etaDriveS, phase: 'asked', district: false, etaDriveS: h.etaDriveS, etaFullS: h.etaFullS, steps, pct: 1, elapsedS, starting: true, slow: h.slow } };
 }
 /**
  * The picks kept while no build was known, admitted now that one is (the worker protocol calls this on every claim,

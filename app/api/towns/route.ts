@@ -3,6 +3,8 @@ import { requestTown as legacyRequest, TOWN_WORDS } from '@/lib/hometown/towns';
 import { townClientKey } from '@/lib/hometown/client';
 import { townsAccess, builderMode } from '@/lib/hometown-build/access';
 import { builderDeps } from '@/lib/hometown-build/server';
+import { withDrive } from '@/lib/storykit-publish';
+import { publicOrigin } from '@/lib/custom-game';
 import { requestTown } from '@/lib/hometown-build/towns';
 
 export const runtime = 'nodejs';
@@ -26,5 +28,7 @@ export async function POST(req: Request) {
     ? await Promise.resolve().then(() => requestTown(builderDeps(), placeId, townClientKey(req), builderMode() === 'owner' ? 'owner-test' : 'player')).catch((e) => { console.error('hometown: towns:', String(e?.message || e).slice(0, 500)); return { status: 503, body: { error: TOWN_WORDS.failed } }; })
     // (no compiler on this server, or its build id unreadable: a 503 in the town card's words, not a bare 500)
     : await legacyRequest(placeId, townClientKey(req)).catch((e) => { console.error('hometown: towns:', String(e?.message || e).slice(0, 500)); return { status: 503, body: { error: TOWN_WORDS.failed } }; });
-  return Response.json(a.body, { status: a.status, headers: { 'cache-control': 'no-store' } });
+  // (r7: a town with a playable variant carries its free-roam test drive in Mog City, the card's "Drive around")
+  const out = access === 'builder' ? withDrive(a, publicOrigin(req)) : a;
+  return Response.json(out.body, { status: out.status, headers: { 'cache-control': 'no-store' } });
 }

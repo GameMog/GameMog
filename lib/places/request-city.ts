@@ -6,11 +6,17 @@ export type TownProgress = {
   /** the production builder (lib/hometown-build/towns.ts): asked, framing, district (the story may start), growing (drive
    *  now: the rest keeps building), full; the wait to drive and to the whole town */
   phase?: string; district?: boolean; etaDriveS?: number | null; etaFullS?: number | null;
+  /** (r7) the steps as counts, how far the whole town is (0..100), the seconds since it was asked for, a builder being
+   * started for it, taking well over what towns usually take; `drive`: its free-roam test drive (Mog City), once drivable */
+  steps?: { regions: { done: number; total: number }; ctx: { done: number; total: number }; frame: boolean | null; tiles: { done: number; total: number }; district: boolean; full: boolean; running: number };
+  pct?: number; elapsedS?: number; starting?: boolean; slow?: boolean; drive?: string;
 };
 /** The lock a ready town pins (base.hometown); the page sends only the place id, the server reads the rest. */
 export type TownLockView = { place: string; compiler: string; tiles: string };
 export type CityRequest =
-  | { status: 'ready'; place: PlaceSelection; lock: TownLockView; town: { name: string; state: string; places: number; streets: number }; growing?: boolean }
+  | { status: 'ready'; place: PlaceSelection; lock: TownLockView; town: { name: string; state: string; places: number; streets: number }; growing?: boolean;
+      /** (r7) the build's latest progress while it keeps growing (onFollow), and the town's free-roam test drive once drivable */
+      progress?: TownProgress; drive?: string }
   | { status: 'error'; place: PlaceSelection; error: string };
 
 const sleep = (ms: number, signal?: AbortSignal) => new Promise<void>((resolve) => {
@@ -35,7 +41,7 @@ export const setFollowMsForChecks = (ms: number) => { followMs = ms; };
  * `onLater`, it is followed every FOLLOW_MS until it is whole (onLater with the ready answer) or fails (onLater with the
  * error: the card stops saying "Ready to write" for a town the server now refuses), or `signal` stops it.
  */
-export async function requestCity(place: PlaceSelection, onProgress?: (p: TownProgress) => void, signal?: AbortSignal, onLater?: (r: CityRequest) => void): Promise<CityRequest> {
+export async function requestCity(place: PlaceSelection, onProgress?: (p: TownProgress) => void, signal?: AbortSignal, onLater?: (r: CityRequest) => void, onFollow?: (p: TownProgress) => void): Promise<CityRequest> {
   const ask = async (method: 'POST' | 'GET') => {
     const r = method === 'POST'
       ? await fetch('/api/towns', { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ placeId: place.placeId }), signal })
@@ -58,12 +64,12 @@ export async function requestCity(place: PlaceSelection, onProgress?: (p: TownPr
         a = await ask('POST');
         continue;
       }
-      if (a.status === 200 && a.body.state === 'ready') return { status: 'ready', place, lock: a.body.lock as TownLockView, town: a.body.town as Extract<CityRequest, { status: 'ready' }>['town'] };
+      if (a.status === 200 && a.body.state === 'ready') return readyOf(place, a.body);
       // (the production builder: the town's frame is in, so the story may be written now while the rest builds; it is
       // followed on (follow) so a town that fails later is not left showing ready)
       if (a.status === 202 && a.body.lock && a.body.town && (a.body.phase === 'district' || a.body.phase === 'growing')) {
-        if (onLater) void follow(ask, place, onLater, signal, retried);
-        return { status: 'ready', place, lock: a.body.lock as TownLockView, town: a.body.town as Extract<CityRequest, { status: 'ready' }>['town'], growing: true };
+        if (onLater) void follow(ask, place, onLater, signal, retried, onFollow);
+        return { ...readyOf(place, a.body), growing: true, progress: a.body as unknown as TownProgress };
       }
       if (a.status === 202) onProgress?.(a.body as unknown as TownProgress);
       else if (a.status === 409 && a.body.state === 'interrupted' && !retried) { retried = true; a = await ask('POST'); continue; }
@@ -76,17 +82,24 @@ export async function requestCity(place: PlaceSelection, onProgress?: (p: TownPr
   }
 }
 
+/** A ready answer (200 whole, or 202 district / growing) as the card holds it: its lock, town and test drive. */
+const readyOf = (place: PlaceSelection, b: Record<string, unknown>): Extract<CityRequest, { status: 'ready' }> => ({
+  status: 'ready', place, lock: b.lock as TownLockView, town: b.town as Extract<CityRequest, { status: 'ready' }>['town'],
+  ...(typeof b.drive === 'string' ? { drive: b.drive } : {}),
+});
+
 type Ask = (method: 'POST' | 'GET') => Promise<{ status: number; body: Record<string, unknown> }>;
-/** A growing town followed until it is whole or refused (requestCity's onLater); quiet on a network blip. */
-async function follow(ask: Ask, place: PlaceSelection, onLater: (r: CityRequest) => void, signal?: AbortSignal, retried = false) {
+/** A growing town followed until it is whole or refused (requestCity's onLater); quiet on a network blip. `onFollow`
+ * hears each step meanwhile (r7: the card says when it is ready to drive, with its test drive, and how far it is). */
+async function follow(ask: Ask, place: PlaceSelection, onLater: (r: CityRequest) => void, signal?: AbortSignal, retried = false, onFollow?: (p: TownProgress) => void) {
   for (;;) {
     await sleep(followMs, signal);
     if (signal?.aborted) return;
     let a: Awaited<ReturnType<Ask>>;
     try { a = await ask('GET'); } catch { if (signal?.aborted) return; continue; }
     if (signal?.aborted) return;
-    if (a.status === 200 && a.body.state === 'ready') { onLater({ status: 'ready', place, lock: a.body.lock as TownLockView, town: a.body.town as Extract<CityRequest, { status: 'ready' }>['town'] }); return; }
-    if (a.status === 202) continue;
+    if (a.status === 200 && a.body.state === 'ready') { onLater(readyOf(place, a.body)); return; }
+    if (a.status === 202) { onFollow?.(a.body as unknown as TownProgress); continue; }
     // (a build cut short by a restart: asked for once more, as requestCity does)
     if (a.status === 409 && a.body.state === 'interrupted' && !retried) { retried = true; try { await ask('POST'); } catch { /* the next GET says */ } continue; }
     // (a server busy or restarting answers 5xx for a moment: not the town's failure)
