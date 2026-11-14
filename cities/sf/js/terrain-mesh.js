@@ -65,7 +65,7 @@ function buildTerrainMesh(scene) {
     }
   }
 
-  const material = createTerrainMaterial(makeMaskTexture(), window.NYC.DATA.groundMask.header);
+  const material = createTerrainMaterial(window.NYC.PKG ? makeRoadsideMaskTexture() : makeMaskTexture(), window.NYC.DATA.groundMask.header);
   if (window.NYC.DATA.fullRegion || (window.NYC.PKG && new URLSearchParams(location.search).get('far') !== 'none')) {
     // (a Hometown package's far field, cities/pkg/js/pkg-far.js, always lies under its edge: the fill at boot, then the far
     // tiles)
@@ -233,6 +233,46 @@ function makeMaskTexture() {
   return (maskTexture = tex);
 }
 
+// (a Hometown package) The ground mask the terrain surface reads: the land under the curb islands pulled back a cell
+// from the roadway. Every bit of land in a package is a curb island's top (sf-ground.js), so the terrain shows only on
+// the roadway (and the shore strips round the water); but the compiler's mask marks a cell as an island's from any
+// overlap (tools/hometown/compile.py raster: its land runs up to a cell past the curb), and that cell, drawn on the
+// asphalt, was a stepped strip of grass along every curb with no sidewalk (a divided road's median). Here each land
+// cell next to an asphalt one (of its eight) is asphalt; the island tops still read the mask as compiled
+// (makeMaskTexture), the shore classes (water's edge 5, water 6, wet sand 11) are left as they are.
+let roadsideTexture = null;
+function roadsideMask(mask, w, h) {
+  const n = w * h, row = new Uint8Array(n), out = new Uint8Array(mask);
+  // (land: the classes under the curb islands, 2-4 and 7-10; one table lookup a cell)
+  const land = new Uint8Array(256);
+  for (const c of [2, 3, 4, 7, 8, 9, 10]) land[c] = 1;
+  // the asphalt cells and their left and right neighbours, row by row, then those rows' up and down neighbours
+  for (let j = 0, r = 0; j < h; j++, r += w) {
+    for (let i = 0; i < w; i++) {
+      if (mask[r + i] !== 0) continue;
+      row[r + i] = 1;
+      if (i > 0) row[r + i - 1] = 1;
+      if (i + 1 < w) row[r + i + 1] = 1;
+    }
+  }
+  for (let k = 0; k < n; k++) {
+    if (!land[mask[k]]) continue;
+    if (row[k] || (k >= w && row[k - w]) || (k + w < n && row[k + w])) out[k] = 0;
+  }
+  return out;
+}
+function makeRoadsideMaskTexture() {
+  if (roadsideTexture) return roadsideTexture;
+  const { header, mask } = window.NYC.DATA.groundMask;
+  const tex = new THREE.DataTexture(roadsideMask(mask, header.w, header.h), header.w, header.h, THREE.RedFormat, THREE.UnsignedByteType);
+  tex.magFilter = THREE.NearestFilter;
+  tex.minFilter = THREE.NearestFilter;
+  tex.generateMipmaps = false;
+  tex.flipY = false;
+  tex.needsUpdate = true;
+  return (roadsideTexture = tex);
+}
+
 // Hills' shadows: the surface at SHADOW_STEP m, cut into SHADOW_CELL m cells on the shadow proxy layer
 function buildShadowCaster(surfaceY, extentX, extentZ) {
   const T = Terrain;
@@ -275,5 +315,5 @@ function buildShadowCaster(surfaceY, extentX, extentZ) {
   return meshes;
 }
 
-Object.assign(window.NYC, { buildTerrainMesh, groundMaskTexture: makeMaskTexture });
+Object.assign(window.NYC, { buildTerrainMesh, groundMaskTexture: makeMaskTexture, roadsideMask });
 })();

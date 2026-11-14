@@ -36,6 +36,7 @@ const {
   cameraPosition,
   cameraProjectionMatrix,
   cameraViewMatrix,
+  modelViewMatrix,
   screenSize,
   uv,
   time,
@@ -2106,11 +2107,14 @@ function createRoadPaintMaterial() {
   const side = attribute('side', 'vec2');
   const sideOffset = vec3(side.x, 0.0, side.y);
 
-  // How much to widen the strip so it is at least 1.5 px wide on screen (1 when it already is)
+  // How much to widen the strip so it is at least 1.5 px wide on screen (1 when it already is). (Through the mesh's
+  // own model matrix: under the floating origin (wagmi/world/origin.js, on in every Hometown place) the scene is drawn
+  // shifted by -origin, and the bare view-projection put the strip a kilometre or more away, where every line measured
+  // under a pixel: each was drawn 16 times as wide and faint, the lane dashes gone and the edge lines a brown band)
   const widen = Fn(() => {
-    const viewProjection = cameraProjectionMatrix.mul(cameraViewMatrix);
-    const edge = viewProjection.mul(vec4(positionGeometry, 1.0));
-    const centre = viewProjection.mul(vec4(positionGeometry.sub(sideOffset), 1.0));
+    const modelViewProjection = cameraProjectionMatrix.mul(modelViewMatrix);
+    const edge = modelViewProjection.mul(vec4(positionGeometry, 1.0));
+    const centre = modelViewProjection.mul(vec4(positionGeometry.sub(sideOffset), 1.0));
     const halfWidthPx = length(edge.xy.div(edge.w).sub(centre.xy.div(centre.w)).mul(screenSize).mul(0.5));
     const inFront = step(0.05, min(edge.w, centre.w));
     return clamp(float(0.75).div(max(halfWidthPx, 0.001)), 1.0, 16.0).mul(inFront).max(1.0);

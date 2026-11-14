@@ -78,9 +78,15 @@ function createBusDestinationTexture() {
   // (Mog City: a San Francisco route on San Francisco's buses; the fork still showed New York's M1 to Harlem)
   ctx.fillText('1', 37, 33);
   ctx.fillStyle = '#ff9d1c';
-  ctx.font = '800 22px JetBrains Mono, monospace';
   ctx.textAlign = 'left';
-  ctx.fillText('CALIFORNIA', 78, 33);
+  // (a Hometown place: the town's own name, never San Francisco's California line (cities/pkg/js/pkg-hud.js
+  // pkgVehicleSigns), as large as fits the 172 px after the route badge; a name too long even at 13 px says LOCAL)
+  const signs = window.NYC.PKG && window.NYC.pkgVehicleSigns ? window.NYC.pkgVehicleSigns(window.NYC.PKG) : null;
+  let dest = signs ? signs.town || 'LOCAL' : 'CALIFORNIA', px = 22;
+  const fit = () => { ctx.font = `800 ${px}px JetBrains Mono, monospace`; return ctx.measureText(dest).width <= 172; };
+  while (!fit() && px > 13) px--;
+  if (!fit()) { dest = 'LOCAL'; px = 22; fit(); }
+  ctx.fillText(dest, 78, 33);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;

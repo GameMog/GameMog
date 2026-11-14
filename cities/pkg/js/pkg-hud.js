@@ -22,8 +22,32 @@ const pkgCredit = (lines) => {
   return { short: parts.join(' · '), full: L.length ? L.join('; ') : '© OpenStreetMap contributors (ODbL 1.0)',
     href: osm ? 'https://www.openstreetmap.org/copyright' : 'https://overturemaps.org' };
 };
-if (N) N.pkgCredit = pkgCredit;
-if (typeof module !== 'undefined') module.exports = { pkgCredit };
+// The words and colours a place's vehicles carry, so a town shows its own and never San Francisco's (the engine's bus
+// says "1 CALIFORNIA" in Muni's silver and red, the player's car has a California plate). pkgVehicleSigns(PKG) ->
+//   { town: the bus destination, the place's name in capitals ('BAL HARBOUR'); state: the plate's state name, from a
+//     US place's two-letter suffix ('Bal Harbour, FL' -> 'Florida'), '' when there is none;
+//     accent: the bus stripe's colour (an int), one of a few plain transit colours picked by the place's id, so towns
+//     differ and a town's buses stay the same every visit }
+// No operator, no brand and no route name: a route number and the place itself.
+const US_STATES = { AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California', CO: 'Colorado', CT: 'Connecticut',
+  DE: 'Delaware', DC: 'District of Columbia', FL: 'Florida', GA: 'Georgia', HI: 'Hawaii', ID: 'Idaho', IL: 'Illinois', IN: 'Indiana',
+  IA: 'Iowa', KS: 'Kansas', KY: 'Kentucky', LA: 'Louisiana', ME: 'Maine', MD: 'Maryland', MA: 'Massachusetts', MI: 'Michigan',
+  MN: 'Minnesota', MS: 'Mississippi', MO: 'Missouri', MT: 'Montana', NE: 'Nebraska', NV: 'Nevada', NH: 'New Hampshire', NJ: 'New Jersey',
+  NM: 'New Mexico', NY: 'New York', NC: 'North Carolina', ND: 'North Dakota', OH: 'Ohio', OK: 'Oklahoma', OR: 'Oregon', PA: 'Pennsylvania',
+  RI: 'Rhode Island', SC: 'South Carolina', SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', UT: 'Utah', VT: 'Vermont', VA: 'Virginia',
+  WA: 'Washington', WV: 'West Virginia', WI: 'Wisconsin', WY: 'Wyoming', PR: 'Puerto Rico' };
+const ACCENTS = [0x1d5fa6, 0x16805f, 0x0d7f8c, 0x8a2433, 0x5b3f8c, 0xc06a12];
+const pkgVehicleSigns = (pkg) => {
+  const name = String((pkg && pkg.name) || '').trim();
+  const parts = name.split(',').map((s) => s.trim()).filter(Boolean);
+  const town = (parts[0] || '').toUpperCase().replace(/\s+/g, ' ');
+  const code = parts.length > 1 ? parts[parts.length - 1].toUpperCase() : '';
+  let h = 2166136261;
+  for (const ch of String((pkg && (pkg.id || pkg.name)) || '')) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
+  return { town, state: US_STATES[code] || '', accent: ACCENTS[h % ACCENTS.length] };
+};
+if (N) Object.assign(N, { pkgCredit, pkgVehicleSigns });
+if (typeof module !== 'undefined') module.exports = { pkgCredit, pkgVehicleSigns };
 if (!P) return;
 const $ = (id) => document.getElementById(id);
 const text = (el, s) => { if (el) el.textContent = s; };
