@@ -29,6 +29,7 @@ import { requestTown, townStatus, townGraph, gazetteerOf, blocksOf, quadsOf, QUA
 import { workerResponse, builderAdminResponse, regionsJobOf } from '../lib/hometown-build/server.ts';
 import { townsAccess, townBoxEnabled } from '../lib/hometown-build/access.ts';
 import { cityPackageOfFrame, frameProblems, normalizeFrame, type TownFrame } from '../lib/hometown-build/frame.ts';
+import { nameCase, titleStreet } from '../lib/hometown/names.ts';
 import { storyLock, serviceLock, sameServiceLock, tilesIdOf, type ServiceLock } from '../lib/hometown/ids.ts';
 import { cityLock, packageProblems, hometownBase, type CityPackage } from '../storykit/hometown/city-package.ts';
 import { gateHometown, districtProblems } from '../storykit/hometown/hometown-gate.ts';
@@ -396,6 +397,16 @@ function g7(ok: Ok) {
   ok('a frame whose lock is not its tiles\' is refused', frameProblems({ ...frame, tiles: s.tiles.slice(1) }).length > 0);
   const pkg = cityPackageOfFrame(frame, { placeId: 'us-4054200', name: okemah.name, stateName: okemah.stateName });
   ok('cityPackageOfFrame: a valid CityPackage whose lock is v3, pinning the frame', packageProblems(pkg).length === 0 && cityLock(pkg).formatVersion === 3 && cityLock(pkg).tiles === L.tiles && cityLock(pkg).yOffset === L.yOffset, packageProblems(pkg).slice(0, 3).join('; '));
+  // the compiler's Python title case ("N 3Rd St") as the game shows it ("N 3rd St"): the arrivals, the places, the roads
+  const miscased = { ...frame, spawns: frame.spawns.map((p, i) => (i === 1 ? { ...p, name: 'N 3Rd St' } : p)),
+    places: { ...frame.places, diner_x: { kind: 'diner', name: 'the diner on S 14Th St', x: 1, z: 2, heading: 0, inDistrict: false } }, roads: { streets: 3, km: 2, main: ['N 3RD ST', 'MCCORD ST', "ST JOHN'S RD"] } };
+  const mp = cityPackageOfFrame(miscased, { placeId: 'us-4054200', name: okemah.name, stateName: okemah.stateName });
+  const NAMES: [string, string][] = [['N 3Rd St', 'N 3rd St'], ['S 14Th St', 'S 14th St'], ['the diner on N 1St St', 'the diner on N 1st St'], ['Mccord St', 'McCord St'], ["St John'S Rd", "St John's Rd"], ["O'Connor St", "O'Connor St"], ['Us Hwy 62', 'US Hwy 62'], ['Ne 23Rd St', 'NE 23rd St'], ['Okemah High School', 'Okemah High School'], ['Downtown', 'Downtown']];
+  const STREETS: [string, string][] = [['N 3RD ST', 'N 3rd St'], ['MCCORD ST', 'McCord St'], ["O'CONNOR ST", "O'Connor St"], ["VIETNAM VETERAN'S MEMORIAL HWY", "Vietnam Veteran's Memorial Hwy"], ['US HWY 62', 'US Hwy 62'], ['E1080 RD', 'E1080 Rd']];
+  ok('street names as the game shows them: "N 3rd St", not the compiler\'s "N 3Rd St" (arrivals, places, roads; lib/hometown/names.ts)',
+    NAMES.every(([a, b]) => nameCase(a) === b) && STREETS.every(([a, b]) => titleStreet(a) === b) && mp.spawnPoints[1].name === 'N 3rd St' && mp.places.some((p) => p.id === frame.spawns[1].id && p.name === 'N 3rd St')
+      && mp.places.find((p) => p.id === 'diner_x')?.name === 'the diner on S 14th St' && mp.roadsSummary.main.join('|') === "N 3rd St|McCord St|St John's Rd",
+    [...NAMES.filter(([a, b]) => nameCase(a) !== b).map(([a]) => `${a} -> ${nameCase(a)}`), ...STREETS.filter(([a, b]) => titleStreet(a) !== b).map(([a]) => `${a} -> ${titleStreet(a)}`), mp.roadsSummary.main.join('|')].join('; '));
   ok('storyLock / serviceLock carry v3 both ways; v2 still accepted', storyLock(L)?.formatVersion === 3 && serviceLock(storyLock(L)!).formatVersion === 3 && sameServiceLock(serviceLock(storyLock(L)!), L)
     && storyLock({ ...L, formatVersion: 2 })?.formatVersion === 2 && storyLock({ ...L, formatVersion: 4 }) === null);
   // the gate: the fixture story through a frame package; mission 1 inside the district passes, outside fails
