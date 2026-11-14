@@ -30,7 +30,7 @@ its downtown.
 | gamemog.com (Render web, 1c-2g, 10 GB disk) | Create, the story writer, the job queue, the store of tiles and bundles, the dispatcher. It never compiles |
 | `gamemog-town-builder` (Render Workflow) | compiles. Each run is a 4c-8g instance started only while there is work, gone 20 s after |
 | mc.gamemog.com (GitHub Pages) | plays the story in the town, reading the town's bundles and tiles from gamemog.com |
-| The compiler | MogCity `tools/hometown`, version 0.11.0, pinned by commit in `deploy/town-builder/workflow-build.sh` |
+| The compiler | MogCity `tools/hometown`, version 0.12.0, pinned by commit in `deploy/town-builder/workflow-build.sh` |
 
 ## Switches (render.yaml, 14 Nov 2026: on for everyone)
 
@@ -71,16 +71,21 @@ learns the build), ready to write **58 s**, ready to drive **81 s**, whole town 
 - **Live** (release r6): gamemog.com runs `main` 8a878166 (compiler 0.10.0's builder, its fixes, the key art page);
   mc.gamemog.com runs `mogcity` ee368f8 (r6a: round 4 and the fidelity line's engine, the story search ring a player
   can reach); `hometown-compiler` is d7e60927 (compiler 0.10.0).
-- **Ready to release, not pushed** (release r7, local branches): GameMog `prod-builder-clean` (the pin, a hometown
-  story's voice plan, story towns that play the current whole town when every place is the same place, Create's honest
-  town card with its ready states, test drive and "Your hometown" entry, the key art page's sign-in message, the
-  desktop-only note for story worlds on phones), MogCity `release-r5` (compiler **0.11.0**: the warm band's planting
-  strips, dunes, hedge walls where lots front the road, their gaps and trees over them; engine: the car in the water
-  and the stuck car put back on the road, the town chase's head-on cruiser, the full map's labels, Bal Harbour's mall
-  roof, hedges, towers and medians, growing.js's story upgrade), and its Mog City release commit (local branch
-  `mogcity-release-r7`, a fast-forward of the live `mogcity`). Release order: `mogcity`, then `hometown-compiler`,
-  then `main`; no manual run (the web learns the build). The steps are in
-  [HOMETOWN-HOSTING.md](HOMETOWN-HOSTING.md#release-r7-compiler-0110).
+- **Live** since: `main` d6241046 adds to 8a878166 the voice-plan fix, the owner's revoice page and /admin's
+  Live / Link only / Only me.
+- **Ready to release, not pushed** (release r8, local branches; it folds in r7, never pushed): GameMog
+  `prod-builder-clean` (the pin, live `main` merged in, a hometown story's voice plan, story towns that play the current
+  whole town when every place is the same place, Create's honest town card with its ready states, test drive and "Your
+  hometown" entry, the key art page's sign-in message, the desktop-only note for story worlds on phones; r8: Story Kit
+  reachability (a test drive that cannot reach a place has the builder swap it), the forge's fix for women's jackets
+  and coats, the builder's cinematic rules), MogCity `release-r5` (compiler **0.12.0**: r7's warm band (planting
+  strips, dunes, hedge walls where lots front the road, their gaps and trees over them) and r8's approach points for
+  every story place; engine: the car in the water and the stuck car put back on the road, the town chase's head-on
+  cruiser, the full map's labels, Bal Harbour's polish, growing.js's story upgrade; r8: the runner's footing guard and
+  guidance beacon, the test drive's reachability failure, story lines heard over the street, forged people's hair and
+  skin, the action layer), and its Mog City release commit (local branch `mogcity-release-r8`, a fast-forward of the
+  live `mogcity`). Release order: `mogcity`, then `hometown-compiler`, then `main`; no manual run (the web learns the
+  build). The steps are in [HOMETOWN-HOSTING.md](HOMETOWN-HOSTING.md#release-r8-compiler-0120).
 - **Fixed in round 4** (were open items): one failed tile no longer fails a town (it is built with a flat patch and
   listed as degraded); "Try again" re-queues a failed town at once; the per-address limit survives deploys (queue.db);
   the dispatcher's plan is cheap at 20,000 jobs; orphaned run rows are retired every pass; the first pick on a fresh

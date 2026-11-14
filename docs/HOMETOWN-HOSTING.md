@@ -17,7 +17,7 @@ API only while there is work, and gone 20 s after the queue is idle. **No town a
 | The worker protocol (claim, heartbeat, objects, complete, fail) | web, `/api/hometown/worker/*`, bearer `HOMETOWN_WORKER_TOKEN` | `lib/hometown-build/server.ts` |
 | Starting runs (never Python) | web: the dispatcher, a pass every 5 s and on every queue change | `lib/hometown-build/dispatch.ts` |
 | Compiling (regions, ctx, tiles, far, frame, bundles) | `gamemog-town-builder` workflow runs | `deploy/town-builder/workflow.py` (the task), `worker.py` (its loop), `workflow-build.sh` (the pinned build) |
-| The compiler | MogCity `tools/hometown` (compiler **0.11.0**), fetched at `MOGCITY_SHA` | github.com/GameMog/GameMog, branch `hometown-compiler` |
+| The compiler | MogCity `tools/hometown` (compiler **0.12.0**), fetched at `MOGCITY_SHA` | github.com/GameMog/GameMog, branch `hometown-compiler` |
 | The store: tiles, ctx, manifests, builds, frames, bundles, far, src, dem | web disk, `data/hometown/` | `lib/hometown-tiles/` (`keys.ts` grammar, `http.ts verifyObject`) |
 | Playing a town | **mc.gamemog.com** (GitHub Pages, branch `mogcity`), reading bundles and tiles from gamemog.com | MogCity `wagmi/world/town-src.js`, `growing.js`, `pkg-far.js` |
 | The owner's view | `/admin`, "Town builder" card; `GET /api/hometown/admin/builder` | `app/admin/dashboard.tsx` |
@@ -264,8 +264,8 @@ nothing and ends; empty or `0` builds). Optional: `HOMETOWN_RUN_CAP_S` (7200), `
 
 Workflows build on the native runtime only (`runtime: python`; no Dockerfile). The buildCommand installs the Render SDK
 (`workflow-requirements.txt`) and runs `workflow-build.sh`, which writes `.town-builder/`:
-- **the compiler at `MOGCITY_SHA`** (THE one line to re-pin; now `578423c6da6c738291413cefb3b058e300c4dedd`, compiler
-  0.11.0), fetched by SHA from github.com/GameMog/GameMog; when a SHA alone cannot be fetched, the branch
+- **the compiler at `MOGCITY_SHA`** (THE one line to re-pin; now `4144fb521b7ecbe781c90e4ac76493cd7d176157`, compiler
+  0.12.0), fetched by SHA from github.com/GameMog/GameMog; when a SHA alone cannot be fetched, the branch
   `HOMETOWN_MOGCITY_REF` (default `hometown-compiler`) and then the SHA inside it;
 - its packages from the compiler's own hash lock (`--require-hashes`, wheels only) in their own venv;
 - **the OSM lane table** (`osm-roads-us.parquet`, 19,372,313 bytes, ODbL) checked against
@@ -372,7 +372,59 @@ is first created), and the workflow service is created and built the moment `mai
 
 Safe fallback while any step is open: `HOMETOWN_BUILDER=owner` and `NEXT_PUBLIC_HOMETOWN_SEARCH=off`.
 
-## Release r7 (compiler 0.11.0)
+## Release r8 (compiler 0.12.0)
+
+Everything is committed locally and nothing is pushed. It supersedes release r7 (never pushed: its branches are folded
+in, so everything listed under r7 below ships with it). Live: gamemog.com `main` d6241046 (r6, the voice-plan fix
+fbc60528, the revoice page a54530ea, admin visibility d6241046), mc.gamemog.com `mogcity` ee368f8 (r6a),
+`hometown-compiler` d7e60927 (compiler 0.10.0). What r8 adds to r7:
+
+- **Compiler 0.12.0** (MogCity `release-r5`, tip `4144fb521b7ecbe781c90e4ac76493cd7d176157`): reach's approach points. Every story
+  place in the frame carries `ax, az` (`aHow`): where a person on foot is sent, outdoors, 1.5 m clear of every building,
+  off the water and the carriageway, a straight walk from its lane point (`tools/hometown/approach.py`;
+  `reach_scan.py <package>` checks a compiled town). The frame's bytes (and the bundle's `PKG.places`) change, the
+  tiles do not. The OSM lane table is unchanged (same pin). New buildId `htc-0.12.0-hg1-b...`.
+- **Mog City's engine** (index.html script version `20261114-r8`): reach (the story runner's footing guard: every on-foot
+  target moved to ground a person can stand on, never a ring inside a building; a beacon over the objective, its name
+  and distance, the hold-F prompt, "Follow the marker"; the test drive fails a mission whose place no player could reach,
+  `wagmi/storyrun/reach.js`); r8-voices (a story line ducks the street and the effects; a story call's gentler call
+  band); r8-people (forged people's soft hair edges and graded skin); r8-story (the action layer, `wagmi/storyrun/action.js`,
+  on by itself in a hometown world: title slams, the chase's camera, lens, speed lines and moments, a step's sting /
+  shake / slow motion / camera, a cutscene shot's grammar, an act's cliffhanger; a story chase's alarm names its own
+  pursuer, never "Delgado's crew").
+- **GameMog** `prod-builder-clean`: the pin above; live `main` merged in (the voice-plan fix, the owner's revoice page
+  `/storykit/revoice.html`, /admin's Live / Link only / Only me control beside r7's Story towns card); Story Kit
+  reachability (`lib/storykit-reach.ts`, `lib/drive-reach.ts`: a test drive that cannot reach a place has the builder
+  swap it for the nearest reachable place of its kind, at most 3 times, and a town's unreachable places are never offered
+  again; the gate prefers reachable places, `docs/RULES.md` 1i); the forge's crotch fix for women's jackets and coats;
+  the builder's cinematic rules (`storykit/BUILDER.md` "Set pieces", the `CINEMATIC` first-turn sentence,
+  `pacingProblems`' one send-back, the action layer's schema fields `sting`, `shake`, `slowmo`, `cam`, `frame`, `cliff`,
+  a pursuit's `name`, `docs/RULES.md` 1j; shipped untested by the owner's call, the owner tests it with a story build).
+
+In this order (a push of `main` restarts the web and stops builds in flight, so the owner picks the moment):
+
+1. **Mog City's engine** (`mogcity`; no build needed, old towns keep playing; the old web ignores `&world=`): push the
+   local MogCity branch `mogcity-release-r8` (parent `ee368f8` = the live `mogcity`, so a fast-forward; the tree of
+   MogCity `release-r5` `4144fb521b7ecbe781c90e4ac76493cd7d176157` without `.scratch`, the live README and `CNAME` kept; no live file
+   deleted) to the `mogcity` branch of GameMog/GameMog. Towns built before 0.12.0 have no `ax, az`: the runner's
+   footing guard moves their on-foot targets.
+2. **The compiler commit** (`hometown-compiler`): push MogCity `release-r5` (tip `4144fb521b7ecbe781c90e4ac76493cd7d176157`, compiler 0.12.0)
+   to the `hometown-compiler` branch of GameMog/GameMog BEFORE `main` (it descends from the live `d7e60927`, so a
+   fast-forward).
+3. **Nothing building** on Render, then push GameMog `prod-builder-clean` to `main` (it contains the live `d6241046`, so
+   a fast-forward). `deploy/town-builder/**` changed (the pin), so the workflow rebuilds at compiler 0.12.0; the web
+   deploys the rest.
+4. **No manual run, nothing by hand for the build.** The web learns the 0.12.0 build itself. Towns built at 0.10.0 keep
+   playing at their build; a town asked again is built at 0.12.0 (its places' approach points and, in the warm band,
+   the r7 look).
+5. **Story towns**, as in r7 step 5, at 0.12.0: "The Courtesy Lane" needs Bal Harbour built at 0.12.0 (the owner's test
+   pick of Bal Harbour on Create does it). The /admin Story towns card shows each pinned story's state and why.
+6. Check /admin opens (the Town builder and Story towns cards, a world's Live / Link only / Only me), then that one
+   owner test pick, and one story build to try the cinematic rules.
+
+## Release r7 (compiler 0.11.0, superseded by r8)
+
+Never pushed: folded into release r8 above, whose release order replaces the one below.
 
 Everything is committed locally and nothing is pushed. Release r6 is live: gamemog.com `main` 8a878166, mc.gamemog.com
 `mogcity` ee368f8 (r6a: the story search ring a player can reach), `hometown-compiler` d7e60927 (compiler 0.10.0).
