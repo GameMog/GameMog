@@ -29,7 +29,7 @@ LAYERS = [
     ('base', 'water', 'id, geometry, subtype, class, names.primary AS name, is_salt, is_intermittent'),
     ('base', 'land_use', 'id, geometry, subtype, class, names.primary AS name'),
     ('base', 'infrastructure', 'id, geometry, subtype, class, names.primary AS name'),
-    # (OSM's natural features: beaches and sand (subtype sand: natural=beach / sand / dune / shingle), scrub, rock, tree
+    # (OSM's natural features: beaches and sand (subtype sand: natural=beach / sand / dune), scrub, rock, tree
     # rows and trees; LAYER_WHERE leaves out the coastline-derived land masses, subtype 'land', continent-sized polygons)
     ('base', 'land', 'id, geometry, subtype, class, surface, names.primary AS name'),
 ]

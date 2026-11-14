@@ -93,6 +93,7 @@ class SandLayer(unittest.TestCase):
         theme, typ, cols, where = sources.LAYER_SQL['sand']
         self.assertEqual((theme, typ), ('base', 'land'))
         self.assertIn("subtype = 'sand'", where)
+        self.assertNotIn('shingle', where)   # (gravel bars and pebbles: Overture subtype rock, not sand)
         self.assertIn(('base', 'land'), sources.REQUIRED_FILES)
 
 

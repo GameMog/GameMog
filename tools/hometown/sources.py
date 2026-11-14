@@ -22,10 +22,11 @@ LAYER_SQL = {
     # same (fetch.py LAYERS), an older one without it reads none)
     'parking': ("base", "infrastructure", "id, ST_AsWKB(geometry) AS wkb, subtype, class",
                 "WHERE class = 'parking' AND ST_GeometryType(geometry) IN ('POLYGON', 'MULTIPOLYGON')"),
-    # (the beaches and sand: OSM natural=beach / sand / dune / shingle polygons, Overture land subtype sand; fetch.py
-    # LAYERS reads the land layer; a region fetched before it has no file of it and is refused, REQUIRED_FILES)
+    # (the beaches and sand: OSM natural=beach / sand / dune polygons, Overture land subtype sand; not shingle, subtype
+    # rock: river gravel bars and pebbles. fetch.py LAYERS reads the land layer; a region fetched before it has no file
+    # of it and is refused, REQUIRED_FILES)
     'sand': ("base", "land", "id, ST_AsWKB(geometry) AS wkb, subtype, class, surface, name",
-             "WHERE (subtype = 'sand' OR class IN ('beach', 'sand', 'dune', 'shingle')) AND ST_GeometryType(geometry) IN ('POLYGON', 'MULTIPOLYGON')"),
+             "WHERE (subtype = 'sand' OR class IN ('beach', 'sand', 'dune')) AND ST_GeometryType(geometry) IN ('POLYGON', 'MULTIPOLYGON')"),
 }
 OPTIONAL = {'parking'}
 # (layers a fetched region must have a file of: one fetched before the layer was added is refused as not fetched, with

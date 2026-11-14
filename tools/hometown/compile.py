@@ -2008,7 +2008,7 @@ def _compile_tile(Wd, c, r, dem_files):
                     poly(ld, list(hole.coords), 255)
         lu_a = np.array(lim, dtype=np.uint8)
         a[landm & (lu_a != 255)] = lu_a[landm & (lu_a != 255)]
-    # beaches and sand (OSM natural=beach / sand / dune / shingle): over the land use (a park's beach is sand), under what
+    # beaches and sand (OSM natural=beach / sand / dune): over the land use (a park's beach is sand), under what
     # is paved (lots, a downtown's squares, the sidewalk bands) and the roadway
     beach = raster([sand_union]) if sand_union is not None else None
     if beach is not None:
