@@ -1,0 +1,158 @@
+// Mog City story runner: where to go, always (a story world only, under ?pack=). The owner, 14 Nov: "I couldn't figure
+// out where to go": a search's ring lay under a hometown's ground (drawn at y 0 on a town 4 m up), beside a tower, and
+// nothing on the screen said where it was. The rule now, for every objective with somewhere to go:
+//   - a beacon over the spot: a column of light rising 70 m off it (seen over the roofs), and on the screen a marker
+//     above it with its name and how far, drawn over everything (never hidden in a building); off the screen it waits
+//     at the edge, an arrow pointing round to it;
+//   - on foot within 40 m of a hold-F spot (a search's), the marker says so: 'HOLD F · TAKE THE SALVAGE LOG', a green
+//     arrow bobbing over the ring, until he is at it (the hold prompt's own ring takes over there);
+//   - stuck: on the same objective on foot for 90 s of play and still more than 30 m off, one line of help ('Follow the
+//     marker') and the beacon pulses until he is closer.
+// It reads the runner's objective as the GPS holds it (gps.dest: the route's own target, a reachable spot) and the hold
+// the runner is waiting on (M.holding), each frame; it decides nothing about the story and changes no rule.
+//   createGuide(W, THREE, { gps, ui, groundY, createMarker }) -> { source, state(), stop() }
+//   guide.source = () => ({ x, z, name, hold: { reach, label } | null, key }) | null   (the runner sets it)
+const YELLOW = '#FFC93C', GREEN = '#4ADE80';
+export const NEAR = 40, STUCK_SECS = 90, STUCK_FAR = 30;
+const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+// where the marker goes on the screen for a point at NDC (x, y) (behind: the camera looks away from it, its projection
+// mirrored): in view, over it; else clamped to the screen's edge, its arrow's angle (0 up, clockwise) pointing round
+// toward it; behind, at the bottom edge on the side it is on, pointing down. Plain maths, for the tests
+export function edgeOf(x, y, behind) {
+  if (!behind && Math.abs(x) < 0.9 && Math.abs(y) < 0.86) return { x, y, inView: true, ang: 0 };
+  if (behind) { x = -x; y = -Math.abs(y) - 1; }
+  const ang = Math.atan2(x, y);
+  const m = Math.max(Math.abs(x) / 0.9, Math.abs(y) / 0.8, 1);
+  return { x: x / m, y: y / m, inView: false, ang };
+}
+
+// the stuck watch (see the top): play seconds on one objective on foot, far off. step(dt, key, d, onFoot) -> { secs,
+// stuck, fresh } (fresh: true the frame it first counts as stuck)
+export function createStuck({ secs = STUCK_SECS, far = STUCK_FAR } = {}) {
+  let key = null, t = 0, said = false;
+  return {
+    step(dt, k, d, onFoot) {
+      if (k !== key) { key = k; t = 0; said = false; }
+      if (onFoot) t += dt;
+      const stuck = onFoot && t > secs && d > far;
+      const fresh = stuck && !said; if (fresh) said = true;
+      return { secs: t, stuck, fresh };
+    },
+    reset() { key = null; t = 0; said = false; },
+  };
+}
+
+// the thing an objective's words name (a step's objective, label and noun; the words of its place's own name don't
+// count: a car wash is no car): [kind, its pattern] or null. A vehicle (pickup for a truck, van, minivan, suv, taxi,
+// sedan for a car) before a thing (bag, case, crate for a box, a locker, a safe...). d.prop false: none; a kind: that one
+export const PROP_RIDES = [['pickup', /\b(pick-?up|truck|lorry)s?\b/i], ['minivan', /\bminivans?\b/i], ['van', /\bvans?\b/i], ['suv', /\b(suv|jeep)s?\b/i], ['taxi', /\b(taxi|cab)s?\b/i], ['sedan', /\b(car|sedan|coupe|hatchback|wagon)s?\b/i]];
+export const PROP_THINGS = [['bag', /\b(bag|backpack|duffel|duffle|satchel|sack|holdall|purse)s?\b/i], ['case', /\b(case|briefcase|suitcase|lockbox|cash ?box|kit)s?\b/i], ['crate', /\b(crate|box|chest|locker|cooler|toolbox|footlocker|package|parcel|safe|cabinet|bin)s?\b/i]];
+const unbold = (t) => String(t ?? '').replace(/\*\*|\{(yellow|red|blue|green)\}/g, '');
+export function propOf(d, p = {}) {
+  if (!d || d.prop === false) return null;
+  if (typeof d.prop === 'string') return [...PROP_RIDES, ...PROP_THINGS].find(([k]) => k === d.prop) || null;
+  const own = String(p.name || '').toLowerCase();
+  let words = unbold(`${d.objective || ''} ${d.label || ''} ${d.noun || ''}`).toLowerCase();
+  if (own) words = words.split(own).join(' ');
+  return PROP_RIDES.find(([, re]) => re.test(words)) || PROP_THINGS.find(([, re]) => re.test(words)) || null;
+}
+// the objective with a named thing that isn't there said as the place: 'Take Ruben's salvage log from his truck.' ->
+// 'Take Ruben's salvage log at **the boat-trailer lot**.' (its phrase 'from / in / out of / on ... his truck'); with
+// no such phrase, ' at **the place**' after it
+export function reword(text, d, p = {}) {
+  const want = propOf(d, p), name = p.name || 'there', t = String(text ?? '');
+  const m = want && unbold(t).match(want[1]);
+  if (m) {
+    const noun = m[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp(`\\s*\\b(?:from|in|inside|into|out of|under|behind|on|at|by|beside|near)\\s+(?:\\*\\*)?(?:the|a|an|his|her|their|its|our|my|your|[\\w'’-]+'s)\\s+(?:[\\w-]+\\s+){0,2}?(?:\\*\\*)?${noun}(?:\\*\\*(?:\\{\\w+\\})?)?`, 'i');
+    if (re.test(t)) return t.replace(re, ` at **${name}**`);
+  }
+  return `${t.replace(/[.!]\s*$/, '')} at **${name}**.`;
+}
+
+export function createGuide(W, THREE, { gps, ui, groundY, createMarker }) {
+  const app = W.app, cm = app.controllerManager;
+  const css = document.createElement('style');
+  css.textContent = `
+#sr-guide{position:fixed;left:0;top:0;z-index:57;pointer-events:none;opacity:0;transition:opacity .3s;will-change:transform;width:180px;text-align:center;--c:${YELLOW}}
+#sr-guide.on{opacity:1}
+#sr-guide .pin{position:relative;width:26px;height:26px;margin:0 auto;}
+#sr-guide .pin i{position:absolute;inset:3px;background:var(--c);transform:rotate(45deg);border-radius:4px 4px 4px 0;box-shadow:0 0 0 2px rgba(8,10,14,.85),0 3px 10px rgba(0,0,0,.6)}
+#sr-guide .pin b{position:absolute;left:50%;top:50%;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;background:rgba(8,10,14,.85)}
+#sr-guide .ar{display:none;width:0;height:0;margin:0 auto 2px;border-left:14px solid transparent;border-right:14px solid transparent;border-bottom:24px solid var(--c);filter:drop-shadow(0 2px 5px rgba(0,0,0,.75))}
+#sr-guide.edge .ar{display:block}
+#sr-guide.edge .pin{display:none}
+#sr-guide .l{margin-top:5px;display:inline-block;padding:3px 8px 2px;border-radius:6px;background:rgba(8,10,14,.62);font:700 14px/1.15 'Barlow Condensed',system-ui,sans-serif;letter-spacing:.07em;color:#fff;text-transform:uppercase;white-space:nowrap;text-shadow:0 1px 3px rgba(0,0,0,.8)}
+#sr-guide .l em{font-style:normal;color:var(--c)}
+#sr-guide .l kbd{display:inline-block;min-width:17px;padding:1px 4px 0;margin:0 2px;border-radius:4px;background:#fff;color:#0b0d12;font:800 12px/1.2 'Barlow Condensed',system-ui,sans-serif}
+#sr-guide.hold .pin{animation:srgBob .9s ease-in-out infinite}
+#sr-guide.hold .pin i{border-radius:4px 0 4px 4px;transform:rotate(45deg) scale(.9)}
+#sr-guide.at .l{display:none}
+#sr-guide.pulse .pin,#sr-guide.pulse .ar{animation:srgPulse 1.1s ease-in-out infinite}
+#sr-guide.pulse .l{box-shadow:0 0 0 2px var(--c)}
+@keyframes srgBob{0%,100%{transform:translateY(0)}50%{transform:translateY(7px)}}
+@keyframes srgPulse{0%,100%{transform:scale(1);filter:none}50%{transform:scale(1.45);filter:drop-shadow(0 0 10px var(--c))}}
+@media (max-width:700px){#sr-guide .l{font-size:12px}}`;
+  document.head.appendChild(css);
+  const el = document.createElement('div'); el.id = 'sr-guide';
+  el.innerHTML = '<div class="ar"></div><div class="pin"><i></i><b></b></div><div class="l"></div>';
+  const arEl = el.querySelector('.ar'), lEl = el.querySelector('.l');
+  document.body.appendChild(el);
+  // the column of light over the spot: thin, tall, fading upward (marker.js's corona, stretched): over the roofs
+  const beam = createMarker(THREE, app.scene, { color: YELLOW, radius: 0.45, height: 70, alpha: 0.42 });
+  beam.group.name = 'wagmi-marker-guide';
+  const v = new THREE.Vector3(), vc = new THREE.Vector3();
+  const stuck = createStuck();
+  let live = true, last = performance.now(), st = { on: false }, html = '', colour = YELLOW;
+  const hidden = () => W.cutscene || W.paused || document.body.classList.contains('wg-cine') || app.mapSystem?.isFullMapOpen;
+  const api = {
+    source: null,
+    state: () => ({ ...st }),
+    stop() { live = false; el.remove(); css.remove(); beam.hide(); app.scene.remove(beam.group); },
+  };
+  const off = () => { el.classList.remove('on'); beam.hide(); st = { on: false, stuck: false }; };
+  function frame() {
+    if (!live) return;
+    requestAnimationFrame(frame);
+    const t = performance.now(), dt = Math.min(0.1, (t - last) / 1000); last = t;
+    let s = null; try { s = api.source && api.source(); } catch { s = null; }
+    if (!s || !Number.isFinite(s.x) || !Number.isFinite(s.z)) { off(); stuck.reset(); return; }
+    const cam = app.cameraSystem?.camera, e = cm.getActiveEntity?.();
+    if (!cam || !e) return;
+    const onFoot = cm.activeMode !== 'car', d = Math.hypot(s.x - e.position.x, s.z - e.position.z);
+    const paused = W.paused || W.cutscene;
+    const sk = stuck.step(paused ? 0 : dt, s.key ?? `${Math.round(s.x / 4)},${Math.round(s.z / 4)}`, d, onFoot);
+    if (sk.fresh) {
+      ui?.help?.(['Lost? Follow the ', { marker: s.hold ? 'green' : 'yellow' }, ': it hangs over the spot, seen through the buildings. The ', { 'line on the radar': 'yellow' }, ' walks you there.'], 9, { mode: 'foot' });
+    }
+    const hold = !!s.hold && onFoot && d <= NEAR;
+    const at = hold && d <= (s.hold.reach || 3.2) + 6;
+    const c = hold ? GREEN : (s.color || YELLOW);
+    if (c !== colour) { colour = c; el.style.setProperty('--c', c); beam.color(c); }
+    const gy = groundY ? groundY(s.x, s.z) : 0;
+    st = { on: !hidden(), x: s.x, z: s.z, d: Math.round(d), hold, at, stuck: sk.stuck, secs: Math.round(sk.secs), name: s.name || '' };
+    if (hidden()) { el.classList.remove('on'); beam.hide(); return; }
+    // (the column: off once he is close, where the ring on the ground, the marker and the hold prompt say the rest)
+    if (d > (onFoot ? 18 : 30)) beam.at(s.x, gy, s.z); else beam.hide();
+    v.set(s.x, gy + (at ? 1.6 : d < 60 ? 3.2 : 6), s.z);
+    // (behind the camera: its own frame says so, z > 0 looking down -z; the projection of a point behind it is mirrored)
+    vc.copy(v).applyMatrix4(cam.matrixWorldInverse);
+    v.project(cam);
+    const q = edgeOf(v.x, v.y, vc.z > 0);
+    const W0 = innerWidth, H0 = innerHeight, sx = (q.x + 1) / 2 * W0, sy = (1 - q.y) / 2 * H0;
+    el.classList.toggle('edge', !q.inView);
+    el.classList.toggle('hold', hold);
+    el.classList.toggle('at', at && q.inView);
+    el.classList.toggle('pulse', sk.stuck);
+    if (!q.inView) arEl.style.transform = `rotate(${q.ang}rad)`;
+    const name = esc(String(s.hold && hold ? s.hold.label || s.name : s.name || '').toUpperCase());
+    const h = hold ? `Hold <kbd>F</kbd> · <em>${name}</em> · ${Math.round(d)} m` : `${name ? `<em>${name}</em> · ` : ''}${d >= 1000 ? (d / 1000).toFixed(1) + ' km' : Math.round(d) + ' m'}`;
+    if (h !== html) { html = h; lEl.innerHTML = h; }
+    // (the marker's middle over the spot: in view, its pin's point on it; at the edge, its arrow)
+    el.style.transform = `translate(${Math.round(sx - 90)}px, ${Math.round(sy - (q.inView ? 26 : 14))}px)`;
+    el.classList.add('on');
+  }
+  requestAnimationFrame(frame);
+  return api;
+}
