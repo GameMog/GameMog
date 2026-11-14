@@ -289,7 +289,7 @@ HEDGE_STEP = 2.0
 STREET_CLASSES = ('trunk', 'primary', 'secondary', 'tertiary', 'residential', 'living_street', 'unclassified')
 # (raw stations of one kind closer than this to one with a smaller key are dropped, before any tile's own checks, so the
 # rule is the same in every tile that holds them)
-WARM_DEDUPE = {0: 5.0, 1: 1.0, 2: 5.0}
+WARM_DEDUPE = {0: 5.0, 1: 1.0, 2: 5.0, 3: 5.0}   # (3: a divided road's street palms on its median side, off the narrow islands)
 
 
 def pick_w(table, h):
@@ -2687,7 +2687,7 @@ def warm_plantings(Wd, warm, pieces, a, narrow_m, btree, deck_tree, c, r):
     X0, Z0 = c * TILE, r * TILE
     X1, Z1 = X0 + TILE, Z0 + TILE
     pad = max(WARM_DEDUPE.values()) + 1.0
-    raw = {0: [], 1: [], 2: []}
+    raw = {0: [], 1: [], 2: [], 3: []}
     skip = FLAGS['pedestrian'] | FLAGS['freeway'] | FLAGS['tunnel'] | FLAGS['alley'] | FLAGS['private']
     for p in sorted(pieces, key=lambda p: (p['seg'], p['i'])):
         if p['flags'] & skip or p['cls'] not in STREET_CLASSES or p['link']:
@@ -2701,13 +2701,14 @@ def warm_plantings(Wd, warm, pieces, a, narrow_m, btree, deck_tree, c, r):
             for side in (1, -1):
                 sd = 1 if side > 0 else 0
                 # (side +1 is the right of the piece's own direction; its sidewalk there (fid-roads' sides). A divided
-                # road's inner side faces the median: only the median's palms (kind 2) stand there)
+                # road's inner side faces the median: no hedge there, and its street palms (kind 3) only where the
+                # median is wider than a narrow island (a narrow one has the median palms, kind 2))
                 sws = p.get('swr' if side > 0 else 'swl', p['sw'])
                 inner = p.get('pair') is not None and p['pair'][0] == side
                 plans = []
-                if not inner and hash01(sk, sd, 41 ^ d.index) < WARM_STREET_P[warm]:
+                if hash01(sk, sd, 41 ^ d.index) < WARM_STREET_P[warm]:
                     off = p['w'] / 2 + (sws + 1.8 if sws > 0 else 2.0)
-                    plans.append((0, off, WARM_STREET_STEP[warm], pick_w(WARM_STREET[warm], hash01(sk, sd, 42 ^ d.index))))
+                    plans.append((3 if inner else 0, off, WARM_STREET_STEP[warm], pick_w(WARM_STREET[warm], hash01(sk, sd, 42 ^ d.index))))
                 if not inner and hash01(sk, sd, 43 ^ d.index) < WARM_HEDGE_P[warm]:
                     plans.append((1, p['w'] / 2 + (sws + 0.7 if sws > 0 else 1.2), HEDGE_STEP, TREE_CLASS['hedge']))
                 if oneway:
@@ -2753,6 +2754,8 @@ def warm_plantings(Wd, warm, pieces, a, narrow_m, btree, deck_tree, c, r):
             if kind == 2:
                 if not narrow_m[j, i]:
                     continue
+            elif kind == 3 and narrow_m[j, i]:
+                continue
             elif cell not in ((MASK['lawn'], MASK['scrub']) if kind == 1 else (MASK['lawn'], MASK['scrub'], MASK['sand'])):
                 continue
             # (a palm off the curb's cells, a hedge's ends on the same ground as its middle)
