@@ -10,8 +10,8 @@ import { PlayFrame } from './play-frame';
 import { playSrc } from '@/lib/play-page';
 import { mcFrameSrc, storyUrl } from '@/lib/episode-play';
 import { mcOrigin, storyOf } from '@/lib/episode';
-import { storyOf as storyWorldOf, isStoryCity, storyCityName } from '@/lib/storykit-site';
-import { storyPlaySrc, storykitMc, sealedWorldOf } from '@/lib/storykit-publish';
+import { storyPageOf, isStoryCity, storyCityName } from '@/lib/storykit-site';
+import { storyPlay, storyTownName, storykitMc } from '@/lib/storykit-publish';
 import { NeedsWebGPU } from './needs-webgpu';
 import { DeskOnly } from './desk-only';
 import { YouLine } from './you-line';
@@ -55,11 +55,18 @@ export function CustomGamePage({ game, kdiag = null, storyOpen, mogOpen = canMog
   // the creator's word on any real person it names, as a small line)
   const episode = mode === 'episode';
   // (a Story Kit world, STORYKIT=on: Mog City with its sealed world, lib/storykit-publish.ts; framed as an episode is,
-  // Mog City's own origin, its messages heard from there only, a played mission counted for this very world)
-  const storyWorld = world && storyWorldOf(game, storyOpen) ? storyPlaySrc(game.meta, game.id) : null;
-  // (a story world's own page lines: its city instead of rivals, Mog City's controls, how a story plays; 5 Nov, the owner)
+  // Mog City's own origin, its messages heard from there only, a played mission counted for this very world. A hometown
+  // story world too (r8): it was read as an arcade world, framed as one and never started)
+  const storyRun = world && storyPageOf(game, storyOpen) ? storyPlay(game.meta, game.id) : null;
+  const storyWorld = storyRun?.src ?? null;
+  // (a story world's own page lines: its city instead of rivals, Mog City's controls, how a story plays; 5 Nov, the owner;
+  // a hometown's, its town by name)
   const storyCity = (meta as { storykit?: { city?: unknown } }).storykit?.city;
-  const storyCityLabel = isStoryCity(storyCity) ? storyCityName(storyCity) : 'New York';
+  const hometown = storyWorld && storyCity === 'hometown' ? storyTownName(game.meta) : null;
+  const storyCityLabel = isStoryCity(storyCity) ? storyCityName(storyCity) : storyCity === 'hometown' ? hometown ?? 'A US town' : 'New York';
+  const storyWhere = storyCity === 'hometown' && !hometown ? 'its town' : storyCityLabel;
+  // (Mog City's San Francisco engine, WebGPU only and dark while it loads: San Francisco's and every hometown's)
+  const sfEngine = storyCity === 'sf' || storyCity === 'hometown';
   // (a first-party story world's own controls and how-to-play, from its migration's meta: SF 2040 is ridden, 11 Nov)
   const storyOwn = isFirstParty(game) ? (meta as { storykit?: { controls?: unknown; how?: unknown } }).storykit : undefined;
   const ownLine = (v: unknown) => (typeof v === 'string' && v.trim() ? v : null);
@@ -121,8 +128,8 @@ export function CustomGamePage({ game, kdiag = null, storyOpen, mogOpen = canMog
 
   // eslint-disable-next-line @next/next/no-img-element
   const poster = <img src={`/g/${game.slug}/cover`} alt="" />;
-  const frame = <PlayFrame slug={game.slug} gameId={game.id} src={episode ? mcFrameSrc(storyUrl(game), game.id) : storyWorld ?? playSrc(game)} episode={episode || !!storyWorld} storykit={!!storyWorld} mc={storyWorld ? storykitMc() : mcOrigin()} story={episode ? storyOf(game.code)?.hash ?? null : storyWorld ? sealedWorldOf(game.meta) : null} scores={!episode && !storyWorld} you={game.format === 'world' && !episode && !storyWorld} kart={mode === 'kart'} shootout={shootout} kartScore={kartC} kdiag={mode === 'kart' ? kdiag : null}
-    posterUntilPlay={!!storyWorld && storyCity === 'sf'}
+  const frame = <PlayFrame slug={game.slug} gameId={game.id} src={episode ? mcFrameSrc(storyUrl(game), game.id) : storyWorld ?? playSrc(game)} episode={episode || !!storyWorld} storykit={!!storyWorld} mc={storyWorld ? storykitMc() : mcOrigin()} story={episode ? storyOf(game.code)?.hash ?? null : storyRun?.world ?? null} scores={!episode && !storyWorld} you={game.format === 'world' && !episode && !storyWorld} kart={mode === 'kart'} shootout={shootout} kartScore={kartC} kdiag={mode === 'kart' ? kdiag : null}
+    posterUntilPlay={!!storyWorld && sfEngine}
     poster={poster} />;
 
   return (
@@ -138,7 +145,7 @@ export function CustomGamePage({ game, kdiag = null, storyOpen, mogOpen = canMog
           <div className="gstage">
             {storyWorld
               // (a story world on a phone: the same desktop-only note as Create's, instead of the city; r7, 14 Nov)
-              ? <DeskOnly title={game.title} poster={poster}>{frame}{storyCity === 'sf' ? <NeedsWebGPU title={game.title} /> : null}</DeskOnly>
+              ? <DeskOnly title={game.title} poster={poster}>{frame}{sfEngine ? <NeedsWebGPU title={game.title} /> : null}</DeskOnly>
               : frame}
           </div>
           <div className="gbar">
@@ -187,7 +194,7 @@ export function CustomGamePage({ game, kdiag = null, storyOpen, mogOpen = canMog
                   {(page || storyWorld) && (
                     <>
                       <h2 style={{ marginTop: 26, marginBottom: 6 }}>How it works</h2>
-                      <p style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--ink-2)', maxWidth: 720 }}>{storyWorld ? ownLine(storyOwn?.how) ?? storyHow(storyCityLabel) : noGm ? NO_GM_HOW : mode === 'kart' ? kartHow(kartDna?.laps, kartDna?.itemsOn) : page!.how}</p>
+                      <p style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--ink-2)', maxWidth: 720 }}>{storyWorld ? ownLine(storyOwn?.how) ?? storyHow(storyWhere) : noGm ? NO_GM_HOW : mode === 'kart' ? kartHow(kartDna?.laps, kartDna?.itemsOn) : page!.how}</p>
                     </>
                   )}
                 </div>

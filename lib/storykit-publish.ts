@@ -16,7 +16,7 @@ import { cityPackageByLock } from './hometown/towns.ts';
 import { storyUpgradeWith, upgradeWords, frameMoved, type StoryUpgrade, type UpgradeDeps } from './storykit-upgrade.ts';
 import { cityTableOf, storyPlan, playerTexts, violentMissions } from '../storykit/hometown/hometown-gate.ts';
 import { safetyProblems } from '../storykit/hometown/safety.ts';
-import { cityBuildOf } from '../storykit/hometown/city-package.ts';
+import { cityBuildOf, townName } from '../storykit/hometown/city-package.ts';
 
 /**
  * A Story Kit world from its draft to its game (STORYKIT=on): what the creator's browser reports after its work, what
@@ -165,14 +165,32 @@ export function playableWorld(meta?: string | null): string | null {
  * there (lib/storykit-upgrade.ts: the world re-pinned, kept with its store draft), else its pinned build as before.
  */
 export function storyPlaySrc(meta: string | null | undefined, game: string, site = storySite()): string | null {
+  return storyPlay(meta, game, site)?.src ?? null;
+}
+/** storyPlaySrc's address and the world it plays (its SHA-256: the upgraded world's when it plays the whole town), the
+ * world Mog City's results name (the game page's frame counts a played mission for it only, ./play-frame.tsx). */
+export function storyPlay(meta: string | null | undefined, game: string, site = storySite()): { src: string; world: string } | null {
   const w = playableWorld(meta);
   if (!w) return null;
   const city = storyCityOf(meta), town = storyTownOf(meta);
   if (city === 'hometown' && town) {
     const u = storyUpgrade(w, { derive: true });
-    if (u?.state === 'upgrade' && u.world && u.from.compiler === town.compiler && u.from.tiles === town.tiles) return storyFrameSrc(u.world, game, site, city, u.to);
+    if (u?.state === 'upgrade' && u.world && u.from.compiler === town.compiler && u.from.tiles === town.tiles) return { src: storyFrameSrc(u.world, game, site, city, u.to), world: u.world };
   }
-  return storyFrameSrc(w, game, site, city, town);
+  return { src: storyFrameSrc(w, game, site, city, town), world: w };
+}
+/** A hometown story world's town as people say it ("Okemah, Oklahoma"), from its pinned town's package, or null (not a
+ * hometown world, or its package cannot be read). Kept per town (a package is megabytes; its name never changes). */
+const TOWN_NAMES = new Map<string, string | null>();
+export function storyTownName(meta?: string | null): string | null {
+  const t = storyTownOf(meta); if (!t) return null;
+  const k = `${t.place}/${t.compiler}/${t.tiles}`;
+  if (TOWN_NAMES.has(k)) return TOWN_NAMES.get(k)!;
+  let name: string | null = null;
+  try { const p = cityPackageByLock(t); name = p ? townName(p) : null; } catch { name = null; }
+  // (a town not read yet, a bundle still to be stored, is asked again next time)
+  if (name) { if (TOWN_NAMES.size > 512) TOWN_NAMES.clear(); TOWN_NAMES.set(k, name); }
+  return name;
 }
 
 /**

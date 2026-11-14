@@ -42,6 +42,21 @@ export function storyOf(game: { format?: string; meta?: string | null } | null |
   } catch { return null; }
 }
 
+/**
+ * A story world's game page (app/g/[slug]/custom-page.tsx, r8): a story city's world (storyOf), or a hometown's: meta
+ * storykit.city 'hometown' with its town pinned (storykit.hometown), which plays on Mog City as /g/<slug>/play sends it
+ * (lib/storykit-publish.ts storyPlaySrc). Null for any other game or with the switch off. The Mog composer keeps storyOf
+ * (its locked city's name is a story city's).
+ */
+export function storyPageOf(game: { format?: string; meta?: string | null } | null | undefined, open = storykitOn()): { city: StoryCity | 'hometown' } | null {
+  const s = storyOf(game, open); if (s) return s;
+  if (!open || !game?.meta || game.format !== 'world') return null;
+  try {
+    const m = JSON.parse(game.meta) as { mode?: unknown; storykit?: { city?: unknown; hometown?: { place?: unknown } } };
+    return m.mode === 'storykit' && m.storykit?.city === 'hometown' && typeof m.storykit.hometown?.place === 'string' ? { city: 'hometown' } : null;
+  } catch { return null; }
+}
+
 /** What the build route says to a story build while the switch is off (app/api/generate/route.ts). */
 export const STORY_CLOSED = 'Story worlds are not open yet.';
 
