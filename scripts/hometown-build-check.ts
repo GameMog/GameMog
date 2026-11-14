@@ -118,6 +118,14 @@ function honestCard(ok: Ok, dir: string) {
   ok('a fresh pick is never promised less than the median town took (the estimate said 50 s; history says 208 s)', at0.etaDriveS === 208 && at0.etaFullS === 404 && !at0.slow, JSON.stringify(at0));
   ok('...and as it waits, the wait left is the median less the time so far, never under the estimate or the floor', at150.etaDriveS === 58 && honestEta({ etaDriveS: 5, etaFullS: 5 }, seed, 400, 'framing').etaDriveS === ETA_FLOOR_S && honestEta({ etaDriveS: 120, etaFullS: 200 }, seed, 150, 'framing').etaDriveS === 120);
   ok('...a town far past the median says it is slow; a drivable town waits only for the whole town', honestEta({ etaDriveS: 5, etaFullS: 5 }, seed, 400, 'framing').slow && !honestEta({ etaDriveS: 5, etaFullS: 5 }, seed, 220, 'framing').slow && honestEta({ etaDriveS: 30, etaFullS: 60 }, seed, 220, 'growing').etaDriveS === 0 && honestEta({ etaDriveS: 30, etaFullS: 60 }, seed, 220, 'growing').etaFullS === 184);
+  // (step by step, Boley, OK in the local sim: drivable at 431 s, past the 404 s median whole wait, the card said "whole town
+  // in about 40 seconds" and it took 570 s more: once drivable, the median drive-to-whole (Cedar Key 156 s, Bal Harbour 235 s)
+  // less the time since drive is a floor too, and a step past 1.25 x its median is slow)
+  const steps2 = { ...seed, driveAfterFrameS: 18, fullAfterDriveS: 196 };
+  ok('step by step: once drivable, the whole town is never sooner than the median drive-to-whole less the time since; a fresh pick waits drive + that',
+    honestEta({ etaDriveS: 10, etaFullS: 40 }, steps2, 431, 'growing', { sinceDriveS: 0, sinceFrameS: 15 }).etaFullS === 196
+      && honestEta({ etaDriveS: 50, etaFullS: 90 }, steps2, 0, 'asked').etaFullS === 404 && honestEta({ etaDriveS: 10, etaFullS: 40 }, steps2, 431, 'growing', { sinceDriveS: 250 }).slow
+      && honestEta({ etaDriveS: 10, etaFullS: 40 }, steps2, 300, 'district', { sinceFrameS: 2 }).etaDriveS === 16);
   ok('...and the estimate is scaled by how far towns overran it (actual / promised)', honestEta({ etaDriveS: 100, etaFullS: 100 }, { ...seed, driveRatio: 4 }, 300, 'framing').etaDriveS === 400);
   // the recorded timings: the towns table (first ask to district_at and full_at), the seed while it has under 3
   const t = { now: Date.now() };

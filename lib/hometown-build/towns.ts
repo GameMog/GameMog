@@ -400,7 +400,8 @@ function progressOf(d: BuilderDeps, r: TownRow): Progress {
   // (r7: no builder up and nothing of this town running yet: one is being started for it, Render Workflows on demand)
   const starting = r.state === 'asked' && !steps.running && q.liveSlots() === 0 && !!d.runs;
   const stage = stageOf(r.state, steps, starting, reading, tiles.some((j) => j.state === 'done'));
-  const h = honestEta(e, waitHistory(d), elapsedS, r.state);
+  const since = (t: number | null) => (t == null ? null : Math.max(0, Math.round((now - t) / 1000)));
+  const h = honestEta(e, waitHistory(d), elapsedS, r.state, { sinceFrameS: since(r.frame_at), sinceDriveS: since(r.district_at) });
   const out: Progress = {
     state: r.state === 'asked' ? 'queued' : r.state === 'framing' ? (reading ? 'reading' : 'compiling') : r.state === 'full' ? 'ready' : 'compiling',
     placeId: r.place, stage, done, total, position, etaS: r.state === 'growing' ? h.etaFullS : h.etaDriveS,
@@ -455,31 +456,43 @@ export function pctOf(s: TownSteps, phase: TownPhase): number {
 
 /**
  * What towns really took (r7): the recorded timings of the last towns built (first ask to drive, district_at, and to the
- * whole town, full_at; towns players and the owner asked for, within 14 days, under an hour), their medians, and how much
- * longer they took than the estimate promised them (meta.promised: the median of actual / promised, at least 1). With
- * fewer than 3 towns recorded, the live r6 builds measured on 14 Nov stand in (WAIT_SEED). Cached 15 s per queue.
+ * whole town, full_at; and step by step: the frame (frame_at, the story may start) to drive, drive to the whole town;
+ * towns players and the owner asked for, within 14 days, under an hour), their medians, and how much longer they took
+ * than the estimate promised them (meta.promised: the median of actual / promised, at least 1). With fewer than 3 towns
+ * recorded, the live r6 builds measured on 14 Nov stand in (WAIT_SEED). Cached 15 s per queue.
  */
-export type WaitHistory = { driveS: number; fullS: number; n: number; driveRatio: number; fullRatio: number };
-/** (live r6, 14 Nov: Cedar Key, FL drive 201 s / whole 357 s; Bal Harbour, FL 215 s / 450 s) */
-export const WAIT_SEED: { driveS: number; fullS: number }[] = [{ driveS: 201, fullS: 357 }, { driveS: 215, fullS: 450 }];
+export type WaitHistory = { driveS: number; fullS: number; n: number; driveRatio: number; fullRatio: number;
+  /** the frame to drive, drive to the whole town (s): the steps' own medians */
+  driveAfterFrameS?: number; fullAfterDriveS?: number };
+/** (live r6, 14 Nov: Cedar Key, FL drive 201 s / whole 357 s, its frame 25 s before drive; Bal Harbour, FL 215 s / 450 s,
+ * its frame 10 s before drive) */
+export const WAIT_SEED: { driveS: number; fullS: number; driveAfterFrameS: number; fullAfterDriveS: number }[] = [
+  { driveS: 201, fullS: 357, driveAfterFrameS: 25, fullAfterDriveS: 156 }, { driveS: 215, fullS: 450, driveAfterFrameS: 10, fullAfterDriveS: 235 }];
 const median = (xs: number[]) => { const a = [...xs].sort((x, y) => x - y); const n = a.length; return n ? (n % 2 ? a[(n - 1) / 2] : (a[n / 2 - 1] + a[n / 2]) / 2) : NaN; };
 const histCache = new WeakMap<BuildQueue, { at: number; h: WaitHistory }>();
 export function waitHistory(d: Pick<BuilderDeps, 'queue' | 'now'>): WaitHistory {
   const now = (d.now ?? Date.now)(), c = histCache.get(d.queue);
   if (c && now - c.at < 15_000 && now >= c.at) return c.h;
-  const rows = d.queue.db.prepare(`SELECT first_asked, district_at, full_at, meta FROM towns WHERE source IN ('player', 'owner-test') AND first_asked > ?
-    AND (district_at IS NOT NULL OR full_at IS NOT NULL) ORDER BY first_asked DESC LIMIT 20`).all(now - 14 * 86400_000) as Pick<TownRow, 'first_asked' | 'district_at' | 'full_at' | 'meta'>[];
-  const drive: number[] = [], full: number[] = [], rd: number[] = [], rf: number[] = [];
+  const rows = d.queue.db.prepare(`SELECT first_asked, frame_at, district_at, full_at, meta FROM towns WHERE source IN ('player', 'owner-test') AND first_asked > ?
+    AND (district_at IS NOT NULL OR full_at IS NOT NULL) ORDER BY first_asked DESC LIMIT 20`).all(now - 14 * 86400_000) as Pick<TownRow, 'first_asked' | 'frame_at' | 'district_at' | 'full_at' | 'meta'>[];
+  const drive: number[] = [], full: number[] = [], rd: number[] = [], rf: number[] = [], af: number[] = [], ad: number[] = [];
+  const ok = (x: number) => x > 0 && x < 3600;
   for (const r of rows) {
     const m = metaOf(r as TownRow);
     const ds = r.district_at != null ? (r.district_at - r.first_asked) / 1000 : r.full_at != null ? (r.full_at - r.first_asked) / 1000 : NaN;
     const fs = r.full_at != null ? (r.full_at - r.first_asked) / 1000 : NaN;
-    if (ds > 0 && ds < 3600) { drive.push(ds); if (m.promised?.driveS) rd.push(ds / m.promised.driveS); }
-    if (fs > 0 && fs < 3600) { full.push(fs); if (m.promised?.fullS) rf.push(fs / m.promised.fullS); }
+    if (ok(ds)) { drive.push(ds); if (m.promised?.driveS) rd.push(ds / m.promised.driveS); }
+    if (ok(fs)) { full.push(fs); if (m.promised?.fullS) rf.push(fs / m.promised.fullS); }
+    const step = (a: number | null, b: number | null) => (a != null && b != null && b >= a && b - a < 3600_000 ? (b - a) / 1000 : null);
+    const fd = step(r.frame_at, r.district_at), dw = step(r.district_at, r.full_at);
+    if (fd != null) af.push(fd);
+    if (dw != null) ad.push(dw);
   }
-  const seeded = (xs: number[], k: 'driveS' | 'fullS') => (xs.length >= 3 ? xs : [...xs, ...WAIT_SEED.map((x) => x[k])]);
+  type K = keyof (typeof WAIT_SEED)[number];
+  const seeded = (xs: number[], k: K) => Math.round(median(xs.length >= 3 ? xs : [...xs, ...WAIT_SEED.map((x) => x[k])]));
   const ratio = (xs: number[]) => (xs.length ? Math.min(6, Math.max(1, median(xs))) : 1);
-  const h: WaitHistory = { driveS: Math.round(median(seeded(drive, 'driveS'))), fullS: Math.round(median(seeded(full, 'fullS'))), n: Math.max(drive.length, full.length), driveRatio: ratio(rd), fullRatio: ratio(rf) };
+  const h: WaitHistory = { driveS: seeded(drive, 'driveS'), fullS: seeded(full, 'fullS'), n: Math.max(drive.length, full.length), driveRatio: ratio(rd), fullRatio: ratio(rf),
+    driveAfterFrameS: seeded(af, 'driveAfterFrameS'), fullAfterDriveS: seeded(ad, 'fullAfterDriveS') };
   histCache.set(d.queue, { at: now, h });
   return h;
 }
@@ -490,14 +503,20 @@ export const ETA_FLOOR_S = 15;
 /**
  * The waits the card shows (r7): never less than history says. The estimate (the work ahead in the queue and the live
  * slots: estimate) scaled by how far towns overran it (WaitHistory ratios), and never under what the median town still
- * had to go at this point (its median minus the time this town has waited). `slow`: past SLOW_PAST x the median already.
- * The admission rule and meta.promised keep the plain estimate, so the ratio stays measured against it.
+ * had to go at this point: its median minus the time this town has waited, and step by step, once its frame is in (the
+ * story may start) the median frame-to-drive less the time since, once drivable the median drive-to-whole less the time
+ * since; the whole town never sooner than drive plus the median drive-to-whole. `slow`: past SLOW_PAST x the median
+ * already (of the whole wait, or of the step it is on). The admission rule and meta.promised keep the plain estimate,
+ * so the ratio stays measured against it.
  */
-export function honestEta(e: { etaDriveS: number | null; etaFullS: number | null }, h: WaitHistory, elapsedS: number, phase: TownPhase | 'pending'): { etaDriveS: number | null; etaFullS: number | null; slow: boolean } {
+export function honestEta(e: { etaDriveS: number | null; etaFullS: number | null }, h: WaitHistory, elapsedS: number, phase: TownPhase | 'pending',
+  at: { sinceFrameS?: number | null; sinceDriveS?: number | null } = {}): { etaDriveS: number | null; etaFullS: number | null; slow: boolean } {
   const drivable = phase === 'growing' || phase === 'full';
-  const drive = drivable ? 0 : e.etaDriveS == null ? null : Math.max(ETA_FLOOR_S, Math.round(e.etaDriveS * h.driveRatio), Math.round(h.driveS - elapsedS));
-  const full = phase === 'full' ? 0 : e.etaFullS == null ? null : Math.max(ETA_FLOOR_S, drive ?? 0, Math.round(e.etaFullS * h.fullRatio), Math.round(h.fullS - elapsedS));
-  const slow = drivable ? elapsedS > h.fullS * SLOW_PAST : elapsedS > h.driveS * SLOW_PAST;
+  const sf = at.sinceFrameS ?? null, sd = at.sinceDriveS ?? null, aff = h.driveAfterFrameS ?? 0, afd = h.fullAfterDriveS ?? 0;
+  const drive = drivable ? 0 : e.etaDriveS == null ? null : Math.max(ETA_FLOOR_S, Math.round(e.etaDriveS * h.driveRatio), Math.round(h.driveS - elapsedS), sf != null ? Math.round(aff - sf) : 0);
+  const full = phase === 'full' ? 0 : e.etaFullS == null ? null : Math.max(ETA_FLOOR_S, drive ?? 0, Math.round(e.etaFullS * h.fullRatio), Math.round(h.fullS - elapsedS),
+    drivable ? (sd != null ? Math.round(afd - sd) : 0) : (drive ?? 0) + afd);
+  const slow = drivable ? elapsedS > h.fullS * SLOW_PAST || (sd != null && afd > 0 && sd > afd * SLOW_PAST) : elapsedS > h.driveS * SLOW_PAST;
   return { etaDriveS: drive, etaFullS: full, slow };
 }
 
