@@ -687,7 +687,8 @@ export async function generateStorykit(
 
     if (!problems.length && meta && gated?.pack) {
       const pack = gated.pack;
-      // (a working person forged in a business suit gets their work's clothes: lib/storykit-wardrobe.ts)
+      // (a person forged in clothes that clash with their own job, a suit on a mechanic or overalls on a boss, gets the
+      // job's clothes: lib/storykit-wardrobe.ts)
       const fitted = fitCastWardrobes(pack, sk.hero && 'look' in sk.hero ? sk.hero.look : null);
       const inherit = inheritance(pack, gated.lines, parent);
       // the store draft the creator's browser fills (its parent's files that still apply carried over by hash); a world
