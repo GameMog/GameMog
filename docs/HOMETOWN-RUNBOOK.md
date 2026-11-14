@@ -53,12 +53,13 @@ idle. Idle costs $0.
 3. **Secrets** on the web's Environment page (already entered 13 Nov): `HOMETOWN_WORKER_TOKEN` (24+ characters; the
    workflow reads it from the web), `HOMETOWN_RENDER_API_KEY` (a Render API key, used only for `POST /v1/task-runs` and
    `GET /v1/task-runs/{id}`), `HOMETOWN_ADMIN_TOKEN`. `ANTHROPIC_API_KEY` and `ADMIN_PASSWORD` as before.
-4. **The build is learned by itself.** Leave `HOMETOWN_BUILD` empty: the first pick starts one run that reports the
-   build, and Create's card asks again every 15 s until it is admitted (about 16 s locally; on Render add a run's
-   spin-up). To learn it before any player: the workflow, `build_jobs`, **Run task** with input `[]`; the run logs
-   `{"event": "start", "build": "htc-0.9.0-hg1-b........", "caps": ["--assemble", "--far-list", "--frame", "--tiles"], ...}`
-   (all four caps must be listed) and ends idle 20 s later; the web keeps that build. Pinning it in `HOMETOWN_BUILD` is
-   optional.
+4. **The build is learned by itself.** Leave `HOMETOWN_BUILD` empty: at its boot the web starts one run (reason "learn
+   the build (a new workflow deploy)") whenever no run of its own workflow deploy has reported a build yet (each run
+   sends its deploy stamp: docs/HOMETOWN-HOSTING.md, "A compiler upgrade learns its build"), and again at most every
+   2 minutes while picks wait. Nothing is run by hand. The run logs
+   `{"event": "start", "build": "htc-0.9.0-hg1-b........", "caps": ["--assemble", "--far-list", "--frame", "--tiles"], "deploy": "<16 hex>", ...}`
+   (all four caps must be listed) and ends idle 20 s later; the /admin card's Build line shows the build ("learning"
+   until then). Pinning it in `HOMETOWN_BUILD` is optional.
 5. Open `/admin`: the Town builder card shows the runs in flight (0 of 20 when idle) and the build. "Not starting" names
    the missing variable.
 6. Run the live test (section 5).

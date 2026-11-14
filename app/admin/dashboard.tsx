@@ -34,7 +34,7 @@ export type Capacity = { held: number; max: number; queue: number; queueMax: num
 // mc: Mog City (mc.gamemog.com), counted apart from everything else here (lib/analytics.ts mcStats)
 /** The production town builder's status (lib/hometown-build/server.ts builderStatus), only while HOMETOWN_BUILDER is not off. */
 export type TownBuilderAdmin = {
-  mode: string; frame: boolean; build: { configured: string | null; current: string | null; workersReport: string[]; mismatch: boolean };
+  mode: string; frame: boolean; build: { configured: string | null; current: string | null; learned?: boolean; stale?: string | null; stamp?: string | null; workersReport: string[]; mismatch: boolean };
   workers: { id: string; build: string | null; slots: number; seen: number }[]; slots: number; queue: { prio: number; state: string; n: number; weight: number }[];
   costs: Record<string, { ewmaMs: number; n: number }>;
   /** degraded: built whole with tiles that could not be built laid as flat ground; failed: the job and its error;
@@ -273,6 +273,7 @@ function StoryKitCard({ k }: { k: StoryKitAdmin }) {
       <p className="fine">{k.guarded
         ? `New story worlds are paused: the store is past its guard (${guardPct}% of ${mb(k.disk)}). Published worlds still play. Raise STORYKIT_DISK_MB if the disk has room, or move the store off the disk.`
         : `New story worlds stop at ${guardPct}% (${mb(k.guard)}), ${mb(Math.max(0, k.guard - k.used))} from now; drafts already open can finish. STORYKIT_DISK_MB sets the size.`}</p>
+      <p className="fine">A published story world with no key art (its test drive never played it): <a href="/storykit/keyart.html">take its key art</a> in this browser.</p>
     </section>
   );
 }
@@ -291,7 +292,7 @@ function TownBuilderCard({ t }: { t: TownBuilderAdmin }) {
         <div><dt>Switch</dt><dd>{t.mode === 'owner' ? 'Owner only' : 'On for everyone'}<small>{t.frame ? ' spawn first (frame)' : ' whole town'}</small></dd></div>
         <div><dt>Workers</dt><dd>{t.workers.length}<small> {t.slots} slots live</small></dd></div>
         {t.runs && <div><dt>Runs</dt><dd>{t.runs.problem ? 'not starting' : `${t.runs.inFlight ?? 0} in flight`}<small>{t.runs.problem ? ` ${t.runs.problem}` : ` of ${t.runs.maxRuns} at most; wants ${t.runs.plan?.want ?? 0} for ${t.runs.plan?.ready ?? 0} ready jobs, ${t.runs.byState?.completed ?? 0} done${t.runs.lastError ? `; last error HTTP ${t.runs.lastError.status}${t.runs.holdS ? `, waiting ${t.runs.holdS} s` : ''}` : ''}`}</small></dd></div>}
-        <div><dt>Build</dt><dd>{t.build.current ?? 'none'}<small>{t.build.mismatch ? ` workers report ${t.build.workersReport.join(', ')}: not HOMETOWN_BUILD` : t.build.configured ? ' HOMETOWN_BUILD' : ' from the workers (set HOMETOWN_BUILD)'}</small></dd></div>
+        <div><dt>Build</dt><dd>{t.build.current ?? (t.build.learned === false ? 'learning' : 'none')}<small>{t.build.mismatch ? ` workers report ${t.build.workersReport.join(', ')}: not HOMETOWN_BUILD` : t.build.configured ? ' HOMETOWN_BUILD' : t.build.learned === false ? ` a new workflow deploy: a run is started to learn its build${t.build.stale ? ` (built towns keep playing at ${t.build.stale})` : ''}` : ' learned from the runs'}</small></dd></div>
         <div><dt>Towns</dt><dd>{towns('full')} built<small> {towns('asked') + towns('framing') + towns('district') + towns('growing')} building, {towns('failed')} failed{t.towns.degraded?.n ? `, ${t.towns.degraded.n} with flat patches` : ''}{t.towns.pending ? `, ${t.towns.pending} waiting for a builder to start` : ''}</small></dd></div>
         <div><dt>Canary</dt><dd>{t.canary.mismatches ? `${t.canary.mismatches} MISMATCH` : 'clean'}<small> {t.canary.runs} recompiled elsewhere</small></dd></div>
         <div><dt>Wait estimate</dt><dd>{t.etaError ? `${t.etaError.meanPct}% off` : 'no data yet'}<small>{t.etaError ? ` over ${t.etaError.n} towns` : ''}</small></dd></div>

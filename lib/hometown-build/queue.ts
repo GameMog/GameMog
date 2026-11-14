@@ -45,7 +45,9 @@ export type EnqueueSpec = {
   /** the town this job is wanted for (a wants row) */
   place?: string; firstAsked?: number;
 };
-export type ClaimSpec = { worker: string; build: string; freeSlots: number; totalSlots?: number; cached?: string[]; version?: string; memMb?: number };
+export type ClaimSpec = { worker: string; build: string; freeSlots: number; totalSlots?: number; cached?: string[]; version?: string; memMb?: number;
+  /** the worker's deploy stamp (stamp.ts): which workflow deploy the build it reports belongs to */
+  deploy?: string | null };
 
 export const LEASE_MS = 60_000;
 export const HEARTBEAT_MS = 15_000;
@@ -119,6 +121,9 @@ export class BuildQueue {
     // (a job's size in cost units, kept with the row so the dispatcher's plan sums it in SQL: jobUnits)
     const cols = (this.db.prepare('PRAGMA table_info(jobs)').all() as Row[]).map((r) => String(r.name));
     if (!cols.includes('units')) this.db.exec('ALTER TABLE jobs ADD COLUMN units REAL');
+    // (the deploy stamp a worker reports with its claims, 14 Nov: towns.ts buildView)
+    const wcols = (this.db.prepare('PRAGMA table_info(workers)').all() as Row[]).map((r) => String(r.name));
+    if (!wcols.includes('deploy')) this.db.exec('ALTER TABLE workers ADD COLUMN deploy TEXT');
     this.db.exec(MIGRATE);
     const fill = this.db.prepare('UPDATE jobs SET units = ? WHERE key = ?');
     for (const r of this.db.prepare('SELECT key, kind, args FROM jobs WHERE units IS NULL').all() as Row[]) {
@@ -336,9 +341,9 @@ export class BuildQueue {
   }
 
   private seen(c: ClaimSpec) {
-    this.db.prepare(`INSERT INTO workers (id, build, slots, seen, version, mem_mb) VALUES (?, ?, ?, ?, ?, ?)
-      ON CONFLICT(id) DO UPDATE SET build = excluded.build, slots = excluded.slots, seen = excluded.seen, version = excluded.version, mem_mb = excluded.mem_mb`)
-      .run(c.worker, c.build, c.totalSlots ?? c.freeSlots, this.now(), c.version ?? null, c.memMb ?? null);
+    this.db.prepare(`INSERT INTO workers (id, build, slots, seen, version, mem_mb, deploy) VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET build = excluded.build, slots = excluded.slots, seen = excluded.seen, version = excluded.version, mem_mb = excluded.mem_mb, deploy = excluded.deploy`)
+      .run(c.worker, c.build, c.totalSlots ?? c.freeSlots, this.now(), c.version ?? null, c.memMb ?? null, c.deploy ?? null);
   }
 
   /** The best claimable job for this worker, leased to it; null when there is none. */
@@ -461,9 +466,9 @@ export class BuildQueue {
 
   // ------------------------------------------------------------------------------------------------- read models
   /** Live workers (seen within LIVE_MS) and their slots. */
-  liveWorkers(): { id: string; build: string | null; slots: number; seen: number; version: string | null; memMb: number | null }[] {
+  liveWorkers(): { id: string; build: string | null; slots: number; seen: number; version: string | null; memMb: number | null; deploy: string | null }[] {
     return (this.db.prepare('SELECT * FROM workers WHERE seen >= ? ORDER BY id').all(this.now() - LIVE_MS) as Row[])
-      .map((r) => ({ id: String(r.id), build: (r.build as string) ?? null, slots: Number(r.slots) || 0, seen: Number(r.seen), version: (r.version as string) ?? null, memMb: r.mem_mb == null ? null : Number(r.mem_mb) }));
+      .map((r) => ({ id: String(r.id), build: (r.build as string) ?? null, slots: Number(r.slots) || 0, seen: Number(r.seen), version: (r.version as string) ?? null, memMb: r.mem_mb == null ? null : Number(r.mem_mb), deploy: (r.deploy as string) ?? null }));
   }
   liveSlots(): number { return this.liveWorkers().reduce((a, w) => a + w.slots, 0); }
   costOf(kind: JobKind, fallbackMs: number): number { const c = this.db.prepare('SELECT ewma_ms FROM costs WHERE kind = ?').get(kind) as Row | undefined; return c ? Number(c.ewma_ms) : fallbackMs; }

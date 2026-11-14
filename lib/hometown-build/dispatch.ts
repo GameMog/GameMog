@@ -112,10 +112,15 @@ export const STARTING_MAX_MS = 10 * 60_000;
 /** the breaker (Dispatcher.fruitless): this many ended runs in a row that never claimed hold starts this long */
 export const FRUITLESS_N = 3;
 export const FRUITLESS_HOLD_MS = 10 * 60_000;
-/** a pick refused for want of a build within this starts one probe run (plan) */
+/** a pick kept for want of a build (or the boot of a web whose deploy's build is not learned yet) within this starts one
+ * probe run (plan) */
 export const PROBE_MS = 10 * 60_000;
-/** (towns.ts BUILD_UNKNOWN: the same event kind; not imported, towns.ts imports this file) */
-const BUILD_UNKNOWN = 'build-unknown';
+/** while a new workflow deploy's build is being learned, a probe run is started at most this often: a probe that reported
+ * the OLD deploy's build (the workflow still rebuilding) is followed by another one this much later, not at once */
+export const PROBE_GAP_MS = 2 * 60_000;
+/** (towns.ts BUILD_UNKNOWN and BUILD_LEARN: the same event kinds; not imported, towns.ts imports this file) */
+const BUILD_UNKNOWN = 'build-unknown', BUILD_LEARN = 'build-learn';
+export const PROBE_REASON = 'learn the build';
 const COST_FALLBACK: Record<JobKind, number> = { regions: 40_000, ctx: 6_000, frame: 4_000, tiles: 2_000, far: 5_000, bundle: 10_000, manifest: 1_000, canary: 9_000 };
 
 export class Dispatcher {
@@ -124,6 +129,11 @@ export class Dispatcher {
   private holdUntil = 0;
   lastError: { at: number; status: number; message: string } | null = null;
   lastPlan: Plan | null = null;
+  /** true while the newest workflow deploy's build is not known (towns.ts buildView, not learned): server.ts sets it */
+  learning: () => boolean = () => false;
+  /** the build the last run of any deploy reported, while learning (buildView stale): its towns' queued work asks for a
+   * probe too (they move to the learned build: towns.ts rekeyStale) */
+  stale: () => string | null = () => null;
 
   readonly q: BuildQueue; readonly cfg: RunsConfig; readonly api: RenderRuns; readonly build: () => string | null; readonly now: () => number;
   constructor(q: BuildQueue, cfg: RunsConfig, api: RenderRuns, build: () => string | null, now?: () => number) {
@@ -159,8 +169,10 @@ export class Dispatcher {
    * JS with a cost lookup per row (about 200-330 ms at 20,000 jobs, the event loop blocked).
    */
   plan(): Plan {
-    const t = this.now(), build = this.build();
-    const bf = build ? ' AND build IN (?, ?)' : '', bp = build ? [build, ANY_BUILD] : [];
+    const t = this.now(), build = this.build(), learning = this.learning();
+    // (no build while a workflow redeploy's is learned: only the any-build jobs (regions) count; an older build's jobs
+    // wait for the new build to be learned and move to it, never start runs that may not claim them)
+    const bf = build ? ' AND build IN (?, ?)' : learning ? ' AND build = ?' : '', bp = build ? [build, ANY_BUILD] : learning ? [ANY_BUILD] : [];
     let leasedWeight = 0, workMs = 0, p0Ms = 0;
     // (grouped in the plan index's own order: a streaming aggregate, no sort)
     const sums = this.q.db.prepare(`SELECT state, build, kind, prio, SUM(COALESCE(units, 1)) u, SUM(weight) w FROM jobs WHERE state IN ('queued', 'leased')${bf} GROUP BY state, build, kind, prio`)
@@ -185,9 +197,19 @@ export class Dispatcher {
     const byJobs = Math.ceil((readyWeight + leasedWeight) / slots);
     const byWork = Math.ceil(p0Ms / (slots * target) + workMs / (slots * target * 10));
     const cap = interactive ? this.cfg.maxRuns : Math.min(this.cfg.maxRuns, this.cfg.prewarmRuns);
-    // (no build known yet, no HOMETOWN_BUILD and no run ever: a pick was refused for it within PROBE_MS, so ONE run is
-    // started to learn it; its first claim reports the build (queue.ts workers) and the next pick is admitted)
-    const probe = !build && !ready && this.cfg.maxRuns > 0 && !!this.q.db.prepare('SELECT 1 FROM events WHERE kind = ? AND at > ? LIMIT 1').get(BUILD_UNKNOWN, t - PROBE_MS);
+    // (no build known yet (no HOMETOWN_BUILD and no run ever, or a workflow redeploy whose build no run of it has
+    // reported: towns.ts buildView): a pick was kept for it, or the web booted so, within PROBE_MS, so ONE run is started
+    // to learn it; its first claim reports the build (queue.ts workers) and admits the kept picks. While a redeploy is
+    // being learned, at most one such run every PROBE_GAP_MS: one that reported the old deploy's build (the workflow still
+    // rebuilding) is not followed by another at once)
+    const stale = learning ? this.stale() : null;
+    let probe = (!build || learning) && !ready && this.cfg.maxRuns > 0
+      && (!!this.q.db.prepare('SELECT 1 FROM events WHERE kind IN (?, ?) AND at > ? LIMIT 1').get(BUILD_UNKNOWN, BUILD_LEARN, t - PROBE_MS)
+        || (!!stale && !!this.q.db.prepare("SELECT 1 FROM jobs WHERE state = 'queued' AND build = ? LIMIT 1").get(stale)));
+    if (probe && learning) {
+      const last = this.q.db.prepare('SELECT MAX(created) at FROM runs WHERE reason LIKE ?').get(`${PROBE_REASON}%`) as { at: number | null };
+      if (last.at != null && t - Number(last.at) < PROBE_GAP_MS) probe = false;
+    }
     const want = ready ? Math.max(Math.min(1, cap), Math.min(byJobs, byWork, cap)) : probe ? 1 : 0;
     const inFlight = this.inFlight();
     return { ready, readyWeight, leasedWeight, interactive, workMs: Math.round(workMs + p0Ms), p0Ms: Math.round(p0Ms), byJobs, byWork, want, inFlight, toStart: Math.max(0, want - inFlight), ...(probe ? { probe } : {}) };
@@ -269,7 +291,7 @@ export class Dispatcher {
     const n = Math.min(p.toStart, Math.max(0, this.cfg.startsPerMin - lastMinute));
     for (let i = 0; i < n; i++) {
       const idem = `ht-${t.toString(36)}-${randomBytes(6).toString('hex')}`;
-      const reason = p.probe ? 'learn the build (a pick and no build known)' : `want ${p.want}, ready ${p.ready}${p.interactive ? '' : ' (pre-warm)'}`;
+      const reason = p.probe ? `${PROBE_REASON} (${this.learning() ? 'a new workflow deploy' : 'a pick and no build known'})` : `want ${p.want}, ready ${p.ready}${p.interactive ? '' : ' (pre-warm)'}`;
       this.q.db.prepare("INSERT INTO runs (idem, state, want, reason, created, updated) VALUES (?, 'starting', ?, ?, ?, ?)").run(idem, p.want, reason, t, t);
       if (!(await this.send(this.rows(['starting']).find((r) => r.idem === idem)!))) break;
     }

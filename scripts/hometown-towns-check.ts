@@ -18,7 +18,12 @@ import { TOWN_ID, canonicalPlaceId, serviceLock, storyLock, sameServiceLock, LOC
 import { canonicalBox, TOWN_WORDS, cityPackageByLock, bundleFile, requestTown, townStatus, markInterrupted, printBuildArgs, storedTiles, type Job } from '../lib/hometown/towns.ts';
 import { townClientKey } from '../lib/hometown/client.ts';
 import { townsConfig } from '../lib/hometown/config.ts';
-import { storyFrameQuery, storyFrameSrc } from '../lib/storykit-publish.ts';
+import { storyFrameQuery, storyFrameSrc, playOf } from '../lib/storykit-publish.ts';
+import { BuildQueue } from '../lib/hometown-build/queue.ts';
+import { bestVariant } from '../lib/hometown-build/towns.ts';
+import { hometownConfig } from '../lib/hometown-tiles/config.ts';
+import { TileStore, GB } from '../lib/hometown-tiles/store.ts';
+import { bundleKey } from '../lib/hometown-tiles/keys.ts';
 import { StoryStore } from '../lib/storykit-store.ts';
 import { placeById } from '../lib/places/search.ts';
 
@@ -68,6 +73,32 @@ export async function runTownChecks(ok: Ok) {
   ok('a town of the production builder plays its bundle variant (&tv=full, or the spawn district while the rest builds: Mog City town-src.js)',
     storyFrameQuery('hometown', lock, 'full') === `city=pkg&town=us-4054200&tc=${lock.compiler}&ts=${lock.tiles}&tv=full` && storyFrameQuery('hometown', lock, 'district-5806-4290').endsWith('&tv=district-5806-4290') && storyFrameQuery('ny', null, 'full') === '');
   ok('the frame address joins the city part with one \'&\' (none stray), New York with none', /\/\?city=pkg&town=us-4054200&tc=[^&]+&ts=[0-9a-f]{64}&pack=/.test(storyFrameSrc('a'.repeat(64), 'g', 'http://localhost:1', 'hometown', lock)) && /\/\?pack=/.test(storyFrameSrc('a'.repeat(64), 'g', 'http://localhost:1', 'ny')) && /\/\?city=sf&pack=/.test(storyFrameSrc('a'.repeat(64), 'g', 'http://localhost:1', 'sf')) && !/&&/.test(storyFrameSrc('a'.repeat(64), 'g', 'http://localhost:1', 'hometown', lock)));
+
+  // ── a story published while only the spawn district was built, its whole town built later (14 Nov): the play page reads
+  // the town's best variant when the address is made (storyFrameQuery -> townPlay -> bestVariant), never kept with the world
+  {
+    const tq = mkdtempSync(path.join(tmpdir(), 'hometown-variant-'));
+    try {
+      const hc = hometownConfig({ HOMETOWN_DIR: tq, HOMETOWN_DATA_DIR: path.join(tq, 'data'), HOMETOWN_BUILDER: 'on' });
+      const d = { cfg: hc, store: new TileStore({ root: hc.root, capBytes: GB, minFreeBytes: 0, freeBytes: () => 100 * GB, log: () => {} }), queue: new BuildQueue({ file: path.join(tq, 'q.db') }) };
+      const T = lock.tiles, T2 = 'e'.repeat(64), DV = 'district-5806-4290';
+      const row = (meta: object) => { d.queue.db.prepare('DELETE FROM towns').run(); d.queue.db.prepare("INSERT INTO towns (place, build, box, state, first_asked, tiles_total, tiles_done, asks, source, meta) VALUES (?, ?, '[]', 'growing', 0, 1, 0, 1, 'player', ?)").run(lock.place, lock.compiler, JSON.stringify(meta)); };
+      const stored = (tiles: string, v: string) => d.store.put(bundleKey(lock.compiler, lock.place, tiles, v, 'bundle.json'), Buffer.from('{}'));
+      const q = () => storyFrameQuery('hometown', lock, playOf(bestVariant(d, lock.place, lock.compiler), lock));
+      row({ district: { tilesId: T, variant: DV } }); stored(T, DV);
+      ok('a story published on the spawn district plays the district while the rest builds', q() === `city=pkg&town=us-4054200&tc=${lock.compiler}&ts=${T}&tv=${DV}`, q());
+      row({ district: { tilesId: T, variant: DV }, full: { tilesId: T } });
+      ok('...the whole town recorded but its bundle not stored yet: still the district (never an address that 404s)', q().endsWith(`&ts=${T}&tv=${DV}`), q());
+      stored(T, 'full');
+      ok('the whole town built later than the story was published: the play page plays it (tv=full, the lock\'s tiles id)', q() === `city=pkg&town=us-4054200&tc=${lock.compiler}&ts=${T}&tv=full`, q());
+      row({ district: { tilesId: T, variant: DV }, full: { tilesId: T2 } }); stored(T2, 'full');
+      ok('...and when the whole town\'s tiles id is not the district\'s: the whole town anyway, at the same place and build, by its own tiles id',
+        q() === `city=pkg&town=us-4054200&tc=${lock.compiler}&ts=${T2}&tv=full`, q());
+      ok('a district of another tile set is never played for the lock (only the whole town may differ)', playOf({ variant: DV, tilesId: T2, full: false }, lock) === null && playOf(null, lock) === null);
+      ok('another build is another town: nothing is played for the lock at it', bestVariant(d, lock.place, 'htc-9.9.9-hg1-b99999999') === null);
+      d.queue.close();
+    } finally { rmSync(tq, { recursive: true, force: true }); }
+  }
 
   // the store: gates the pack with its town's table (read by its lock from the bundles), seals the runner pack with it
   const tmp = mkdtempSync(path.join(tmpdir(), 'hometown-towns-'));

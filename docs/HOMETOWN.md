@@ -83,12 +83,6 @@ learns the build), ready to write **58 s**, ready to drive **81 s**, whole town 
 
 ## Open items
 
-- **A compiler upgrade with `HOMETOWN_BUILD` empty**: a town picked after the workflow rebuilds but before a run of the
-  new build has claimed is admitted at the web's cached old build, which no new run can claim. Release 0.9.0 by running
-  `build_jobs` once by hand right after the workflow's rebuild (the web then learns the new build), or pin
-  `HOMETOWN_BUILD`.
-- **A pinned build on an empty store** queues no regions jobs at the pick; each compile then finds its missing regions
-  one at a time (slow, not wrong).
 - **Street names in the compiler**: `frame.py` still title-cases with Python's `str.title()` ("N 3Rd St"); the engine and
   `lib/hometown/names.ts` correct them when read. Fixing it at the source changes frame bytes (a compiler bump).
 - **Not proven before production**: the build on Render's native Python image (pip by hash, duckdb extensions, the
@@ -97,5 +91,9 @@ learns the build), ready to write **58 s**, ready to drive **81 s**, whole town 
 - **The full bundle** compiles the far field it does not find stored (about 2 minutes on the Mac for a whole town).
 - **A failing 12-tile block** costs 12 single-tile compiles before the town degrades; a failed tile inside the spawn
   district still fails the town.
-- **The first pick on a fresh deploy** still waits for one run to start on Render (its spin-up) unless the owner runs
-  `build_jobs` once by hand first.
+- **The first pick on a fresh deploy** waits for a run's spin-up only when it comes before the run the web starts at
+  its boot has reported the build (docs/HOMETOWN-HOSTING.md, "A compiler upgrade learns its build").
+- **A story world's whole town by another tiles id**: the play page plays the whole town once built at the same place
+  and build even when its tiles id is not the story's lock (lib/storykit-publish.ts townPlay), but Mog City's world check
+  (wagmi/storyrun/pack.js townLockMismatch) compares `tiles` too and would refuse it. Lock v3 gives every variant the
+  frame's lock, so this does not arise today.

@@ -9,12 +9,16 @@
  *
  * Offline: a temp directory, no server, no Python, no network.
  */
-import { mkdtempSync, rmSync, readFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { BuildQueue, ANY_BUILD } from '../lib/hometown-build/queue.ts';
 import { Dispatcher, RenderApiError, stateOf, renderRuns, runsConfig, runsReady, runsProblem, capacitySlots, STARTING_MAX_MS, RUN_MAX_MS, type RenderRuns, type RunsConfig } from '../lib/hometown-build/dispatch.ts';
-import { admitPending, currentBuild, estimate, requestTown, townStatus, type BuilderDeps } from '../lib/hometown-build/towns.ts';
+import { admitPending, currentBuild, estimate, requestTown, townStatus, buildView, rekeyStale, servingBuild, BUILD_LEARN, type BuilderDeps } from '../lib/hometown-build/towns.ts';
+import { deployStamp, webStamp } from '../lib/hometown-build/stamp.ts';
+import { workerResponse } from '../lib/hometown-build/server.ts';
+import { placeById } from '../lib/places/search.ts';
+import { buildKey } from '../lib/hometown-tiles/keys.ts';
 import { hometownConfig } from '../lib/hometown-tiles/config.ts';
 import { TOWN_WORDS } from '../lib/hometown/words.ts';
 import { TileStore, GB } from '../lib/hometown-tiles/store.ts';
@@ -223,6 +227,8 @@ export async function runDispatchChecks(ok: Ok) {
       q2.close();
     }
 
+    await learnChecks(ok, dir);
+
     // ---- orphaned rows: a 'starting' row whose POST never went through, behind 500 newer rows and a held start
     {
       let t3 = 50_000_000;
@@ -315,4 +321,100 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   let failed = 0;
   await runDispatchChecks((name, cond, detail) => { if (!cond) failed++; console.log(`${cond ? 'ok  ' : 'FAIL'} ${name}${detail ? ` (${detail})` : ''}`); });
   process.exit(failed ? 1 : 0);
+}
+
+/**
+ * A workflow redeploy (a compiler upgrade) with HOMETOWN_BUILD empty (14 Nov): the web learns the new deploy's build by
+ * itself (one run at boot), never admits a town at a build no live or startable run can claim, and moves a town left at
+ * the old build to the new one; a pinned build on an empty store still stages its regions at the pick.
+ */
+async function learnChecks(ok: Ok, dir: string) {
+  // the deploy stamp: the same bytes as worker.py deploy_stamp (deploy/town-builder/test_worker.py has the same vector)
+  const sv = path.join(dir, 'stamp'); mkdirSync(path.join(sv, 'sub'), { recursive: true });
+  writeFileSync(path.join(sv, 'a.sh'), 'echo a\n'); writeFileSync(path.join(sv, 'b.py'), 'print(1)\n');
+  writeFileSync(path.join(sv, '.hidden'), 'x'); writeFileSync(path.join(sv, 'sub', 'c.txt'), 'y'); writeFileSync(path.join(sv, 'old.pyc'), 'z');
+  ok('the deploy stamp hashes the top-level files by name and bytes (dot files, .pyc and folders skipped), as worker.py does', deployStamp(sv) === 'b4b09477bf5abee9', String(deployStamp(sv)));
+  ok('the web\'s stamp is its own deploy/town-builder\'s, HOMETOWN_DEPLOY_STAMP sets it, off switches it off',
+    webStamp({}) === deployStamp(path.join(process.cwd(), 'deploy', 'town-builder')) && !!webStamp({}) && webStamp({ HOMETOWN_DEPLOY_STAMP: 'ab'.repeat(8) }) === 'ab'.repeat(8) && webStamp({ HOMETOWN_DEPLOY_STAMP: 'off' }) === null);
+
+  const OLD = 'htc-0.8.0-hg1-b0000aaaa', NEW = 'htc-0.9.0-hg1-b1111bbbb', S_OLD = '0'.repeat(16), S_NEW = '1'.repeat(16);
+  let t = 20_000_000;
+  const q = new BuildQueue({ file: path.join(dir, 'learn.db'), now: () => t });
+  const api = new FakeRender(); api.q = q;
+  const hc = hometownConfig({ HOMETOWN_DIR: path.join(dir, 'learn'), HOMETOWN_DATA_DIR: path.join(dir, 'learn', 'data'), HOMETOWN_BUILDER: 'on', HOMETOWN_FRAME: 'on' });
+  const deps: BuilderDeps = { cfg: hc, store: new TileStore({ root: hc.root, capBytes: GB, minFreeBytes: 0, freeBytes: () => 100 * GB, log: () => {} }), queue: q, now: () => t, place: (id) => placeById(id), stamp: S_NEW };
+  // (before the redeploy: runs of the old deploy built Okemah in full at the old build)
+  q.seenWorker({ worker: 'run-before', build: OLD, freeSlots: 4, totalSlots: 4, deploy: S_OLD });
+  q.db.prepare("INSERT INTO towns (place, build, box, state, first_asked, tiles_total, tiles_done, asks, source, meta) VALUES ('us-4054200', ?, '[]', 'full', ?, 1, 1, 1, 'player', '{}')").run(OLD, t);
+  t += 3_600_000;
+  const v0 = buildView(deps);
+  ok('after a workflow redeploy no run of the new deploy has reported: the build is NOT learned and none is current (the old one is only stale)', !v0.learned && v0.build === null && v0.stale === OLD && currentBuild(deps) === null);
+  const d = new Dispatcher(q, cfgOf(), api, () => currentBuild(deps), () => t);
+  d.learning = () => !buildView(deps).learned;
+  q.log(BUILD_LEARN, { stamp: S_NEW });   // (server.ts builderDeps logs this at boot)
+  await d.tick();
+  ok('at boot, before any pick, ONE run is started to learn the new build (no manual build_jobs run)', api.posts === 1 && /learn the build \(a new workflow deploy\)/.test(String(api.runs.get('trn-1')?.input[0])) && !!d.lastPlan?.probe);
+  await d.tick();
+  ok('...only one while it is in flight', api.posts === 1);
+  // (the workflow is still rebuilding: that run is of the OLD deploy; it claims, reports the old build, finds nothing, ends)
+  q.claim({ worker: 'run-trn-1', build: OLD, freeSlots: 4, totalSlots: 4, deploy: S_OLD });
+  ok('a run of the old deploy does not make its build the learned one', !buildView(deps).learned && currentBuild(deps) === OLD);
+  api.end('completed', { build: OLD }); t += 60_000; q.db.prepare('UPDATE runs SET checked = 0').run(); await d.tick();
+  ok('a probe that reported the old deploy is not followed by another at once (one every 2 minutes while learning)', api.posts === 1 && currentBuild(deps) === null, `posts ${api.posts}`);
+  t += 70_000; await d.tick();
+  ok('...but 2 minutes on, one more', api.posts === 2);
+  // a town built in full at the old build plays at once while the new build is learned; a new town is kept, not admitted old
+  const okemah = requestTown(deps, 'us-4054200', '1.1.1.1');
+  ok('while learning, a town built in full at the old build is served at once (never kept waiting for a run)',
+    !q.db.prepare("SELECT 1 FROM pending WHERE place = 'us-4054200'").get() && servingBuild(deps, 'us-4054200') === OLD && okemah.status !== 503, JSON.stringify(okemah).slice(0, 200));
+  const boley = requestTown(deps, 'us-4007500', '1.1.1.2');
+  ok('while learning with no run live, a new town is kept (202), NOT admitted at the old build no run may claim again',
+    boley.status === 202 && !!q.db.prepare("SELECT 1 FROM pending WHERE place = 'us-4007500'").get() && !q.db.prepare("SELECT 1 FROM towns WHERE place = 'us-4007500'").get());
+  // (run 2 is of the old deploy too, and live: it CAN claim the old build, so the kept pick is admitted at it and built)
+  q.claim({ worker: 'run-trn-2', build: OLD, freeSlots: 4, totalSlots: 4, deploy: S_OLD });
+  ok('a LIVE run of the old deploy admits the kept pick at its build (it can claim it now)', admitPending(deps) === 1 && !!q.db.prepare("SELECT 1 FROM towns WHERE place = 'us-4007500' AND build = ?").get(OLD) && rekeyStale(deps) === 0);
+  api.end('completed', { build: OLD }); t += 60_000;
+  ok('when that run is gone and the build is still unlearned, the town is not moved (no learned build to move it to)', rekeyStale(deps) === 0);
+  // (a story was published on Okemah's spawn district at the old build: a growing town)
+  q.db.prepare("UPDATE towns SET state = 'growing', meta = ? WHERE place = 'us-4054200' AND build = ?").run(JSON.stringify({ district: { tilesId: 'c'.repeat(64), variant: 'district-1-2' } }), OLD);
+  // (the new deploy is live: its first run claims and reports the new build with the web's stamp)
+  q.claim({ worker: 'run-trn-3', build: NEW, freeSlots: 4, totalSlots: 4, deploy: S_NEW });
+  const v1 = buildView(deps);
+  ok('a run of the web\'s own deploy reports the build: learned, current, the boot probe stops', v1.learned && v1.build === NEW && currentBuild(deps) === NEW && !d.learning());
+  const moved = rekeyStale(deps);
+  const oldJobs = q.db.prepare("SELECT COUNT(*) n FROM jobs WHERE build = ? AND state != 'done'").get(OLD) as { n: number };
+  ok('the towns left at the old build move to the learned one (a building town whole; its old jobs dropped)',
+    moved === 2 && !q.db.prepare("SELECT 1 FROM towns WHERE place = 'us-4007500' AND build = ?").get(OLD) && !!q.db.prepare("SELECT 1 FROM towns WHERE place = 'us-4007500' AND build = ?").get(NEW)
+      && q.jobsOf('us-4007500').every((j) => j.build === NEW || j.build === ANY_BUILD) && oldJobs.n === 0, `moved ${moved}, old jobs ${oldJobs.n}`);
+  const g = q.db.prepare("SELECT meta FROM towns WHERE place = 'us-4054200' AND build = ?").get(OLD) as { meta: string } | undefined;
+  ok('...a playable town keeps its old row and district (a story pinned to it plays it) and is built whole at the new build',
+    !!g && JSON.parse(g.meta).movedTo === NEW && !!JSON.parse(g.meta).district && !!q.db.prepare("SELECT 1 FROM towns WHERE place = 'us-4054200' AND build = ?").get(NEW));
+  ok('...and only once', rekeyStale(deps) === 0);
+  t += 120_000; q.db.prepare('UPDATE runs SET checked = 0').run(); api.end('completed', { build: NEW });
+  const n = api.posts; await d.tick();
+  ok('with the build learned no probe starts; the moved towns\' work starts runs of the new build', !d.lastPlan?.probe && (d.lastPlan?.ready ?? 0) > 0 && api.posts > n, JSON.stringify(d.lastPlan));
+  q.close();
+
+  // ---- a pinned build on an empty store: the pick queues its regions jobs (no build record yet: the release is the run's)
+  {
+    let t2 = 30_000_000;
+    const q2 = new BuildQueue({ file: path.join(dir, 'pinned.db'), now: () => t2 });
+    const hc2 = hometownConfig({ HOMETOWN_DIR: path.join(dir, 'pinned'), HOMETOWN_DATA_DIR: path.join(dir, 'pinned', 'data'), HOMETOWN_BUILDER: 'on', HOMETOWN_FRAME: 'on', HOMETOWN_BUILD: NEW, HOMETOWN_WORKER_TOKEN: 'w'.repeat(40) });
+    const store2 = new TileStore({ root: hc2.root, capBytes: GB, minFreeBytes: 0, freeBytes: () => 100 * GB, log: () => {} });
+    const deps2: BuilderDeps = { cfg: hc2, store: store2, queue: q2, now: () => t2, place: (id) => placeById(id) };
+    const a = requestTown(deps2, 'us-4007500', '2.2.2.2');
+    const regions = q2.jobsOf('us-4007500').filter((j) => j.kind === 'regions');
+    const ctx = q2.jobsOf('us-4007500').filter((j) => j.kind === 'ctx');
+    ok('a pinned build on an empty store: the pick queues the town\'s regions jobs (bound to the build, the release not known yet), and its ctx wait on them',
+      a.status === 202 && regions.length > 0 && regions.every((j) => j.build === NEW && j.args.release == null && j.key.startsWith(`regions:@${NEW}:`))
+        && ctx.length > 0 && ctx.every((j) => j.deps.some((k) => k.startsWith('regions:'))), `${regions.length} regions, ${ctx.length} ctx`);
+    // (the run stores its build record before it claims: the claim fills the release in from it)
+    store2.put(buildKey(NEW), Buffer.from(JSON.stringify({ buildId: NEW, overture: '2026-10-21.0' })));
+    const res = await workerResponse(new Request('http://web/api/hometown/worker/claim', { method: 'POST', headers: { authorization: `Bearer ${'w'.repeat(40)}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ worker: 'run-p1', build: NEW, freeSlots: 4, totalSlots: 4 }) }), ['claim'], deps2, { pollMs: 0 });
+    const j = res.status === 200 ? await res.json() as { kind: string; key: string; args: { release?: string } } : null;
+    ok('...its first claim takes a regions job with the release from the run\'s build record, kept on the job (its outputs are checked against it)',
+      !!j && j.kind === 'regions' && j.args.release === '2026-10-21.0' && q2.get(j.key)?.args.release === '2026-10-21.0', JSON.stringify(j).slice(0, 300));
+    q2.close();
+  }
 }

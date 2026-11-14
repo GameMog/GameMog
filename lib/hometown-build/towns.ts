@@ -80,7 +80,10 @@ export type BuilderDeps = { cfg: HometownConfig; store: TileStore; queue: BuildQ
   runs?: RunsConfig | null;
   /** why on-demand builders are switched on (HOMETOWN_RUNS=workflows) but none can start (dispatch.ts runsProblem: no
    * Render API key or workflow slug); null when they can, or when the builder is not on-demand */
-  runsDown?: string | null };
+  runsDown?: string | null;
+  /** the workflow deploy this web expects of the runs (stamp.ts webStamp): set, a build counts as the current one only
+   * once a run of that deploy reports it (buildView); null or unset, the build the runs report, as before 14 Nov */
+  stamp?: string | null };
 
 // ------------------------------------------------------------------------------------------------ the job graph
 /**
@@ -211,7 +214,9 @@ export function promisedOutputs(store: TileStore, j: Job, reported: string[] = [
       if (!refused.includes(`hg1-${d}/0/${c}/${r}`)) need(tileKey(j.build, d, c, r));
     }
   } else if (j.kind === 'regions') {
-    for (const rg of (j.args.regions as string[]) ?? []) { const [d, C, R] = rg.split(/[/:,]/); need(srcKey(String(j.args.release), d as Domain, Number(C), Number(R), 'files.json')); }
+    // (no release known: the build record was never stored, so nothing it fetched can be checked; not done)
+    if (typeof j.args.release !== 'string' || !j.args.release) missing.push(`regions ${j.key}: no Overture release (builds/${j.build}.json not stored)`);
+    else for (const rg of (j.args.regions as string[]) ?? []) { const [d, C, R] = rg.split(/[/:,]/); need(srcKey(String(j.args.release), d as Domain, Number(C), Number(R), 'files.json')); }
   } else if (j.kind === 'frame') need(frameKey(j.build, String(j.args.placeId)));
   else if (j.kind === 'far') for (const k of (j.args.keys as string[]) ?? []) { const [g, L, C, R] = k.split('/'); need(farKey(j.build, g.slice(4) as Domain, Number(L), Number(C), Number(R))); }
   else if (j.kind === 'bundle') {
@@ -234,7 +239,9 @@ export type TownMeta = { promised?: { driveS: number | null; fullS: number | nul
   /** the tiles the full bundle laid as flat ground (they could not be built): a degraded town */
   absent?: string[];
   /** why the town failed (the job and its error), for the owner's status */
-  failed?: { key: string; why: string | null; at: number } };
+  failed?: { key: string; why: string | null; at: number };
+  /** a town admitted at a build no run could claim any more, moved to this build (rekeyStale) */
+  movedTo?: string };
 const rowOf = (q: BuildQueue, place: string, build: string) => q.db.prepare('SELECT * FROM towns WHERE place = ? AND build = ?').get(place, build) as TownRow | undefined;
 const metaOf = (r: TownRow | undefined): TownMeta => { try { return r ? JSON.parse(r.meta) : {}; } catch { return {}; } };
 const setTown = (q: BuildQueue, place: string, build: string, patch: Partial<Omit<TownRow, 'meta'>> & { meta?: TownMeta }) => {
@@ -244,17 +251,44 @@ const setTown = (q: BuildQueue, place: string, build: string, patch: Partial<Omi
   if (cols.length) q.db.prepare(`UPDATE towns SET ${cols.map((c) => `${c} = ?`).join(', ')} WHERE place = ? AND build = ?`).run(...vals, place, build);
 };
 
-/** The build new towns are made at: HOMETOWN_BUILD, else the build the live workers report (one of them). */
-export function currentBuild(d: BuilderDeps): string | null {
-  if (d.build) return d.build();
-  if (d.cfg.build) return d.cfg.build;
-  const w = d.queue.liveWorkers().map((x) => x.build).filter((b): b is string => !!b).sort();
-  if (w.length) return w[w.length - 1];
+/**
+ * The build new towns are made at, and whether it is the one the newest workflow deploy makes (14 Nov):
+ *   HOMETOWN_BUILD set               that build (learned: the owner's pin)
+ *   no deploy stamp (stamp unset)    the build the live runs report, else the build the last run reported (learned)
+ *   a run of this web's deploy seen  the build it reports (learned): a live one first, else the last one seen
+ *   none yet (a workflow redeploy)   NOT learned: only a build a live run reports (that run can claim it now), else none:
+ *                                    the pick is kept (pending) and the dispatcher starts a run to learn it (plan, probe);
+ *                                    `stale` is the build the last run of any deploy reported (towns built in full there
+ *                                    keep being served at once: servingBuild)
+ * A town admitted at an older build that no live run reports any more is moved to the learned build (rekeyStale).
+ */
+export type BuildView = { build: string | null; learned: boolean; stale: string | null; stamp: string | null };
+export function buildView(d: BuilderDeps): BuildView {
+  if (d.build) return { build: d.build(), learned: true, stale: null, stamp: null };
+  if (d.cfg.build) return { build: d.cfg.build, learned: true, stale: null, stamp: null };
+  const live = d.queue.liveWorkers().filter((x) => !!x.build);
+  const newest = (ws: { build: string | null }[]) => ws.map((x) => x.build!).sort().at(-1) ?? null;
+  const last = (stamp?: string) => (d.queue.db.prepare(`SELECT build FROM workers WHERE build IS NOT NULL${stamp ? ' AND deploy = ?' : ''} ORDER BY seen DESC LIMIT 1`)
+    .get(...(stamp ? [stamp] : [])) as { build: string } | undefined)?.build ?? null;
+  const stamp = d.stamp ?? null;
   // (no builder live: on-demand runs are up only while there is work. The build the last run reported, so a pick between
-  // runs is never refused for want of one; HOMETOWN_BUILD pins it instead, the upgrade runbook's step)
-  const last = d.queue.db.prepare('SELECT build FROM workers WHERE build IS NOT NULL ORDER BY seen DESC LIMIT 1').get() as { build: string } | undefined;
-  return last?.build ?? null;
+  // runs is never refused for want of one)
+  if (!stamp) return { build: newest(live) ?? last(), learned: true, stale: null, stamp };
+  const mine = newest(live.filter((x) => x.deploy === stamp)) ?? last(stamp);
+  if (mine) return { build: mine, learned: true, stale: null, stamp };
+  return { build: newest(live), learned: false, stale: last(), stamp };
 }
+export function currentBuild(d: BuilderDeps): string | null { return buildView(d).build; }
+/** The build a town is SERVED at: the current one, or, while the current one is being learned, the stale build when the
+ * town is built in full there (a built town needs no run: it plays at once, as it did before the redeploy). */
+export function servingBuild(d: BuilderDeps, placeId: string): string | null {
+  const v = buildView(d);
+  if (v.build) return v.build;
+  return v.stale && rowOf(d.queue, placeId, v.stale)?.state === 'full' ? v.stale : null;
+}
+/** The event logged at boot when the web's deploy has no build yet (buildView not learned): the dispatcher starts one run
+ * to learn it at once (dispatch.ts plan, probe), before any pick. */
+export const BUILD_LEARN = 'build-learn';
 /** The event a pick logs when no build is known yet (no HOMETOWN_BUILD, no run ever): the dispatcher starts ONE run to
  * learn it (dispatch.ts plan, `probe`); the player is asked to try again in a minute. */
 export const BUILD_UNKNOWN = 'build-unknown';
@@ -322,8 +356,7 @@ export function listVariants(store: TileStore, build: string, place: string, til
 }
 
 /** The lock a story may pin now: the full bundle's (v2 or v3), else the frame's (v3, phase district or later). */
-export function storyReadyLock(d: BuilderDeps, placeId: string): ServiceLock | null {
-  const build = currentBuild(d);
+export function storyReadyLock(d: BuilderDeps, placeId: string, build: string | null = servingBuild(d, placeId)): ServiceLock | null {
   if (!build) return null;
   const r = rowOf(d.queue, placeId, build), m = metaOf(r);
   if (m.full) { const l = readJson<ServiceLock>(d.store, bundleKey(build, placeId, m.full.tilesId, 'full', 'lock.json')); if (l && storyLock(l)) return l; }
@@ -350,7 +383,7 @@ function progressOf(d: BuilderDeps, r: TownRow): Progress {
     phase: r.state, district: r.state === 'growing' || r.state === 'full', etaDriveS: r.state === 'growing' || r.state === 'full' ? 0 : e.etaDriveS, etaFullS: e.etaFullS,
   };
   if (r.state === 'district' || r.state === 'growing') {
-    const lock = storyReadyLock(d, r.place), pin = lock && storyLock(lock), pkg = pin ? cityPackageFromStore(d.store, pin) : null;
+    const lock = storyReadyLock(d, r.place, r.build), pin = lock && storyLock(lock), pkg = pin ? cityPackageFromStore(d.store, pin) : null;
     if (pin && pkg) { out.lock = pin; out.town = summaryOf(pkg); }
     if (m.district) out.play = { build: r.build, tilesId: m.district.tilesId, variant: m.district.variant };
   }
@@ -403,7 +436,7 @@ function answer(d: BuilderDeps, r: TownRow): TownAnswer {
 export function townStatus(d: BuilderDeps, placeId: string): TownAnswer {
   if (!TOWN_ID.test(placeId)) return { status: 400, body: { error: TOWN_WORDS.unknown } };
   if (pendingOf(d.queue, placeId)) { admitPending(d); const p = pendingAnswer(d, placeId); if (p) return p; }
-  const build = currentBuild(d);
+  const build = servingBuild(d, placeId);
   const r = build ? rowOf(d.queue, placeId, build) : undefined;
   if (!r) return { status: 404, body: { placeId, error: 'This town has not been asked for.' } };
   return answer(d, r);
@@ -454,6 +487,50 @@ export function admitPending(d: BuilderDeps): number {
   return n;
 }
 
+/**
+ * Towns admitted at an older build that no run can claim any more, moved to the current build (14 Nov). A workflow
+ * redeploy (a compiler upgrade) changes the build its runs report; a town admitted at the old build (by a run of the old
+ * deploy still live while the new one was learned) would otherwise wait for good once no old run is left. Only when the
+ * current build is LEARNED (a run of this web's deploy reported it) and is not the owner's pin (a pin is the shadow
+ * upgrade: the owner moves it), and only towns no live run reports the build of. A town not yet playable (asked,
+ * framing) is moved whole; a playable one (district, growing) keeps its row and its district bundle (a story pinned to it
+ * plays it) and is built whole at the new build. The old build's unfinished jobs it wanted are dropped when no other
+ * town wants them. The dispatcher's pass and every claim call this. -> how many towns moved.
+ */
+export const REKEY_MAX_AGE_MS = 24 * 3600_000;
+export function rekeyStale(d: BuilderDeps): number {
+  if (d.build || d.cfg.build) return 0;
+  const v = buildView(d);
+  if (!v.learned || !v.build) return 0;
+  const cur = v.build, q = d.queue;
+  // (towns asked within a day: one left half built at a build abandoned long ago is nobody's wait, and is not paid for
+  // again; it is built at the current build when it is asked again, as any town is)
+  const rows = q.db.prepare("SELECT * FROM towns WHERE build != ? AND state IN ('asked', 'framing', 'district', 'growing') AND first_asked > ?").all(cur, q.now() - REKEY_MAX_AGE_MS) as TownRow[];
+  if (!rows.length) return 0;
+  const live = new Set(q.liveWorkers().map((w) => w.build).filter((b): b is string => !!b));
+  let n = 0;
+  for (const r of rows) {
+    const m = metaOf(r);
+    if (live.has(r.build) || m.movedTo) continue;
+    const place = (d.place ?? ((id: string) => placeById(id)))(r.place);
+    try {
+      q.tx(() => {
+        for (const j of q.jobsOf(r.place).filter((x) => x.build === r.build && x.state !== 'done')) {
+          q.db.prepare('DELETE FROM wants WHERE job = ? AND place = ?').run(j.key, r.place);
+          if (!q.db.prepare('SELECT 1 FROM wants WHERE job = ?').get(j.key)) q.db.prepare('DELETE FROM jobs WHERE key = ?').run(j.key);
+        }
+        if (r.state === 'asked' || r.state === 'framing') q.db.prepare('DELETE FROM towns WHERE place = ? AND build = ?').run(r.place, r.build);
+        else setTown(q, r.place, r.build, { meta: { ...m, movedTo: cur } });
+        if (place && !rowOf(q, r.place, cur)) enqueueTown(d, place, cur, r.source, r.first_asked, false);
+      });
+      q.log('town-rekeyed', { place: r.place, from: r.build, to: cur, state: r.state });
+      n++;
+    } catch (e) { console.error('hometown-build: rekey', r.place, String((e as Error).message).slice(0, 200)); }
+  }
+  if (n) q.changed();
+  return n;
+}
+
 /** POST /api/towns: a built town at once, its build joined, a new build admitted, or a refusal. */
 export function requestTown(d: BuilderDeps, placeId: string, ip: string, source: TownSource = 'player'): TownAnswer {
   if (typeof placeId !== 'string' || !TOWN_ID.test(placeId)) return { status: 400, body: { error: TOWN_WORDS.unknown } };
@@ -463,7 +540,7 @@ export function requestTown(d: BuilderDeps, placeId: string, ip: string, source:
   // full is served as ever; any other pick is refused at once, with no retryS, never left waiting its turn for a run
   // that cannot come)
   if (d.runsDown) {
-    const b = currentBuild(d), row = b ? rowOf(d.queue, placeId, b) : undefined;
+    const b = servingBuild(d, placeId), row = b ? rowOf(d.queue, placeId, b) : undefined;
     if (!row || row.state !== 'full') return { status: 503, body: { placeId, error: TOWN_WORDS.closed } };
   }
   const build = currentBuild(d);
@@ -471,6 +548,10 @@ export function requestTown(d: BuilderDeps, placeId: string, ip: string, source:
   const perIp = Number(process.env.HOMETOWN_PER_IP_HOUR) > 0 ? Number(process.env.HOMETOWN_PER_IP_HOUR) : 3;
   const ipk = ipKey(ip);
   if (!build) {
+    // (a town built in full at the build the runs reported before a workflow redeploy: served at once, as before; a run
+    // is needed only for a town still to be built)
+    const v = buildView(d), old = v.stale ? rowOf(q, placeId, v.stale) : undefined;
+    if (old?.state === 'full') return answer(d, old);
     // (kept, answered 202 at once: the dispatcher starts ONE run (dispatch.ts plan, probe) whose first claim admits the
     // pick at the build it reports and takes its first job: admitPending. Only the address limit applies here: nothing
     // is building, so the queue's limits are moot)
@@ -564,16 +645,20 @@ function enqueueTownIn(d: BuilderDeps, place: Place, build: string, source: Town
   });
   // the town's map regions not staged yet (its tiles' 3.2 km reach), fetched FIRST, each by exactly one job, before its
   // ctx: one round of fetches at the pick instead of a compile finding them missing one exit 3 at a time
+  // (the Overture release the build reads is in its build record, stored by the build's first run before it claims. A
+  // pinned build on an empty store has none yet at the pick: its regions jobs are then bound to the build (only its runs
+  // claim them) with no release, filled in at the claim from the claiming run's record (server.ts argsOf and the claim), so the
+  // pick still stages its regions first instead of each compile finding them missing one exit 3 at a time)
   const rel = releaseIn(d.store, build), dom = g.stage.domain;
   const regionDeps: string[] = [];
   // (the job that stages each region: a ctx block (C, R) reads exactly region (C, R) (compile.py --ctx loads its own
   // block only), so each ctx waits for ITS region alone and starts while the town's other regions are still fetched;
   // the tiles and the frame read the regions round them (3.2 km), so they wait for all of the town's)
   const regionJob = new Map<string, string>();
-  if (rel) {
+  {
     const fresh: [number, number][] = [];
     for (const [C, R] of townRegions(g.stage)) {
-      if (d.store.has(srcKey(rel, dom as Domain, C, R, 'files.json'))) continue;
+      if (rel && d.store.has(srcKey(rel, dom as Domain, C, R, 'files.json'))) continue;
       const k = q.regionsActive(dom, C, R);
       if (k) { regionDeps.push(k); regionJob.set(`${C},${R}`, k); } else fresh.push([C, R]);
     }
@@ -584,10 +669,10 @@ function enqueueTownIn(d: BuilderDeps, place: Place, build: string, source: Town
     const regionSpecs: EnqueueSpec[] = [];
     for (let i = 0; i < fresh.length; i += 4) {
       const list = fresh.slice(i, i + 4).map(([C, R]) => `${C},${R}`).join(';');
-      const key = `regions:${rel}:hg1-${dom}:${list}`;
+      const key = rel ? `regions:${rel}:hg1-${dom}:${list}` : `regions:@${build}:hg1-${dom}:${list}`;
       regionDeps.push(key);
       for (const [C, R] of fresh.slice(i, i + 4)) regionJob.set(`${C},${R}`, key);
-      regionSpecs.push({ key, kind: 'regions', build: ANY_BUILD, prio: base, ring: 0, weight: 2, args: { release: rel, spec: `${dom}:${list}`, regions: fresh.slice(i, i + 4).map(([C, R]) => `${dom}/${C}/${R}`) }, place: place.placeId, firstAsked: now });
+      regionSpecs.push({ key, kind: 'regions', build: rel ? ANY_BUILD : build, prio: base, ring: 0, weight: 2, args: { release: rel, spec: `${dom}:${list}`, regions: fresh.slice(i, i + 4).map(([C, R]) => `${dom}/${C}/${R}`) }, place: place.placeId, firstAsked: now });
     }
     if (regionSpecs.length) q.enqueueMany(regionSpecs);
   }
@@ -742,8 +827,10 @@ export function onBundleStored(d: BuilderDeps, key: string) {
 /** (the engine's growing.js reads `state: 'full'` or `full: true` as "the whole town is ready": both are sent) */
 export function bestVariant(d: BuilderDeps, placeId: string, build: string): { variant: string; tilesId: string; url: string; state: 'full' | 'district'; full: boolean } | null {
   const r = rowOf(d.queue, placeId, build), m = metaOf(r);
-  const pick = m.full ? { variant: 'full', tilesId: m.full.tilesId } : m.district ? { variant: m.district.variant, tilesId: m.district.tilesId } : null;
-  if (!pick || !d.store.has(bundleKey(build, placeId, pick.tilesId, pick.variant, 'bundle.json'))) return null;
+  // (the whole town's once built, else the spawn district's; a variant whose bundle is not stored is passed over)
+  const pick = [m.full ? { variant: 'full', tilesId: m.full.tilesId } : null, m.district ? { variant: m.district.variant, tilesId: m.district.tilesId } : null]
+    .find((v) => v && d.store.has(bundleKey(build, placeId, v.tilesId, v.variant, 'bundle.json'))) ?? null;
+  if (!pick) return null;
   const full = pick.variant === 'full';
   return { ...pick, url: `/towns/${placeId}/${build}/${pick.tilesId}/${pick.variant}/`, state: full ? 'full' : 'district', full };
 }

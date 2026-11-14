@@ -86,8 +86,9 @@ services:
       - key: HOMETOWN_FRAME
         value: "on"
       # the build new towns are made at: the buildId a run logs at start (the owner's status page shows it). Optional:
-      # unset, it is the build the last run reported, and the very first pick (no run ever) starts one run to learn it
-      # (that pick is asked to try again in a minute). Set it to pin a build across a compiler upgrade
+      # unset, it is the build the last run of this commit's workflow deploy reported (its deploy stamp), learned by a
+      # run the web starts at its boot when none has yet (a pick meanwhile waits its turn). Set it to pin a build across a
+      # compiler upgrade
       - key: HOMETOWN_BUILD
         sync: false
       # the store's share of the 10 GB disk (Story Kit's real use is far under its 8 GB on paper; no put lands under the

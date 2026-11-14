@@ -277,6 +277,14 @@ async function g4to6(ok: Ok, dir: string) {
   ok('over HOMETOWN_MAX_WAIT_S: 503 busy, the minutes in words, and the nearest built towns', b.status === 503 && /about \d+ minute/.test(nb.error) && (nb.nearby ?? []).some((n) => n.placeId === 'us-4055000'), JSON.stringify(b.body).slice(0, 300));
   ok('the busy words and the phase words never name a tool or vendor', !FORBIDDEN.test(BUSY_WORDS(14)) && Object.values(PHASE_WORDS).every((w) => !FORBIDDEN.test(w)));
 
+  // (a pinned build on an empty store: the picks queued their towns' regions jobs, bound to the build with no release yet
+  // (the dispatch check follows one to its claim, the release filled from the run's build record); here they count as
+  // staged, so the protocol below starts at a ctx as before)
+  ok('a pinned build on an empty store queues each town\'s regions jobs at the pick (bound to the build, no release yet)',
+    d.queue.jobsOf('us-4054200').some((j) => j.kind === 'regions' && j.build === B && j.args.release == null && j.key.startsWith(`regions:@${B}:`)));
+  ok('...a regions job with no release is never taken as done (nothing it fetched can be checked)', (() => { const r = d.queue.jobsOf('us-4054200').find((j) => j.kind === 'regions')!; return promisedOutputs(d.store, r, []).length === 1; })());
+  d.queue.db.prepare("UPDATE jobs SET state = 'done' WHERE kind = 'regions'").run();
+
   // ---- the worker protocol
   const call = (method: string, p: string, body?: unknown, token = W_TOKEN, extra: Record<string, string> = {}) =>
     workerResponse(new Request(`http://web/api/hometown/worker/${p}`, { method, headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json', ...extra }, body: body === undefined ? undefined : body instanceof Buffer ? new Uint8Array(body) : JSON.stringify(body) }), p.split('/'), d, { pollMs: 50 });
@@ -362,7 +370,8 @@ async function g4to6(ok: Ok, dir: string) {
     const full = q.jobsOf(pid).find((j) => j.kind === 'bundle' && j.args.variant === 'full')!, dist = q.jobsOf(pid).find((j) => j.kind === 'bundle' && j.args.variant !== 'full');
     ok('the full bundle waits on the new tile jobs and on no dropped one; the district bundle on the district\'s', full.deps.every((k) => !!q.get(k)) && tj.every((j) => full.deps.includes(j.key)) && Number(full.args.tiles) === moved.length
       && !!dist && dist.deps.every((k) => !!q.get(k)) && String(dist.args.variant) === fr.variant);
-    ok('the new ctx blocks are enqueued before their tiles', tj.every((j) => j.deps.every((k) => q.get(k)?.kind === 'ctx')) && q.recentEvents(50).some((e) => e.kind === 'retile'));
+    // (and the town's regions: an empty store's pick queues them first, 14 Nov)
+    ok('the new ctx blocks are enqueued before their tiles', tj.every((j) => j.deps.every((k) => ['ctx', 'regions'].includes(String(q.get(k)?.kind))) && j.deps.some((k) => q.get(k)?.kind === 'ctx')) && q.recentEvents(50).some((e) => e.kind === 'retile'));
     dR.queue.close();
   }
 
@@ -525,7 +534,7 @@ async function robustness(ok: Ok, dir: string) {
   ok('no build known: 202 waiting its turn at once (kept)', kept.status === 202 && (kept.body as { phase: string }).phase === 'asked' && townStatus(p, 'us-4054200').status === 202);
   const first = await call({ worker: 'run-1', build: B, freeSlots: 4, totalSlots: 4 });
   const fj = await first.json() as { key: string; kind: string; leaseId: string };
-  ok('the first claim of the run (reporting the build) admits the kept pick and is handed its first job in that same claim', first.status === 200 && fj.kind === 'ctx' && p.queue.jobsOf('us-4054200').length > 0
+  ok('the first claim of the run (reporting the build) admits the kept pick and is handed its first job in that same claim', first.status === 200 && (fj.kind === 'regions' || fj.kind === 'ctx') && p.queue.jobsOf('us-4054200').length > 0
     && (p.queue.db.prepare('SELECT COUNT(*) n FROM pending').get() as { n: number }).n === 0 && p.queue.recentEvents(20).some((e) => e.kind === 'admitted'), JSON.stringify(fj).slice(0, 200));
   // ---- the claim's free slots re-read on every wake-up: a last-slot (P0 only) claim takes P1 work once the other job ends
   p.queue.db.prepare("UPDATE jobs SET state = 'done' WHERE state = 'queued' AND key != ? AND kind != 'tiles'").run(fj.key);

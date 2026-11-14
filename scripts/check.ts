@@ -25,6 +25,7 @@ import { runAnchorChecks } from './storykit-anchors-check.ts';
 import { runStoryStoreChecks } from './storykit-store-check.ts';
 import { runStoryOwnerChecks } from './storykit-owner-check.ts';
 import { runStoryPatchChecks } from './storykit-patch-check.ts';
+import { runKeyArtChecks } from './storykit-keyart-check.ts';
 import { runForgeBrowserChecks } from './storykit-forge-browser-check.ts';
 import { runHometownChecks } from './storykit-hometown-check.ts';
 import { runWardrobeChecks } from './storykit-wardrobe-check.ts';
@@ -540,6 +541,8 @@ await runStoryStoreChecks(ok);
 runStoryOwnerChecks(ok);
 // Story Kit (5 Nov): the owner's patch of a published world (an opening added to a kept world, the old one kept)
 runStoryPatchChecks(ok);
+// Story Kit (14 Nov): a published story world's key art taken again by the owner's browser (no test drive had taken it)
+await runKeyArtChecks(ok);
 // Hometown (12 Nov): the builder reads a town's CityPackage, the town lock on Mogs, and the real-place safety rules
 runHometownChecks(ok);
 // Story Kit (13 Nov): a forged person's clothes follow their work (a mechanic is never forged in a business suit)

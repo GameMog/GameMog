@@ -23,11 +23,12 @@ import { BUILD_ID, WORKER_PUT, contentType, parseKeyString, buildKey, ctxKey, ti
 import { StoreFull, type TileStore } from '../hometown-tiles/store.ts';
 import type { HometownConfig } from '../hometown-tiles/config.ts';
 import { BuildQueue, ANY_BUILD, HEARTBEAT_MS, LEASE_MS, maskBits, type Job } from './queue.ts';
-import { admitPending, afterJobDone, currentBuild, onBundleStored, prewarm, promisedOutputs, townsStatus, type BuilderDeps, type TownMeta } from './towns.ts';
+import { admitPending, afterJobDone, buildView, currentBuild, onBundleStored, prewarm, promisedOutputs, rekeyStale, townsStatus, BUILD_LEARN, type BuilderDeps, type TownMeta } from './towns.ts';
+import { webStamp, STAMP } from './stamp.ts';
 import { prewarmList } from '../hometown-tiles/prewarm-list.ts';
 import { Dispatcher, renderRuns, runsConfig, runsProblem, runsReady, type RunsConfig } from './dispatch.ts';
 
-const G = globalThis as unknown as { __hometownBuilder?: { file: string; q: BuildQueue; reaper: NodeJS.Timeout | null; dispatcher: Dispatcher | null; runs: RunsConfig } };
+const G = globalThis as unknown as { __hometownBuilder?: { file: string; q: BuildQueue; reaper: NodeJS.Timeout | null; dispatcher: Dispatcher | null; runs: RunsConfig; stamp: string | null } };
 /**
  * The server's one queue (data/hometown/queue.db), a 10 s reaper and, with HOMETOWN_RUNS=workflows and the builder not
  * off, the dispatcher that starts Render Workflows runs on demand (dispatch.ts): a pass every 5 s and on every queue
@@ -42,11 +43,23 @@ export function builderDeps(cfg: HometownConfig = hometownConfig(), env: Record<
     const reaper = setInterval(() => { try { q.reap(); } catch { /* the next tick */ } }, 10_000);
     reaper.unref?.();
     const runs = runsConfig(env);
+    // (the workflow deploy this web was made with: a build counts as current once a run of it reports it, towns.ts buildView)
+    const stamp = webStamp(env);
+    const base = (): BuilderDeps => ({ cfg, store: hometownStore(cfg), queue: q, stamp });
     let dispatcher: Dispatcher | null = null;
     if (cfg.builder !== 'off' && runsReady(runs)) {
-      const build = () => currentBuild({ cfg, store: hometownStore(cfg), queue: q });
+      const build = () => currentBuild(base());
       const disp = new Dispatcher(q, runs, renderRuns(runs), build);
-      const kick = () => { disp.tick().catch((e) => console.error('hometown-build: dispatch', String((e as Error)?.message ?? e).slice(0, 300))); };
+      // (a workflow redeploy whose build no run has reported yet: one run is started at once to learn it, before any
+      // pick; picks meanwhile are kept, never admitted at the old build, unless a live run can claim it: plan, probe)
+      disp.learning = () => !buildView(base()).learned;
+      disp.stale = () => buildView(base()).stale;
+      try { if (disp.learning()) q.log(BUILD_LEARN, { stamp }); } catch { /* the next pick asks */ }
+      const kick = () => {
+        // (towns admitted at a build no run can claim any more move to the learned one before the plan counts them)
+        try { rekeyStale(base()); } catch (e) { console.error('hometown-build: rekey', String((e as Error)?.message ?? e).slice(0, 300)); }
+        disp.tick().catch((e) => console.error('hometown-build: dispatch', String((e as Error)?.message ?? e).slice(0, 300)));
+      };
       let soon: NodeJS.Timeout | null = null;
       q.onChange(() => { if (!soon) { soon = setTimeout(() => { soon = null; kick(); }, 300); soon.unref?.(); } });
       const every = setInterval(kick, 5_000);
@@ -54,11 +67,11 @@ export function builderDeps(cfg: HometownConfig = hometownConfig(), env: Record<
       kick();
       dispatcher = disp;
     } else if (runs.mode === 'workflows') console.error('hometown-build: HOMETOWN_RUNS=workflows but', runsProblem(runs) ?? `HOMETOWN_BUILDER is ${cfg.builder}`);
-    G.__hometownBuilder = { file, q, reaper, dispatcher, runs };
+    G.__hometownBuilder = { file, q, reaper, dispatcher, runs, stamp };
   }
   const h = G.__hometownBuilder;
   const runsDown = cfg.builder !== 'off' && h.runs.mode === 'workflows' && !h.dispatcher ? (runsProblem(h.runs) ?? 'no dispatcher') : null;
-  return { cfg, store: hometownStore(cfg), queue: h.q, runs: h.dispatcher ? h.runs : null, runsDown };
+  return { cfg, store: hometownStore(cfg), queue: h.q, runs: h.dispatcher ? h.runs : null, runsDown, stamp: h.stamp };
 }
 /** The dispatcher of this server, if it runs one (the owner's status page). */
 export const builderDispatcher = (): Dispatcher | null => G.__hometownBuilder?.dispatcher ?? null;
@@ -121,6 +134,8 @@ export function inputsOf(d: BuilderDeps, j: Job): string[] {
  * the assembler lays flat ground there instead of refusing the whole town.
  */
 export function argsOf(d: BuilderDeps, j: Job): Record<string, unknown> {
+  // (a regions job queued before its build's record was stored: the release the record names, once it is stored)
+  if (j.kind === 'regions' && !j.args.release && j.build !== ANY_BUILD) { const rel = releaseOf(d.store, j.build); return rel ? { ...j.args, release: rel } : j.args; }
   if (j.kind !== 'bundle' || j.args.variant !== 'full') return j.args;
   const r = d.queue.db.prepare('SELECT meta FROM towns WHERE place = ? AND build = ?').get(String(j.args.placeId), j.build) as { meta: string } | undefined;
   let refused: string[] = [];
@@ -149,12 +164,16 @@ export async function workerResponse(req: Request, parts: string[], d: BuilderDe
     if (req.method === 'POST' && parts[0] === 'claim') {
       const b = await readBody(req);
       const spec = { worker: str(b.worker, 80), build: str(b.build, 40), freeSlots: Math.max(0, Math.floor(Number(b.freeSlots) || 0)), totalSlots: Math.max(1, Math.floor(Number(b.totalSlots) || 1)),
-        cached: Array.isArray(b.cached) ? (b.cached as unknown[]).map((x) => str(x, 80)).slice(0, 500) : [], version: str(b.version, 80), memMb: Math.floor(Number(b.memFreeMB) || 0) };
+        cached: Array.isArray(b.cached) ? (b.cached as unknown[]).map((x) => str(x, 80)).slice(0, 500) : [], version: str(b.version, 80), memMb: Math.floor(Number(b.memFreeMB) || 0),
+        deploy: STAMP.test(str(b.deploy, 16)) ? str(b.deploy, 16) : null };
       if (!spec.worker || !spec.build || !spec.freeSlots) return json(400, { error: 'worker, build and freeSlots' });
       // (this worker's build is now known: picks kept while no build was (towns.ts admitPending) are admitted at it before
       // this very claim, so the run started for them takes their first job now, not one long-poll later)
       queue.seenWorker(spec);
       try { admitPending(d); } catch (e) { console.error('hometown-build: admit', String((e as Error)?.message ?? e).slice(0, 200)); }
+      // (a run of a new workflow deploy has just made its build the learned one: towns left at a build no run can claim
+      // move to it before this claim looks for work)
+      try { rekeyStale(d); } catch (e) { console.error('hometown-build: rekey', String((e as Error)?.message ?? e).slice(0, 200)); }
       const asked = spec.freeSlots;
       const until = Date.now() + Math.min(20_000, o.pollMs ?? 20_000);
       for (;;) {
@@ -164,6 +183,11 @@ export async function workerResponse(req: Request, parts: string[], d: BuilderDe
         spec.freeSlots = Math.max(asked, spec.totalSlots - queue.heldBy(spec.worker, spec.totalSlots));
         const j = queue.claim(spec);
         if (j) {
+          // (a regions job queued before its build's record was stored names no release: this run's record names it)
+          if (j.kind === 'regions' && !j.args.release) {
+            const rel = releaseOf(store, spec.build);
+            if (rel) { j.args = { ...j.args, release: rel }; queue.db.prepare('UPDATE jobs SET args = ? WHERE key = ?').run(JSON.stringify(j.args), j.key); }
+          }
           return json(200, { key: j.key, kind: j.kind, build: j.build === ANY_BUILD ? spec.build : j.build, leaseId: j.leaseId, leaseMs: LEASE_MS, heartbeatMs: HEARTBEAT_MS, args: argsOf(d, j), prio: j.prio,
             release: releaseOf(store, spec.build), inputs: inputsOf(d, j), attempts: j.attempts, current: currentBuild(d) });
         }
@@ -249,7 +273,7 @@ export function builderStatus(d: BuilderDeps) {
   const canary = ev.filter((e) => e.kind === 'canary');
   const eta = ev.filter((e) => e.kind === 'eta');
   return {
-    mode: d.cfg.builder, frame: d.cfg.frame, build: { configured: d.cfg.build, current: currentBuild(d), workersReport: seen, mismatch: !!d.cfg.build && seen.some((b) => b !== d.cfg.build) },
+    mode: d.cfg.builder, frame: d.cfg.frame, build: (() => { const v = buildView(d); return { configured: d.cfg.build, current: v.build, learned: v.learned, stale: v.stale, stamp: v.stamp, workersReport: seen, mismatch: !!d.cfg.build && seen.some((b) => b !== d.cfg.build) }; })(),
     workers, slots: q.liveSlots(), queue: q.depth(), costs: q.costs(), towns: townsStatus(d),
     canary: { runs: canary.length, mismatches: canary.filter((e) => e.match === false).length, last: canary.slice(0, 5) },
     etaError: eta.length ? { n: eta.length, meanPct: Math.round(eta.reduce((a, e) => a + Math.abs(Number(e.errPct ?? 0)), 0) / eta.length) } : null,

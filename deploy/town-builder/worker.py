@@ -34,6 +34,8 @@ Environment:
                             token wrong) instead of waiting (a Workflows run is billed while it waits)
   HOMETOWN_RUN_CAP_S        stop claiming after this many seconds and return when the running jobs are done (0: none)
   HOMETOWN_IMAGE_ID_FILE    the build recipe's id (default /opt/hometown-image-id; workflow-build.sh writes its own)
+  HOMETOWN_DEPLOY_STAMP     this checkout's deploy stamp (deploy_stamp; default: hashed from this folder), sent with every
+                            claim so the web knows which workflow deploy the reported build belongs to
   HOMETOWN_TEST_FAIL_TILES  TESTS ONLY (deploy/town-builder/workflow-sim.sh SIM_FAIL_TILE): tile ids whose tile jobs fail
                             as a compile crash would, to prove a town degrades (unset in production)
 
@@ -75,6 +77,32 @@ KEY_OK = {
     'frames': re.compile(r'^frames/[^/]+/[a-z0-9-]+\.json$'),
     'manifests': re.compile(r'^manifests/[^/]+/[a-z0-9-]+\.json$'),
 }
+
+
+def deploy_stamp(d=None):
+    """This checkout's deploy stamp: the files that make the workflow (deploy/town-builder, render.yaml's buildFilter),
+    hashed by name and bytes. The web computes the same from its own checkout (lib/hometown-build/stamp.ts deployStamp):
+    a run that reports the web's stamp is a run of the deploy the web was made with, so the build it reports is the one
+    new towns are made at (a compiler upgrade is learned without a manual run). HOMETOWN_DEPLOY_STAMP overrides it.
+    -> 16 hex, or None when the folder cannot be read."""
+    v = (os.environ.get('HOMETOWN_DEPLOY_STAMP') or '').strip()
+    if re.match(r'^[0-9a-f]{16}$', v):
+        return v
+    if v == 'off':
+        return None
+    d = d or os.path.dirname(os.path.abspath(__file__))
+    try:
+        h, n = hashlib.sha256(), 0
+        for name in sorted(x for x in os.listdir(d) if not x.startswith('.') and not x.endswith('.pyc')):
+            p = os.path.join(d, name)
+            if not os.path.isfile(p):
+                continue
+            with open(p, 'rb') as f:
+                h.update(('%s\0%s\n' % (name, hashlib.sha256(f.read()).hexdigest())).encode('utf-8'))
+            n += 1
+        return h.hexdigest()[:16] if n else None
+    except OSError:
+        return None
 
 
 def log(**kw):
@@ -354,6 +382,7 @@ class Worker:
         self.caps = box['caps']
         self.init_s = round(time.time() - t0, 2)
         self.fail_tiles = {t for t in (os.environ.get('HOMETOWN_TEST_FAIL_TILES') or '').split(',') if t}
+        self.deploy = deploy_stamp()
 
     def child_env(self):
         env = {k: os.environ[k] for k in ENV_ALLOW if os.environ.get(k) is not None}
@@ -584,7 +613,10 @@ class Worker:
         release = job.get('release') or self.record.get('overture')
         outputs, refused, peak = [], [], None
         if kind == 'regions':
-            st = self.stage_regions(args['spec'], args['release'])
+            # (a regions job queued before its build's record was stored (a pinned build on an empty store) names no
+            # release: the web fills it at the claim from this worker's record, and this worker's own record is the same)
+            rel = args.get('release') or release
+            st = self.stage_regions(args['spec'], rel)
             if st:
                 code, err, out, peak = self.run(['fetch.py', '--regions', st, '--data', self.data], job, timeout=1800)
                 if code != 0:
@@ -592,7 +624,7 @@ class Worker:
             dom = args['spec'].split(':')[0]
             for b in args['spec'].split(':')[1].split(';'):
                 C, R = [int(v) for v in b.split(',')]
-                outputs.append(self.upload_region(dom, C, R, args['release']))
+                outputs.append(self.upload_region(dom, C, R, rel))
         elif kind == 'ctx':
             code, err, out, peak, missing = self.compile(['--ctx', args['ctx']], job, release)
             if missing:
@@ -914,7 +946,7 @@ class Worker:
             signal.signal(signal.SIGINT, self.stop)
         except ValueError:
             pass  # (not the main thread: the caller owns the signals)
-        log(event='start', worker=self.id, build=self.build, slots=self.slots, cpus=self.cpus, memGB=round(self.mem / GB, 2), caps=sorted(self.caps), initS=getattr(self, 'init_s', None),
+        log(event='start', worker=self.id, build=self.build, slots=self.slots, cpus=self.cpus, memGB=round(self.mem / GB, 2), caps=sorted(self.caps), initS=getattr(self, 'init_s', None), deploy=getattr(self, 'deploy', None),
             image=self.env.get('HOMETOWN_IMAGE_DIGEST', 'unpinned (local venv)'), version=VERSION, once=self.once, idleS=self.idle_s, capS=self.cap_s)
         # the build record first: a manifest is refused until its build's record is stored
         bk = 'builds/%s.json' % self.build
@@ -953,7 +985,7 @@ class Worker:
             whole = free >= self.slots and not busy
             try:
                 st, j = self.web.jcall('POST', 'claim', {'worker': self.id, 'build': self.build, 'freeSlots': free, 'totalSlots': self.slots, 'cached': self.cached_regions(),
-                                                          'version': VERSION, 'memFreeMB': None}, timeout=40)
+                                                          'version': VERSION, 'memFreeMB': None, 'deploy': getattr(self, 'deploy', None)}, timeout=40)
             except RuntimeError as e:
                 log(event='web-down', why=str(e)[:200])
                 if self.once and not self.running:

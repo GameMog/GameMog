@@ -90,24 +90,37 @@ export function storyFrameSrc(world: string, game: string, site = storySite(), c
  * One helper for every address that boots a world: the play page (storyPlaySrc), the frame (storyFrameSrc) and the test
  * drive (the draft status's `frame`, public/storykit/work.js).
  */
-export function storyFrameQuery(city?: string | null, town?: HometownLock | null, tv: string | null = city === 'hometown' ? townVariant(town) : null): string {
+export function storyFrameQuery(city?: string | null, town?: HometownLock | null, tv: string | TownPlay | null = city === 'hometown' ? townPlay(town) : null): string {
   if (city === 'sf') return 'city=sf';
-  if (city === 'hometown' && town) return `city=pkg&town=${encodeURIComponent(town.place)}&tc=${encodeURIComponent(town.compiler)}&ts=${encodeURIComponent(town.tiles)}${tv ? `&tv=${encodeURIComponent(tv)}` : ''}`;
+  if (city === 'hometown' && town) {
+    const play = typeof tv === 'string' ? { variant: tv, tilesId: town.tiles } : tv;
+    return `city=pkg&town=${encodeURIComponent(town.place)}&tc=${encodeURIComponent(town.compiler)}&ts=${encodeURIComponent(play?.tilesId ?? town.tiles)}${play ? `&tv=${encodeURIComponent(play.variant)}` : ''}`;
+  }
   return '';
 }
 /**
- * The bundle variant a town built by the production builder plays (&tv=, Mog City's wagmi/world/town-src.js): its bundles
- * live at /towns/{place}/{build}/{tiles}/{variant}/, the whole town's ('full') once built, else the spawn district's
- * (growing.js swaps to the whole town when it is ready). Null for a town of the in-process builder (its one bundle at
- * /towns/{place}/{build}/{tiles}/), or when the production builder is off.
+ * The bundle a town built by the production builder plays (&tv= and &ts=, Mog City's wagmi/world/town-src.js): its bundles
+ * live at /towns/{place}/{build}/{tiles}/{variant}/. Read when the address is made (every play page, every draft status),
+ * never kept with the world: a story published while only the spawn district was built plays the WHOLE town ('full') as
+ * soon as the whole town's bundle is stored, at the same place and build (the lock's compiler), whatever its tiles id;
+ * else the spawn district's (growing.js swaps to the whole town when it is ready). Null for a town of the in-process
+ * builder (its one bundle at /towns/{place}/{build}/{tiles}/), or when the production builder is off.
  */
-export function townVariant(town?: HometownLock | null): string | null {
+export type TownPlay = { variant: string; tilesId: string };
+export function townPlay(town?: HometownLock | null): TownPlay | null {
   if (!town || builderMode() === 'off') return null;
-  try {
-    const v = bestVariant(builderDeps(), town.place, town.compiler);
-    return v && v.tilesId === town.tiles ? v.variant : null;
-  } catch { return null; }
+  try { return playOf(bestVariant(builderDeps(), town.place, town.compiler), town); } catch { return null; }
 }
+/** (pure: the variant bestVariant found at the lock's place and build -> what the lock plays) */
+export function playOf(v: { variant: string; tilesId: string; full: boolean } | null, town: HometownLock): TownPlay | null {
+  if (!v) return null;
+  // (the whole town: the same place and build, so it plays even when its tiles id is not the lock's; a district only
+  // when it is the lock's own tile set)
+  if (v.full) return { variant: 'full', tilesId: v.tilesId };
+  return v.tilesId === town.tiles ? { variant: v.variant, tilesId: v.tilesId } : null;
+}
+/** The variant alone (townPlay), as before. */
+export const townVariant = (town?: HometownLock | null): string | null => townPlay(town)?.variant ?? null;
 /** A story world's city as its meta names it (storykit.city), or null. */
 export const storyCityOf = (meta?: string | null): string | null => { const c = metaOf(meta).storykit?.city; return typeof c === 'string' ? c : null; };
 /** A hometown story world's town as its meta pins it (storykit.hometown, the pack's base.hometown), or null. */
@@ -303,4 +316,48 @@ export function titleStoryArt(slug: string, owner = false): Promise<{ wide: Buff
   })().finally(() => titling.delete(row.id));
   titling.set(row.id, job);
   return job;
+}
+
+/**
+ * Key art again for a published story world (14 Nov): one whose test drive never drove its world has none (a hometown
+ * story's drive played New York before work.js read the town's four-part frame, so Mog City refused the world and took
+ * no frame; its cover is the plain palette card). Mog City makes key art only in a browser (a frame of the first drive,
+ * the HUD hidden: the server has no graphics card), so the owner's browser takes it: /storykit/keyart.html?slug=<slug>
+ * frames the world as it plays (storyKeyArtSrc, its sealed world: nothing about the world changes) with Mog City's
+ * autopilot and ?keyart=1, hears the `keyart` message and sends the two JPEGs here (saveStoryKeyArt). The game's plain
+ * frame (cover) and its art are replaced, then titled in Mog City's lockup as at a report (titleStoryArt). Owner only:
+ * app/api/storykit/admin/keyart/route.ts.
+ */
+const KEYART_PARAMS = '&nogate&trailer=0&autopilot=1&autoanswer=1&autochoose=0&autocontinue=1&autocard=1&flowfast=1&noaudio=1&keyart=1';
+type StoryGameRow = { id: string; slug: string; title: string; meta: string | null; hidden: number; cover: Uint8Array | null };
+const storyGame = (slug: unknown): StoryGameRow | null => {
+  if (typeof slug !== 'string' || !/^[a-z0-9-]{1,80}$/.test(slug)) return null;
+  const g = db.prepare('SELECT id, slug, title, meta, hidden, cover FROM games WHERE slug = ?').get(slug) as StoryGameRow | undefined;
+  return g && sealedWorldOf(g.meta) ? g : null;
+};
+/** The published story worlds with no key art (no plain frame stored): the owner's list on the key art page. */
+export function storyWorldsWithoutArt(): { slug: string; title: string; city: string | null; hidden: boolean }[] {
+  const rows = db.prepare("SELECT slug, title, meta, hidden FROM games WHERE cover IS NULL AND json_extract(meta, '$.storykit.world') IS NOT NULL ORDER BY created_at DESC LIMIT 200")
+    .all() as { slug: string; title: string; meta: string | null; hidden: number }[];
+  return rows.map((r) => ({ slug: r.slug, title: r.title, city: storyCityOf(r.meta), hidden: !!r.hidden }));
+}
+/** Where the owner's browser takes a published story world's key art: its play address, the autopilot on, ?keyart=1. */
+export function storyKeyArtSrc(slug: unknown, site = storySite()): { slug: string; title: string; src: string; mc: string; hasArt: boolean } | null {
+  const g = storyGame(slug); if (!g) return null;
+  const src = storyPlaySrc(g.meta, `keyart-${g.id}`, site);
+  return src ? { slug: g.slug, title: g.title, src: `${src}${KEYART_PARAMS}`, mc: new URL(src).origin, hasArt: !!g.cover } : null;
+}
+/** The two JPEGs Mog City took (wide and square), checked, as the game's frame and art, then titled. */
+export async function saveStoryKeyArt(slug: unknown, wide: Uint8Array, square: Uint8Array): Promise<{ ok: true; slug: string; titled: boolean } | { ok: false; status: number; error: string }> {
+  const g = storyGame(slug); if (!g) return { ok: false, status: 404, error: 'No published story world has that slug.' };
+  const sharp = (await import('sharp')).default;
+  for (const [name, b, min] of [['wide', wide, 320], ['square', square, 128]] as const) {
+    if (b.length < 1000 || b.length > 4 * 1024 * 1024 || b[0] !== 0xff || b[1] !== 0xd8 || b[2] !== 0xff) return { ok: false, status: 422, error: `${name}: a JPEG of 1 KB to 4 MB.` };
+    const m = await sharp(b).metadata().catch(() => null);
+    if (!m || m.format !== 'jpeg' || !m.width || !m.height || Math.min(m.width, m.height) < min / 2 || m.width < min) return { ok: false, status: 422, error: `${name}: not a JPEG frame of at least ${min} px.` };
+  }
+  // (the plain frame is the cover and, until titled, the art: titleStoryArt titles exactly such a world, once)
+  db.prepare('UPDATE games SET cover = ?, art_wide = ?, art_icon = ? WHERE id = ?').run(wide, wide, square, g.id);
+  const titled = await titleStoryArt(g.slug, true).catch(() => null);
+  return { ok: true, slug: g.slug, titled: !!titled };
 }

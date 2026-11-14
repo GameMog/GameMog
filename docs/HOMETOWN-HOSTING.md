@@ -67,6 +67,37 @@ Golden Triangle). Stage 1 in TS cannot know that box (it needs the map), so:
 
 Uncapped towns (the search's square already under the cap) are unchanged: their frame is stage 1's box.
 
+### A compiler upgrade learns its build (14 Nov; before, a manual `build_jobs` run)
+
+Every run sends its **deploy stamp** with its claims: the files that make the workflow (`deploy/town-builder/*`, exactly
+the workflow's `buildFilter`) hashed by name and bytes (`worker.py deploy_stamp`). The web computes the same stamp from
+its own checkout (`lib/hometown-build/stamp.ts`); both deploy from the same commit, and the workflow rebuilds exactly
+when those files change. So, with `HOMETOWN_BUILD` empty (`towns.ts buildView`):
+
+- the build of the **newest run that reports the web's stamp** is the current build (learned);
+- until one has (the workflow is still rebuilding, or no run has started since), the build is **not learned**: a pick of a
+  town built in full at the old build plays at once; any other pick is kept (202 "Waiting its turn") and is admitted
+  only at a build a **live** run reports (that run can claim it now), never at a build no run may claim again;
+- at the web's boot (`build-learn` in the event log) and on every kept pick, the dispatcher starts **one** run to learn
+  it, at most one every 2 minutes while learning (`PROBE_GAP_MS`: a run that reported the old deploy, the workflow still
+  rebuilding, is not followed by another at once), for 10 minutes after the last boot or pick;
+- once learned, a town left at an older build that no live run reports (admitted by a run of the old deploy that has
+  since ended) **moves** to the new build (`rekeyStale`, `town-rekeyed` in the event log): a town not yet playable whole;
+  a playable one keeps its row and spawn district (a story pinned to it plays it) and is built whole at the new build.
+  The old build's unfinished jobs are dropped when no other town wants them. A pinned `HOMETOWN_BUILD` is never moved.
+
+`HOMETOWN_DEPLOY_STAMP` overrides the stamp (16 hex) on either side, or `off` on the web (the build the runs report, as
+before). If the workflow's rebuild fails, its old deploy keeps running: picks are then built at the old build by live
+runs of it, and the /admin card keeps saying "learning".
+
+### A pinned build on an empty store stages its regions at the pick
+
+The Overture release a build reads is in its build record, which the build's first run stores before it claims. A town
+picked before that (a pinned `HOMETOWN_BUILD` on an empty store) still gets its regions jobs at the pick: bound to the
+build (only its runs claim them), keyed `regions:@<build>:...`, the release filled in at the claim from the claiming
+run's record (`server.ts`), so its ctx and tiles wait on one round of fetches instead of finding regions missing one exit
+3 at a time.
+
 ### The first pick on a fresh deploy: the build is learned in the same run
 
 The build new towns are made at is `HOMETOWN_BUILD` when set; else the build the live runs report; else the build the
@@ -327,18 +358,37 @@ the owner picks the moment. In this order:
 3. **Nothing building** on Render, then push GameMog `prod-builder-clean` to `main`. `deploy/town-builder/**` changed
    (the pin, the worker), so the workflow rebuilds at compiler 0.9.0; the web deploys the /admin fix and the builder's
    round-4 fixes.
-4. **Right after the workflow's rebuild** (its log ends `town-builder build: ok`), run `build_jobs` once by hand with
-   input `[]`: the web then learns the 0.9.0 build before any player picks (see the open item in
-   [HOMETOWN.md](HOMETOWN.md#open-items)). Towns built at 0.8.0 keep playing at their build; a town asked again is
-   built at 0.9.0.
+4. **Nothing by hand for the build.** The web learns the 0.9.0 build itself (below, "A compiler upgrade learns its
+   build"): at its boot it starts one run, and again every 2 minutes while picks wait, until a run of the new workflow
+   deploy reports it. Towns built at 0.8.0 keep playing at their build; a town asked again is built at 0.9.0. The /admin
+   card's Build line says "learning" until then.
 5. Check /admin opens (the Town builder card), then one owner test pick.
+6. **Story worlds with no key art** (published while the test drive played the wrong city, before work.js read the
+   town's four-part frame): open `/storykit/keyart.html` in the owner's /admin browser; it lists them, and each one's
+   link plays that world in Mog City and keeps its key art (below, "Key art again").
+
+### Key art again
+
+A published story world whose test drive never drove it has no key art: before work.js read a town's four-part frame
+(13 Nov), a hometown story's drive played New York, Mog City refused the world and took no frame, so the game's cover is
+the plain palette card. Key art is a frame Mog City takes in a browser (the server has no graphics card), so the owner's
+browser takes it again:
+
+1. Sign in at `/admin` (the Story Kit card links the page), then open `/storykit/keyart.html`: the published story worlds
+   with no key art, each a link (`?slug=<slug>` takes it for any published story world, replacing what it has).
+2. The page plays the world as published (its sealed world and its town, unchanged) in Mog City with the autopilot and
+   `?keyart=1`; a few seconds into the first drive Mog City sends a wide and a square frame. Keep the tab in front.
+3. They are sent to `POST /api/storykit/admin/keyart` (owner only): checked as JPEG frames, stored as the game's cover
+   (the plain frame) and art, and titled in Mog City's lockup (`titleStoryArt`). The world, its plays and its Mogs are
+   unchanged. `/g/<slug>/cover` is cached up to an hour.
 
 ## Compiler upgrade
 
 1. Re-pin `MOGCITY_SHA` in `workflow-build.sh` and push; only the workflow rebuilds. The commit must be on a branch of
    GameMog/GameMog first.
-2. With `HOMETOWN_BUILD` unset the new build is used as soon as a run of it claims (towns are then built at it; towns
-   built at the old build keep playing at it: every story pins its lock). To shadow-build first, pin `HOMETOWN_BUILD`
+2. With `HOMETOWN_BUILD` unset the new build is learned by itself (above, "A compiler upgrade learns its build"): one
+   run at the web's boot, and towns are built at it as soon as a run of the new deploy reports it (towns built at the
+   old build keep playing at it: every story pins its lock). To shadow-build first, pin `HOMETOWN_BUILD`
    to the old build, pre-warm at the new one (`POST /api/hometown/admin/prewarm {"n": 100, "build": "<new>"}`), then
    change the pin.
 3. After 30 days, the GC dry run lists the unpinned old objects; the owner applies the plan.

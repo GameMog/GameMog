@@ -384,6 +384,44 @@ class Once(unittest.TestCase):
         self.assertLess(s['seconds'], 5)
 
 
+class DeployStamp(unittest.TestCase):
+    """The deploy stamp a run sends with its claims: the same bytes as the web's (lib/hometown-build/stamp.ts; the same
+    vector is in scripts/hometown-dispatch-check.ts), so the web knows the build is the new workflow deploy's."""
+    def test_vector(self):
+        d = tempfile.mkdtemp()
+        try:
+            os.makedirs(os.path.join(d, 'sub'))
+            for name, body in (('a.sh', b'echo a\n'), ('b.py', b'print(1)\n'), ('.hidden', b'x'), (os.path.join('sub', 'c.txt'), b'y'), ('old.pyc', b'z')):
+                with open(os.path.join(d, name), 'wb') as f:
+                    f.write(body)
+            self.assertEqual(W.deploy_stamp(d), 'b4b09477bf5abee9')
+            self.assertIsNone(W.deploy_stamp(os.path.join(d, 'sub', 'none')))
+        finally:
+            shutil.rmtree(d)
+
+    def test_override_and_own_folder(self):
+        self.assertRegex(W.deploy_stamp() or '', r'^[0-9a-f]{16}$')
+        os.environ['HOMETOWN_DEPLOY_STAMP'] = 'ab' * 8
+        try:
+            self.assertEqual(W.deploy_stamp(), 'ab' * 8)
+        finally:
+            del os.environ['HOMETOWN_DEPLOY_STAMP']
+
+    def test_claim_carries_it(self):
+        bodies = []
+        web = StubWeb([])
+        real = web.jcall
+        def jcall(method, path, body=None, **kw):
+            if path == 'claim':
+                bodies.append(body)
+            return real(method, path, body, **kw)
+        web.jcall = jcall
+        w = loop_worker(web, idle_s=0.0)
+        w.deploy = 'cd' * 8
+        w.main()
+        self.assertTrue(bodies and all(b.get('deploy') == 'cd' * 8 for b in bodies))
+
+
 spec2 = importlib.util.spec_from_file_location('workflow', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'workflow.py'))
 WF = importlib.util.module_from_spec(spec2)
 spec2.loader.exec_module(WF)
