@@ -17,9 +17,20 @@
  *
  * Admission (5.3): a new town is refused when its wait to drive is over HOMETOWN_MAX_WAIT_S, with the minutes and the 3
  * nearest built towns; per address HOMETOWN_PER_IP_HOUR new towns, HOMETOWN_DAILY_COLD a day, HOMETOWN_QUEUE_MAX towns
- * waiting (defaults from the live slots). A town that is built is never limited.
+ * waiting (defaults from the live slots). A town that is built is never limited. The per-address count lives in the
+ * queue's SQLite (ip_hits, a hash of the address), so a deploy never resets it.
+ *
+ * Degraded towns: a tile that cannot be built (queue.ts: retried, split to one job per tile, retried again) leaves flat
+ * ground in the whole town (the full bundle's args.absent; deploy/town-builder/worker.py lays it), and the town still
+ * becomes 'full' (meta.absent: the owner's status lists it). A failed tile inside the spawn district fails the town:
+ * the district is the frame's spawnDistrict (meta.districtWindow), or without the frame the anchor's 5 x 5.
+ *
+ * No build known yet (no HOMETOWN_BUILD, no run ever): the pick is kept (pending) and answered 202 at once; the
+ * dispatcher starts one run, and that run's FIRST claim admits it at the build it reports and takes its first job
+ * (admitPending): no refusal, no round trip, no idle claim.
  */
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { placeById } from '../places/search.ts';
 import type { Place } from '../places/types.ts';
 import { packageProblems, cityLock, type CityPackage } from '../../storykit/hometown/city-package.ts';
@@ -192,7 +203,9 @@ export function promisedOutputs(store: TileStore, j: Job, reported: string[] = [
     const want = new RegExp(`^bundles/${j.build}/${j.args.placeId}/[0-9a-f]{64}/${j.args.variant}/bundle\\.json$`);
     const b = reported.find((k) => want.test(k));
     if (!b) missing.push(`bundles/${j.build}/${j.args.placeId}/*/${j.args.variant}/bundle.json (not reported)`); else need(b);
-    if (j.args.variant === 'full') need(manifestKey(j.build, String(j.args.placeId)));
+    // (a degraded town, tiles laid as flat ground, stores no session descriptor: the web takes a manifest only when every
+    // tile it lists is stored, and a placeholder never is. Its bundle is how it plays; a later whole build may store one)
+    if (j.args.variant === 'full' && !((j.args.absent as string[] | undefined) ?? []).length) need(manifestKey(j.build, String(j.args.placeId)));
   }
   for (const k of reported) if (parseKeyString(k) && !store.has(k)) missing.push(k);
   return [...new Set(missing)];
@@ -200,7 +213,13 @@ export function promisedOutputs(store: TileStore, j: Job, reported: string[] = [
 
 // ------------------------------------------------------------------------------------------------- towns rows
 type TownRow = { place: string; build: string; box: string; state: TownPhase; first_asked: number; frame_at: number | null; district_at: number | null; full_at: number | null; tiles_total: number; tiles_done: number; asks: number; source: TownSource; meta: string };
-export type TownMeta = { promised?: { driveS: number | null; fullS: number | null }; tiles?: string[]; anchor?: [number, number]; domain?: string; bundle?: string; full?: { tilesId: string }; district?: { tilesId: string; variant: string }; frame?: boolean; refused?: string[]; name?: string; stateName?: string };
+export type TownMeta = { promised?: { driveS: number | null; fullS: number | null }; tiles?: string[]; anchor?: [number, number]; domain?: string; bundle?: string; full?: { tilesId: string }; district?: { tilesId: string; variant: string }; frame?: boolean; refused?: string[]; name?: string; stateName?: string;
+  /** the spawn district's tile window [c0, r0, c1, r1] (the frame's spawnDistrict): a failed tile there fails the town */
+  districtWindow?: [number, number, number, number];
+  /** the tiles the full bundle laid as flat ground (they could not be built): a degraded town */
+  absent?: string[];
+  /** why the town failed (the job and its error), for the owner's status */
+  failed?: { key: string; why: string | null; at: number } };
 const rowOf = (q: BuildQueue, place: string, build: string) => q.db.prepare('SELECT * FROM towns WHERE place = ? AND build = ?').get(place, build) as TownRow | undefined;
 const metaOf = (r: TownRow | undefined): TownMeta => { try { return r ? JSON.parse(r.meta) : {}; } catch { return {}; } };
 const setTown = (q: BuildQueue, place: string, build: string, patch: Partial<Omit<TownRow, 'meta'>> & { meta?: TownMeta }) => {
@@ -228,7 +247,8 @@ export const BUILD_UNKNOWN_RETRY_S = 15;
 
 const ACTIVE: TownPhase[] = ['asked', 'framing', 'district', 'growing'];
 const day = (t: number) => new Date(t).toISOString().slice(0, 10);
-const IPS = new Map<string, number[]>();
+/** The address a limit counts, as stored: a hash, never the address itself. */
+const ipKey = (ip: string) => createHash('sha256').update(`hometown-ip:${ip}`).digest('hex').slice(0, 32);
 
 const kmBetween = (a: { lat: number; lon: number }, b: { lat: number; lon: number }) => {
   const r = Math.PI / 180, x = (b.lon - a.lon) * r * Math.cos(((a.lat + b.lat) / 2) * r), y = (b.lat - a.lat) * r;
@@ -322,11 +342,33 @@ function progressOf(d: BuilderDeps, r: TownRow): Progress {
   return out;
 }
 
-/** Recompute a town's phase from its jobs (failed when a job it waits on failed for good). */
+/** The spawn district's tile window: the frame's; without the frame (compiler 0.5.0) the anchor's 5 x 5; null while a
+ * frame is still to come (a failed tile then waits for the frame to say whether it is the district's). */
+export function districtOf(d: Pick<BuilderDeps, 'cfg'>, m: TownMeta): [number, number, number, number] | null {
+  if (m.districtWindow) return m.districtWindow;
+  if (d.cfg.frame || !m.anchor) return null;
+  const [ac, ar] = m.anchor;
+  return [ac - DISTRICT_RADIUS, ar - DISTRICT_RADIUS, ac + DISTRICT_RADIUS, ar + DISTRICT_RADIUS];
+}
+const inWindow = (j: Pick<Job, 'args'>, w: [number, number, number, number]) => tilesOfJob(j.args).some(([c, rr]) => c >= w[0] && c <= w[2] && rr >= w[1] && rr <= w[3]);
+/** The failed jobs that fail the town: any but a tile job outside the spawn district (that one only degrades it). */
+export function fatalFailures(d: Pick<BuilderDeps, 'cfg'>, m: TownMeta, jobs: Job[]): Job[] {
+  const w = districtOf(d, m);
+  return jobs.filter((j) => j.state === 'failed' && (j.kind !== 'tiles' || (w != null && inWindow(j, w))));
+}
+
+/** Recompute a town's phase from its jobs (failed when a job it waits on failed for good, a degradable tile aside). */
 function refresh(d: BuilderDeps, r: TownRow): TownRow {
   if (r.state === 'full' || r.state === 'failed') return r;
   const jobs = d.queue.jobsOf(r.place).filter((j) => j.build === r.build || j.build === ANY_BUILD);
-  if (jobs.some((j) => j.state === 'failed')) { setTown(d.queue, r.place, r.build, { state: 'failed' }); return { ...r, state: 'failed' }; }
+  const fatal = fatalFailures(d, metaOf(r), jobs);
+  if (fatal.length) {
+    const m = metaOf(r);
+    m.failed = { key: fatal[0].key, why: fatal[0].error ? fatal[0].error.slice(0, 300) : null, at: d.queue.now() };
+    setTown(d.queue, r.place, r.build, { state: 'failed', meta: m });
+    d.queue.log('town-failed', { place: r.place, build: r.build, job: fatal[0].key });
+    return { ...r, state: 'failed', meta: JSON.stringify(m) };
+  }
   if (r.state === 'asked' && jobs.some((j) => j.state !== 'queued')) { setTown(d.queue, r.place, r.build, { state: 'framing' }); return { ...r, state: 'framing' }; }
   return r;
 }
@@ -345,10 +387,56 @@ function answer(d: BuilderDeps, r: TownRow): TownAnswer {
 /** GET /api/towns/{placeId}: never starts anything. */
 export function townStatus(d: BuilderDeps, placeId: string): TownAnswer {
   if (!TOWN_ID.test(placeId)) return { status: 400, body: { error: TOWN_WORDS.unknown } };
+  if (pendingOf(d.queue, placeId)) { admitPending(d); const p = pendingAnswer(d, placeId); if (p) return p; }
   const build = currentBuild(d);
   const r = build ? rowOf(d.queue, placeId, build) : undefined;
   if (!r) return { status: 404, body: { placeId, error: 'This town has not been asked for.' } };
   return answer(d, r);
+}
+
+// --------------------------------------------------------------------------------------- picks with no build yet
+/** A pick waits this long for its run to report the build; then it is refused (busy) and forgotten. */
+export const PENDING_MAX_MS = 10 * 60_000;
+type PendingRow = { place: string; source: TownSource; asked: number };
+const pendingOf = (q: BuildQueue, place: string) => q.db.prepare('SELECT * FROM pending WHERE place = ?').get(place) as PendingRow | undefined;
+/** A pending pick's answer: 202 'asked' (the run is starting), or the refusal once it waited PENDING_MAX_MS; null when
+ * it is no longer pending (admitted). */
+function pendingAnswer(d: BuilderDeps, placeId: string): TownAnswer | null {
+  const p = pendingOf(d.queue, placeId);
+  if (!p) return null;
+  const now = (d.now ?? Date.now)();
+  if (now - p.asked > PENDING_MAX_MS) {
+    d.queue.db.prepare('DELETE FROM pending WHERE place = ?').run(placeId);
+    return { status: 503, body: { placeId, error: TOWN_WORDS.busy } };
+  }
+  const e = estimate(d, '\u0000new', '');
+  const position = (d.queue.db.prepare('SELECT COUNT(*) n FROM pending WHERE asked < ?').get(p.asked) as { n: number }).n + 1;
+  return { status: 202, body: { state: 'queued', placeId, stage: PHASE_WORDS.asked, done: 0, total: 0, position, etaS: e.etaDriveS, phase: 'asked', district: false, etaDriveS: e.etaDriveS, etaFullS: e.etaFullS } };
+}
+/**
+ * The picks kept while no build was known, admitted now that one is (the worker protocol calls this on every claim,
+ * after recording the claiming worker's build, so the run started for them takes their first job in that same claim).
+ * -> how many were admitted.
+ */
+export function admitPending(d: BuilderDeps): number {
+  const rows = d.queue.db.prepare('SELECT * FROM pending ORDER BY asked LIMIT 50').all() as PendingRow[];
+  if (!rows.length) return 0;
+  const build = currentBuild(d);
+  if (!build) return 0;
+  let n = 0;
+  for (const p of rows) {
+    d.queue.db.prepare('DELETE FROM pending WHERE place = ?').run(p.place);
+    const place = (d.place ?? ((id: string) => placeById(id)))(p.place);
+    if (!place || rowOf(d.queue, p.place, build)) continue;
+    try {
+      enqueueTown(d, place, build, p.source, p.asked, false);
+      const r = rowOf(d.queue, p.place, build)!, e = estimate(d, p.place, build);
+      setTown(d.queue, p.place, build, { meta: { ...metaOf(r), promised: { driveS: e.etaDriveS, fullS: e.etaFullS } } });
+      d.queue.log('admitted', { place: p.place, build, waitedMs: d.queue.now() - p.asked });
+      n++;
+    } catch (e) { console.error('hometown-build: admit', p.place, String((e as Error).message).slice(0, 200)); }
+  }
+  return n;
 }
 
 /** POST /api/towns: a built town at once, its build joined, a new build admitted, or a refusal. */
@@ -364,14 +452,28 @@ export function requestTown(d: BuilderDeps, placeId: string, ip: string, source:
     if (!row || row.state !== 'full') return { status: 503, body: { placeId, error: TOWN_WORDS.closed } };
   }
   const build = currentBuild(d);
-  if (!build) {
-    d.queue.log(BUILD_UNKNOWN, { place: placeId });
-    d.queue.changed();
-    // (retryS: the Create card asks again by itself while the run that learns the build starts: lib/places/request-city.ts)
-    return { status: 503, body: { placeId, error: TOWN_WORDS.busy, retryS: BUILD_UNKNOWN_RETRY_S } };
-  }
   const q = d.queue, now = (d.now ?? Date.now)();
-  const had = rowOf(q, placeId, build);
+  const perIp = Number(process.env.HOMETOWN_PER_IP_HOUR) > 0 ? Number(process.env.HOMETOWN_PER_IP_HOUR) : 3;
+  const ipk = ipKey(ip);
+  if (!build) {
+    // (kept, answered 202 at once: the dispatcher starts ONE run (dispatch.ts plan, probe) whose first claim admits the
+    // pick at the build it reports and takes its first job: admitPending. Only the address limit applies here: nothing
+    // is building, so the queue's limits are moot)
+    if (!pendingOf(q, placeId)) {
+      if (source === 'player') {
+        if (q.ipCount(ipk, now - 3600_000) >= perIp) return { status: 429, body: { placeId, error: TOWN_WORDS.busy } };
+        q.ipHit(ipk, now);
+      }
+      q.db.prepare('INSERT OR IGNORE INTO pending (place, source, asked) VALUES (?, ?, ?)').run(placeId, source, now);
+    }
+    q.log(BUILD_UNKNOWN, { place: placeId });
+    q.changed();
+    return pendingAnswer(d, placeId) ?? { status: 503, body: { placeId, error: TOWN_WORDS.busy } };
+  }
+  if (pendingOf(q, placeId)) admitPending(d);
+  const had0 = rowOf(q, placeId, build);
+  // (refreshed: a row still 'framing' whose job failed is a failed town, retried below)
+  const had = had0 ? refresh(d, had0) : undefined;
   if (had && had.state !== 'failed') {
     q.db.prepare('UPDATE towns SET asks = asks + 1 WHERE place = ? AND build = ?').run(placeId, build);
     // (a town left with no jobs (written before this fix by a pick that crashed half way): build it now)
@@ -387,25 +489,30 @@ export function requestTown(d: BuilderDeps, placeId: string, ip: string, source:
   const env = process.env;
   const queueMax = Number(env.HOMETOWN_QUEUE_MAX) > 0 ? Number(env.HOMETOWN_QUEUE_MAX) : Math.max(10, slots * 3);
   const dailyCold = Number(env.HOMETOWN_DAILY_COLD) > 0 ? Number(env.HOMETOWN_DAILY_COLD) : Math.max(100, live * 400);
-  const perIp = Number(env.HOMETOWN_PER_IP_HOUR) > 0 ? Number(env.HOMETOWN_PER_IP_HOUR) : 3;
   if (source === 'player') {
     const waiting = (q.db.prepare("SELECT COUNT(*) n FROM towns WHERE build = ? AND state IN ('asked', 'framing') AND source != 'prewarm'").get(build) as { n: number }).n;
     const near = () => nearestBuilt(d, place, build);
     if (waiting >= queueMax) return { status: 503, body: { placeId, error: TOWN_WORDS.busy, nearby: near() } };
     const today = (q.db.prepare("SELECT COUNT(*) n FROM towns WHERE source = 'player' AND first_asked >= ?").get(Date.parse(`${day(now)}T00:00:00Z`)) as { n: number }).n;
     if (today >= dailyCold) return { status: 503, body: { placeId, error: TOWN_WORDS.busy, nearby: near() } };
-    const hits = (IPS.get(ip) ?? []).filter((t) => now - t < 3600_000);
-    if (hits.length >= perIp) return { status: 429, body: { placeId, error: TOWN_WORDS.busy, nearby: near() } };
+    if (q.ipCount(ipk, now - 3600_000) >= perIp) return { status: 429, body: { placeId, error: TOWN_WORDS.busy, nearby: near() } };
     // admission: the wait to drive this town would have, were it admitted now
     const e = estimate(d, '\u0000new', build);
     if (e.etaDriveS != null && e.etaDriveS > d.cfg.maxWaitS) {
       const min = Math.max(1, Math.round(e.etaDriveS / 60));
       return { status: 503, body: { placeId, error: BUSY_WORDS(min), waitMin: min, nearby: near() } };
     }
-    hits.push(now); IPS.set(ip, hits);
-    if (IPS.size > 5000) for (const [k, v] of IPS) if (!v.some((t) => now - t < 3600_000)) IPS.delete(k);
+    q.ipHit(ipk, now);
   }
   if (d.store.fullReason(32 * 1024 * 1024)) return { status: 507, body: { placeId, error: TOWN_WORDS.failed } };
+  // (a failed town asked again, the Create card's "Try again": its failed jobs are queued again NOW, not after the 60 s
+  // a failure holds a job for other towns' asks; without this the re-ask joined the same failed jobs and got nothing)
+  if (had?.state === 'failed') {
+    const again = q.retryFailed(placeId);
+    const m = metaOf(had); delete m.failed;
+    setTown(q, placeId, build, { meta: m });
+    q.log('town-retry', { place: placeId, build, jobs: again.length });
+  }
   enqueueTown(d, place, build, source, now, false);
   const r = rowOf(q, placeId, build)!;
   // (the wait it was promised, kept to measure the estimate's error when the town is built: the status page)
@@ -444,24 +551,38 @@ function enqueueTownIn(d: BuilderDeps, place: Place, build: string, source: Town
   // ctx: one round of fetches at the pick instead of a compile finding them missing one exit 3 at a time
   const rel = releaseIn(d.store, build), dom = g.stage.domain;
   const regionDeps: string[] = [];
+  // (the job that stages each region: a ctx block (C, R) reads exactly region (C, R) (compile.py --ctx loads its own
+  // block only), so each ctx waits for ITS region alone and starts while the town's other regions are still fetched;
+  // the tiles and the frame read the regions round them (3.2 km), so they wait for all of the town's)
+  const regionJob = new Map<string, string>();
   if (rel) {
     const fresh: [number, number][] = [];
     for (const [C, R] of townRegions(g.stage)) {
       if (d.store.has(srcKey(rel, dom as Domain, C, R, 'files.json'))) continue;
       const k = q.regionsActive(dom, C, R);
-      if (k) regionDeps.push(k); else fresh.push([C, R]);
+      if (k) { regionDeps.push(k); regionJob.set(`${C},${R}`, k); } else fresh.push([C, R]);
     }
+    // (the town's own ctx blocks' regions first: the first regions job then unblocks the ctx, and so the frame's inputs)
+    const own = new Set(g.specs.filter((s) => s.kind === 'ctx').map((s) => { const [, , C, R] = String(s.args.ctx).split('/'); return `${C},${R}`; }));
+    fresh.sort((a, b) => Number(own.has(`${b[0]},${b[1]}`)) - Number(own.has(`${a[0]},${a[1]}`)));
     const base = source === 'prewarm' ? 5 : source === 'rebuild' ? 3 : 0;
     const regionSpecs: EnqueueSpec[] = [];
     for (let i = 0; i < fresh.length; i += 4) {
       const list = fresh.slice(i, i + 4).map(([C, R]) => `${C},${R}`).join(';');
       const key = `regions:${rel}:hg1-${dom}:${list}`;
       regionDeps.push(key);
+      for (const [C, R] of fresh.slice(i, i + 4)) regionJob.set(`${C},${R}`, key);
       regionSpecs.push({ key, kind: 'regions', build: ANY_BUILD, prio: base, ring: 0, weight: 2, args: { release: rel, spec: `${dom}:${list}`, regions: fresh.slice(i, i + 4).map(([C, R]) => `${dom}/${C}/${R}`) }, place: place.placeId, firstAsked: now });
     }
     if (regionSpecs.length) q.enqueueMany(regionSpecs);
   }
-  for (const s of g.specs) if (s.kind === 'ctx' && regionDeps.length) s.deps = [...new Set([...(s.deps ?? []), ...regionDeps])];
+  if (regionDeps.length) for (const s of g.specs) {
+    if (s.kind === 'ctx') {
+      const [, , C, R] = String(s.args.ctx).split('/');
+      const k = regionJob.get(`${C},${R}`);
+      if (k) s.deps = [...new Set([...(s.deps ?? []), k])];
+    } else if (s.kind === 'tiles' || s.kind === 'frame') s.deps = [...new Set([...(s.deps ?? []), ...regionDeps])];
+  }
   const tileSpecs = g.specs.filter((s) => s.kind === 'tiles'), rest = g.specs.filter((s) => s.kind !== 'tiles' && s.kind !== 'bundle');
   q.enqueueMany(rest);
   const tileKeys = q.enqueueMany(tileSpecs).flat();
@@ -486,8 +607,18 @@ export function afterJobDone(d: BuilderDeps, j: Job, reported: string[], refused
       const f = readFrame(d.store, frameKey(r.build, place));
       if (!f || frameProblems(f).length) continue;
       m.frame = true;
+      m.districtWindow = [...f.spawnDistrict] as [number, number, number, number];
       // (compiler 0.8.0: a capped town's frame pins its downtown-centred box, not stage 1's; the frame is the truth)
       if (!sameTiles(f.tiles, m.tiles)) retileToFrame(d, r, f, m);
+      // (a tile of the spawn district failed for good before the frame said where the district is: the town fails now,
+      // clearly, instead of a district bundle compiling that tile again and failing three attempts later)
+      const deadInDistrict = fatalFailures(d, m, q.jobsOf(place).filter((x) => x.kind === 'tiles' && x.build === r.build));
+      if (deadInDistrict.length) {
+        m.failed = { key: deadInDistrict[0].key, why: deadInDistrict[0].error ? `a spawn district tile: ${deadInDistrict[0].error}`.slice(0, 300) : 'a spawn district tile could not be built', at: q.now() };
+        setTown(q, place, r.build, { state: 'failed', frame_at: q.now(), meta: m });
+        q.log('town-failed', { place, build: r.build, job: deadInDistrict[0].key, district: true });
+        continue;
+      }
       // re-ring from the spawn: the district's blocks to P0, the rest by distance from the spawn
       const [sc, sr] = f.spawn.tile, [c0, r0, c1, r1] = f.spawnDistrict;
       const distKeys: string[] = [];
@@ -520,6 +651,9 @@ export function afterJobDone(d: BuilderDeps, j: Job, reported: string[], refused
       if (!k) continue;
       if (k.variant === 'full') {
         m.full = { tilesId: k.tilesId! };
+        // (a degraded town: built whole, these tiles laid as flat ground)
+        const absent = (j.args.absent as string[] | undefined) ?? [];
+        if (absent.length) { m.absent = absent; q.log('town-degraded', { place, build: r.build, absent: absent.length }); } else delete m.absent;
         setTown(q, place, r.build, { state: 'full', full_at: q.now(), meta: m });
         const actual = (q.now() - r.first_asked) / 1000, promised = m.promised?.fullS;
         if (promised != null && actual > 0) q.log('eta', { place, promisedS: promised, actualS: Math.round(actual), errPct: Math.round(((promised - actual) / actual) * 100) });
@@ -618,7 +752,16 @@ export function prewarm(d: BuilderDeps, ids: string[], source: TownSource = 'pre
 export function townsStatus(d: BuilderDeps) {
   const rows = d.queue.db.prepare('SELECT state, source, COUNT(*) n FROM towns GROUP BY state, source').all() as { state: string; source: string; n: number }[];
   const ttfd = d.queue.db.prepare("SELECT place, build, first_asked, frame_at, district_at, full_at FROM towns WHERE full_at IS NOT NULL OR district_at IS NOT NULL ORDER BY first_asked DESC LIMIT 20").all() as Record<string, number | string | null>[];
-  return { byState: rows, recent: ttfd.map((r) => ({ ...r, toFrameS: r.frame_at ? Math.round((Number(r.frame_at) - Number(r.first_asked)) / 1000) : null, toDistrictS: r.district_at ? Math.round((Number(r.district_at) - Number(r.first_asked)) / 1000) : null, toFullS: r.full_at ? Math.round((Number(r.full_at) - Number(r.first_asked)) / 1000) : null })) };
+  // (degraded: built whole with tiles laid as flat ground; failed: why, the job and its error)
+  const pick = (state: string, has: (m: TownMeta) => boolean) => (d.queue.db.prepare('SELECT place, build, meta, first_asked FROM towns WHERE state = ? ORDER BY first_asked DESC LIMIT 200').all(state) as { place: string; build: string; meta: string; first_asked: number }[])
+    .map((r) => ({ r, m: metaOf(r as unknown as TownRow) })).filter((x) => has(x.m));
+  const degraded = pick('full', (m) => !!m.absent?.length);
+  const failed = pick('failed', () => true);
+  const pending = (d.queue.db.prepare('SELECT COUNT(*) n FROM pending').get() as { n: number }).n;
+  return { byState: rows, pending,
+    degraded: { n: degraded.length, recent: degraded.slice(0, 10).map(({ r, m }) => ({ place: r.place, name: m.name ?? null, build: r.build, absent: m.absent!.length, tiles: m.absent!.slice(0, 8) })) },
+    failed: failed.slice(0, 10).map(({ r, m }) => ({ place: r.place, name: m.name ?? null, build: r.build, job: m.failed?.key ?? null, why: m.failed?.why ?? null, at: m.failed?.at ?? null })),
+    recent: ttfd.map((r) => ({ ...r, toFrameS: r.frame_at ? Math.round((Number(r.frame_at) - Number(r.first_asked)) / 1000) : null, toDistrictS: r.district_at ? Math.round((Number(r.district_at) - Number(r.first_asked)) / 1000) : null, toFullS: r.full_at ? Math.round((Number(r.full_at) - Number(r.first_asked)) / 1000) : null })) };
 }
 
 /** A legacy bundle folder (data/towns/bundles, the in-process builder's) still readable: G12 keeps it, read-only. */

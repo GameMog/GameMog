@@ -36,7 +36,12 @@ export type Capacity = { held: number; max: number; queue: number; queueMax: num
 export type TownBuilderAdmin = {
   mode: string; frame: boolean; build: { configured: string | null; current: string | null; workersReport: string[]; mismatch: boolean };
   workers: { id: string; build: string | null; slots: number; seen: number }[]; slots: number; queue: { prio: number; state: string; n: number; weight: number }[];
-  costs: Record<string, { ewmaMs: number; n: number }>; towns: { byState: { state: string; source: string; n: number }[] };
+  costs: Record<string, { ewmaMs: number; n: number }>;
+  /** degraded: built whole with tiles that could not be built laid as flat ground; failed: the job and its error;
+   *  pending: picks waiting for the first builder to report its build */
+  towns: { byState: { state: string; source: string; n: number }[]; pending?: number;
+    degraded?: { n: number; recent: { place: string; name: string | null; absent: number }[] };
+    failed?: { place: string; name: string | null; job: string | null; why: string | null }[] };
   canary: { runs: number; mismatches: number }; etaError: { n: number; meanPct: number } | null;
   /** on-demand builders (Render Workflows runs, lib/hometown-build/dispatch.ts); null when HOMETOWN_RUNS is off */
   runs?: { problem?: string; inFlight?: number; maxRuns?: number; byState?: Record<string, number>; plan?: { want: number; ready: number } | null;
@@ -287,7 +292,7 @@ function TownBuilderCard({ t }: { t: TownBuilderAdmin }) {
         <div><dt>Workers</dt><dd>{t.workers.length}<small> {t.slots} slots live</small></dd></div>
         {t.runs && <div><dt>Runs</dt><dd>{t.runs.problem ? 'not starting' : `${t.runs.inFlight ?? 0} in flight`}<small>{t.runs.problem ? ` ${t.runs.problem}` : ` of ${t.runs.maxRuns} at most; wants ${t.runs.plan?.want ?? 0} for ${t.runs.plan?.ready ?? 0} ready jobs, ${t.runs.byState?.completed ?? 0} done${t.runs.lastError ? `; last error HTTP ${t.runs.lastError.status}${t.runs.holdS ? `, waiting ${t.runs.holdS} s` : ''}` : ''}`}</small></dd></div>}
         <div><dt>Build</dt><dd>{t.build.current ?? 'none'}<small>{t.build.mismatch ? ` workers report ${t.build.workersReport.join(', ')}: not HOMETOWN_BUILD` : t.build.configured ? ' HOMETOWN_BUILD' : ' from the workers (set HOMETOWN_BUILD)'}</small></dd></div>
-        <div><dt>Towns</dt><dd>{towns('full')} built<small> {towns('asked') + towns('framing') + towns('district') + towns('growing')} building, {towns('failed')} failed</small></dd></div>
+        <div><dt>Towns</dt><dd>{towns('full')} built<small> {towns('asked') + towns('framing') + towns('district') + towns('growing')} building, {towns('failed')} failed{t.towns.degraded?.n ? `, ${t.towns.degraded.n} with flat patches` : ''}{t.towns.pending ? `, ${t.towns.pending} waiting for a builder to start` : ''}</small></dd></div>
         <div><dt>Canary</dt><dd>{t.canary.mismatches ? `${t.canary.mismatches} MISMATCH` : 'clean'}<small> {t.canary.runs} recompiled elsewhere</small></dd></div>
         <div><dt>Wait estimate</dt><dd>{t.etaError ? `${t.etaError.meanPct}% off` : 'no data yet'}<small>{t.etaError ? ` over ${t.etaError.n} towns` : ''}</small></dd></div>
       </dl>
@@ -296,6 +301,8 @@ function TownBuilderCard({ t }: { t: TownBuilderAdmin }) {
         <tbody>{[...byPrio].sort((a, b) => a[0] - b[0]).map(([p, x]) => <tr key={p}><td>{PRIO[p] ?? `P${p}`}</td><td>{x.queued}</td><td>{x.leased}</td></tr>)}</tbody>
       </table>
       <p className="fine">Job time (moving average): {Object.entries(t.costs).map(([k, c]) => `${k} ${(c.ewmaMs / 1000).toFixed(1)} s (${c.n})`).join(', ') || 'none yet'}.</p>
+      {!!t.towns.degraded?.recent.length && <p className="fine">Built with flat patches (map tiles that could not be built): {t.towns.degraded.recent.map((d) => `${d.name ?? d.place} (${d.absent} tile${d.absent === 1 ? '' : 's'})`).join(', ')}.</p>}
+      {!!t.towns.failed?.length && <p className="fine">Not built: {t.towns.failed.slice(0, 5).map((f) => `${f.name ?? f.place}${f.why ? `: ${f.why.slice(0, 120)}` : ''}`).join('; ')}.</p>}
     </section>
   );
 }
