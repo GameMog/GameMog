@@ -1,4 +1,4 @@
-# Hometown compiler 0.8.0 (the national grid hg1)
+# Hometown compiler 0.8.1 (the national grid hg1)
 
 Turns open US map data into **tiles on one national grid**. A tile is compiled from its own sources and context alone,
 so any tile can be compiled on first request, neighbouring towns share identical tiles, and a place is just a list of
@@ -99,7 +99,7 @@ centres by non-max suppression within 2 km, downtown = within 350 m of a centre)
 A tile reads the ctx blocks within 3.2 km and the regions within 3.2 km (a tile whose regions are not fetched is refused
 with the fetch command to run).
 
-**buildId** `htc-0.8.0-hg1-b{8 hex}`: the first 8 hex of the sha256 of the build record (`builds/{buildId}.json`:
+**buildId** `htc-0.8.1-hg1-b{8 hex}`: the first 8 hex of the sha256 of the build record (`builds/{buildId}.json`:
 compiler version, libraries incl. GEOS and zlib, the CPU architecture (`machine`) and the duckdb `spatial` extension's
 version, image digest (`HOMETOWN_IMAGE_DIGEST` from the environment: the town-builder image sets a recipe id), Overture
 release, DEM snapshot, grid). Compiler logic
@@ -230,6 +230,16 @@ stays the same bytes in any compile that holds it (the seam / block / overlap pr
 - **front / frontDist**: the direction and distance to the nearest roadway edge within 12 m (porches, awnings).
 - **region**: the tile's centre by coarse US regions (`region_of`), in the tile header and the package's buildings header.
 - Elevated footprints (`min_height` >= 3 m) are not dropped by the in-the-roadway rule.
+- **Site roads (0.8.1, `World.footprint` / `site_cut`):** a footprint more than 35% in the roadway is dropped, but
+  round a building of 150 m2 or more that is not a roof or carport only the firm roads count: a site's own roads
+  (`soft`: class service, any subclass or none, or private access) never cost it its place (Bal Harbour's 24,000 m2 mall
+  outline stood over a service passage). A soft piece half or more inside such a building (its footprint shrunk 1 m)
+  is no road: dropped from every product (links, roadway, islands, junction controls, the frame's lanes). One that
+  runs in from an end is cut back to 1 m + half its width off the footprint, its new end a dead-end node
+  `x:{segment}:{piece}:a|b` (control 0, never a border); one through the middle of a building is kept whole. Bridges,
+  decks, tunnels and grade groups read the data's own pieces (`raw_pieces`), so nothing there depends on the cut (no
+  cycle); the buildings' 35% test reads them too. Ring roads, drives between buildings and public streets are never
+  touched; smaller buildings, roofs and carports keep the old rule.
 
 Step 0 (Overture 2026-10-21.0, the fetched regions): `roof_shape` on 0 of 3,186 Okemah buildings, 225 of 182,368
 round Phoenix, 538 of 272,900 round Pittsburgh; `roof_height` and facade / roof colours on none (they are not fetched;

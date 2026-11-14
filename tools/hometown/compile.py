@@ -1,4 +1,4 @@
-# tools/hometown/compile.py: Hometown compiler 0.8.0 on the national grid hg1 (grid.py). A TILE is compiled from its
+# tools/hometown/compile.py: Hometown compiler 0.8.1 on the national grid hg1 (grid.py). A TILE is compiled from its
 # own sources and context alone: tile = f(buildId, key, sources over tile + halo, ctx blocks). It never reads a whole
 # place's inputs nor a neighbour's output, so neighbouring towns share identical tiles, any tile can be compiled on first
 # request, and a 4 x 4 block compiled in one process gives the same bytes as its 16 tiles compiled one by one.
@@ -60,8 +60,11 @@ import shapely.ops  # noqa: E402
 # the fill (grade reach), clearance over the lower road's own ground, capped-town box centred on its downtown;
 # 0.7.0 production builder: the frame descriptor (frame.py: yOffset / waterLevel / spawns / places from ctx, regions and
 # the DEM, never from tiles), lock v3 (tiles named by id), windowed bundles, machine + spatial in the build record;
-# 0.8.0 the merge of both (round 3's rules in 0.7.0's builder; the frame's play box is round 3's downtown-centred box)
-COMPILER_VERSION = '0.8.0'
+# 0.8.0 the merge of both (round 3's rules in 0.7.0's builder; the frame's play box is round 3's downtown-centred box);
+# 0.8.1 malls: a site's own roads (service, private) never drop a building of 150 m2 or more, and the stretches of
+# them inside a kept building's footprint are no roads (World.footprint / site_cut: Bal Harbour's mall, garages,
+# campuses); a drive cut back from one ends in a dead-end node 'x:{segment}:{piece}:a|b'
+COMPILER_VERSION = '0.8.1'
 OVERTURE_RELEASE = '2026-10-21.0'
 TILE, TCM = grid.TILE, grid.TILE_CM
 ROAD_HALO = 160      # m: segments read round a tile (owned pieces, curb islands' roadway, sidewalk bands)
@@ -177,6 +180,10 @@ ROAD = {
     'unclassified': (7.5, 2, 0.0, 2), 'service': (6.0, 2, 0.0, 1), 'unknown': (7.0, 2, 0.0, 1),
 }
 SKIP_SUBCLASS = {'driveway', 'parking_aisle', 'drive_through'}
+ROOFS = {'roof', 'carport', 'shelter'}   # building classes the cars drive under: the old rule (any road drops them), never a host
+INSIDE_IN = 1.0       # m: a soft piece inside a building runs in its footprint shrunk by this much (a wall-hugging drive does not)
+INSIDE_MIN_AREA = 150.0   # m2: smaller buildings keep the old rule (a shed, a kiosk, a booth on a drive: the drive wins)
+CUT_GAP = 1.0         # m: a site road cut back from a building ends this far plus half its width off the footprint
 # ground classes, one byte per 1 m cell (0..5 San Francisco's; 7 paved lot, 8 dry grass and scrub, 9 woodland floor)
 MASK = {'asphalt': 0, 'sidewalk': 1, 'lawn': 2, 'sand': 3, 'rock': 4, 'waterEdge': 5, 'water': 6, 'lot': 7, 'scrub': 8, 'woods': 9}
 CLIMATE_GROUND = {'humid': 'lawn', 'dry': 'scrub', 'arid': 'sand'}   # the open land where the map says nothing
@@ -712,6 +719,65 @@ def ctx_key(bid, dom, C, R):
 
 
 # ------------------------------------------------------------------------------------------------------------- world
+def clip_cm(pts, a, b):
+    """The polyline pts (int cm) between arcs a < b (m from its start): its own vertices inside, the ends interpolated
+    and rounded to the cm."""
+    out, at = [], 0.0
+    for (x0, z0), (x1, z1) in zip(pts, pts[1:]):
+        d = math.hypot(x1 - x0, z1 - z0) / 100.0
+        if d <= 0:
+            continue
+        if not out and at + d >= a:
+            t = max(0.0, (a - at) / d)
+            out.append((int(round(x0 + (x1 - x0) * t)), int(round(z0 + (z1 - z0) * t))))
+        if out:
+            if at + d >= b:
+                t = min(1.0, (b - at) / d)
+                e = (int(round(x0 + (x1 - x0) * t)), int(round(z0 + (z1 - z0) * t)))
+                if e != out[-1]:
+                    out.append(e)
+                return out
+            if (x1, z1) != out[-1]:
+                out.append((x1, z1))
+        at += d
+    return out
+
+
+def cut_piece(p, u0, u1):
+    """The piece p kept over arcs [u0, u1] only (World.site_cut): its subs clipped (border nodes and the subs' own
+    vertices exact), a cut end the dead-end node 'x:{segment}:{piece}:a|b'. None when nothing of 2 points is left."""
+    seg, i = p['seg'], p['i']
+    xa, xb = 'x:%s:%d:a' % (seg, i), 'x:%s:%d:b' % (seg, i)
+    subs, at = [], 0.0
+    for sb in p['subs']:
+        pts = sb['pts']
+        sl = sum(math.hypot(x1 - x0, z1 - z0) for (x0, z0), (x1, z1) in zip(pts, pts[1:])) / 100.0
+        s0, s1 = at, at + sl
+        at = s1
+        a, b = max(s0, u0), min(s1, u1)
+        if b - a < 0.05:
+            continue
+        cp = clip_cm(pts, a - s0, b - s0)
+        if len(cp) < 2:
+            continue
+        na = sb['na'] if a <= s0 + 1e-9 else xa
+        nb = sb['nb'] if b >= s1 - 1e-9 else xb
+        (ax, az), (bx, bz) = cp[0], cp[1]
+        subs.append({'j': sb['j'], 'pts': cp, 'na': na, 'nb': nb, 'own': ((ax + bx) // (2 * TCM), (az + bz) // (2 * TCM))})
+    if not subs:
+        return None
+    pts = list(subs[0]['pts'])
+    for sb in subs[1:]:
+        pts += [q for q in sb['pts'] if q != pts[-1]]
+    if len(pts) < 2:
+        return None
+    L = sum(math.hypot(x1 - x0, z1 - z0) for (x0, z0), (x1, z1) in zip(p['pts'], p['pts'][1:])) / 100.0 or 1.0
+    q = {k: v for k, v in p.items() if k not in ('geom_', 'subs', 'pts')}
+    q.update(pts=pts, subs=subs, a=p['a'] if subs[0]['na'] != xa else xa, b=p['b'] if subs[-1]['nb'] != xb else xb,
+             f0=p['f0'] + (p['f1'] - p['f0']) * u0 / L, f1=p['f0'] + (p['f1'] - p['f0']) * u1 / L, cut=1)
+    return q
+
+
 class World:
     """Everything a set of tile compiles shares: the regions' rows (projected once), the DEM sampler, the ctx blocks and
     per-feature caches (a segment's pieces, a building's record, a bridge). Every cached value is a pure function of
@@ -729,6 +795,7 @@ class World:
         self.store, self.bid = store, bid
         self.ctxs = {}
         self.pieces_c, self.junction_c, self.brec_c, self.bridge_c, self.k_c = {}, {}, {}, {}, {}
+        self.kept_c, self.foot_c, self.inside_c = {}, {}, {}
         self.lanes_c, self.osm_c, self.deck_c, self.prof_c, self.gstats = {}, None, {}, {}, {}
         self.seg_rows, self.iv_c, self.cross_c = {}, {}, {}
         self.files_c, self.grp_c, self.near_c, self.base_c, self.l4_c, self.tline_c = {}, {}, {}, {}, {}, {}
@@ -786,8 +853,15 @@ class World:
             self.k_c[(c, r)] = self.d.scale(float(lon[0]), float(lat[0]))
         return self.k_c[(c, r)]
 
-    # ---- roads: a segment's pieces between its connectors (pure per segment)
+    # ---- roads: a segment's pieces between its connectors, less those that run inside a building (pure per segment)
     def pieces(self, s):
+        sid = s['id']
+        if sid not in self.kept_c:
+            self.kept_c[sid] = [q for q in (self.site_cut(p) for p in self.raw_pieces(s)) if q is not None]
+        return self.kept_c[sid]
+
+    def raw_pieces(self, s):
+        """Every piece of the segment between its connectors, as the data has it (pure per segment, no other rows)."""
         sid = s['id']
         if sid in self.pieces_c:
             return self.pieces_c[sid]
@@ -810,8 +884,12 @@ class World:
         if s['subclass'] == 'alley':
             flags |= FLAGS['alley']
             w = min(w, 5.0)
-        if any((a.get('access_type') == 'allowed' and 'as_private' in ((a.get('when') or {}).get('recognized') or [])) for a in s['access_restrictions'] or []) and cls == 'service':
+        private = any((a.get('access_type') == 'allowed' and 'as_private' in ((a.get('when') or {}).get('recognized') or [])) for a in s['access_restrictions'] or [])
+        if private and cls == 'service':
             flags |= FLAGS['private']
+        # (a site's own road: class service (any subclass or none) or private access; it never costs a building its
+        # place (brec) and a stretch of it inside a building's footprint is no road (site_cut))
+        soft = cls == 'service' or private
         if flagged(s['road_flags'], 'is_tunnel') and not any(r.get('between') for r in s['road_flags'] or [] if 'is_tunnel' in (r.get('values') or [])):
             flags |= FLAGS['tunnel']
         spans = {'is_bridge': [], 'is_tunnel': []}
@@ -879,7 +957,7 @@ class World:
                 return o
             out.append({'seg': sid, 'i': k, 'a': c0, 'b': c1, 'pts': q, 'w': w, 'lanes': lf + lb, 'dir': dp, 'flags': pflags, 'sw': sw,
                         'cls': cls, 'rank': rank, 'name': name, 'lf': lf, 'lb': lb, 'spd': LN['spd'], 'lsrc': LN['src'], 'lvl': lvl,
-                        'link': s['subclass'] == 'link', 'br': frac(spans['is_bridge']), 'tun': frac(spans['is_tunnel']), 'f0': a0, 'f1': a1,
+                        'link': s['subclass'] == 'link', 'br': frac(spans['is_bridge']), 'tun': frac(spans['is_tunnel']), 'f0': a0, 'f1': a1, 'soft': soft,
                         'tspan': next(((t0, t1) for t0, t1 in spans['is_tunnel'] if t0 <= mid <= t1), None),
                         'brs': [(t0, t1) for t0, t1 in spans['is_bridge'] if min(a1, t1) - max(a0, t0) > 1e-6]})
             k += 1
@@ -1035,6 +1113,14 @@ class World:
             out += self.pieces(s)
         return out
 
+    def raw_pieces_near(self, geom):
+        """The data's pieces (raw_pieces) round geom. Bridges, decks, grade groups and the buildings' places read
+        these: none of them depends on which soft pieces run inside a building (no cycle through site_cut)."""
+        out = []
+        for s in self.src.query('segments', geom):
+            out += self.raw_pieces(s)
+        return out
+
     def junction(self, cid, pos):
         """(control, top rank) of a connector, from every piece that ends there (pure: those segments all pass within
         a centimetre of it)."""
@@ -1071,7 +1157,7 @@ class World:
     # ---- bridges raised on the ground (pure per segment)
     def bridge_lines(self, s):
         """[(b0, b1, line)]: the segment's bridge stretches long enough to be a culvert (pure per segment, no rows)."""
-        ps = self.pieces(s)
+        ps = self.raw_pieces(s)
         if not ps or s['geom'].geom_type != 'LineString':
             return []
         g, L = s['geom'], s['geom'].length
@@ -1094,8 +1180,8 @@ class World:
         def f():
             b = line.bounds
             self.ensure(b[0] - ENSURE_PAD, b[1] - ENSURE_PAD, b[2] + ENSURE_PAD, b[3] + ENSURE_PAD)
-            w = self.pieces(s)[0]['w']
-            crossing = [p for p in self.pieces_near(line) if p['seg'] != s['id'] and LineString([(x / 100.0, z / 100.0) for x, z in p['pts']]).crosses(line)]
+            w = self.raw_pieces(s)[0]['w']
+            crossing = [p for p in self.raw_pieces_near(line) if p['seg'] != s['id'] and LineString([(x / 100.0, z / 100.0) for x, z in p['pts']]).crosses(line)]
             if crossing:
                 return None
             if any(r['poly'].intersects(line.buffer(w / 2 + 10)) for r in water_polys(self.src, line.buffer(w / 2 + 10))):
@@ -1194,7 +1280,7 @@ class World:
         self.cross_c[k] = out
         line, L, _ = self.pgeom(p)
         ends = {p['a']: Point(line.coords[0]), p['b']: Point(line.coords[-1])}
-        for r in sorted(self.pieces_near(line), key=self.pkey):
+        for r in sorted(self.raw_pieces_near(line), key=self.pkey):
             if self.pkey(r) == k or r['flags'] & (FLAGS['private'] | FLAGS['pedestrian']):
                 continue
             rl, _, _ = self.pgeom(r)
@@ -1262,7 +1348,7 @@ class World:
 
     def node_pieces(self, cid, pt):
         x, z = pt[0] / 100.0, pt[1] / 100.0
-        return sorted([q for q in self.pieces_near(Point(x, z).buffer(0.05)) if (q['a'] == cid or q['b'] == cid)
+        return sorted([q for q in self.raw_pieces_near(Point(x, z).buffer(0.05)) if (q['a'] == cid or q['b'] == cid)
                        and not q['flags'] & (FLAGS['private'] | FLAGS['pedestrian'])], key=self.pkey)
 
     # ---- grade groups: which deck pieces are solved together (a pure function of the global data, whichever tile asks)
@@ -1279,7 +1365,7 @@ class World:
             kq = self.pkey(q)
             xq = set(self.pkey(r) for _, r, _ in self.crossings(q))
             out = []
-            for r in sorted(self.pieces_near(line.buffer(GROUP_REACH)), key=self.pkey):
+            for r in sorted(self.raw_pieces_near(line.buffer(GROUP_REACH)), key=self.pkey):
                 kr = self.pkey(r)
                 if kr == kq or self.deck_iv(r) is None:
                     continue
@@ -1410,7 +1496,7 @@ class World:
                     ext_refs[self.pkey(r)] = r
             # roads of a LOWER level running under it along the way (a stacked deck: Fort Pitt's two; a viaduct over a
             # street): every station within (w + w') / 2 of one, over 20 m of overlap, clear of a node they share
-            for r in sorted(self.pieces_near(line.buffer(q['w'] / 2 + 15)), key=self.pkey):
+            for r in sorted(self.raw_pieces_near(line.buffer(q['w'] / 2 + 15)), key=self.pkey):
                 if r['seg'] == q['seg'] or r['lvl'] >= q['lvl'] or r['flags'] & (FLAGS['private'] | FLAGS['pedestrian'] | FLAGS['tunnel']):
                     continue
                 rl, Lr, _ = self.pgeom(r)
@@ -1592,15 +1678,17 @@ class World:
         return np.rint(hb * 100).astype(np.int64), wet[H:-H, H:-H], nan
 
     # ---- buildings (pure per building)
-    def brec(self, r, ctx, centres):
+    def footprint(self, r):
+        """(the footprint polygon before any road, the firm roads' cover of it or None, elevated) or None: what a
+        building's place is decided from, from its own row and the data's pieces within 15 m (pure per building).
+        Firm roads are every drivable piece but, round a building of INSIDE_MIN_AREA m2 or more that is not a roof or a
+        carport (ROOFS), a site's own (soft: service, private): they alone can cost a building its place (more than 35%
+        of it in their roadway). A shed, a kiosk or a canopy on a site's drive is still dropped (the drive wins)."""
         bid = r['id']
-        if bid in self.brec_c:
-            return self.brec_c[bid]
-        self.brec_c[bid] = None
-        if r['is_underground']:
-            return None
-        own = building_owner_cm(r)
-        if own is None:
+        if bid in self.foot_c:
+            return self.foot_c[bid]
+        self.foot_c[bid] = None
+        if r['is_underground'] or building_owner_cm(r) is None:
             return None
         g = largest_polygon(r['geom'])
         if g is None:
@@ -1611,10 +1699,92 @@ class World:
         wg = Polygon(wg.exterior).simplify(0.25)
         if wg.is_empty or wg.geom_type != 'Polygon':
             return None
+        elevated = (r['min_height'] or 0) >= 3
+        # (a roof or carport on a site's drive, or a small building: the drive wins, as for every road)
+        site = wg.area >= INSIDE_MIN_AREA and (r['class'] or '').lower() not in ROOFS
+        hard = []
+        if not elevated:
+            bx0, bz0, bx1, bz1 = wg.bounds
+            for p in sorted(self.raw_pieces_near(sbox(bx0 - 15, bz0 - 15, bx1 + 15, bz1 + 15)), key=lambda p: (p['seg'], p['i'])):
+                if p['flags'] & FLAGS['pedestrian'] or (p['soft'] and site):
+                    continue
+                for gl in self.ground_lines(p):
+                    pg = gl.buffer(p['w'] / 2 + max(p['sw'], 0.6), quad_segs=4)
+                    if pg.intersects(wg):
+                        hard.append(pg)
+        hit = unary_union(hard) if hard else None
+        if hit is not None and hit.intersection(wg).area > 0.35 * wg.area:
+            return None
+        self.foot_c[bid] = (wg, hit, elevated)
+        return self.foot_c[bid]
+
+    def site_cut(self, p):
+        """A soft piece (a site's service or private road) against the buildings that keep their place round it ->
+        the piece itself, None (dropped) or the piece cut back. Half its length or more inside the footprints shrunk
+        by INSIDE_IN m: dropped (a mall's internal drives, a garage's ramps, a hospital's court under its roof). Less,
+        where it runs in from an end: cut back to CUT_GAP m off the footprint, its new end a dead end 'x:{segment}:{piece}:a|b'
+        (a drive into a loading dock); through the middle of one it is kept whole (a passage). A ring road round the
+        building or a drive between buildings never reaches in, and public streets are never soft. Hosts: a building of
+        INSIDE_MIN_AREA m2 or more, not elevated (a canopy or skybridge over the drive), not a roof or carport. Pure per
+        piece: the buildings it meets and their own pieces (footprint)."""
+        if not p['soft']:
+            return p
+        k = (p['seg'], p['i'])
+        if k in self.inside_c:
+            return self.inside_c[k]
+        self.inside_c[k] = p
+        line = LineString([(x / 100.0, z / 100.0) for x, z in p['pts']])
+        L = line.length
+        if L < 0.5:
+            return p
+        reach = p['w'] / 2 + CUT_GAP
+        hosts = []
+        for b in sorted(self.src.query('buildings', line.buffer(reach, quad_segs=2)), key=lambda b: b['id']):
+            if (b['class'] or '').lower() in ROOFS:
+                continue
+            f = self.footprint(b)
+            if f is None or f[2] or f[0].area < INSIDE_MIN_AREA:
+                continue
+            hosts.append(f[0])
+        if not hosts:
+            return p
+        fp = unary_union(hosts)
+        core = fp.buffer(-INSIDE_IN, quad_segs=2)
+        inside = line.intersection(core).length if not core.is_empty else 0.0
+        if inside >= 0.5 * L:
+            self.inside_c[k] = None
+            return None
+        if inside < 0.5 or p['br'] or p['tun'] or p['lvl'] or p['flags'] & FLAGS['tunnel'] or p['link']:
+            return p
+        # (the stretches of the centreline within reach of the footprints that reach the core, from either end)
+        u0, u1 = 0.0, L
+        for comp in lines_of(line.intersection(fp.buffer(reach, quad_segs=4))):
+            if comp.intersection(core).length < 0.5:
+                continue
+            e0, e1 = sorted((line.project(Point(comp.coords[0])), line.project(Point(comp.coords[-1]))))
+            if e0 <= 0.05:
+                u0 = max(u0, e1)
+            elif e1 >= L - 0.05:
+                u1 = min(u1, e0)
+        if u0 == 0.0 and u1 == L:
+            return p
+        q = None if u1 - u0 < 2.0 else cut_piece(p, u0, u1)
+        self.inside_c[k] = q
+        return q
+
+    def brec(self, r, ctx, centres):
+        bid = r['id']
+        if bid in self.brec_c:
+            return self.brec_c[bid]
+        self.brec_c[bid] = None
+        f = self.footprint(r)
+        if f is None:
+            return None
+        own = building_owner_cm(r)
+        wg, hard, elevated = f
         bx0, bz0, bx1, bz1 = wg.bounds
         near = self.pieces_near(sbox(bx0 - 15, bz0 - 15, bx1 + 15, bz1 + 15))
         parts = []
-        elevated = (r['min_height'] or 0) >= 3
         for p in sorted(near, key=lambda p: (p['seg'], p['i'])):
             if p['flags'] & FLAGS['pedestrian']:
                 continue
@@ -1623,11 +1793,14 @@ class World:
                 if pg.intersects(wg):
                     parts.append(pg)
         if parts and not elevated:
-            # (a footprint in the roadway is dropped or trimmed; an elevated one (canopy, skybridge) spans it)
+            # (a footprint is trimmed off the roadway round it; an elevated one (canopy, skybridge) spans it. The firm
+            # roads' cover was tested in footprint(); the soft ones left after site_cut never drop a large
+            # building: where every road would take more than 35% of it, only the firm ones trim it)
             hit = unary_union(parts)
             inter = hit.intersection(wg).area
             if inter > 0.35 * wg.area:
-                return None
+                hit = hard
+                inter = hit.intersection(wg).area if hit is not None else 0
             if inter > 0:
                 g2 = wg.difference(hit.buffer(0.3))
                 g2 = max(polygons(g2), key=lambda p: (p.area, p.bounds)) if not g2.is_empty else None
@@ -1713,6 +1886,10 @@ def _compile_tile(Wd, c, r, dem_files):
             if nid.startswith('c:'):
                 ctl, _ = Wd.junction(nid[2:], pt)
                 n['control'] = ctl
+                n['own'] = list(grid.tile_of(*pt)) == [c, r]
+            elif nid.startswith('x:'):
+                # (a site road's dead end, cut back from a building: World.site_cut)
+                n['control'] = 0
                 n['own'] = list(grid.tile_of(*pt)) == [c, r]
             else:
                 n['border'] = True
