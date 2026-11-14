@@ -63,7 +63,9 @@ export function createCrowd(W) {
   // the set-in corners move along it per metre in (ms at its start, me at its end: a lane at o runs from o * ms to
   // len + o * me; a right-angled corner gives 1 and -1)
   const sides = new Map();
-  const usable = (b) => !!b && !b.median && b.area > 500 && b.area < 80000 && b.poly && b.poly.length >= 3 && b.poly.length < 40;
+  // (r7: nor a town's divided-road median, which the town's traffic (cities/sf/js/traffic.js) marks b.townMedian: the
+  // lawn between two carriageways of one street)
+  const usable = (b) => !!b && !b.median && !b.townMedian && b.area > 500 && b.area < 80000 && b.poly && b.poly.length >= 3 && b.poly.length < 40;
   const band = (b) => (b.park > 0.6 ? PARK_LANE : LANE);
   function sidesOf(b) {
     let S = sides.get(b);

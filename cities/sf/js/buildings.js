@@ -2157,6 +2157,17 @@ function buildCityBlocks(scene, opts = {}) {
     }
 
     let awningN = 0, mallN = 0;
+    // (r7) how many of an outline's corners bend by 3 to 25 degrees: the vertices of an arc, not a box's corners
+    const softCorners = (pts) => {
+      let n = 0;
+      for (let k = 0; k < pts.length; k++) {
+        const a = pts[(k + pts.length - 1) % pts.length], p = pts[k], q = pts[(k + 1) % pts.length];
+        const ux = p.x - a.x, uz = p.z - a.z, vx = q.x - p.x, vz = q.z - p.z;
+        const ang = Math.abs(Math.atan2(ux * vz - uz * vx, ux * vx + uz * vz)) * 180 / Math.PI;
+        if (ang > 3 && ang < 25) n++;
+      }
+      return n;
+    };
     const pkgShops = []; // (a package's shops, for their signs' names: PkgBuildings.signPlan)
     function shopAwnings(blk, box, shop) {
       // the longest shop wall of the box (createFacadeBoxes faces: local -x, +x, -z, +z): canvas awnings in 6 m bays
@@ -2237,6 +2248,13 @@ function buildCityBlocks(scene, opts = {}) {
         mat = kind === 'warehouse' ? 2 : kind === 'church' || kind === 'school' || kind === 'civic' || ((kind === 'office' || kind === 'shop') && height >= 12) || type === 'midrise' || type === 'tower' ? 0 : 1;
       }
       const storeyH = rec[FI.storeyH] || (type === 'tower' ? 3.9 : 0);
+      // (r7, South Florida's towers: one 45 m or taller is banded, its slabs deeper (1.9 m) and half of them with solid
+      // white balustrades instead of glass railings; a curved one (6 or more of its outline's corners bend under 25
+      // degrees, or no boxes cover it) gets its balconies along its own outline and no podium, so its bands follow the
+      // round ends the boxes only step round)
+      const curved = balcony && height >= 30 && (count === 0 || softCorners(pts) >= 6);
+      const banded = balcony && height >= 45;
+      const slabOut = banded ? 1.9 : 1.35, railHex = banded ? (hash(i, 23.9) < 0.5 ? 0xf1f0ea : 0x8ea2a8) : 0xa7bcc1;
       const blk = {
         id: `sf_${i}`, cx: (minX + maxX) * 0.5, cz: (minZ + maxZ) * 0.5, minX, maxX, minZ, maxZ, district: 'sf', ry: theta,
         cornices: [], waterTowers: [], hvacUnits: [], fireEscapes: [], awnings: [], scaffoldSheds: [], yards: [],
@@ -2291,7 +2309,7 @@ function buildCityBlocks(scene, opts = {}) {
       // has no podium height), the building's other masses stop there
       let biggest = -1;
       for (let k = start; k < start + count; k++) if (biggest < 0 || all[k].w * all[k].d > all[biggest].w * all[biggest].d) biggest = k;
-      const podiumShare = type === 'tower' ? rec[FI.podium] : 0;
+      const podiumShare = type === 'tower' && !curved ? rec[FI.podium] : 0;
       const podiumTop = podiumShare > 0 && podiumShare < 0.75 ? Math.min(base + PODIUM_STOREYS * (storeyH || storeys[mat]), base + height * 0.4) : roof;
       // (a package roof: its rise from the record (peak - roof; houses by the region's pitch), each mass's in
       // proportion to its span, so the wings of an L-shaped house sit under the main ridge)
@@ -2342,7 +2360,7 @@ function buildCityBlocks(scene, opts = {}) {
             const tower = { ...box, y: (podiumTop + roof) * 0.5, w: tm.w, h: roof - podiumTop, d: tm.d, plinth: Math.max(0, box.plinth), faces: [WALL_KINDS.entry, WALL_KINDS.entry, WALL_KINDS.entry, WALL_KINDS.entry] };
             buckets[mat].push(tower);
             collider(tm, roof);
-            if (balcony && tm.w >= 5 && tm.d >= 5) pb.balconies(tm, theta, tower.base + tower.plinth, roof, storeyH || storeys[mat], 0xf3f3ef, 0xa7bcc1, 1.35, podiumTop);
+            if (balcony && !curved && tm.w >= 5 && tm.d >= 5) pb.balconies(tm, theta, tower.base + tower.plinth, roof, storeyH || storeys[mat], 0xf3f3ef, railHex, slabOut, podiumTop);
             top = tm;
             topBox = tower;
           }
@@ -2363,7 +2381,7 @@ function buildCityBlocks(scene, opts = {}) {
           }
           collider(m, roof);
           pb.roof(m, theta, roof, 0, 'flat', look.roofColor, paint[0], look.parapet);
-          pb.membrane(m, theta, roof + 0.03, look.roofColor);
+          pb.mallRoof(m, theta, roof + 0.03, look.roofColor, (a) => hash(i, a + k * 3.17));
           WALLS.forEach(([lx, lz], f) => {
             if (faces[f] !== WALL_KINDS.shop || (lx ? m.d : m.w) < 8) return;
             const nx = lx * cs + lz * sn, nz = -lx * sn + lz * cs, half = lx ? m.w * 0.5 : m.d * 0.5, len = lx ? m.d : m.w;
@@ -2387,11 +2405,12 @@ function buildCityBlocks(scene, opts = {}) {
         }
         buckets[mat].push(box);
         collider(m, roof);
-        if (balcony && m.w >= 5 && m.d >= 5) pb.balconies(m, theta, box.base + box.plinth, roof, storeyH || storeys[mat], 0xf3f3ef, 0xa7bcc1);
+        if (balcony && !curved && m.w >= 5 && m.d >= 5) pb.balconies(m, theta, box.base + box.plinth, roof, storeyH || storeys[mat], 0xf3f3ef, railHex, slabOut);
         if (pitched) { if (m.w * m.d >= 6 || k === biggest) pb.roof(m, theta, roof, Math.min(rise0, kRise * Math.min(m.w, m.d) * 0.5), look.roof, look.roofColor, paint[0], look.parapet); }
         else if (mat <= 2 && m.w > 3 && m.d > 3) blk.cornices.push({ x: m.cx, y: roof, z: m.cz, w: m.w + 1.0, h: 0.8, d: m.d + 1.0 });
         if (!top || m.w * m.d > top.w * top.d) { top = m; topBox = box; }
       }
+      if (curved) pb.outlineBalconies(pts, base, roof, storeyH || storeys[mat], 0xf3f3ef, railHex, slabOut);
       // row houses, flats & apartments: bay windows, garage door, stoop & false-front gable on the main front (sf-buildings.js)
       if (mat === 1 && topBox && (PK ? kind === 'rowhouse' : (type === 'rowhouse' || type === 'flats' || type === 'apartment' || vict))) {
         window.NYC.sfFrontDetails(details, topBox, {
