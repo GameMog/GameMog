@@ -311,7 +311,7 @@ export function install(W) {
       if (Math.abs(sd.x - x) > 10 || Math.abs(sd.z - z) > 10) continue;
       if (boxes(x, z, car.heading, B.hx, hl, sd.x, sd.z, sd.yaw, sd.hw, sd.hl, hit)) meetBody({ vx: 0, vz: 0, mass: 1e4, key: o, kind: o.name, paint: null });
     }
-    Object.assign(PM, { x: car.position.x + s * cz, z: car.position.z + c * cz, yaw: car.heading, hw: B.hx, hl, vx: s * car.speed + car.vx, vz: c * car.speed + car.vz, mass: car.mass || 2 });
+    Object.assign(PM, { x: car.position.x + s * cz, z: car.position.z + c * cz, y: car.position.y, yaw: car.heading, hw: B.hx, hl, vx: s * car.speed + car.vx, vz: c * car.speed + car.vz, mass: car.mass || 2 });
     props.collide(PM);
   }
   car.crash = { step: (d) => { const t0 = performance.now(); step(d); api.cost.ms += performance.now() - t0; }, wall };

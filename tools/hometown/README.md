@@ -1,4 +1,4 @@
-# Hometown compiler 0.8.0 (the national grid hg1)
+# Hometown compiler 0.8.1 (the national grid hg1)
 
 Turns open US map data into **tiles on one national grid**. A tile is compiled from its own sources and context alone,
 so any tile can be compiled on first request, neighbouring towns share identical tiles, and a place is just a list of
@@ -99,7 +99,7 @@ centres by non-max suppression within 2 km, downtown = within 350 m of a centre)
 A tile reads the ctx blocks within 3.2 km and the regions within 3.2 km (a tile whose regions are not fetched is refused
 with the fetch command to run).
 
-**buildId** `htc-0.8.0-hg1-b{8 hex}`: the first 8 hex of the sha256 of the build record (`builds/{buildId}.json`:
+**buildId** `htc-0.8.1-hg1-b{8 hex}`: the first 8 hex of the sha256 of the build record (`builds/{buildId}.json`:
 compiler version, libraries incl. GEOS and zlib, the CPU architecture (`machine`) and the duckdb `spatial` extension's
 version, image digest (`HOMETOWN_IMAGE_DIGEST` from the environment: the town-builder image sets a recipe id), Overture
 release, DEM snapshot, grid). Compiler logic
@@ -254,10 +254,15 @@ embankment, already in 3DEP.
   *anchor* at the terrain's height (the final post function: the heights the engine reads). A deck of another group
   under this one is read solved in full when that group ranks lower (home cells in order), else as its base profile
   (solved with no other group), so no two groups wait on each other.
-- **Tunnels:** a tunnel's portals split the road (node `p:{segment}:{at}`); a piece inside it is a tunnel link (flag 2),
-  kept so the road through it connects (Fort Pitt's bridge runs into its tunnel), with `elev` the straight line between
-  the ground at its tunnel's two portals (pure per segment; the engine bores it where the hill stands 3 m over it). Its
-  interior (30 m in from a portal) is not roadway: the ground over it keeps its blocks and buildings.
+- **Tunnels:** a tunnel's portals split the road (node `p:{segment}:{at}`; both of them, 0.8.1); a piece inside it is a
+  tunnel link (flag 2), kept so the road through it connects (Fort Pitt's bridge runs into its tunnel), with `elev` the
+  straight line between the ground at its tunnel's two portals (pure per segment; the engine bores it where the hill
+  stands 3 m over it). Its interior (30 m in from a portal) is not roadway: the ground over it keeps its blocks and
+  buildings. A portal within `PORTAL_SNAP` (30 m) of a connector is at the connector, with a bridge that starts or ends
+  there and the roadway it had (no link that short at a portal: the engine folds a link under 8 m into its junction and
+  loses a short one off a fork from its traffic network; Fort Pitt's deck now starts where its tunnel ends, at one
+  height). A tunnel that leaves another underground (a portal at a connector inside another tunnel's span) starts at
+  that tunnel's road, not on the hill over it.
 - **demSource:** the DEM files a tile's own outputs were computed from (`dem.Sampler.record`: its posts, its decks'
   groups, culverts; a cached value carries its files), the same whatever was compiled before it in the session.
 - **Constraints:** a road under it (no shared connector) +6.5 m, rail +8.4 m, water (wet posts: the DEM's flattened

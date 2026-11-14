@@ -56,7 +56,8 @@ export function createProps({ cm, fx, play, car = null, scene = null, physics: P
   }
 
   // ---------------------------------------------------------------- hits
-  // the mover: a box on the ground (x, z its middle, yaw, hw half width, hl half length) going (vx, vz). What it meets:
+  // the mover: a box on the ground (x, z its middle, yaw, hw half width, hl half length; y, if given, its ground's
+  // height) going (vx, vz). What it meets:
   // solid things push it out (x, z changed) and are reported (onSolid(nx, nz, pen, b, vi, hit): n from the thing to the
   // mover, hit.x z where they touch on a box); breakable ones hit hard enough are knocked (onBreak(b, vi, loss, nx, nz):
   // how fast it was hit, the speed that cost)
@@ -100,6 +101,9 @@ export function createProps({ cm, fx, play, car = null, scene = null, physics: P
   function collide(m) {
     const r = Math.hypot(m.hw, m.hl) + 3.5;
     for (const b of around(m.x, m.z, r)) {
+      // (on another level: a tree on the hill over a tunnel the car is in, a pole in the street under the deck it is
+      // on. m.y: the mover's ground, b.y: the thing's foot; the same 2.6 m as the highways' cars, index.js)
+      if (m.y != null && b.y != null && Math.abs(b.y - m.y) > 2.6) continue;
       if (b.taken || !touch(m, b)) continue;
       const K = KINDS[b.kind];
       const vi = -(m.vx * hit.nx + m.vz * hit.nz);
