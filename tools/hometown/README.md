@@ -230,16 +230,19 @@ stays the same bytes in any compile that holds it (the seam / block / overlap pr
 - **front / frontDist**: the direction and distance to the nearest roadway edge within 12 m (porches, awnings).
 - **region**: the tile's centre by coarse US regions (`region_of`), in the tile header and the package's buildings header.
 - Elevated footprints (`min_height` >= 3 m) are not dropped by the in-the-roadway rule.
-- **Site roads (0.8.1, `World.footprint` / `site_cut`):** a footprint more than 35% in the roadway is dropped, but
-  round a building of 150 m2 or more that is not a roof or carport only the firm roads count: a site's own roads
-  (`soft`: class service, any subclass or none, or private access) never cost it its place (Bal Harbour's 24,000 m2 mall
-  outline stood over a service passage). A soft piece half or more inside such a building (its footprint shrunk 1 m)
-  is no road: dropped from every product (links, roadway, islands, junction controls, the frame's lanes). One that
-  runs in from an end is cut back to 1 m + half its width off the footprint, its new end a dead-end node
-  `x:{segment}:{piece}:a|b` (control 0, never a border); one through the middle of a building is kept whole. Bridges,
-  decks, tunnels and grade groups read the data's own pieces (`raw_pieces`), so nothing there depends on the cut (no
-  cycle); the buildings' 35% test reads them too. Ring roads, drives between buildings and public streets are never
-  touched; smaller buildings, roofs and carports keep the old rule.
+- **Site roads (0.8.1, `World.footprint` / `site_cut` / `site_run`):** a footprint more than 35% in the roadway is
+  dropped, but round a building of 150 m2 or more that is not a roof or carport a site's own road (`soft`: class
+  service, any subclass or none, or private access) that runs into it does not count (Bal Harbour's 24,000 m2 mall
+  outline stood over its service passage). `site_run` says how a soft piece runs into a footprint (shrunk 1 m): half
+  its length or more inside, it is no road (dropped from every product: links, roadway, islands, junction controls,
+  the frame's lanes); in from an end, it is cut back to 1 m + half its width off the footprint, its new end a dead-end
+  node `x:{segment}:{piece}:a|b` (control 0, never a border); through the middle (or a bridge, tunnel, level or link
+  piece), it is kept whole and counts against the building unless that has 1,000 m2 (a passage under a mall or a
+  garage; a house with a drive through it is dropped, as before). Site roads beside a building count as every road
+  does (an alley garage half in the alley is still dropped), so a building that takes a road off the map always keeps
+  its own place. Bridges, decks, tunnels, grade groups and this test read the data's own pieces (`raw_pieces`), never
+  the cut ones (no cycle, tiles stay pure). Public streets are never touched; smaller buildings, roofs and carports
+  keep the old rule.
 
 Step 0 (Overture 2026-10-21.0, the fetched regions): `roof_shape` on 0 of 3,186 Okemah buildings, 225 of 182,368
 round Phoenix, 538 of 272,900 round Pittsburgh; `roof_height` and facade / roof colours on none (they are not fetched;

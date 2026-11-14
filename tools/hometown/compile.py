@@ -184,6 +184,7 @@ ROOFS = {'roof', 'carport', 'shelter'}   # building classes the cars drive under
 INSIDE_IN = 1.0       # m: a soft piece inside a building runs in its footprint shrunk by this much (a wall-hugging drive does not)
 INSIDE_MIN_AREA = 150.0   # m2: smaller buildings keep the old rule (a shed, a kiosk, a booth on a drive: the drive wins)
 CUT_GAP = 1.0         # m: a site road cut back from a building ends this far plus half its width off the footprint
+PASSAGE_MIN_AREA = 1000.0   # m2: a site road through the middle of a building this large is its passage (it stands over it)
 # ground classes, one byte per 1 m cell (0..5 San Francisco's; 7 paved lot, 8 dry grass and scrub, 9 woodland floor)
 MASK = {'asphalt': 0, 'sidewalk': 1, 'lawn': 2, 'sand': 3, 'rock': 4, 'waterEdge': 5, 'water': 6, 'lot': 7, 'scrub': 8, 'woods': 9}
 CLIMATE_GROUND = {'humid': 'lawn', 'dry': 'scrub', 'arid': 'sand'}   # the open land where the map says nothing
@@ -719,6 +720,34 @@ def ctx_key(bid, dom, C, R):
 
 
 # ------------------------------------------------------------------------------------------------------------- world
+def site_run(p, fp, core, line=None):
+    """How a soft piece runs into the footprint(s) fp (core: fp shrunk by INSIDE_IN m) -> ('beside',) its centreline
+    not 0.5 m in the core; ('drop',) half its length or more in it, or what is left of a cut under 2 m; ('cut', u0, u1)
+    it runs in from an end (kept over arcs [u0, u1], CUT_GAP m + half its width off fp); ('through',) through the middle
+    (a passage), or a bridge, tunnel, level or link piece (never cut)."""
+    line = line if line is not None else LineString([(x / 100.0, z / 100.0) for x, z in p['pts']])
+    L = line.length
+    inside = line.intersection(core).length if core is not None and not core.is_empty and L >= 0.5 else 0.0
+    if inside < 0.5:
+        return ('beside',)
+    if inside >= 0.5 * L:
+        return ('drop',)
+    if p['br'] or p['tun'] or p['lvl'] or p['flags'] & FLAGS['tunnel'] or p['link']:
+        return ('through',)
+    u0, u1 = 0.0, L
+    for comp in lines_of(line.intersection(fp.buffer(p['w'] / 2 + CUT_GAP, quad_segs=4))):
+        if comp.intersection(core).length < 0.5:
+            continue
+        e0, e1 = sorted((line.project(Point(comp.coords[0])), line.project(Point(comp.coords[-1]))))
+        if e0 <= 0.05:
+            u0 = max(u0, e1)
+        elif e1 >= L - 0.05:
+            u1 = min(u1, e0)
+    if u0 == 0.0 and u1 == L:
+        return ('through',)
+    return ('drop',) if u1 - u0 < 2.0 else ('cut', u0, u1)
+
+
 def clip_cm(pts, a, b):
     """The polyline pts (int cm) between arcs a < b (m from its start): its own vertices inside, the ends interpolated
     and rounded to the cm."""
@@ -1679,11 +1708,12 @@ class World:
 
     # ---- buildings (pure per building)
     def footprint(self, r):
-        """(the footprint polygon before any road, the firm roads' cover of it or None, elevated) or None: what a
+        """(the footprint polygon before any road, the counted roads' cover of it or None, elevated) or None: what a
         building's place is decided from, from its own row and the data's pieces within 15 m (pure per building).
-        Firm roads are every drivable piece but, round a building of INSIDE_MIN_AREA m2 or more that is not a roof or a
-        carport (ROOFS), a site's own (soft: service, private): they alone can cost a building its place (more than 35%
-        of it in their roadway). A shed, a kiosk or a canopy on a site's drive is still dropped (the drive wins)."""
+        A footprint more than 35% in the roadway is dropped. Round a building of INSIDE_MIN_AREA m2 or more that is not
+        a roof or a carport (ROOFS) a site road (soft: service, private) that runs into it does not count (it is
+        dropped or cut back from it, site_run); one that runs through it (a passage) counts unless the building has
+        PASSAGE_MIN_AREA m2; site roads beside it count as every road does (an alley garage half in the alley)."""
         bid = r['id']
         if bid in self.foot_c:
             return self.foot_c[bid]
@@ -1702,12 +1732,17 @@ class World:
         elevated = (r['min_height'] or 0) >= 3
         # (a roof or carport on a site's drive, or a small building: the drive wins, as for every road)
         site = wg.area >= INSIDE_MIN_AREA and (r['class'] or '').lower() not in ROOFS
+        core = wg.buffer(-INSIDE_IN, quad_segs=2) if site else None
         hard = []
         if not elevated:
             bx0, bz0, bx1, bz1 = wg.bounds
             for p in sorted(self.raw_pieces_near(sbox(bx0 - 15, bz0 - 15, bx1 + 15, bz1 + 15)), key=lambda p: (p['seg'], p['i'])):
-                if p['flags'] & FLAGS['pedestrian'] or (p['soft'] and site):
+                if p['flags'] & FLAGS['pedestrian']:
                     continue
+                if p['soft'] and site:
+                    run = site_run(p, wg, core)
+                    if run[0] in ('drop', 'cut') or (run[0] == 'through' and wg.area >= PASSAGE_MIN_AREA):
+                        continue
                 for gl in self.ground_lines(p):
                     pg = gl.buffer(p['w'] / 2 + max(p['sw'], 0.6), quad_segs=4)
                     if pg.intersects(wg):
@@ -1720,13 +1755,10 @@ class World:
 
     def site_cut(self, p):
         """A soft piece (a site's service or private road) against the buildings that keep their place round it ->
-        the piece itself, None (dropped) or the piece cut back. Half its length or more inside the footprints shrunk
-        by INSIDE_IN m: dropped (a mall's internal drives, a garage's ramps, a hospital's court under its roof). Less,
-        where it runs in from an end: cut back to CUT_GAP m off the footprint, its new end a dead end 'x:{segment}:{piece}:a|b'
-        (a drive into a loading dock); through the middle of one it is kept whole (a passage). A ring road round the
-        building or a drive between buildings never reaches in, and public streets are never soft. Hosts: a building of
-        INSIDE_MIN_AREA m2 or more, not elevated (a canopy or skybridge over the drive), not a roof or carport. Pure per
-        piece: the buildings it meets and their own pieces (footprint)."""
+        the piece itself, None (dropped) or the piece cut back (site_run over their footprints together). Hosts: a
+        building of INSIDE_MIN_AREA m2 or more that keeps its place (footprint), not elevated (a canopy or skybridge
+        over the drive), not a roof or carport. A ring road round a building or a drive between buildings never runs
+        in, and public streets are never soft. Pure per piece: the buildings it meets and their own pieces."""
         if not p['soft']:
             return p
         k = (p['seg'], p['i'])
@@ -1734,12 +1766,8 @@ class World:
             return self.inside_c[k]
         self.inside_c[k] = p
         line = LineString([(x / 100.0, z / 100.0) for x, z in p['pts']])
-        L = line.length
-        if L < 0.5:
-            return p
-        reach = p['w'] / 2 + CUT_GAP
         hosts = []
-        for b in sorted(self.src.query('buildings', line.buffer(reach, quad_segs=2)), key=lambda b: b['id']):
+        for b in sorted(self.src.query('buildings', line.buffer(p['w'] / 2 + CUT_GAP, quad_segs=2)), key=lambda b: b['id']):
             if (b['class'] or '').lower() in ROOFS:
                 continue
             f = self.footprint(b)
@@ -1749,26 +1777,12 @@ class World:
         if not hosts:
             return p
         fp = unary_union(hosts)
-        core = fp.buffer(-INSIDE_IN, quad_segs=2)
-        inside = line.intersection(core).length if not core.is_empty else 0.0
-        if inside >= 0.5 * L:
-            self.inside_c[k] = None
-            return None
-        if inside < 0.5 or p['br'] or p['tun'] or p['lvl'] or p['flags'] & FLAGS['tunnel'] or p['link']:
-            return p
-        # (the stretches of the centreline within reach of the footprints that reach the core, from either end)
-        u0, u1 = 0.0, L
-        for comp in lines_of(line.intersection(fp.buffer(reach, quad_segs=4))):
-            if comp.intersection(core).length < 0.5:
-                continue
-            e0, e1 = sorted((line.project(Point(comp.coords[0])), line.project(Point(comp.coords[-1]))))
-            if e0 <= 0.05:
-                u0 = max(u0, e1)
-            elif e1 >= L - 0.05:
-                u1 = min(u1, e0)
-        if u0 == 0.0 and u1 == L:
-            return p
-        q = None if u1 - u0 < 2.0 else cut_piece(p, u0, u1)
+        run = site_run(p, fp, fp.buffer(-INSIDE_IN, quad_segs=2), line)
+        q = p
+        if run[0] == 'drop':
+            q = None
+        elif run[0] == 'cut':
+            q = cut_piece(p, run[1], run[2])
         self.inside_c[k] = q
         return q
 
@@ -1793,9 +1807,10 @@ class World:
                 if pg.intersects(wg):
                     parts.append(pg)
         if parts and not elevated:
-            # (a footprint is trimmed off the roadway round it; an elevated one (canopy, skybridge) spans it. The firm
-            # roads' cover was tested in footprint(); the soft ones left after site_cut never drop a large
-            # building: where every road would take more than 35% of it, only the firm ones trim it)
+            # (a footprint is trimmed off the roadway round it; an elevated one (canopy, skybridge) spans it. Its place
+            # was decided in footprint(); where the roads left would take more than 35% of it, the site roads that run
+            # into it are its own (a large building's passage, a drive site_cut could not cut: a ramp, a deck) and
+            # only the counted roads trim it)
             hit = unary_union(parts)
             inter = hit.intersection(wg).area
             if inter > 0.35 * wg.area:

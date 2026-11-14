@@ -23,7 +23,7 @@ T = grid.TILE_CM
 
 def piece(pts, subs):
     """A raw piece of segment 's' (index 3) with the given int-cm points and subs [(pts, na, nb)]."""
-    out = {'seg': 's', 'i': 3, 'a': 'A', 'b': 'B', 'pts': pts, 'w': 6.0, 'soft': True, 'f0': 0.0, 'f1': 1.0, 'br': [], 'tun': [], 'lvl': 0}
+    out = {'seg': 's', 'i': 3, 'a': 'A', 'b': 'B', 'pts': pts, 'w': 6.0, 'soft': True, 'f0': 0.0, 'f1': 1.0, 'br': [], 'tun': [], 'lvl': 0, 'flags': 0, 'link': False}
     out['subs'] = [{'j': j, 'pts': p, 'na': a, 'nb': b, 'own': ((p[0][0] + p[1][0]) // (2 * T), (p[0][1] + p[1][1]) // (2 * T))}
                    for j, (p, a, b) in enumerate(subs)]
     return out
@@ -53,6 +53,27 @@ class Clip(unittest.TestCase):
         self.assertEqual([(s['na'], s['nb']) for s in q['subs']], [('x:s:3:a', 'c:B')])
         self.assertEqual(q['a'], 'x:s:3:a')
         self.assertNotIn('geom_', q)
+
+
+class Run(unittest.TestCase):
+    def test_site_run(self):
+        # a 40 x 40 m building at the origin; 6 m wide drives (cm points)
+        from shapely.geometry import box
+        fp = box(0, 0, 40, 40)
+        core = fp.buffer(-C.INSIDE_IN, quad_segs=2)
+
+        def run(pts, **kw):
+            return C.site_run(dict(piece(pts, [(pts, 'c:A', 'c:B')]), **kw), fp, core)
+        self.assertEqual(run([(-2000, 2000), (-500, 2000)]), ('beside',))                 # a drive up to the wall
+        self.assertEqual(run([(-500, -300), (4500, -300)]), ('beside',))                  # a ring road 3 m off it
+        self.assertEqual(run([(500, 2000), (3500, 2000)]), ('drop',))                     # inside
+        self.assertEqual(run([(-1000, 2000), (3000, 2000)]), ('drop',))                   # 75% inside
+        r = run([(-3000, 2000), (1500, 2000)])                                           # 30 m out, 15 in: cut
+        self.assertEqual(r[0], 'cut')
+        self.assertEqual(r[1], 0.0)
+        self.assertAlmostEqual(r[2], 30.0 - 3.0 - C.CUT_GAP, places=6)
+        self.assertEqual(run([(-5000, 2000), (9000, 2000)]), ('through',))                # a passage, 140 m long
+        self.assertEqual(run([(-3000, 2000), (1500, 2000)], lvl=1), ('through',))         # a ramp: never cut
 
 
 @unittest.skipUnless(os.path.exists(os.path.join(DATA, 'regions', 'hg1-conus', '4', '563', '648', 'region.json')), 'Bal Harbour regions not fetched')
