@@ -29,6 +29,40 @@ class Climate(unittest.TestCase):
         self.assertTrue(set(np.unique(v).tolist()) <= {climate.HUMID, climate.ARID, climate.DRY})
 
 
+class Warmth(unittest.TestCase):
+    def test_bands(self):
+        # (points, not places)
+        cases = {(-80.124, 25.893): 'tropical', (-81.78, 24.55): 'tropical', (-81.8, 26.14): 'tropical', (-80.05, 26.7): 'tropical',
+                 (-82.46, 27.95): 'subtropical', (-81.38, 28.54): 'subtropical', (-97.5, 25.9): 'subtropical', (-97.4, 27.8): 'subtropical',
+                 (-157.86, 21.31): 'tropical', (-66.1, 18.47): 'tropical', (144.79, 13.44): 'tropical', (-170.7, -14.28): 'tropical',
+                 (-82.32, 29.65): None, (-87.2, 30.42): None, (-81.66, 30.33): None, (-95.37, 29.76): None, (-98.49, 29.42): None,
+                 (-112.07, 33.45): None, (-96.31, 35.43): None, (-80.0, 40.44): None, (-118.24, 34.05): None, (-117.16, 32.72): None}
+        for (lon, lat), want in cases.items():
+            self.assertEqual(climate.warmth(lon, lat), want, (lon, lat))
+            # (the ground zone is never changed by it: the far field and the open ground stay as they were)
+            self.assertEqual(climate.zone_name(lon, lat), want or climate.zone(lon, lat), (lon, lat))
+
+    def test_region(self):
+        self.assertEqual(C.region_of(-80.124, 25.893), 'south-florida')
+        self.assertEqual(C.region_of(-82.46, 27.95), 'south-florida')
+        self.assertEqual(C.region_of(-66.1, 18.47), 'south-florida')
+        # (everywhere else as before 0.8.1)
+        for (lon, lat), want in {(-96.31, 35.43): 'plains-midwest', (-80.0, 40.44): 'northeast-rust', (-112.07, 33.45): 'southwest',
+                                 (-84.39, 33.75): 'southeast', (-82.32, 29.65): 'southeast', (-97.5, 25.9): 'plains-midwest',
+                                 (-157.86, 21.31): 'california', (-118.24, 34.05): 'california'}.items():
+            self.assertEqual(C.region_of(lon, lat), want, (lon, lat))
+        self.assertIn('south-florida', C.REGIONS)
+
+    def test_tree_classes(self):
+        # San Francisco's tree-classes.json keep their numbers; the warm band's follow
+        self.assertEqual([C.TREE_CLASS[k] for k in ('plane', 'ficus', 'palm', 'elm', 'conifer', 'locust')], list(range(6)))
+        for band in ('tropical', 'subtropical'):
+            for table in (C.WARM_YARD[band], C.WARM_STREET[band]):
+                self.assertAlmostEqual(sum(w for _, w in table), 1.0)
+                got = {C.pick_w(table, (k + 0.5) / 200) for k in range(200)}
+                self.assertEqual(got, {C.TREE_CLASS[n] for n, _ in table})
+
+
 class LandUse(unittest.TestCase):
     def test_classes(self):
         g = C.lu_ground
@@ -42,6 +76,9 @@ class LandUse(unittest.TestCase):
         self.assertEqual(g('agriculture', 'farmland', 'dry'), 'scrub')
         self.assertEqual(g('protected', 'nature_reserve', 'humid'), 'woods')
         self.assertEqual(g('resource_extraction', 'quarry', 'humid'), 'rock')
+        # (a beach resort's land is beach sand in any climate; a golf bunker stays the bare-ground class)
+        for clim in ('humid', 'dry', 'arid'):
+            self.assertEqual(g('recreation', 'beach_resort', clim), 'beach')
         # (yards, shops, offices: the climate's open land, the paved lots come from the buildings and car parks)
         for sub, cls in (('residential', 'residential'), ('developed', 'commercial'), ('developed', 'retail'), ('education', 'school')):
             self.assertIsNone(g(sub, cls, 'humid'), (sub, cls))
@@ -50,8 +87,48 @@ class LandUse(unittest.TestCase):
         # San Francisco's classes keep their numbers; the new ones follow water (6)
         self.assertEqual([C.MASK[k] for k in ('asphalt', 'sidewalk', 'lawn', 'sand', 'rock', 'waterEdge', 'water')], list(range(7)))
         self.assertEqual((C.MASK['lot'], C.MASK['scrub'], C.MASK['woods']), (7, 8, 9))
+        self.assertEqual((C.MASK['beach'], C.MASK['wetsand']), (10, 11))
+        # (the engine reads the classes by number: tsl-materials.js, pkg-far.js byClass; the package header lists them in order)
+        self.assertEqual(sorted(C.MASK.values()), list(range(len(C.MASK))))
         for k in C.CLIMATE_GROUND.values():
             self.assertIn(k, C.MASK)
+
+
+class SandLayer(unittest.TestCase):
+    """The beaches' rows (Overture base/land): a region fetched before the layer is refused with the top-up command."""
+
+    def test_region_without_land_refused(self):
+        import json
+        import tempfile
+        import fetch
+        import sources
+        with tempfile.TemporaryDirectory() as d:
+            out = fetch.region_dir(d, 'conus', 5, 7)
+            os.makedirs(out)
+            for theme, typ, _ in fetch.LAYERS:
+                if (theme, typ) != ('base', 'land'):
+                    open(fetch.layer_file(out, theme, typ), 'wb').close()
+            json.dump({'overture': {'release': fetch.RELEASE, 'layers': {}}}, open(os.path.join(out, 'region.json'), 'w'))
+            self.assertEqual([l[:2] for l in fetch.missing_layers(out)], [('base', 'land')])
+            with self.assertRaises(sources.MissingRegion) as e:
+                sources.Sources(d, 'conus', [(5, 7)])
+            self.assertIn('fetched without base/land', str(e.exception))
+            self.assertIn('fetch.py --regions conus:5,7', str(e.exception))
+            # (the refusal is what prewarm.py retries on: its pattern finds the regions to fetch)
+            import prewarm
+            self.assertEqual(prewarm.REGIONS.search(str(e.exception)).group(1), 'conus:5,7')
+
+    def test_land_filter(self):
+        import fetch
+        import sources
+        # (the coastline land masses are never fetched; the compiler reads only the sand polygons of the rest)
+        self.assertIn("subtype IS DISTINCT FROM 'land'", fetch.LAYER_WHERE[('base', 'land')])
+        self.assertIn(('base', 'land'), [l[:2] for l in fetch.LAYERS])
+        theme, typ, cols, where = sources.LAYER_SQL['sand']
+        self.assertEqual((theme, typ), ('base', 'land'))
+        self.assertIn("subtype = 'sand'", where)
+        self.assertNotIn('shingle', where)   # (gravel bars and pebbles: Overture subtype rock, not sand)
+        self.assertIn(('base', 'land'), sources.REQUIRED_FILES)
 
 
 if __name__ == '__main__':

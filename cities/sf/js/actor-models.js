@@ -1528,7 +1528,11 @@ function createLoftedBusMaterial() {
   const redStripe = smoothstep(0.93, 0.95, p.y).mul(smoothstep(1.12, 1.1, p.y));
   const pinStripe = smoothstep(0.86, 0.87, p.y).mul(smoothstep(0.895, 0.885, p.y));
   const skirt = smoothstep(0.53, 0.5, p.y);
-  const livery = mix(mix(mix(color(0xc3c8cd), color(0xbe1e2d), redStripe), color(0xbe1e2d), pinStripe), color(0x2a2e33), skirt).mul(shadeY);
+  // (a Hometown place: no Muni livery outside San Francisco; a plain white bus with the place's own stripe colour,
+  // cities/pkg/js/pkg-hud.js pkgVehicleSigns, on the same lines)
+  const town = window.NYC.PKG && window.NYC.pkgVehicleSigns ? window.NYC.pkgVehicleSigns(window.NYC.PKG) : null;
+  const bodyColor = color(town ? 0xe9ecee : 0xc3c8cd), stripeColor = color(town ? town.accent : 0xbe1e2d);
+  const livery = mix(mix(mix(bodyColor, stripeColor, redStripe), stripeColor, pinStripe), color(0x2a2e33), skirt).mul(shadeY);
 
   // Lamps: twin round headlamps & amber turn signals in black pods; red tail / brake light columns, amber turn &
   // white reverse lamps at the rear corners; plates

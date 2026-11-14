@@ -78,9 +78,15 @@ function createBusDestinationTexture() {
   // (Mog City: a San Francisco route on San Francisco's buses; the fork still showed New York's M1 to Harlem)
   ctx.fillText('1', 37, 33);
   ctx.fillStyle = '#ff9d1c';
-  ctx.font = '800 22px JetBrains Mono, monospace';
   ctx.textAlign = 'left';
-  ctx.fillText('CALIFORNIA', 78, 33);
+  // (a Hometown place: the town's own name, never San Francisco's California line (cities/pkg/js/pkg-hud.js
+  // pkgVehicleSigns), as large as fits the 172 px after the route badge; a name too long even at 13 px says LOCAL)
+  const signs = window.NYC.PKG && window.NYC.pkgVehicleSigns ? window.NYC.pkgVehicleSigns(window.NYC.PKG) : null;
+  let dest = signs ? signs.town || 'LOCAL' : 'CALIFORNIA', px = 22;
+  const fit = () => { ctx.font = `800 ${px}px JetBrains Mono, monospace`; return ctx.measureText(dest).width <= 172; };
+  while (!fit() && px > 13) px--;
+  if (!fit()) { dest = 'LOCAL'; px = 22; fit(); }
+  ctx.fillText(dest, 78, 33);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
@@ -752,6 +758,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
       const m = e.moves[k];
       let w = m.turn === 'S' ? (v.bus ? 8 : 3) : 1;
       if (v.bus && m.turn !== 'S' && m.to.lanes.length < 2) w *= 0.05;
+      if (v.bus && m.to.lanes.length < 2 && inTown()) w *= 1e-3; // (a town's: not onto a road it can't be passed on, see busRoad)
       if (fromLane) {
         if (m.out[v.lane] < 0) w = 0;
       } else if (Math.abs(nearestLane(m, v.lane) - v.lane) * 22 > e.len - v.s) {
@@ -1583,11 +1590,19 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
     v.doors = Math.random() < 0.35 ? (Math.random() < 0.6 ? 1 : Math.random() < 0.5 ? 2 : 3) : 0; // 1 driver's, 2 passenger's, 3 both
   }
 
+  // (Mog City, Hometown) a road a bus keeps to: an avenue; in a town (a package: window.NYC.PKG), one with two lanes or
+  // more its way, where a car gets by it in its own lanes. A town's main street is one lane each way: its one bus put
+  // there (at 8-11 m/s, 12 t his car can't shove aside) held a car fleeing the police behind it down the whole street
+  // (Okemah's W Columbia St: chases of 55-80 s, the cruisers ramming him every 6 s as he trailed it). San Francisco's
+  // buses as before
+  const inTown = () => !!(globalThis.window && globalThis.window.NYC && globalThis.window.NYC.PKG);
+  const busRoad = (e) => e.axis === 'ave' && (e.lanes.length >= 2 || !inTown());
+
   // Put v in a free spot of a random lane rMin..rMax metres from the focus, out of view if `hidden`
   function spawnVehicle(v, rMin, rMax, hidden) {
     for (let attempt = 0; attempt < 12; attempt++) {
       const e = nearEdges[Math.floor(Math.random() * nearEdges.length)];
-      if (!e || e.from.rideReservation || e.to.rideReservation || (v.bus && e.axis !== 'ave') || e.len < 2 * v.half + 10) continue;
+      if (!e || e.from.rideReservation || e.to.rideReservation || (v.bus && !busRoad(e)) || e.len < 2 * v.half + 10) continue;
       const lane = Math.floor(Math.random() * e.lanes.length);
       const s = v.half + 5 + Math.random() * (e.len - 2 * v.half - 10);
       const x = e.sx + e.dx * s + e.rx * e.lanes[lane];
@@ -2168,6 +2183,8 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
         spawnVehicle(v, 0, nearR, false);
       } else if (budget > 0 && (d > 1200 || (d > keepR && !visible(v.x, v.z, v.half + 2))) && spawnVehicle(v, abandoned ? 40 : 100, abandoned ? 200 : 300, true)) {
         budget--;
+      } else if (budget > 0 && v.bus && !busRoad(v.edge) && inTown() && !visible(v.x, v.z, v.half + 2) && spawnVehicle(v, 100, 300, true)) {
+        budget--; // (a town's bus that found its way onto a road it can't be passed on, out of view: back on one it can)
       }
       if (!v.edge) continue;
 

@@ -2,6 +2,15 @@
 # cloud-optimized GeoTIFF tiles (1 x 1 degree, 512 px internal tiles, LZW + floating-point predictor) with HTTP range
 # requests: only the internal tiles under the box are fetched, never a whole file.
 #
+# SUPERSEDED FILES. USGS replaces a file under /current/ when a newer survey lands, and keeps every version, the one
+# being replaced included, under .../TIFF/historical/{name}/USGS_{p}_{name}_{YYYYMMDD}.tif: the same object, the same
+# ETag (single-part MD5 or multipart) as it had under /current/. So a read whose If-Match fails at /current/ (412) is
+# not the end: the pinned version is looked up in that historical listing BY ITS ETAG (and size, when the snapshot has
+# it), and every read of it still carries If-Match "<pinned etag>" (pinned_url, read_pinned). The bytes are the pinned
+# bytes, whichever URL served them; meta.url stays the /current/ URL and meta.lastModified the snapshot's (what /current/
+# served at the pin), so a tile's demSource, and so its bytes, do not depend on the route. Only when the pinned version
+# is in neither place does the read fail: DemUnavailable (a DemChanged), naming the file and the ETag.
+#
 # THE SNAPSHOT PIN. USGS serves each file at a mutable ".../TIFF/current/" URL. A build pins the DEM with a SNAPSHOT: the
 # S3 listing of every product file with its ETag (list_snapshot, `compile.py --dem-snapshot`), stored content-addressed
 # in the shared store at dem/snapshots/{id}.json; the buildId commits to that id. Every read of a file is checked
@@ -41,6 +50,10 @@ class DemChanged(Exception):
     """USGS replaced a file since the snapshot pinned it (If-Match failed): its bytes are not the build's."""
 
 
+class DemUnavailable(DemChanged):
+    """The pinned version of a file is neither at /current/ nor under /historical/: the build cannot read it."""
+
+
 def file_name(latc, lonc):
     return 'n%02dw%03d' % (latc + 1, -lonc)
 
@@ -63,6 +76,84 @@ def _get(url, rng=None, etag=None):
         if e.code == 412:
             raise DemChanged('%s changed since the DEM snapshot (If-Match "%s" failed)' % (url, etag))
         raise
+
+
+HIST = 'StagedProducts/Elevation/%s/TIFF/historical/%s/'
+_CUR_RE = re.compile(r'/StagedProducts/Elevation/(13|1)/TIFF/current/(n\d\dw\d\d\d)/USGS_\1_\2\.tif$')
+_PINNED = {}   # (current url, etag) -> the historical url serving that version (resolved once per process)
+_PINNED_LOCK = __import__('threading').Lock()
+
+
+def _list_objects(prefix, lister=None):
+    """[(key, etag, size)] under prefix (S3 ListObjectsV2, every page)."""
+    lister = lister or (lambda u: _get(u)[0].decode('utf-8'))
+    out, token = [], None
+    while True:
+        q = 'list-type=2&prefix=%s&max-keys=1000' % urllib.parse.quote(prefix)
+        if token:
+            q += '&continuation-token=' + urllib.parse.quote(token)
+        xml = lister('%s/?%s' % (BUCKET, q))
+        for blk in re.findall(r'<Contents>(.*?)</Contents>', xml, re.S):
+            f = lambda n: (re.search(r'<%s>([^<]*)</%s>' % (n, n), blk) or [None, ''])[1]  # noqa: E731
+            out.append((f('Key'), f('ETag').replace('&quot;', '').strip('"'), int(f('Size') or -1)))
+        t = re.search(r'<NextContinuationToken>([^<]+)</NextContinuationToken>', xml)
+        if '<IsTruncated>true</IsTruncated>' not in xml or not t:
+            return out
+        token = t.group(1)
+
+
+def historical_url(product, name, etag, size=None, lister=None):
+    """The /historical/ URL of the version of {product}/{name} whose ETag is etag (and size, when given), else None.
+    Several dated copies with that ETag are the same bytes: the earliest date is taken (a fixed choice)."""
+    rx = re.compile(r'/USGS_%s_%s_(\d{8})\.tif$' % (re.escape(product), re.escape(name)))
+    hits = sorted(k for k, e, n in _list_objects(HIST % (product, name), lister)
+                  if rx.search(k) and e == etag and (size is None or n == size))
+    return '%s/%s' % (BUCKET, hits[0]) if hits else None
+
+
+def pinned_url(url, etag):
+    """The URL that serves the pinned version of a /current/ file: url itself until it answers 412, then its
+    /historical/ copy with the same ETag (resolved once, cached for the process)."""
+    with _PINNED_LOCK:
+        return _PINNED.get((url, etag), url)
+
+
+def read_pinned(url, rng, etag, size=None):
+    """A range read of the pinned version (If-Match etag) of a /current/ 3DEP file, from /current/ or, once USGS has
+    replaced it there, from /historical/. -> (bytes, headers, the url that served them)."""
+    src = pinned_url(url, etag)
+    try:
+        b, h = _get(src, rng, etag)
+        return b, h, src
+    except DemChanged:
+        m = _CUR_RE.search(url)
+        if not etag or src != url or not m:
+            raise
+    for attempt in range(3):
+        try:
+            hist = historical_url(m.group(1), m.group(2), etag, size)
+            break
+        except Exception as e:  # (a listing that cannot be read: fail the read as before, never read no data instead)
+            if attempt == 2:
+                raise DemChanged('%s changed since the DEM snapshot (If-Match "%s" failed) and its historical listing '
+                                 'could not be read: %s' % (url, etag, str(e)[:200]))
+    if hist is None:
+        raise DemUnavailable('%s: the pinned version (ETag "%s") is no longer at /current/ and not under %s/%s '
+                             '(USGS replaced it and kept no copy): the DEM snapshot cannot be read for this file'
+                             % (url, etag, BUCKET, HIST % (m.group(1), m.group(2))))
+    with _PINNED_LOCK:
+        _PINNED[(url, etag)] = hist
+    b, h = _get(hist, rng, etag)
+    return b, h, hist
+
+
+def http_date(iso):
+    """'2025-12-16T20:09:23.000Z' (an S3 listing's LastModified) -> 'Tue, 16 Dec 2025 20:09:23 GMT' (the Last-Modified
+    header S3 serves for the same object)."""
+    import datetime
+    import email.utils
+    d = datetime.datetime.strptime(iso[:19], '%Y-%m-%dT%H:%M:%S').replace(tzinfo=datetime.timezone.utc)
+    return email.utils.format_datetime(d, usegmt=True)
 
 
 # ------------------------------------------------------------------------------------------------------------ snapshot
@@ -216,9 +307,13 @@ def _undo_fp_predictor(raw, w, h):
 class COG:
     """One product file. etag: the snapshot's pin (None: the first-seen ETag, recorded in the local mirror's meta).
     store: the shared store (dem/{product}/{name}/{etag}/ meta.json and {k}.bin, ifAbsent). cache: the local mirror,
-    read as a seed when its ETag matches, and written only without a store. Every network read carries If-Match."""
-    def __init__(self, url, cache, etag=None, store=None):
+    read as a seed when its ETag matches, and written only without a store. Every network read carries If-Match, at
+    /current/ or, once USGS replaced the file there, at its /historical/ copy (read_pinned). pin: the snapshot's entry
+    ({etag, bytes, lastModified}): its size picks the historical copy, its lastModified is the meta's whichever URL
+    served the header (what /current/ served at the pin)."""
+    def __init__(self, url, cache, etag=None, store=None, pin=None):
         self.url, self.cache, self.store = url, cache, store
+        self.size = (pin or {}).get('bytes')
         base = os.path.basename(url)
         m = re.match(r'USGS_(13|1)_(n\d\dw\d\d\d)\.tif$', base)
         self.skey = None
@@ -233,10 +328,15 @@ class COG:
             if etag is None or lm.get('etag') == etag:
                 meta = lm
         if meta is None:
-            head, hdrs = _get(url, (0, 65535), etag)
+            if etag:
+                head, hdrs, src = read_pinned(url, (0, 65535), etag, self.size)
+            else:
+                (head, hdrs), src = _get(url, (0, 65535)), url
             meta = self._parse(head)
             meta['etag'] = etag or hdrs.get('ETag', '').strip('"')
             meta['lastModified'] = hdrs.get('Last-Modified', '')
+            if src != url and (pin or {}).get('lastModified'):
+                meta['lastModified'] = http_date(pin['lastModified'])
             meta['url'] = url
             if store is None:
                 os.makedirs(cache, exist_ok=True)
@@ -287,7 +387,7 @@ class COG:
                 raw = None
         if raw is None:
             # (If-Match: the file the snapshot / the meta pinned, or 412, never another version's bytes at these offsets)
-            raw, _ = _get(self.url, (o, o + n - 1), m['etag'])
+            raw = read_pinned(self.url, (o, o + n - 1), m['etag'], self.size)[0]
             assert len(raw) == n, 'short read'
             if not self.skey:
                 os.makedirs(self.cache, exist_ok=True)
@@ -374,7 +474,7 @@ class Sampler:
             else:
                 name = file_name(latc, lonc)
                 url = file_url(self.product, name)
-                etag = None
+                etag = ent = None
                 if self.snapshot is not None:
                     ent = self.snapshot['products'].get(self.product, {}).get(name)
                     if ent is None:  # (no such file in the pinned snapshot: open ocean, outside the US, or not listed)
@@ -383,7 +483,7 @@ class Sampler:
                         return None
                     etag = ent['etag']
                 try:
-                    cog = COG(url, self.mirror, etag, self.store)
+                    cog = COG(url, self.mirror, etag, self.store, pin=ent)
                 except DemChanged:
                     raise
                 except Exception as e:  # (a cell 3DEP has no file for: open ocean, outside the US)

@@ -324,7 +324,10 @@ function buildSFStreetDetails(scene, network, buildingColliders = []) {
   //    random, scaled by trunk diameter
   //    (3 in: a young tree at 0.42 of a mature park tree's size, 24 in and more: full size; palms keep most of their
   //    height whatever the diameter)
-  const SPECIES_OF = [0, 3, 4, 2, 5, 1]; // tree-classes.json class -> trees.js species
+  //    A Hometown town in the warm band (tools/hometown/compile.py TREE_CLASS 6..10) adds royal, coconut and sabal palms
+  //    (their trunk field a height share), sea grape, and clipped hedge blocks whose fourth field is their yaw (degrees)
+  const SPECIES_OF = [0, 3, 4, 2, 5, 1, 6, 7, 8, 9, 10]; // tree-classes.json class -> trees.js species
+  const HEDGE = 10;
   const TREE_SNAP = 2;
   const sites = [];
   let offSidewalk = 0, snapped = 0;
@@ -344,7 +347,16 @@ function buildSFStreetDetails(scene, network, buildingColliders = []) {
       [x, z] = best;
       snapped++;
     }
-    const s = cls === 2 ? 0.75 + Math.min(dbh, 30) / 120 : Math.min(1, 0.36 + dbh / 40);
+    if (cls === HEDGE) {
+      // (a yaw of 180 or more: a hedge wall, the compiler's 0.8.2 hedges along the main roads and round the car parks:
+      // the same block 1.4 x as tall (2.4 m), 1.4 m thick, 2.6 m long; an older engine draws it as a plain hedge)
+      const wall = dbh >= 180;
+      sites.push({ x, y: groundAt(x, z) + CURB_H - 0.05, z, scale: wall ? 1.4 : 1, sx: wall ? 0.82 : 1, species: SPECIES_OF[cls],
+        yaw: ((dbh % 180) * Math.PI) / 180, tier: 2, exact: true, wall });
+      continue;
+    }
+    const s = cls === 2 ? 0.75 + Math.min(dbh, 30) / 120 : cls >= 6 && cls <= 8 ? 0.78 + Math.min(dbh, 42) / 110 : cls === 9 ? 0.75 + Math.min(dbh, 42) / 90
+      : Math.min(1, 0.36 + dbh / 40);
     const r = Math.abs(Math.sin(x * 12.9898 + z * 78.233) * 43758.5453) % 1;
     sites.push({ x, y: groundAt(x, z) + CURB_H, z, scale: s, species: SPECIES_OF[cls] ?? 2, yaw: r * Math.PI * 2, tier: 1 });
   }
@@ -464,7 +476,7 @@ function buildSFStreetDetails(scene, network, buildingColliders = []) {
       breakables.push({ kind: 'mailbox', x, y: foot(x, z), z, r: 0.2, parts: parts([inst.meterPost, k], [inst.meterHead, k]) });
     });
     // (the trees: their trunks, a little over their radius, sized as trees.js grows them)
-    for (const t of sites) breakables.push({ kind: 'tree', x: t.x, y: t.y, z: t.z, r: 0.3 * (t.scale || 1) + 0.05, solid: true });
+    for (const t of sites) breakables.push({ kind: 'tree', x: t.x, y: t.y, z: t.z, r: t.species === HEDGE ? (t.wall ? 0.75 : 0.55) : 0.3 * (t.scale || 1) + 0.05, solid: true });
   }
 
   const sceneObstacles = footprints.concat(sites.map(p => ({ minX:p.x-.65,maxX:p.x+.65,minZ:p.z-.65,maxZ:p.z+.65 })));

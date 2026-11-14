@@ -157,10 +157,23 @@ function buildRoadNetwork(sidewalks, obstacles) {
       }
     }
     const junctions = new Map();
+    // (a Hometown package: a junction joined from several nodes stands where its widest road's nodes are, not at the
+    // middle of them all: a driveway's node a few metres off Collins Ave pulled the merged junction 3.9 m off the
+    // avenue, and the straight edge to it ran its outer lane into the curb, which dropped the lane. San Francisco's and
+    // New York's junctions keep the plain middle)
+    const widest = new Map();
+    if (window.NYC.PKG) for (const l of links) for (const i of [l.a, l.b]) widest.set(i, Math.max(widest.get(i) || 0, l.w || 0));
     function junction(r) {
       if (junctions.has(r)) return junctions.get(r);
       const s = sum.get(r);
-      const node = { x: s.x / s.n, z: s.z / s.n, hx: 0, hz: 0, signal: false, in: [], out: [], general: true, rg: s.rg };
+      let jx = s.x / s.n, jz = s.z / s.n;
+      if (widest.size && s.rg.length > 1) {
+        const top = Math.max(...s.rg.map((i) => widest.get(i) || 0));
+        const on = s.rg.filter((i) => (widest.get(i) || 0) >= top - 0.01);
+        jx = on.reduce((a, i) => a + pos[i].x, 0) / on.length;
+        jz = on.reduce((a, i) => a + pos[i].z, 0) / on.length;
+      }
+      const node = { x: jx, z: jz, hx: 0, hz: 0, signal: false, in: [], out: [], general: true, rg: s.rg };
       nodes.push(node);
       junctions.set(r, node);
       return node;

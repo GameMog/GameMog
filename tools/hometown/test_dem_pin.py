@@ -61,6 +61,39 @@ class FakeNet:
         return bytes([rng[0] % 251]) * (rng[1] - rng[0] + 1), {}
 
 
+class FakeUSGS:
+    """dem._get stand-in for the bucket: one file whose /current/ copy is at `current`, and its /historical/ folder
+    holding the dated copies {etag: date} (the same ETag as each had under /current/). A version's bytes depend on its
+    ETag, so a read of the wrong version is visible. Records every request (url, range, If-Match)."""
+    def __init__(self, current, historical, product='13', name='n36w097', size=1000):
+        self.current, self.historical, self.p, self.name, self.size, self.calls = current, historical, product, name, size, []
+
+    def body(self, etag, rng):
+        if rng[0] == 0:
+            return tiff_header() + b'\x00' * 100
+        return bytes([(rng[0] + sum(etag.encode())) % 251]) * (rng[1] - rng[0] + 1)
+
+    def __call__(self, url, rng=None, etag=None):
+        self.calls.append((url, rng, etag))
+        if '/?list-type=2' in url:
+            pre = 'StagedProducts/Elevation/%s/TIFF/historical/%s/' % (self.p, self.name)
+            assert dem.urllib.parse.quote(pre) in url, url
+            keys = []
+            for e, d in sorted(self.historical.items()):
+                k = pre + 'USGS_%s_%s_%s' % (self.p, self.name, d)
+                keys += [(k + '.tif', e, self.size), (k + '.xml', 'x' + e, 7), (k + '.tif.aux.xml', e, 3)]
+            return page(keys).encode(), {}
+        if '/TIFF/current/' in url:
+            have = self.current
+        else:
+            m = dem.re.search(r'_(\d{8})\.tif$', url)
+            have = [e for e, d in self.historical.items() if d == m.group(1)][0]
+        if etag is not None and etag != have:
+            raise dem.DemChanged('412 %s' % url)
+        lm = 'Mon, 01 Jan 2024 00:00:00 GMT' if '/historical/' in url else 'Tue, 07 Jan 2025 21:54:50 GMT'
+        return self.body(have, rng), {'ETag': '"%s"' % have, 'Last-Modified': lm}
+
+
 class DemPin(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -69,6 +102,7 @@ class DemPin(unittest.TestCase):
         self._get, self._lzw, self._undo = dem._get, dem.lzw_decode, dem._undo_fp_predictor
         dem.lzw_decode = lambda raw: raw
         dem._undo_fp_predictor = lambda raw, w, h: raw
+        dem._PINNED.clear()
 
     def tearDown(self):
         dem._get, dem.lzw_decode, dem._undo_fp_predictor = self._get, self._lzw, self._undo
@@ -117,16 +151,62 @@ class DemPin(unittest.TestCase):
         self.assertEqual(bytes(b.tile(1, 0)), bytes(a.tile(1, 0)))
         self.assertEqual(len(net.calls), n)
 
-    def test_a_file_replaced_since_the_snapshot_fails_never_mixes(self):
-        dem._get = FakeNet('NEW-89')
-        with self.assertRaises(dem.DemChanged):
+    def test_a_file_replaced_and_not_kept_fails_never_mixes(self):
+        # (USGS replaced the file and its historical folder has no copy at the pinned ETag: DemUnavailable, naming both)
+        dem._get = FakeUSGS('NEW-89', {'NEW-89': '20261113', 'OLDER-88': '20191021'})
+        with self.assertRaises(dem.DemUnavailable) as e:
             dem.COG(dem.file_url('13', 'n36w097'), self.mirror, 'OLD-89', self.store)
+        self.assertIn('USGS_13_n36w097.tif', str(e.exception))
+        self.assertIn('"OLD-89"', str(e.exception))
+        self.assertTrue(issubclass(dem.DemUnavailable, dem.DemChanged))
         # (a pinned header already mirrored, the internal tile read then fails the same way)
-        dem._get = FakeNet('OLD-89')
+        dem._get = FakeUSGS('OLD-89', {})
         cog = dem.COG(dem.file_url('13', 'n36w097'), self.mirror, 'OLD-89', self.store)
-        dem._get = FakeNet('NEW-89')
-        with self.assertRaises(dem.DemChanged):
+        dem._PINNED.clear()
+        dem._get = FakeUSGS('NEW-89', {'NEW-89': '20261113'})
+        with self.assertRaises(dem.DemUnavailable):
             cog.tile(0, 0)
+
+    def test_a_replaced_file_reads_its_pinned_version_from_historical(self):
+        url = dem.file_url('13', 'n36w097')
+        pin = {'etag': 'OLD-89', 'bytes': 1000, 'lastModified': '2025-01-07T21:54:50.000Z'}
+        # the build made while OLD-89 was current
+        dem._get = FakeUSGS('OLD-89', {})
+        ref = C.Store(os.path.join(self.tmp.name, 'ref'))
+        a = dem.COG(url, self.mirror, 'OLD-89', ref, pin=pin)
+        ta = [bytes(a.tile(i, 0)) for i in (0, 1)]
+        # USGS has since replaced it: /current/ is NEW-89, OLD-89 kept as a dated historical copy
+        net = FakeUSGS('NEW-89', {'NEW-89': '20261113', 'OLD-89': '20250107', 'OLDER-88': '20191021'})
+        dem._get = net
+        b = dem.COG(url, self.mirror, 'OLD-89', self.store, pin=pin)
+        tb = [bytes(b.tile(i, 0)) for i in (0, 1)]
+        self.assertEqual(tb, ta, 'the pinned bytes, not the new version')
+        self.assertEqual(b.meta['url'], url, 'meta.url stays the /current/ URL (demSource)')
+        self.assertEqual(b.meta['lastModified'], 'Tue, 07 Jan 2025 21:54:50 GMT', 'the snapshot lastModified, as /current/ served it')
+        self.assertEqual(b.meta, a.meta)
+        for k in ('meta.json', '0.bin', '1.bin'):
+            self.assertEqual(self.store.get('dem/13/n36w097/OLD-89/' + k), ref.get('dem/13/n36w097/OLD-89/' + k), k)
+        reads = [c for c in net.calls if '/?list-type' not in c[0]]
+        self.assertTrue(all(c[2] == 'OLD-89' for c in reads), 'every read If-Match the pin, wherever it is served from')
+        hist = dem.BUCKET + '/StagedProducts/Elevation/13/TIFF/historical/n36w097/USGS_13_n36w097_20250107.tif'
+        self.assertEqual([c[0] for c in reads], [url, hist, hist, hist], 'one 412 at /current/, then straight to the dated copy')
+        self.assertEqual(sum('/?list-type' in c[0] for c in net.calls), 1, 'the historical listing is read once')
+        # a second process on the same store: no network at all
+        dem._PINNED.clear()
+        n = len(net.calls)
+        c = dem.COG(url, self.mirror, 'OLD-89', self.store, pin=pin)
+        self.assertEqual([bytes(c.tile(i, 0)) for i in (0, 1)], ta)
+        self.assertEqual(len(net.calls), n)
+
+    def test_historical_url_matches_the_etag_and_size(self):
+        fake = FakeUSGS('NEW', {'NEW': '20261113', 'OLD': '20250107'}, product='1', name='n27w081', size=55)
+        net = lambda u: fake(u)[0].decode()  # noqa: E731
+        hist = dem.BUCKET + '/StagedProducts/Elevation/1/TIFF/historical/n27w081/USGS_1_n27w081_%s.tif'
+        self.assertEqual(dem.historical_url('1', 'n27w081', 'OLD', 55, net), hist % '20250107')
+        self.assertEqual(dem.historical_url('1', 'n27w081', 'OLD', None, net), hist % '20250107')
+        self.assertIsNone(dem.historical_url('1', 'n27w081', 'OLD', 56, net), 'same ETag, other size: not the pin')
+        self.assertIsNone(dem.historical_url('1', 'n27w081', 'GONE', None, net))
+        self.assertEqual(dem.http_date('2025-12-16T20:09:23.000Z'), 'Tue, 16 Dec 2025 20:09:23 GMT')
 
     def test_get_maps_412_to_dem_changed_and_sends_if_match(self):
         sent = {}

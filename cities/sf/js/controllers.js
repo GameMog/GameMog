@@ -125,8 +125,10 @@ function dampTowards(state, key, target, dt) {
 }
 
 // The player's car carries a California plate (P4.6): white, the state's name in red across the top, dark blue
-// characters (a made-up number)
+// characters (a made-up number). (A Hometown place: its own state's name, cities/pkg/js/pkg-hud.js pkgVehicleSigns, or
+// none outside the US; never California's in Florida)
 function createCALicensePlateTexture() {
+  const signs = window.NYC.PKG && window.NYC.pkgVehicleSigns ? window.NYC.pkgVehicleSigns(window.NYC.PKG) : null;
   const c = document.createElement('canvas');
   c.width = 256;
   c.height = 128;
@@ -136,7 +138,7 @@ function createCALicensePlateTexture() {
   ctx.fillStyle = '#c8202f';
   ctx.font = 'italic 700 22px Georgia, serif';
   ctx.textAlign = 'center';
-  ctx.fillText('California', 128, 30);
+  ctx.fillText(signs ? signs.state : 'California', 128, 30);
   ctx.fillStyle = '#16245a';
   ctx.font = '900 48px JetBrains Mono, monospace';
   ctx.fillText('9SLP415', 128, 90);

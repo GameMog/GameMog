@@ -22,8 +22,16 @@ LAYER_SQL = {
     # same (fetch.py LAYERS), an older one without it reads none)
     'parking': ("base", "infrastructure", "id, ST_AsWKB(geometry) AS wkb, subtype, class",
                 "WHERE class = 'parking' AND ST_GeometryType(geometry) IN ('POLYGON', 'MULTIPOLYGON')"),
+    # (the beaches and sand: OSM natural=beach / sand / dune polygons, Overture land subtype sand; not shingle, subtype
+    # rock: river gravel bars and pebbles. fetch.py LAYERS reads the land layer; a region fetched before it has no file
+    # of it and is refused, REQUIRED_FILES)
+    'sand': ("base", "land", "id, ST_AsWKB(geometry) AS wkb, subtype, class, surface, name",
+             "WHERE (subtype = 'sand' OR class IN ('beach', 'sand', 'dune')) AND ST_GeometryType(geometry) IN ('POLYGON', 'MULTIPOLYGON')"),
 }
 OPTIONAL = {'parking'}
+# (layers a fetched region must have a file of: one fetched before the layer was added is refused as not fetched, with
+# the fetch command that tops it up (fetch.py --regions fetches only a region's missing layers), never read without it)
+REQUIRED_FILES = (('base', 'land'),)
 BLOCK = grid.TILE << grid.CTX_L   # 8192 grid m
 EXTRAS_FILE = 'overture-transportation-segment-extras.parquet'   # fetch.py --extras: OSM way ids and speed limits
 
@@ -70,11 +78,19 @@ class Sources:
         dirs = []
         for C, R in sorted(set(blocks)):
             d = os.path.join(data_dir, 'regions', 'hg1-%s' % dom, '4', str(C), str(R))
-            if not os.path.exists(os.path.join(d, 'region.json')):
+            # (a region without its segment extras is not fetched yet either: the OSM lanes, sidewalks and speed limits
+            # join through them, and a town built without them silently falls back to class defaults (fid-roads: Bal
+            # Harbour's Collins Ave came out one lane a carriageway); fetch.py --regions now fetches both, and only the
+            # layers a region has no file of (fid-beach: REQUIRED_FILES))
+            short = ['%s/%s' % t for t in REQUIRED_FILES if not os.path.exists(os.path.join(d, 'overture-%s-%s.parquet' % t))]
+            if not os.path.exists(os.path.join(d, EXTRAS_FILE)):
+                short.append('segment extras')
+            if not os.path.exists(os.path.join(d, 'region.json')) or short:
                 if skip_missing:
                     self.missing.append((C, R))
                     continue
-                raise MissingRegion('region hg1-%s/4/%d/%d not fetched (tools/hometown/fetch.py --regions %s:%d,%d)' % (dom, C, R, dom, C, R))
+                why = 'not fetched' if not os.path.exists(os.path.join(d, 'region.json')) else 'fetched without %s' % ', '.join(short)
+                raise MissingRegion('region hg1-%s/4/%d/%d %s (tools/hometown/fetch.py --regions %s:%d,%d)' % (dom, C, R, why, dom, C, R))
             self.blocks.append((C, R))
             dirs.append(d)
         if not dirs:
@@ -95,7 +111,7 @@ class Sources:
                 QUALIFY row_number() OVER (PARTITION BY id ORDER BY id) = 1) {where[0] if where else ''} ORDER BY id""")
             names = [d[0] for d in cur.description]
             self.rows[key] = [dict(zip(names, r)) for r in cur.fetchall()]
-        for key in ('buildings', 'parts', 'segments', 'water', 'land_use', 'parking'):
+        for key in ('buildings', 'parts', 'segments', 'water', 'land_use', 'parking', 'sand'):
             rs = self.rows[key]
             geoms = shapely.from_wkb([bytes(r.pop('wkb')) for r in rs]) if rs else []
             geoms = shapely.transform(geoms, self._proj) if len(geoms) else geoms
@@ -109,7 +125,7 @@ class Sources:
                 p['gx'], p['gs'] = a, b
         self.extras = segment_extras(c, dirs)
         self.trees = {}
-        for key in ('buildings', 'segments', 'water', 'land_use', 'parking'):
+        for key in ('buildings', 'segments', 'water', 'land_use', 'parking', 'sand'):
             self.trees[key] = shapely.STRtree([r['geom'] for r in self.rows[key]])
         # (a building's parts, by its Overture id, each list in part id order)
         self.parts_of = {}

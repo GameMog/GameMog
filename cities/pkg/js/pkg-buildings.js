@@ -6,6 +6,14 @@
 // - pitched roofs over a record's masses (gabled, hipped, half-hipped, gambrel, mansard, pyramidal, skillion,
 //   saltbox; a flat roof gets a low parapet), porches on the road side, chimneys, a church's short bell tower (no
 //   spire, no symbol), a gas station's open canopy you can drive under;
+// - South Florida (the compiler's 'south-florida' region: Florida and Puerto Rico in the warm band, climate.py warmth):
+//   white, cream and pastel stucco and white concrete, no brick, flat roofs behind taller parapets or low barrel-tile
+//   hips; its condo and hotel towers get white balcony slabs with pale glass railings on every storey (balconies(),
+//   with buildings.js's pale balcony glass facade);
+// - malls (the compiler's kind 'mall', 0.8.2: a large low retail building): cream and white stucco (beige outside the warm
+//   and dry regions), storefronts on every open wall, a colonnade along each long one (a flat canopy on square columns,
+//   planters between them, pilasters up the wall over it) and a tall parapet (colonnade(); buildings.js splits the
+//   mass into a storefront storey and a plain band over it). Generic: no names, no signs;
 // - everything merged into one vertex-coloured mesh per build (dispose() frees it), so a per-tile build can call it.
 // Masses are three.js boxes turned by theta about +y: world = c + R_y(theta) local, local +x along (cos t, -sin t).
 
@@ -99,8 +107,28 @@ const REGIONS = {
     },
     trims: [0xf4f0e8, 0x6b5a48, 0x3f3b37],
     roofColors: [0xa8583c, 0xb46a4c, 0x7f7468, 0x5d5853, 0x8f8478]
+  },
+  // (nonHouse: the walls of every building that is not a house; stone: the concrete / stone colours; parapet: m)
+  'south-florida': {
+    walls: [['stucco', 0.88], ['concrete', 0.08], ['siding', 0.04]],
+    roofs: [['hipped', 0.42], ['flat', 0.38], ['gabled', 0.12], ['pyramidal', 0.08]],
+    pitch: 0.6, chimney: 0, porch: 0.08, parapet: 0.95,
+    nonHouse: [['stucco', 0.78], ['concrete', 0.22]],
+    colors: {
+      stucco: [0xf6f4ee, 0xf1ebdd, 0xf3e7cc, 0xeedbc8, 0xdce9e1, 0xd8e6ec, 0xf2e0da, 0xefece4, 0xe9e0cd, 0xf7f2e4],
+      siding: [0xf0ede4, 0xd9e5e4]
+    },
+    stone: [0xf0efea, 0xe6e4dd, 0xeae6da, 0xdedcd5],
+    trims: [0xffffff, 0xf6f5f0, 0x6f8f98, 0xdccdb2],
+    roofColors: [0xb8694a, 0xc47e5c, 0xa95f45, 0xe9e7e1, 0xd9d6cf, 0x9c978e]
   }
 };
+// (a mall's stucco: bright cream and white where the region builds in stucco, warmer beige elsewhere; its trim)
+const MALL_COLORS = {
+  bright: [0xf6f2e8, 0xf2ead8, 0xf8f6f0, 0xefe5d0, 0xf4eee2],
+  beige: [0xe6dcc8, 0xddd0b8, 0xece4d4, 0xd8ccb4, 0xe9e1cf]
+};
+const MALL_TRIMS = [0xffffff, 0xf7f5ef, 0xece7dc];
 const SURFACE = { brick: 0, stucco: 1, siding: 2, clapboard: 2, wood: 2, stone: 3, concrete: 3, metal: 3, glass: 3 };
 const ROOF_TAG = { gabled: 'gabled', hipped: 'hipped', half_hipped: 'half_hipped', gambrel: 'gambrel', mansard: 'mansard', pyramidal: 'pyramidal',
   skillion: 'skillion', saltbox: 'saltbox', dome: 'hipped', round: 'gabled', sawtooth: 'skillion', flat: 'flat' };
@@ -122,8 +150,17 @@ function styleFor(o) {
   const h = o.hash;
   const house = o.kind === 'house' || o.kind === 'garage' || o.kind === 'shed' || o.kind === 'rowhouse';
   let wall = o.wall && SURFACE[o.wall] !== undefined ? o.wall : null;
+  if (o.kind === 'mall') {
+    wall = wall || 'stucco';
+    const pal = R.walls[0][0] === 'stucco' ? MALL_COLORS.bright : MALL_COLORS.beige;
+    return {
+      wall, paint: [o.wallRGB || pickA(pal, h(4.1)), pickA(MALL_TRIMS, h(5.3)), SURFACE[wall] ?? 1, 0.3], roof: 'flat',
+      roofColor: o.roofRGB || pickA([0xe4e2dc, 0xd6d3cc, 0xcfccc4], h(7.9)), pitch: R.pitch, parapet: 1.1, chimney: false, porch: false
+    };
+  }
   if (!wall) {
     if (house) wall = pickW(R.walls, h(1.7));
+    else if (R.nonHouse) wall = pickW(R.nonHouse, h(3.1));
     else if (o.kind === 'church' || o.kind === 'school' || o.kind === 'civic') wall = h(2.3) < 0.7 ? 'brick' : (R.walls[0][0] === 'stucco' ? 'stucco' : 'stone');
     else if (o.kind === 'warehouse') wall = h(2.9) < 0.5 ? 'brick' : 'concrete';
     else if (o.kind === 'shop' || o.kind === 'office' || o.kind === 'apartment') wall = R.walls[0][0] === 'stucco' ? (h(3.1) < 0.75 ? 'stucco' : 'brick') : (h(3.1) < 0.6 ? 'brick' : pickW(R.walls, h(3.3)));
@@ -132,7 +169,7 @@ function styleFor(o) {
   const pal = R.colors[wall] || R.colors[R.walls[0][0]];
   const STONE = [0xd2c8b4, 0xc4baa4, 0xb9b4aa, 0xd9d2c2];
   let wallHex = o.wallRGB || (pal ? pickA(pal, h(4.1)) : pickA(STONE, h(4.1)));
-  if (!o.wallRGB && (wall === 'stone' || wall === 'concrete')) wallHex = pickA(STONE, h(4.1));
+  if (!o.wallRGB && (wall === 'stone' || wall === 'concrete')) wallHex = pickA(R.stone || STONE, h(4.1));
   const trimHex = pickA(R.trims, h(5.3));
   let roof = o.roofShape && ROOF_TAG[o.roofShape] ? ROOF_TAG[o.roofShape] : null;
   if (!roof) roof = o.kind === 'house' || o.kind === 'garage' ? pickW(R.roofs, h(6.7)) : o.kind === 'church' ? 'gabled' : 'flat';
@@ -140,7 +177,7 @@ function styleFor(o) {
   if (o.kind === 'garage' && roof === 'mansard') roof = 'gabled';
   const roofColor = o.roofRGB || pickA(R.roofColors, h(7.9));
   return {
-    wall, paint: [wallHex, trimHex, SURFACE[wall] ?? 1, house ? 0.4 : 0.3], roof, roofColor, pitch: R.pitch,
+    wall, paint: [wallHex, trimHex, SURFACE[wall] ?? 1, house ? 0.4 : 0.3], roof, roofColor, pitch: R.pitch, parapet: R.parapet || 0.45,
     chimney: o.kind === 'house' && roof !== 'flat' && h(8.3) < R.chimney, porch: o.kind === 'house' && h(9.1) < R.porch
   };
 }
@@ -177,13 +214,13 @@ function createPkgBuilder() {
     quad(d, c, b, a, hex);
   }
   // a roof over the rectangle (cx, cz, w, d, theta) from the eave at y up `rise` m
-  function roof(m, theta, y, rise, shape, roofHex, wallHex) {
+  function roof(m, theta, y, rise, shape, roofHex, wallHex, parapet = 0.45) {
     const F = frame(m.cx, m.cz, m.w, m.d, theta);
     const { L, S, P } = F;
     stats.roofs++;
     if (shape === 'flat' || rise < 0.3 || S < 1.2) {
       // a low parapet round the flat roof
-      const t = 0.22, ph = 0.45;
+      const t = 0.22, ph = parapet;
       boxUV(F, -L, L, -S, -S + t, y, y + ph, wallHex);
       boxUV(F, -L, L, S - t, S, y, y + ph, wallHex);
       boxUV(F, -L, -L + t, -S, S, y, y + ph, wallHex);
@@ -313,6 +350,81 @@ function createPkgBuilder() {
     stats.canopies++;
     return cols;
   }
+  // balconies round a tower mass (South Florida's condos and hotels): on every storey from the second up to the one
+  // under the roof, a white slab `out` m past each wall (wrapping the corners: its top, underside and outer edge; the
+  // mesh is double-sided) and a pale glass railing on its edge. y0: where the facade counts its storeys from (its base
+  // and plinth), so the slabs sit on its storey lines; yMin: none at or below it (a podium's roof)
+  function balconies(m, theta, y0, roofY, storey, slabHex, railHex, out = 1.35, yMin = -Infinity) {
+    const { L, S, P } = frame(m.cx, m.cz, m.w, m.d, theta);
+    const n = Math.floor((roofY - y0) / storey + 0.05);
+    const inner = [[-L, -S], [L, -S], [L, S], [-L, S]];
+    const outer = [[-L - out, -S - out], [L + out, -S - out], [L + out, S + out], [-L - out, S + out]];
+    for (let k = 1; k < n; k++) {
+      const y = y0 + k * storey;
+      if (y > roofY - 1.0) break;
+      if (y < yMin + 0.5) continue;
+      const t = 0.28, rh = 1.05;
+      for (let e = 0; e < 4; e++) {
+        const a = inner[e], b = inner[(e + 1) % 4], A = outer[e], B = outer[(e + 1) % 4];
+        quad(P(a[0], a[1], y), P(b[0], b[1], y), P(B[0], B[1], y), P(A[0], A[1], y), slabHex);
+        quad(P(A[0], A[1], y - t), P(B[0], B[1], y - t), P(b[0], b[1], y - t), P(a[0], a[1], y - t), slabHex);
+        quad(P(A[0], A[1], y - t), P(B[0], B[1], y - t), P(B[0], B[1], y), P(A[0], A[1], y), slabHex);
+        quad(P(A[0], A[1], y), P(B[0], B[1], y), P(B[0], B[1], y + rh), P(A[0], A[1], y + rh), railHex);
+      }
+      stats.balconies = (stats.balconies || 0) + 1;
+    }
+  }
+  // a mall's colonnade along one wall of mass m (lx, lz: the wall's outward axis in the mass's frame, createFacadeBoxes
+  // order): a flat canopy `depth` m out from the wall with its top at y, square columns along its outer edge every ~6 m
+  // (none when cols is false: a cantilevered canopy where the road comes close), a planter with a clipped shrub in every
+  // other bay, and pilasters up the wall from the canopy to `top`. Returns the colliders (columns, the canopy slab)
+  function colonnade(m, theta, lx, lz, base, y, top, depth, cols, wallHex, trimHex) {
+    const cs = Math.cos(theta), sn = Math.sin(theta);
+    const half = lx ? m.w * 0.5 : m.d * 0.5, len = lx ? m.d : m.w, sgn = lx || lz;
+    // (u along the wall, v out from it): local (sgn (half + v), u) on an x wall, (u, sgn (half + v)) on a z wall
+    const P = (u, v, yy) => {
+      const ax = lx ? sgn * (half + v) : u, az = lx ? u : sgn * (half + v);
+      return [m.cx + ax * cs + az * sn, yy, m.cz - ax * sn + az * cs];
+    };
+    const F = { P };
+    const out = [];
+    const slab = 0.45, L2 = len * 0.5;
+    boxUV(F, -L2, L2, 0, depth, y - slab, y, trimHex);
+    boxUV(F, -L2, L2, depth - 0.12, depth + 0.04, y - slab - 0.12, y + 0.08, wallHex, false); // the fascia's lip
+    const ox = lx ? sgn * (half + depth * 0.5) : 0, oz = lx ? 0 : sgn * (half + depth * 0.5);
+    const scx = m.cx + ox * cs + oz * sn, scz = m.cz - ox * sn + oz * cs;
+    const hx = lx ? depth * 0.5 : L2, hz = lx ? L2 : depth * 0.5;
+    out.push({ minX: scx - (Math.abs(cs) * hx + Math.abs(sn) * hz), maxX: scx + (Math.abs(cs) * hx + Math.abs(sn) * hz),
+      minZ: scz - (Math.abs(sn) * hx + Math.abs(cs) * hz), maxZ: scz + (Math.abs(sn) * hx + Math.abs(cs) * hz), minY: y - slab, maxY: y,
+      obb: { cx: scx, cz: scz, hx, hz, cs, sn } });
+    const n = Math.max(2, Math.round((len - 1.2) / 6) + 1);
+    const us = Array.from({ length: n }, (_, k) => -L2 + 0.6 + (k * (len - 1.2)) / (n - 1));
+    for (const u of us) {
+      if (cols) {
+        boxUV(F, u - 0.24, u + 0.24, depth - 0.56, depth - 0.08, base, y - slab, trimHex, false);
+        boxUV(F, u - 0.32, u + 0.32, depth - 0.64, depth, base, base + 0.35, trimHex); // the column's plinth
+        const [x, , z] = P(u, depth - 0.32, 0);
+        out.push({ minX: x - 0.3, maxX: x + 0.3, minZ: z - 0.3, maxZ: z + 0.3, minY: base, maxY: y - slab });
+      }
+      if (top - y > 1.5) boxUV(F, u - 0.36, u + 0.36, 0, 0.22, y, top - 0.35, trimHex, false);
+    }
+    if (cols) {
+      for (let k = 0; k + 1 < n; k += 2) {
+        const c = (us[k] + us[k + 1]) * 0.5, hw = Math.min(1.1, (us[k + 1] - us[k]) * 0.5 - 0.6);
+        if (hw < 0.4) continue;
+        boxUV(F, c - hw, c + hw, depth - 0.9, depth - 0.1, base, base + 0.6, wallHex);
+        boxUV(F, c - hw + 0.08, c + hw - 0.08, depth - 0.82, depth - 0.18, base + 0.6, base + 1.05, 0x3d6a2e);
+        stats.planters = (stats.planters || 0) + 1;
+      }
+    }
+    stats.colonnades = (stats.colonnades || 0) + 1;
+    return out;
+  }
+  // a flat roof's membrane over the rectangle at y (a mall's pale roof over the facade box's grey one)
+  function membrane(m, theta, y, hex) {
+    const { L, S, P } = frame(m.cx, m.cz, m.w, m.d, theta);
+    quad(P(-L, -S, y), P(L, -S, y), P(L, S, y), P(-L, S, y), hex);
+  }
   function mesh(name) {
     if (!pos.length) return null;
     const g = new THREE.BufferGeometry();
@@ -327,82 +439,192 @@ function createPkgBuilder() {
     me.userData.dispose = () => { g.dispose(); mat.dispose(); };
     return me;
   }
-  return { roof, chimney, porch, tower, canopy, mesh, stats };
+  return { roof, chimney, porch, tower, canopy, balconies, colonnade, membrane, mesh, stats };
 }
 
-// Shop signs: a town's storefronts are named after its own streets and its own name ("COLUMBIA ST PHARMACY", "OKEMAH
-// DINER"), from a neutral list of trades: no chain's, no San Francisco or New York name. One name per shop building,
-// a pure function of the package (its road graph, its name and the building's index), so it never changes with the
-// order shops stream in. Instanced signs need one texture per name, so a town gets at most MAX_SIGNS names.
-//   signPlan(roadGraph, townName, shops: [{ i, x, z }]) -> { themes: [{ text, style }], pick: Map(i -> theme index) }
+// Shop signs: a town's storefronts are named after its own streets, its own name and its side of town ("COLUMBIA ST
+// DINER", "OKEMAH BAKERY", "EASTSIDE TACOS"), from a neutral list of trades: no chain's, no San Francisco or New York
+// name, at most SIGN_CHARS letters. Every storefront gets one name, and no two storefronts within SIGHT metres share one
+// while the town's names last (a big town's MAX_SIGNS names are then spread out: the farthest from its last use). The
+// plan is a pure function of the package (its road graph, its name and the storefronts' ids and places), so it never
+// changes with the order shops stream in. The names are drawn on one atlas (cities/sf/js/buildings.js), MAX_SIGNS in all.
+//   signPlan(roadGraph, townName, shops: [{ i, x, z }], { center: { x, z } }?)
+//     -> { themes: [{ text, style }], pick: Map(i -> theme index) }
 const SHOP_TRADES = ['PHARMACY', 'DINER', 'HARDWARE', 'BARBER SHOP', 'BAKERY', 'BOOKS & COFFEE', 'LAUNDROMAT', 'FLORIST',
   'GROCERY', 'CLEANERS', 'AUTO PARTS', 'CAFE', 'DELI & GRILL', 'FURNITURE', 'VARIETY STORE', 'FEED & SUPPLY', 'TAILOR',
-  'SHOE REPAIR', 'PAWN & LOAN', 'MUSIC & RECORDS', 'TACKLE & BAIT', 'PIZZA', 'PHOTO STUDIO', 'GIFTS'];
-const MAX_SIGNS = 20;
+  'SHOE REPAIR', 'PAWN & LOAN', 'MUSIC & RECORDS', 'TACKLE & BAIT', 'PIZZA', 'PHOTO STUDIO', 'GIFTS',
+  'BOOKS', 'COFFEE', 'TACOS', 'BBQ', 'DONUTS', 'NAILS', 'SALON', 'TOYS', 'JEWELRY', 'OPTICAL', 'THRIFT', 'ANTIQUES',
+  'BIKES', 'PRINT SHOP', 'SEWING', 'NOODLES', 'ICE CREAM', 'CANDY', 'SPORTS', 'PET SUPPLY', 'LOCKSMITH', 'PAINT',
+  'FABRICS', 'BOOTS', 'SEAFOOD', 'TIRES', 'GRILL', 'HOBBY SHOP', 'CAMERAS', 'APPLIANCE', 'BEAUTY', 'TAQUERIA'];
+const MAX_SIGNS = 64, SIGN_CHARS = 16, SIGHT = 120;
 const shash = (s) => { let h = 2166136261; for (let k = 0; k < s.length; k++) { h ^= s.charCodeAt(k); h = Math.imul(h, 16777619); } return h >>> 0; };
+// (never a sign's word: San Francisco's and New York's own names, which would read as a leak)
+const SFNY_WORD = /^(MARKET|POLK|MISSION|BAYSIDE|NOB HILL|MANHATTAN|BROOKLYN|HARLEM|TIMES SQ|NEW YORK|SAN FRANCISCO|MIDTOWN)\b/;
+// (never a sign's word either: a word of a chain's or a brand's name, a shop sign would read as theirs: "LOWE ST
+// HARDWARE", "NAPA AUTO PARTS", "HANCOCK FABRICS", "WILSON SPORTS". National chains and the brands of the trades above)
+const BRAND_WORDS = new Set(`WALMART MCDONALD MCDONALDS WENDY WENDYS SONIC KFC SUBWAY STARBUCKS DUNKIN DOLLAR CASEY CASEYS LOVE LOVES
+  PILOT QUIKTRIP SHELL CHEVRON EXXON MOBIL CONOCO PHILLIPS VALERO TEXACO CITGO SINCLAIR MARATHON SPEEDWAY SHEETZ WAWA MURPHY
+  WALGREEN WALGREENS CVS REXALL TARGET COSTCO KROGER SAFEWAY PUBLIX ALDI MEIJER SAMS PIGGLY WIGGLY DIXIE TEETER WEGMANS
+  DEPOT LOWE LOWES AUTOZONE REILLY OREILLY NAPA CARQUEST ADVANCE TRACTOR ATWOODS ACE VALUE MENARDS ORCHARD BRAUM BRAUMS DAIRY
+  CHICK WHATABURGER APPLEBEE APPLEBEES WAFFLE ARBY ARBYS HUDDLE SHONEY SHONEYS PERKINS DENNY DENNYS IHOP CRACKER CULVER CULVERS
+  FREDDY FREDDYS HOLIDAY HAMPTON MARRIOTT HILTON FARGO CHASE FIRESTONE GOODYEAR MIDAS MEINEKE JIFFY SCHWAB PANERA HOSTESS WONDER
+  POPEYES CAESAR CAESARS PAPA MARCO GODFATHER SBARRO GINO CICI CHUCK DOMINO DOMINOS SHIPLEY HORTON HORTONS KRISPY DICKEY DICKEYS
+  SONNY SONNYS DUTCH BELL FRIENDLY MARBLE CARVEL JASON JIMMY JERSEY FIREHOUSE MCALISTER MCALLISTER LOBSTER CAPTAIN BUBBA
+  MICHAELS JOANN HANCOCK MOOD PETCO PETSMART PETLAND PAYLESS ULTA SEPHORA SALLY AVON SUPERCUTS ACADEMY CABELA CABELAS BASS
+  SCHEELS HIBBETT WILSON SPALDING RAWLINGS NIKE ADIDAS REEBOK ROSS MARSHALLS KOHLS SEARS PENNEY BELK STAPLES KINKO KINKOS
+  MINUTEMAN GAMESTOP APPLE KODAK CANON NIKON RITZ WOLF FORD DODGE TOYOTA HONDA NISSAN JEEP SINGER BERNINA TIFFANY KAY ZALES
+  JARED PANDORA HELZBERG GORDON PEARLE SHERWIN WILLIAMS BENJAMIN MOORE BEHR VALSPAR GLIDDEN HERSHEY MARS RUSSELL STOVER GODIVA
+  FANNIE GHIRARDELLI JELLY BRACH SCHWINN TREK HUFFY GIANT RALEIGH MONGOOSE JUSTIN ARIAT SHEPLERS CAVENDER WRANGLER ASHLEY
+  BASSETT ETHAN MAYTAG WHIRLPOOL KENMORE CONN GREGG STANLEY CRAFTSMAN HALLMARK SPENCER GOODWILL SALVATION SAVERS BARNES NOBLE
+  BORDERS POWELL STRAND TOWER GOODY OLAN DISNEY LEGO WOOLWORTH KRESS BEN`.split(/\s+/));
+// (and a whole name a chain or a brand goes by, a town's or a street's word with a trade: "PITTSBURGH PAINT")
+const BRAND_TEXT = new Set(['PITTSBURGH PAINT', 'BOSTON PIZZA', 'CHICAGO PIZZA', 'MIAMI GRILL', 'DALLAS BBQ', 'MEMPHIS BBQ',
+  'SAVANNAH CANDY', 'ATLANTA BREAD', 'PHILLY PRETZEL', 'TEXAS TIRES', 'BIG O TIRES', 'CORNER BAKERY', 'GREAT CLIPS']);
+const branded = (s) => String(s).split(/[\s&'-]+/).some((w) => BRAND_WORDS.has(w.replace(/[^A-Z]/g, '')));
 // a street's name as a shop would use it: no direction prefix, no route numbers, highways, ramps or long names
 function streetWord(name) {
   let s = String(name || '').toUpperCase().replace(/\s+/g, ' ').trim();
   if (!s || /\d{3,}|\b(HWY|HIGHWAY|INTERSTATE|I-?\d|US \d|SR \d|ROUTE|RAMP|BYPASS|FRONTAGE|EXPY|EXPRESSWAY|TPKE|TURNPIKE|PKWY|FWY|FREEWAY|TUNNEL|BRIDGE|ALLEY|EXIT)\b/.test(s)) return '';
   s = s.replace(/^(N|S|E|W|NE|NW|SE|SW|NORTH|SOUTH|EAST|WEST) (?=\S)/, '');
   // (a town's own Polk St or Market St is real, but a sign reading like San Francisco's old ones would look like a leak)
-  if (/^(MARKET|POLK|MISSION|BAYSIDE|NOB HILL)\b/.test(s)) return '';
-  return s.length >= 4 && s.length <= 16 && /[A-Z]/.test(s) ? s : '';
+  if (SFNY_WORD.test(s) || branded(s)) return '';
+  // (a word of its own besides the street type: not "CT PL", an odd name in the map data)
+  const core = s.replace(/ (ST|AVE|RD|DR|BLVD|LN|WAY|PL|CT|TER|CIR|PKWY|HWY|TRL)$/, '');
+  return s.length >= 4 && s.length <= 16 && /[A-Z]{3}|^\d+(ST|ND|RD|TH)\b/.test(core) ? s : '';
 }
-function signPlan(rg, townName, shops) {
-  const town = String(townName || '').split(',')[0].trim().toUpperCase();
+// a sign's text: the word and a trade, the word's short form ("ADAMS" for ADAMS ST) when the whole one is too long; a
+// numbered street keeps its "ST" ("3RD ST DINER")
+const SUFFIX = / (ST|AVE|RD|DR|BLVD|LN|WAY|PL|CT|TER|CIR|PKWY|HWY|TRL)$/;
+function signText(word, trade) {
+  const full = `${word} ${trade}`;
+  if (full.length <= SIGN_CHARS) return BRAND_TEXT.has(full) ? '' : full;
+  const short = word.replace(SUFFIX, ''), text = `${short} ${trade}`;
+  return short !== word && short.length >= 4 && !/^\d/.test(short) && text.length <= SIGN_CHARS && !BRAND_TEXT.has(text) ? text : '';
+}
+function signPlan(rg, townName, shops, opts = {}) {
+  let town = String(townName || '').split(',')[0].trim().toUpperCase();
+  if (SFNY_WORD.test(town) || branded(town) || town.length > 12) town = '';
   const names = (rg && rg.names) || [], nodes = (rg && rg.nodes) || [], links = (rg && rg.links) || [];
-  // every named link as a polyline (node a, its bends, node b), to find the street each shop fronts
-  const lines = [];
+  // every named link's segments (node a, its bends, node b) on a NEAR-metre grid, each in the cells within NEAR of it, to
+  // find the streets each shop fronts and is near
+  const FRONT = 45, NEAR = 100; // a shop fronts the street within 45 m of its sign; it is near the ones within 100 m
+  const segs = new Map();
   for (const l of links) {
     const w = streetWord(names[l[2]]);
     if (!w) continue;
     const p = [nodes[2 * l[0]], nodes[2 * l[0] + 1], ...(l[6] || []), nodes[2 * l[1]], nodes[2 * l[1] + 1]];
-    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
-    for (let k = 0; k < p.length; k += 2) { x0 = Math.min(x0, p[k]); x1 = Math.max(x1, p[k]); z0 = Math.min(z0, p[k + 1]); z1 = Math.max(z1, p[k + 1]); }
-    lines.push({ w, p, x0, x1, z0, z1 });
+    for (let k = 0; k + 3 < p.length; k += 2) {
+      const sg = [w, p[k], p[k + 1], p[k + 2], p[k + 3]];
+      const i0 = Math.floor((Math.min(p[k], p[k + 2]) - NEAR) / NEAR), i1 = Math.floor((Math.max(p[k], p[k + 2]) + NEAR) / NEAR);
+      const j0 = Math.floor((Math.min(p[k + 1], p[k + 3]) - NEAR) / NEAR), j1 = Math.floor((Math.max(p[k + 1], p[k + 3]) + NEAR) / NEAR);
+      if ((i1 - i0 + 1) * (j1 - j0 + 1) > 400) continue; // (a link kilometres long without a bend: no shop street)
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const key = (i + 32768) * 65536 + j + 32768, c = segs.get(key); if (c) c.push(sg); else segs.set(key, [sg]); }
+    }
   }
-  const R = 45; // a shop fronts a street within 45 m of its sign
-  const streetOf = (x, z) => {
-    let best = '', bd = R * R;
-    for (const L of lines) {
-      if (x < L.x0 - R || x > L.x1 + R || z < L.z0 - R || z > L.z1 + R) continue;
-      const p = L.p;
-      for (let k = 0; k + 3 < p.length; k += 2) {
-        const ax = p[k], az = p[k + 1], dx = p[k + 2] - ax, dz = p[k + 3] - az, ll = dx * dx + dz * dz;
-        const t = ll > 0 ? Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / ll)) : 0;
-        const ex = ax + dx * t - x, ez = az + dz * t - z, d = ex * ex + ez * ez;
-        if (d < bd || (d === bd && L.w < best)) { bd = d; best = L.w; }
+  const streetsAt = (x, z) => {
+    const best = new Map();
+    for (const [w, ax, az, bx, bz] of segs.get((Math.floor(x / NEAR) + 32768) * 65536 + Math.floor(z / NEAR) + 32768) || []) {
+      const dx = bx - ax, dz = bz - az, ll = dx * dx + dz * dz;
+      const t = ll > 0 ? Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / ll)) : 0;
+      const ex = ax + dx * t - x, ez = az + dz * t - z, d = ex * ex + ez * ez;
+      if (d < NEAR * NEAR && !(best.get(w) <= d)) best.set(w, d);
+    }
+    const near = [...best].sort((a, b) => a[1] - b[1] || (a[0] < b[0] ? -1 : 1));
+    return { front: near.length && near[0][1] < FRONT * FRONT ? near[0][0] : '', near: near.map((e) => e[0]).slice(0, 4) };
+  };
+  // the side of town: downtown within 450 m of the centre (the package's downtown, else the shops' mean), else its
+  // quarter (north is -z)
+  let cx = opts.center && Number.isFinite(opts.center.x) ? opts.center.x : 0, cz = opts.center && Number.isFinite(opts.center.z) ? opts.center.z : 0;
+  if (!(opts.center && Number.isFinite(opts.center.x)) && shops.length) { cx = 0; cz = 0; for (const s of shops) { cx += s.x; cz += s.z; } cx /= shops.length; cz /= shops.length; }
+  const sideOf = (x, z) => {
+    const dx = x - cx, dz = z - cz;
+    if (dx * dx + dz * dz < 450 * 450) return 'DOWNTOWN';
+    return Math.abs(dx) > Math.abs(dz) ? (dx > 0 ? 'EASTSIDE' : 'WESTSIDE') : dz > 0 ? 'SOUTHSIDE' : 'NORTHSIDE';
+  };
+  // names, made as they are needed: each word's trades in its own order (a hash of the word and the trade), a few per
+  // word (a street up to 6, the town 12, a side 8), MAX_SIGNS in all
+  const themes = [], byWord = new Map(), used = new Set(), cursor = new Map(), tradeOf = [];
+  const orderOf = new Map();
+  const capOf = (w) => (w === town ? 12 : /SIDE$|^DOWNTOWN$/.test(w) ? 8 : 6);
+  const make = (w) => {
+    if (!w || themes.length >= MAX_SIGNS || (byWord.get(w) || []).length >= capOf(w)) return -1;
+    let ord = orderOf.get(w);
+    if (!ord) { ord = SHOP_TRADES.map((t, k) => [shash(`${town}|${w}|${t}`), k]).sort((a, b) => a[0] - b[0] || a[1] - b[1]).map((e) => e[1]); orderOf.set(w, ord); }
+    for (let c = cursor.get(w) || 0; c < ord.length; c++) {
+      const text = signText(w, SHOP_TRADES[ord[c]]);
+      if (!text || used.has(text)) continue;
+      cursor.set(w, c + 1);
+      used.add(text);
+      themes.push({ text, style: shash(text) % 5 });
+      tradeOf.push(ord[c]);
+      if (!byWord.has(w)) byWord.set(w, []);
+      byWord.get(w).push(themes.length - 1);
+      return themes.length - 1;
+    }
+    cursor.set(w, ord.length);
+    return -1;
+  };
+  // the storefronts named so far, on a SIGHT grid, and each name's: how far the nearest one with that name is
+  const grid = new Map(), cell = (x, z) => `${Math.floor(x / SIGHT)},${Math.floor(z / SIGHT)}`, at = [];
+  const nearest = (x, z, t) => {
+    let bd = Infinity;
+    for (const o of at[t] || []) { const d = (o.x - x) ** 2 + (o.z - z) ** 2; if (d < bd) bd = d; }
+    return Math.sqrt(bd);
+  };
+  // (the names and trades already used round a shop: within SIGHT, and within 35 m)
+  const usedNear = (x, z) => {
+    const names = new Set(), trades = new Set(), ix = Math.floor(x / SIGHT), iz = Math.floor(z / SIGHT);
+    for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
+      for (const o of grid.get(`${ix + dx},${iz + dz}`) || []) {
+        const d = (o.x - x) ** 2 + (o.z - z) ** 2;
+        if (d < SIGHT * SIGHT) names.add(o.t);
+        if (d < 35 * 35) trades.add(tradeOf[o.t]);
       }
     }
-    return best;
+    return { names, trades };
   };
-  // the streets most shops front (up to 7) each get a few trades, the town's name 5 more (MAX_SIGNS in all); a shop on
-  // one of those streets takes one of its trades (one in four the town's instead), any other shop one of the town's
-  const T = SHOP_TRADES.length, front = shops.map((s) => streetOf(s.x, s.z)), n = new Map();
-  for (const w of front) if (w) n.set(w, (n.get(w) || 0) + 1);
-  const top = [...n.keys()].sort((a, b) => n.get(b) - n.get(a) || (a < b ? -1 : 1)).slice(0, 7);
-  const own = town || (top.length ? '' : 'MAIN ST');
-  const themes = [], byStreet = new Map();
-  const add = (word, k) => { themes.push({ text: `${word} ${SHOP_TRADES[k % T]}`, style: shash(`${word}|${k % T}`) % 5 }); return themes.length - 1; };
-  let room = MAX_SIGNS - (own ? 5 : 0);
-  for (const w of top) {
-    const want = Math.min(n.get(w) >= 8 ? 3 : n.get(w) >= 3 ? 2 : 1, room - (top.length - top.indexOf(w) - 1));
-    if (want <= 0) continue;
-    const h = shash(w), list = [];
-    for (let k = 0; k < want; k++) list.push(add(w, h + k * 7)); // (7 and 24 share no factor: distinct trades)
-    byStreet.set(w, list); room -= want;
-  }
-  const mine = [];
-  if (own) { const h = shash(own); for (let k = 0; k < 5; k++) mine.push(add(own, h + k * 5)); }
   const pick = new Map();
-  shops.forEach((s, j) => {
-    const h = shash(`${town}|${s.i}`), list = byStreet.get(front[j]);
-    const from = list && (h % 4 !== 0 || !mine.length) ? list : mine.length ? mine : [...byStreet.values()][0];
-    pick.set(s.i, from[(h >>> 4) % from.length]);
+  const order = shops.map((s, j) => ({ s, j, h: shash(`${town}|${s.i}`) })).sort((a, b) => a.h - b.h || (a.s.i < b.s.i ? -1 : a.s.i > b.s.i ? 1 : 0));
+  // (new names are paced: the hash order is all over town, so a big town's names are made all over it, not used up by
+  // its first streets)
+  const quota = (j) => Math.min(MAX_SIGNS, 8 + Math.ceil((2 * MAX_SIGNS * (j + 1)) / Math.max(1, order.length)));
+  order.forEach(({ s, h }, j) => {
+    const { front, near } = streetsAt(s.x, s.z), side = sideOf(s.x, s.z), U = usedNear(s.x, s.z);
+    const free = (k) => !U.names.has(k) && !U.trades.has(tradeOf[k]);
+    const own = front ? [front] : [], here = town ? [town, side] : [side], by = near.filter((w) => w !== front);
+    // (three shops in four look first to the street they front, the fourth to the town and its side; then the streets
+    // round the corner)
+    const groups = h % 4 === 0 ? [here, own, by] : [own, here, by];
+    // (of the free names, the one used farthest away: a name comes round again as seldom as the town's names allow)
+    const spread = (ok) => { let t = -1, bd = -1; for (const k of ok) { const d = nearest(s.x, s.z, k); if (d > bd) { bd = d; t = k; } } return t; };
+    const existing = (g) => spread(g.flatMap((w) => byWord.get(w) || []).filter(free));
+    const fresh = (g) => {
+      for (let k = 0; k < g.length && themes.length < quota(j); k++) { const n = make(g[(k + (h >>> 5)) % g.length]); if (n >= 0 && free(n)) return n; }
+      return -1;
+    };
+    let t = existing(groups[0]);
+    if (t < 0) t = fresh(groups[0]);
+    for (let k = 1; k < groups.length && t < 0; k++) t = existing(groups[k]);
+    for (let k = 1; k < groups.length && t < 0; k++) t = fresh(groups[k]);
+    if (t < 0) {
+      // (none of this shop's own names is free here: any of the town's that is, else the one used farthest away)
+      const ok = themes.map((_, k) => k).filter(free);
+      if (ok.length) t = spread(ok);
+      else {
+        if (!themes.length) make(town || side);
+        let bd = -1;
+        for (let k = 0; k < themes.length; k++) { const d = nearest(s.x, s.z, k); if (d > bd) { bd = d; t = k; } }
+        if (t < 0) t = 0;
+      }
+    }
+    pick.set(s.i, t);
+    const key = cell(s.x, s.z);
+    if (!grid.has(key)) grid.set(key, []);
+    grid.get(key).push({ x: s.x, z: s.z, t });
+    (at[t] || (at[t] = [])).push({ x: s.x, z: s.z });
   });
   return { themes, pick };
 }
 
-window.NYC.PkgBuildings = { REGIONS, styleFor, regionOf, createPkgBuilder, signPlan, streetWord, SHOP_TRADES };
+window.NYC.PkgBuildings = { REGIONS, styleFor, regionOf, createPkgBuilder, signPlan, streetWord, signText, SHOP_TRADES, MAX_SIGNS, SIGN_CHARS, SIGHT };
 })();

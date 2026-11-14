@@ -14,6 +14,8 @@
 #                         rule than the tiles' decks: a culvert the tiles keep at grade is left out here too)
 #   places                the tiles' place rule (confidence >= 0.45, open, a GENERIC kind; public names kept) over the
 #                         play box, snapped to those lanes within 80 m; named as the assembler always named them
+#                         (street names as a sign spells them, street_names.street_case: "N 3rd St", never
+#                         str.title()'s "N 3Rd St")
 #   spawns                downtown (the strongest ctx centre in the box, else its top-scoring cell, else the box
 #                         centre, on a lane within 600 m) and the north / south / east / west arrivals
 #   district              the spawn's tile and 2 tiles each way (5 x 5, ~2.5 km), the first bundle a player drives in;
@@ -36,6 +38,7 @@ from shapely.geometry import LineString, Point, box as sbox
 import grid
 import context
 import compile as C
+from street_names import street_case
 
 FRAME_FORMAT = 'hometown-frame'
 FRAME_VERSION = 1
@@ -230,7 +233,7 @@ def compute(pid, places, data, store, bid, log=print, W=None):
         ln = lane(p['x'], p['z'])
         if not ln:
             continue
-        street = ln['street'].title() if ln['street'] else ''
+        street = street_case(ln['street'])
         name = p['name'] if (p['kind'] in C.PUBLIC and p['name']) else C.GENERIC[p['kind']] + (' on ' + street if street else '')
         n = seen.get(p['kind'], 0)
         seen[p['kind']] = n + 1
@@ -256,7 +259,7 @@ def compute(pid, places, data, store, bid, log=print, W=None):
     for key, (fx, fz) in {'north': (0.5, 0.2), 'south': (0.5, 0.8), 'east': (0.8, 0.5), 'west': (0.2, 0.5)}.items():
         ln = lane(B['x0'] + (B['x1'] - B['x0']) * fx, B['z0'] + (B['z1'] - B['z0']) * fz, R=LANE_REACH)
         if ln:
-            sp[key] = {'x': ln['x'], 'z': ln['z'], 'heading': ln['heading'], 'name': (ln['street'].title() or key.title())}
+            sp[key] = {'x': ln['x'], 'z': ln['z'], 'heading': ln['heading'], 'name': (street_case(ln['street']) or key.title())}
     spawn_key = 'downtown' if 'downtown' in sp else next(iter(sorted(sp)), None)
     spawn = sp.get(spawn_key)
 

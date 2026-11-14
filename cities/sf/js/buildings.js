@@ -382,6 +382,23 @@ function buildCityBlocks(scene, opts = {}) {
       warmth: 0.48,
       reflectivity: 0.95,
       seed: 94.3
+    }],
+    // 6: Pale balcony glass (a Hometown package in the 'south-florida' region: its condo and hotel towers): light sea-green
+    //    glass between white spandrel bands and slim white mullions, under the white balcony slabs pkg-buildings.js lays
+    //    on the same storey lines (box.storeyH)
+    [createCurtainWallMaterial, {
+      glassTint: 0xa3bdbc,
+      frameTint: 0xe8ebe8,
+      spandrelTint: 0xf2f2ee,
+      frameMetalness: 0.04,
+      spandrelRatio: 0.3,
+      mullionThickness: 0.04,
+      windowWidth: 3.0,
+      floorHeight: 3.4,
+      litProbability: 0.5,
+      warmth: 0.7,
+      reflectivity: 0.4,
+      seed: 105.7
     }]
   ];
   // San Francisco (P4.2, P4.3): the three masonry styles become painted ones, colour per building (sf-style.js): 0 downtown
@@ -2139,7 +2156,7 @@ function buildCityBlocks(scene, opts = {}) {
       return { mat, paint };
     }
 
-    let awningN = 0;
+    let awningN = 0, mallN = 0;
     const pkgShops = []; // (a package's shops, for their signs' names: PkgBuildings.signPlan)
     function shopAwnings(blk, box, shop) {
       // the longest shop wall of the box (createFacadeBoxes faces: local -x, +x, -z, +z): canvas awnings in 6 m bays
@@ -2156,14 +2173,27 @@ function buildCityBlocks(scene, opts = {}) {
       const nx = lx * cs + lz * sn, nz = -lx * sn + lz * cs;
       const ax = lx ? sn : cs, az = lx ? cs : -sn; // along the wall
       const ry = lx ? box.ry : box.ry + Math.PI / 2;
-      pkgShops.push({ i: shop, x: box.x + nx * (half + 0.8), z: box.z + nz * (half + 0.8), nx, nz });
-      for (let k = 0; k < n; k++) {
-        if (hash(box.x + k, box.z) < 0.25) continue;
-        const u = -L / 2 + seg * (k + 0.5);
-        const x = box.x + nx * (half + 0.8) + ax * u, z = box.z + nz * (half + 0.8) + az * u;
-        const y = window.NYC.Terrain.groundAt(x, z) + 2.8;
-        blk.awnings.push({ x, y, z, w: 1.6, d: Math.min(5.5, seg - 0.8), ry, sideDir: 1, colorIdx: Math.floor(hash(box.x, box.z + k) * 5), signY: y + 0.95, shop });
-        awningN++;
+      // (the wall's storefronts, about 12 m each (a bay or two), each its own shop with its own name, id shop * 16 + its
+      // index: one sign each, over the middle of its stretch of wall; every bay keeps its awning, the storefront's colour)
+      const m = Math.min(n, 15, Math.max(1, Math.round(L / 12)));
+      const bays = Array.from({ length: m }, () => []);
+      for (let k = 0; k < n; k++) if (hash(box.x + k, box.z) >= 0.25) bays[Math.floor((k * m) / n)].push(k);
+      for (let f = 0; f < m; f++) {
+        const ks = bays[f];
+        if (!ks.length) continue;
+        // (its sign over the middle of its stretch of wall, on the fascia of the awning nearest it)
+        const id = shop * 16 + f, k0 = Math.ceil((f * n) / m), k1 = Math.ceil(((f + 1) * n) / m) - 1, mid = (k0 + k1) / 2;
+        const signK = ks.reduce((b, k) => (Math.abs(k - mid) < Math.abs(b - mid) ? k : b), ks[0]);
+        const us = -L / 2 + seg * (mid + 0.5);
+        const sx = box.x + nx * (half + 0.8) + ax * us, sz = box.z + nz * (half + 0.8) + az * us;
+        pkgShops.push({ i: id, x: sx, z: sz, nx, nz });
+        for (const k of ks) {
+          const u = -L / 2 + seg * (k + 0.5);
+          const x = box.x + nx * (half + 0.8) + ax * u, z = box.z + nz * (half + 0.8) + az * u;
+          const y = window.NYC.Terrain.groundAt(x, z) + 2.8;
+          blk.awnings.push({ x, y, z, w: 1.6, d: Math.min(5.5, seg - 0.8), ry, sideDir: 1, colorIdx: Math.floor(hash(box.x, box.z + ks[0]) * 5), signY: y + 0.95, shop: id, sign: k === signK, signX: sx, signZ: sz });
+          awningN++;
+        }
       }
     }
     const polyGeos = [[], [], []]; // outlines by facade material (0 masonry, 1 painted, 2 brick & concrete; San Francisco: all 0)
@@ -2175,6 +2205,8 @@ function buildCityBlocks(scene, opts = {}) {
       const [base, roofRec, , ringStart, ringCount, theta, start, count, shopsFlag] = rec;
       const type = typeName(rec[FI.type]);
       const kind = PK ? header.kinds[rec[FI.kind]] || 'unknown' : null;
+      // (a mall's part taller than a mall, a tower over its shops: drawn as any other block)
+      const mall = PK && kind === 'mall' && roofRec - base < 20;
       const minH = PK ? rec[FI.minH] || 0 : 0;
       const look = PK ? PK.styleFor({
         kind, roofShape: header.roofShapes[rec[FI.roofShape]] || '', wall: header.walls[rec[FI.wall]] || '', wallRGB: rec[FI.wallRGB], roofRGB: rec[FI.roofRGB],
@@ -2192,7 +2224,14 @@ function buildCityBlocks(scene, opts = {}) {
       const tone = hash(i, base);
       const vict = !PK && victorianBlock(type, height, (minX + maxX) * 0.5, (minZ + maxZ) * 0.5);
       let { mat, paint } = styleOf(i, type, rec[FI.palette], rec[FI.era], rec[FI.facade], height, vict);
-      if (PK && mat <= 2) {
+      // (South Florida's condo and hotel blocks, the package region 'south-florida': balcony slabs on every storey over
+      // pale balcony glass (most) or white / pastel painted concrete, never a dark curtain wall)
+      const balcony = PK && header.region === 'south-florida' && kind !== 'church' && kind !== 'warehouse' && kind !== 'house' && kind !== 'rowhouse'
+        && (type === 'tower' || type === 'midrise' || height >= 20);
+      if (balcony) {
+        if (hash(i, 17.3) < 0.6) { mat = 6; paint = look.paint; }
+        else { mat = 0; paint = [look.paint[0], 0xffffff, look.paint[2], 0.3]; }
+      } else if (PK && mat <= 2) {
         // (region walls: painted wood / siding / stucco / brick by the record's kind; curtain walls stay)
         paint = look.paint;
         mat = kind === 'warehouse' ? 2 : kind === 'church' || kind === 'school' || kind === 'civic' || ((kind === 'office' || kind === 'shop') && height >= 12) || type === 'midrise' || type === 'tower' ? 0 : 1;
@@ -2303,14 +2342,53 @@ function buildCityBlocks(scene, opts = {}) {
             const tower = { ...box, y: (podiumTop + roof) * 0.5, w: tm.w, h: roof - podiumTop, d: tm.d, plinth: Math.max(0, box.plinth), faces: [WALL_KINDS.entry, WALL_KINDS.entry, WALL_KINDS.entry, WALL_KINDS.entry] };
             buckets[mat].push(tower);
             collider(tm, roof);
+            if (balcony && tm.w >= 5 && tm.d >= 5) pb.balconies(tm, theta, tower.base + tower.plinth, roof, storeyH || storeys[mat], 0xf3f3ef, 0xa7bcc1, 1.35, podiumTop);
             top = tm;
             topBox = tower;
           }
           continue;
         }
+        if (mall) {
+          // (a mall, the compiler's 0.8.2 kind: a storefront storey on every open wall (shops all round: it faces its
+          // car parks), a plain stucco band over it up to a tall parapet, and a colonnade along each wall 8 m or longer
+          // that nothing stands close in front of (a cantilevered canopy where a roadway comes within its depth))
+          const faces = box.faces.map((f) => (f === WALL_KINDS.lotLine ? f : WALL_KINDS.shop));
+          const g = box.base + box.plinth, H = roof - g;
+          const G = H < 7 ? H : Math.min(5.6, Math.max(4.2, H * 0.45));
+          const low = { ...box, faces, storeyH: G, h: g + G - bottom, y: (bottom + g + G) * 0.5 };
+          buckets[mat].push(low);
+          if (H - G > 0.5) {
+            buckets[mat].push({ ...box, faces: faces.map((f) => (f === WALL_KINDS.shop ? WALL_KINDS.blankStone : f)), base: g + G, plinth: 0, storeyH: H - G,
+              h: H - G, y: g + G + (H - G) * 0.5 });
+          }
+          collider(m, roof);
+          pb.roof(m, theta, roof, 0, 'flat', look.roofColor, paint[0], look.parapet);
+          pb.membrane(m, theta, roof + 0.03, look.roofColor);
+          WALLS.forEach(([lx, lz], f) => {
+            if (faces[f] !== WALL_KINDS.shop || (lx ? m.d : m.w) < 8) return;
+            const nx = lx * cs + lz * sn, nz = -lx * sn + lz * cs, half = lx ? m.w * 0.5 : m.d * 0.5, len = lx ? m.d : m.w;
+            const ax = -lz * cs + lx * sn, az = lz * sn + lx * cs;
+            const at = (u, o) => [m.cx + nx * (half + o) + ax * u * len, m.cz + nz * (half + o) + az * u * len];
+            const DEPTH = 3.2;
+            let blocked = false, road = false;
+            for (const u of [-0.4, 0, 0.4]) {
+              for (const o of [0.8, DEPTH * 0.5, DEPTH + 0.3]) {
+                const [x, z] = at(u, o);
+                if (massAt(x, z, m)) blocked = true;
+                else if (onRoadway(x, z)) road = true;
+              }
+            }
+            if (blocked) return;
+            for (const c of pb.colonnade(m, theta, lx, lz, g, Math.min(g + G - 0.5, g + 4.6), roof, road ? 1.6 : DEPTH, !road, paint[0], paint[1])) colliders.push(c);
+          });
+          mallN++;
+          if (!top || m.w * m.d > top.w * top.d) { top = m; topBox = low; }
+          continue;
+        }
         buckets[mat].push(box);
         collider(m, roof);
-        if (pitched) { if (m.w * m.d >= 6 || k === biggest) pb.roof(m, theta, roof, Math.min(rise0, kRise * Math.min(m.w, m.d) * 0.5), look.roof, look.roofColor, paint[0]); }
+        if (balcony && m.w >= 5 && m.d >= 5) pb.balconies(m, theta, box.base + box.plinth, roof, storeyH || storeys[mat], 0xf3f3ef, 0xa7bcc1);
+        if (pitched) { if (m.w * m.d >= 6 || k === biggest) pb.roof(m, theta, roof, Math.min(rise0, kRise * Math.min(m.w, m.d) * 0.5), look.roof, look.roofColor, paint[0], look.parapet); }
         else if (mat <= 2 && m.w > 3 && m.d > 3) blk.cornices.push({ x: m.cx, y: roof, z: m.cz, w: m.w + 1.0, h: 0.8, d: m.d + 1.0 });
         if (!top || m.w * m.d > top.w * top.d) { top = m; topBox = box; }
       }
@@ -2367,13 +2445,14 @@ function buildCityBlocks(scene, opts = {}) {
       if (me) group.add(me);
       const kinds = {};
       for (let i = 0; i < header.count; i++) { const k = header.kinds[table[i * F + FI.kind]] || 'unknown'; kinds[k] = (kinds[k] || 0) + 1; }
-      console.info(`[roofs] ${header.region}: ${JSON.stringify(pb.stats)} kinds ${JSON.stringify(kinds)} awnings ${awningN}`);
+      console.info(`[roofs] ${header.region}: ${JSON.stringify(pb.stats)} kinds ${JSON.stringify(kinds)} awnings ${awningN} mall masses ${mallN}`);
     }
-    // a package's shop signs: named after the town's own streets and name, one name per shop (PkgBuildings.signPlan)
+    // a package's shop signs: named after the town's own streets, name and sides, one name per storefront, none twice
+    // within sight (PkgBuildings.signPlan)
     if (PK && PK.signPlan && pkgShops.length) {
-      const G = window.NYC.GEO || {}, plan = PK.signPlan(G.roadGraph, (window.NYC.PKG && window.NYC.PKG.name) || G.city, pkgShops);
+      const G = window.NYC.GEO || {}, Q = window.NYC.PKG || {}, plan = PK.signPlan(G.roadGraph, Q.name || G.city, pkgShops, { center: Q.downtown || Q.spawn });
       const per = plan.themes.map(() => 0);
-      for (const blk of allBlocks) for (const a of blk.awnings) if (a.shop !== undefined) { a.signIdx = plan.pick.get(a.shop); per[a.signIdx]++; }
+      for (const blk of allBlocks) for (const a of blk.awnings) if (a.shop !== undefined) { a.signIdx = plan.pick.get(a.shop); if (a.sign !== false) per[a.signIdx]++; }
       pkgSigns = { themes: plan.themes, per };
       // (for the survey and screenshots: every shop's name and front)
       window.NYC.pkgSignPlan = { themes: plan.themes.map((t, k) => ({ text: t.text, awnings: per[k] })),
@@ -2725,7 +2804,56 @@ function buildCityBlocks(scene, opts = {}) {
   const MAX_SIGNS_PER_THEME = Math.ceil(MAX_AWNINGS / signThemes.length) + 32;
   const signCap = (k) => (pkgSigns ? Math.max(1, Math.min(MAX_AWNINGS, pkgSigns.per[k])) : MAX_SIGNS_PER_THEME);
   const signCaps = signThemes.map((_, k) => signCap(k));
-  const signInsts = signThemes.map((st, k) => {
+  // (a Hometown package's names, up to PkgBuildings.MAX_SIGNS: all on one atlas, 4 names a row, each drawn as San
+  // Francisco's 512 x 96 signs are at 3/4 scale, and one instanced mesh whose per-instance `signCell` picks the name:
+  // one draw for every shop sign in town)
+  const pkgAtlas = pkgSigns ? (() => {
+    const COLS = 4, CW = 384, CH = 72, rows = Math.max(1, Math.ceil(signThemes.length / COLS));
+    const c = document.createElement('canvas');
+    c.width = COLS * CW;
+    c.height = rows * CH;
+    const ctx = c.getContext('2d');
+    signThemes.forEach((st, k) => {
+      ctx.save();
+      ctx.translate((k % COLS) * CW, Math.floor(k / COLS) * CH);
+      ctx.scale(CW / 512, CH / 96);
+      ctx.fillStyle = st.bg;
+      ctx.fillRect(0, 0, 512, 96);
+      ctx.strokeStyle = st.border;
+      ctx.lineWidth = 6;
+      ctx.strokeRect(6, 6, 500, 84);
+      ctx.fillStyle = st.color;
+      ctx.font = '800 26px Inter, Arial, sans-serif';
+      for (let px = 26; px > 14 && ctx.measureText(st.text).width > 476; px--) ctx.font = `800 ${px - 1}px Inter, Arial, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(st.text, 256, 50);
+      ctx.restore();
+    });
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 4;
+    const { texture, attribute, uv, vec2, float } = window.NYC.TSL;
+    // (a cell's uv, kept 3 texels inside its edge so the coarser mip levels do not bleed the next name in)
+    const cellId = attribute('signCell', 'float');
+    const col = cellId.mod(float(COLS)), row = cellId.div(float(COLS)).floor();
+    const mu = 3 / c.width, mv = 3 / c.height;
+    const u = col.add(uv().x.mul(1 - (2 * 3) / CW)).div(float(COLS)).add(mu);
+    const v = float(rows - 1).sub(row).add(uv().y.mul(1 - (2 * 3) / CH)).div(float(rows)).add(mv);
+    const sMat = new THREE.MeshBasicNodeMaterial();
+    sMat.colorNode = texture(tex, vec2(u, v));
+    const cap = Math.max(1, Math.min(MAX_AWNINGS, pkgSigns.per.reduce((a, b) => a + b, 0)));
+    const geo = unitBox.clone();
+    const cells = new THREE.InstancedBufferAttribute(new Float32Array(cap), 1);
+    geo.setAttribute('signCell', cells);
+    const inst = new THREE.InstancedMesh(geo, sMat, cap);
+    inst.name = 'PkgShopSigns';
+    inst.frustumCulled = false;
+    inst.count = 0;
+    group.add(inst);
+    return { inst, cells, cap };
+  })() : null;
+  const signInsts = pkgAtlas ? [] : signThemes.map((st, k) => {
     const c = document.createElement('canvas');
     c.width = 512;
     c.height = 96;
@@ -2830,6 +2958,7 @@ function buildCityBlocks(scene, opts = {}) {
     let awningCount = 0;
     let shedCount = 0;
     const signCounts = signInsts.map(() => 0);
+    let atlasCount = 0;
 
     for (let bIdx = 0; bIdx < nearbyBlocks.length; bIdx++) {
       const blk = nearbyBlocks[bIdx];
@@ -2894,8 +3023,17 @@ function buildCityBlocks(scene, opts = {}) {
         awningInst.setMatrixAt(awningCount, dummy.matrix);
         awningInst.setColorAt(awningCount, awningPalette[a.colorIdx % awningPalette.length]);
 
-        const themeIdx = a.signIdx !== undefined ? a.signIdx : awningCount % signInsts.length;
-        if (signCounts[themeIdx] < signCaps[themeIdx]) {
+        const themeIdx = a.signIdx !== undefined ? a.signIdx : awningCount % signThemes.length;
+        if (pkgAtlas) {
+          // (a package's storefront: one sign, over the middle of its wall, its name's cell on the atlas)
+          if (a.sign !== false && a.signIdx !== undefined && atlasCount < pkgAtlas.cap) {
+            dummy.position.set(a.signX ?? a.x, a.signY !== undefined ? a.signY : 4.68, a.signZ ?? a.z);
+            dummy.scale.set(0.28, 0.86, a.d * 0.92);
+            dummy.updateMatrix();
+            pkgAtlas.inst.setMatrixAt(atlasCount, dummy.matrix);
+            pkgAtlas.cells.array[atlasCount++] = themeIdx;
+          }
+        } else if (signCounts[themeIdx] < signCaps[themeIdx]) {
           dummy.position.set(a.x, a.signY !== undefined ? a.signY : 4.68, a.z);
           dummy.scale.set(0.28, 0.86, a.d * 0.92);
           dummy.updateMatrix();
@@ -2943,6 +3081,11 @@ function buildCityBlocks(scene, opts = {}) {
       sInst.count = signCounts[idx];
       flagRange(sInst.instanceMatrix, signCounts[idx]);
     });
+    if (pkgAtlas) {
+      pkgAtlas.inst.count = atlasCount;
+      flagRange(pkgAtlas.inst.instanceMatrix, atlasCount);
+      flagRange(pkgAtlas.cells, atlasCount);
+    }
 
     shedInst.count = shedCount;
     flagRange(shedInst.instanceMatrix, shedCount);
