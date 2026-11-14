@@ -13,6 +13,7 @@ import { mcOrigin, storyOf } from '@/lib/episode';
 import { storyOf as storyWorldOf, isStoryCity, storyCityName } from '@/lib/storykit-site';
 import { storyPlaySrc, storykitMc, sealedWorldOf } from '@/lib/storykit-publish';
 import { NeedsWebGPU } from './needs-webgpu';
+import { DeskOnly } from './desk-only';
 import { YouLine } from './you-line';
 import { GameActions } from './actions';
 import { Tabs } from './tabs';
@@ -118,6 +119,12 @@ export function CustomGamePage({ game, kdiag = null, storyOpen, mogOpen = canMog
     </table>
   ) : <p className="dim">No runs posted yet. Finish one and yours lands here.</p>;
 
+  // eslint-disable-next-line @next/next/no-img-element
+  const poster = <img src={`/g/${game.slug}/cover`} alt="" />;
+  const frame = <PlayFrame slug={game.slug} gameId={game.id} src={episode ? mcFrameSrc(storyUrl(game), game.id) : storyWorld ?? playSrc(game)} episode={episode || !!storyWorld} storykit={!!storyWorld} mc={storyWorld ? storykitMc() : mcOrigin()} story={episode ? storyOf(game.code)?.hash ?? null : storyWorld ? sealedWorldOf(game.meta) : null} scores={!episode && !storyWorld} you={game.format === 'world' && !episode && !storyWorld} kart={mode === 'kart'} shootout={shootout} kartScore={kartC} kdiag={mode === 'kart' ? kdiag : null}
+    posterUntilPlay={!!storyWorld && storyCity === 'sf'}
+    poster={poster} />;
+
   return (
     <>
       <SiteHeader />
@@ -129,11 +136,10 @@ export function CustomGamePage({ game, kdiag = null, storyOpen, mogOpen = canMog
         </nav>
         <div className="gtop">
           <div className="gstage">
-            <PlayFrame slug={game.slug} gameId={game.id} src={episode ? mcFrameSrc(storyUrl(game), game.id) : storyWorld ?? playSrc(game)} episode={episode || !!storyWorld} storykit={!!storyWorld} mc={storyWorld ? storykitMc() : mcOrigin()} story={episode ? storyOf(game.code)?.hash ?? null : storyWorld ? sealedWorldOf(game.meta) : null} scores={!episode && !storyWorld} you={game.format === 'world' && !episode && !storyWorld} kart={mode === 'kart'} shootout={shootout} kartScore={kartC} kdiag={mode === 'kart' ? kdiag : null}
-              posterUntilPlay={!!storyWorld && storyCity === 'sf'}
-              // eslint-disable-next-line @next/next/no-img-element
-              poster={<img src={`/g/${game.slug}/cover`} alt="" />} />
-            {storyWorld && storyCity === 'sf' ? <NeedsWebGPU title={game.title} /> : null}
+            {storyWorld
+              // (a story world on a phone: the same desktop-only note as Create's, instead of the city; r7, 14 Nov)
+              ? <DeskOnly title={game.title} poster={poster}>{frame}{storyCity === 'sf' ? <NeedsWebGPU title={game.title} /> : null}</DeskOnly>
+              : frame}
           </div>
           <div className="gbar">
             <div className="gtitle">
