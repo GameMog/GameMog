@@ -242,11 +242,25 @@ function buildGradeSeparation(scene, network) {
       if (t < f.t0 || t > f.t1 || o < f.L || o > f.R) return false;
       return Math.abs(P(f, t, o)[1] - y) < dy;
     });
+    // (nor where another deck's lanes run over the parapet itself at a height a car on them would hit it: from
+    // CAR_UNDER m under its floor to CAR_OVER over it, the window in which the controllers stop a car on it (a car's
+    // probe a metre up, controllers.js resolveHorizontalCollision; `below` 0.5 m: 2.5 under to 1.5 over, and half a
+    // metre for a car riding a little under the floor's own profile). Two decks merging at the Point overlap 1.5 m
+    // apart for 25 m before their node: the lower one's parapet stood up through the upper one's lanes)
+    const CAR_UNDER = 2.5, CAR_OVER = 2.0;
+    const overrun = (seg, x, z, y) => (grid.get(Math.floor(x / C) + ',' + Math.floor(z / C)) || []).some((f) => {
+      if (f === seg) return false;
+      const px = x - f.x0, pz = z - f.z0, t = px * f.dx + pz * f.dz, o = px * f.rx + pz * f.rz;
+      if (t < f.t0 || t > f.t1 || o < f.L || o > f.R) return false;
+      const fy = P(f, t, o)[1];
+      return fy > y - CAR_UNDER && fy < y + CAR_OVER;
+    });
     const GAP_DY = 3.0;
     for (const { seg, ta, tb, tm, o, len, out, gap } of parapetQ) {
       const [cx, y, cz] = P(seg, tm, o);
       const [bx, , bz] = P(seg, tm, o + out * 0.9);
       if (beside(seg, bx, bz, y, gap ? GAP_DY : 1.2)) continue;
+      if (overrun(seg, cx, cz, y)) continue;
       // (nor where the deck is still on the ground beside it: a deck's ends at grade, where the road comes onto it)
       if (y - ground(bx, bz) < PARAPET_MIN_DROP) continue;
       // (a package deck's parapet follows its slope: sloped faces, not a stair of boxes)
