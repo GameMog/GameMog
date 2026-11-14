@@ -11,9 +11,13 @@
 #
 #   deploy/town-builder/workflow-sim.sh            (PLACE=us-4007500 Boley, OK; ports 4830 web, 4840 Render)
 # Environment: PLACE, HOMETOWN_TB_DIR (default .scratch/tb), SDK_PY (a Python with the render SDK: .scratch/render-venv),
-# SIM_MAX_ACTIVE (2), HOMETOWN_SLOTS (2 a run: the Mac is shared), MAX_RUNS (2), WEB_PORT / API_PORT (4830-4849), and:
-#   SIM_LEARN_BUILD=1   the web without HOMETOWN_BUILD, as production starts: the first pick is refused with retryS and
-#                       starts ONE run that learns the build (dispatch.ts probe); the pick is asked again until admitted
+# SIM_MAX_ACTIVE (2), HOMETOWN_SLOTS (2 a run: the Mac is shared), MAX_RUNS (2), WEB_PORT / API_PORT (4830-4879), and:
+#   SIM_LEARN_BUILD=1   the web without HOMETOWN_BUILD, as production starts: the first pick starts ONE run that learns
+#                       the build (dispatch.ts probe). Today the pick is kept and answered 202 at once (towns.ts
+#                       admitPending); an older web refused it with retryS, and the pick is then asked again after retryS
+#                       seconds, as the Create card does (lib/places/request-city.ts)
+#   SIM_FAIL_TILE=<id>  TESTS ONLY: that tile's jobs fail as a compile crash would (worker.py HOMETOWN_TEST_FAIL_TILES): the
+#                       town must still become whole, degraded (that tile flat ground), and the owner's status list it
 #   SIM_ASK=browser     the pick is made by a player on Create (a browser driven from outside), not by this script: it
 #                       waits for the town to be asked, then times story / drive / whole from that moment
 #   SIM_HOLD_S=<s>      keep the servers up this long after the result (to play the town), then stop them
@@ -61,6 +65,7 @@ WEB="http://127.0.0.1:$WEB_PORT"
 ( cd "$ROOT" && SIM_PORT=$API_PORT SIM_KEY="$KEY" SIM_PYTHON="$SDK_PY" SIM_START=deploy/town-builder/workflow.py SIM_SLUG=gamemog-town-builder \
   SIM_MAX_ACTIVE="${SIM_MAX_ACTIVE:-2}" SIM_WORK="$RUN/render" \
   HOMETOWN_WEB="$WEB" HOMETOWN_WORKER_TOKEN="$WTOK" HOMETOWN_TB_DIR="$TB" HOMETOWN_SLOTS="${HOMETOWN_SLOTS:-2}" HOMETOWN_CACHE_GB=2 \
+  HOMETOWN_TEST_FAIL_TILES="${SIM_FAIL_TILE:-}" \
   node --import ./scripts/ts-resolve.mjs scripts/hometown-workflow-sim.ts > "$RUN/render.log" 2>&1 ) &
 SPID=$!
 for i in $(seq 1 240); do curl -fsS "$WEB/robots.txt" >/dev/null 2>&1 && break; kill -0 "$NPID" 2>/dev/null || break; sleep 2; done
@@ -86,8 +91,9 @@ else
   CODE="$(ask)"
   if [ "$CODE" = 503 ] && grep -q retryS "$RUN/ask.json"; then
     echo "no build known: $(head -c 200 "$RUN/ask.json"); a run is learning it"
-    for i in $(seq 1 60); do sleep 5; CODE="$(ask)"; [ "$CODE" != 503 ] && break; done
-    echo "admitted after $(($(date +%s) - T0)) s (the build learned by one run)"
+    RS="$(node -e 'try{console.log(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).retryS||15)}catch{console.log(15)}' "$RUN/ask.json")"
+    for i in $(seq 1 60); do sleep "$RS"; CODE="$(ask)"; [ "$CODE" != 503 ] && break; done
+    echo "admitted after $(($(date +%s) - T0)) s (the build learned by one run; asked again every ${RS} s as the Create card does)"
   fi
   [ "$CODE" = 202 ] || [ "$CODE" = 200 ] || { echo "ask: $CODE $(cat "$RUN/ask.json")"; exit 1; }
   echo "asked: $(head -c 300 "$RUN/ask.json")"
@@ -108,6 +114,18 @@ done
 WHOLE=$(($(date +%s) - T0))
 echo "whole town at $WHOLE s"
 cp "$RUN/status.json" "$RUN/final.json"
+# the owner's view: degraded towns, the journal (split / degraded / admitted / retry), the first claim and each run's start-up
+curl -fsS -H "authorization: Bearer $ATOK" "$WEB/api/hometown/admin/builder" > "$RUN/builder.json" || true
+node -e '
+const fs = require("fs"), b = JSON.parse(fs.readFileSync(process.argv[1], "utf8")), t0 = Number(process.argv[2]) * 1000;
+const db = new (require("node:sqlite").DatabaseSync)(process.argv[4], { readOnly: true });
+const ev = Object.fromEntries(db.prepare("SELECT kind, COUNT(*) n FROM events GROUP BY kind").all().map((r) => [r.kind, r.n]));
+const logs = fs.readdirSync(process.argv[3]).filter((f) => f.endsWith(".log")).map((f) => fs.readFileSync(process.argv[3] + "/" + f, "utf8").split("\n").filter(Boolean).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean));
+const claims = logs.flat().filter((e) => e.event === "claimed").map((e) => Date.parse(e.at));
+const starts = logs.map((l) => l.find((e) => e.event === "start")).filter(Boolean);
+console.log("FIRST-CLAIM " + (claims.length ? Math.round((Math.min(...claims) - t0) / 1000) + " s after the pick" : "none") + "; run start-up (compiler flags + buildId) " + JSON.stringify(starts.map((s) => s.initS ?? "n/a")) + " s");
+console.log("DEGRADED " + JSON.stringify(b.towns && b.towns.degraded) + " FAILED " + JSON.stringify(b.towns && b.towns.failed) + " EVENTS " + JSON.stringify(ev));
+' "$RUN/builder.json" "$T0" "$RUN/render" "$RUN/web/queue.db" || true
 
 # every run ends by itself once the queue is idle (20 s idle window + the dispatcher's next look)
 for i in $(seq 1 60); do

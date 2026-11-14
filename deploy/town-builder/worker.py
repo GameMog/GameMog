@@ -34,6 +34,14 @@ Environment:
                             token wrong) instead of waiting (a Workflows run is billed while it waits)
   HOMETOWN_RUN_CAP_S        stop claiming after this many seconds and return when the running jobs are done (0: none)
   HOMETOWN_IMAGE_ID_FILE    the build recipe's id (default /opt/hometown-image-id; workflow-build.sh writes its own)
+  HOMETOWN_TEST_FAIL_TILES  TESTS ONLY (deploy/town-builder/workflow-sim.sh SIM_FAIL_TILE): tile ids whose tile jobs fail
+                            as a compile crash would, to prove a town degrades (unset in production)
+
+Absent tiles: a full bundle's args.absent lists tiles that could not be built (the web's queue retried them, one by one,
+and gave up; or the compile refused them, no DEM). Before the assembler runs, each gets flat ground in the LOCAL store
+(placeholder_tile: the HTL1 tile format, terrain a smooth patch between its built neighbours' edges, lawn, nothing on
+it); they are removed again before the uploads, with the session descriptor written over them, so a placeholder never
+reaches the web's store under a real tile key (the web then promises no manifest for that bundle: towns.ts promisedOutputs).
 """
 import gzip
 import hashlib
@@ -43,6 +51,7 @@ import re
 import shutil
 import signal
 import socket
+import struct
 import subprocess
 import sys
 import threading
@@ -137,6 +146,123 @@ def capacity(slot_gb):
     return slots, cpus, mem
 
 
+# ------------------------------------------------------------------------------------------------- absent tiles
+def read_htl1(b):
+    """An HTL1 tile (MogCity tools/hometown compile.py htl1): -> (header, {section: bytes})."""
+    raw = gzip.decompress(b)
+    if raw[:4] != b'HTL1':
+        raise ValueError('not an HTL1 tile')
+    n = struct.unpack('<I', raw[4:8])[0]
+    h = json.loads(raw[8:8 + n])
+    o = 8 + n
+    return h, {x['name']: (x['enc'], raw[o + x['offset']:o + x['offset'] + x['bytes']]) for x in h['sections']}
+
+
+def terrain_of(h, sec):
+    """The tile's posts as rows (r) of columns (c), in cm."""
+    enc, b = sec['terrain']
+    P = h['posts']
+    vals = struct.unpack('<%d%s' % (P * P, 'H' if enc == 'u16' else 'i'), b)
+    base = h['base_cm'] if enc == 'u16' else 0
+    return [[vals[i * P + j] + base for j in range(P)] for i in range(P)]
+
+
+def htl1(header, sections):
+    """compile.py htl1, byte for byte in layout: 'HTL1', u32 header length, the header JSON padded to 4, the sections."""
+    body, meta, off = [], [], 0
+    for name, enc, b in sections:
+        meta.append({'name': name, 'enc': enc, 'offset': off, 'bytes': len(b)})
+        body.append(b)
+        off += len(b)
+        pad = (4 - off % 4) % 4
+        if pad:
+            body.append(b'\0' * pad)
+            off += pad
+    js = json.dumps(dict(header, sections=meta), sort_keys=True, separators=(',', ':')).encode()
+    pad = (4 - len(js) % 4) % 4
+    return gzip.compress(b'HTL1' + struct.pack('<I', len(js) + pad) + js + b' ' * pad + b''.join(body), mtime=0)
+
+
+def placeholder_tile(store, build, tid):
+    """Flat ground for tile `tid` (hg1-{d}/0/{c}/{r}) that could not be built, as an HTL1 tile the assembler takes like
+    any other: no roads, buildings, trees or places; mask lawn; terrain a Coons patch between the edges of its built
+    neighbours in `store` (a shared edge post has one height, so no cliff at a seam), level where none is built.
+    Deterministic for a given set of stored neighbours."""
+    g, L, c, r = tid.split('/')
+    c, r = int(c), int(r)
+    if L != '0' or not re.match(r'^hg1-[a-z]+$', g):
+        raise ValueError('not a tile id: %s' % tid)
+    tiles = os.path.join(store, 'tiles', build, g, '0')
+
+    def load(cc, rr):
+        p = os.path.join(tiles, str(cc), str(rr))
+        try:
+            with open(p, 'rb') as f:
+                return read_htl1(f.read())
+        except (OSError, ValueError):
+            return None
+    nb = {k: load(c + dc, r + dr) for k, (dc, dr) in {'W': (-1, 0), 'E': (1, 0), 'N': (0, -1), 'S': (0, 1)}.items()}
+    tpl = next((v for v in nb.values() if v), None)
+    if tpl is None:
+        # (no neighbour built: any tile of this build and domain gives the header's shape)
+        for d, _, fs in sorted(os.walk(tiles)):
+            for f in sorted(fs):
+                if '.tmp' not in f and '.dl-' not in f:
+                    tpl = load(int(os.path.basename(d)), int(f))
+                    if tpl:
+                        break
+            if tpl:
+                break
+    if tpl is None:
+        raise RuntimeError('no tile of %s %s is stored to shape a placeholder for %s' % (build, g, tid))
+    h0 = tpl[0]
+    P = h0['posts']
+    edge = {}
+    if nb['W']:
+        t = terrain_of(*nb['W']); edge['W'] = [t[i][P - 1] for i in range(P)]
+    if nb['E']:
+        t = terrain_of(*nb['E']); edge['E'] = [t[i][0] for i in range(P)]
+    if nb['N']:
+        t = terrain_of(*nb['N']); edge['N'] = list(t[P - 1])
+    if nb['S']:
+        t = terrain_of(*nb['S']); edge['S'] = list(t[0])
+    known = [v for e in edge.values() for v in e]
+    level = int(round(sum(known) / len(known))) if known else int(h0['base_cm'])
+
+    def corner(a, ai, b, bi):
+        return edge[a][ai] if a in edge else edge[b][bi] if b in edge else level
+    NW, NE = corner('N', 0, 'W', 0), corner('N', P - 1, 'E', 0)
+    SW, SE = corner('S', 0, 'W', P - 1), corner('S', P - 1, 'E', P - 1)
+    lin = lambda a, b: [a + (b - a) * k / (P - 1) for k in range(P)]  # noqa: E731
+    N = edge.get('N') or lin(NW, NE)
+    S = edge.get('S') or lin(SW, SE)
+    W = edge.get('W') or lin(NW, SW)
+    E = edge.get('E') or lin(NE, SE)
+    post = []
+    for i in range(P):
+        t = i / (P - 1)
+        for j in range(P):
+            s = j / (P - 1)
+            post.append(int(round((1 - t) * N[j] + t * S[j] + (1 - s) * W[i] + s * E[i]
+                                  - ((1 - s) * (1 - t) * NW + s * (1 - t) * NE + (1 - s) * t * SW + s * t * SE))))
+    base = min(post)
+    if max(post) - base <= 65535:
+        terr = ('terrain', 'u16', struct.pack('<%dH' % len(post), *[v - base for v in post]))
+    else:
+        terr = ('terrain', 'i32', struct.pack('<%di' % len(post), *post))
+    classes = (h0.get('mask') or {}).get('classes') or []
+    n = (h0.get('mask') or {}).get('n') or 512
+    lawn = classes.index('lawn') if 'lawn' in classes else 2
+    sections = [terr, ('mask', 'u8', bytes([lawn]) * (n * n)), ('buildings', 'json', b'[]'), ('bverts', 'i32', b''),
+                ('roads', 'json', b'{"links":[],"nodes":[]}'), ('blocks', 'json', b'[]'), ('trees', 'i32', b''),
+                ('places', 'json', b'[]'), ('water', 'json', b'[]'), ('parks', 'json', b'[]')]
+    h = {k: v for k, v in h0.items() if k != 'sections'}
+    h.update({'c': c, 'r': r, 'id': tid, 'base_cm': base, 'bcount': 0, 'waters': [], 'foreign': [], 'noDemPosts': 0, 'buildingKinds': {},
+              'roofShapesFromData': 0, 'placeholder': 'flat ground: this tile could not be built',
+              'counts': {k: 0 for k in (h0.get('counts') or {})}})
+    return htl1(h, sections)
+
+
 # ------------------------------------------------------------------------------------------------------------ web
 class Web:
     def __init__(self, base, token):
@@ -210,8 +336,24 @@ class Worker:
         os.makedirs(self.store, exist_ok=True)
         os.makedirs(self.data, exist_ok=True)
         self.seed()
-        self.caps = self.compiler_caps()
+        # (the compiler's flags and its buildId, two Python starts that import the whole compiler: side by side, the
+        # run's first claim comes one of them sooner)
+        t0, box = time.time(), {}
+
+        def caps():
+            try:
+                box['caps'] = self.compiler_caps()
+            except Exception as e:  # noqa: BLE001
+                box['err'] = e
+        th = threading.Thread(target=caps, daemon=True)
+        th.start()
         self.build, self.record = self.print_build()
+        th.join()
+        if 'err' in box:
+            raise box['err']
+        self.caps = box['caps']
+        self.init_s = round(time.time() - t0, 2)
+        self.fail_tiles = {t for t in (os.environ.get('HOMETOWN_TEST_FAIL_TILES') or '').split(',') if t}
 
     def child_env(self):
         env = {k: os.environ[k] for k in ENV_ALLOW if os.environ.get(k) is not None}
@@ -268,6 +410,14 @@ class Worker:
         self.downloaded.add(key)
         return True
 
+    def write_local(self, key, body):
+        p = self.path(key)
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        tmp = '%s.tmp-%d' % (p, os.getpid())
+        with open(tmp, 'wb') as f:
+            f.write(body)
+        os.replace(tmp, p)
+
     def put(self, key, body, raw_sha=None):
         st, j = self.web.jcall('PUT', 'objects/' + key, body, headers={'content-type': 'application/octet-stream', **({'x-content-sha256': raw_sha} if raw_sha else {})}, timeout=300)
         if st not in (200, 201):
@@ -294,7 +444,7 @@ class Worker:
                         continue
                     p = os.path.join(d, n)
                     k = os.path.relpath(p, self.store).replace(os.sep, '/')
-                    if KEY_OK[fam].match(k) and k not in self.downloaded and os.stat(p).st_mtime >= since - 1:
+                    if KEY_OK[fam].match(k) and k not in self.downloaded and k not in Worker.laid and os.stat(p).st_mtime >= since - 1:
                         out.append(k)
         return sorted(out, key=lambda k: (ORDER.index(k.split('/')[0]), k))
 
@@ -323,6 +473,8 @@ class Worker:
         return (dom + ':' + ';'.join(missing)) if missing else None
 
     _region_guard = threading.Lock()
+    # the placeholder tiles lying in the local store right now (bundle(): never uploaded, never taken for a built tile)
+    laid = set()
 
     def region_lock(self, dom, C, R):
         with Worker._region_guard:
@@ -451,6 +603,14 @@ class Worker:
             block, mask = args['block'], int(args['mask'])
             g, _, C, R = block.split('/')
             ids = ['%s/0/%d/%d' % (g, int(C) * 4 + (i & 3), int(R) * 4 + (i >> 2)) for i in range(16) if mask & (1 << i)]
+            bad = sorted(getattr(self, 'fail_tiles', set()).intersection(ids))
+            if bad:
+                return {'fail': True, 'code': 1, 'reason': 'injected failure (HOMETOWN_TEST_FAIL_TILES): %s' % ','.join(bad)}
+            # (a placeholder of one of these tiles lies in the local store for a bundle assembling on another slot: never
+            # take it for the tile; try again after the backoff)
+            busy = [t for t in ids if 'tiles/%s/%s' % (build, t) in Worker.laid]
+            if busy:
+                return {'fail': True, 'code': 1, 'reason': 'flat ground for %s is in use by a bundle on this worker' % ','.join(busy)}
             todo = [t for t in ids if not os.path.exists(self.path('tiles/%s/%s' % (build, t)))]
             if todo:
                 a = ['--tiles', ','.join(todo)] if '--tiles' in self.caps else ['--block', block]
@@ -471,6 +631,14 @@ class Worker:
                             return {'fail': True, 'code': c2, 'reason': e2[-600:]}
                 elif code != 0:
                     return {'fail': True, 'code': code, 'reason': err[-600:]}
+            # (this job's tiles held locally and never uploaded: a failed attempt earlier in this run compiled them (they
+            # are older than this attempt, so upload_new would skip them) and the web must have every one: done = stored)
+            for t in ids:
+                k = 'tiles/%s/%s' % (build, t)
+                if k not in self.downloaded and os.path.exists(self.path(k)):
+                    self.put_store_object(k)
+                    self.downloaded.add(k)
+                    outputs.append(k)
         elif kind == 'far':
             for k in args['keys']:
                 code, err, out, peak, missing = self.compile(['--far', k, '--out', os.devnull], job, release)
@@ -559,7 +727,26 @@ class Worker:
             a = ['--id', pid, '--places', pf, '--out', out]
         else:
             return {'fail': True, 'code': 2, 'reason': 'this compiler has no --assemble (MogCity M4)', 'final': True}
-        code, err, _, peak, missing = self.compile(a, job, release)
+        laid = []
+        try:
+            for t in (args.get('absent') or []) if variant == 'full' else []:
+                k = 'tiles/%s/%s' % (build, t)
+                if not os.path.exists(self.path(k)):
+                    Worker.laid.add(k)
+                    laid.append(k)
+                    self.write_local(k, placeholder_tile(self.store, build, t))
+            if laid:
+                log(event='placeholders', key=job['key'], tiles=len(laid))
+            code, err, _, peak, missing = self.compile(a, job, release)
+        finally:
+            # (the placeholders, and the session descriptor the assembler wrote over them: the web takes a manifest only
+            # when every tile it lists is stored, and a later whole build of this town must be free to store its own)
+            for k in laid + (['manifests/%s/%s.json' % (build, pid)] if laid else []):
+                try:
+                    os.remove(self.path(k))
+                except OSError:
+                    pass
+            Worker.laid.difference_update(laid)
         if missing:
             return {'fail': True, 'code': 3, 'missingRegions': missing, 'reason': 'regions'}
         if code != 0:
@@ -727,7 +914,7 @@ class Worker:
             signal.signal(signal.SIGINT, self.stop)
         except ValueError:
             pass  # (not the main thread: the caller owns the signals)
-        log(event='start', worker=self.id, build=self.build, slots=self.slots, cpus=self.cpus, memGB=round(self.mem / GB, 2), caps=sorted(self.caps),
+        log(event='start', worker=self.id, build=self.build, slots=self.slots, cpus=self.cpus, memGB=round(self.mem / GB, 2), caps=sorted(self.caps), initS=getattr(self, 'init_s', None),
             image=self.env.get('HOMETOWN_IMAGE_DIGEST', 'unpinned (local venv)'), version=VERSION, once=self.once, idleS=self.idle_s, capS=self.cap_s)
         # the build record first: a manifest is refused until its build's record is stored
         bk = 'builds/%s.json' % self.build
