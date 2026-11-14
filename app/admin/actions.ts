@@ -1,6 +1,6 @@
 'use server';
 import { cookies, headers } from 'next/headers';
-import { setScoreHidden, setWorldHidden } from '@/lib/analytics';
+import { setScoreHidden, setWorldHidden, setWorldVisibility, type WorldVisibility } from '@/lib/analytics';
 import { COOKIE, adminEnabled, clearMisses, isAdmin, lockedOut, passwordMatches, recordMiss, sessionValue } from './session';
 
 /** Server actions for /admin. Every one but signing in checks the session first. */
@@ -33,6 +33,12 @@ async function must() {
 export async function setWorld(id: string, hidden: boolean) {
   await must();
   return setWorldHidden(String(id), !!hidden);
+}
+
+export async function setVisibility(id: string, v: WorldVisibility) {
+  await must();
+  if (v !== 'live' && v !== 'link' && v !== 'owner') return false;
+  return setWorldVisibility(String(id), v);
 }
 
 export async function setScore(id: number, hidden: boolean) {
