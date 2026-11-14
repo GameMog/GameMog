@@ -34,7 +34,12 @@ function prettyName(n) {
     .replace(/\bTunl\b/, 'Tunnel')
     // (the names' own spelling, which DataSF's capitals lose: McAllister St, O'Farrell St, MacArthur Ave)
     .replace(/\bMc([a-z])/g, (_, c) => 'Mc' + c.toUpperCase())
-    .replace(/\b(Ofarrell|Macarthur)\b/g, (w) => REAL_SPELLING[w]);
+    .replace(/\b(Ofarrell|Macarthur)\b/g, (w) => REAL_SPELLING[w])
+    // (a Hometown town's: "St John's Rd", not "St John'S Rd"; "NE 23rd St", "US Hwy 62", "SR 51", "FM 1960 Rd". San
+    // Francisco's names have none of these, so its labels are as they were: tests/street-names.test.mjs)
+    .replace(/([a-z])(['’])([A-Z])\b/g, (_, a, q, c) => a + q + c.toLowerCase())
+    .replace(/\b(Ne|Nw|Se|Sw)\b(?= \S)/g, (w) => w.toUpperCase())
+    .replace(/\b(Us|Sr|Fm)(?= (\d|Hwy\b|Highway\b|Route\b|Rte\b))/g, (w) => w.toUpperCase());
 }
 const REAL_SPELLING = { Ofarrell: "O'Farrell", Macarthur: 'MacArthur' };
 

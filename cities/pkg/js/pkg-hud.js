@@ -22,9 +22,29 @@ const pkgCredit = (lines) => {
   return { short: parts.join(' · '), full: L.length ? L.join('; ') : '© OpenStreetMap contributors (ODbL 1.0)',
     href: osm ? 'https://www.openstreetmap.org/copyright' : 'https://overturemaps.org' };
 };
-if (N) N.pkgCredit = pkgCredit;
-if (typeof module !== 'undefined') module.exports = { pkgCredit };
+// pkgNameCase(name): a name as a street sign spells it. The compiler (tools/hometown/frame.py, up to 0.8.0) title-cases
+// its arrivals' and mission places' street names with Python's str.title(), which writes "N 3Rd St", "S 14Th St",
+// "Mccord St", "St John'S Rd", "Us Hwy 62" and "Ne 23Rd St": here "N 3rd St", "S 14th St", "McCord St", "St John's Rd",
+// "US Hwy 62", "NE 23rd St". Text already spelled right is unchanged (and "O'Connor St" stays as it is).
+const pkgNameCase = (s) => String(s ?? '')
+  .replace(/\b(\d+)(St|Nd|Rd|Th)\b/g, (_, d, x) => d + x.toLowerCase())
+  .replace(/\bMc([a-z])(?=[a-z])/g, (_, c) => 'Mc' + c.toUpperCase())
+  .replace(/([A-Za-z])(['’])([A-Z])\b/g, (_, a, q, c) => a + q + c.toLowerCase())
+  .replace(/\b(Ne|Nw|Se|Sw)\b(?= \S)/g, (w) => w.toUpperCase())
+  .replace(/\b(Us|Sr|Fm)(?= (\d|Hwy\b|Highway\b|Route\b|Rte\b))/g, (w) => w.toUpperCase());
+// every name the package shows a player: the arrivals (PKG.spawns, PLACE_DATA.regional: the teleport list, the map's
+// pins and search, "You are at ...") and the mission places (PKG.places: mission text, the map's landmarks)
+function pkgNameCaseAll(NN) {
+  const fix = (o, k) => { if (o && typeof o[k] === 'string') o[k] = pkgNameCase(o[k]); };
+  fix(NN?.PKG?.spawn, 'name');
+  for (const s of Object.values(NN?.PKG?.spawns || {})) fix(s, 'name');
+  for (const s of Object.values(NN?.PLACE_DATA?.regional || {})) fix(s, 'name');
+  for (const p of Object.values(NN?.PKG?.places || {})) { fix(p, 'name'); fix(p, 'street'); }
+}
+if (N) { N.pkgCredit = pkgCredit; N.pkgNameCase = pkgNameCase; }
+if (typeof module !== 'undefined') module.exports = { pkgCredit, pkgNameCase, pkgNameCaseAll };
 if (!P) return;
+pkgNameCaseAll(N);
 const $ = (id) => document.getElementById(id);
 const text = (el, s) => { if (el) el.textContent = s; };
 const place = String(P.name).split(',')[0];
