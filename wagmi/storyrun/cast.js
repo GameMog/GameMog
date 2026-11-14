@@ -4,8 +4,9 @@
 //     (mission/jane.js, m3-set.js), Mr. Big and the Suits from their shipped models (assets/characters); Dan is the
 //     player's own body (W.dan) and never spawned twice. The registry's copies of these GLBs are never fetched.
 //   - forged people are their world's GLB (allowed URLs only: pack.js asset()), on Dan's 66-bone rig: Dan's clips under
-//     their own, the export's armature turn taken out as Dan's is, and a face from face.js (its jaw, lips and lids found
-//     from the geometry: any MakeHuman-built body) that moves with their voice.
+//     their own, the export's armature turn taken out as Dan's is, their surfaces finished for the close lens (polish.js),
+//     and a face from face.js (its jaw, lips and lids found from the geometry: any MakeHuman-built body) that moves with
+//     their voice.
 //   - the voice: each line of the world's voice plan with a clip is given to W.voice (radio/voices.js clip), so it plays
 //     through the same chain as Mog City's own lines (subtitle, ducking, the phone filter, the mouth); a line with no
 //     clip is its subtitle and Mog City's mumble at the speaker's pitch.
@@ -19,6 +20,7 @@ import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
 import { createFace, dropFace } from '../face.js';
 import { relaxArms } from '../combat/suitarms.js';
 import { unhang } from './pack.js';
+import { polishBody } from './polish.js';
 
 // (8: a set's cutscene stands up to seven at once, the hero's double besides: sets.js)
 const MAX = 8;
@@ -111,6 +113,9 @@ export function createCast(W, world) {
     const arm = inner.getObjectByName('root')?.parent;
     if (arm && arm !== inner) { arm.quaternion.identity(); arm.position.y += c.model ? 0 : 0.02; }
     inner.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; } });
+    // (a forged or hand-built body finished for the close lens: its cloth laid under the layer over it, soft hair edges,
+    // its skin graded: polish.js; Mog City's own people as they shipped)
+    if (!nat) try { polishBody(inner); } catch (err) { console.warn('[storyrun] polish', name, err); }
     if (nat && nat[2]) try { W.combat?.dressSuit?.(inner, 'a'); } catch {}
     const bones = {}; inner.traverse((o) => { if (o.isBone) bones[o.name] = o; });
     const mixer = new THREE.AnimationMixer(inner);
