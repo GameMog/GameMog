@@ -1181,6 +1181,21 @@ class NYCMapSystem {
     ctx.restore();
   }
 
+  // (Mog City) The full map's panels over its canvas, as label boxes in the static layer's screen frame (CSS px from the
+  // canvas's middle), 6 px round each. Their layout box (offsetLeft / offsetTop up to the modal, which the canvas fills),
+  // not getBoundingClientRect: the panels rise in (a transform) just as the map opens and this layer is drawn
+  uiBoxes(w, h, pad = 6) {
+    const modal = document.getElementById('fullmap-modal'), out = [];
+    if (!modal) return out;
+    for (const el of modal.querySelectorAll('.fullmap-header > *, .map-controls > *, .fullmap-footer > *, .fullmap-legend')) {
+      if (!el.offsetWidth || !el.offsetHeight) continue;
+      let x = 0, y = 0;
+      for (let e = el; e && e !== modal; e = e.offsetParent) { x += e.offsetLeft; y += e.offsetTop; }
+      out.push([x - w * 0.5 - pad, y - h * 0.5 - pad, x + el.offsetWidth - w * 0.5 + pad, y + el.offsetHeight - h * 0.5 + pad]);
+    }
+    return out;
+  }
+
   renderFullMapStatic(ctx, v) {
     const { w, h, s } = v;
     ctx.save();
@@ -1198,7 +1213,9 @@ class NYCMapSystem {
 
     // 3. Iconic Landmark Pins & Collision-Free Labels (placed first: their boxes keep the other names clear)
     ctx.font = `700 11px ${FONT}`;
-    const placed = [];
+    // (Mog City: the map's own panels over the canvas first, the title, the search box, Close, the zoom buttons, the
+    // status line and the legend: no name is drawn under one. Cedar Key's 'Southwest 166th Ct' sat under the search box)
+    const placed = this.uiBoxes(w, h);
     const pins = [];
     for (const lm of NYC_LANDMARKS) {
       const lx = toX(lm.x);

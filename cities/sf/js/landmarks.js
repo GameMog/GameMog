@@ -1015,10 +1015,13 @@ function buildLandmarks(scene) {
   // ---------------------------------------------------------------------------------------------------------------
   // Build every model whose site resolved
   // ---------------------------------------------------------------------------------------------------------------
+  // (Mog City: a Hometown town, window.NYC.PKG, has none of San Francisco's landmark sites: no warning for each of them,
+  // about 20 lines of noise in every town's console)
+  const town = !!window.NYC.PKG;
   for (const m of MODELS) {
     const s = site(m.name);
     if (!s || !s.ring || s.ring.length < 6) {
-      console.warn(`[landmarks] no site for ${m.name}`);
+      if (!town) console.warn(`[landmarks] no site for ${m.name}`);
       continue;
     }
     const f = frameOf(s, m.frame);
