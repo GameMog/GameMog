@@ -27,8 +27,8 @@
 #   HOMETOWN_TB_DATA      an existing data folder (osm/, overture-index/) instead of building the index (local)
 set -euo pipefail
 # THE ONE LINE to re-pin the compiler (a 40-hex commit of github.com/GameMog/GameMog that carries tools/hometown):
-# compiler 0.9.0 (round 4 merged into the production builder), on the branch below
-MOGCITY_SHA=dd7e82ec68a57786f65f0dfea1dc4b01df150816
+# compiler 0.10.0 (release r6: round 4, rough-dem, the fidelity line and street-name casing), on the branch below
+MOGCITY_SHA=26b28450e603bc0e5c8bf0ac4f21698b7a0f0491
 # the branch that carries it: fetched when the commit cannot be fetched by its SHA alone (the checkout is still the SHA)
 MOGCITY_REF="${HOMETOWN_MOGCITY_REF:-hometown-compiler}"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"

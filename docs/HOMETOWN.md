@@ -30,7 +30,7 @@ its downtown.
 | gamemog.com (Render web, 1c-2g, 10 GB disk) | Create, the story writer, the job queue, the store of tiles and bundles, the dispatcher. It never compiles |
 | `gamemog-town-builder` (Render Workflow) | compiles. Each run is a 4c-8g instance started only while there is work, gone 20 s after |
 | mc.gamemog.com (GitHub Pages) | plays the story in the town, reading the town's bundles and tiles from gamemog.com |
-| The compiler | MogCity `tools/hometown`, version 0.9.0, pinned by commit in `deploy/town-builder/workflow-build.sh` |
+| The compiler | MogCity `tools/hometown`, version 0.10.0, pinned by commit in `deploy/town-builder/workflow-build.sh` |
 
 ## Switches (render.yaml, 14 Nov 2026: on for everyone)
 
@@ -68,14 +68,19 @@ learns the build), ready to write **58 s**, ready to drive **81 s**, whole town 
 
 ## Status (14 Nov 2026)
 
-- **Live**: gamemog.com runs `main` 3ae12ea0 (the builder on for players; Wewoka, OK built cold on Render: drivable
-  110 s, whole 318 s, $0.08); mc.gamemog.com runs `mogcity` c2d9749 (compiler 0.8.0's engine).
-- **Ready to release, not pushed** (round 4, local branches): GameMog `prod-builder-clean` (the /admin crash fix
-  fc8ba0fc, the town builder fixes, street names, wardrobe), MogCity `prod-builder` (compiler **0.9.0**: Fort Pitt's
-  tunnel portals; engine: shop signs that do not repeat within sight, street names spelled right, a town's bus kept to
-  roads it can be passed on, street furniture on another level never stops the car, no deck parapet under another
-  deck's lanes), and its Mog City release commit (local branch `mogcity-release-2`, a fast-forward of the live
-  `mogcity`). The order is in [HOMETOWN-HOSTING.md](HOMETOWN-HOSTING.md#round-4-release-compiler-090).
+- **Live**: gamemog.com runs `main` fc8ba0fc (the builder on for players, with the /admin crash fix; Wewoka, OK built
+  cold on Render: drivable 110 s, whole 318 s, $0.08); mc.gamemog.com runs `mogcity` c2d9749 (compiler 0.8.0's engine);
+  `hometown-compiler` is aa0bc45 (compiler 0.8.0).
+- **Ready to release, not pushed** (release r6, local branches; it folds in round 4, which was never pushed): GameMog
+  `prod-builder-clean` (the pin, the town builder fixes, street names, wardrobe, the build learned by itself, the key art
+  page), MogCity `release-r5` (compiler **0.10.0**: round 4's Fort Pitt tunnel portals, the DEM's `/historical/`
+  fallback, the fidelity line (sidewalks and lanes per carriageway, the warm band's palms and hedges, beaches, malls,
+  hedge walls) and street names spelled as signs spell them; engine: shop signs that do not repeat within sight, a
+  town's bus kept to roads it can be passed on and signed with the town's name, street furniture on another level never
+  stops the car, no deck parapet under another deck's lanes, road paint under the floating origin, Pittsburgh's chase
+  start), and its Mog City release commit (local branch `mogcity-release-r6`, a fast-forward of the live `mogcity`).
+  Release order: `mogcity`, then `hometown-compiler`, then `main`; no manual run (the web learns the build). The steps
+  are in [HOMETOWN-HOSTING.md](HOMETOWN-HOSTING.md#release-r6-compiler-0100).
 - **Fixed in round 4** (were open items): one failed tile no longer fails a town (it is built with a flat patch and
   listed as degraded); "Try again" re-queues a failed town at once; the per-address limit survives deploys (queue.db);
   the dispatcher's plan is cheap at 20,000 jobs; orphaned run rows are retired every pass; the first pick on a fresh
@@ -83,8 +88,8 @@ learns the build), ready to write **58 s**, ready to drive **81 s**, whole town 
 
 ## Open items
 
-- **Street names in the compiler**: `frame.py` still title-cases with Python's `str.title()` ("N 3Rd St"); the engine and
-  `lib/hometown/names.ts` correct them when read. Fixing it at the source changes frame bytes (a compiler bump).
+- **Street names in towns built before 0.10.0**: their frames carry `str.title()`'s "N 3Rd St"; the engine and
+  `lib/hometown/names.ts` correct them when read (0.10.0 spells them right at the source).
 - **Not proven before production**: the build on Render's native Python image (pip by hash, duckdb extensions, the
   recipe id and so the real buildId on x86_64), private networking from a run to the web, Hobby's per-minute run
   limits, cancelling a run from the dashboard.

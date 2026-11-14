@@ -3,11 +3,11 @@
 For the owner. Every step that touches Render, GitHub or the live database is the owner's; agents never push or deploy.
 The architecture is [HOMETOWN-HOSTING.md](HOMETOWN-HOSTING.md); the overview is [HOMETOWN.md](HOMETOWN.md).
 
-State of the code (14 Nov 2026; round 4 is committed and not pushed, its release order is in
-[HOMETOWN-HOSTING.md](HOMETOWN-HOSTING.md#round-4-release-compiler-090)): `render.yaml` has the builder **on for players** (`HOMETOWN_BUILDER` on,
+State of the code (14 Nov 2026; release r6 is committed and not pushed, its release order is in
+[HOMETOWN-HOSTING.md](HOMETOWN-HOSTING.md#release-r6-compiler-0100)): `render.yaml` has the builder **on for players** (`HOMETOWN_BUILDER` on,
 `HOMETOWN_RUNS` workflows, `HOMETOWN_TILES` on, `NEXT_PUBLIC_HOMETOWN_SEARCH` on, `STORYKIT` on,
-`HOMETOWN_DAILY_COLD` 100). `deploy/town-builder/workflow-build.sh` pins MogCity compiler 0.9.0,
-`MOGCITY_SHA=dd7e82ec68a57786f65f0dfea1dc4b01df150816`, fetched from github.com/GameMog/GameMog (branch
+`HOMETOWN_DAILY_COLD` 100). `deploy/town-builder/workflow-build.sh` pins MogCity compiler 0.10.0,
+`MOGCITY_SHA=26b28450e603bc0e5c8bf0ac4f21698b7a0f0491`, fetched from github.com/GameMog/GameMog (branch
 `hometown-compiler`).
 
 ---------------------------------------------------------------------------------------------------------------------
@@ -18,7 +18,7 @@ State of the code (14 Nov 2026; round 4 is committed and not pushed, its release
 |---|---|---|
 | Web: queue, store, towns, worker protocol, dispatcher, `/towns/...` bundles, Create's town card | `gamemog` web (Render, Node, 1c-2g, 1 instance, 10 GB disk) | a push of GameMog `main` (autoDeploy) |
 | Town builder | `gamemog-town-builder` **workflow** (Python 3.14.6, task `build_jobs`, each run 4c-8g, no disk, no ports) | Blueprint sync, then its own `buildFilter` (`deploy/town-builder/**`) |
-| Compiler 0.9.0 | fetched by `workflow-build.sh` at `MOGCITY_SHA` into `.town-builder/` | the commit must be on a branch of github.com/GameMog/GameMog |
+| Compiler 0.10.0 | fetched by `workflow-build.sh` at `MOGCITY_SHA` into `.town-builder/` | the commit must be on a branch of github.com/GameMog/GameMog |
 | Engine: towns, the growing town, the town's names and labels | **mc.gamemog.com is GitHub Pages** (GameMog/GameMog branch `mogcity`), not Render | a push of MogCity's engine files to `mogcity` |
 
 How a town is built: a pick enqueues jobs, within 0.3 s the dispatcher starts runs through
@@ -29,7 +29,7 @@ idle. Idle costs $0.
 
 ## 2. Before the push (prerequisites)
 
-1. **The compiler commit is on GitHub.** Push MogCity `prod-builder` (tip `dd7e82ec...`) to the branch
+1. **The compiler commit is on GitHub.** Push MogCity `release-r5` (tip `26b28450...`) to the branch
    `hometown-compiler` of GameMog/GameMog. `workflow-build.sh` fetches the SHA by itself (GitHub serves any commit
    reachable from a branch of the public repo) and falls back to fetching that branch.
 2. **The OSM lane table** ships in that commit (`tools/hometown/osm/osm-roads-us.parquet`, 17,100,621 bytes, ODbL, its
@@ -57,7 +57,7 @@ idle. Idle costs $0.
    the build (a new workflow deploy)") whenever no run of its own workflow deploy has reported a build yet (each run
    sends its deploy stamp: docs/HOMETOWN-HOSTING.md, "A compiler upgrade learns its build"), and again at most every
    2 minutes while picks wait. Nothing is run by hand. The run logs
-   `{"event": "start", "build": "htc-0.9.0-hg1-b........", "caps": ["--assemble", "--far-list", "--frame", "--tiles"], "deploy": "<16 hex>", ...}`
+   `{"event": "start", "build": "htc-0.10.0-hg1-b........", "caps": ["--assemble", "--far-list", "--frame", "--tiles"], "deploy": "<16 hex>", ...}`
    (all four caps must be listed) and ends idle 20 s later; the /admin card's Build line shows the build ("learning"
    until then). Pinning it in `HOMETOWN_BUILD` is optional.
 5. Open `/admin`: the Town builder card shows the runs in flight (0 of 20 when idle) and the build. "Not starting" names
