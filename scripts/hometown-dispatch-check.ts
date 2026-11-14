@@ -308,7 +308,7 @@ export async function runDispatchChecks(ok: Ok) {
       && /key: HOMETOWN_WORKFLOW_SLUG\n\s+fromService:\n\s+type: workflow\n\s+name: gamemog-town-builder\n\s+property: slug/.test(y));
     const wb = readFileSync('deploy/town-builder/workflow-build.sh', 'utf8');
     ok('workflow-build.sh pins compiler 0.12.0 by SHA, falls back to its branch, and takes the OSM table from the compiler commit',
-      /^MOGCITY_SHA=4144fb521b7ecbe781c90e4ac76493cd7d176157$/m.test(wb) && /MOGCITY_REF="\$\{HOMETOWN_MOGCITY_REF:-hometown-compiler\}"/.test(wb) && /"\$HT\/osm\/osm-roads-us\.parquet"/.test(wb));
+      /^MOGCITY_SHA=3932b49581115404e6a8b0d76256dee7b01d004f$/m.test(wb) && /MOGCITY_REF="\$\{HOMETOWN_MOGCITY_REF:-hometown-compiler\}"/.test(wb) && /"\$HT\/osm\/osm-roads-us\.parquet"/.test(wb));
     const PY_VER = /key: PYTHON_VERSION\n\s+value: "([0-9.]+)"/.exec(wf)?.[1];
     const lock = readFileSync('deploy/town-builder/requirements.lock', 'utf8');
     ok('the pinned Python is a CPython 3.14 (the lock\'s wheels) and the build script refuses any other', !!PY_VER?.startsWith('3.14.') && /CPython 3\.14/.test(lock) && /Python \$have is not the pinned \$PYTHON_VERSION/.test(readFileSync('deploy/town-builder/workflow-build.sh', 'utf8')));
