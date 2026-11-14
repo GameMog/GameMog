@@ -1,6 +1,7 @@
 // Mog City: a crash's bits: sparks (bright streaks that fall and die), debris (glass, plastic and paint chips that
 // tumble, bounce, lie in the road a while and go) and water (a burst hydrant: a column of drops thrown up and falling
-// back, soft mist billowing round it and off the top, spray off the ground where it lands). Sparks and debris are
+// back, soft mist billowing round it and off the top, spray off the ground where it lands; a car into the water's
+// splash and bubbles). Sparks and debris are
 // instanced meshes; the water is instanced billboards (soft-edged, lit by the hour's sun and sky, capped at a few
 // hundred). All always drawn (one tiny instance under the street when idle, so their pipelines are built at the start
 // and the first crash doesn't stall).
@@ -134,6 +135,27 @@ export function createFx(scene, ground) {
   const jets = [];
   function hydrant(x, y, z, dur = 14) { jets.push({ x, y, z, t: 0, dur, drops: 0, mist: 0, lean: rnd(0, Math.PI * 2) }); }
 
+  // a car into the water at (x, y, z), y the water's surface, going (dx, dz) (unit) at v m/s: a sheet of spray thrown
+  // up and out round the nose, mostly the way it went, and mist over it; k scales it (a slow one throws less). Then,
+  // while it sinks, bubble(x, y, z): a few small drops breaking the surface round it
+  function splash(x, y, z, dx, dz, v, k = 1) {
+    const n = Math.round(110 * k), fwd = Math.min(1, v / 18) * 3.5;
+    for (let i = 0; i < n; i++) {
+      const a = rnd(0, Math.PI * 2), r = rnd(0.6, 1.8), out = rnd(1, 4) * (0.6 + 0.4 * k);
+      water.emit({ x: x + Math.cos(a) * r, y: y + 0.1, z: z + Math.sin(a) * r, vx: Math.cos(a) * out + dx * fwd * rnd(0.4, 1), vy: rnd(3.5, 8) * (0.6 + 0.4 * k), vz: Math.sin(a) * out + dz * fwd * rnd(0.4, 1),
+        life: 2.2, size: rnd(0.08, 0.15), size1: 0.07, stretch: 2.8, alpha: 0.85, tile: 1, grav: G, drag: 0.25, gy: y, drop: true });
+    }
+    for (let i = 0; i < Math.round(24 * k); i++) {
+      const a = rnd(0, Math.PI * 2), r = rnd(0.3, 1.6);
+      water.emit({ x: x + Math.cos(a) * r, y: y + rnd(0.2, 0.8), z: z + Math.sin(a) * r, vx: Math.cos(a) * rnd(0.5, 1.8) + dx * fwd * 0.4, vy: rnd(1, 3.2), vz: Math.sin(a) * rnd(0.5, 1.8) + dz * fwd * 0.4,
+        life: rnd(1.1, 1.8), size: 0.4, size1: rnd(1.5, 2.2), alpha: 0.4, tile: 0, grav: 1, drag: 1.3, fadeIn: 0.08 });
+    }
+  }
+  function bubble(x, y, z, r = 1.4) {
+    const a = rnd(0, Math.PI * 2), d = rnd(0, r);
+    water.emit({ x: x + Math.cos(a) * d, y: y + 0.03, z: z + Math.sin(a) * d, vx: rnd(-0.3, 0.3), vy: rnd(0.6, 1.4), vz: rnd(-0.3, 0.3), life: 0.6, size: rnd(0.05, 0.09), size1: 0.04, stretch: 0.6, alpha: 0.7, tile: 1, grav: G, drag: 0.5, gy: y, drop: true });
+  }
+
   function update(dt) {
     // the water: the column (strong at first, easing off): drops thrown up, mist off the column and its top
     for (let j = jets.length - 1; j >= 0; j--) {
@@ -200,5 +222,5 @@ export function createFx(scene, ground) {
     const a = P.m.instanceMatrix; a.clearUpdateRanges(); a.addUpdateRange(0, n * 16); a.needsUpdate = true;
   }
   const busy = () => sparks.list.length + debris.list.length + water.list.length + jets.length;
-  return { spark, bits, hydrant, update, busy, meshes: [sparks.m, debris.m, water.mesh] };
+  return { spark, bits, hydrant, splash, bubble, update, busy, meshes: [sparks.m, debris.m, water.mesh] };
 }

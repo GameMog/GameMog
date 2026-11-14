@@ -98,6 +98,15 @@ const INTERCEPT = { after: 2, far: 110, rMin: 100, rMax: 170, cone: 0.35, every:
 // and more than RAM.close m back, a car can't quite match him flat out (RAM.give m/s under his speed, at least RAM.slow
 // of its top speed): driven flat out he pulls away out of their sight; slowed (a corner, a crash) they close and ram
 const RAM = { cool: 4.5, gap: 3, back: 0.75, over: 3, close: 20, give: 4, slow: 0.8 };
+// a town's chase-first opening (start's ahead false: every car behind him, a calm start): CUE.at s in (inside the
+// calm, which holds it off ramming him), him away down the road at INTERCEPT.v m/s or more, the car furthest behind him
+// out of view comes down his own road at him, rMin..rMax m ahead in his line of sight (else a wider look, else a street
+// ahead out of view), as the opening's second cruiser did before the start put them all behind him; not while he is
+// turning (his way and his motion more than asin(CUE.turn) apart); tried every CUE.retry s, CUE.tries times. Without it they never saw him after the start's grace: Okemah and Cedar Key lost in
+// 14-17 s, no cruiser ever on screen (cued at 6.5 s, the calm's end: lost in 21-27.5 s, a median of 24). After it,
+// INTERCEPT's own from a street ahead no sooner than CUE.hold + INTERCEPT.every s on (15 s from the cue, a second one
+// kept him seen 22 s of a 40 s chase). 22 escapes each: Okemah median 20.4 s, p90 25.1; Cedar Key 20.3, p90 27.1
+const CUE = { at: 4, rMin: 160, rMax: 240, retry: 1, tries: 8, hold: 10, turn: 0.17 };
 // a town's car out of the camera's sight (out of its view, or a speck past INTERCEPT.viewFar m): off the road
 // SNAP.off s, it is set back on its lane right there; turning round on a street too narrow for it, it comes round
 // where it stands (no three-point turn on the lawns where nobody sees it)
@@ -664,6 +673,22 @@ export function install(W) {
     Object.assign(P.prog, { t: 0, want: 0, x: L.x, z: L.z });
     return true;
   }
+  // (a town's chase-first opening: the car furthest behind him out of view, down his road at him: see CUE)
+  function cue(ch, live, T) {
+    ch.cue = ch.t + CUE.retry;
+    if (++ch.cueN > CUE.tries) { ch.cue = null; return; }
+    if (T.onFoot || T.speed < INTERCEPT.v) return;
+    // (not in a turn: his motion (eased) still the old road's way put it down the road he was leaving, out of his sight)
+    const [hx, hz] = motion(T);
+    if (Math.abs(Math.sin(T.h) * hz - Math.cos(T.h) * hx) > CUE.turn) return;
+    const dist = (P) => Math.hypot(P.x - T.x, P.z - T.z);
+    const P = live.filter((Q) => Q.mode === 'chase' && behind(Q, T) && !inView(Q.x, Q.z, 4)).sort((a, b) => dist(b) - dist(a))[0];
+    if (!P) return;
+    const s = roadAheadSpot(T, CUE.rMin, CUE.rMax) || roadAheadSpot(T, CUE.rMin - 40, CUE.rMax - 20, 0.9) || aheadSpot(T, 90, 160);
+    if (!s) return;
+    putAt(P, s, T, 14, { icT: 0, offT: 0, onT: 0, rejoin: false, search: null, cued: true });
+    ch.cue = null; ch.ics++; ch.icAt = ch.t + CUE.hold;
+  }
   // (round him while they have him; round where they last saw him while they search)
   function respawn(P, T) {
     const ch = P.ch, at = ch.seen ? T : { x: ch.lastSeen.x, z: ch.lastSeen.z, h: T.h };
@@ -684,6 +709,7 @@ export function install(W) {
       kind, cars: [], state: 'on', seen: true, lastSeen: { x: 0, z: 0 }, esc: 0, hideT: 0, prog: 0, inCircle: true, hidT: 0, t: 0, lose, target,
       reinforce: opts.reinforce, want: 0, refill: 0, caughtT: 0, caughtSent: false, _heat: clamp(opts.heat ?? 2, 1, 5),
       crews: [], ramNext: 0, brute: false, escN: opts.escape ?? null, vmaxN: opts.vmax ?? null, open: world.id === 'pkg', icAt: opts.calm > 0 ? opts.calm : -99, ics: 0, ramAt: -99, calm: Math.max(0, opts.calm || 0),
+      cue: world.id === 'pkg' && opts.ahead === false && !from ? CUE.at : null, cueN: 0,
       on(ev, cb) { (listeners[ev] || (listeners[ev] = [])).push(cb); return ch; },
       off(ev, cb) { listeners[ev] = (listeners[ev] || []).filter((x) => x !== cb); return ch; },
       emit(ev, d) { for (const cb of listeners[ev] || []) { try { cb(d); } catch (e) { console.error('[pursuit]', ev, e); } } },
@@ -744,6 +770,8 @@ export function install(W) {
     readTarget(ch, dt);
     const T = tgtState, live = ch.cars.filter((P) => !P.gone && !P.wrecked);
     if (ch.state === 'on') {
+      // (a town's chase-first opening: one of them down his road at him, see CUE)
+      if (ch.cue != null && ch.t >= ch.cue) cue(ch, live, T);
       // who sees him (each a few times a second)
       const sight = RULE.sight(ch._heat);
       for (const P of live) {
