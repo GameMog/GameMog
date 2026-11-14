@@ -1,4 +1,4 @@
-# tools/hometown/test_r7.py: the warm band's r7 street and shore rules (0.10.1; README "ground", "trees"). With Bal
+# tools/hometown/test_r7.py: the warm band's r7 street and shore rules (0.11.0; README "ground", "trees"). With Bal
 # Harbour's regions fetched (HOMETOWN_TEST_DATA / HOMETOWN_TEST_STORE, else skipped), on the tile west of its beach
 # and Collins Avenue: the avenue's planting strip (grass between the curb and the sidewalk), the dunes behind the beach
 # (sand and scrub, no lawn within DUNE_M m of the sand), the trees over its hedge walls, and no hedge across a road or

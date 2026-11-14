@@ -1,4 +1,4 @@
-# tools/hometown/compile.py: Hometown compiler 0.10.1 on the national grid hg1 (grid.py). A TILE is compiled from its
+# tools/hometown/compile.py: Hometown compiler 0.11.0 on the national grid hg1 (grid.py). A TILE is compiled from its
 # own sources and context alone: tile = f(buildId, key, sources over tile + halo, ctx blocks). It never reads a whole
 # place's inputs nor a neighbour's output, so neighbouring towns share identical tiles, any tile can be compiled on first
 # request, and a 4 x 4 block compiled in one process gives the same bytes as its 16 tiles compiled one by one.
@@ -86,11 +86,12 @@ import shapely.ops  # noqa: E402
 # DEM's /historical/ fallback (dem.py: a pinned 3DEP file that
 # /current/ has replaced is read from /historical/, its bytes unchanged); the frame's arrival and place street names
 # spelled as a sign spells them (street_names.street_case: "N 3rd St", "McDonald Ave", "US Hwy 1"), not str.title() ("N 3Rd St");
-# 0.10.1 r7 (Bal Harbour against its street view, the warm band only): a trunk / primary road's planting strip (its
+# 0.11.0 release r7 (r7-balharbour's rules, labelled 0.10.1 on its own branch; Bal Harbour against its street view,
+# the warm band only): a trunk / primary road's planting strip (its
 # sidewalk STRIP_M m back from the curb, grass between), the dunes behind a beach (sand and scrub in patches within DUNE_M
 # m of it, not lawn), hedge walls where a lot fronts the road on the sides the draw left bare, a gap in every hedge where
 # a road or path crosses it, and trees (ficus, sea grape) rising over the street's hedge walls (kind 5)
-COMPILER_VERSION = '0.10.1'
+COMPILER_VERSION = '0.11.0'
 OVERTURE_RELEASE = '2026-10-21.0'
 TILE, TCM = grid.TILE, grid.TILE_CM
 ROAD_HALO = 160      # m: segments read round a tile (owned pieces, curb islands' roadway, sidewalk bands)
@@ -315,7 +316,7 @@ WARM_WALL_P = {'tropical': 0.85, 'subtropical': 0.75}
 PARK_HEDGE_MIN = 300.0
 PARK_HEDGE_OUT = 0.9
 PARK_HEDGE_CLEAR = 2.5
-# (r7, 0.10.1) a hedge wall's side whose draw (WARM_WALL_P) fails keeps its stations where a lot fronts the road: the land
+# (r7, 0.11.0) a hedge wall's side whose draw (WARM_WALL_P) fails keeps its stations where a lot fronts the road: the land
 # use FRONT_LU_BACK m behind the station is residential or developed (a condo's, a hotel's, a shop's grounds, not a park,
 # a beach or open land). Every street hedge and car-park wall has a gap where a road or path crosses its line (a driveway,
 # a lot entrance, a footway: any Overture segment but its own street within DRIVE_GAP m, running across it, cos < 0.7).
@@ -328,11 +329,11 @@ HEDGE_TREE_STEP = 8.0
 HEDGE_TREE_BACK = 2.6
 HEDGE_TREE_P = 0.7
 HEDGE_TREE_FICUS = 0.25   # (the rest sea grape: a ficus's near level costs about three sea grapes' triangles)
-# (r7, 0.10.1) the warm band's planting strip: a trunk or primary road's sidewalk stands STRIP_M m back from the curb,
+# (r7, 0.11.0) the warm band's planting strip: a trunk or primary road's sidewalk stands STRIP_M m back from the curb,
 # grass between (the strip the street's palms and signs stand in), on each side that has a sidewalk
 STRIP_ROADS = ('trunk', 'primary')
 STRIP_M = 2.0
-# (r7, 0.10.1) the warm band's dunes: the open land (no land use, nothing paved) within DUNE_M m of a beach is a dune, sand
+# (r7, 0.11.0) the warm band's dunes: the open land (no land use, nothing paved) within DUNE_M m of a beach is a dune, sand
 # and scrub in patches (a value noise on a DUNE_CELL m global lattice against the distance from the beach: more sand next
 # to it, more scrub farther back), not mowed lawn running to the sand
 DUNE_M = 30.0
