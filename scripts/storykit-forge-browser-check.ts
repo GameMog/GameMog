@@ -9,7 +9,7 @@
  *    The forge runs its uncovered gate itself (scripts/forge/uncovered.mjs: a see-through body is a forge error), and
  *    each run records its worst patch (uncoveredCm2).
  *    `npm run storykit:forge-browser-check` forges them (headless Chrome, under the shared one-Chrome lock when this
- *    machine has one, about 2 min) and, when all pass, writes the proof (storykit/forge-browser-proof.json: the hash of
+ *    machine has one, 3 to 7 min) and, when all pass, writes the proof (storykit/forge-browser-proof.json: the hash of
  *    forge.js, the kit and the sheets, and each anchor's size and time); commit it with forge.js. `npm run check` does not
  *    start Chrome (a 2 min Chrome run inside the check is killed by callers' time-outs and leaves Chrome behind, holding
  *    the lock): it checks that the proof is for this forge.js, kit and these sheets and that every anchor passed, and
@@ -120,7 +120,8 @@ export async function forgeAnchorsInBrowser(log: (s: string) => void = () => {})
         runs.push(r);
       }
       return { runs, pageErrors: page.errors.slice(0, 10), chrome: String(await page.eval<string>('navigator.userAgent')).match(/Chrome\/[\d.]+/)?.[0] || '' };
-    }, { width: 800, height: 600, timeoutMs: 230_000 });
+    // (13 anchors and probes take 3.5 to 6.5 min on a busy machine (r8's proof run: 377 s), past the old 230 s)
+    }, { width: 800, height: 600, timeoutMs: 600_000 });
   } finally { srv.close(); lock?.release(); }
 }
 

@@ -85,7 +85,9 @@ export function cardHairTex(src, W, H, ramp, dmap, o = {}) {
     // (the tone: the source's light and shade (its broad paint) under the strands, the strands' own height over it; a
     // few lighter strands (their clump high) toward the ramp's light)
     const hl = sm(0.68, 0.86, hh) * hlK;
-    const t = 0.1 + 0.42 * Ln + 0.62 * (hh - 0.5) + hl * 0.35;
+    // (people2: the source's broad light and shade at 0.26, not 0.42: its patches, under a set's key light, were the
+    // crumple in the "crumpled-foil hair"; the strands carry the texture)
+    const t = 0.16 + 0.26 * Ln + 0.62 * (hh - 0.5) + hl * 0.35;
     const c = rampAt(t);
     // (the cut-out: the cards' own soft borders broken into strand ends (a strand passes as far as its height carries it))
     let a = A0[i]; if (a > 0.02 && a < 0.98) a = sm(0.15, 0.85, a + (hh - 0.5) * 0.9);
@@ -166,7 +168,13 @@ export function scalpLine(skin, hair, o = {}) {
       const l = Math.hypot(...sd) || 1; A2.push(s.map((c) => c / w)); D2.push(sd.map((c) => c / l)); }
     A = A2; Dd = D2; }
   const G = grid(A);
-  const sd = (p) => { let best = -1, bd = cap; around(G, A, p, cap, (n, d) => { if (d < bd) { bd = d; best = n; } }); if (best < 0) return NaN;
-    const q = A[best], d = Dd[best]; return Math.max(-cap, Math.min(cap, (p[0] - q[0]) * d[0] + (p[1] - q[1]) * d[1] + (p[2] - q[2]) * d[2])); };
+  // (people2: the signed distance a smooth one, each nearby line point's own (along its direction) weighted by how near
+  // it is (a gaussian, sigma o.soft, 6 mm). The nearest point's alone changed where the nearest point did, and the paint's
+  // iso-line along those cells' edges was a row of big triangles at the temples and the forehead's corners: the
+  // director's "saw-toothed hairline")
+  const sig = o.soft ?? 0.006, k2 = 1 / (2 * sig * sig);
+  const sd = (p) => { let bd = cap, any = false; around(G, A, p, cap, (n, d) => { any = true; if (d < bd) bd = d; }); if (!any) return NaN;
+    let s = 0, sw = 0; around(G, A, p, cap, (n, d) => { const w = Math.exp(-(d * d - bd * bd) * k2); if (w < 1e-4) return; const q = A[n], dn = Dd[n]; s += w * ((p[0] - q[0]) * dn[0] + (p[1] - q[1]) * dn[1] + (p[2] - q[2]) * dn[2]); sw += w; });
+    return Math.max(-cap, Math.min(cap, s / sw)); };
   return { cov, n: A.length, sd };
 }
