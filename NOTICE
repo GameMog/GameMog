@@ -290,6 +290,43 @@ Voices (assets/voice)
     are meant to be replaced by recordings or synthesised voices like the others'. assets/voice/manifest.json records each line's source;
     docs/VOICE-LINES.md is the line sheet and says how to drop new voices in.
 
+Town cars (assets/vehicles/fleet)
+--------------------------------
+  A Hometown town's cars, vans, trucks and buses (its traffic, its parked cars, the car a player takes, a town's own
+  default car and its police in a chase) are adapted from these models, each licensed under Creative Commons
+  Attribution 4.0 International (CC BY 4.0, https://creativecommons.org/licenses/by/4.0/). The adapted files are
+  shared under the same licence and are NOT covered by the MIT License in LICENSE.
+  By Daniel Zhabotinsky:
+      "Saba V12 '95 - Low poly model"  https://sketchfab.com/3d-models/3ab977050c334c13b6abb5de078b4957  (gt95.glb)
+      "Hazer Turbo '81 - Low poly model"  https://sketchfab.com/3d-models/ef6411864cd24046aad6ae75dbdb7ea7  (turbo81.glb)
+      "JDM Sport '99 - Low Poly model"  https://sketchfab.com/3d-models/6dd4ae19c454414d9eed2bc524515d78  (sport99.glb)
+      "Tiara GT '83 - Low Poly model"  https://sketchfab.com/3d-models/8918b07a427443cd8d1b334d9ad213a5  (gt83.glb)
+      "Roadster '00 - Low poly model"  https://sketchfab.com/3d-models/82fd2008ce304df688ec4dfcd42d41ce  (roadster00.glb)
+      "Duke '69 - Low Poly Model"  https://sketchfab.com/3d-models/46fed79f600c4fc69e060991f9e3e4f9  (muscle69.glb)
+      "Kiri '10 - Low poly model"  https://sketchfab.com/3d-models/7fd6e15785fa4aa9bfd6e31eb7c97ba6  (sedan10.glb)
+      "Ace '11 - Low Poly model"  https://sketchfab.com/3d-models/055ff8a21b8d4d279debca089e2fafcd  (hatch11.glb)
+      "Compact '07 - Low poly model"  https://sketchfab.com/3d-models/25c6874d173a4f6ca63e150bbd505686  (city07.glb)
+      "Negotiator '80 - Low poly model"  https://sketchfab.com/3d-models/892b2684fb37442299bfad9222cf331c  (sedan80.glb)
+      "Urban '10 - Low poly model"  https://sketchfab.com/3d-models/2866efdfa943484391ef8313768e074d  (suv10.glb)
+      "Shvan '92 - Low poly model"  https://sketchfab.com/3d-models/09d718c9cf72401b8534d265a06a803f  (van92.glb)
+      "Conquer '89 Pickup - Low poly model"  https://sketchfab.com/3d-models/6c48c94be8974dc7a5932f697c0ba68f  (pickup89.glb)
+      "Canyon '75 Taxi - Low poly model"  https://sketchfab.com/3d-models/9e8f92a215784f3d8aaaaeab1bef54c4  (taxi75.glb)
+      "Illinois '90 Police cruiser - Low poly model"  https://sketchfab.com/3d-models/dc81625478a744649b210c7f248b0b6a  (police90.glb)
+      "LCT 3000 '95 - Low poly model"  https://sketchfab.com/3d-models/663a0953c038434a918cb85725c88ffa  (box95.glb)
+  By Comrade1280:
+      "Generic civil service vehicles pack"  https://sketchfab.com/3d-models/8ff2a13f30914932a70c7950cfa58465
+          (bus.glb, schoolbus.glb, ambulance.glb, firetruck.glb, garbage.glb, mailvan.glb, utility.glb, tow.glb, police20.glb, taxi20.glb)
+      "Generic passenger car pack"  https://sketchfab.com/3d-models/20f9af9b8a404d5cb022ac6fe87f21f5
+          (minivan20.glb)
+  Changed: every badge and emblem, the number plates' characters, the tyres' sidewall lettering and the liveries'
+  stickers, slogans and numbers removed (a plain POLICE cruiser, a cab with no company name); re-oriented,
+  re-centred, merged onto one texture atlas, textures downscaled and WebP-encoded, simplified levels of detail
+  added, geometry meshopt-compressed; the packs split into their vehicles. The cars are look-alikes with invented
+  names and no maker's badge, crest, name or lettering; nothing in Mog City claims any connection with any car
+  maker, and CC BY 4.0 covers the modellers' copyright only. Details, each file's SHA-256 and each source
+  download's SHA-256: assets/vehicles/fleet/CREDITS.md and fleet.json. The game shows the credits on its Credits
+  page in a town (wagmi/credits.js).
+
 Hometown packages (tools/hometown, cities/pkg)
 ----------------------------------------------
   A Hometown package (?city=pkg&pkg=<id>) is a place compiled by tools/hometown/compile.py from open map data. The
