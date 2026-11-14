@@ -14,7 +14,7 @@
 //                          within SLACK m of open ground counts as that ground (a door's mark at a facade, a corner's
 //                          kerb: a ring there is seen and stood in; a ring 15 m inside a tower is not). why:
 //                          'inside' (the spot is in a building), 'water', 'enclosed' (walled in: no way to a road within
-//                          R m), 'off-road' (a car's spot no lane reaches)
+//                          R m), 'off-road' (a car's spot no lane reaches and on no street of the road graph)
 //     line(ax, az, bx, bz) every 0.5 m between them clear on foot (a teleport or a nudge that crosses no wall)
 //     nearestClear(x, z, r) the nearest clear spot within r m (a person stood up inside a wall moved out of it), or null
 //     notes                what it found (the test drive's probes read and empty it)
@@ -105,6 +105,18 @@ export function createReach(W, world) {
   const inside = (x, z) => blocked(x, z, 0.05);
   const lane = (x, z, R) => { try { return world.nearestLane?.(x, z, 'car', R) || null; } catch { return null; } };
   const onRoad = (x, z) => { const L = lane(x, z, 3.5); return !!L && L.d <= 3.5; };
+  // (on a street of the road graph, the city's own centrelines (NYC.nearestRoads): within its half-width and 1.5 m of
+  // one that is no footpath, and on the asphalt (world.onRoadway). A Hometown package's spawn point on a street the
+  // traffic keeps no lane of: Bal Harbour's pkg_north, 0.4 m off a 7.8 m road, the nearest traffic lane 57.6 m off;
+  // the autopilot drove there and circled on the mark, and the car rule alone called it off the roads)
+  const PATH = 8; // (the road graph's footpath flag: city-config.js RG_FLAGS.pedestrian)
+  function street(x, z) {
+    try {
+      const near = world.nearestRoads ? world.nearestRoads(x, z, 30) : globalThis.window?.NYC?.nearestRoads?.(x, z, 30);
+      if (!near || !near.some((q) => q.road && !((q.road.flags || 0) & PATH) && Number.isFinite(q.road.w) && q.dist <= q.road.w / 2 + 1.5)) return false;
+      return world.onRoadway ? !!world.onRoadway(x, z) : true;
+    } catch { return false; }
+  }
   const memo = new Map();
   function fromRoad(x0, z0, mode = 'person') {
     const s = clear(x0, z0, mode) ? { x: x0, z: z0 } : mode === 'car' ? null : nearestClear(x0, z0, SLACK);
@@ -113,11 +125,13 @@ export function createReach(W, world) {
     if (memo.has(key)) return memo.get(key);
     let r;
     if (mode === 'car') {
-      // (a car's step ends on a lane: a spot a car fits on, no farther than 9 m from a lane the traffic drives)
+      // (a car's step ends on a lane: a spot a car fits on, no farther than 9 m from a lane the traffic drives, or on
+      // the asphalt of a street the road graph has and the traffic does not drive (street below))
       const L = lane(x, z, 9);
       r = water(x, z) ? { ok: false, why: 'water', path: null, len: 0, cells: 1 }
         : blocked(x, z, 1.1, 'car') && !nearClearCar(x, z) ? { ok: false, why: 'inside', path: null, len: 0, cells: 1 }
-        : !L ? { ok: false, why: 'off-road', path: null, len: 0, cells: 1 } : { ok: true, why: null, path: [[L.x, L.z], [x, z]], len: L.d, cells: 1 };
+        : L ? { ok: true, why: null, path: [[L.x, L.z], [x, z]], len: L.d, cells: 1 }
+        : street(x, z) ? { ok: true, why: null, path: [[x, z]], len: 0, cells: 1 } : { ok: false, why: 'off-road', path: null, len: 0, cells: 1 };
     } else if (water(x, z)) r = { ok: false, why: 'water', path: null, len: 0, cells: 0 };
     else if (!s) r = { ok: false, why: water(x0, z0) ? 'water' : 'inside', path: null, len: 0, cells: 0 };
     else { r = searchFromRoad({ x, z, clear: (a, b) => clear(a, b), road: onRoad }); if (r.ok && (x !== x0 || z !== z0)) r = { ...r, path: [...r.path, [x0, z0]] }; }

@@ -295,6 +295,9 @@ export function createRunner(ctx) {
     const kind = (place && places.lib?.[place]?.kind) || p?.kind || null;
     return { ...(key ? { at: key } : {}), ...(place ? { place } : {}), ...(kind ? { kind } : {}), ...(p?.name || alias?.name ? { name: String(p?.name || alias?.name).slice(0, 60) } : {}) };
   };
+  // (a ride's rule: a car's spot is one a car stops on by a lane; a horse goes where a man on foot goes, off the
+  // asphalt too, a plaza, a park's lawn: SF 2040's M3 rides to Civic Center Plaza, a car's rule failed it at once)
+  const rideRule = () => (car.kind === 'horse' ? 'person' : 'car');
   function mustReach(x, z, mode, d, p = null, more = {}) {
     if (!M?.auto || !Number.isFinite(x) || !Number.isFinite(z)) return null;
     const info = { mission: M.def.id, step: M.i, type: d?.type || null, ...refInfo(p?.ref, p), x: Math.round(x * 10) / 10, z: Math.round(z * 10) / 10, mode, ...more };
@@ -361,7 +364,7 @@ export function createRunner(ctx) {
   /* --------------------------------------------------------------- the steps -- */
   const STEPS = {};
   // place: the player there (in the car, or on foot), the time of day
-  STEPS.place = async (d) => { const p = placeOf(d.at), mode = (typeof d.at === 'object' && d.at.mode) || (M.def.vehicle ? 'car' : 'walk'); mustReach(p.x, p.z, mode === 'car' ? 'car' : 'person', d, p); putPlayer(p, mode); if (d.time) { if (M.pin) pinTo(d.time); else setTime(d.time); } M.timer.add(d.bonus || 0); };
+  STEPS.place = async (d) => { const p = placeOf(d.at), mode = (typeof d.at === 'object' && d.at.mode) || (M.def.vehicle ? 'car' : 'walk'); mustReach(p.x, p.z, mode === 'car' ? rideRule() : 'person', d, p); putPlayer(p, mode); if (d.time) { if (M.pin) pinTo(d.time); else setTime(d.time); } M.timer.add(d.bonus || 0); };
   // (a say's `radio`: true or false forces the line's look, over the air or in person)
   STEPS.say = async (d, t) => { const who = castName(d.who), o = { secs: d.secs, radio: typeof d.radio === 'boolean' ? d.radio : null }; if (d.wait === false) { say(who, d.text, M.tok, o).catch(() => {}); return; } await say(who, d.text, t, o); };
   // (a wait for the calls, call: true: up to secs, over once the car phone is done and no call that rang beside the
@@ -388,7 +391,7 @@ export function createRunner(ctx) {
   // drive: the corona, the GPS ('get there' the Mog City way: gps.drive), there inside the radius and slowed down
   async function goTo(p, d, t, { name = p.name, objective = null, onFoot = 250, needsCar = false } = {}) {
     const radius = d.radius || 8, stopV = d.stopSpeed ?? 4;
-    mustReach(p.x, p.z, inCar() || needsCar || M.def.vehicle ? 'car' : 'person', d, p);
+    mustReach(p.x, p.z, inCar() || needsCar || M.def.vehicle ? rideRule() : 'person', d, p);
     marker.at(p.x, groundY(p.x, p.z), p.z); M.dest = p;
     const dest = { x: p.x, z: p.z, name };
     const nav = gps.drive({ dest, objective: objective ? parts(objective) : ['Go to ', { [name]: 'yellow' }, '.'], onFoot, needsCar });
@@ -2952,7 +2955,7 @@ export function createRunner(ctx) {
       M.timer.timers.restore(cp.timers);
     } else {
       M.cp = { ...snapshot(0) };
-      if (def.start) { const p = placeOf(def.start), mode = (typeof def.start === 'object' && def.start.mode) || (def.vehicle ? 'car' : 'walk'); mustReach(p.x, p.z, mode === 'car' ? 'car' : 'person', { type: 'start' }, p); putPlayer(p, mode); M.cp = snapshot(0); }
+      if (def.start) { const p = placeOf(def.start), mode = (typeof def.start === 'object' && def.start.mode) || (def.vehicle ? 'car' : 'walk'); mustReach(p.x, p.z, mode === 'car' ? rideRule() : 'person', { type: 'start' }, p); putPlayer(p, mode); M.cp = snapshot(0); }
     }
     // (the mission's time of day: its own, pinned (holdPin), else the world's; a world that says none is in daylight)
     const own = def.time || act?.timeline?.[def.id]?.time || null;

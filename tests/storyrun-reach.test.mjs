@@ -63,9 +63,10 @@ test('two buildings touching at a corner: no way squeezes through the corner', (
 });
 
 // a W and a world the way Mog City's runner hands them to createReach: colliders by bounds, lanes along x = 42
-function fake(boxes, { water = () => false } = {}) {
+function fake(boxes, { water = () => false, roads = null, roadway = null } = {}) {
   const cm = { nearColliders: (x, z, r) => boxes.filter((b) => inBox(b, x, z, r)), getGroundHeight: () => 0 };
-  const world = { groundY: () => 0, inWater: water, nearestLane: (x, z, mode, R) => { const d = Math.abs(x - 42); return d <= R ? { x: 42, z, d, heading: 0 } : null; } };
+  const world = { groundY: () => 0, inWater: water, nearestLane: (x, z, mode, R) => { const d = Math.abs(x - 42); return d <= R ? { x: 42, z, d, heading: 0 } : null; },
+    nearestRoads: roads || (() => []), ...(roadway ? { onRoadway: roadway } : {}) };
   return createReach({ app: { controllerManager: cm } }, world);
 }
 
@@ -84,6 +85,15 @@ test('createReach: clear, inside, a line through a wall, the nearest clear spot,
   const ok = R.fromRoad(31, 0); assert.equal(ok.ok, true);
   assert.equal(R.fromRoad(42, 5, 'car').ok, true);
   assert.equal(R.fromRoad(20, 30, 'car').why, 'off-road', 'no lane within 9 m');
+  // (a street of the road graph the traffic keeps no lane of: on its asphalt a car stops; a footpath, or off its
+  // half-width, is still off the roads)
+  const roads = [{ road: { w: 7.8, flags: 0, pts: [{ x: -100, z: -200 }, { x: -100, z: 200 }] }, at: -100 }, { road: { w: 4, flags: 8 }, at: -60 }];
+  const S = fake([tower, kerb], { roads: (x) => roads.map((q) => ({ road: q.road, dist: Math.abs(x - q.at) })).sort((a, b) => a.dist - b.dist) });
+  assert.equal(S.fromRoad(-99.6, 0, 'car').ok, true, 'on a street the traffic does not drive');
+  assert.equal(S.fromRoad(-90, 0, 'car').why, 'off-road', '10 m off its centreline');
+  assert.equal(S.fromRoad(-60, 0, 'car').why, 'off-road', 'a footpath is no street');
+  const dry = fake([], { roads: () => roads.map((q) => ({ road: q.road, dist: 0.4 })), roadway: () => false });
+  assert.equal(dry.fromRoad(-99.6, 0, 'car').why, 'off-road', 'off the asphalt (a curb island)');
   assert.equal(R.free(15, 0), false); assert.equal(R.free(42, 0), true);
   const wet = fake([], { water: (x) => x < -50 });
   assert.equal(wet.fromRoad(-60, 0).why, 'water');
@@ -107,6 +117,11 @@ test('the runner holds every spot a step sends him to to it, and the autopilot n
     /STEPS\.place = [^\n]*mustReach/, /type: 'start' \}, p\)/, /const p = placeOf\(d\.arena\);\n    mustReach/, /placeOf\(r\), g = footing\([^\n]*mustReach\(g\.x, g\.z, 'person'/, /mustReach\(cx, cz, 'car'/,
     /footWatch\(pt, p, 'walk', \(q\) => \{ mustReach\(q\.x, q\.z/, /footWatch\(pt, p, 'search', \(q\) => \{\n      mustReach\(q\.x, q\.z/]) assert.match(run, re);
   assert.match(run, /e\.kind === 'reach'\)\) return \{ how: 'fail'/);
+  // (a ride's rule: a horse is held to a man's on foot (SF 2040's M3 rides to Civic Center Plaza), a car to a car's;
+  // a drive, a place step and a mission's start all ask it)
+  assert.match(run, /const rideRule = \(\) => \(car\.kind === 'horse' \? 'person' : 'car'\);/);
+  assert.match(run, /inCar\(\) \|\| needsCar \|\| M\.def\.vehicle \? rideRule\(\) : 'person'/);
+  assert.equal((run.match(/mode === 'car' \? rideRule\(\) : 'person'/g) || []).length, 2);
   const ap = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/autopilot.js'), 'utf8');
   // (every direct move of the person is the guarded hop, the landing checked walk jump, or his door when he gets in)
   const moves = ap.split('\n').filter((l) => /P\.position\.(set|x \+=|z \+=)/.test(l) && !/^\s*\/\//.test(l));
