@@ -129,7 +129,9 @@ from a compiled tile**, so it exists seconds after a town is picked and is the s
   the bridge raise (it never lowers ground).
 - spawns and story places: the tiles' own road pieces (`World.pieces`: same projection, cm, names) less motorways,
   private, pedestrian, tunnel and any bridge or level > 0 stretch; places by the tiles' rule, snapped within 80 m;
-  downtown from ctx; nearest-lane ties broken by (segment, piece), never by an index's order.
+  downtown from ctx; nearest-lane ties broken by (segment, piece), never by an index's order. Their street names are
+  spelled as a sign spells them (`street_names.street_case`: "N 3rd St", "NE 2nd Ave", "McDonald Ave", "US Hwy 1",
+  "St John's Rd"; before 0.10.0 Python's `str.title()` wrote "N 3Rd St"). Tests: `test_street_names.py`.
 - the **spawn district**: the spawn's tile and 2 tiles each way (5 x 5); spawns and places inside it less 300 m carry
   `district: true` (the Story Kit keeps mission 1 there).
 - `streets` (names and metres in the box) and `density` (ctx building counts per km2 of land).

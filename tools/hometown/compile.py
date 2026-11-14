@@ -78,7 +78,8 @@ import shapely.ops  # noqa: E402
 # fid-beach: beaches and sand (Overture base/land subtype sand) as ground classes beach (10) and wet sand (11), no
 # yard trees on them, and a region fetched without the land layer refused;
 # 0.10.0 release r5: 0.9.0 + the fidelity line + the DEM's /historical/ fallback (dem.py: a pinned 3DEP file that
-# /current/ has replaced is read from /historical/, its bytes unchanged)
+# /current/ has replaced is read from /historical/, its bytes unchanged); the frame's arrival and place street names
+# spelled as a sign spells them (street_names.street_case: "N 3rd St", "McDonald Ave", "US Hwy 1"), not str.title() ("N 3Rd St")
 COMPILER_VERSION = '0.10.0'
 OVERTURE_RELEASE = '2026-10-21.0'
 TILE, TCM = grid.TILE, grid.TILE_CM

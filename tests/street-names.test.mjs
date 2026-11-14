@@ -1,8 +1,9 @@
 // Street names as a player reads them (the map, the radar, the location chip, the arrivals, mission text): ordinals
 // "3rd" and "14th" (never "3Rd", "14Th"), "McCord St", "St John's Rd", "NE 23rd St", "US Hwy 62". A Hometown package's
-// arrival and place names come title-cased by the compiler (Python's str.title(): "N 3Rd St") and are put right when the
-// package loads (cities/pkg/js/pkg-hud.js pkgNameCase); the road graph's capitals are made display names by
-// cities/sf/js/city-config.js prettyName, whose San Francisco labels stay exactly as they were.
+// arrival and place names came title-cased by compilers before 0.10.0 (Python's str.title(): "N 3Rd St"; 0.10.0 spells
+// them right, tools/hometown/street_names.py) and are put right when the package loads (cities/pkg/js/pkg-hud.js
+// pkgNameCase); the road graph's capitals are made display names by cities/sf/js/city-config.js prettyName, whose San
+// Francisco labels stay exactly as they were.
 //   node --test tests/street-names.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -78,15 +79,16 @@ test('San Francisco\'s street labels exactly as they were', () => {
   for (const n of names) assert.equal(pretty(n), prettyBefore(n), n);
 });
 
-// the proof towns, when their packages are here (cities/pkg/packages is git-ignored): the compiler's names mis-cased
-// before, none after; every road graph name made a display name with no mis-casing
+// the proof towns, when their packages are here (cities/pkg/packages is git-ignored): none of their names mis-cased once
+// pkgNameCaseAll has run (a compiler before 0.10.0 mis-cased them; 0.10.0's street_names.street_case does not); every road
+// graph name made a display name with no mis-casing
 for (const id of ['okemah', 'phoenix', 'pittsburgh']) {
   const f = root + `cities/pkg/packages/${id}/geodata.js`;
   test(`${id}: arrivals, places and streets read right`, { skip: !existsSync(f) && 'package not built here' }, () => {
     const window = { NYC: {} };
     vm.runInNewContext(readFileSync(f, 'utf8'), { window });
     const N = window.NYC, all = () => [...Object.values(N.PKG.spawns || {}), ...Object.values(N.PLACE_DATA.regional || {}), ...Object.values(N.PKG.places || {})].map((p) => p.name);
-    assert.ok(all().some((n) => MISCASED.test(n)), 'the package has the compiler\'s mis-cased names');
+    // (a package from a compiler before 0.10.0 has str.title()'s mis-cased names, one from 0.10.0 on none: either way none after)
     hud().pkgNameCaseAll(N);
     for (const n of all()) assert.ok(!MISCASED.test(n), n);
     for (const n of N.GEO.roadGraph.names) assert.ok(!MISCASED.test(pretty(n)), `${n} -> ${pretty(n)}`);
