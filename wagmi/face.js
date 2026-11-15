@@ -333,8 +333,11 @@ const shaded = new WeakMap();
 function shadeMouth(m) {
   if (!m || m.userData?.mouthShade) return m;
   if (shaded.has(m)) return shaded.get(m);
-  const nm = m.isMeshPhysicalMaterial || m.isMeshPhysicalNodeMaterial ? new THREE.MeshPhysicalNodeMaterial() : new THREE.MeshStandardNodeMaterial();
-  for (const k of ['name', 'color', 'map', 'normalMap', 'normalMapType', 'normalScale', 'roughness', 'roughnessMap', 'metalness', 'metalnessMap', 'emissive', 'emissiveMap', 'emissiveIntensity', 'bumpMap', 'bumpScale', 'aoMap', 'aoMapIntensity', 'alphaMap', 'alphaTest', 'transparent', 'opacity', 'side', 'envMapIntensity', 'vertexColors', 'flatShading', 'depthWrite', 'depthTest', 'sheen', 'sheenColor', 'sheenRoughness', 'clearcoat', 'clearcoatRoughness', 'specularIntensity', 'specularColor'])
+  // (a node material keeps its own kind and nodes, so its light comes with it: a forged body's finished skin,
+  // storyrun/polish.js)
+  const nm = m.isNodeMaterial ? new m.constructor() : m.isMeshPhysicalMaterial ? new THREE.MeshPhysicalNodeMaterial() : new THREE.MeshStandardNodeMaterial();
+  for (const k of ['name', 'color', 'map', 'normalMap', 'normalMapType', 'normalScale', 'roughness', 'roughnessMap', 'metalness', 'metalnessMap', 'emissive', 'emissiveMap', 'emissiveIntensity', 'bumpMap', 'bumpScale', 'aoMap', 'aoMapIntensity', 'alphaMap', 'alphaTest', 'transparent', 'opacity', 'side', 'envMapIntensity', 'vertexColors', 'flatShading', 'depthWrite', 'depthTest', 'sheen', 'sheenColor', 'sheenRoughness', 'clearcoat', 'clearcoatRoughness', 'specularIntensity', 'specularColor',
+    ...(m.isNodeMaterial ? ['normalNode', 'roughnessNode', 'metalnessNode', 'emissiveNode', 'opacityNode', 'maskNode', 'maskShadowNode', 'aoNode', 'alphaToCoverage'] : [])])
     if (m[k] !== undefined && k in nm) nm[k] = m[k];
   // (over the skin's own colour node when it has one: a forged body's graded skin, storyrun/polish.js)
   nm.colorNode = (m.colorNode || materialColor).mul(attribute('mouthShade', 'float'));
