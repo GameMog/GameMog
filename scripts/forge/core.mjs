@@ -191,7 +191,9 @@ const BN0 = B.get('normal'), MH = CFG.mouthHalf ?? 0.0212;
 const beardOf = (P, v) => { const x = Math.abs(P[v * 3]), y = P[v * 3 + 1], z = P[v * 3 + 2], h = Math.min(1, headW(v) * 1.6 + 0.25);
   // (the cheeks' line: from over the mouth's corners up toward the ear; the area under it, in front of the ears)
   // (G7c: CFG.beard.trim { lift, slope, ear }: a full beard's line lower on the cheek and further from the ear)
-  const tr = CFG.beard?.trim || {}, cheek = MOUTHY + (tr.lift ?? 0.014) + Math.max(0, x - 0.026) * (tr.slope ?? 0.62), ear = EZ - (tr.ear ?? 0.072);
+  // (people12 r10, CFG.beard.trim.burn: the cheeks' line raised by it over the last 0.6-2.4 cm before the ear line, so the
+  // sideburn climbs to the bottom of the ear: the bald man's stopped short of it, a bare strip under the ear at 120 degrees)
+  const tr = CFG.beard?.trim || {}, ear = EZ - (tr.ear ?? 0.072), cheek = MOUTHY + (tr.lift ?? 0.014) + Math.max(0, x - 0.026) * (tr.slope ?? 0.62) + (tr.burn ?? 0) * (1 - sm(ear + 0.006, ear + 0.024, z));
   let a = sm(cheek + 0.004, cheek - 0.003, y) * sm(ear - 0.006, ear + 0.006, z);
   // (the moustache: the band over the upper lip, under the nose, the mouth's width and a little more)
   const mo = (1 - sm(0.026, 0.032, x)) * sm(MOUTHY + 0.0215, MOUTHY + 0.0165, y) * sm(MOUTHY + 0.0035, MOUTHY + 0.0065, y) * sm(EZ + 0.0, EZ + 0.012, z);
@@ -217,6 +219,7 @@ const beardOf = (P, v) => { const x = Math.abs(P[v * 3]), y = P[v * 3 + 1], z = 
   if (x < MH + 0.009 && Math.abs(y - MOUTHY) < 0.012 && z < EYEFRONT - 0.004) a = 0;
   return Math.max(0, Math.min(1, a * h)); };
 const BEARD = new Float32Array(nB); for (const v of skinV) BEARD[v] = beardOf(bPos, v);
+let BEARD3 = null; // (people12 r10: a calm-edged beard's area as round 3 smoothed it, twice: where its cards root)
 // (cast2, the lead: 'soft feathered edges into the cheeks and neck': the area smoothed over the skin's neighbours (welded
 // across the uv seams by place) CFG.beard.feather times, then the lips and the mouth's inside cleared again)
 if (CFG.beard?.feather) {
@@ -235,6 +238,7 @@ if (CFG.beard?.feather) {
     const lip = (1 - sm(MH - 0.0012, MH + 0.0045, x)) * sm(MOUTHY - 0.0125, MOUTHY - 0.009, y) * sm(MOUTHY + 0.0045, MOUTHY + 0.0025, y) * sm(EZ - 0.0, EZ + 0.01, z);
     return x < MH + 0.009 && Math.abs(y - MOUTHY) < 0.012 && z < EYEFRONT - 0.004 ? 0 : 1 - lip; };
   for (const v of skinV) BEARD[v] = Math.min(1, val[wOf[v]] * 1.15) * clear(v);
+  if (CFG.shells?.calmEdge && val2) { BEARD3 = new Float32Array(nB); for (const v of skinV) BEARD3[v] = Math.min(1, val2[wOf[v]] * 1.15) * clear(v); }
 }
 // (FC, talking faces: a soft-edged clearing round the mouth: the beard thins over the last 5 mm before the lips' outline
 // (mouthGap at the mouth's own width), so the shells, the cards' roots and the painted beard fade into the lips as a
@@ -335,7 +339,9 @@ const shell = (() => {
   // (people10 r8, CFG.shells.calmEdge: the cards rooted only where the shells are solid (the share taken 0.4-0.85 to 0-1):
   // over the feathered fringe a lone card stood as a dark tuft apart from the beard, the bald man's clump at 300 degrees)
   // (people11 r9: 0.55-0.95, the shells now reaching further out than the cards' roots)
-  const cardMask = S?.calmEdge ? BEARD.map((w) => sm(0.55, 0.95, w)) : BEARD;
+  // (people12 r10: rooted over round 3's area (smoothed twice; never past the area as cleared round the mouth): over the
+  // solid share alone the sideburn's back edge had no strands across it, a row of spiky shell shards at 120 degrees)
+  const cardMask = S?.calmEdge ? (BEARD3 ? BEARD.map((w, v) => Math.min(w, BEARD3[v])) : BEARD.map((w) => sm(0.55, 0.95, w))) : BEARD;
   const C0 = CC ? beardCards({ P: bPos, N: N0, T: skinT, mask: cardMask }, { MOUTHY, EZ, EY, half: MH }, CC.groom, CC.seed || 7, { u0: SX, tune: CC.tune }) : null;
   if (C0) console.error('beard cards', CC.groom, C0.count, 'cards,', C0.P.length / 3, 'points; cut short at the lips', C0.cut, 'dropped', C0.dropped);
   const nC = C0 ? C0.P.length / 3 : 0, P = new Float32Array((nSh + nC) * 3); P.set(PS); if (C0) P.set(C0.P, nSh * 3);
@@ -1817,11 +1823,13 @@ async function paintBeard(img) {
       // beige-grey wash between the ear and the beard at 60 and 120 degrees. Now the shadow from 0.12, no grey streak
       // under 0.45, and the fringe thinned by its hairs (each whole, fewer toward the edge, none under 0.1), the root's dark)
       const cE = CFG.shells?.calmEdge;
-      const base = (cE ? sm(0.12, 0.7, wv) : sm(0.05, 0.75, wv)) * A0;
+      // (people12 r10, calmEdge: the shadow from 0.03, not 0.12, a soft dark fade under the fringe's last hairs (the ear lift no
+      // longer takes it back to bare skin), and no painted hair under 0.18: lone painted hairs far out stood as specks)
+      const base = (cE ? sm(0.03, 0.7, wv) : sm(0.05, 0.75, wv)) * A0;
       // (the strands over it: dark hairs along the growth, sparser toward the edge; grey ones as fine streaks)
       const h = sm(0.42, 0.68, strand(x, y, d, CFG.beard.len || 16, 1)), gr = sm(0.8, 0.9, strand(x, y, d, (CFG.beard.len || 16) * 1.3, 7)) * (CFG.beard.grey ?? 0.2) * 5 * (cE ? sm(0.45, 0.8, wv) : 1);
       const sv = strand(x, y, d, CFG.beard.len || 16, 1), pb = 0.42 + 0.45 * (1 - sm(0.15, 0.6, wv));
-      const ha = cE ? (wv > 0.1 ? sm(pb, pb + 0.1, sv) * 0.92 : 0) : h * sm(0.02, 0.45, wv) * 0.9;
+      const ha = cE ? (wv > 0.18 ? sm(pb, pb + 0.1, sv) * 0.92 : 0) : h * sm(0.02, 0.45, wv) * 0.9;
       const k = 0.85 + 0.3 * vnoise(x / 3, y / 3, 2);
       for (let ch = 0; ch < 3; ch++) {
         let c = data[i + ch] * (1 - base) + root[ch] * base;
@@ -2210,13 +2218,18 @@ const paintShaved = async (img) => earLift(CFG.shaved ? await napeLift(await pai
 async function earLift(img) {
   if (!(CFG.scalp && hairTX.length) && !CFG.shaved) return img;
   if (CFG.afro || CFG.boxBraids) return img;
+  // (people12 r10, CFG.fuzz.earClear: never under a buzz: the ear's own folds, more than a quarter darker than the cheek,
+  // were lifted flat with the painted hair, the veteran's hazy ear at 120 and 300 degrees; the buzz's paint covers the rest)
+  if (CFG.fuzz?.earClear) return img;
   const S = 2048, { data } = await sharp(img).removeAlpha().raw().toBuffer({ resolveWithObject: true }), uv = B.get('uv'), ref = [[], [], []];
   for (const v of skinV) { const x = Math.abs(bPos[v * 3]), y = bPos[v * 3 + 1], z = bPos[v * 3 + 2]; if (x < 0.045 || x > 0.058 || y < EY - 0.04 || y > EY - 0.015 || z < EZ - 0.05) continue;
     const px = Math.min(S - 1, Math.floor(uv[v * 2] / 65535 * S)), py = Math.min(S - 1, Math.floor((1 - uv[v * 2 + 1] / 65535) * S)), i = (py * S + px) * 3; for (let c = 0; c < 3; c++) ref[c].push(data[i + c]); }
   if (ref[0].length < 5) { console.error('nape lift (people7): no neck points'); return img; }
   const col = ref.map((a) => a.sort((p, q) => p - q)[a.length >> 1]), M = new Float32Array(nB); let n = 0;
+  // (people12 r10, calmEdge: never over the beard (its share from 0.005, none from 0.1): the lift took a dark beard's paint
+  // between the ear and the sideburn back to the cheek's colour, the bald man's pale strip and short sideburn at 120 degrees)
   for (const v of skinV) { const x = Math.abs(bPos[v * 3]), y = bPos[v * 3 + 1], z = bPos[v * 3 + 2];
-    M[v] = sm(0.06, 0.066, x) * sm(EY - 0.07, EY - 0.06, y) * (1 - sm(EY + 0.008, EY + 0.02, y)) * sm(EZ - 0.125, EZ - 0.115, z) * (1 - sm(EZ - 0.06, EZ - 0.05, z)); if (M[v] > 0) n++; }
+    M[v] = sm(0.06, 0.066, x) * sm(EY - 0.07, EY - 0.06, y) * (1 - sm(EY + 0.008, EY + 0.02, y)) * sm(EZ - 0.125, EZ - 0.115, z) * (1 - sm(EZ - 0.06, EZ - 0.05, z)) * (CFG.shells?.calmEdge ? 1 - sm(0.005, 0.1, BEARD[v]) : 1); if (M[v] > 0) n++; }
   console.error('ear lift (people7): cheek colour', col.join(','), n, 'points');
   return paintMask(img, M, 0.9, col, 'deep');
 }
@@ -2871,10 +2884,12 @@ if (CFG.fuzz && CFG.shaved) {
     if ([a, b, c].some((v) => bPos[v * 3 + 1] < EY + 0.016 && Math.abs(bPos[v * 3]) < 0.066 && bPos[v * 3 + 2] > EZ - 0.09)) continue; T.push(a, b, c); }
   const verts = [...new Set(T)], ix = new Map(verts.map((v, k) => [v, k])), nS = verts.length, P = [], UV = [], JI = [], WT = [], CO = [], idx = [];
   for (let L = 0; L < NL; L++) { const f = (L + 1) / NL, k = FZ.contrast != null ? 0.86 + 0.14 * f : 0.62 + 0.38 * f, al = 1 - (FZ.soft ? 0.2 : 0.42) * L / Math.max(1, NL - 1);
+    // (people12 r10, FZ.earClear: the shells' alpha nothing on the ear (the box the scalp's paint keeps off), so the crop fades
+    // out over the triangles that reach it: the veteran's white hairs lay over his ear as a pale veil at 120 and 300 degrees)
     for (const v of verts) { const n = [NB[v * 3] / 127, NB[v * 3 + 1] / 127, NB[v * 3 + 2] / 127], nl = Math.hypot(...n) || 1, p = [bPos[v * 3], bPos[v * 3 + 1], bPos[v * 3 + 2]];
       const tp = sm(0.0, 0.5, SCALP[v]) * (0.8 + 0.4 * vnoise(p[0] * 140, p[1] * 140 + 4, p[2] * 140)), d = 0.0003 + depth * f * tp;
       P.push(...p.map((c, i) => c + n[i] / nl * d)); UV.push(uvB[v * 2] / 65535, 1 - uvB[v * 2 + 1] / 65535);
-      for (let j = 0; j < 4; j++) { JI.push(SI[v * 4 + j]); WT.push(SW[v * 4 + j] / 255); } CO.push(k, k, k, al); }
+      for (let j = 0; j < 4; j++) { JI.push(SI[v * 4 + j]); WT.push(SW[v * 4 + j] / 255); } CO.push(k, k, k, FZ.earClear && Math.abs(p[0]) > 0.068 && p[1] < EY + 0.008 && p[1] > EY - 0.06 && p[2] > EZ - 0.115 && p[2] < EZ - 0.055 ? 0 : al); }
     for (const v of T) idx.push(L * nS + ix.get(v)); }
   // (the texture: 2048 in the skin's uv space, over the shells' triangles only)
   const S = 2048, img = new Uint8Array(S * S * 4), cols = FZ.colors, gS = FZ.grey ?? 0, len = FZ.len ?? 3.2, fw = FZ.w ?? 0.9, lift = FZ.lift ?? 0.35, con = FZ.contrast ?? 1, sc = CFG.shaved.col || [40, 36, 33], CR = [0, EY + 0.115, EZ - 0.115];

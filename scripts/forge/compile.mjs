@@ -257,7 +257,8 @@ export function compile(S) {
     // (people8 r6: a light crop's strands and scalp back in, quietly (round 5's read as a smooth cream felt cap): its hairs
     // half way from the paint to their own colour, their roots darker, a sixth of the scalp through between them, and its
     // front a line of hairs, not a blurred film (a slightly narrower ease, a little more wander: at 0.14-0.72 and 0.9 it tore into bald islands); its paint as before: at 0.5 the skin's orange stubble showed at the forehead)
-    if (lightCrop) { Object.assign(C.fuzz, { contrast: 0.5, lift: 0.84, base: 0.12, edge: [0.06, 0.82], ragged: 0.6 }); }
+    // (people12 r10: and its ears clear (core.mjs earClear: no shell alpha on them, no ear lift): its pale hairs veiled the ear)
+    if (lightCrop) { Object.assign(C.fuzz, { contrast: 0.5, lift: 0.84, base: 0.12, edge: [0.06, 0.82], ragged: 0.6, earClear: true }); }
     // (people7: a light crop's fleck quieter still (contrast 0.36, the dark hairs nearer the middle; its paint two fifths of the way to a warm skin, so the scalp reads through the white, not a white cap) and its hairline more
     // ragged; past its edge the skin's own painted stubble lifted to the neck's colour (core.mjs napeLift: the orange band))
     if (lightCrop) C.shaved.napeLift = 0.85; }
@@ -356,7 +357,7 @@ export function compile(S) {
       if (sil) { C.beard.root = silC[0]; C.beard.mid = mix(silC[0], silC[1], 0.5); C.beard.col = silC[1]; }
       // (people7: a dark full beard's area smoothed four times over the skin, not twice: its cheek and jaw borders stepped
       // along the face's triangles (the bald man's, at 60 and 300 degrees))
-      else { C.beard.feather = 7; C.shells.calmEdge = true; } } } // (people8 r6: 7, not 4: the bald man's cheek border still stepped)
+      else { C.beard.feather = 7; C.shells.calmEdge = true; C.beard.trim = { ...C.beard.trim, ear: 0.066, burn: 0.01 }; } } } // (people8 r6: 7, not 4: the bald man's cheek border still stepped) (people12 r10: its sideburn 4 mm further back and up to the ear's bottom: round 3's at 120 degrees)
   else if (GROOM && !globalThis.process?.env?.FORGE_SHELL_BEARDS) {
     C.beard = { style: GROOM, col: fc[2], mid: fc[1], root: fc[0], a: clamp(0.35 + 0.4 * dens, 0.3, 0.8), depth: GROOM === 'fullgrown' ? 0.0025 : 0.0012, grey: ['silver', 'white', 'grey', 'salt-and-pepper'].includes(FH.color) ? 0.5 : 0.15, len: 16, feather: 2 };
     C.cards = { groom: GROOM === 'fullgrown' ? 'full' : GROOM, grey: ['salt-and-pepper'].includes(FH.color) ? 0.35 : 0.1, seed: [...S.id].reduce((a, c) => a * 31 + c.charCodeAt(0), 7) >>> 0 };
