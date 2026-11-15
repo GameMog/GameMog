@@ -25,6 +25,7 @@ import { buildRaceCar } from './racecar.ts';
 import { buildHeightfield } from './heightfield.ts';
 import { buildSounds } from './sounds.ts';
 import { buildCreature, CREATURES } from './creature.ts';
+import { buildCommunitySkins, buildHairStrandCards, COMMUNITY_SKINS } from './community.ts';
 import { sha256, Packer, decodeImage } from './lib.ts';
 
 const LIVE = 'public/assets';
@@ -297,6 +298,30 @@ await human('human-athlete-female', 'female', 'Athlete (female)', {
   caucasian: 'young_caucasian_female/young_lightskinned_female_diffuse.png',
   asian: 'young_asian_female/young_lightskinned_female_diffuse3.png',
 }, ['short02', 'short04', 'afro01'], 'eyebrow010');
+
+/* ---------------- people4: the forge's older skins and its strand cards (community.ts) ---------------- */
+if (want('human-skins-community')) {
+  const skins = await buildCommunitySkins(join(OUT, 'human-skins-community'));
+  library['human-skins-community'] = {
+    kind: 'human-skins', title: 'Middle-aged and old skins (MakeHuman community)',
+    description: `${skins.length} more photo skins on MakeHuman's body uvs for the Character Forge's middle-aged and old people: ${Object.values(COMMUNITY_SKINS).map((s) => s.note).join('; ')}.`,
+    sources: ['makehuman-community-skins01', 'makehuman-community-skins02'],
+    derived: 'Resized to 2048 px; the African skin\'s black margins outside the body\'s islands filled with its own colour.',
+    meta: { skins }, files: {}, bytes: 0,
+  };
+  console.log(`human-skins-community: ${skins.length} skins`);
+}
+if (want('hair-strand-cards')) {
+  await buildHairStrandCards(join(OUT, 'hair-strand-cards'));
+  library['hair-strand-cards'] = {
+    kind: 'hair-cards', title: 'Hair strand cards',
+    description: 'A strip of hair strands for the Character Forge\'s beard and hair cards: 16 locks in 8 columns, each with its mask, root, tone variation and depth.',
+    sources: ['polytricity-hair-cards'],
+    derived: 'Ten of the atlas\'s eleven strips resampled into the forge\'s card strip (512 x 2048); the tool credit printed under the strips is not taken.',
+    files: {}, bytes: 0,
+  };
+  console.log('hair-strand-cards: 16 cells');
+}
 
 /* ---------------- party motion: a pack of clips a world adds to a human by listing it ---------------- */
 // human-moves-<gender> (AI Alps, the owner, 4 Oct): more clips only, retargeted by the same code as the human's own

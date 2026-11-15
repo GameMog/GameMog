@@ -3066,6 +3066,69 @@
         "Preview.ogg"
       ],
       "note": "License.txt in the zip: CC0 1.0. Kenney serves the zip only to a request from its page (the referer). Approved by the owner 10 Nov 2026."
+    },
+    "makehuman-community-skins01": {
+      "title": "MakeHuman community asset pack skins01 (old and middle-aged Eurasian woman)",
+      "author": "OnlyTheGhosts (MakeHuman community)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://static.makehumancommunity.org/assets/assetpacks/skins01.html",
+      "manual": {
+        "note": "The MakeHuman community's asset-pack site serves each pack as one zip from its page. Download the zip from the page and put it in assets-src/cache/<this source>/ under the name below, then run npm run assets:fetch, which checks it against sources.lock.json and unpacks the files the build uses.",
+        "zips": {
+          "skins01_cc0.zip": {
+            "page": "https://static.makehumancommunity.org/assets/assetpacks/skins01.html",
+            "entries": {
+              "skins/onlytheghosts_old_eurasian_female/old_eurasian_female_diffuse.png": "old_eurasian_female_diffuse.png",
+              "skins/onlytheghosts_middle_aged_eurasian_female/middleage_eurasian_female_diffuse.png": "middleage_eurasian_female_diffuse.png"
+            }
+          }
+        }
+      },
+      "note": "Each asset row on the pack page says CC0 (checked 14 Nov 2026). Approved by the owner 14 Nov 2026: only the old and middle-aged skins are used."
+    },
+    "makehuman-community-skins02": {
+      "title": "MakeHuman community asset pack skins02 (old and middle-aged men)",
+      "author": "OnlyTheGhosts, Mindfront and jartur69 (MakeHuman community)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://static.makehumancommunity.org/assets/assetpacks/skins02.html",
+      "manual": {
+        "note": "The MakeHuman community's asset-pack site serves each pack as one zip from its page. Download the zip from the page and put it in assets-src/cache/<this source>/ under the name below, then run npm run assets:fetch, which checks it against sources.lock.json and unpacks the files the build uses.",
+        "zips": {
+          "skins02_cc0.zip": {
+            "page": "https://static.makehumancommunity.org/assets/assetpacks/skins02.html",
+            "entries": {
+              "skins/onlytheghosts_old_eurasian_male/old_eurasian_male_diffuse.png": "old_eurasian_male_diffuse.png",
+              "skins/mindfront_skin_male_african_middleage/skin_male_african_middleage.png": "skin_male_african_middleage.png",
+              "skins/jartur69_old_slavic_male_with_genitals_and_beard/Jartur_old_Slavic_Male_with_Genitals_and_beard_lsdif.png": "Jartur_old_Slavic_Male_with_Genitals_and_beard_lsdif.png",
+              "skins/jartur69_middleage_slavic_male_with_genitals_and_beard/Jartur_mid_old_Slavic_Male_with_Genitals_and_Beard_lsdif_lighter.png": "Jartur_mid_old_Slavic_Male_with_Genitals_and_Beard_lsdif_lighter.png"
+            }
+          }
+        }
+      },
+      "note": "Each asset row on the pack page says CC0 (checked 14 Nov 2026). Approved by the owner 14 Nov 2026: only the old and middle-aged skins are used."
+    },
+    "polytricity-hair-cards": {
+      "title": "Hair Cards_FBX",
+      "author": "PolytricityLtd (Sketchfab)",
+      "license": "CC-BY-4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "homepage": "https://sketchfab.com/3d-models/hair-cards-fbx-ad1ac6f162ff43a3ae175982bf770c3e",
+      "manual": {
+        "note": "Sketchfab serves the download only to a signed-in visitor, through a link that expires. Download the model's source zip from its page while signed in, put it in assets-src/cache/polytricity-hair-cards/ under the name below, and run npm run assets:fetch, which checks it against sources.lock.json and unpacks the files the build uses.",
+        "zips": {
+          "hair-cards-fbx.zip": {
+            "page": "https://sketchfab.com/3d-models/hair-cards-fbx-ad1ac6f162ff43a3ae175982bf770c3e",
+            "entries": {
+              "textures/HSD_Skecthfab_Mask.png": "HSD_Skecthfab_Mask.png",
+              "textures/HSD_Skecthfab_RGBMask.png": "HSD_Skecthfab_RGBMask.png",
+              "textures/HSD_Skecthfab_Depth.png": "HSD_Skecthfab_Depth.png"
+            }
+          }
+        }
+      },
+      "note": "Sketchfab's licence field: CC Attribution (CC BY 4.0), checked through its API 14 Nov 2026. Credit: \"Hair Cards_FBX\" by PolytricityLtd, CC BY 4.0. Approved by the owner 14 Nov 2026."
     }
   }
 }

@@ -234,7 +234,12 @@ console.log('\nthe asset library: every file licensed, listed and unchanged');
   const lib = JSON.parse(readFileSync('public/assets/library.json', 'utf8'));
   // and Spiderbench's city textures, used with its author's written permission (the owner's go-ahead, 2 Oct 2026;
   // lib/runtime/maps/city/LICENSE): GameMog only, non-commercial
-  const ALLOWED = new Set(['CC0-1.0', 'LicenseRef-CMU-Mocap', 'LicenseRef-Spiderbench-Permission']);
+  // and Creative Commons Attribution (the owner, 14 Nov 2026: people4's skin, hair and cloth sources), allowed only with
+  // its credit: the source's title, author, licence and page, which the credits page (/library) lists for every asset
+  // built from it, and its line in THIRD-PARTY-NOTICES.md
+  const ALLOWED = new Set(['CC0-1.0', 'LicenseRef-CMU-Mocap', 'LicenseRef-Spiderbench-Permission', 'CC-BY-4.0', 'CC-BY-2.5']);
+  const notices = readFileSync('THIRD-PARTY-NOTICES.md', 'utf8');
+  const credited = (s: any) => !/^CC-BY-/.test(s.license) || (s.title && s.author && s.homepage && s.licenseUrl && notices.includes(s.homepage));
   const dirs = readdirSync('public/assets').filter((d) => statSync(`public/assets/${d}`).isDirectory());
   ok('every folder in public/assets is a listed asset', dirs.every((d) => lib.assets[d]), dirs.filter((d) => !lib.assets[d]).join(', '));
   for (const [id, a] of Object.entries<any>(lib.assets)) {
@@ -244,6 +249,7 @@ console.log('\nthe asset library: every file licensed, listed and unchanged');
     ok(`${id}: every file matches its SHA-256`, bad.length === 0, bad.join(', '));
     const lic = a.sources.map((s: string) => lib.sources[s]);
     ok(`${id}: built only from sources under an allowed licence`, lic.length > 0 && lic.every((s: any) => s && ALLOWED.has(s.license) && s.licenseUrl && s.author), a.sources.join(', '));
+    ok(`${id}: every attribution source credited (title, author, licence, page; THIRD-PARTY-NOTICES.md)`, lic.every((s: any) => s && credited(s)), a.sources.join(', '));
   }
 }
 

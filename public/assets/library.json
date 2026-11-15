@@ -821,6 +821,27 @@
       "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
       "homepage": "https://kenney.nl/assets/voiceover-pack-fighter"
     },
+    "makehuman-community-skins01": {
+      "title": "MakeHuman community asset pack skins01 (old and middle-aged Eurasian woman)",
+      "author": "OnlyTheGhosts (MakeHuman community)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://static.makehumancommunity.org/assets/assetpacks/skins01.html"
+    },
+    "makehuman-community-skins02": {
+      "title": "MakeHuman community asset pack skins02 (old and middle-aged men)",
+      "author": "OnlyTheGhosts, Mindfront and jartur69 (MakeHuman community)",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "homepage": "https://static.makehumancommunity.org/assets/assetpacks/skins02.html"
+    },
+    "polytricity-hair-cards": {
+      "title": "Hair Cards_FBX",
+      "author": "PolytricityLtd (Sketchfab)",
+      "license": "CC-BY-4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "homepage": "https://sketchfab.com/3d-models/hair-cards-fbx-ad1ac6f162ff43a3ae175982bf770c3e"
+    },
     "freesound-1563": {
       "title": "freesoundATcaixaforum, \"La audiencia disponible\" (Freesound pack 1563)",
       "author": "freesound (Freesound's own account; an audience of 300 recorded at CaixaForum Barcelona, 30 Aug 2006)",
@@ -7846,6 +7867,77 @@
         }
       },
       "bytes": 1176348
+    },
+    "human-skins-community": {
+      "kind": "human-skins",
+      "title": "Middle-aged and old skins (MakeHuman community)",
+      "description": "6 more photo skins on MakeHuman's body uvs for the Character Forge's middle-aged and old people: OnlyTheGhosts, old Eurasian female; OnlyTheGhosts, middle-aged Eurasian female; OnlyTheGhosts, old Eurasian male; Mindfront, middle-aged African male; jartur69, old Slavic male (painted beard); jartur69, middle-aged Slavic male (painted beard).",
+      "sources": [
+        "makehuman-community-skins01",
+        "makehuman-community-skins02"
+      ],
+      "derived": "Resized to 2048 px; the African skin's black margins outside the body's islands filled with its own colour.",
+      "meta": {
+        "skins": [
+          "eurasian-old-f",
+          "eurasian-middle-f",
+          "eurasian-old-m",
+          "african-middle-m",
+          "slavic-old-m",
+          "slavic-middle-m"
+        ]
+      },
+      "files": {
+        "asset.json": {
+          "sha256": "ed506cfb1d1ef84bc35f221b83cb27e4f501a68341e08581d0398ead6d6950fc",
+          "bytes": 708
+        },
+        "skin-african-middle-m.jpg": {
+          "sha256": "d213bac42eaebd5e40c02fa86e8b353f815972c421c3414c198f0b110c1d2587",
+          "bytes": 380834
+        },
+        "skin-eurasian-middle-f.jpg": {
+          "sha256": "d48bf272792905e05c0425706ce7f1696699beeef90bc49800c7a0e63a412a5d",
+          "bytes": 200978
+        },
+        "skin-eurasian-old-f.jpg": {
+          "sha256": "f9ac96a5ebad0fffe3cd0a404851ffc7cc5e4828871ba0e100ea4fc4d973704e",
+          "bytes": 289517
+        },
+        "skin-eurasian-old-m.jpg": {
+          "sha256": "e2f156e0d23ec23e19c8c472967e145f224ec3b2c7f59d85dca49b0b8fe4afa2",
+          "bytes": 320158
+        },
+        "skin-slavic-middle-m.jpg": {
+          "sha256": "53abc929c61bc2951e7e648c78d847016172da0a1099bf6dc0c8a3837bf8a719",
+          "bytes": 307870
+        },
+        "skin-slavic-old-m.jpg": {
+          "sha256": "6076aa8e12b45653d6d9a8d49fca52c11179bd34e2fbb5cc0405c70127a2db82",
+          "bytes": 332758
+        }
+      },
+      "bytes": 1832823
+    },
+    "hair-strand-cards": {
+      "kind": "hair-cards",
+      "title": "Hair strand cards",
+      "description": "A strip of hair strands for the Character Forge's beard and hair cards: 16 locks in 8 columns, each with its mask, root, tone variation and depth.",
+      "sources": [
+        "polytricity-hair-cards"
+      ],
+      "derived": "Ten of the atlas's eleven strips resampled into the forge's card strip (512 x 2048); the tool credit printed under the strips is not taken.",
+      "files": {
+        "asset.json": {
+          "sha256": "83a76f2810c178d6cafd487b58d8eeffd27751f791f32a3f54a72f3e047c8e8c",
+          "bytes": 203
+        },
+        "strands.png": {
+          "sha256": "42beca1400e48328485b760278ca4776769768b7c028b45c456ee57fccf3de9e",
+          "bytes": 2081063
+        }
+      },
+      "bytes": 2081266
     }
   }
 }

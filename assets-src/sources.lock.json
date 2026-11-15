@@ -3779,6 +3779,38 @@
     "sha256": "3df46f21309e15b6bbb3def1dc236e3201b27d5b8304ed403c5abe64ea3d858e",
     "bytes": 80401
   },
+  "makehuman-community-skins01/middleage_eurasian_female_diffuse.png": {
+    "sha256": "621d572153231348c5ff1248a72721109f5b4855215c895cb15d2991a22fff84",
+    "bytes": 3645237
+  },
+  "makehuman-community-skins01/old_eurasian_female_diffuse.png": {
+    "sha256": "ff3e6ceba012b6be73f168b01145aeb4925f7db45b4790ab71b33a28e7ce644b",
+    "bytes": 4129568
+  },
+  "makehuman-community-skins01/skins01_cc0.zip": {
+    "sha256": "7495ab99287053bd19ff1636114e64b608994d9f7437fea6cc75ea387f96dba9",
+    "bytes": 104227958
+  },
+  "makehuman-community-skins02/Jartur_mid_old_Slavic_Male_with_Genitals_and_Beard_lsdif_lighter.png": {
+    "sha256": "0f1a86d78af8bc1e55ae21cfaca0e7308384f789796adc77a78e4d22ccaf419c",
+    "bytes": 5615645
+  },
+  "makehuman-community-skins02/Jartur_old_Slavic_Male_with_Genitals_and_beard_lsdif.png": {
+    "sha256": "0369208a031e92a5476e0a477a54ce1bd1d9066608708975a0ab862053592a42",
+    "bytes": 5693011
+  },
+  "makehuman-community-skins02/old_eurasian_male_diffuse.png": {
+    "sha256": "923dee56ac9527886ab8b0498566bea15442a37ea4b4adaf88e40138ab38a0d4",
+    "bytes": 3955408
+  },
+  "makehuman-community-skins02/skin_male_african_middleage.png": {
+    "sha256": "5130c59aa53fa92044030c6b1c94d8627cddc4fc2512608cbe0bc4380f5198b9",
+    "bytes": 4139484
+  },
+  "makehuman-community-skins02/skins02_cc0.zip": {
+    "sha256": "1613f1ef3afca53094511d26620ed7cf1d2dedc29ed3d384d60bdebe250698ae",
+    "bytes": 76112708
+  },
   "makehuman-system/clothes/fedora01/fedora.mhmat": {
     "sha256": "8d51b0a5d6d6e813d2af195261ad0a53e99bf4a52f91987b74b32941308820c5",
     "bytes": 1394
@@ -6010,6 +6042,22 @@
   "polyhaven/sunset_jhbcentral_1k.hdr": {
     "sha256": "39a9c6b391e9bda935501eb5abbe200c38959f054902050ca198d82e9f20b65b",
     "bytes": 1573705
+  },
+  "polytricity-hair-cards/HSD_Skecthfab_Depth.png": {
+    "sha256": "b60bc8d8024900edce665265c085ed5a774f8c291c1c153a4685b4ac35960b93",
+    "bytes": 2021479
+  },
+  "polytricity-hair-cards/HSD_Skecthfab_Mask.png": {
+    "sha256": "9e55785041310f93436f09babf0a134cbb22acdad48b388ac49947f5a9181041",
+    "bytes": 2361809
+  },
+  "polytricity-hair-cards/HSD_Skecthfab_RGBMask.png": {
+    "sha256": "35bc902187c9b76103878e777512da2e9c80dd77f3d7ed6aa4ba383c4124cfc2",
+    "bytes": 5682665
+  },
+  "polytricity-hair-cards/hair-cards-fbx.zip": {
+    "sha256": "7b9d2d96f46227354fb6d80afa8c6f6e5a75eac3989cdd34b177892b31cdf32f",
+    "bytes": 28154125
   },
   "quaternius-ual/License.txt": {
     "sha256": "6d01f55c6e4c49a2c9963e147e561945ae2c83958c8ca667d90a6bffdbfac061",

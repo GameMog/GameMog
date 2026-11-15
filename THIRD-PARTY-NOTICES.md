@@ -80,6 +80,20 @@ blow-off are cut from CC0-1.0 recordings on Freesound by [Dominik_W](https://fre
 [richwise](https://freesound.org/s/478756/) (478756) and [EwanPenman11](https://freesound.org/s/659544/) (659544),
 from Freesound's previews, credited with thanks though CC0 does not require it.
 
+### People: older skins and hair strands (people4, 14 Nov 2026)
+
+The Character Forge's middle-aged and old skins (`human-skins-community`) are from the MakeHuman community's asset
+packs, each asset CC0 1.0 by its row on the pack page, credited with thanks though CC0 does not require it:
+OnlyTheGhosts' old and middle-aged Eurasian woman and old Eurasian man
+([skins01](https://static.makehumancommunity.org/assets/assetpacks/skins01.html),
+[skins02](https://static.makehumancommunity.org/assets/assetpacks/skins02.html)), Mindfront's middle-aged African man
+and jartur69's old and middle-aged Slavic man (skins02). Only these six skins are used.
+
+The forge's hair strand cards (`hair-strand-cards`, the file `strands.png`) are resampled from
+["Hair Cards_FBX"](https://sketchfab.com/3d-models/hair-cards-fbx-ad1ac6f162ff43a3ae175982bf770c3e) by PolytricityLtd,
+licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Changed: ten of its eleven strips' mask, root, tone
+and depth maps resampled into one 512 x 2048 strip; its other maps and its mesh are not used.
+
 ### Mog City episode key art (`lib/episode/art/`)
 
 - `BarlowCondensed-ExtraBold.ttf`: Barlow Condensed ExtraBold, Copyright 2017 The Barlow Project Authors
