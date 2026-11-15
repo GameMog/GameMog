@@ -1256,10 +1256,13 @@ async function paintFace(img) {
         const reg = sm(EY - lim, EY - lim + 0.015, py) * (1 - sm(EZ - 0.078, EZ - 0.062, pz) * (1 - sm(EY + 0.008, EY + 0.03, py)));
         if (reg <= 0.01) continue;
         let part = 1; if (CFG.sidePart) part = 1 - (1 - sm(0.0008, 0.0022, Math.abs(px - (CFG.sidePart.x ?? 0.026)))) * sm(EY + 0.04, EY + 0.06, py) * sm(EZ - 0.13, EZ - 0.1, pz);
-        // (each strand's own end: a fine strand's height moves where it stops by +-4 mm; the coarse clump's by +-2)
+        // (people2: the line a smooth fall of density, the strands only thinning the paint inside it. Each strand's end used
+        // to move the line itself by +-4 mm (+-2 for the clumps): where the strands run along the line, at the temples, that
+        // drew a row of teeth on the bare skin (the director's "saw-toothed hairline at the temples"); now the line's place
+        // is the line's, and a strand's height decides how much of the thin paint near it is hair)
         const P3 = [px, py, pz], st = strand3(P3, 0.009, 0.00045, 5), cl = strand3(P3, 0.014, 0.0016, 11);
-        const w = sm(-out, inn, sd + (st - 0.5) * 0.008 + (cl - 0.5) * 0.004) * reg;
-        const a = Math.pow(w, 1.4) * (0.7 + 0.3 * st) * part; if (a <= 0.01) continue;
+        const w = sm(-out, inn, sd) * reg, thin = 1 - w;
+        const a = Math.pow(w, 1.25) * (1 - thin * (0.8 - 0.8 * st)) * (0.88 + 0.12 * cl) * part; if (a <= 0.01) continue;
         // (each texel painted once, at the most any triangle gives it: the triangles overlap a little at their edges,
         // and painted twice there the mesh showed as a dark net)
         const t = y * S + x; if (a > SA[t]) { SA[t] = a; SS[t] = st; }
@@ -1954,7 +1957,7 @@ const HAIRTEX = (CFG.hairStrands && !HAIR_BODY && hairTX.length) ? await (async 
 })() : null;
 const M = {
   beard: shell ? mat('beard', { spec: HAIRSPEC, rough: shell.cards ? 0.8 : 0.72, alpha: shell.cards ? 0.45 : 0.5, ds: !!shell.cards, map: await tex('', await beardTex()) }) : null,
-  skin: mat('skin', { rough: CFG.skinRough ?? 0.55, map: await tex('', await guardSkin(await paintBrows(await paintShaved(CFG.beard?.style === 'stubble' ? await paintStubble(await paintMouthIn(await paintFace(skinImg))) : await paintBeard(await paintMouthIn(await paintFace(skinImg)))))), 'image/jpeg') }),
+  skin: ((m) => (CFG.scalp && hairTX.length ? m.setExtras({ scalpLine: 'graded' }) : m))(mat('skin', { rough: CFG.skinRough ?? 0.55, map: await tex('', await guardSkin(await paintBrows(await paintShaved(CFG.beard?.style === 'stubble' ? await paintStubble(await paintMouthIn(await paintFace(skinImg))) : await paintBeard(await paintMouthIn(await paintFace(skinImg)))))), 'image/jpeg') })),
   eyes: mat('eyes', { rough: 0.2, alpha: 0.5, map: await tex('', eyeImg) }),
   brows: mat('brows', { spec: HAIRSPEC, rough: 0.8, alpha: CFG.browAlpha ?? 0.4, ds: true, map: await tex('', await browHeads(await ramp(A + ATH + '/brows.png', CFG.browRamp))) }),
   lashes: mat('lashes', { rough: 0.8, alpha: 0.35, ds: true, map: await tex('', await rd(A + ATH + '/lashes.png')), color: [0.6, 0.58, 0.56] }),
@@ -2118,6 +2121,28 @@ CFG.wear.forEach(([name, , , , opt], wi) => { if (!opt?.bib || !wearT[wi].length
   wearL.push(tee, bib); wearML.push(wearM[wi], mb); wearSL.push(wearSm[wi], wearSm[wi]);
   console.error('overalls (RZ): the tee', tee.length / 3, 'triangles, the overalls painted on it', bib.length / 3); });
 const pack = build('pack', PKX, pPosX, HAIR_BODY ? [...wearL, shoeT] : [hairTX, ...wearL, shoeT], HAIR_BODY ? [...wearML, M.shoes] : [M.hair, ...wearML, M.shoes], HAIR_BODY ? [...wearL.map(() => false), false] : [true, ...wearL.map(() => false), false], null, HAIR_BODY ? [...wearSL, 0] : [0, ...wearSL, 0]);
+// (people2: the cards lit as one head of hair, not a heap of tilted cards (the director's "stiff crumpled-foil hair"):
+// each card's normal turned 72 % of the way to the hair's volume (a sphere round the skull, flattened a little side to
+// side, and a capsule down the back for a fall), a card seen from its back first turned outward; the strand relief at
+// half. The hair's material says so (extras.hairNormals), and Mog City's runner then leaves the normals as forged)
+if (!HAIR_BODY && M.hair) {
+  const hp = pack.node.getMesh().listPrimitives().find((p) => p.getMaterial() === M.hair);
+  if (hp) {
+    const aN = hp.getAttribute('NORMAL'), aP = hp.getAttribute('POSITION'), Nh = aN.getArray().slice(), Ph = aP.getArray(), HC = [0, EY + 0.02, EZ - 0.09], AB = [0, -0.32, -0.03], ab2 = AB[0] ** 2 + AB[1] ** 2 + AB[2] ** 2;
+    const seen = new Uint8Array(Ph.length / 3); let n = 0;
+    for (const v of hp.getIndices().getArray()) { if (seen[v]) continue; seen[v] = 1;
+      const p = [Ph[v * 3], Ph[v * 3 + 1], Ph[v * 3 + 2]], t = Math.min(1, Math.max(0, ((p[0] - HC[0]) * AB[0] + (p[1] - HC[1]) * AB[1] + (p[2] - HC[2]) * AB[2]) / ab2));
+      const vol = [(p[0] - HC[0] - AB[0] * t) * 1.15, p[1] - HC[1] - AB[1] * t, p[2] - HC[2] - AB[2] * t], vl = Math.hypot(...vol) || 1;
+      let nx = Nh[v * 3], ny = Nh[v * 3 + 1], nz = Nh[v * 3 + 2]; if (nx * vol[0] + ny * vol[1] + nz * vol[2] < 0) { nx = -nx; ny = -ny; nz = -nz; }
+      const q = [nx + (vol[0] / vl - nx) * 0.72, ny + (vol[1] / vl - ny) * 0.72, nz + (vol[2] / vl - nz) * 0.72], ql = Math.hypot(...q) || 1;
+      Nh[v * 3] = q[0] / ql; Nh[v * 3 + 1] = q[1] / ql; Nh[v * 3 + 2] = q[2] / ql; n++; }
+    // (in the pack's one list of normals: the hair's points are its own, no garment or shoe draws from them)
+    aN.setArray(Nh);
+    M.hair.setExtras({ ...(M.hair.getExtras() || {}), hairNormals: 'volume' });
+    if (M.hair.getNormalTexture()) M.hair.setNormalScale(0.5);
+    console.error('hair (people2): normals toward the volume', n, 'points');
+  }
+}
 
 /* ----------------------------------------------------- FORGE: made garments -- */
 // an extra skinned mesh: points in the bind space, uvs, B-skeleton joint indices + weights (4 per point), triangles;
