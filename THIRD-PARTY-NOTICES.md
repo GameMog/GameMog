@@ -94,6 +94,14 @@ The forge's hair strand cards (`hair-strand-cards`, the file `strands.png`) are 
 licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Changed: ten of its eleven strips' mask, root, tone
 and depth maps resampled into one 512 x 2048 strip; its other maps and its mesh are not used.
 
+### People: single-hair brows (people6, 14 Nov 2026)
+
+The Character Forge's brows (the forge kit's `brow-strands.json` and `brow-strands.bin.z`) are Mindfront's fourteen
+mesh eyebrows from the MakeHuman community's
+[eyebrows01](https://static.makehumancommunity.org/assets/assetpacks/eyebrows01.html) asset pack, CC0 1.0, credited
+with thanks though CC0 does not require it. Changed: each hair kept as its rings' middles with MakeHuman's proxy fit
+(three base-mesh points, their weights and an offset), and drawn again by the forge to its own width and taper.
+
 ### Mog City episode key art (`lib/episode/art/`)
 
 - `BarlowCondensed-ExtraBold.ttf`: Barlow Condensed ExtraBold, Copyright 2017 The Barlow Project Authors

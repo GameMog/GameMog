@@ -27,6 +27,9 @@ The GameMog Story Kit: the creator's side of a story world (forge, voices, the s
   templates from GameMog's Mog City (its own cast, Gears and Fiona) with their bodies and textures removed: only the
   66 joints, the binds, the mouth's inside and a cap are left. `clips-src.glb` is Dan's skeleton and his idle clip (see
   the motion below).
+  `brow-strands.*` holds Mindfront's fourteen mesh eyebrows from the MakeHuman community's eyebrows01 asset pack
+  (https://static.makehumancommunity.org/assets/assetpacks/eyebrows01.html, CC0 1.0), each hair kept as its rings'
+  middles with MakeHuman's proxy fit; the forge draws each hair again on every face (`scripts/forge/browkit.mjs`).
 - **Their motion** (`cast/cast-clips.glb`): Dan's clips as shipped in GameMog's Mog City, retargeted to the cast's
   66-bone rig. They include Bandai Namco motion data under CC BY-NC: free GameMog only, never sold.
 - **Mog City's shipped cast** (`cast/mogcity/`, the cast registry `cast/registry.json`): Dan, Jane, Mr. Big, Gears,
