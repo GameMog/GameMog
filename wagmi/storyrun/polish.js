@@ -59,7 +59,9 @@ export const polishReady = () => Promise.all(pending);
 
 export const POLISH = {
   // KK: [primary exponent, primary strength, secondary exponent, secondary strength (x the hair's colour), shift]
-  hair: { volume: 0.72, mottle: 0.3, crisp: 0.3, kk: [140, 0.03, 30, 0.14, 0.1], strand: 0.8, wrap: 0.3, rough: 0.78, spec: 0.25, soft: 0.2, cut: 0.5 },
+  hair: { volume: 0.72, mottle: 0.3, crisp: 0.3, kk: [140, 0.03, 30, 0.14, 0.1], strand: 0.8, wrap: 0.3, rough: 0.78, spec: 0.25, soft: 0.2, cut: 0.5,
+    // (people7: a light head of hair's: mottle, crisp, the sky's specular, the strands in the sheen, the sheen itself)
+    light: { mottle: 0.6, crisp: -0.35, spec: 0.5, strand: 0.25, kk: 0.45 } },
   skin: {
     gain: 0.88, sat: 1.08, warm: [1.025, 0.99, 0.975], dark: 0.03, sheen: [0.06, 0.035, 0.025], sheenRough: 0.75,
     // the hairline: the blur's mip level and reach (texels of a 2048 map), the band's coverage window, the line's place
@@ -205,8 +207,11 @@ function softCard(m, msaa, strands) {
   const tex = texture(m.map), a = tex.a, tint = uniform(m.color ? m.color.clone() : new THREE.Color(1, 1, 1));
   // (the colour: the source's broad mottle (its own painted light and shade, the foil's crumple: patches a few
   // centimetres across) taken down, the single strands over it kept a little crisper)
+  // (people7: a light head of hair (the forge's hairTone 'light': grey, silver, blond) calmer: more of its mottle taken
+  // down, its strands softer against each other, less sheen: the grandmother's silver read as crumpled foil)
+  const light = isHair && m.userData?.hairTone === 'light', L7 = POLISH.hair.light;
   let rgb = tex.rgb;
-  if (isHair && H.mottle > 0) { const m2 = texture(m.map).level(2).rgb, m5 = texture(m.map).level(5).rgb; rgb = m5.add(m2.sub(m5).mul(1 - H.mottle)).add(tex.rgb.sub(m2).mul(1 + H.crisp)).max(0); }
+  if (isHair && H.mottle > 0) { const m2 = texture(m.map).level(2).rgb, m5 = texture(m.map).level(5).rgb; rgb = m5.add(m2.sub(m5).mul(1 - (light ? L7.mottle : H.mottle))).add(tex.rgb.sub(m2).mul(1 + (light ? L7.crisp : H.crisp))).max(0); }
   rgb = rgb.mul(tint);
   if (msaa) {
     n.alphaToCoverage = true; n.alphaTest = 0;
@@ -220,13 +225,14 @@ function softCard(m, msaa, strands) {
   } else { n.colorNode = vec4(rgb, a); n.alphaTest = cut; }
   // (its shadow cut as before)
   n.maskShadowNode = a.greaterThan(cut);
-  if (isHair) { n.roughness = Math.max(m.roughness ?? 0.6, H.rough); n.specularIntensity = (m.specularIntensity ?? 1) * H.spec; }
+  if (isHair) { n.roughness = Math.max(m.roughness ?? 0.6, H.rough); n.specularIntensity = (m.specularIntensity ?? 1) * H.spec * (light ? L7.spec : 1); }
   else if (m.specularIntensity != null) n.specularIntensity = m.specularIntensity * 0.7;
   if (strands) {
     n.side = THREE.DoubleSide; n.normalNode = normalViewGeometry;
     // (the strands in the sheen: a strand lighter than the hair round it catches more of it)
     const lum = (c) => dot(c, vec3(0.2126, 0.7152, 0.0722));
-    n.strandNode = lum(tex.rgb).add(0.004).div(lum(texture(m.map).level(4).rgb).add(0.004)).clamp(0.3, 2).sub(1).mul(H.strand).add(1).max(0);
+    n.strandNode = lum(tex.rgb).add(0.004).div(lum(texture(m.map).level(4).rgb).add(0.004)).clamp(0.3, 2).sub(1).mul(light ? L7.strand : H.strand).add(1).max(0);
+    if (light) n.kkScale = L7.kk;
   }
   else if (m.normalMap) { n.normalMap = m.normalMap; n.normalScale = m.normalScale.clone().multiplyScalar(0.35); }
   return n;
@@ -246,13 +252,13 @@ class HairLighting extends THREE.PhysicalLightingModel {
     // (no sheen on the side away from the light, nor from a light behind (a rim's light through the hair is not a sheen
     // over its top: it greyed a dark head in a set's close shot); none where the strands face away from the eye)
     const lit = smoothstep(0.0, 0.45, ndl).mul(smoothstep(-0.2, 0.25, N.dot(V))).mul(smoothstep(-0.6, 0.0, L.dot(V)));
-    const spec = vec3(band(t1, p1).mul(s1)).add(band(t2, p2).mul(s2).mul(diffuseContribution.mul(2.2).min(1)));
+    const spec = vec3(band(t1, p1).mul(s1)).add(band(t2, p2).mul(s2).mul(diffuseContribution.mul(2.2).min(1))).mul(builder.material.kkScale ?? 1);
     reflectedLight.directSpecular.addAssign(spec.mul(lit).mul(st).mul(lightColor));
   }
 }
 class HairMaterial extends THREE.MeshPhysicalNodeMaterial {
   static get type() { return 'HairMaterial'; }
-  constructor(p) { super(p); this.strandNode = null; }
+  constructor(p) { super(p); this.strandNode = null; this.kkScale = 1; }
   setupLightingModel() { return new HairLighting(); }
 }
 
