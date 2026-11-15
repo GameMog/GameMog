@@ -608,6 +608,10 @@ function mendCoat(inner) {
 function r8Card(m, msaa) {
   const n = m.clone();
   if (msaa) n.alphaToCoverage = true;
+  // (people5: a crop forged as a soft shell (extras.coverage 'soft': every texel some alpha, 0.3 between the hairs) drawn
+  // by its coverage alone under the MSAA, its cut down to 0.12: under the forge's 0.42 cut only single texels passed, the
+  // veteran's blue-white specks)
+  if (msaa && m.name === 'hairShell' && m.userData?.coverage === 'soft') n.alphaTest = 0.12;
   if (n.normalMap && n.normalScale) n.normalScale.multiplyScalar(0.35);
   if (m.name === 'hair' || m.name === 'hairShell') n.roughness = Math.max(n.roughness, 0.74);
   if (n.specularIntensity != null) n.specularIntensity *= 0.55;
