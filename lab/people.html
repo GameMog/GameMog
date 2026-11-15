@@ -96,7 +96,8 @@ async function column(src0, i) {
   if (clip && (cq.get('clip') || q.get('clip')) !== 'bind') mixer.clipAction(clip).play();
   let face = null;
   if (path !== 'dan') try { face = createFace(W, { speaker: 'x' + i, inner, bones, head: true, open: 0.45, auto: false }); } catch (e) { console.warn('face', e); }
-  root.rotation.y = turn; scene.add(root);
+  // (a body's own spin=<degrees>: it turns, the lens stays: a turntable's frames side by side)
+  root.rotation.y = turn + (+cq.get('spin') || 0) * Math.PI / 180; scene.add(root);
   if (freeze != null) mixer.setTime(+freeze); else mixer.update(0.5);
   root.updateMatrixWorld(true);
   if (face && (cq.get('talk') || q.get('talk'))) face.jaw(+(cq.get('talk') || q.get('talk')));
