@@ -289,6 +289,21 @@ Voices (assets/voice)
     are meant to be replaced by recordings or synthesised voices like the others'. assets/voice/manifest.json records each line's source;
     docs/VOICE-LINES.md is the line sheet and says how to drop new voices in.
 
+People: skin and cloth detail (assets/people/detail)
+---------------------------------------------------
+  The story runner's finish for its people (wagmi/storyrun/polish.js) draws these tiles:
+  - skin-wrinkles-*.jpg: Einar Rig (CC-BY) Blender Foundation | studio.blender.org
+    (https://studio.blender.org/characters/einar/), Creative Commons Attribution 4.0 International (CC BY 4.0,
+    https://creativecommons.org/licenses/by/4.0/). Changed: the detail layer of his face's displacement high-passed,
+    one half mirrored, warped onto MakeHuman's face uvs and made a normal map.
+  - skin-pores-*.jpg: "Human Materials 1" by britdawgmasterfunk
+    (https://sketchfab.com/3d-models/human-materials-1-cc0-be48a7526b304914b7c9f45c289b2ecf), CC BY 4.0 (the licence
+    Sketchfab lists for it). Changed: its pore normal and roughness maps resized and packed into one image.
+  These adapted files are shared under CC BY 4.0 and are NOT covered by the MIT License in LICENSE.
+  - fabric-*.jpg: Poly Haven's poly_wool_herringbone, caban, stretch_poplin, cotton_jersey, knitted_fleece and
+    denim_fabric_05 (colormass, Rico Cilliers) and leather_white (Rob Tuytel), https://polyhaven.com, and ambientCG's
+    Fabric030 (Lennart Demes), https://ambientcg.com; CC0 1.0, credited with thanks.
+
 Town cars (assets/vehicles/fleet)
 --------------------------------
   A Hometown town's cars, vans, trucks and buses (its traffic, its parked cars, the car a player takes, a town's own
