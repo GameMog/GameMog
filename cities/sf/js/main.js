@@ -370,10 +370,13 @@ async function initApp() {
     helicopter: [[['LS'], 'Pitch & Yaw'], [['RT', 'LT'], 'Ascend / Descend'], [['X'], 'Boost'], [['RS'], 'Look']]
   };
   let hintPad = false;
-  // Boosted top speeds in mph: full scale of the speed meter (Mog City: Dan's car has a dial of its own, carDial)
+  // Boosted top speeds in mph: full scale of the speed meter (Mog City: Dan's car has a dial of its own, carDial; any
+  // other car, a story's sheet, a town fleet's model, a picked car, the horse, its real mph, full at its own top, carTopMph)
   const topSpeedMph = { person: 18, car: 176, cyclist: 43, helicopter: 116 };
+  const carTopMph = (c) => (c.dial === 'dan' ? 176 : Math.max(1, (c.noBoost ? c.topSpeed : c.boostSpeed ?? c.topSpeed) ?? 56) * 2.237);
   // (Mog City, as js/main.js: Dan's car's dial peaks at 176 and never shows a frozen number: double its real mph up to the
-  // cruise (34 m/s: 152), the boost's over the last 24 (56 m/s: 176); held at either top it wanders the 3 under it)
+  // cruise (34 m/s: 152), the boost's over the last 24 (56 m/s: 176); held at either top it wanders the 3 under it. Only
+  // Dan's car, wagmi/game.js car.dial 'dan': a picked pickup on that scale read 149 at its 26.5 m/s, 59 mph)
   let dialLast = -1;
   function carDial(c, boosting) {
     const v = Math.abs(c.speed), v1 = c.topSpeed ?? 34, v2 = c.boostSpeed ?? 56;
@@ -1117,7 +1120,7 @@ async function initApp() {
 
       const activeEnt = controllerManager.getActiveEntity();
       const mode = controllerManager.activeMode;
-      const mph = mode === 'car' ? carDial(activeEnt, controllerManager.keys.boost) : Math.round(Math.abs(activeEnt.speed) * 2.237);
+      const mph = mode === 'car' && activeEnt.dial === 'dan' ? carDial(activeEnt, controllerManager.keys.boost) : Math.round(Math.abs(activeEnt.speed) * 2.237);
       const altFt = Math.max(0, Math.round(activeEnt.position.y * 3.281));
 
       if (elFps) {
@@ -1125,7 +1128,7 @@ async function initApp() {
         elFps.className = currentFps >= 50 ? 'fps-ok' : currentFps >= 30 ? 'fps-warn' : 'fps-bad';
       }
       if (elSpeed) elSpeed.textContent = String(mph);
-      if (elSpeedMeter) elSpeedMeter.style.transform = `scaleX(${Math.min(1, mph / (topSpeedMph[mode] || 80))})`;
+      if (elSpeedMeter) elSpeedMeter.style.transform = `scaleX(${Math.min(1, mph / ((mode === 'car' ? carTopMph(activeEnt) : topSpeedMph[mode]) || 80))})`;
       if (mode === 'car' && !!activeEnt.noBoost !== hintNoBoost) renderControlHints(mode);
       document.body.classList.toggle('is-boosting', controllerManager.keys.boost && mph > 0 && !(mode === 'car' && activeEnt.noBoost));
       if (elAltitude) elAltitude.textContent = altFt.toLocaleString('en-US');
