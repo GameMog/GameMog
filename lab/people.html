@@ -30,14 +30,18 @@
 //   ?view=face|close|mid|full   ?light=day|golden|night|street   ?clip=<name>  ?t=<seconds> (a frozen frame)
 //   ?talk=0.6 (the jaw held that open)   ?turn=<degrees> (every body turned)   ?draws=<n> (each drawn n times a frame)
 //   ?lens=<distance>,<height over the eyes>,<fov> (the lens itself; view=neck: the collar)   ?tm=0 (no tone mapping)
-//   ?polish=r8 (a '!' body with r8's finish: the round before people2)
+//   ?polish=r8 (a '!' body with r8's finish: the round before people2)   ?detail=0 (a '!' body without people4's scanned
+//   pores, wrinkles and weave)
+//   ?aa=0 (the low tier: no MSAA, the cards cut by their alpha test)   ?brow=<0..1> (every face's brows held raised that far: its brow morph, the forged brow hairs with it; people7)
+//   ?blink=<0..1> (every face's lids held there, its live blinks off: without ?t= a face blinks every 2-6 s, and a shot
+//   taken mid-blink reads as a fault in the lids; people5's nurse)
 //   a body's own switches after a '~', ';' between them: x.glb!~clip=talk;hide=^suit;at=hair:0.6;flat=hair;wire=clothes
 import * as THREE from 'three/webgpu';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
 import { loadGLB } from '../wagmi/glb.js';
 import { createFace } from '../wagmi/face.js';
-import { polishBody, POLISH } from '../wagmi/storyrun/polish.js';
+import { polishBody, polishReady, POLISH } from '../wagmi/storyrun/polish.js';
 
 const q = new URLSearchParams(location.search);
 const list = (q.get('a') || 'dan').split(',').filter(Boolean), view = q.get('view') || 'close', mood = q.get('light') || 'day';
@@ -48,7 +52,9 @@ const only = q.get('only') ? Object.fromEntries(['hair', 'skin'].map((k) => [k, 
 const DRAWS = Math.max(1, +q.get('draws') || 1);
 const freeze = q.get('t'), turn = (+q.get('turn') || 0) * Math.PI / 180;
 const W = { app: null, faces: new Set(), paused: false };
-const renderer = new THREE.WebGPURenderer({ antialias: true });
+// (people7: ?aa=0, the low tier: no MSAA, so the cut-out cards' alpha test (polish.js softCard without alpha to coverage))
+const NOAA = q.get('aa') === '0'; if (NOAA) window.NYC = { ...(window.NYC || {}), quality: { ...(window.NYC?.quality || {}), antialias: false } };
+const renderer = new THREE.WebGPURenderer({ antialias: !NOAA });
 renderer.setPixelRatio(1); renderer.setSize(innerWidth, innerHeight);
 renderer.toneMapping = q.get('tm') === '0' ? THREE.NoToneMapping : THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0; renderer.shadowMap.enabled = true; 
 renderer.setScissorTest(true);
@@ -95,10 +101,13 @@ async function column(src0, i) {
   if (clip && (cq.get('clip') || q.get('clip')) !== 'bind') mixer.clipAction(clip).play();
   let face = null;
   if (path !== 'dan') try { face = createFace(W, { speaker: 'x' + i, inner, bones, head: true, open: 0.45, auto: false }); } catch (e) { console.warn('face', e); }
-  root.rotation.y = turn; scene.add(root);
+  // (a body's own spin=<degrees>: it turns, the lens stays: a turntable's frames side by side)
+  root.rotation.y = turn + (+cq.get('spin') || 0) * Math.PI / 180; scene.add(root);
   if (freeze != null) mixer.setTime(+freeze); else mixer.update(0.5);
   root.updateMatrixWorld(true);
   if (face && (cq.get('talk') || q.get('talk'))) face.jaw(+(cq.get('talk') || q.get('talk')));
+  const blink = cq.get('blink') ?? q.get('blink'); if (face && blink != null) face.set({ blink: +blink });
+  const brow = cq.get('brow') ?? q.get('brow'); if (face && brow != null) face.set({ brow: +brow });
   const cam = new THREE.PerspectiveCamera(LENS[2], 1, 0.05, 100);
   const key = new THREE.SpotLight(night ? '#FFD2A0' : golden ? '#FFE0B8' : '#FFF2E2', 0, 4.5, 0.42, 0.95, 2);
   key.castShadow = true; key.shadow.mapSize.set(1024, 1024); key.shadow.bias = -0.0006; key.shadow.normalBias = 0.015; key.shadow.radius = 6; key.shadow.camera.near = 0.2; key.shadow.camera.far = 7;
@@ -119,18 +128,21 @@ async function column(src0, i) {
   };
   place();
   let tris = 0; inner.traverse((o) => { if (o.isMesh && o.visible) tris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; });
-  return { src: src0, scene, cam, mixer, face, place, tris };
+  return { src: src0, scene, cam, mixer, face, place, tris, held: blink != null };
 }
 const cols = await Promise.all(list.map(column));
+await polishReady();
 document.getElementById('lab').innerHTML = cols.map((c) => `<div>${c.src.split('/').pop()}</div>`).join('');
-window.__info = { cols: cols.map((c) => ({ src: c.src, tris: Math.round(c.tris) })), polish: window.__polish };
+// (the weave each garment took: its fabric and the tile's repeat over its uvs)
+const weaves = (c) => { const w = new Set(); c.scene.traverse((o) => { const u = o.isMesh && o.material?.userData; if (u?.fabric) w.add(`${u.garment || o.material.name}:${u.fabric}x${u.weaveRepeat}`); }); return [...w]; };
+window.__info = { cols: cols.map((c) => ({ src: c.src, tris: Math.round(c.tris), weave: weaves(c) })), polish: window.__polish };
 let last = performance.now(), frames = 0, t0 = 0;
 const ft = [];
 renderer.setAnimationLoop(() => {
   const now = performance.now(), dt = Math.min(0.05, (now - last) / 1000); ft.push(now - last); if (ft.length > 240) ft.shift(); last = now;
   const w = innerWidth / cols.length, h = innerHeight;
   cols.forEach((c, i) => {
-    if (freeze == null) { c.mixer.update(dt); c.face?.tick?.(dt); }
+    if (freeze == null) { c.mixer.update(dt); if (!c.held) c.face?.tick?.(dt); }
     c.cam.aspect = w / h; c.cam.updateProjectionMatrix(); if (freeze == null && view !== 'full') c.place();
     renderer.setViewport(i * w, 0, w, h); renderer.setScissor(i * w, 0, w, h);
     for (let k = 0; k < DRAWS; k++) renderer.render(c.scene, c.cam);

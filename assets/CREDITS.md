@@ -70,6 +70,23 @@ GameMog's CC0 MakeHuman people pack; Mr. Big's glasses, cigar and study are made
 [CMU Graphics Lab Motion Capture Database](http://mocap.cs.cmu.edu) (free for all uses; the data itself may not be
 resold; created with funding from NSF EIA-0196217). Dan's freeflow fight moves are Spiderbench's (see below).
 
+### The story runner's people: skin and cloth detail (`assets/people/detail/`)
+
+A story's forged people are finished at load (`wagmi/storyrun/polish.js`) with shared detail tiles made from these:
+
+| File | What | Credit | Source | Licence |
+|---|---|---|---|---|
+| `skin-wrinkles-1024.jpg`, `skin-wrinkles-512.jpg` | the face's wrinkles by age, on MakeHuman's face uvs | Einar Rig (CC-BY) Blender Foundation \| studio.blender.org | [Einar](https://studio.blender.org/characters/einar/) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
+| `skin-pores-512.jpg`, `skin-pores-256.jpg` | the skin's pores | "Human Materials 1" by britdawgmasterfunk | [Sketchfab](https://sketchfab.com/3d-models/human-materials-1-cc0-be48a7526b304914b7c9f45c289b2ecf) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) (Sketchfab's licence field; its description says CC0) |
+| `fabric-wool-*`, `fabric-coat-*`, `fabric-poplin-*`, `fabric-jersey-*`, `fabric-fleece-*`, `fabric-denim-*`, `fabric-leather-*` | the clothes' weave | Poly Haven: poly_wool_herringbone, caban, stretch_poplin, cotton_jersey, knitted_fleece, denim_fabric_05 (colormass, Rico Cilliers); leather_white (Rob Tuytel) | [Poly Haven](https://polyhaven.com/textures/fabric) | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
+| `fabric-plain-*` | a plain-woven cloth's weave | ambientCG Fabric030 (Lennart Demes) | [ambientCG](https://ambientcg.com/view?id=Fabric030) | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
+
+Changed: Einar's sculpted face detail (his displacement's detail layer) high-passed, his unscarred half mirrored, and
+warped onto MakeHuman's face uvs by hand-matched landmarks (eyes, brows, nose, mouth, chin, temples), then made a
+normal map; the pore and cloth scans' normal and roughness maps cropped to tiles (made seamless) and packed into one
+image each (RG the normal, B the roughness). The CC BY files are shared under the same licence and are NOT covered by
+the MIT License in LICENSE.
+
 ## Engine sounds
 
 Dan's car (`assets/sfx/engine/v8-*.m4a`): loops cut at five engine speeds from a V8 sports car's exhaust recording by
