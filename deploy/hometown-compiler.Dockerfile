@@ -30,7 +30,7 @@ ARG PY_IMAGE=python:3.14.6-slim-bookworm@sha256:4c92ffcde4dd6f1ff72a24518f49fd49
 # ---- the compiler at one commit (git only in this stage)
 FROM ${PY_IMAGE} AS compiler
 # THE ONE LINE to re-pin the compiler (a 40-hex commit of github.com/GameMog/GameMog that carries tools/hometown):
-ARG MOGCITY_SHA=70f1393a8fba9e824fbbae601faff580906655b7
+ARG MOGCITY_SHA=e8c98e6766acbd35c993ca1f0b9a3cc2cbc3aa3a
 # hadolint ignore=DL3008
 RUN apt-get update \
  && apt-get install -y --no-install-recommends git ca-certificates \
@@ -44,7 +44,7 @@ RUN git init /opt/mogcity \
 
 # ---- the worker
 FROM ${PY_IMAGE}
-ARG MOGCITY_SHA=70f1393a8fba9e824fbbae601faff580906655b7
+ARG MOGCITY_SHA=e8c98e6766acbd35c993ca1f0b9a3cc2cbc3aa3a
 ENV PYTHONHASHSEED=0 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \

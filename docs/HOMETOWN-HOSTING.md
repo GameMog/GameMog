@@ -264,7 +264,7 @@ nothing and ends; empty or `0` builds). Optional: `HOMETOWN_RUN_CAP_S` (7200), `
 
 Workflows build on the native runtime only (`runtime: python`; no Dockerfile). The buildCommand installs the Render SDK
 (`workflow-requirements.txt`) and runs `workflow-build.sh`, which writes `.town-builder/`:
-- **the compiler at `MOGCITY_SHA`** (THE one line to re-pin; now `70f1393a8fba9e824fbbae601faff580906655b7`, compiler
+- **the compiler at `MOGCITY_SHA`** (THE one line to re-pin; now `e8c98e6766acbd35c993ca1f0b9a3cc2cbc3aa3a`, compiler
   0.12.0), fetched by SHA from github.com/GameMog/GameMog; when a SHA alone cannot be fetched, the branch
   `HOMETOWN_MOGCITY_REF` (default `hometown-compiler`) and then the SHA inside it;
 - its packages from the compiler's own hash lock (`--require-hashes`, wheels only) in their own venv;
@@ -378,16 +378,18 @@ Live before it: gamemog.com `main` 4cf761c7, mc.gamemog.com `mogcity` 5b45e939 (
 `875cf960d14669d919395b4b06205fd08e1991e5`), `hometown-compiler` 875cf960. r10 adds: pier signs, labels and piers 86
 and 81 that name no real operator; the creator-picked hero car (`fleetCar`, Create's optional Car dropdown) as the town
 fleet's realistic model, keeping the story's abilities; the town's map-data credit on the loading screen, the title,
-the pause menu and Credits (and on the game page and the library), no longer over play. `tools/hometown` is unchanged
+the pause menu and Credits (and on the game page and the library), no longer over play; no driving hitch every 1-2 s
+in big towns (a terrain rebuild looks only at the tunnels near a point and reads each height once; meshes unchanged),
+with the city scripts' cache stamp `20261114-r10`. `tools/hometown` is unchanged
 since r8, so the compiler stays 0.12.0 and the buildId does not change; the pin moves to the r10 tip only to keep
 `MOGCITY_SHA` on the branch's tip.
 
 In this order:
 
-1. **Mog City's engine**: push the local MogCity branch `mogcity-release-r10` (parent `5b45e939` = the live `mogcity`,
-   a fast-forward; the tree of MogCity `r10-misc` `70f1393a8fba9e824fbbae601faff580906655b7` without `.scratch`, the
+1. **Mog City's engine**: push the local MogCity branch `mogcity-release-r10s` (parent `5b45e939` = the live `mogcity`,
+   a fast-forward; the tree of MogCity `r10s` `e8c98e6766acbd35c993ca1f0b9a3cc2cbc3aa3a` without `.scratch`, the
    live README and `CNAME` kept; no live file deleted) to `mogcity`.
-2. **The compiler commit**: push MogCity `r10-misc` (tip `70f1393a8fba9e824fbbae601faff580906655b7`) to
+2. **The compiler commit**: push MogCity `r10s` (tip `e8c98e6766acbd35c993ca1f0b9a3cc2cbc3aa3a`) to
    `hometown-compiler` BEFORE `main` (it descends from the live 875cf960, a fast-forward).
 3. **Nothing building** on Render, then push GameMog `r10-misc` to `main` (a fast-forward of 4cf761c7). The pin changed
    under `deploy/town-builder/**`, so the workflow rebuilds, at the same compiler 0.12.0.
