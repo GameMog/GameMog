@@ -142,10 +142,12 @@ export type HometownPass = { problems: string[]; meta?: StorykitMeta; pack: Pack
  * One builder pass in a town, checked: what the build loop would send back (problems) or keep (pack). The real-name
  * check the build loop runs after this (a model call, lib/storykit-build.ts checkNames) is not run here.
  */
-export function checkHometownReply(text: string, o: { pkg: CityPackage; id: string; parent?: PackV2 | null; hero?: StoryHero | null }): HometownPass {
+export function checkHometownReply(text: string, o: { pkg: CityPackage; id: string; parent?: PackV2 | null; hero?: StoryHero | null; car?: string | null }): HometownPass {
   const { meta, pack: raw, problems } = parseStorykitReply(text);
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { problems: raw ? [...problems, 'The story pack is not a JSON object.'] : problems, meta, pack: null, gated: null };
   problems.push(...hometownFields(raw, o.id, o.pkg, o.parent));
+  // (a Create's hero car: the creator's pick on the Car dropdown, or none, the story's own; gate rule 17 holds the ride to it)
+  if (!o.parent) { if (o.car) raw.heroCar = o.car; else delete raw.heroCar; }
   const gated = gateHometown(raw, o.pkg, { parent: o.parent ?? null, meta });
   problems.push(...gated.problems);
   // the builder's own rules on a Create (6 to 9 missions, the opening, Mission 1's payoff, no em dash ...); a Mog's are

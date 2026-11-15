@@ -56,6 +56,9 @@ export const STOCK_CARS = ['trailhand', 'vandal', 'roadster', 'gt'];
 // stock cars only GameMog's own showcase worlds drive (gate.ts rule 15): gt, Mog City's Vantor GT (wagmi/storyrun/gt.js: a black
 // rear-engined coupe with the roadster's handling and boost), which the runner gets as car { model: 'mogcity/gt' }
 export const SHOWCASE_CARS = ['gt'];
+// the player's car as the creator picked it on Create (hero-cars.mjs: no imports, so /create's page can read it too)
+export { HERO_CARS, HERO_CAR_IDS } from './hero-cars.mjs';
+import { HERO_CAR_IDS } from './hero-cars.mjs';
 export const STEP_KINDS = ['drive', 'stops', 'walk', 'pursuit', 'timer', 'call', 'voicemail', 'voicenote', 'choice', 'cutscene',
   'place', 'set', 'say', 'wait', 'goto', 'end', 'label', 'transition', 'vignette', 'wallet', 'actEnd', 'comfort', 'tail',
   'stealth', 'patrol', 'convoy', 'trigger', 'beat', 'roadblock', 'passenger', 'npc', 'fight', 'dm', 'search', 'scene', 'tow', 'ally', 'car'];
@@ -368,6 +371,7 @@ export const SCHEMA = {
     cine: O({ action: { ...B, description: "the action layer: chase cameras, speed lines, near misses held in slow motion, crash beats, title slams. On by itself in a hometown story" } }),
     opening,
     ride: { ...R('rideId'), description: 'the free-drive ride (a vehicle id); the first vehicle when left out' },
+    heroCar: E(HERO_CAR_IDS, { description: "the player's car as the creator picked it on Create (left out: the story's own). The hero's ride (ride, or the first vehicle) is then a vehicle sheet of that kind of car (gate.ts), and in a hometown Mog City draws it as the town fleet's realistic model of that name" }),
     hud: O({
       clock: O({ label: S(12), format: E(['count', 'age', 'text']), unit: S(12, { pattern: '^[a-z]{1,12}$' }), unitLabel: S(12), zero: S(24) }),
       meters: A(O({ id: R('slug'), label: S(12), kind: E(['money', 'count', 'pips', 'bar', 'hidden'], { description: 'count: a plain number that only adds up (supporters), money without the dollars or the choices' }), start: N(-1e6, 1e6), min: N(-1e6, 1e6), max: N(-1e6, 1e6), pips: I(1, 10), cool: N(0, 100), heat: B, prefix: S(2),

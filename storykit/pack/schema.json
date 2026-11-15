@@ -881,6 +881,25 @@
    "$ref": "#/$defs/rideId",
    "description": "the free-drive ride (a vehicle id); the first vehicle when left out"
   },
+  "heroCar": {
+   "enum": [
+    "gt-coupe",
+    "muscle-car",
+    "roadster",
+    "sports-car",
+    "sports-coupe",
+    "supercar",
+    "sedan",
+    "old-sedan",
+    "hatchback",
+    "city-car",
+    "suv",
+    "minivan",
+    "pickup",
+    "van"
+   ],
+   "description": "the player's car as the creator picked it on Create (left out: the story's own). The hero's ride (ride, or the first vehicle) is then a vehicle sheet of that kind of car (gate.ts), and in a hometown Mog City draws it as the town fleet's realistic model of that name"
+  },
   "hud": {
    "type": "object",
    "additionalProperties": false,

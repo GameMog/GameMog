@@ -10,7 +10,7 @@ import { ImageSchema, type Character, type CharacterImage } from '@/lib/characte
 import { readOptions } from '@/lib/world-options';
 import { isOpenWorld, worldMode, canMog, MOG_SOON } from '@/lib/custom-game';
 import { isEpisodeParent, readConsent } from '@/lib/episode';
-import { isStoryParent, storyParentPack, readCity, readStoryHero, STORY_CLOSED, type StoryHero } from '@/lib/storykit-build';
+import { isStoryParent, storyParentPack, readCity, readStoryHero, readStoryCar, STORY_CLOSED, type StoryHero, type StoryCar } from '@/lib/storykit-build';
 import { storykitForRequest } from '@/lib/storykit-http';
 import { isMogCityEpisode, mogCityStoryParent } from '@/lib/storykit-mogcity';
 import { storykitMode } from '@/lib/storykit-switch';
@@ -59,8 +59,9 @@ export async function POST(req: Request) {
   const storyMog = isStoryParent(from);
   let storyCity: ReturnType<typeof readCity> = null;
   let storyHero: StoryHero | null = null;
+  let storyCar: StoryCar | null = null;
   let storyTown: CityPackage | null = null;
-  const storyAsk = (body.storykit ?? body.story) as { city?: unknown; hero?: unknown; place?: unknown } | null | undefined;
+  const storyAsk = (body.storykit ?? body.story) as { city?: unknown; hero?: unknown; car?: unknown; place?: unknown } | null | undefined;
   if ((storyAsk != null && !parent) || storyMog) {
     if (!storykitForRequest(req)) return NextResponse.json({ error: storyMog ? MOG_SOON : STORY_CLOSED }, { status: storyMog ? 409 : 404 });
     // (the store's size guard, lib/storykit-store.ts storeGuard: refused here too, before a slot is taken or anything is spent)
@@ -94,6 +95,11 @@ export async function POST(req: Request) {
       const hero = readStoryHero(storyAsk?.hero);
       if (!hero.ok) return NextResponse.json({ error: hero.error, field: 'hero' }, { status: 400 });
       storyHero = hero.hero;
+      // the hero's car (14 Nov, optional): one of the town fleet's cars from Create's Car dropdown, or none (the story
+      // chooses); read strictly here too (lib/storykit-build.ts readStoryCar)
+      const car = readStoryCar(storyAsk?.car);
+      if (!car.ok) return NextResponse.json({ error: car.error, field: 'car' }, { status: 400 });
+      storyCar = car.car;
     }
   }
   // (a kind of game that cannot be mogged yet, lib/custom-game.ts canMog, is refused here, before a slot is taken or
@@ -224,7 +230,7 @@ export async function POST(req: Request) {
           if (parent && parent.format === 'world' && (worldMode(parent.code, parent.meta) === 'shootout' || worldMode(parent.code, parent.meta) === 'gp' || episode)) {
             options.hazards = 'same'; options.music = null; delete options.soundtrack;
           }
-          await generateGame({ prompt: text, image, origin, mog: parent ? { parent: from!, instruction: text, ...(ownStory ? { lineage: parent } : {}) } : undefined, options, consent: consent.consent, ...(storyCity ? { storykit: { city: storyCity, hero: storyHero, ...(storyTown ? { town: storyTown } : {}) } } : {}), signal: stop.signal, usage }, (e) => {
+          await generateGame({ prompt: text, image, origin, mog: parent ? { parent: from!, instruction: text, ...(ownStory ? { lineage: parent } : {}) } : undefined, options, consent: consent.consent, ...(storyCity ? { storykit: { city: storyCity, hero: storyHero, ...(storyCar ? { car: storyCar } : {}), ...(storyTown ? { town: storyTown } : {}) } } : {}), signal: stop.signal, usage }, (e) => {
             if (e.type === 'stage') attempts = Math.max(attempts, e.attempt);
             if (e.type === 'drive' || e.type === 'done') draftId = e.draftId;
             if (e.type === 'done' || e.type === 'error') result = e;

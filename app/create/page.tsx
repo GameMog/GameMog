@@ -7,7 +7,7 @@ import type { WorldSpec } from '@/lib/worldspec';
 import { useGeneration, GenerationProgress, DraftResult } from './generation';
 import { WorldOptionsFields } from './options';
 import { DEFAULT_OPTIONS, type WorldOptions } from '@/lib/world-options';
-import { useStoryKit, StoryCityField, StoryCityCard, STORY_IDEAS, STORY_RULES, useStoryConsent, usePhone, PHONE_NOTE } from './story';
+import { useStoryKit, StoryCityField, StoryCarField, type StoryCarPick, StoryCityCard, STORY_IDEAS, STORY_RULES, useStoryConsent, usePhone, PHONE_NOTE } from './story';
 import { ConsentStep } from './consent';
 import { CharCount, CREATE_PROMPT_MAX } from './char-count';
 import { storyCityName, STORY_HERO_MAX, type StoryCity } from '@/lib/storykit-site';
@@ -223,6 +223,8 @@ export default function Create() {
   // the hero (optional): the creator's words for how they look, or Mog City's own hero (then the words are not sent)
   const [heroLook, setHeroLook] = useState('');
   const [asDan, setAsDan] = useState(false);
+  // the hero's car (optional, 14 Nov): '' lets the story choose, as before
+  const [heroCar, setHeroCar] = useState<StoryCarPick>('');
   const telling = storykit && story;
   const phone = usePhone();
   // (r7) the hometown entry: "Your hometown" beside the kind of world (or /create#hometown) picks Story world and puts
@@ -271,7 +273,7 @@ export default function Create() {
       const hero = asDan ? { model: 'dan' } : heroLook.trim() || undefined;
       // (a hometown: the town's id only; the server reads its built town, lib/hometown/towns.ts)
       const where = HOMETOWN && town ? { city: 'hometown', place: town.place.placeId } : { city };
-      await gen.run({ prompt: prompt.trim(), story: { ...where, ...(hero ? { hero } : {}) }, consent: said.value });
+      await gen.run({ prompt: prompt.trim(), story: { ...where, ...(hero ? { hero } : {}), ...(heroCar ? { car: heroCar } : {}) }, consent: said.value });
       return;
     }
     setSpec(null); setReport(null); setCharacter(null); setAdjustments([]);
@@ -370,6 +372,7 @@ export default function Create() {
                   <span className="dim-2" style={{ display: 'block', fontSize: 13 }}>Your story, your missions and people, with Mog City&apos;s own hand-built hero.</span>
                 </span>
               </label>
+              <StoryCarField value={heroCar} onChange={setHeroCar} disabled={busy} />
               <div style={{ marginTop: 12 }}>
                 <ConsentStep value={consent} onChange={setConsent} disabled={busy} what="story" />
               </div>

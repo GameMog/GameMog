@@ -8,7 +8,7 @@ import { isBlocked } from './names';
 import { STORY_HERO_MAX, STORY_HERO_MODELS } from './storykit-site';
 import { MODELS, seeds as castSeeds, recordedClip, recordedLines } from '../storykit/pack/registry.ts';
 import { PLACES, CAM_POINTS, CITY_NAME, MOGCITY_BUILDS, buildsFor, type CityId } from '../storykit/pack/cities.ts';
-import { ANCHORS, MOGCITY_SCENES, CREATE_HELD, OPENING } from '../storykit/pack/schema.mjs';
+import { ANCHORS, MOGCITY_SCENES, CREATE_HELD, OPENING, HERO_CARS } from '../storykit/pack/schema.mjs';
 import { KOKORO_VOICES, COLOUR_VOICES, lintVoiceBlock, voiceKey, clipBase } from '../storykit/voices/voice-design.js';
 import { realNameProblems as sheetBrandProblems } from '../storykit/vehicles/sheet.js';
 import { fitCastWardrobes } from './storykit-wardrobe';
@@ -128,6 +128,27 @@ export function readStoryHero(v: unknown): { ok: true; hero: StoryHero | null } 
 }
 /** The shipped person a story played as Dan casts as its hero (public/storykit/cast/registry.json). */
 export const DAN = 'mogcity/dan';
+
+/**
+ * The car a story Create asks for (14 Nov, the owner: "car selection an optional dropdown menu when creating a story
+ * world"; app/create/story.tsx StoryCarField): nothing (null, undefined or '': the story chooses its own car, as before)
+ * or one of the town fleet's cars by its id (storykit/pack/schema.mjs HERO_CARS). Anything else is refused before a slot
+ * is taken or anything is spent.
+ */
+export type StoryCar = (typeof HERO_CARS)[number]['id'];
+export function readStoryCar(v: unknown): { ok: true; car: StoryCar | null } | { ok: false; error: string } {
+  if (v == null || v === '') return { ok: true, car: null };
+  if (typeof v === 'string' && HERO_CARS.some((c) => c.id === v)) return { ok: true, car: v as StoryCar };
+  return { ok: false, error: 'That car is not one of the cars on the list: pick one, or let the story choose.' };
+}
+/** What a Create's first turn says about the hero's car the creator picked, or '' (the story chooses, as before). */
+export function carTurn(car?: StoryCar | null): string {
+  const c = car ? HERO_CARS.find((x) => x.id === car) : null;
+  if (!c) return '';
+  return `
+
+THE HERO'S CAR. The creator picked the hero's car: the ${c.label}. Write "heroCar": "${c.id}" in the pack. The hero's own ride (the "ride" vehicle, or the first) is a vehicle sheet of that car: "family": "car4", "class" ${c.classes.map((k) => `"${k}"`).join(' or ')}, a label and noun that call it a ${c.label.toLowerCase()} (or its own nickname), never another kind of car${c.group === 'sports' ? '' : ', with no "boost" (only a sports car has the boost)'}, and no thrusters ("hop", "dash": it is a real car). Every mission the hero drives in their own car is one a ${c.label.toLowerCase()} can do; another person's car, a getaway van, a tow truck stay rides of their own where the story needs them. Write the story around this car: its look, its sound, what it means to the hero.`;
+}
 
 export const readCity = (v: unknown): CityId | null => (typeof v === 'string' && (STORYKIT_CITIES as string[]).includes(v) ? v as CityId : null);
 /** The base a Create in a city runs on: Mog City's engine (mogcity-1, mc.gamemog.com) and its build of the city. */
@@ -278,7 +299,7 @@ ${JSON.stringify(exampleWorld())}
 /** `mog.lineage`: the game the published Mog's family credits (its draft's parent) when it is not the story world it was
  * built from: a Mog of /g/mog-city is built from Mog City's own story world and joins /g/mog-city's family
  * (lib/storykit-mogcity.ts). */
-export type StorykitInput = { city?: CityId; hero?: StoryHero | null; mog?: { parent: GameRow; instruction: string; lineage?: GameRow };
+export type StorykitInput = { city?: CityId; hero?: StoryHero | null; car?: StoryCar | null; mog?: { parent: GameRow; instruction: string; lineage?: GameRow };
   /** a hometown Create (base.city 'hometown'): the town's CityPackage, read from its bundle by the build route (lib/hometown/towns.ts) */
   town?: CityPackage };
 const parentOf = (input: StorykitInput) => (input.mog ? storyParentPack(input.mog.parent) : null);
@@ -309,7 +330,7 @@ Start from the original's pack and change what the idea asks for, and nothing el
 
 ${prompt}
 
-Its base is exactly ${JSON.stringify(baseOf(city))}. Write a new story pack: ${CREATE_MISSIONS.min} to ${CREATE_MISSIONS.max} missions in 1 to 3 acts, its own cast, rides and voices, set in ${CITY_NAME[city]}, with a title of its own that never names Mog City (Mog City is the engine, not a world's name), and an opening (BUILDER.md, The opening) that sets the place, brings on the hero and the antagonist with name cards and says the premise before Mission 1. A new world sets its own rules from the runtime's parts: its meters, its clock, its mission rules and HUD items. ${CINEMATIC}${heroTurn(input.hero)} Reply with the two blocks.`;
+Its base is exactly ${JSON.stringify(baseOf(city))}. Write a new story pack: ${CREATE_MISSIONS.min} to ${CREATE_MISSIONS.max} missions in 1 to 3 acts, its own cast, rides and voices, set in ${CITY_NAME[city]}, with a title of its own that never names Mog City (Mog City is the engine, not a world's name), and an opening (BUILDER.md, The opening) that sets the place, brings on the hero and the antagonist with name cards and says the premise before Mission 1. A new world sets its own rules from the runtime's parts: its meters, its clock, its mission rules and HUD items. ${CINEMATIC}${heroTurn(input.hero)}${carTurn(input.car)} Reply with the two blocks.`;
 }
 
 /**
@@ -368,6 +389,8 @@ export function platformFields(pack: PackV2, id: string, input: StorykitInput): 
   const parent = parentOf(input)?.pack ?? null;
   if (parent) pack.parent = parent.id; else delete pack.parent;
   const want = parent ? mogBase(parent.base) : baseOf(input.city!);
+  // (a Create's hero car is the creator's pick, or none: the story's own car as before; a Mog keeps what its pass wrote)
+  if (!parent) { if (input.car) pack.heroCar = input.car; else delete pack.heroCar; }
   if (pack.base == null) pack.base = { ...want };
   else if (!same(pack.base, want)) {
     out.push(parent
@@ -677,7 +700,7 @@ export async function generateStorykit(
   const fake = fakeReply();
   const client = fake ? (null as unknown as Anthropic) : new Anthropic();
   const system = town ? hometownSystem(town) : storykitSystem(city);
-  const first = town ? hometownTurn(input.prompt, town, sk.mog && parent ? { parent, instruction: sk.mog.instruction } : undefined, sk.mog ? undefined : sk.hero) + (sk.mog ? '' : heroTurn(sk.hero)) : storykitTurn(input.prompt, sk);
+  const first = town ? hometownTurn(input.prompt, town, sk.mog && parent ? { parent, instruction: sk.mog.instruction } : undefined, sk.mog ? undefined : sk.hero) + (sk.mog ? '' : heroTurn(sk.hero) + carTurn(sk.car)) : storykitTurn(input.prompt, sk);
   const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: 'user', content: first }];
   const draftId = randomUUID(), packId = `sk-${draftId.slice(0, 8)}`;
   let lastProblems: string[] = [];
@@ -724,7 +747,7 @@ export async function generateStorykit(
     if (town && raw && typeof raw === 'object' && !Array.isArray(raw)) {
       // (a hometown pass: the town's base (a Mog: its parent's, locked), its gate (rule 16 with the town's table) and the
       // real-place safety rules, then the builder's own rules on a Create: lib/storykit-hometown.ts)
-      const h = checkHometownReply(text, { pkg: town, id: packId, parent, hero: sk.mog ? null : sk.hero });
+      const h = checkHometownReply(text, { pkg: town, id: packId, parent, hero: sk.mog ? null : sk.hero, car: sk.mog ? null : sk.car ?? null });
       problems.push(...h.problems.slice(0, 40));
       if (h.problems.length > 40) problems.push(`... and ${h.problems.length - 40} more of the same kinds: check the whole pack against the rules.`);
       gated = h.gated;

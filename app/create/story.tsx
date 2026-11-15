@@ -5,6 +5,7 @@ import { STORY_CITIES, isStoryCity, type StoryCity } from '@/lib/storykit-site';
 import { useGeneration, GenerationProgress, DraftResult } from './generation';
 import { ConsentStep, consentOf, type ConsentState } from './consent';
 import { Lock, Pin } from './story-show';
+import { HERO_CARS } from '@/storykit/pack/hero-cars.mjs';
 
 /**
  * Story Kit worlds on CREATE and MOG (STORYKIT=on, lib/storykit-site.ts; the owner: CREATE A WORLD picks a city from a
@@ -12,6 +13,7 @@ import { Lock, Pin } from './story-show';
  *
  *   StoryKitFlag      the server's switch, handed to /create's client page by its layout
  *   StoryCityField    the City dropdown: New York and San Francisco, the cities to come shown and not offered
+ *   StoryCarField     the optional Car dropdown: "Let the story choose", or one of the town fleet's cars, sports cars first
  *   StoryCityCard     /create's side panel for a story: the city picked and what every story gets
  *   StoryMogComposer  /mog/<story world>: the city as a locked chip, what can change, the idea, the consent step
  *
@@ -42,13 +44,43 @@ export function StoryCityField({ value, onChange, disabled, town }: { value: Sto
   );
 }
 
+/** A car id from the Car dropdown (storykit/pack/hero-cars.mjs), or '' for "Let the story choose". */
+export type StoryCarPick = '' | (typeof HERO_CARS)[number]['id'];
+const CAR_GROUPS = [{ id: 'sports', label: 'Sports cars' }, { id: 'everyday', label: 'Everyday cars' }] as const;
+/**
+ * The optional Car dropdown (the owner, 14 Nov: "car selection an optional dropdown menu when creating a story world"):
+ * "Let the story choose" (the default: the builder picks the car, as before), or the hero's own car from the town
+ * fleet, sports cars first. The story is written around it, the test drive drives it, and in a hometown it is the
+ * realistic model of that name. Sent as story.car (lib/storykit-build.ts readStoryCar).
+ */
+export function StoryCarField({ value, onChange, disabled }: { value: StoryCarPick; onChange: (c: StoryCarPick) => void; disabled?: boolean }) {
+  return (
+    <div className="skcar">
+      <label className="cselect skcar-field">
+        <span>Car <span className="opt">(optional)</span></span>
+        <select value={value} disabled={disabled} aria-describedby="skcar-d"
+          onChange={(e) => { const v = e.target.value; onChange(v === '' || HERO_CARS.some((c) => c.id === v) ? v as StoryCarPick : ''); }}>
+          <option value="">Let the story choose</option>
+          {CAR_GROUPS.map((g) => (
+            <optgroup key={g.id} label={g.label}>
+              {HERO_CARS.filter((c) => c.group === g.id).map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+            </optgroup>
+          ))}
+        </select>
+        <Chevron />
+      </label>
+      <p id="skcar-d" className="t-meta dim-2 skcar-d">{value ? `Your hero drives the ${HERO_CARS.find((c) => c.id === value)?.label}, and every mission is one it can do.` : 'The story picks the car it needs.'}</p>
+    </div>
+  );
+}
+
 /** What every story world gets, whatever its idea: the side panel's list and the page's rules. */
 export const STORY_RULES = [
   { title: 'A real city', text: 'Every mission is on the city\'s own streets, with their real names. You pick the city; its Mogs keep it.' },
   { title: 'Three acts', text: 'A short story of 6 to 9 missions: drives, chases, tails, pick-ups, calls and choices against the clock.' },
   { title: 'Its own people', text: 'Every person is built from a description for this story: body, face, clothes, hair, the way they walk.' },
   { title: 'Its own voices', text: 'Every line is spoken in an invented voice. A line waiting for its recording plays as a subtitle.' },
-  { title: 'Its own cars', text: 'The cars are designed for the story, and every mission is one the car it gives you can do.' },
+  { title: 'Its own cars', text: 'The cars are designed for the story (or pick the hero\'s car), and every mission is one the car it gives you can do.' },
   { title: 'Hour and weather', text: 'Day or night, the season, rain or snow: the city is dressed for the story.' },
   { title: 'Built in your browser', text: 'Your browser forges the people, records the voices and draws the key art, so keep the tab open.' },
   { title: 'Played before it publishes', text: 'A test driver plays every mission through in your browser before it can go live.' },

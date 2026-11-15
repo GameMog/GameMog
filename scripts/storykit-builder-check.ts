@@ -42,7 +42,7 @@ register('data:text/javascript,' + encodeURIComponent(`
 const { db, insertDraft, publishDraft, getGameBySlug } = await import('../lib/db.ts');
 const { StoryStore } = await import('../lib/storykit-store.ts');
 const { gatePack } = await import('../storykit/pack/gate.ts');
-const { storykitModule, storykitMeta, inheritance, isStorykitWorld, storykitPackOf, STORY_CLOSED, exampleWorld, storykitTurn, readStoryHero } = await import('../lib/storykit-build.ts');
+const { storykitModule, storykitMeta, inheritance, isStorykitWorld, storykitPackOf, STORY_CLOSED, exampleWorld, storykitTurn, readStoryHero, readStoryCar, platformFields } = await import('../lib/storykit-build.ts');
 const { mogBase } = await import('../storykit/pack/gate.ts');
 const { voicePlanOf } = await import('../storykit/pack/runner.ts');
 const { MOG_SOON } = await import('../lib/custom-game.ts');
@@ -155,7 +155,8 @@ const storeDir = mkdtempSync(path.join(tmpdir(), 'storykit-builder-'));
 (globalThis as any).__storykitStore = new StoryStore(storeDir);
 const store = (globalThis as any).__storykitStore as InstanceType<typeof StoryStore>;
 const drafts: string[] = [], games: string[] = [];
-await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()));
+// (STANDIN_PORT: a fixed port for the stand-in model, where the machine keeps a range for local servers; else any free one)
+await new Promise<void>((r) => server.listen(Number(process.env.STANDIN_PORT) || 0, '127.0.0.1', () => r()));
 const port = (server.address() as { port: number }).port;
 try {
   process.env.ANTHROPIC_API_KEY = 'stand-in-key-for-the-local-check'; delete process.env.ANTHROPIC_AUTH_TOKEN;
@@ -243,6 +244,37 @@ try {
   ok('nothing inherited, everything to make in the browser: forge Dez, Mrs. Kwon, Ray and Vic, voice every line; the show hears the cast',
     cRep?.inherit?.todo?.forge?.join() === 'dez,kwon,ray,vic' && cRep.inherit.lines.inherited === 0 && cd?.story?.forge?.join() === 'dez,kwon,ray,vic' && create.events.some((e) => e.type === 'story' && e.cast?.[0]?.id === 'dez' && e.city === 'ny') && cRep.status === 'unverified',
     JSON.stringify(cRep?.inherit?.todo));
+
+  /* 1a. the hero's car (14 Nov): Create's optional Car dropdown */
+  console.log('\n  the hero\'s car: let the story choose, or one picked');
+  {
+    const plain = storykitTurn('A cab driver works the night', { city: 'ny' });
+    ok('no car picked (nothing, null or blank) is today\'s build exactly: the same first turn, no car section',
+      plain === storykitTurn('A cab driver works the night', { city: 'ny', car: null }) && !/THE HERO'S CAR/.test(plain)
+        && [undefined, null, ''].every((v) => { const r = readStoryCar(v); return r.ok && r.car === null; }));
+    const picked = storykitTurn('A cab driver works the night', { city: 'ny', car: 'muscle-car' });
+    ok('a picked car: the first turn says the Muscle Car, heroCar "muscle-car", a car4 sheet of class "muscle"',
+      picked.includes("THE HERO'S CAR") && picked.includes('the Muscle Car') && picked.includes('"heroCar": "muscle-car"') && picked.includes('"class" "muscle"'));
+    ok('a picked everyday car says it has no boost', storykitTurn('x', { city: 'ny', car: 'van' }).includes('no "boost"') && !picked.includes('no "boost"'));
+    ok('readStoryCar takes only a car on the list', readStoryCar('gt-coupe').ok && ['gt', 'Gt-Coupe', 42, {}, ['van']].every((v) => !readStoryCar(v).ok));
+    const a: any = nyStory(), b: any = { ...nyStory(), heroCar: 'supercar' };
+    platformFields(a, 'sk-00000000', { city: 'ny', car: 'pickup' }); platformFields(b, 'sk-00000001', { city: 'ny' });
+    ok('a Create\'s pack takes the creator\'s pick (heroCar), and with none picked it never keeps one the pass wrote', a.heroCar === 'pickup' && !('heroCar' in b));
+    const spent = api.builds + api.checks;
+    const bads = await Promise.all(['hypercar', 42, { id: 'van' }].map((car) => build(POST, { prompt: `A cab driver works the night ${tag}`, storykit: { city: 'ny', car } })));
+    ok('the route refuses a car not on the list (400, field car), before anything is spent',
+      bads.every((r) => r.status === 400 && r.json?.field === 'car') && api.builds + api.checks === spent, JSON.stringify(bads.map((r) => [r.status, r.json])));
+    // (the stand-in writes the night cab, a taxi with the boost; picked a Sedan, the gate sends it back, the fixed pass is kept)
+    const sedan = () => { const p: any = nyStory(); const v = p.vehicles.find((x: any) => x.id === p.ride) || p.vehicles[0]; v.class = 'sedan'; v.abilities = (v.abilities || []).filter((x: string) => x !== 'boost');
+      for (const ac of p.acts) for (const m of ac.missions) if (m.verbs) m.verbs = m.verbs.filter((x: string) => x !== 'boost'); return p; };
+    api.replies = [reply(nyStory()), reply(sedan())];
+    const carBuild = await build(POST, { prompt: `A cab driver works six fares across New York before sunrise ${tag}`, storykit: { city: 'ny', car: 'sedan' } });
+    const cdn = doneOf(carBuild); if (cdn) drafts.push(cdn.draftId);
+    const row = cdn ? db.prepare('SELECT code FROM drafts WHERE id = ?').get(cdn.draftId) as any : null, kept = row ? storykitPackOf(row.code) : null;
+    ok('a Sedan picked: the first turn names it, the taxi that boosts is sent back (rule 17), and the kept pack is heroCar "sedan" on a sedan sheet',
+      JSON.stringify(api.requests.at(-2)?.messages ?? '').includes('the Sedan') && sentBack(carBuild).some((x) => /heroCar "sedan"/.test(x)) && !!cdn && cdn.attempts === 2 && kept?.heroCar === 'sedan',
+      JSON.stringify(sentBack(carBuild).slice(0, 3)).slice(0, 400));
+  }
 
   /* 1b. the hero: "Your hero" (a look) and "Play as Dan" (5 Nov) */
   console.log('\n  the hero: a look, or Dan');

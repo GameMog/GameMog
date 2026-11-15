@@ -62,6 +62,11 @@
  *      adds the real-place safety rules). base.hometown pins the town exactly (place id, compiler version, tile-set hash)
  *      and must equal the package's; a Mog keeps its parent's pin exactly. Without a table a hometown pack is refused.
  *
+ *  17. the creator's car (heroCar, 14 Nov: Create's optional Car dropdown; schema.mjs HERO_CARS): the hero's ride (ride,
+ *      or the first vehicle) is a car4 vehicle sheet of one of that car's classes, with no thrusters (hop, dash), and
+ *      boost only on a sports car; so every mission on it is one that car can do. In a hometown, Mog City draws it as
+ *      the town fleet's realistic model (toRunnerPack: fleetCar). Left out, the story's own car as before.
+ *
  * toRunnerPack(pack) turns a passed pack into the runner's pack format (storykit: 1, with its engine): what the store
  * seals as a world and Mog City's runner plays (Mog City wagmi/storyrun/pack.js).
  */
@@ -70,7 +75,7 @@ import FORGE from '../../scripts/forge/character-sheet.schema.json' with { type:
 import VEHICLE_SCHEMA from '../vehicles/vehicle-sheet.schema.json' with { type: 'json' };
 import { Validator, type Schema } from './validate.ts';
 import { PLACES, CAM_POINTS, CITY_NAME, HOMETOWN, LOCK_KEYS, foreignIn, buildsFor, type CityId, type CityTable } from './cities.ts';
-import { MOGCITY_STUBS, OPENING, SHOWCASE, SHOWCASE_PACKS, SHOWCASE_CARS } from './schema.mjs';
+import { MOGCITY_STUBS, OPENING, SHOWCASE, SHOWCASE_PACKS, SHOWCASE_CARS, HERO_CARS } from './schema.mjs';
 import { lintVoiceBlock, KOKORO_VOICES, lineHash as vdLineHash } from '../voices/voice-design.js';
 import { isBlocked } from '../../lib/names.ts';
 import { modelOf, nearVoice, can as modelCan } from './registry.ts';
@@ -367,6 +372,8 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
     }
   }
   if (pack.ride && !rides.has(pack.ride)) refuse(`ride "${pack.ride}" is not one of the vehicles.`);
+  // 17. the creator's car: the hero's ride is that kind of car (so its missions are ones that car can do)
+  for (const p of heroCarProblems(pack)) refuse(p);
 
   // cast: sheet, voice, anchor
   const voiceIds = new Map<string, string>(), blocks: { id: string; base: string; mix: string; pitch: number; speed: number }[] = [];
@@ -860,6 +867,9 @@ export function toRunnerPack(pack: PackV2, opts: { cast?: Record<string, string>
     // town, wagmi/storyrun/pack.js, comparing it field by field with the bundle's lock, compiler = the bundle's buildId)
     ...(town && pack.base.hometown ? { hometown: pack.base.hometown } : {}),
     car: heroSheet ? { sheet: heroSheet } : carOf(heroRide), hud: pack.hud, dressing: pack.dressing,
+    // (the car the creator picked, rule 17: Mog City's wagmi/fleet-picks.js; in a town the player's car is the fleet's
+    // realistic model of that name, on the hero ride's sheet; an engine that does not know it plays the sheet as before)
+    ...(pack.heroCar ? { fleetCar: pack.heroCar } : {}),
     // (the action layer: Mog City's wagmi/storyrun/action.js; left out, on in a hometown world and off elsewhere)
     ...(pack.cine ? { cine: pack.cine } : {}),
     ...(sheets.some((v: Json) => v !== heroSheet) ? { rides: Object.fromEntries(sheets.filter((v: Json) => v !== heroSheet).map((v: Json) => [v.id, v])) } : {}),
@@ -906,6 +916,26 @@ function scanKeys(v: Json, at: string, f: (at: string, key: string, owner: Json)
   if (Array.isArray(v)) v.forEach((x, i) => scanKeys(x, `${at}[${i}]`, f));
   else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) { f(at, k, v); scanKeys(x, at ? `${at}.${k}` : k, f); }
 }
+/** Rule 17: what is wrong with a pack's hero ride for the car the creator picked (heroCar), or [] (none picked, or it fits). */
+export function heroCarProblems(pack: Json): string[] {
+  const pick = pack?.heroCar == null ? null : HERO_CARS.find((c) => c.id === pack.heroCar);
+  if (pack?.heroCar == null) return [];
+  if (!pick) return [`heroCar "${pack.heroCar}" is not one of the cars a creator can pick (${HERO_CARS.map((c) => c.id).join(', ')}).`];
+  const list: Json[] = Array.isArray(pack.vehicles) ? pack.vehicles : [];
+  const id = pack.ride || (list[0] && (list[0].id || list[0].stock));
+  const v = list.find((x) => x && (x.id || x.stock) === id);
+  const want = `a vehicle sheet ("family": "car4", "class": ${pick.classes.map((c) => `"${c}"`).join(' or ')})`;
+  if (!v) return [];
+  if (v.stock) return [`heroCar "${pick.id}": the creator picked the ${pick.label}, so the hero's ride ("${id}") is ${want}, not the stock ${v.stock}.`];
+  const out: string[] = [];
+  if (v.family !== 'car4' || !pick.classes.includes(v.class)) out.push(`heroCar "${pick.id}": the creator picked the ${pick.label}, so the hero's ride ("${id}") is ${want}, not a ${v.family} ${v.class}.`);
+  const ab: string[] = v.abilities || [];
+  const thr = ab.filter((a) => a === 'hop' || a === 'dash');
+  if (thr.length) out.push(`heroCar "${pick.id}": the ${pick.label} is a real car with no thrusters, so its ride ("${id}") cannot ${thr.join(' or ')}: drop ${thr.length > 1 ? 'them' : 'it'} and every mission verb on ${thr.length > 1 ? 'them' : 'it'}.`);
+  if (pick.group !== 'sports' && ab.includes('boost')) out.push(`heroCar "${pick.id}": only a sports car has the boost, so the ${pick.label} ("${id}") drives on its own pace: drop "boost" and every "boost" verb on it.`);
+  return out;
+}
+
 function seatsOf(v: Json) { const cls = v.class || ''; return /coupe|sports|supercar|roadster/.test(cls) ? 2 : /wrecker/.test(cls) ? 3 : /minivan|van|limo|suv|wagon/.test(cls) ? 6 : 4; }
 const familyWord = (f: Family) => ({ car4: 'car', heavy4: 'truck', motorbike: 'motorbike', scooter: 'scooter', bicycle: 'bicycle', foot: 'walker' })[f];
 const clip = (s: string) => (s.length > 60 ? s.slice(0, 57) + '...' : s);

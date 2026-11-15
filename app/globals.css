@@ -673,6 +673,11 @@ table.bd td:nth-child(2){font-weight:600}
 .skcity{min-width:240px}
 .skcity select{flex:1}
 .skcity option:disabled{color:var(--ink-3)}
+.skcar{margin-top:16px}
+.skcar-field{width:max-content;min-width:300px;max-width:100%}
+.skcar-field select{flex:1}
+.skcar-field .opt{font-weight:500}
+.skcar-d{margin:6px 0 0}
 .skcard-name{display:flex;align-items:center;gap:8px;font-family:var(--display);font-size:30px;line-height:34px;font-weight:800;letter-spacing:-.02em}
 .skcard-name svg{width:20px;height:20px;color:var(--ink-3)}
 .skcard-note{margin-top:6px;font-size:14px;line-height:21px}
@@ -744,6 +749,8 @@ table.bd td:nth-child(2){font-weight:600}
   .chome{display:flex;width:100%;justify-content:center;margin:8px 0 0}
   .chome-d{display:none}
   .skcity{min-width:0;width:100%}
+  .skcar-field{min-width:0;width:100%}
+  .skcar-field select{font-size:16px}
   .skchange{grid-template-columns:minmax(0,1fr);gap:10px}
   .sks-acts{gap:8px}
   .sks-act{padding:8px}

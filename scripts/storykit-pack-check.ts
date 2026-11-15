@@ -10,7 +10,7 @@ import { ownRecord, OWN_RECORD } from './storykit-own-world.ts';
 import { showcaseProblems, SHOWCASE_ID, SHOWCASE_RECORD } from './storykit-showcase.ts';
 import { gatePack, toRunnerPack, lineHash, type GateResult } from '../storykit/pack/gate.ts';
 import { PLACES, CAM_POINTS } from '../storykit/pack/cities.ts';
-import { SCHEMA, SHOWCASE, SHOWCASE_PACKS, MOGCITY_STUBS } from '../storykit/pack/schema.mjs';
+import { SCHEMA, SHOWCASE, SHOWCASE_PACKS, MOGCITY_STUBS, HERO_CARS, HERO_CAR_IDS } from '../storykit/pack/schema.mjs';
 import { voiceStatus, saveVoiceClip, readManifest } from '../storykit/pack/voice-store.mjs';
 
 type Ok = (name: string, cond: boolean, detail?: string) => void;
@@ -330,5 +330,30 @@ export function runStoryPackChecks(ok: Ok) {
     ok('a sheet car becomes the runner\'s car { sheet }, a close-up names its person, a call\'s choice replies in the caller\'s name',
       v1.car?.sheet?.id === 'rides.night-cab' && m.vehicle === 'rides.night-cab' && cut.shots[1].cam.rel === 'Mrs. Kwon' && cut.shots[1].sub[0] === 'Mrs. Kwon'
         && m.steps[1].during[0].choice.options[1].reply[0] === 'Sgt. Ray Ortega' && v1.dressing.weather === 'snow');
+  }
+  // the creator's car (14 Nov, Create's optional Car dropdown; gate rule 17): an enum in the schema, the hero's ride held
+  // to that kind of car, the runner told the pick (fleetCar), and a pack without one exactly as before
+  {
+    const enumOf = (SCHEMA as any).properties.heroCar?.enum;
+    // (generic words only, never a maker's or a model's name)
+    const GENERIC_CAR_WORDS = new Set(['GT', 'Coupe', 'Muscle', 'Car', 'Roadster', 'Sports', 'Supercar', 'Sedan', 'Old', 'Hatchback', 'City', 'SUV', 'Minivan', 'Pickup', 'Van']);
+    ok('heroCar is an optional enum of the cars a creator can pick (sports cars first), not required',
+      JSON.stringify(enumOf) === JSON.stringify(HERO_CAR_IDS) && !(SCHEMA as any).required.includes('heroCar') && HERO_CARS.findIndex((c: any) => c.group !== 'sports') === HERO_CARS.filter((c: any) => c.group === 'sports').length
+        && HERO_CARS.every((c: any) => c.classes.length && String(c.label).split(' ').every((w: string) => GENERIC_CAR_WORDS.has(w))));
+    const nyD = gatePack(clone(NY)), sfD = SHEETS ? gatePack(clone(SF)) : null;
+    ok('no heroCar: the packs gate as before and their runner world names no fleetCar', nyD.ok && !('heroCar' in (nyD.pack as any)) && !('fleetCar' in runnerPackOf(nyD.pack))
+      && (!sfD || (sfD.ok && !('fleetCar' in runnerPackOf(sfD.pack)))), [...nyD.problems, ...(sfD?.problems ?? [])].join(' | '));
+    bad('a heroCar that is not on the list', NY, (p) => { p.heroCar = 'hypercar-x'; }, /heroCar/);
+    bad('a heroCar on a stock hero ride (the creator picked the Sports Car; the ride is the stock Vandal)', NY, (p) => { p.heroCar = 'sports-car'; }, /picked the Sports Car, so the hero's ride .* not the stock vandal/);
+    const noBoost = (p: any) => { p.vehicles[0].abilities = (p.vehicles[0].abilities || []).filter((a: string) => a !== 'boost'); for (const a of p.acts) for (const m of a.missions) if (m.verbs) m.verbs = m.verbs.filter((v: string) => v !== 'boost'); };
+    sheetOnly('heroCar checks on a sheet ride', () => {
+      bad('a Van picked, its van sheet still boosting (only a sports car boosts)', SF, (p) => { p.heroCar = 'van'; }, /only a sports car has the boost/);
+      bad('a GT Coupe picked, the hero\'s ride a van sheet', SF, (p) => { p.heroCar = 'gt-coupe'; }, /picked the GT Coupe, so the hero's ride .*"coupe" or "sports".* not a car4 van/);
+      bad('a picked car with thrusters (hop)', SF, (p) => { p.heroCar = 'gt-coupe'; p.vehicles[0].class = 'coupe'; p.vehicles[0].abilities = ['boost', 'hop']; }, /no thrusters, so its ride .* cannot hop/);
+      { const p = clone(SF); p.heroCar = 'van'; noBoost(p); const r = gatePack(p);
+        ok('a Van picked on a van sheet without the boost passes, and the runner world names it (fleetCar)', r.ok && runnerPackOf(r.pack).fleetCar === 'van' && runnerPackOf(r.pack).car?.sheet?.id === 'rides.fog-van', r.problems.join(' | ')); }
+      { const p = clone(SF); p.heroCar = 'gt-coupe'; p.vehicles[0].class = 'coupe'; const r = gatePack(p);
+        ok('a GT Coupe picked on a coupe sheet passes with its boost, fleetCar gt-coupe', r.ok && runnerPackOf(r.pack).fleetCar === 'gt-coupe', r.problems.join(' | ')); }
+    });
   }
 }
