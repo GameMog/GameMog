@@ -72,9 +72,8 @@ resold; created with funding from NSF EIA-0196217). Dan's freeflow fight moves a
 
 ## Engine sounds
 
-Dan's car (`assets/sfx/engine/v8-*.m4a`): loops cut at five engine speeds from "Maserati GranTurismo S Exhaust" by
-lmartins ([Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Maserati_GranTurismo_S_Exhaust.ogg), originally
-[Freesound](https://freesound.org/people/lmartins/sounds/465453/)), under
+Dan's car (`assets/sfx/engine/v8-*.m4a`): loops cut at five engine speeds from a V8 sports car's exhaust recording by
+lmartins ([Freesound sound 465453](https://freesound.org/people/lmartins/sounds/465453/)), under
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Trimmed, pitch-flattened, looped, levelled and re-encoded.
 The gearbox, shifts and pops (`wagmi/audio/supercar.js`) are original.
 
@@ -167,9 +166,9 @@ format (`gmasset/1`), their maps resized to 512 px (models) or 1024 px (surfaces
 ## Vehicles
 
 The Vantor GT's downloaded body (`assets/vehicles/vantor/vantor-gt.glb`, used only by a Story Kit world whose car is
-`{ model: 'mogcity/gt' }`, never by Mog City's own game) is based on "Porsche GT3 RS" by
+`{ model: 'mogcity/gt' }`, never by Mog City's own game) is based on a sports car model by
 [Black Snow](https://sketchfab.com/BlackSnow02), from
-[Sketchfab](https://sketchfab.com/3d-models/porsche-gt3-rs-e738eae819c34d19a31dd066c45e0f3d), under
+[Sketchfab](https://sketchfab.com/3d-models/e738eae819c34d19a31dd066c45e0f3d), under
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Modified: its badges, crest and model lettering removed, its
 mechanicals removed, simplified and repainted; `assets/vehicles/vantor/CREDITS.md` has the details. The game's car is
 a look-alike named "Vantor GT" and has no connection with any car maker.

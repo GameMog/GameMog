@@ -29,7 +29,7 @@ export function buildSheetCar(THREE, sheet) {
 }
 
 // a vehicle's class, for what it sounds like and whether it boosts (the owner: "the truck shouldn't make the same noise
-// as the porsche or have the booster"). Only a sports car (sports, supercar, coupe, muscle; the hero's own GT and Dan's
+// as the [sports car] or have the booster"). Only a sports car (sports, supercar, coupe, muscle; the hero's own GT and Dan's
 // roadster are sports) has the boost: its push, its flame, its sound and its HUD. Every other car drives on its own
 // pace alone, whatever its sheet's abilities say, and has an engine of its own (wagmi/audio/playercar.js: voice):
 //   van    van, minivan              a diesel six's low, slow clatter (the city's bus engine, in the cab)

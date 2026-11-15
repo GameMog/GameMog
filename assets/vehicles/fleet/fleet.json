@@ -4,7 +4,7 @@
  "licence": "CC-BY-4.0 (each model, see models[].licence); NOT covered by the MIT License in LICENSE",
  "credits": "assets/vehicles/fleet/CREDITS.md",
  "built": "tools/vehicles/build-fleet.mjs (from the raw downloads, never committed)",
- "v": "f09634649b",
+ "v": "f69268567f",
  "kit": {
   "hi": "kit.webp",
   "lo": "kit-lo.webp",
@@ -99,8 +99,8 @@
    "bytes": 253480
   },
   "gt83.glb": {
-   "sha256": "ae116573e6782143d70a0ec869a22e1bd81e43f31e914890ee69786125fd7fcd",
-   "bytes": 252748
+   "sha256": "e6a5855708d40c5d0985d20ea110340c5be6db796c7385f31b61d52b8ae306b6",
+   "bytes": 252696
   },
   "gt95.glb": {
    "sha256": "28055d9adb7a4e0b4a01f73f3bbbdcf54ad70a39f9fbfa5ed7293cf6e6d2a687",
@@ -111,20 +111,20 @@
    "bytes": 237432
   },
   "kit-lo.webp": {
-   "sha256": "2cd9d650036168497c53c0b1082e771c1c3afb598dc7411f31d4018edbc88e9c",
-   "bytes": 49778
+   "sha256": "0e6fd5b6920f217333389a1ff7d3aa3c91f657a1ba98d016dc8b9b935d35e7b9",
+   "bytes": 49710
   },
   "kit-orm-lo.webp": {
-   "sha256": "5b8e556e615cf8b6d022a2c40ccd150278da324d1690f8912044a3ca56bb4581",
-   "bytes": 11508
+   "sha256": "76885a98bd6ebbd0ce6c5882068a92a75c376ce2fe0cdac47447acc68b544ccc",
+   "bytes": 11012
   },
   "kit-orm.webp": {
-   "sha256": "1c07be6cff203db41617df5bb2d5ff2694f48cb9ddc8b0b4f35fe0c532570d9b",
-   "bytes": 38154
+   "sha256": "f52ced977721aae768910f268dfb02c7500e540c0c32157955f88f769ab4d266",
+   "bytes": 35168
   },
   "kit.webp": {
-   "sha256": "4ab6f409dfb45476483c7cf512c11a6a0ca1c42a6151d7b51f87bc3e5f5d6d11",
-   "bytes": 162920
+   "sha256": "50908a0dcc37961924ec24d8af801ee12237008d8a5f71d4bfc941fa8a763b3a",
+   "bytes": 162790
   },
   "livery-police-lo.webp": {
    "sha256": "f8e31e89e9c1d8433ee85b1a0d7c7ee9543ad7fe6572ba66e075d231c629b3f2",
@@ -387,19 +387,19 @@
    "sourceSha256": "f22ba98a92abd9f409fe425c54526436132ca05ad97a7402c1468014ee509bf8",
    "sourceBytes": 11501748,
    "part": null,
-   "sha256": "ae116573e6782143d70a0ec869a22e1bd81e43f31e914890ee69786125fd7fcd",
-   "bytes": 252748,
+   "sha256": "e6a5855708d40c5d0985d20ea110340c5be6db796c7385f31b61d52b8ae306b6",
+   "bytes": 252696,
    "tris": {
-    "lod0": 14098,
-    "body": 9088,
-    "bodyModelled": 13580,
+    "lod0": 14093,
+    "body": 9083,
+    "bodyModelled": 13488,
     "glass": 338,
     "wheel": 1168,
     "wheelR": 0,
     "lod1": 3999,
     "lod2": 611,
     "source": 18755,
-    "dropped": 125,
+    "dropped": 217,
     "plateLetters": 40
    },
    "changes": "badges and their atlas removed; number-plate characters removed (blank plates); tyre sidewall lettering removed; re-oriented and re-centred to the engine frame; parts merged onto a shared texture atlas; two simplified LODs added; textures downscaled and WebP-encoded; geometry meshopt-compressed"

@@ -31,6 +31,8 @@ const EMBLEMS = {
   hatch11: [{ part: /bumper_front_inner/, c: [1.86, 0.62, -0.23], r: 0.06, max: 0.05 }],   // (its model's name on the grille)
   taxi75: [{ part: /hood_inner/, c: [2.54, 1.02, 0], r: 0.04, max: 0.2 }, { part: /trunkdoor_inner/, c: [-2.36, 1.06, 0], r: 0.04, max: 0.2 }],   // (a maker-like crest, nose and tail)
   sedan80: [{ part: /bottom/, c: [2.24, 0.87, 0], r: 0.04, max: 0.1 }],   // (the stand-up hood ornament)
+  // (two small plate-lamp blocks either side of the rear plate: one renders as a black spike, so both go, symmetric)
+  gt83: [{ part: /bottom/, c: [-1.95, 0.64, -0.2], r: 0.03, max: 0.08 }, { part: /bottom/, c: [-1.95, 0.64, 0.2], r: 0.03, max: 0.08 }],
 };
 // connected pieces of a prim (vertices welded by position): [{ tris, c, size }]
 function pieces(p) {

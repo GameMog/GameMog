@@ -94,7 +94,11 @@ export async function buildKit(texDir, out, cropDir, find) {
   // (the glass templates' labels, top left: FRONT DOOR, REAR DOOR, C-PILLAR, GLASS REAR, GLASS FRONT; harmless, gone)
   const labels = [[10, 4, 140, 28], [425, 4, 545, 28], [840, 4, 935, 28], [10, 334, 140, 358], [10, 666, 145, 692]];
   fillRects(lights, labels.map((r) => [...r, [0, 0, 0]]));
-  await crops(f(KIT.lights.base), lights, [[0, 0, 1024, 40], [0, 330, 400, 362], [0, 660, 400, 696]], cropDir, 'kit-lights-labels');
+  // (the long red tail lamp's centre plaque, right middle: a maker-like name and emblem on it; the whole plaque blanked
+  // to a plain smoked lens, its colour forced from the plaque's own dark background so nothing of the lettering is left)
+  const PLAQUE = [1796, 518, 1976, 568];
+  fillRects(lights, [[...PLAQUE, [44, 39, 32]]]);
+  await crops(f(KIT.lights.base), lights, [[0, 0, 1024, 40], [0, 330, 400, 362], [0, 660, 400, 696], [1700, 460, 2048, 640]], cropDir, 'kit-lights-labels');
   const tire = await rawFull(f(KIT.tire.base));
   // (the sidewall's maker-like name and lettering: the tyre's rings, centre found below, median per ring)
   cleanSidewall(tire, TIRE_C[0], TIRE_C[1], TIRE_R[0], TIRE_R[1]);
@@ -140,7 +144,13 @@ export async function buildKit(texDir, out, cropDir, find) {
       const img = await rawFull(f(KIT.bottomLT.orm)); fillRects(img, [[0, 380, 60, 410, [255, 255, 0]]]);
       ocomp.push({ input: await toSharp(img).resize(w, h, { fit: 'fill' }).png().toBuffer(), left: Math.round(t.x * oS), top: Math.round(t.y * oS) });
     }
-    await ormTile('tire', KIT.tire.orm);
+    { // (its occlusion and roughness carry the sidewall's raised lettering too, a maker-like name that shades through on
+      // the tyre: cleaned ring by ring the same way)
+      const t = TILES.tire, w = Math.round(t.w * oS), h = Math.round(t.h * oS);
+      const img = await rawFull(f(KIT.tire.orm)); cleanSidewall(img, TIRE_C[0], TIRE_C[1], TIRE_R[0], TIRE_R[1]);
+      if (!tag) await crops(f(KIT.tire.orm), img, [[0, 180, 860, 1024]], cropDir, 'kit-tyre-orm-sidewall');
+      ocomp.push({ input: await toSharp(img).resize(w, h, { fit: 'fill' }).png().toBuffer(), left: Math.round(t.x * oS), top: Math.round(t.y * oS) });
+    }
     await ormTile('int1', KIT.int1.orm);
     await ormTile('int2', KIT.int2.orm);
     await ormTile('plate', null, [255, 110, 0]);

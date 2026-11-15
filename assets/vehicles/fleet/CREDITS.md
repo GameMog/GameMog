@@ -28,6 +28,7 @@ Credit lines (keep them wherever the cars are shown; the game shows them on its 
 | `taxi75.glb` | "Canyon '75 Taxi - Low poly model" by Daniel Zhabotinsky, CC BY 4.0, https://sketchfab.com/3d-models/9e8f92a215784f3d8aaaaeab1bef54c4 |
 | `police90.glb` | "Illinois '90 Police cruiser - Low poly model" by Daniel Zhabotinsky, CC BY 4.0, https://sketchfab.com/3d-models/dc81625478a744649b210c7f248b0b6a |
 | `box95.glb` | "LCT 3000 '95 - Low poly model" by Daniel Zhabotinsky, CC BY 4.0, https://sketchfab.com/3d-models/663a0953c038434a918cb85725c88ffa |
+| `kit.webp, kit-lo.webp, kit-orm.webp, kit-orm-lo.webp, livery-taxi-lo.webp, livery-police-lo.webp` | the shared texture atlas and the two liveries of the models above (the same credit lines; the taxi's livery is the "Canyon '75 Taxi" model's, the police livery the "Illinois '90 Police cruiser" model's) |
 
 ## By Comrade1280
 
@@ -35,13 +36,15 @@ Credit lines (keep them wherever the cars are shown; the game shows them on its 
 |---|---|
 | `bus.glb, schoolbus.glb, ambulance.glb, firetruck.glb, garbage.glb, mailvan.glb, utility.glb, tow.glb, police20.glb, taxi20.glb` | "Generic civil service vehicles pack" by Comrade1280, CC BY 4.0, https://sketchfab.com/3d-models/8ff2a13f30914932a70c7950cfa58465 |
 | `minivan20.glb` | "Generic passenger car pack" by Comrade1280, CC BY 4.0, https://sketchfab.com/3d-models/20f9af9b8a404d5cb022ac6fe87f21f5 |
+| `bus-lo.webp, bus-orm-lo.webp, bus-decal-lo.webp, schoolbus-lo.webp, schoolbus-orm-lo.webp, schoolbus-decal-lo.webp, ambulance-lo.webp, ambulance-orm-lo.webp, ambulance-decal-lo.webp, firetruck-lo.webp, firetruck-orm-lo.webp, firetruck-decal-lo.webp, garbage-lo.webp, garbage-orm-lo.webp, mailvan-lo.webp, mailvan-orm-lo.webp, mailvan-decal-lo.webp, utility-lo.webp, utility-orm-lo.webp, utility-decal-lo.webp, tow-lo.webp, tow-orm-lo.webp, police20-lo.webp, police20-orm-lo.webp, police20-decal-lo.webp, taxi20-lo.webp, taxi20-orm-lo.webp, taxi20-decal-lo.webp, c1280-optics-lo.webp` | the civil pack's textures (base colour, occlusion-roughness-metal, decals; the shared lamp sheet) for the vehicles above: "Generic civil service vehicles pack" by Comrade1280, CC BY 4.0, https://sketchfab.com/3d-models/8ff2a13f30914932a70c7950cfa58465 |
+| `minivan20-lo.webp, minivan20-orm-lo.webp` | the minivan's textures: "Generic passenger car pack" by Comrade1280, CC BY 4.0, https://sketchfab.com/3d-models/20f9af9b8a404d5cb022ac6fe87f21f5 |
 
 ## What was changed (all of them: modified)
 
 - Daniel Zhabotinsky's cars: every badge mesh removed, and the shared badge texture atlas is not shipped at all; the
   empty badge mounts and the lettering and emblems cut as geometry removed (a hatchback's grille name, a cab's hood and
   trunk crests, an old sedan's hood ornament); the number plates' characters and state names removed (blank plates);
-  the tyres' sidewall lettering, a stray word on the underbody texture and the glass templates' labels cleaned off; the
+  the tyres' sidewall lettering (in the colour and the occlusion-roughness textures), a lamp's maker-like name plaque, a stray word on the underbody texture and the glass templates' labels cleaned off; the
   cab's livery cleared of every sticker (a company name, slogans, ads) and the cruiser's livery cut down to a plain
   POLICE (its unit number, slogan, flags and the 911 panel removed). The parts were re-oriented and re-centred to the
   game's frame, merged onto one shared texture atlas (`kit*.webp`), their textures downscaled and WebP-encoded, two

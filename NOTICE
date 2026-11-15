@@ -208,9 +208,8 @@ The same list is in assets/CREDITS.md, and in the game on the pause menu's Credi
 Engine sounds
 -------------
   - assets/sfx/engine/v8-idle.m4a, v8-2000.m4a, v8-2500.m4a, v8-4000.m4a, v8-4900.m4a: loops cut from
-    "Maserati GranTurismo S Exhaust" by lmartins
+    a V8 sports car's exhaust recording (Freesound sound 465453) by lmartins
       https://freesound.org/people/lmartins/sounds/465453/
-      (via Wikimedia Commons: https://commons.wikimedia.org/wiki/File:Maserati_GranTurismo_S_Exhaust.ogg)
     licensed CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Changed: trimmed, pitch-flattened
     to constant engine speeds, looped, levelled and re-encoded to AAC.
   - The gearbox, the shifts, the pops and the mix (wagmi/audio/supercar.js) are original to Mog City.
