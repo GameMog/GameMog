@@ -338,7 +338,7 @@ What OSM maps and Overture carries, read where it is tagged; where it is not, th
 **Releasing it (r13).** Stored worlds pin their buildId: 0.12.0's tiles, frames and bundles stay in the store and are
 served as before, and the new engine plays them (every new field is optional: no `streetProps`, 0 colours, no part
 roof shape is 0.12.0's look). Order: (1) the engine files (`cities/sf/js/sf-street-details.js`, `road-paint.js`,
-`trees.js`, `cities/pkg/js/pkg-buildings.js`, `index.html` stamps `20261116-r13`) to `mogcity` first; (2) this compiler to
+`trees.js`, `cities/pkg/js/pkg-buildings.js`, `index.html` stamps `20261115-r13`) to `mogcity` first; (2) this compiler to
 `hometown-compiler`; (3) GameMog's `deploy/town-builder/workflow-build.sh` MOGCITY_SHA re-pinned to it. No new env var
 or secret. The builder's cached regions are refused once each and top up their two building extras files (one small
 S3 read per layer); every town then rebuilds cold under the new buildId on its first visit, which counts against
