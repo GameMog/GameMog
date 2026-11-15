@@ -16,7 +16,7 @@ const place = () => { const n = globalThis.window?.NYC?.PKG?.name; return n ? St
 const PKGLINES = () => [
   { what: 'Slop San Francisco', who: 'Kamil (@unable0_) and Mr.doob', note: 'the city engine this place is played on', licence: 'MIT', licenceUrl: 'https://opensource.org/license/mit', src: 'https://github.com/unable12/slop-sanfrancisco' },
   { what: 'Map data', who: '© OpenStreetMap contributors', note: `${place()}'s streets, their names and classes, water and parks (via Overture Maps)`, licence: 'ODbL 1.0', licenceUrl: 'https://opendatacommons.org/licenses/odbl/1-0/', src: 'https://www.openstreetmap.org/copyright' },
-  { what: 'Overture Maps Foundation', who: 'Overture Maps', note: 'the building footprints and heights, the places', licence: 'CDLA Permissive 2.0 / ODbL 1.0', licenceUrl: 'https://cdla.dev/permissive-2-0/', src: 'https://overturemaps.org' },
+  { what: 'Overture Maps Foundation', who: 'Overture Maps', note: 'the building footprints and heights (from OpenStreetMap, Esri Community Maps contributors (CC BY 4.0) and Microsoft\'s ML building footprints (ODbL)), the land cover and the places', licence: 'ODbL 1.0 / CC BY 4.0 / CDLA Permissive 2.0', licenceUrl: 'https://docs.overturemaps.org/attribution/', src: 'https://overturemaps.org' },
   { what: 'Elevation', who: 'USGS 3D Elevation Program', note: 'the ground: 1/3 arc-second terrain in town, 1 arc-second out to the horizon', licence: 'public domain', licenceUrl: null, src: 'https://www.usgs.gov/3d-elevation-program' },
 ];
 const cityLines = () => world.id === 'pkg' ? PKGLINES() : SF ? [
@@ -110,6 +110,8 @@ if (world.id === 'pkg') CREDITS.unshift(...CREDITS.splice(CREDITS.findIndex((c) 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const link = (url, text) => (url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="color:inherit">${esc(text)}</a>` : esc(text));
 export function creditsHTML() {
+  // (a town: its name, and its lines naming it, as they are now: a GameMog town's package lands after this module is read)
+  if (world.id === 'pkg') { const c = CREDITS.find((x) => x.heading.startsWith('The map: ')); if (c) { c.heading = `The map: ${place()}`; c.lines = PKGLINES(); } }
   return CREDITS.filter((c) => c.lines.length).map((c, i) => `<div class="t${i ? ' g' : ''}">${esc(c.heading)}</div>${c.lines.map((l) =>
     `<div class="ln"><b>${esc(l.what)}</b>${esc(l.who)}${l.licence ? ` <span class="mu">· ${link(l.licenceUrl, l.licence)}</span>` : ''}`
     + `${l.note ? `<div class="mu" style="font-size:15px">${esc(l.note)}</div>` : ''}`

@@ -90,28 +90,38 @@ if (repo) {
   repo.firstChild.textContent = c.short + ' ';
   repo.dataset.credit = 'pkg';
 }
-// ...but the title's line lives in .hud-top-left, which story mode, fights, cutscenes and the pause menu all put away, so
-// the map's data is also credited on a line of its own: small, bottom centre, outside every .hud, above the pause menu,
-// the full map and the loader, so no HUD toggle hides it (clean view [H] only dims it). ODbL 1.0 §4.3 asks for the
-// credit wherever the map is shown; it links to OpenStreetMap's copyright page.
-if (!document.getElementById('pkg-map-credit')) {
-  const c = N.pkgCredit(P.attribution);
+// ...and the map's data in the places a game credits it (OSMF Attribution Guidelines, "Computer games and simulations":
+// a splash screen at startup, the game view, the credits or a menu; NOTICE "Map data in a Hometown town"): the loading
+// screen (here), the start gate's small print (wagmi/storyrun/index.js), the pause menu's foot and its Credits page
+// (wagmi/mission/pause.js, wagmi/credits.js) and the full map's corner (below). Never a line over the play itself.
+N.PKG_CREDIT = N.pkgCredit(P.attribution);
+const loader = document.querySelector('#loading-overlay .loader');
+if (loader && !document.getElementById('pkg-load-credit')) {
+  const c = N.PKG_CREDIT;
   const line = document.createElement('a');
-  line.id = 'pkg-map-credit';
+  line.id = 'pkg-load-credit';
   line.href = 'https://www.openstreetmap.org/copyright';
   line.target = '_blank';
   line.rel = 'noopener noreferrer';
   line.title = c.full;
   line.setAttribute('aria-label', `Map data: ${c.full} (opens in a new tab)`);
-  line.textContent = c.short;
+  line.textContent = `Map data ${c.short}`;
   const css = document.createElement('style');
-  css.textContent = `#pkg-map-credit{position:fixed;left:50%;bottom:max(3px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:110;
-font:500 10px/1.25 Inter,system-ui,sans-serif;color:rgba(255,255,255,.72);text-shadow:0 1px 2px rgba(0,0,0,.9);text-decoration:none;
-white-space:nowrap;max-width:calc(100vw - 32px);overflow:hidden;text-overflow:ellipsis;pointer-events:auto;opacity:1!important;visibility:visible!important;display:block!important;transition:opacity .3s}
-#pkg-map-credit:hover,#pkg-map-credit:focus-visible{color:#fff;text-decoration:underline}
-body.hud-minimized #pkg-map-credit{opacity:.55!important}`;
+  css.textContent = `#pkg-load-credit{display:block;margin-top:14px;max-width:calc(100vw - 32px);font:500 11px/1.35 Inter,system-ui,sans-serif;
+color:rgba(255,255,255,.66);text-decoration:none;text-align:center;pointer-events:auto}
+#pkg-load-credit:hover,#pkg-load-credit:focus-visible{color:#fff;text-decoration:underline}`;
   document.head.appendChild(css);
-  document.body.appendChild(line);
+  loader.appendChild(line);
+}
+// (a story world's instant title, index.html #wg-boot, stands in for the loading screen on its path: the same line under
+// its small print, until the start gate takes its place with its own, wagmi/mission/ui.js gate({ credit }))
+const bootFine = document.querySelector('#wg-boot .wg-boot-fine');
+if (bootFine && !bootFine.querySelector('.pkg-credit')) {
+  const cr = document.createElement('span');
+  cr.className = 'pkg-credit';
+  cr.style.cssText = 'display:block;margin-top:4px;font:500 clamp(10px,.95vw,12px)/1.4 Inter,system-ui,sans-serif;letter-spacing:0;opacity:.9';
+  cr.textContent = `Map data ${N.PKG_CREDIT.short}`;
+  bootFine.appendChild(cr);
 }
 $('btn-open-map')?.setAttribute('title', `Full ${place} street map [M]`);
 const radar = $('minimap-card');

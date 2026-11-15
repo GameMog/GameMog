@@ -17,11 +17,13 @@ function page(PKG) {
   const repo = { href: 'https://github.com/unable12/slop-sanfrancisco/', title: '', dataset: {}, firstChild: text, setAttribute: (k, v) => { attrs[k] = v; }, attrs };
   const added = [];
   const el = (tag) => { const a = {}; return { tag, attrs: a, setAttribute: (k, v) => { a[k] = v; } }; };
-  const document = { getElementById: (id) => added.find((e) => e.id === id) || null, querySelector: (s) => (s === '.brand .repo-link' ? repo : null),
+  const loader = { kids: [], appendChild: (e) => { loader.kids.push(e); added.push(e); } };
+  const document = { getElementById: (id) => added.find((e) => e.id === id) || null,
+    querySelector: (s) => (s === '.brand .repo-link' ? repo : s === '#loading-overlay .loader' ? loader : null),
     createElement: el, head: { appendChild: (e) => added.push(e) }, body: { appendChild: (e) => added.push(e) } };
   const window = { NYC: { PKG, PLACE_DATA: { regional: {} } } };
   vm.runInNewContext(SRC, { window, document });
-  return { repo, N: window.NYC, added };
+  return { repo, N: window.NYC, added, loader };
 }
 
 test('package credit: the data sources from PKG.attribution, linked to OpenStreetMap; no Slop San Francisco', () => {
@@ -32,17 +34,15 @@ test('package credit: the data sources from PKG.attribution, linked to OpenStree
   for (const s of [repo.firstChild.textContent, repo.title, repo.attrs['aria-label'], repo.href]) assert.ok(!/Slop|github/i.test(s), s);
 });
 
-test('package credit: a line of its own, outside every .hud, linked to OpenStreetMap, above the pause menu and the map', () => {
-  const { added } = page({ name: 'Okemah, OK', attribution: ATTR });
-  const line = added.find((e) => e.id === 'pkg-map-credit'), css = added.find((e) => e.tag === 'style');
-  assert.ok(line && css);
-  assert.equal(line.textContent, '© OpenStreetMap contributors · Overture Maps · USGS 3DEP');
+test('package credit: on the loading screen and for the gate and the pause menu (N.PKG_CREDIT), never a line over the play', () => {
+  const { added, loader, N } = page({ name: 'Okemah, OK', attribution: ATTR });
+  assert.equal(added.filter((e) => e.id === 'pkg-map-credit').length, 0, 'no always-on footer line');
+  const line = loader.kids.find((e) => e.id === 'pkg-load-credit');
+  assert.ok(line, 'the loading screen carries it');
+  assert.equal(line.textContent, 'Map data © OpenStreetMap contributors · Overture Maps · USGS 3DEP');
   assert.equal(line.href, 'https://www.openstreetmap.org/copyright');
-  assert.match(css.textContent, /position:fixed/);
-  const z = +/z-index:(\d+)/.exec(css.textContent)[1];
-  assert.ok(z > 100, 'above the loader (100), the full map (90) and the pause menu (60)');
-  assert.match(css.textContent, /body\.hud-minimized #pkg-map-credit\{opacity:\.55!important\}/);
-  assert.equal(added.filter((e) => e.id === 'pkg-map-credit').length, 1);
+  assert.equal(N.PKG_CREDIT.short, '© OpenStreetMap contributors · Overture Maps · USGS 3DEP');
+  for (const e of added) if (e.tag === 'style') assert.doesNotMatch(e.textContent, /position:fixed/);
 });
 
 test('package credit: follows the lines it is given (a WorldCover line; no lines at all)', () => {

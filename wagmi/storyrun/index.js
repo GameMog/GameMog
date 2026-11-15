@@ -142,7 +142,9 @@ export async function install(W) {
   // (a world that says no time at all, in its dressing or its first mission, is in daylight)
   const firstTime = (() => { const first = order[0]?.def; return first?.time || order[0]?.act?.timeline?.[first?.id]?.time || def.dressing?.time || (def.dressing ? 'day' : null); })();
   { const T = { dusk: 'twilight', night: 'midnight', day: 'midday', morning: 'golden', dawn: 'twilight' }, id = firstTime; try { if (id) W.app.selectTime(T[id] || id); } catch {} }
-  const gate = Q.has('nogate') ? null : ui.gate({ when: () => W.app.ready, onStart: () => { W.audio?.unlock?.(); sfx.unlock(); }, fine: 'Community entertainment project. Have fun!' });
+  const gate = Q.has('nogate') ? null : ui.gate({ when: () => W.app.ready, onStart: () => { W.audio?.unlock?.(); sfx.unlock(); }, fine: 'Community entertainment project. Have fun!',
+    // (a Hometown town: its map data credited on the title, OSMF's startup screen for a game, cities/pkg/js/pkg-hud.js)
+    credit: () => (window.NYC?.PKG ? (window.NYC.PKG_CREDIT ? `Map data ${window.NYC.PKG_CREDIT.short}` : null) : '') });
   if (!gate) ui.bootOff();
   for (let i = 0; i < 600 && !W.app.ready; i++) await sleep(100);
   if (gate) await gate;

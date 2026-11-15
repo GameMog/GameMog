@@ -334,11 +334,40 @@ Hometown packages (tools/hometown, cities/pkg)
   - (c) OpenStreetMap contributors, Open Database License 1.0 (https://www.openstreetmap.org/copyright): the road
     network (names, classes, one-ways), water and land use, and the OpenStreetMap-derived building footprints, read
     through Overture Maps. A package's geodata.js is an ODbL derived database.
-  - Overture Maps Foundation (https://overturemaps.org), CDLA Permissive 2.0 / ODbL 1.0 by theme: the buildings theme
-    (footprints and heights, including Microsoft, Google and Esri contributions), the places theme.
+  - Overture Maps Foundation (https://overturemaps.org), licence by theme (https://docs.overturemaps.org/attribution/):
+    buildings (footprints and heights) ODbL 1.0, with rows from OpenStreetMap, Microsoft's ML building footprints
+    (ODbL) and Esri Community Maps contributors (CC BY 4.0); base (land cover, water) ODbL 1.0; places CDLA
+    Permissive 2.0.
   - USGS 3D Elevation Program, 1/3 arc-second DEM: US government work, public domain.
   - tools/hometown/osm/osm-roads-us.parquet (the compiler's lane side table: lanes, widths, one-ways, speed limits
     by OSM way id): (c) OpenStreetMap contributors, Open Database License 1.0, a derived database made from Geofabrik's
     US extract by tools/hometown/osm_roads.py. NOT covered by the MIT License in LICENSE. See tools/hometown/osm/NOTICE.md.
-  The game shows the credit on the map (cities/pkg/js/pkg-hud.js) and on its Credits page (wagmi/credits.js). No
-  brand name is shown: businesses are named by what they are and the street they stand on.
+  No brand name is shown: businesses are named by what they are and the street they stand on.
+
+  Where the game credits the map data (and why there is no line over the play)
+    The credit, "© OpenStreetMap contributors · Overture Maps · USGS 3DEP" (the short line, from the package's
+    attribution lines, cities/pkg/js/pkg-hud.js pkgCredit), is shown:
+      - on the loading screen, linked to https://www.openstreetmap.org/copyright (pkg-hud.js, #pkg-load-credit);
+      - in the start gate's small print, the title screen a story world opens on (wagmi/storyrun/index.js);
+      - at the foot of the pause menu, linked (wagmi/mission/pause.js), and first on its Credits page with every
+        source's licence and link (wagmi/credits.js);
+      - in the corner of the full map, the one place the data is shown as a map (pkg-hud.js, .mc-map-credit);
+      - and on GameMog's library page.
+    It is not drawn over the game view while playing. Reasoning:
+      - ODbL 1.0 s.4.3 asks a Produced Work's notice to be "reasonably calculated" to make anyone using or viewing
+        it aware the data is from OpenStreetMap and available under ODbL. The OSMF Attribution Guidelines (2021)
+        say how, by medium. For "Computer games and simulations" attribution may be given by a splash screen at
+        startup, in the game view, on the credits page, in a menu or another suitable place; a short credit
+        needs the details somewhere suitable (the Credits page, the copyright link). A splash credit must be
+        legible and shown long enough to read (the loading screen and the start gate are up for seconds and
+        wait for the player). The "corner of the map" rule is for interactive maps: here the full map.
+      - Overture: its ODbL themes carry OpenStreetMap's obligation above (and the Microsoft rows' ODbL, the same).
+        The Esri Community Maps rows are CC BY 4.0, which takes a credit "in any reasonable manner based on the
+        medium": the Credits page names them. CDLA Permissive 2.0 (places) puts no condition on Results (s.3.1),
+        and no on-screen credit anywhere; when the Data itself is shared it asks for the agreement's text with it
+        (s.2.1): a package's manifest names the licence, and its text is at https://cdla.dev/permissive-2-0/. Overture asks
+        for "Overture Maps Foundation" to be credited: it is, in the short line.
+      - USGS 3DEP is a US government work in the public domain: no credit is required; USGS asks for one as a
+        courtesy, and it is given.
+    Revisit this if a package is ever offered for download as data (then ODbL s.4.4 / 4.6 and CDLA s.2.1 apply to
+    the file itself), or if the game ever shows the town as a map outside the full map (then that map's corner).
