@@ -264,7 +264,7 @@ nothing and ends; empty or `0` builds). Optional: `HOMETOWN_RUN_CAP_S` (7200), `
 
 Workflows build on the native runtime only (`runtime: python`; no Dockerfile). The buildCommand installs the Render SDK
 (`workflow-requirements.txt`) and runs `workflow-build.sh`, which writes `.town-builder/`:
-- **the compiler at `MOGCITY_SHA`** (THE one line to re-pin; now `e8c98e6766acbd35c993ca1f0b9a3cc2cbc3aa3a`, compiler
+- **the compiler at `MOGCITY_SHA`** (THE one line to re-pin; now `7f68d4e052703808467a775ee560d726c35b004b`, compiler
   0.12.0), fetched by SHA from github.com/GameMog/GameMog; when a SHA alone cannot be fetched, the branch
   `HOMETOWN_MOGCITY_REF` (default `hometown-compiler`) and then the SHA inside it;
 - its packages from the compiler's own hash lock (`--require-hashes`, wheels only) in their own venv;
@@ -371,6 +371,26 @@ is first created), and the workflow service is created and built the moment `mai
    owner test pick.
 
 Safe fallback while any step is open: `HOMETOWN_BUILDER=owner` and `NEXT_PUBLIC_HOMETOWN_SEARCH=off`.
+
+## Release r11 (compiler 0.12.0, re-pinned)
+
+Live before it: gamemog.com `main` f81fea8e, mc.gamemog.com `mogcity` 6faee4bf (the tree of MogCity `r10s`
+`e8c98e6766acbd35c993ca1f0b9a3cc2cbc3aa3a`), `hometown-compiler` e8c98e67. r11 adds: a picked pickup (`fleetCar`
+pickup, the town fleet's pickup89) keeps its tow rig, built as its own group and fitted to the model's bed and roof
+(the procedural wrecker looks the same as before); the speedometer shows a car's real mph, with the doubled dial kept
+for Dan's roadster alone; the cache stamp `20261115-r11` for the city scripts and for New York's. `tools/hometown` is
+unchanged, so the compiler stays 0.12.0 and the buildId does not change; the pin moves to the r11 tip only to keep
+`MOGCITY_SHA` on the branch's tip.
+
+In this order:
+
+1. **Mog City's engine**: push the local MogCity branch `mogcity-release-r11` (parent `6faee4bf` = the live `mogcity`,
+   a fast-forward; the tree of MogCity `r11` `7f68d4e052703808467a775ee560d726c35b004b` without `.scratch`, the live
+   README and `CNAME` kept; no live file deleted) to `mogcity`.
+2. **The compiler commit**: push MogCity `r11` (tip `7f68d4e052703808467a775ee560d726c35b004b`) to
+   `hometown-compiler` BEFORE `main` (it descends from the live e8c98e67, a fast-forward).
+3. **Nothing building** on Render, then push GameMog `r10-misc` to `main` (a fast-forward of f81fea8e). The pin changed
+   under `deploy/town-builder/**`, so the workflow rebuilds, at the same compiler 0.12.0.
 
 ## Release r10 (compiler 0.12.0, re-pinned)
 
