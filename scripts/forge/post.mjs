@@ -141,14 +141,19 @@ if (!env.flag?.('FORGE_NO_POSECAP')) { const memo = new Map(), WQ = new T3.Quate
   // (the back of the cap left as it is (its points facing back fade out): moved in there, the hollow under the cut-away
   // skin showed from behind and above, the uncovered gate's view)
   // (the zone starts clear of the turned collar's ends (11.5 cm out at least): moved in under them they stood out over it)
-  const OUTER = /^(suit|suit-db|uniform|doorman|overcoat)$/; // (tailored tops; a hoodie's and a puffer's soft caps are left as cut)
+  // (people4: the soft tops too, a hoodie's, a puffer's and a chef's jacket's cap, at most 2 cm in; and the back of the
+  // cap a little (BACK of the front's share): left as cut, it stood up behind a heavy man's shoulder as a block in the
+  // walk (the old boss) once the front was rounded. The uncovered gate (pipeline.mjs) still refuses a hole)
+  const OUTER = /^(suit|suit-db|uniform|doorman|overcoat|hoodie|puffer|chef)$/, SOFT = /^(hoodie|puffer|chef)$/;
+  const BACK = +(env.flag?.('FORGE_POSECAP_BACK') ?? 0.5);
   const sm = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
   let nMoved = 0, most = 0; const DEL = [];
   for (const mesh of R.listMeshes()) for (const prim of mesh.listPrimitives()) { if (!OUTER.test(prim.getMaterial()?.getName() || '')) continue;
     const PA = prim.getAttribute('POSITION'), JA = prim.getAttribute('JOINTS_0'), WA = prim.getAttribute('WEIGHTS_0'), NA = prim.getAttribute('NORMAL'), IA = prim.getIndices(); if (!PA || !JA || !WA || !IA) continue;
     const n = PA.getCount(), idx = IA.getArray(), P = new Float64Array(n * 3), f = new Float32Array(n), e3 = [0, 0, 0], e4 = [0, 0, 0, 0], w4 = [0, 0, 0, 0];
     for (let v = 0; v < n; v++) { PA.getElement(v, e3); P.set(e3, v * 3); }
-    for (let v = 0; v < n; v++) { const ax = Math.abs(P[v * 3]), y = P[v * 3 + 1]; f[v] = (NA ? sm(-0.75, -0.25, NA.getElement(v, e3)[2]) : 1) * sm(Math.max(SXc - 0.1, 0.115), Math.max(SXc - 0.04, 0.165), ax) * (1 - sm(SXc + 0.11, SXc + 0.17, ax)) * sm(armY, armY + 0.05, y); }
+    const soft = SOFT.test(prim.getMaterial().getName());
+    for (let v = 0; v < n; v++) { const ax = Math.abs(P[v * 3]), y = P[v * 3 + 1]; f[v] = (NA ? BACK + (1 - BACK) * sm(-0.75, -0.25, NA.getElement(v, e3)[2]) : 1) * sm(Math.max(SXc - 0.1, 0.115), Math.max(SXc - 0.04, 0.165), ax) * (1 - sm(SXc + 0.11, SXc + 0.17, ax)) * sm(armY, armY + 0.05, y); }
     // (each point's skinning matrix at the idle frame, and its posed place)
     const S = new Array(n), Q = new Float64Array(n * 3), tmp = new T3.Matrix4(), pv = new T3.Vector3();
     for (let v = 0; v < n; v++) { if (f[v] <= 0.01) continue; JA.getElement(v, e4); WA.getElement(v, w4); const m = new T3.Matrix4().set(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0); let ws = 0;
@@ -165,7 +170,7 @@ if (!env.flag?.('FORGE_NO_POSECAP')) { const memo = new Map(), WQ = new T3.Quate
       if (!m) { JA.getElement(v, e4); WA.getElement(v, w4); m = new T3.Matrix4().set(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0); let ws = 0; for (let k = 0; k < 4; k++) if (w4[k] > 0) { const a = SKM[e4[k]].elements, b = m.elements; for (let q = 0; q < 16; q++) b[q] += a[q] * w4[k]; ws += w4[k]; } const b = m.elements; for (let q = 0; q < 16; q++) b[q] /= ws || 1; }
       pv.set(P[v * 3], P[v * 3 + 1], P[v * 3 + 2]).applyMatrix4(m); QW[w * 3] = pv.x; QW[w * 3 + 1] = pv.y; QW[w * 3 + 2] = pv.z; has[w] = 1; };
     for (const w of live) { poseW(w); for (const o of adj[w]) poseW(o); }
-    const Q0 = Float64Array.from(QW), iters = +(env.flag?.('FORGE_POSECAP_ITERS') || 80), maxIn = +(env.flag?.('FORGE_POSECAP_IN') || 0.03);
+    const Q0 = Float64Array.from(QW), iters = +(env.flag?.('FORGE_POSECAP_ITERS') || 80), maxIn = soft ? 0.02 : +(env.flag?.('FORGE_POSECAP_IN') || 0.03);
     for (let it = 0; it < iters; it++) {
       // (posed normals of the zone, from its triangles)
       const NN = new Float64Array(nW * 3); for (let q = 0; q < idx.length; q += 3) { const a = wid[idx[q]], b = wid[idx[q + 1]], c = wid[idx[q + 2]]; if (!has[a] || !has[b] || !has[c]) continue;
@@ -200,7 +205,18 @@ if (!env.flag?.('FORGE_NO_POSECAP')) { const memo = new Map(), WQ = new T3.Quate
       for (let v = 0; v < PA.getCount(); v++) { const p = PA.getElement(v, [0, 0, 0]), c = [0, 1, 2].map((k) => Math.floor(p[k] / cell)); let best = null, bd = cell * cell;
         for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) for (let e = -1; e <= 1; e++) for (const d of G.get((c[0] + a) + ',' + (c[1] + b) + ',' + (c[2] + e)) || []) { const dd = (d[0] - p[0]) ** 2 + (d[1] - p[1]) ** 2 + (d[2] - p[2]) ** 2; if (dd < bd) { bd = dd; best = d; } }
         if (!best) continue; const k = 1 - Math.sqrt(bd) / cell; PA.setElement(v, [p[0] + best[3] * k, p[1] + best[4] * k, p[2] + best[5] * k]); carried++; } } }
-  report.shoulders = { posedRound: nMoved, mostMm: +(most * 1000).toFixed(1), carried }; }
+  // (people4, Mara's grey collar tips: a turned collar's ends stood up off the jacket at the shoulder, their underside lit
+  // grey. Each collar point more than 5 mm out from the jacket under it (its nearest jacket point, along that point's
+  // normal, within 2.5 cm) is laid back to 5 mm)
+  let laid = 0; { const jk = []; for (const mesh of R.listMeshes()) for (const prim of mesh.listPrimitives()) { if (!OUTER.test(prim.getMaterial()?.getName() || '')) continue; const PA = prim.getAttribute('POSITION'), NA = prim.getAttribute('NORMAL'); if (!PA || !NA) continue;
+      for (let v = 0; v < PA.getCount(); v++) jk.push([...PA.getElement(v, [0, 0, 0]), ...NA.getElement(v, [0, 0, 0])]); }
+    if (jk.length) { const cell = 0.025, G = new Map(), gk = (x, y, z) => Math.floor(x / cell) + ',' + Math.floor(y / cell) + ',' + Math.floor(z / cell); for (const d of jk) { const k = gk(d[0], d[1], d[2]); (G.get(k) || G.set(k, []).get(k)).push(d); }
+      const seen = new Set(); for (const mesh of R.listMeshes()) for (const prim of mesh.listPrimitives()) { if (!/-collar$/.test(prim.getMaterial()?.getName() || '') || !OUTER.test((prim.getMaterial().getName() || '').replace(/-collar$/, ''))) continue; const PA = prim.getAttribute('POSITION'); if (!PA || seen.has(PA)) continue; seen.add(PA);
+        for (let v = 0; v < PA.getCount(); v++) { const p = PA.getElement(v, [0, 0, 0]), c = [0, 1, 2].map((k) => Math.floor(p[k] / cell)); let best = null, bd = cell * cell;
+          for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) for (let e = -1; e <= 1; e++) for (const d of G.get((c[0] + a) + ',' + (c[1] + b) + ',' + (c[2] + e)) || []) { const dd = (d[0] - p[0]) ** 2 + (d[1] - p[1]) ** 2 + (d[2] - p[2]) ** 2; if (dd < bd) { bd = dd; best = d; } }
+          if (!best) continue; const l = Math.hypot(best[3], best[4], best[5]) || 1, nn = [best[3] / l, best[4] / l, best[5] / l], off = (p[0] - best[0]) * nn[0] + (p[1] - best[1]) * nn[1] + (p[2] - best[2]) * nn[2];
+          if (off > 0.005) { const k = off - 0.005; PA.setElement(v, [p[0] - nn[0] * k, p[1] - nn[1] * k, p[2] - nn[2] * k]); laid++; } } } } }
+  report.shoulders = { posedRound: nMoved, mostMm: +(most * 1000).toFixed(1), carried, collarLaid: laid }; }
 R.getAsset().extras = Object.assign(R.getAsset().extras || {}, { forge: { landmarks: LM, props: LM.props || [], sheet: LM.sheet || null, post: report } });
 return { glb: await io.writeBinary(doc), report };
 }
