@@ -264,7 +264,7 @@ nothing and ends; empty or `0` builds). Optional: `HOMETOWN_RUN_CAP_S` (7200), `
 
 Workflows build on the native runtime only (`runtime: python`; no Dockerfile). The buildCommand installs the Render SDK
 (`workflow-requirements.txt`) and runs `workflow-build.sh`, which writes `.town-builder/`:
-- **the compiler at `MOGCITY_SHA`** (THE one line to re-pin; now `3932b49581115404e6a8b0d76256dee7b01d004f`, compiler
+- **the compiler at `MOGCITY_SHA`** (THE one line to re-pin; now `875cf960d14669d919395b4b06205fd08e1991e5`, compiler
   0.12.0), fetched by SHA from github.com/GameMog/GameMog; when a SHA alone cannot be fetched, the branch
   `HOMETOWN_MOGCITY_REF` (default `hometown-compiler`) and then the SHA inside it;
 - its packages from the compiler's own hash lock (`--require-hashes`, wheels only) in their own venv;
@@ -379,12 +379,13 @@ in, so everything listed under r7 below ships with it). Live: gamemog.com `main`
 fbc60528, the revoice page a54530ea, admin visibility d6241046), mc.gamemog.com `mogcity` ee368f8 (r6a),
 `hometown-compiler` d7e60927 (compiler 0.10.0). What r8 adds to r7:
 
-- **Compiler 0.12.0** (MogCity `release-r5`, tip `3932b49581115404e6a8b0d76256dee7b01d004f`): reach's approach points. Every story
+- **Compiler 0.12.0** (MogCity `release-r5`, tip `875cf960d14669d919395b4b06205fd08e1991e5`): reach's approach points. Every story
   place in the frame carries `ax, az` (`aHow`): where a person on foot is sent, outdoors, 1.5 m clear of every building,
   off the water and the carriageway, a straight walk from its lane point (`tools/hometown/approach.py`;
   `reach_scan.py <package>` checks a compiled town). The frame's bytes (and the bundle's `PKG.places`) change, the
   tiles do not. The OSM lane table is unchanged (same pin). New buildId `htc-0.12.0-hg1-b...`.
-- **Mog City's engine** (index.html script version `20261114-r8`): reach (the story runner's footing guard: every on-foot
+- **Mog City's engine** (index.html script version `20261114-r9`; r9 adds cars9's town cars, CC BY 4.0 models that
+  drive and park the towns, take any car, and people2's forged hairline, hair, skin, eyes and idle): reach (the story runner's footing guard: every on-foot
   target moved to ground a person can stand on, never a ring inside a building; a beacon over the objective, its name
   and distance, the hold-F prompt, "Follow the marker"; the test drive fails a mission whose place no player could reach,
   `wagmi/storyrun/reach.js`: a horse ride held to the on-foot rule, a car's spot on any street of the road graph, even one
@@ -405,11 +406,11 @@ fbc60528, the revoice page a54530ea, admin visibility d6241046), mc.gamemog.com 
 In this order (a push of `main` restarts the web and stops builds in flight, so the owner picks the moment):
 
 1. **Mog City's engine** (`mogcity`; no build needed, old towns keep playing; the old web ignores `&world=`): push the
-   local MogCity branch `mogcity-release-r8` (parent `ee368f8` = the live `mogcity`, so a fast-forward; the tree of
-   MogCity `release-r5` `3932b49581115404e6a8b0d76256dee7b01d004f` without `.scratch`, the live README and `CNAME` kept; no live file
+   local MogCity branch `mogcity-release-r9` (parent `6c14231` = the live `mogcity` r8, so a fast-forward; the tree of
+   MogCity `release-r5` `875cf960d14669d919395b4b06205fd08e1991e5` without `.scratch`, the live README and `CNAME` kept; no live file
    deleted) to the `mogcity` branch of GameMog/GameMog. Towns built before 0.12.0 have no `ax, az`: the runner's
    footing guard moves their on-foot targets.
-2. **The compiler commit** (`hometown-compiler`): push MogCity `release-r5` (tip `3932b49581115404e6a8b0d76256dee7b01d004f`, compiler 0.12.0)
+2. **The compiler commit** (`hometown-compiler`): push MogCity `release-r5` (tip `875cf960d14669d919395b4b06205fd08e1991e5`, compiler 0.12.0)
    to the `hometown-compiler` branch of GameMog/GameMog BEFORE `main` (it descends from the live `d7e60927`, so a
    fast-forward).
 3. **Nothing building** on Render, then push GameMog `prod-builder-clean` to `main` (it contains the live `d6241046`, so
