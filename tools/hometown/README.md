@@ -1,4 +1,4 @@
-# Hometown compiler 0.12.0 (the national grid hg1)
+# Hometown compiler 0.13.0 (the national grid hg1)
 
 Turns open US map data into **tiles on one national grid**. A tile is compiled from its own sources and context alone,
 so any tile can be compiled on first request, neighbouring towns share identical tiles, and a place is just a list of
@@ -102,7 +102,7 @@ centres by non-max suppression within 2 km, downtown = within 350 m of a centre)
 A tile reads the ctx blocks within 3.2 km and the regions within 3.2 km (a tile whose regions are not fetched is refused
 with the fetch command to run).
 
-**buildId** `htc-0.12.0-hg1-b{8 hex}`: the first 8 hex of the sha256 of the build record (`builds/{buildId}.json`:
+**buildId** `htc-0.13.0-hg1-b{8 hex}`: the first 8 hex of the sha256 of the build record (`builds/{buildId}.json`:
 compiler version, libraries incl. GEOS and zlib, the CPU architecture (`machine`) and the duckdb `spatial` extension's
 version, image digest (`HOMETOWN_IMAGE_DIGEST` from the environment: the town-builder image sets a recipe id), Overture
 release, DEM snapshot, grid). Compiler logic
@@ -112,7 +112,7 @@ changes bump `COMPILER_VERSION`; library, image or source changes change only `b
 
 - **HTL1** tile: `HTL1`, u32 header length, header JSON (format `hometown-tile` v1, grid, domain, L, c, r, buildId,
   demSource, vdatum, bcount, groundAreaM2, k_tile, waters, foreign, ctx, sections), then sections: `terrain`, `mask`,
-  `buildings` (JSON, heights in absolute cm), `bverts` (int32 cm, tile-local), `roads`, `blocks`, `trees`, `places`,
+  `buildings` (JSON, heights in absolute cm), `bverts` (int32 cm, tile-local), `roads`, `blocks`, `trees`, `props` (0.13.0), `places`,
   `water`, `parks`. `wagmi/world/tiles-net.js` decodes it.
 - **HTC1** ctx, **HTB1** block stream (per child: u32 id length, id, u32 body length or 0xffffffff + reason).
 
@@ -286,7 +286,63 @@ stays the same bytes in any compile that holds it (the seam / block / overlap pr
 Step 0 (Overture 2026-10-21.0, the fetched regions): `roof_shape` on 0 of 3,186 Okemah buildings, 225 of 182,368
 round Phoenix, 538 of 272,900 round Pittsburgh; `roof_height` and facade / roof colours on none (they are not fetched;
 `wall`, `wallRGB`, `roofRGB` stay 0 until they are); `building_part` 0 / 205 / 144 rows (on 0 / 91 / 63 buildings);
-`min_height` > 0 on 0 / 4 / 0 buildings. So the look rests on the rules and the region tables.
+`min_height` > 0 on 0 / 4 / 0 buildings. So the look rests on the rules and the region tables. (0.13.0 fetches the colours, materials and the parts' roofs:
+see Stage 0 below.)
+
+## Stage 0: the OSM tags already downloaded (0.13.0, release r13)
+
+What OSM maps and Overture carries, read where it is tagged; where it is not, the look is 0.12.0's.
+
+- **Extras files** (`fetch.py EXTRAS_SPECS`): beside the segment extras, every region now holds
+  `overture-buildings-building-extras.parquet` (`roof_direction, roof_orientation, roof_color, roof_material,
+  facade_color, facade_material, min_floor`) and `overture-buildings-building_part-extras.parquet` (the same and the
+  part's own `roof_shape, roof_height`), semi-joined to the region's own ids. A region without them is refused
+  (`sources.BUILDING_EXTRAS`) with `fetch.py --regions`, which tops up only the missing files (one small read per
+  layer; never a refetch of the building layer, whose cached files would silently lack widened columns).
+- **Looks** (`looks.py`): `facade_material` -> `wall` (a `WALLS` index: plaster/stucco/render -> stucco, cement_block ->
+  concrete, wood, brick, stone, metal, glass ...) and, on towers and midrises (parts of 18 m and more), `facade` (the
+  curtain-wall choice: glass, metal, concrete, stone, brick -> terracotta); `facade_color` -> `wallRGB`, `roof_color`
+  -> `roofRGB`, else `roof_material` picks the roof colour (slate, roof tiles, copper, metal, concrete, tar ...).
+  Colours are clamped in HLS (lightness 0.18 to 0.90, saturation at most 0.55 walls / 0.60 roofs: no pure black, white
+  or neon block), integers under 2^24 (exact in the engine's float32 table); 0 = none (the engine's region palette),
+  so a colour that would be 0 is written 0x010101. A part's own values win over its building's. The engine already
+  read these fields (`pkg-buildings.js styleFor`); 0.12.0 wrote them as 0.
+- **Part roofs** (`compile.part_roof`): a part tagged gabled / hipped / pyramidal / dome / round / mansard ... gets
+  `roofShape` and its rise: `roof_height` (at most 60% of the part) or 0.38 of its short half-span (0.75 to 9 m);
+  `roof` is its eave, `peak` its top (Overture's height is the top; a height from the floors has the roof put on it).
+  The engine draws `dome` as a low-poly dome (8 x 3 facets and a cap, 48 triangles) and `round` as a barrel vault;
+  both were hipped / gabled before.
+- **Junction control** (`World.junction_data`): an OSM `traffic_signals` node within 15 m of a junction of 3 or more
+  drive approaches and within 3 m of one of them signals it (control 1); else `stop` / `give_way` nodes within 25 m
+  on an approach (nearer this end of the piece than its other) mark those approaches: all of them an all-way stop
+  (2), some a minor stop (3), each link's `stopA` / `stopB` from its own approach. Where no node is mapped there, the
+  rank heuristic stands. Pure per connector (a Sources query round it). The engine reads `control` / `stopMask` as
+  before; its crosswalks follow the control.
+- **Street props** (new HTL1 section `props`, i32 `[u, v, kind, 0]`): OSM `street_lamp` (1), `fire_hydrant` (2),
+  `bench` (3) nodes off the footprints, and `crossing` nodes on a drive piece (2 m) more than 12 m from its ends
+  (5: a mid-block crosswalk); owned by the tile their cm point is in, at most 600 a tile. `assemble.py` writes them to
+  `GEO.streetProps` `[x, z, kind, ...]` (an older assembler or engine ignores both). The engine
+  (`sf-street-details.js`) stands the lamps and hydrants on the sidewalk (its drawn lamps keep 20 m off a mapped one,
+  its junction hydrants 80 m), benches as one instanced mesh (36 triangles each), and `road-paint.js` paints a zebra
+  across the road at each crossing clear of the junctions' markings.
+- **Data trees**: OSM `natural=tree` nodes and `tree_row` ways (one every 8 m) in the trees section, off buildings,
+  decks, the roadway, lots and water, the climate's species by hash, at most 500 a tile; no lattice tree within 6 m of
+  one. Same section and format.
+- `building:levels` was already read (`num_floors`: the height where `height` is missing), and so was `roof_shape` on
+  whole buildings. Not read yet: `roof_direction` / `roof_orientation` (fetched; 3% of NYC's parts), `min_floor`.
+
+**Releasing it (r13).** Stored worlds pin their buildId: 0.12.0's tiles, frames and bundles stay in the store and are
+served as before, and the new engine plays them (every new field is optional: no `streetProps`, 0 colours, no part
+roof shape is 0.12.0's look). Order: (1) the engine files (`cities/sf/js/sf-street-details.js`, `road-paint.js`,
+`cities/pkg/js/pkg-buildings.js`, `index.html` stamps `20261116-r13`) to `mogcity` first; (2) this compiler to
+`hometown-compiler`; (3) GameMog's `deploy/town-builder/workflow-build.sh` MOGCITY_SHA re-pinned to it. No new env var
+or secret. The builder's cached regions are refused once each and top up their two building extras files (one small
+S3 read per layer); every town then rebuilds cold under the new buildId on its first visit, which counts against
+`HOMETOWN_DAILY_COLD` (raise it for a day, or pre-warm the top towns). Credits are unchanged (OSM ODbL via Overture).
+
+Coverage (the fetched regions, inside a district): Okemah has no building tags and almost no street furniture (a few
+stop nodes); Pittsburgh's downtown and Phoenix gain hundreds of signals, stop signs, benches and thousands of trees,
+few colours; New York's midtown parts carry roof shapes on 88%, facade colours on 82% and roof materials on 84%.
 
 ## Decks and lanes (grade-lanes)
 
