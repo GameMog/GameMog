@@ -185,7 +185,13 @@ export function compile(S) {
       // laid along the brow's lie (angle 0.07, not 0.2: at 0.2 they crossed as an even speckle), no strays (one lay on her
       // right lid), and a faint shade under them of the dark hairs' colour)
       if (fem && darkSkin) Object.assign(B7, { root: [62, 54, 47], tip: [88, 78, 69], altRoot: [36, 30, 26], altTip: [56, 47, 40], altShare: 0.45, whiteShare: 0.04,
-        keep: +(B7.keep * 1.3).toFixed(3), width: 0.00008, angVar: 0.07, lenVar: 0.3, stray: 0, paint: 0.1, paintCol: [52, 44, 38] }); }
+        keep: +(B7.keep * 1.3).toFixed(3), width: 0.00008, angVar: 0.07, lenVar: 0.3, stray: 0, paint: 0.1, paintCol: [52, 44, 38] });
+      // (people10 r8: and each hair its own strand at a turntable's size, as the nurse's: thicker (0.0001), three in ten
+      // fewer so there is skin between them, longer, a crisp tip (its fade over the last tenth, half as deep), the hairs a
+      // step darker (the grey-brown kept), none near white and less sheen (their glints read as grain), a third of the
+      // paint under them: round 7's read as a grainy dark band)
+      if (fem && darkSkin) Object.assign(B7, { keep: +(B7.keep * 0.7).toFixed(3), width: 0.0001, len: 1.2, root: [54, 47, 41], tip: [74, 65, 57], altShare: 0.5, whiteShare: 0,
+        tipFade: 0.4, tipFrom: 0.9, paint: 0.035, spec: 0.07 }); }
     // (people7: a young woman's brow finer: a quarter fewer hairs, its tail thinner and its hairs shorter toward the end
     // (the young mother's read heavy and blunt), the root a step off black)
     else if (fem && !old) { Object.assign(B7, { keep: +(B7.keep * 0.75).toFixed(3), tailKeep: 0.42, tailLen: 0.45, root: mix(br[1], br[2], 0.2).map(Math.round), paint: 0.24, angVar: 0.08, edgeKeep: 0.6 });
@@ -222,7 +228,8 @@ export function compile(S) {
   // painted scalp as holes, and its 11 cm hanging ribbons as strips down the neck (the nurse). The pack's 'curly' bob
   // (bob02) was tried: a sleek straight bob. FORGE_RIBBON_CURLS=1 keeps the ribbons)
   // (people9 r7: and a soft close fade at the sides, under their line (core.mjs SCALP: CFG.afro.fade [its share, its reach]))
-  if (st === 'curls' && !globalThis.process?.env?.FORGE_RIBBON_CURLS) { C.hair = 'none'; C.afro = { ...HAIR_STYLES.afro, curl: true, size: HAIR_STYLES.afro.size * (fem ? 0.6 : 0.52), colors: [ramp[0], ramp[1], ramp[2]], fade: [0.6, 0.03] }; C.shaved = { a: 0.92, col: ramp[0].map((x) => Math.round(x * 1.2 + 6)) }; }
+  // (people10 r8: its paint a step warmer (+6 red): over brown skin the neutral near-black read as an ashen grey band at 300 degrees, round 3's stubble a warm dark)
+  if (st === 'curls' && !globalThis.process?.env?.FORGE_RIBBON_CURLS) { C.hair = 'none'; C.afro = { ...HAIR_STYLES.afro, curl: true, size: HAIR_STYLES.afro.size * (fem ? 0.6 : 0.52), colors: [ramp[0], ramp[1], ramp[2]], fade: [0.6, 0.03] }; C.shaved = { a: 0.92, col: ramp[0].map((x, j) => Math.round(x * 1.2 + 6 + [6, 1, -1][j])) }; }
   if (st === 'curls' && globalThis.process?.env?.FORGE_RIBBON_CURLS) { C.hair = 'none'; C.boxBraids = { ...BRAIDS.curls, colors: [ramp[0], ramp[1], ramp[2]] }; C.shaved = { a: 0.9, col: ramp[0].map((x) => Math.round(x * 1.2 + 6)) }; }
   if (st === 'box-braids' || st === 'locs') { C.hair = 'none'; C.boxBraids = { ...BRAIDS[st], colors: [ramp[0], ramp[1], ramp[2]] }; C.shaved = { a: 0.92, col: ramp[0].map((x) => Math.round(x * 1.3 + 8)), parts: BRAIDS[st].partLines }; }
   if (st === 'bob-tucked') { C.tuck = true; C.trimFringe = 0.018; }
