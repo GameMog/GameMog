@@ -12,7 +12,7 @@ import { findMouth, faceParting } from './landmarks.mjs';
 import { bumpNormals } from './shoes.mjs';
 import { applyFace, carry } from './targets.mjs';
 import { skinGuard, skinTone } from './colour.mjs';
-import { prepare, GARMENTS, rasterPaint, weldNormals, wrapWeights, coveredBy, FABRIC, FABRIC_ROUGH, fabricBump, fabricShade, tuckBob, baldTris, slick, knitTex, BRAIDS, nearestBody, beardCards, strandAtlas, mouthGap, vnoise } from './library.mjs';
+import { prepare, GARMENTS, rasterPaint, weldNormals, wrapWeights, relaxMesh, coveredBy, FABRIC, FABRIC_ROUGH, fabricBump, fabricShade, tuckBob, baldTris, slick, knitTex, BRAIDS, nearestBody, beardCards, strandAtlas, mouthGap, vnoise } from './library.mjs';
 import { hoodDown, drawcords, necklineBinding, splitNeckline } from './necklines.mjs';
 import { cardHairTex, hairlineDist, scalpLine } from './hairline.mjs';
 export async function core(CFG0, env) {
@@ -790,7 +790,10 @@ if (LIB && CFG.suit) { const jacket = LIB.done.find((d) => /^suit-jacket/.test(d
           if (col) console.error('suit (F6): jacket neckline points wrapped to its collar', wrapWeights(body.mesh, [col.mesh], { depth: 0.03, reach: 0.03, out: 0.004, only: (v) => P[v * 3 + 1] > NECKY - 0.07 })); }
         // (the jacket's front under the lapels moves with them: wrapped to their weights, so in a turn or a sit its edge
         // does not swing out past theirs and show its inside)
-        console.error('suit (F6): jacket front points wrapped to the lapels', wrapWeights(body.mesh, [lap.mesh], { depth: 0.02, reach: 0.025, out: 0.004, only: (v) => P[v * 3 + 2] > nz + 0.02 && P[v * 3 + 1] > NECKY - 0.28 })); } }
+        console.error('suit (F6): jacket front points wrapped to the lapels', wrapWeights(body.mesh, [lap.mesh], { depth: 0.02, reach: 0.025, out: 0.004, only: (v) => P[v * 3 + 2] > nz + 0.02 && P[v * 3 + 1] > NECKY - 0.28 }));
+        // (people3: and the wrapped neckline and front relaxed among themselves: each took its own nearest collar or
+        // lapel point's weights, so neighbours disagreed and split into shards round the collar in a talk or a stride)
+        console.error('suit (people3): jacket neckline and front weights relaxed', relaxMesh(body.mesh, 4, (v) => P[v * 3 + 1] > NECKY - 0.28 && (P[v * 3 + 2] > nz + 0.02 || P[v * 3 + 1] > NECKY - 0.07))); } }
   } }
 // (C5: a pack trouser leg's hem inside the library's shoes dropped: hidden there, and when she shifted her weight it came
 // out through the shoe's collar and lining (the young mother's jeans in 'wave'))
@@ -2016,6 +2019,13 @@ function build(name, src, P, lists, mats, keepN, color = null, smoothN = []) {
   const pos = new Float32Array(order.length * 3), UV = new Float32Array(order.length * 2);
   order.forEach((v, i) => { pos.set([P[v * 3], P[v * 3 + 1], P[v * 3 + 2]], i * 3); UV[i * 2] = uv[v * 2] / 65535; UV[i * 2 + 1] = 1 - uv[v * 2 + 1] / 65535; });
   const { J, Wt } = skinAttrs(src, order);
+  // (people3, jagged cloth: the pack's garments' weights evened. A MakeHuman garment is split along its uv seams, and the
+  // two copies of a seam point carry the weights each proxy fit gave them (the trousers' fly: spine 0.47 beside
+  // upperleg 0.82 at the same place), so a stride opened the seam 3-4 cm; and the points the suit laid on the lapels'
+  // line kept the weights of wherever they came from, so in a talk the shirt's collar split into white shards. Each
+  // place's copies now share one set of weights, relaxed over the garment a few passes (its own points only))
+  if (name === 'pack') { const cl = out.filter((L, i) => L.length && mats[i]?.getExtras?.()?.kind === 'cloth'); if (cl.length) { const idx = cl.flatMap((L) => Array.from(L)), on = new Uint8Array(order.length); for (const v of idx) on[v] = 1;
+    console.error('pack cloth (people3): weights welded and relaxed,', relaxMesh({ P: pos, idx, JI: J, WT: Wt }, 6, (v) => on[v] === 1), 'points'); } }
   const acc = (type, arr) => doc.createAccessor().setType(type).setArray(arr).setBuffer(buf);
   const aP = acc('VEC3', pos), aN = acc('VEC3', N), aUV = acc('VEC2', UV), aJ = acc('VEC4', J), aW = acc('VEC4', Wt);
   // (the beard's shells: a colour per point (its layer's shade and thinning), on their primitive alone)
