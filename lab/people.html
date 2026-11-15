@@ -30,14 +30,15 @@
 //   ?view=face|close|mid|full   ?light=day|golden|night|street   ?clip=<name>  ?t=<seconds> (a frozen frame)
 //   ?talk=0.6 (the jaw held that open)   ?turn=<degrees> (every body turned)   ?draws=<n> (each drawn n times a frame)
 //   ?lens=<distance>,<height over the eyes>,<fov> (the lens itself; view=neck: the collar)   ?tm=0 (no tone mapping)
-//   ?polish=r8 (a '!' body with r8's finish: the round before people2)
+//   ?polish=r8 (a '!' body with r8's finish: the round before people2)   ?detail=0 (a '!' body without people4's scanned
+//   pores, wrinkles and weave)
 //   a body's own switches after a '~', ';' between them: x.glb!~clip=talk;hide=^suit;at=hair:0.6;flat=hair;wire=clothes
 import * as THREE from 'three/webgpu';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
 import { loadGLB } from '../wagmi/glb.js';
 import { createFace } from '../wagmi/face.js';
-import { polishBody, POLISH } from '../wagmi/storyrun/polish.js';
+import { polishBody, polishReady, POLISH } from '../wagmi/storyrun/polish.js';
 
 const q = new URLSearchParams(location.search);
 const list = (q.get('a') || 'dan').split(',').filter(Boolean), view = q.get('view') || 'close', mood = q.get('light') || 'day';
@@ -122,8 +123,11 @@ async function column(src0, i) {
   return { src: src0, scene, cam, mixer, face, place, tris };
 }
 const cols = await Promise.all(list.map(column));
+await polishReady();
 document.getElementById('lab').innerHTML = cols.map((c) => `<div>${c.src.split('/').pop()}</div>`).join('');
-window.__info = { cols: cols.map((c) => ({ src: c.src, tris: Math.round(c.tris) })), polish: window.__polish };
+// (the weave each garment took: its fabric and the tile's repeat over its uvs)
+const weaves = (c) => { const w = new Set(); c.scene.traverse((o) => { const u = o.isMesh && o.material?.userData; if (u?.fabric) w.add(`${u.garment || o.material.name}:${u.fabric}x${u.weaveRepeat}`); }); return [...w]; };
+window.__info = { cols: cols.map((c) => ({ src: c.src, tris: Math.round(c.tris), weave: weaves(c) })), polish: window.__polish };
 let last = performance.now(), frames = 0, t0 = 0;
 const ft = [];
 renderer.setAnimationLoop(() => {

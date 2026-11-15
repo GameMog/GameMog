@@ -36,6 +36,27 @@ import {
   normalize, normalView, normalViewGeometry, positionViewDirection, tangentView, normalMap, BRDF_Lambert, diffuseContribution,
 } from 'three/tsl';
 
+/* ------------------------------------------------- the shared detail -- */
+// (people4) the scanned tiles every finished body shares (assets/people/detail: RG a normal's x and y, OpenGL's y up, B
+// the roughness; the wrinkles a plain normal map on MakeHuman's face uvs). Loaded once, the first body that needs them;
+// the graphics tier's high draws the full size, the phone and low tiers half (?detail=0: none, for a before and after)
+const DETAIL = new URL('../../assets/people/detail/', import.meta.url).href;
+const DMODE = typeof location === 'undefined' ? '' : (/[?&]detail=([a-z0-9]+)/.exec(location.search) || [])[1] || '';
+const tiles = new Map(), pending = [];
+const bigTier = () => typeof window === 'undefined' || (window.NYC?.quality?.tier || 'high') === 'high';
+function tile(name, hi, lo, wrap = true) {
+  const f = `${name}-${bigTier() ? hi : lo}.jpg`;
+  if (tiles.has(f)) return tiles.get(f);
+  let done0; pending.push(new Promise((r) => (done0 = r)));
+  const t = new THREE.TextureLoader().load(DETAIL + f, () => done0(), undefined, () => done0());
+  Object.assign(t, { flipY: false, colorSpace: THREE.NoColorSpace, anisotropy: 4, name: 'p4-' + name,
+    wrapS: wrap ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping, wrapT: wrap ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping });
+  tiles.set(f, t);
+  return t;
+}
+// (for a page that waits for its bodies to be drawn as they will be: every tile asked for so far, loaded or failed)
+export const polishReady = () => Promise.all(pending);
+
 export const POLISH = {
   // KK: [primary exponent, primary strength, secondary exponent, secondary strength (x the hair's colour), shift]
   hair: { volume: 0.72, mottle: 0.3, crisp: 0.3, kk: [140, 0.03, 30, 0.14, 0.1], strand: 0.8, wrap: 0.3, rough: 0.78, spec: 0.25, soft: 0.2, cut: 0.5 },
@@ -46,6 +67,17 @@ export const POLISH = {
     pores: { repeat: 15, repeat2: 23.7, scale: 0.3, rough: 0.12 }, spec: 0.72, tzone: 0.16, wrap: [0.36, 0.17, 0.11],
     // (blood under the skin: the cheeks, the nose and the ears a little redder; a faint blotch over all of it)
     flush: [1.05, 0.965, 0.955], blotch: 0.05,
+    // (people4: the skin's relief from scans, not made here: a pore tile (Human Materials 1, britdawgmasterfunk, CC BY 4.0)
+    // over the whole skin, and the face's wrinkles (Einar's sculpted detail, Blender Studio, CC BY 4.0, baked onto
+    // MakeHuman's face uvs: assets/people/detail) by age: none under young, all of them old)
+    tile: { repeat: 26, repeat2: 41, scale: 0.55, rough: 0.35 },
+    wrinkles: { rect: [0.70, 0.30, 0.99, 0.73], young: 0.2, old: 0.7, min: 0.12, max: 1.05, cavity: 0.07 },
+  },
+  // (people4: the cloth's weave from scans (Poly Haven, ambientCG; CC0): per garment a tile, its size on the body (m) and
+  // its strength over the garment's own relief)
+  fabric: {
+    wool: [0.05, 3], coat: [0.06, 2.6], poplin: [0.025, 2.2], jersey: [0.035, 3], fleece: [0.05, 2.8], denim: [0.045, 3], leather: [0.1, 1.4], plain: [0.04, 2.6],
+    rough: 0.3,
   },
   eyes: { rough: 0.2, coat: 0.03, env: 1.35 },
   // (a cut jacket's pieces kept: those on these bones)
@@ -63,7 +95,7 @@ const MODE = typeof location === 'undefined' ? '' : (/[?&]polish=([a-z0-9]+)/.ex
 const OFF = MODE === '0';
 
 export function polishBody(inner, { msaa = typeof window === 'undefined' || window.NYC?.quality?.antialias !== false, hair = true, skin = true, eyes = true, cloth = true } = {}) {
-  const out = { cards: 0, skin: 0, hair: 0, eyes: 0, cloth: 0, mended: 0 };
+  const out = { cards: 0, skin: 0, hair: 0, eyes: 0, cloth: 0, mended: 0, weave: 0 };
   if (OFF) return out;
   const r8 = MODE === 'r8';
   const head = r8 ? null : headFrame(inner);
@@ -83,11 +115,13 @@ export function polishBody(inner, { msaa = typeof window === 'undefined' || wind
     if (hair && CARD.test(m.name || '') && (m.alphaTest > 0 || m.transparent)) {
       n = r8 || m.name === 'hairShell' ? r8Card(m, msaa) : softCard(m, msaa, HAIR.test(m.name) && !!o.geometry.attributes.tangent); out.cards++;
     } else if (skin && m.name === 'skin' && !m.normalMap && m.map) {
-      n = r8 ? r8Skin(m) : skinOf(m, lines.get(m) || null, !!head); out.skin++;
+      n = r8 ? r8Skin(m) : skinOf(m, lines.get(m) || null, !!head, ageOf(inner, m)); out.skin++;
     } else if (eyes && !r8 && m.name === 'eyes' && m.map && !m.isMeshPhysicalMaterial) {
       n = wetEyes(m); out.eyes++;
+    } else if (cloth && !r8 && DMODE !== '0' && fabricOf(m) && sizeOf(o.geometry) > 0.06) {
+      n = weave(m, o, fabricOf(m)); out.weave = (out.weave || 0) + 1;
     }
-    if (n !== m) n.userData = { ...m.userData, polished: true };
+    if (n !== m) n.userData = { ...m.userData, ...n.userData, polished: true };
     done.set(m, n);
     return n;
   };
@@ -338,7 +372,7 @@ class SkinMaterial extends THREE.MeshPhysicalNodeMaterial {
 
 const SKIN_KEYS = ['name', 'color', 'map', 'roughness', 'roughnessMap', 'metalness', 'metalnessMap', 'emissive', 'emissiveMap', 'emissiveIntensity', 'aoMap', 'aoMapIntensity',
   'alphaMap', 'alphaTest', 'transparent', 'opacity', 'side', 'envMapIntensity', 'vertexColors', 'depthWrite', 'depthTest', 'specularIntensity', 'specularColor'];
-function skinOf(m, line, banded) {
+function skinOf(m, line, banded, age = 0.35) {
   const S = POLISH.skin, n = new SkinMaterial();
   for (const k of SKIN_KEYS) if (m[k] !== undefined && k in n) n[k] = m[k] && m[k].isColor ? m[k].clone() : m[k];
   n.metalness = 0; n.sheen = 1; n.sheenColor = new THREE.Color(...S.sheen); n.sheenRoughness = S.sheenRough;
@@ -378,11 +412,95 @@ function skinOf(m, line, banded) {
   const gn = tt.mul(S.gain - 1).add(1), sat = tt.mul(S.sat - 1).add(1), Y2 = Y.mul(gn), mid = smoothstep(0.35, 0.7, Y).mul(-0.5).add(1);
   const warm = vec3(...S.warm).sub(1).mul(tt.mul(mid)).add(1);
   n.colorNode = vec4(max(c.mul(gn).sub(Y2).mul(sat).add(Y2), float(0)).mul(warm), materialColor.a);
-  // (the relief: the pores over the geometry's own normal)
-  n.normalNode = normalMap(pt.rgb.add(pt2.rgb).mul(0.5), vec2(S.pores.scale, S.pores.scale));
-  // (the roughness: the map's, the pores rougher, the T-zone glossier)
   const rough0 = m.roughnessMap ? texture(m.roughnessMap).g.mul(m.roughness ?? 1) : float(m.roughness ?? 0.6);
-  n.roughnessNode = rough0.mul(pt.a.add(pt2.a).mul(0.5 * S.pores.rough).add(1 - S.pores.rough / 2)).mul(band.y.mul(-S.tzone).add(1)).clamp(0.3, 1);
+  if (DMODE === '0') {
+    // (the relief: the pores over the geometry's own normal)
+    n.normalNode = normalMap(pt.rgb.add(pt2.rgb).mul(0.5), vec2(S.pores.scale, S.pores.scale));
+    // (the roughness: the map's, the pores rougher, the T-zone glossier)
+    n.roughnessNode = rough0.mul(pt.a.add(pt2.a).mul(0.5 * S.pores.rough).add(1 - S.pores.rough / 2)).mul(band.y.mul(-S.tzone).add(1)).clamp(0.3, 1);
+    return n;
+  }
+  // (people4: the scanned pores, two turned copies so the tile never shows, and the face's wrinkles by age, laid over
+  // each other (their slopes added) on the geometry's own normal; the wrinkles' creases a little darker)
+  const T = S.tile, Wk = S.wrinkles, PT = tile('skin-pores', 512, 256), WT = tile('skin-wrinkles', 1024, 512, false);
+  const q1 = texture(PT, uv().mul(T.repeat)), q2 = texture(PT, vec2(uv().x.mul(0.8).add(uv().y.mul(0.6)), uv().y.mul(0.8).sub(uv().x.mul(0.6))).mul(T.repeat2));
+  const R = Wk.rect, wuv = uv().sub(vec2(R[0], R[1])).div(vec2(R[2] - R[0], R[3] - R[1])), wr = texture(WT, wuv).rgb.mul(2).sub(1);
+  const wk = Wk.min + (Wk.max - Wk.min) * sm(Wk.young, Wk.old, age);
+  const xy = q1.rg.add(q2.rg).sub(1).mul(T.scale).add(wr.xy.mul(wk));
+  n.normalNode = normalMap(vec3(xy, 1).normalize().mul(0.5).add(0.5), vec2(1, -1));
+  n.colorNode = vec4(n.colorNode.rgb.mul(float(1).sub(wr.xy.length().mul(Wk.cavity * wk)).max(0.7)), materialColor.a);
+  n.roughnessNode = rough0.mul(q1.b.add(q2.b).mul(0.5).sub(0.5).mul(T.rough).add(1)).mul(band.y.mul(-S.tzone).add(1)).clamp(0.3, 1);
+  n.userData.age = age;
+  return n;
+}
+
+// (people4) a body's age, 0 young .. 1 old: the forge's own (extras.age on the skin, since people4), else read off the
+// brows: a body forged before it with grey or white brows is old, any other middle-aged
+const ages = new WeakMap();
+function ageOf(inner, skinM) {
+  if (ages.has(inner)) return ages.get(inner);
+  let a = Number.isFinite(skinM.userData?.age) ? skinM.userData.age : null;
+  if (a == null) {
+    let brows = null; inner.traverse((o) => { if (!brows && o.isMesh && o.material?.name === 'brows' && o.material.map) brows = o.material; });
+    const c = brows ? browColour(brows.map) : null;
+    a = c && c.lum > 0.3 && c.sat < 0.25 ? 0.85 : 0.4;
+  }
+  ages.set(inner, a);
+  return a;
+}
+// the brows' mean colour where they are drawn (alpha over a half), in linear light: { lum, sat }, or null
+function browColour(map) {
+  const img = map && map.image; if (!img || !(img.width > 0)) return null;
+  try {
+    const S = 64, cv = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(S, S) : Object.assign(document.createElement('canvas'), { width: S, height: S });
+    const cx = cv.getContext('2d', { willReadFrequently: true }); cx.drawImage(img, 0, 0, S, S);
+    const D = cx.getImageData(0, 0, S, S).data, lin = (c) => Math.pow(c / 255, 2.2); let r = 0, g = 0, b = 0, n = 0;
+    for (let i = 0; i < D.length; i += 4) if (D[i + 3] > 128) { r += lin(D[i]); g += lin(D[i + 1]); b += lin(D[i + 2]); n++; }
+    if (n < 8) return null; r /= n; g /= n; b /= n;
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+    return { lum: 0.2126 * r + 0.7152 * g + 0.0722 * b, sat: mx > 0 ? (mx - mn) / mx : 0 };
+  } catch { return null; }
+}
+
+/* ---------------------------------------------------------- the weave -- */
+// (people4) a garment's fabric, by the forge's garment (extras.garment) or the pack's outfit it was cut from
+const FABRIC = [
+  [/^(suit-jacket|suit-jacket-db|blazer)|elegantsuit|suit-trousers/, 'wool'], [/^(overcoat|doorman-coat|peacoat|trench)/, 'coat'],
+  [/^(uniform-jacket|loose-trousers)|worksuit/, 'plain'], [/^chef-jacket|shirt/, 'poplin'], [/^(hoodie|hood-up)/, 'jersey'],
+  [/^puffer/, 'plain'], [/^scarf|beanie|knit/, 'fleece'], [/jeans|denim/, 'denim'], [/leather/, 'leather'], [/casualsuit|sportsuit|tee|top/, 'jersey'],
+];
+// (shoes, boots and caps keep their own surfaces: leather, rubber and a cap's peak are not woven)
+const NOT_CLOTH = /boots|sneakers|shoes|peaked|cap|hat|helmet|glasses|button/;
+function fabricOf(m) {
+  const u = m.userData || {}; if (u.kind !== 'cloth' && !u.garment) return null;
+  const g = String(u.garment || m.name || ''); if (u.kind === 'shoes' || NOT_CLOTH.test(g)) return null; for (const [re, f] of FABRIC) if (re.test(g)) return f;
+  return u.kind === 'cloth' ? 'plain' : null;
+}
+// a piece's size (its bounding box's longest side, m): a button or a rivet is not woven
+function sizeOf(g) { if (!g.boundingBox) g.computeBoundingBox(); const b = g.boundingBox; return Math.max(b.max.x - b.min.x, b.max.y - b.min.y, b.max.z - b.min.z); }
+// metres of the body per unit of a mesh's uvs (its edges' lengths over their lengths in uv, the median of a sample)
+function metresPerUv(g) {
+  if (g.userData.p4mpu) return g.userData.p4mpu;
+  const P = g.attributes.position, U = g.attributes.uv, ix = g.index?.array; if (!P || !U || !ix) return 1;
+  const r = []; for (let t = 0; t < ix.length && r.length < 4000; t += 3 * Math.max(1, Math.floor(ix.length / 3 / 4000))) {
+    const a = ix[t], b = ix[t + 1], du = Math.hypot(U.getX(a) - U.getX(b), U.getY(a) - U.getY(b)); if (du < 1e-6) continue;
+    r.push(Math.hypot(P.getX(a) - P.getX(b), P.getY(a) - P.getY(b), P.getZ(a) - P.getZ(b)) / du); }
+  r.sort((x, y) => x - y); return (g.userData.p4mpu = r.length ? r[r.length >> 1] : 1);
+}
+const CLOTH_KEYS = ['name', 'color', 'map', 'normalMap', 'normalScale', 'roughness', 'roughnessMap', 'metalness', 'metalnessMap', 'aoMap', 'aoMapIntensity', 'alphaMap', 'alphaTest',
+  'transparent', 'opacity', 'side', 'envMapIntensity', 'vertexColors', 'specularIntensity', 'specularColor', 'emissive', 'emissiveMap', 'sheen', 'sheenColor', 'sheenRoughness'];
+// the garment's own relief (its normal map, the forge's weave and folds) with the scanned weave laid over it, the tile at
+// its size on the body; its roughness varied by the weave's
+function weave(m, mesh, fab) {
+  const F = POLISH.fabric, [size, k] = F[fab] || F.plain, n = new THREE.MeshPhysicalNodeMaterial();
+  for (const key of CLOTH_KEYS) if (m[key] !== undefined && key in n) n[key] = m[key] && (m[key].isColor || m[key].isVector2) ? m[key].clone() : m[key];
+  const rep = metresPerUv(mesh.geometry) / size, d = texture(tile('fabric-' + fab, 512, 256), uv().mul(rep));
+  const dxy = d.rg.mul(2).sub(1).mul(k);
+  if (m.normalMap) { const b = texture(m.normalMap).rgb.mul(2).sub(1); n.normalNode = normalMap(vec3(b.xy.add(dxy), b.z).normalize().mul(0.5).add(0.5), m.normalScale.clone()); }
+  else n.normalNode = normalMap(vec3(dxy, 1).normalize().mul(0.5).add(0.5), vec2(1, -1));
+  const r0 = m.roughnessMap ? texture(m.roughnessMap).g.mul(m.roughness ?? 1) : float(m.roughness ?? 0.9);
+  n.roughnessNode = r0.mul(d.b.sub(0.5).mul(F.rough).add(1)).clamp(0.2, 1);
+  n.userData = { ...m.userData, fabric: fab, weaveRepeat: +rep.toFixed(2) };
   return n;
 }
 
