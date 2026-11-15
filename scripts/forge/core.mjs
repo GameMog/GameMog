@@ -147,6 +147,7 @@ const EY = (eyeC[0][1] + eyeC[1][1]) / 2, EZ = (eyeC[0][2] + eyeC[1][2]) / 2; le
 const HEADI = B.J.skeleton.findIndex((b) => b.name === 'head'), bSI = B.get('skinIndex'), bSW = B.get('skinWeight');
 const headW = (v) => { let w = 0; for (let j = 0; j < 4; j++) if (bSI[v * 4 + j] === HEADI) w += bSW[v * 4 + j] / 255; return w; };
 const sm = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+const mix1 = (a, b, t) => a + (b - a) * t;
 // (G7a: the mouth's way out: straight forward (the bind space's +z; a little down let a low lamp in front light it up past the lips): the inside's normals and the
 // tongue's turn to it (paintMouthIn, mouthNormals, the teeth below))
 const MOUTH_OUT = [0, 0, 1], TONGUE_OUT = [0, -0.37, 0.93];
@@ -973,7 +974,7 @@ if (SHOULDER.length) {
 const buf = R.listBuffers()[0];
 async function tex(name, input, mime = 'image/png') { const t = doc.createTexture(name).setImage(input).setMimeType(mime); return t; }
 const mat = (name, o = {}) => { const m = doc.createMaterial(name).setRoughnessFactor(o.rough ?? 0.6).setMetallicFactor(0).setDoubleSided(!!o.ds).setBaseColorFactor([...(o.color || [1, 1, 1]), 1]);
-  if (o.alpha) m.setAlphaMode('MASK').setAlphaCutoff(o.alpha); if (o.map) m.setBaseColorTexture(o.map); if (o.normal) m.setNormalTexture(o.normal);
+  if (o.blend) m.setAlphaMode('BLEND'); else if (o.alpha) m.setAlphaMode('MASK').setAlphaCutoff(o.alpha); if (o.map) m.setBaseColorTexture(o.map); if (o.normal) m.setNormalTexture(o.normal);
   if (o.spec) m.setExtension('KHR_materials_specular', SPECX.createSpecular().setSpecularFactor(o.spec[0]).setSpecularColorFactor(o.spec[1])); return m; };
 // (forge v2.5, MV: hair's highlight as Jane's hairStrands are: specular 0.6, tinted warm (1, 0.8, 0.62), and rougher; the
 // plain F0 0.04 white highlight at rough 0.42 took the cool rim and the room's light as a blue sheen on dark hair)
@@ -1258,7 +1259,11 @@ async function paintFace(img) {
         if (sd < -out - 0.004) continue;
         // (the region's limits soft: the lower limit eased over 1.5 cm, and the face in front of the ears at eye height,
         // where a lock hangs beside the cheek, eased out)
-        const reg = sm(EY - lim, EY - lim + 0.015, py) * (1 - sm(EZ - 0.078, EZ - 0.062, pz) * (1 - sm(EY + 0.008, EY + 0.03, py)));
+        // (people5 r2: and never low on the forehead: the line is the hair's points pressed onto the scalp, and a fringe or a
+        // swept front standing 1-2 cm off it pressed the line down the forehead, so a dark painted wedge showed under the
+        // cards' own edge (the long-haired man). In front of the temples the paint is eased in from 4.4 to 5.8 cm over the eyes)
+        const fr = sm(EZ - 0.06, EZ - 0.036, pz) * (1 - sm(0.042, 0.058, Math.abs(px))), floor = 1 - fr * (1 - sm(EY + 0.044, EY + 0.058, py));
+        const reg = floor * sm(EY - lim, EY - lim + 0.015, py) * (1 - sm(EZ - 0.078, EZ - 0.062, pz) * (1 - sm(EY + 0.008, EY + 0.03, py)));
         if (reg <= 0.01) continue;
         let part = 1; if (CFG.sidePart) part = 1 - (1 - sm(0.0008, 0.0022, Math.abs(px - (CFG.sidePart.x ?? 0.026)))) * sm(EY + 0.04, EY + 0.06, py) * sm(EZ - 0.13, EZ - 0.1, pz);
         // (people2: the line a smooth fall of density, the strands only thinning the paint inside it. Each strand's end used
@@ -1891,25 +1896,36 @@ async function shellTex() {
 // FORGE (from build-man.mjs, the Suits): a shaved head's stubble and a stubble beard, a plain tint by a mask with a
 // fine grain (CFG.shaved { a, col }: the scalp above the hairline and down the back to the nape, the ears clear;
 // CFG.beard.style 'stubble': the beard's own area)
+// (an afro's or close curls' hairline, at each azimuth round the cap's centre, as a height: a hairline, not a hat's band:
+// the forehead's middle, the temples a little back (higher), down in front of the ears to their top, the back low to the
+// nape. people5 r2: close curls' line wanders +-5 mm (a hairline of its own, not a straight cap edge across the forehead))
+function afroCut(ph) { const AF = CFG.afro, a = Math.abs(ph), c = Math.cos(ph);
+  return EY + (c > 0 ? (AF.front ?? 0.042) * Math.pow(c, 0.6) + 0.012 * Math.exp(-(((a - 0.62) / 0.16) ** 2)) - 0.012 * Math.exp(-(((a - 1.25) / 0.2) ** 2)) : -0.05 * Math.pow(-c, 1.2))
+    + (AF.curl ? 0.005 * (vnoise(ph * 7 + 3, 1.7, 5) - 0.5) * 2 + 0.002 * (vnoise(ph * 23, 4.1, 6) - 0.5) * 2 : 0); }
 const SCALP = new Float32Array(nB), CAPC = [0, EY + 0.02, EZ - 0.088];
 if (CFG.shaved) for (const v of skinV) { const x = Math.abs(bPos[v * 3]), y = bPos[v * 3 + 1], z = bPos[v * 3 + 2]; if (headW(v) < 0.4) continue;
   let a = sm(EY + 0.03, EY + 0.048, y);
   // (forge v2: under braids or locs, the painted hair starts exactly where the braids' roots do (their hairline), so no
   // smudge of paint shows on the forehead below the first row)
+  // (people5 r2: under close curls, the paint starts where the coils do (their wandering line), a centimetre's fade
+  // under it: the forehead's band and the side's wedge down in front of the ear lay past the coils, a dark painted cap)
+  if (CFG.afro?.curl) { const ph = Math.atan2(bPos[v * 3] - CAPC[0], z - CAPC[2]), cy = afroCut(ph); SCALP[v] = Math.min(1, sm(cy - 0.003, cy + 0.009, y)); continue; }
   if (CFG.boxBraids) { const c = Math.cos(Math.atan2(bPos[v * 3], z - (EZ - 0.088))), bandY = c > 0 ? EY + 0.012 + 0.04 * Math.pow(c, 1.5) : EY + 0.012 - 0.082 * Math.pow(-c, 1.3); a = sm(bandY - 0.002, bandY + 0.006, y); }
   a = Math.max(a, sm(EZ - 0.045, EZ - 0.075, z) * sm(EY - 0.075, EY - 0.04, y));
   a = Math.max(a, sm(0.058, 0.07, x) * sm(EY + 0.0, EY + 0.03, y) * sm(EZ - 0.03, EZ - 0.05, z));
   if (x > 0.062 && y < EY + 0.012 && y > EY - 0.06 && z > EZ - 0.115 && z < EZ - 0.055) a *= 0.15;
   // (FORGE v2: a buzz's hairline: the temples receding a little, the edge soft; balding: the crown and the front bare,
   // the horseshoe round the sides and back kept)
-  if (CFG.shaved.buzz) a *= 1 - 0.75 * sm(EZ - 0.045, EZ - 0.02, z) * sm(0.035, 0.058, x) * sm(EY + 0.03, EY + 0.06, y);
+  // (people5 r2: the recession a notch at the hairline's corner, most at its height and gone 6 cm above it; it grew upward
+  // before (most above EY + 6 cm), so the hair under it was kept and the veteran had a bare island on each temple)
+  if (CFG.shaved.buzz) a *= 1 - 0.75 * sm(EZ - 0.05, EZ - 0.022, z) * sm(0.032, 0.056, x) * (1 - sm(EY + 0.065, EY + 0.09, y));
   if (CFG.shaved.horseshoe) a *= 1 - sm(EY + (CFG.bald?.crown ?? 0.07) - 0.02, EY + (CFG.bald?.crown ?? 0.07) + 0.005, y + 0.25 * Math.max(0, z - (EZ - 0.09))) * (1 - sm(0.05, 0.068, x));
   // (box braids' parts: the scalp in boxes, a thin line of skin between each braid's square (in angle round the head
   // and by height), so the braids sit on hair-coloured squares, never bare scalp, and read rooted)
   if (CFG.shaved.parts) { const dx = bPos[v * 3] - CAPC[0], dy = y - CAPC[1], dz = z - CAPC[2], ph = Math.atan2(dx, dz), th = Math.atan2(dy, Math.hypot(dx, dz)), st = (u, n) => { const f0 = ((u * n) % 1 + 1) % 1; return 1 - sm(0.06, 0.16, Math.min(f0, 1 - f0)); };
     a *= 1 - 0.75 * Math.max(st(ph / (2 * Math.PI), 34), st(th / (Math.PI / 2), 9)); }
   SCALP[v] = Math.min(1, a); }
-async function paintMask(img, MASK, a0, col) {
+async function paintMask(img, MASK, a0, col, bare = false) {
   const S = 2048, { data } = await sharp(img).removeAlpha().raw().toBuffer({ resolveWithObject: true }), uv = B.get('uv');
   const hash = (x, y) => { let h = (x * 374761393 + y * 668265263) >>> 0; h = ((h ^ (h >>> 13)) * 1274126177) >>> 0; return (h & 0xffff) / 65535; };
   const WMAX = new Float32Array(S * S);
@@ -1925,7 +1941,8 @@ async function paintMask(img, MASK, a0, col) {
       if (x < 0 || y < 0 || x >= S || y >= S) continue; if (l1 < -0.03 || l2 < -0.03 || l3 < -0.03) { const dd = Math.min(l1, l2, l3) * Math.abs(det) / Math.max(...[0, 1, 2].map((k) => Math.hypot(U[(k + 1) % 3][0] - U[(k + 2) % 3][0], U[(k + 1) % 3][1] - U[(k + 2) % 3][1]))); if (dd < -2) continue; }
       const wv = Math.max(0, Math.min(1, l1 * ws[0] + l2 * ws[1] + l3 * ws[2])); if (wv <= 0) continue;
       const grain = MASK === SCALP && CFG.shaved?.buzz ? (CFG.fuzz?.lift != null ? 0.78 + 0.22 * vnoise(x / 2.2, y / 2.2, 13) : 0.55 + 0.45 * hash(x, y) * hash(x + 3, y >> 1)) : 0.8 + 0.2 * hash(x, y), w = Math.min(1, wv * 1.3) * a0 * grain, pi = y * S + x; if (w > WMAX[pi]) WMAX[pi] = w; } }
-  for (let pi = 0; pi < S * S; pi++) { const w = WMAX[pi]; if (w <= 0) continue; for (let ch = 0; ch < 3; ch++) data[pi * 3 + ch] = Math.round(data[pi * 3 + ch] * (1 - w) + col[ch] * w); hairPx(pi, w); }
+  const lumC = 0.3 * col[0] + 0.59 * col[1] + 0.11 * col[2];
+  for (let pi = 0; pi < S * S; pi++) { let w = WMAX[pi]; if (w <= 0) continue; if (bare === 'lift') { w *= sm(0.06, 0.28, (lumC - (0.3 * data[pi * 3] + 0.59 * data[pi * 3 + 1] + 0.11 * data[pi * 3 + 2])) / lumC); if (w <= 0) continue; } for (let ch = 0; ch < 3; ch++) data[pi * 3 + ch] = Math.round(data[pi * 3 + ch] * (1 - w) + col[ch] * w); if (!bare) hairPx(pi, w); }
   return sharp(data, { raw: { width: S, height: S, channels: 3 } }).jpeg({ quality: 92 }).toBuffer();
 }
 // (forge v2.5, MV: the skin guard (colour.mjs skinGuard), on the finished skin (its brows, scalp and beard painted): the
@@ -1947,6 +1964,27 @@ async function guardSkin(img) {
   return sharp(o, { raw: { width: 2048, height: 2048, channels: 3 } }).jpeg({ quality: 92 }).toBuffer();
 }
 const paintShaved = async (img) => (CFG.shaved ? paintMask(img, SCALP, CFG.shaved.a ?? 0.25, CFG.shaved.col || [40, 36, 33]) : img);
+// (people5 r2: a balding head's bare crown and front painted the bare skin of his own forehead: the library's men's skins
+// carry a painted stubble over the whole scalp, and on the old boss it showed above the horseshoe as an orange rash with
+// a hard border to the forehead. The forehead's colour read off the texture (the median at its points), laid 92 % over
+// the crown from 3 cm above the eyes' top, eased over 2 cm, never where the horseshoe's paint is)
+// (and under carded hair, the forehead under the scalp's paint (to 7-8.4 cm over the eyes, in front of the temples, where
+// scalpLine's paint is eased out): some of the library's young skins carry a painted short haircut, and its hard dark
+// line showed under a light head's cards as a wedge (the long-haired man). There only texels darker than the forehead
+// are lifted toward it, by how much darker, so a forehead's own lines and wrinkles stay)
+async function paintBare(img) {
+  const front = !CFG.bald && CFG.scalp && hairTX.length && !HAIR_BODY;
+  if (!(CFG.bald && CFG.shaved) && !front) return img;
+  const S = 2048, { data } = await sharp(img).removeAlpha().raw().toBuffer({ resolveWithObject: true }), uv = B.get('uv'), ref = [[], [], []];
+  for (const v of skinV) { const x = bPos[v * 3], y = bPos[v * 3 + 1], z = bPos[v * 3 + 2]; if (Math.abs(x) > 0.025 || y < EY + 0.012 || y > EY + 0.03 || z < EZ - 0.03) continue;
+    const px = Math.min(S - 1, Math.floor(uv[v * 2] / 65535 * S)), py = Math.min(S - 1, Math.floor((1 - uv[v * 2 + 1] / 65535) * S)), i = (py * S + px) * 3; for (let c = 0; c < 3; c++) ref[c].push(data[i + c]); }
+  if (ref[0].length < 5) return img;
+  const col = ref.map((a) => a.sort((p, q) => p - q)[a.length >> 1]), BARE = new Float32Array(nB);
+  for (const v of skinV) { if (headW(v) < 0.4) continue; const x = bPos[v * 3], y = bPos[v * 3 + 1], z = bPos[v * 3 + 2];
+    BARE[v] = front ? sm(EZ - 0.06, EZ - 0.036, z) * (1 - sm(0.042, 0.058, Math.abs(x))) * sm(EY + 0.02, EY + 0.03, y) * (1 - sm(EY + 0.07, EY + 0.084, y)) : sm(EY + 0.03, EY + 0.05, y) * (1 - sm(0.12, 0.55, SCALP[v])); }
+  console.error(front ? 'bare forehead' : 'bare crown', ': forehead colour', col.join(','), ref[0].length, 'points');
+  return paintMask(img, BARE, 0.92, col, front ? 'lift' : true);
+}
 const paintStubble = async (img) => (CFG.beard?.style === 'stubble' ? paintStubbleTex(img) : img);
 // (H5, hair that reads as hair: Jane's hair2 for every card cut (hairline.mjs). Each hair point's distance to the bare
 // forehead and temples; the front edge (its last 1.2 cm above the eyes) laid down to 2 mm off the skin (Jane's hug: no
@@ -1979,16 +2017,16 @@ const HAIRTEX = (CFG.hairStrands && !HAIR_BODY && hairTX.length) ? await (async 
       for (let x = Math.max(0, Math.floor(Math.min(...U.map((u) => u[0]))) - 1); x <= Math.min(S0 - 1, Math.ceil(Math.max(...U.map((u) => u[0]))) + 1); x++) {
         const l1 = ((U[1][1] - U[2][1]) * (x + 0.5 - U[2][0]) + (U[2][0] - U[1][0]) * (y + 0.5 - U[2][1])) / det, l2 = ((U[2][1] - U[0][1]) * (x + 0.5 - U[2][0]) + (U[0][0] - U[2][0]) * (y + 0.5 - U[2][1])) / det, l3 = 1 - l1 - l2;
         if (l1 < -0.04 || l2 < -0.04 || l3 < -0.04) continue; const d = l1 * ds[0] + l2 * ds[1] + l3 * ds[2], i = y * S0 + x; if (!(dmap[i] <= d)) dmap[i] = d; } }
-  const T = cardHairTex(src, S0, S0, CFG.hairRamp, dmap, { fw: H5.fw, d0: H5.d0, hl: H5.hl, normal: H5.normal, seed: H5.seed, contrast: H5.contrast });
+  const T = cardHairTex(src, S0, S0, CFG.hairRamp, dmap, { fw: H5.fw, d0: H5.d0, hl: H5.hl, normal: H5.normal, seed: H5.seed, contrast: H5.contrast, base: H5.base });
   console.error('hair strands (H5):', HAIR, S0 + 'px, bare forehead points', bare, 'of', band.length, '; front-edge texels', T.edge);
   return { color: await sharp(T.rgba, { raw: { width: S0, height: S0, channels: 4 } }).png().toBuffer(), normal: await sharp(T.nrm, { raw: { width: S0, height: S0, channels: 3 } }).png().toBuffer() };
 })() : null;
 const M = {
-  beard: shell ? mat('beard', { spec: HAIRSPEC, rough: shell.cards ? 0.8 : 0.72, alpha: shell.cards ? 0.45 : 0.5, ds: !!shell.cards, map: await tex('', await beardTex()) }) : null,
+  beard: shell ? mat('beard', { spec: CFG.lightFacial ? [0.3, [1, 0.84, 0.7]] : HAIRSPEC, rough: shell.cards ? 0.8 : 0.72, alpha: shell.cards ? 0.45 : 0.5, ds: !!shell.cards, map: await tex('', await beardTex()) }) : null,
   // (people4: the body's age (0 young .. 0.9 old, the compiled sheet's) and sex on the skin, for the runtime's wrinkles)
-  skin: ((m) => m.setExtras({ ...(CFG.scalp && hairTX.length ? { scalpLine: 'graded' } : {}), age: +(+CFG.age || 0).toFixed(3), sex: CFG.sex }))(mat('skin', { rough: CFG.skinRough ?? 0.55, map: await tex('', await guardSkin(await paintBrows(await paintShaved(CFG.beard?.style === 'stubble' ? await paintStubble(await paintMouthIn(await paintFace(skinImg))) : await paintBeard(await paintMouthIn(await paintFace(skinImg)))))), 'image/jpeg') })),
+  skin: ((m) => m.setExtras({ ...((CFG.scalp && hairTX.length) || CFG.shaved ? { scalpLine: 'graded' } : {}), age: +(+CFG.age || 0).toFixed(3), sex: CFG.sex }))(mat('skin', { rough: CFG.skinRough ?? 0.55, map: await tex('', await guardSkin(await paintBrows(await paintShaved(CFG.beard?.style === 'stubble' ? await paintStubble(await paintMouthIn(await paintFace(await paintBare(skinImg)))) : await paintBeard(await paintMouthIn(await paintFace(await paintBare(skinImg))))))), 'image/jpeg') })),
   eyes: mat('eyes', { rough: 0.2, alpha: 0.5, map: await tex('', eyeImg) }),
-  brows: mat('brows', { spec: HAIRSPEC, rough: 0.8, alpha: CFG.browAlpha ?? 0.4, ds: true, map: await tex('', await browHeads(await ramp(A + ATH + '/brows.png', CFG.browRamp))) }),
+  brows: mat('brows', { spec: CFG.lightBrows ? [0.3, [1, 0.84, 0.7]] : HAIRSPEC, rough: 0.8, alpha: CFG.browAlpha ?? 0.4, ds: true, map: await tex('', await browHeads(await ramp(A + ATH + '/brows.png', CFG.browRamp))) }),
   lashes: mat('lashes', { rough: 0.8, alpha: 0.35, ds: true, map: await tex('', await rd(A + ATH + '/lashes.png')), color: [0.6, 0.58, 0.56] }),
   hair: CFG.hair === 'none' ? null : HAIRTEX ? mat('hair', { spec: HAIRSPEC, rough: Math.max(0.62, CFG.hairRough ?? 0.6), normal: await tex('', HAIRTEX.normal), alpha: CFG.hairAlpha ?? 0.42, ds: true, map: await tex('', HAIRTEX.color) }) : mat('hair', { spec: HAIRSPEC, rough: Math.max(0.6, CFG.hairRough ?? 0.55), normal: CFG.hairNormal ? await tex('', await hairNormal(A + (HAIR_BODY ? ATH + '/hair-' : PKD + '/hair-') + HAIR + '.png', CFG.hairNormal)) : null, alpha: CFG.hairAlpha ?? 0.42, ds: true, map: await tex('', CFG.braids ? await braidTex(A + (HAIR_BODY ? ATH + '/hair-' : PKD + '/hair-') + HAIR + '.png', CFG.braids) : await ramp(A + (HAIR_BODY ? ATH + '/hair-' : PKD + '/hair-') + HAIR + '.png', CFG.hairRamp)) }),
   // (FORGE: a dark shoe's pale lining (the atlas's inside panel) darkened, so no white flash shows at the ankle)
@@ -2499,10 +2537,7 @@ if (CFG.boxBraids) {
 // head, up) uv space, seamless round the head; a texel shows on a shell while its coil height is over the shell's share
 // (the vertex alpha), so the inner shells are dense and the outer ones a fuzz of the tallest coils. On the head bone
 if (CFG.afro) {
-  const AF = CFG.afro, { C, rHead, thMin } = capGeom({ cut: (ph) => { const a = Math.abs(ph), c = Math.cos(ph);
-    // (a hairline, not a hat's band: the forehead's middle, the temples a little back (higher), down in front of the ears
-    // to their top, the back low to the nape)
-    return EY + (c > 0 ? (AF.front ?? 0.042) * Math.pow(c, 0.6) + 0.012 * Math.exp(-(((a - 0.62) / 0.16) ** 2)) - 0.012 * Math.exp(-(((a - 1.25) / 0.2) ** 2)) : -0.05 * Math.pow(-c, 1.2)); } }), NP = 120, NT = 30, NL = AF.layers ?? 12, size = AF.size ?? 0.05, head = BI('head');
+  const AF = CFG.afro, { C, rHead, thMin } = capGeom({ cut: afroCut }), NP = 120, NT = 30, NL = AF.layers ?? 12, size = AF.size ?? 0.05, head = BI('head');
   const cols = AF.colors || [[10, 8, 7], [32, 24, 20], [70, 54, 44]];
   const nz3 = (x, y, z) => vnoise(x, y, z);
   const P = [], UV = [], JI = [], WT = [], CO = [], idx = [];
@@ -2514,11 +2549,11 @@ if (CFG.afro) {
   const CP = [], CUV = [], CJI = [], CWT = [], CCO = [], cidx = [];
   const ring = (f, L, out) => { const [PP, UU, JJ, WW, CC, II] = out, base = PP.length / 3, du = L * 0.1373, dv = Math.max(0, L) * 0.0211;
     for (let j = 0; j <= NT; j++) for (let i = 0; i <= NP; i++) { const ph = (i / NP) * 2 * Math.PI - Math.PI, t0 = thMin(ph), th = t0 + (TH1 - t0) * (j / NT);
-      const dir = P3(ph, th, 1).map((c, k) => c - C[k]), front = Math.max(0, Math.cos(ph)) * sm(-0.1, 0.5, th), edge = 0.03 + 0.97 * Math.pow(sm(0, 0.55, th - t0), 0.45);
+      const dir = P3(ph, th, 1).map((c, k) => c - C[k]), front = Math.max(0, Math.cos(ph)) * sm(-0.1, 0.5, th), edge = AF.curl ? 0.02 + 0.98 * Math.pow(sm(0, 0.8, th - t0), 0.7) : 0.03 + 0.97 * Math.pow(sm(0, 0.55, th - t0), 0.45);
       const clump = 1 + 0.5 * (nz3(dir[0] * 6 + 3, dir[1] * 6, dir[2] * 6 + 7) - 0.5) * 2 + 0.22 * (nz3(dir[0] * 13, dir[1] * 13 + 5, dir[2] * 13) - 0.5) * 2;
       const T = size * (1 - (1 - (AF.frontK ?? 0.55)) * front) * edge * clump, r = rHead(ph, th) + 0.0025 + T * f;
       PP.push(...P3(ph, th, r)); UU.push(i / NP + du, j / NT * 0.27 + dv); JJ.push(head, 0, 0, 0); WW.push(1, 0, 0, 0);
-      const k = L < 0 ? 0.55 : 0.5 + 0.5 * (f - 0.62) / 0.42, a = L < 0 ? 1 : 1 - 0.42 * (f - 0.62) / 0.42; CC.push(k, k, k, a); }
+      const k = L < 0 ? 0.55 : 0.5 + 0.5 * (f - 0.62) / 0.42, a = (L < 0 ? 1 : 1 - 0.42 * (f - 0.62) / 0.42) * (AF.curl && L >= 0 ? 0.35 + 0.65 * sm(0, 0.3, th - t0) : 1); CC.push(k, k, k, a); }
     for (let j = 0; j < NT; j++) for (let i = 0; i < NP; i++) { const a = base + j * (NP + 1) + i, b = a + 1, c = a + NP + 1, d = c + 1; II.push(a, b, c, b, d, c); } };
   ring(0.7, -1, [CP, CUV, CJI, CWT, CCO, cidx]);
   for (let L = 0; L < NL; L++) ring(0.62 + 0.42 * L / Math.max(1, NL - 1), L, [P, UV, JI, WT, CO, idx]);
@@ -2526,8 +2561,11 @@ if (CFG.afro) {
   // (the noise read on a circle in u); the colour from the ramp by height, a few lighter coils)
   const W = 1024, H = 1024, img = new Uint8Array(W * H * 4), Rn = W / (2 * Math.PI);
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const a = (x / W) * 2 * Math.PI, cx = Math.cos(a) * Rn, cy = Math.sin(a) * Rn;
-    const h1 = nz3(cx / 2.6, cy / 2.6, y / 2.6), h2 = nz3(cx / 1.2 + 40, cy / 1.2, y / 1.2 + 9), h3 = nz3(cx / 9, cy / 9 + 3, y / 9);
-    const h = Math.min(1, Math.max(0, (0.55 * h1 + 0.3 * h2 + 0.15 * h3 - 0.22) / 0.6)), lite = nz3(cx / 5 + 9, cy / 5, y / 5 + 2) > 0.78 ? 1 : 0, i = (y * W + x) * 4;
+    // (people5 r2: close curls' coils 2.4 times as big (4-6 mm: curls you can read, not a lichen grain), each coil a ring
+    // (its middle darker, its rim lit) and no light coils (their pale tips were flakes on the outline))
+    const g = AF.curl ? 2.4 : 1, h1 = nz3(cx / (2.6 * g), cy / (2.6 * g), y / (2.6 * g)), h2 = nz3(cx / (1.2 * g) + 40, cy / (1.2 * g), y / (1.2 * g) + 9), h3 = nz3(cx / 9, cy / 9 + 3, y / 9);
+    let h = Math.min(1, Math.max(0, (0.55 * h1 + 0.3 * h2 + 0.15 * h3 - 0.22) / 0.6)); if (AF.curl) h = Math.min(1, h * (0.75 + 0.5 * Math.abs(Math.sin(h1 * 9.4))));
+    const lite = !AF.curl && nz3(cx / 5 + 9, cy / 5, y / 5 + 2) > 0.78 ? 1 : 0, i = (y * W + x) * 4;
     const c = h < 0.5 ? cols[0].map((v, k) => v + (cols[1][k] - v) * h * 2) : cols[1].map((v, k) => v + (cols[2][k] - v) * (h - 0.5) * 2 * (0.6 + 0.4 * lite));
     img[i] = Math.round(c[0]); img[i + 1] = Math.round(c[1]); img[i + 2] = Math.round(c[2]); img[i + 3] = Math.round(255 * h); }
   const aM = mat('hair-afro', { spec: HAIRSPEC, rough: AF.rough ?? 0.88, alpha: 0.5, ds: true, map: await tex('', await sharp(img, { raw: { width: W, height: H, channels: 4 } }).png().toBuffer()) });
@@ -2571,8 +2609,14 @@ if (CFG.fuzz && CFG.shaved) {
       // from the root's colour to the middle's (the darkest roots on a pale scalp were the pepper))
       const al = x * d[0] + y * d[1], ac = -x * d[1] + y * d[0];
       const fine = vnoise(ac / fw + 31, al / len, 31 * 0.37), clump = vnoise(x / 4, y / 4, 33), h = 0.85 * fine + 0.15 * clump;
-      const cov = FZ.soft ? sm(0.25, 1, wv + (vnoise(x / 6, y / 6, 35) - 0.5) * 0.4) : sm(0.1, 0.75, wv + (vnoise(x / 6, y / 6, 35) - 0.5) * 0.5), a = cov * (FZ.soft ? 0.22 + 0.66 * sm(0.3, 0.72, h) : sm(0.38, 0.74, h)); if (a * 255 <= img[i + 3]) continue;
-      const tone = vnoise(ac / fw + 77, al / (len * 1.7), 37), isL = vnoise(ac / fw + 50, al / (len * 1.3), 39) < gS, c = isL ? cols[2].map((v, j) => v * 0.9 + cols[1][j] * 0.1 * tone) : cols[0].map((v, j) => v + (cols[1][j] - v) * (lift + (1 - lift) * tone));
+      // (people5 r2, FZ.soft: the crop a blended film, not a cut: its coverage eased in over the paint's own ramp (the
+      // hairline thins out over its 1.8 cm, never a torn edge), 0.16 between the hairs to 0.5 on them per shell, so three
+      // shells come to about three quarters and the scalp shows through; its tone one blend of the dark and light hairs
+      // by the greying with a fine grain along the growth (round 1's two tones in 2 x 13 px patches read as camouflage))
+      const cov = FZ.soft ? sm(0.02, 0.9, wv + (vnoise(x / 5, y / 5, 35) - 0.5) * 0.12) : sm(0.1, 0.75, wv + (vnoise(x / 6, y / 6, 35) - 0.5) * 0.5), a = cov * (FZ.soft ? 0.16 + 0.34 * sm(0.3, 0.75, h) : sm(0.38, 0.74, h)); if (a * 255 <= img[i + 3]) continue;
+      const tone = vnoise(ac / fw + 77, al / (len * 1.7), 37), isL = !FZ.soft && vnoise(ac / fw + 50, al / (len * 1.3), 39) < gS;
+      const c = FZ.soft ? cols[1].map((v, j) => { const lo = cols[0][j] + (v - cols[0][j]) * lift, hi = cols[2][j] * 0.92 + v * 0.08, b = mix1(lo, hi, Math.min(1, gS * 1.6)); return b * (0.88 + 0.24 * (0.6 * h + 0.4 * tone)); })
+        : isL ? cols[2].map((v, j) => v * 0.9 + cols[1][j] * 0.1 * tone) : cols[0].map((v, j) => v + (cols[1][j] - v) * (lift + (1 - lift) * tone));
       // (and each hair only FZ.contrast of the way from the painted scalp's colour under it to its own: at the study's
       // 1 mm a pixel a crop is a tone with a grain, its hairs never resolved; full contrast read as dots or a crackle)
       const cc = c.map((v, j) => sc[j] + (v - sc[j]) * con);
@@ -2585,7 +2629,9 @@ if (CFG.fuzz && CFG.shaved) {
   // texel of the crop carries some alpha (0.22 between the hairs, to 0.88 on them; eased in over its area's edge, none past
   // the ears' 0.15): Mog City draws the shell by coverage
   // (extras.coverage), so a crop is a fine translucent grain over the scalp, never isolated texels cut out; the low tier, no MSAA, keeps the cut)
-  const fM = mat('hairShell', { spec: FZ.soft ? [0.3, [1, 0.82, 0.66]] : HAIRSPEC, rough: FZ.rough ?? (FZ.soft ? 0.86 : 0.82), alpha: FZ.soft ? 0.42 : 0.5, map: await tex('', await sharp(img, { raw: { width: S, height: S, channels: 4 } }).png().toBuffer()) }); fM.setExtras({ style: 'fuzz', ...(FZ.soft ? { coverage: 'soft' } : {}) });
+  // (people5 r2: and blended (alpha BLEND, inner shell first), not cut: under a cut or alpha to coverage a crop's soft
+  // texels came out an opaque cap with a torn edge (round 1's 'camouflage helmet'))
+  const fM = mat('hairShell', { spec: FZ.soft ? [0.25, [1, 0.84, 0.7]] : HAIRSPEC, rough: FZ.rough ?? (FZ.soft ? 0.86 : 0.82), alpha: FZ.soft ? 0 : 0.5, blend: !!FZ.soft, map: await tex('', await sharp(img, { raw: { width: S, height: S, channels: 4 } }).png().toBuffer()) }); fM.setExtras({ style: 'fuzz', ...(FZ.soft ? { coverage: 'soft' } : {}) });
   addSkinned('hairShell', P, UV, JI, WT, idx, fM, CO);
   console.error('scalp fuzz (H5)', NL, 'shells x', T.length / 3, 'triangles,', nS, 'points each, depth', depth);
 }
