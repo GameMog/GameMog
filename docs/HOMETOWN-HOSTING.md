@@ -17,7 +17,7 @@ API only while there is work, and gone 20 s after the queue is idle. **No town a
 | The worker protocol (claim, heartbeat, objects, complete, fail) | web, `/api/hometown/worker/*`, bearer `HOMETOWN_WORKER_TOKEN` | `lib/hometown-build/server.ts` |
 | Starting runs (never Python) | web: the dispatcher, a pass every 5 s and on every queue change | `lib/hometown-build/dispatch.ts` |
 | Compiling (regions, ctx, tiles, far, frame, bundles) | `gamemog-town-builder` workflow runs | `deploy/town-builder/workflow.py` (the task), `worker.py` (its loop), `workflow-build.sh` (the pinned build) |
-| The compiler | MogCity `tools/hometown` (compiler **0.12.0**), fetched at `MOGCITY_SHA` | github.com/GameMog/GameMog, branch `hometown-compiler` |
+| The compiler | MogCity `tools/hometown` (compiler **0.13.0**), fetched at `MOGCITY_SHA` | github.com/GameMog/GameMog, branch `hometown-compiler` |
 | The store: tiles, ctx, manifests, builds, frames, bundles, far, src, dem | web disk, `data/hometown/` | `lib/hometown-tiles/` (`keys.ts` grammar, `http.ts verifyObject`) |
 | Playing a town | **mc.gamemog.com** (GitHub Pages, branch `mogcity`), reading bundles and tiles from gamemog.com | MogCity `wagmi/world/town-src.js`, `growing.js`, `pkg-far.js` |
 | The owner's view | `/admin`, "Town builder" card; `GET /api/hometown/admin/builder` | `app/admin/dashboard.tsx` |
@@ -264,8 +264,8 @@ nothing and ends; empty or `0` builds). Optional: `HOMETOWN_RUN_CAP_S` (7200), `
 
 Workflows build on the native runtime only (`runtime: python`; no Dockerfile). The buildCommand installs the Render SDK
 (`workflow-requirements.txt`) and runs `workflow-build.sh`, which writes `.town-builder/`:
-- **the compiler at `MOGCITY_SHA`** (THE one line to re-pin; now `747e1752953b643d8adaee925162f778fde51d41`, compiler
-  0.12.0), fetched by SHA from github.com/GameMog/GameMog; when a SHA alone cannot be fetched, the branch
+- **the compiler at `MOGCITY_SHA`** (THE one line to re-pin; now `9474eba8b911d965b19403467baccd2559b05a8e`, compiler
+  0.13.0), fetched by SHA from github.com/GameMog/GameMog; when a SHA alone cannot be fetched, the branch
   `HOMETOWN_MOGCITY_REF` (default `hometown-compiler`) and then the SHA inside it;
 - its packages from the compiler's own hash lock (`--require-hashes`, wheels only) in their own venv;
 - **the OSM lane table** (`osm-roads-us.parquet`, 19,372,313 bytes, ODbL) checked against
@@ -371,6 +371,36 @@ is first created), and the workflow service is created and built the moment `mai
    owner test pick.
 
 Safe fallback while any step is open: `HOMETOWN_BUILDER=owner` and `NEXT_PUBLIC_HOMETOWN_SEARCH=off`.
+
+## Release r13 (compiler 0.13.0, stage 0)
+
+Live before it: gamemog.com `main` 20b85469, mc.gamemog.com `mogcity` 06612b4f (the tree of MogCity `r12`
+`747e1752953b643d8adaee925162f778fde51d41`), `hometown-compiler` 747e1752. r13 is stage 0 of the city data upgrade
+("use what we already download"): the compiler reads the OSM tags Overture already carries (building and part roof
+shapes, facade and roof colours, materials, floor counts) and OSM's own nodes in the regions it already fetches
+(traffic signals, stop signs, crossings, street lamps, hydrants, benches, mapped trees and tree rows); the engine draws
+the new roofs (dome and barrel too) and street corners, instanced, with no new textures; the cache stamp is
+`20261115-r13`. Where a tag is missing the town looks as in r12. The compiler moves to **0.13.0**, so the buildId
+changes (`htc-0.13.0-hg1-b...`).
+
+- **Old builds stay servable.** A stored world pins its buildId: 0.12.0's tiles, frames and bundles stay in the store
+  and are served as before, and the new engine plays them (every new field is optional). New towns are made at the
+  build the new runs report (learned, as on every compiler change); jobs of the old build no town wants are dropped.
+- **On Render: nothing new to set.** No new env var or secret; the lock and the OSM lane table are unchanged. If
+  `HOMETOWN_BUILD` is pinned (it is `sync: false`, normally unset), clear it or set the new buildId, else the
+  new runs claim nothing at the old pin and the breaker (`dispatch.ts fruitless`) holds further runs. Optional: every town rebuilds cold under the new
+  buildId on its first visit, which counts against `HOMETOWN_DAILY_COLD` (100): raise it for a day, or pre-warm the top
+  towns.
+
+In this order:
+
+1. **Mog City's engine**: push the local MogCity branch `mogcity-release-r13` (parent `06612b4f` = the live `mogcity`,
+   a fast-forward; the tree of MogCity `stage0` `9474eba8b911d965b19403467baccd2559b05a8e` without `.scratch`, the
+   live README and `CNAME` kept; no live file deleted) to `mogcity`. Older bundles play on it as before.
+2. **The compiler commit**: push MogCity `stage0` (tip `9474eba8b911d965b19403467baccd2559b05a8e`) to
+   `hometown-compiler` BEFORE `main` (it descends from the live 747e1752, a fast-forward).
+3. **Nothing building** on Render, then push GameMog `stage0-rel` to `main` (a fast-forward of 20b85469). The pin
+   changed under `deploy/town-builder/**`, so the workflow rebuilds, at compiler 0.13.0.
 
 ## Release r12 (compiler 0.12.0, re-pinned)
 
