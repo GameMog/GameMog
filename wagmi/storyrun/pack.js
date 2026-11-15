@@ -18,6 +18,7 @@ import { world as cityWorld, CITIES, cityQuery } from '../world/index.js';
 import { townLockMismatch } from '../world/town-src.js';
 import { SITE_KINDS } from '../world/common.js';
 import { isSiteRef, siteRefs, SITE_KEYS } from './places.js';
+import { fleetPickOf } from '../fleet-picks.js';
 // (a hero's wear: wear.js WEARS, kept here too so the check needs no three.js)
 const WEARS = new Set(['rider']);
 
@@ -329,5 +330,8 @@ export async function load() {
   // (or one of Mog City's own models: the Vantor GT, built by wagmi/storyrun/gt.js with the roadster's handling)
   W.modelCar = def.car && typeof def.car === 'object' && MODEL_CARS.has(def.car.model) ? def.car : null;
   // (trailhand and vandal are their sheets: none in this repo yet, so Dan's roadster stands in for them)
+  // (the car the creator picked on GameMog's Create, by its generic name: wagmi/fleet-picks.js; in a town wagmi/game.js
+  // builds the hero's car as the fleet's realistic model of that name. An unknown name is no pick: today's car)
+  W.fleetCar = fleetPickOf(def.fleetCar) ? def.fleetCar : null;
   return W;
 }

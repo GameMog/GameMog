@@ -43,8 +43,25 @@ installDriveMode(WAGMI);
   // of the town fleet's ready-made sports cars (the owner, 14 Nov: "mainly sports cars"; cities/sf/js/fleet-models.js),
   // the same for the same town, in the story's paint or a bold one; wagmi/fleet-car.js wears it on a sports sheet. If
   // it can't load in time, Dan's roadster as before)
+  // (a story whose creator picked its hero's car on GameMog's Create, PACK.fleetCar: that car, the fleet's realistic model
+  // of that name, in place of the story's own sheet, stock or model car (wagmi/fleet-picks.js; the cars9 gap: a story
+  // with a car of its own kept the procedural one). Its name and paint the story sheet's; if it can't load in time, the
+  // story's own car as before)
   let heroSheet = null;
-  if (!horseRs && window.NYC?.CITY === 'pkg' && window.NYC.Fleet && !(PACK?.ok && (PACK.sheetCar || PACK.modelCar || PACK.stockCar))) {
+  const PICK = !horseRs && window.NYC?.CITY === 'pkg' && window.NYC.Fleet && PACK?.ok && PACK.fleetCar && PACK.modelCar?.model !== 'mogcity/horse' ? PACK.fleetCar : null;
+  if (PICK) {
+    try {
+      const [{ pickedFleetSheet, fleetPickOf }, { MODEL_SHEETS }] = await Promise.all([import('./fleet-picks.js'), import('./jack-sheets.js')]);
+      const F = window.NYC.Fleet, id = fleetPickOf(PICK);
+      const sheet = pickedFleetSheet(PICK, { models: F.data.models, sheets: MODEL_SHEETS, story: PACK.sheetCar, paint: story.paint && !/^#e7e7e3$/i.test(story.paint) ? story.paint : null, label: ['Your', 'car'].join(' ') });
+      if (sheet) {
+        await Promise.race([F.load(id), new Promise((res, rej) => setTimeout(() => rej(new Error('slow')), 12000))]);
+        heroSheet = sheet;
+        WAGMI.heroPick = { name: PICK, model: id };
+      }
+    } catch (err) { console.warn('[fleet] picked car', err); heroSheet = null; }
+  }
+  if (!heroSheet && !horseRs && window.NYC?.CITY === 'pkg' && window.NYC.Fleet && !(PACK?.ok && (PACK.sheetCar || PACK.modelCar || PACK.stockCar))) {
     try {
       const F = window.NYC.Fleet, have = (k) => !!F.data.models[k];
       const pool = [['gt95', 3], ['sport99', 3], ['turbo81', 2], ['muscle69', 2], ['gt83', 1], ['roadster00', 1]].filter(([k]) => have(k));

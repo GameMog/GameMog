@@ -522,7 +522,7 @@ function createWaterfrontPierMaterials() {
     ground.roughnessNode = P.f([0.88, 0.8, 0.96, 0.78, 0.95, 0.85, 0.9, 0.8, 0.86]);
   }
 
-  // ---- Buildings: 0 cruise terminal · 1 Chelsea Piers · 2 industrial shed · 3 Pier 57 concrete · 4 Pier 40 garage ·
+  // ---- Buildings: 0 cruise terminal · 1 sports-pier sheds · 2 industrial shed · 3 Pier 57 concrete · 4 Pier 40 garage ·
   //      5 brick vent · 6 white panels/fabric · 7 glass curtain wall · 8 green trim · 9 dark steel · 10 light concrete
   const bldg = new THREE.MeshStandardNodeMaterial({ roughness: 0.7, metalness: 0.0 });
   {
@@ -547,7 +547,7 @@ function createWaterfrontPierMaterials() {
     const wallCol = P.c([0xdadddb, 0xe2dbc8, 0xb4b7b3, 0xb0a691, 0xa39b8e, 0x84463a, 0xefeee8, 0x2f353a, 0x587061, 0x2a3033, 0xc3beb2]);
     const glassCol = P.c([0x25303a, 0x29323a, 0x333f49, 0x283039, 0x111111, 0x2b2725, 0, 0x5a7482, 0, 0, 0]);
     const roofCol = P.c([0x9a9994, 0x8b8a85, 0x91908b, 0x8c867a, 0x7c776e, 0x6b5e55, 0xe5e5e0, 0x343b41, 0x587061, 0x2a3033, 0xbdb8ac]);
-    const trim = step(abs(bv.sub(1.0)), 0.5).mul(band(fy, 0.0, 0.08, fwy)); // Chelsea Piers' green cornice bands
+    const trim = step(abs(bv.sub(1.0)), 0.5).mul(band(fy, 0.0, 0.08, fwy)); // the sports piers' green cornice bands
     const seam = lines(h, bay, 0.02).mul(0.22).add(step(abs(bv.sub(2.0)), 0.5).mul(lines(h, 0.6, 0.05)).mul(0.18));
     const facade = mix(wallCol.mul(seam.oneMinus()), color(0x55705f), trim);
     const glazing = glassCol.mul(rnd.mul(0.35).add(0.8));
@@ -593,7 +593,7 @@ function createWaterfrontPierMaterialsPart2(shared) {
   }
 
   // Sign atlas: one 1024x512 canvas, one row per sign (white letters, alpha-tested, lit at night)
-  const SIGNS = ['STATEN ISLAND FERRY', 'CHELSEA PIERS', 'PIER 17', 'CIRCLE LINE'];
+  const SIGNS = ['FERRY', 'SPORTS PIERS', 'PIER 17', 'HARBOR CRUISES'];
   const canvas = document.createElement('canvas');
   canvas.width = 1024;
   canvas.height = 512;
@@ -944,7 +944,7 @@ function buildWaterfrontPiers(group) {
     F.box(PA, a + 2, L - 4, -2.7, -0.9, hw + 1.2, hw + 10, 2);
     for (let u = a + 4; u < L - 8; u += 6.4) F.box(PA, u, u + 5.8, -0.9, 1.7, hw + 2.2, hw + 9, [5, 3, 0, 9][Math.floor(rnd() * 4)]);
   };
-  // Chelsea Piers 59-61: long low sheds behind arched headhouse facades (cream with green trim); Pier 59 golf range nets
+  // Sports piers 59-61: long low sheds behind arched headhouse facades (cream with green trim); Pier 59 golf range nets
   kinds.chelsea = (F, p) => {
     const { L, hw } = F;
     deck(F, F.u0, L, -hw, hw, { lamps: false });
@@ -963,7 +963,7 @@ function buildWaterfrontPiers(group) {
     };
     arch(-0.2, Math.min(8, hw - 3));
     if (!p.golf) arch(shedEnd + 0.2, Math.min(7, hw - 3.5));
-    if (p.sign) F.sign('CHELSEA PIERS', -0.8, DY + 16.8, 0, 1.7, -Math.PI / 2);
+    if (p.sign) F.sign('SPORTS PIERS', -0.8, DY + 16.8, 0, 1.7, -Math.PI / 2);
     if (p.golf) {
       const g0 = shedEnd, g1 = L - 2, H = 46;
       F.box(GR, g0, g1, DY, DY + 0.05, s0, s1, 6);
@@ -1049,7 +1049,7 @@ function buildWaterfrontPiers(group) {
     P.box(PA, -4.5 * sc, -3.4 * sc, y + 1.3 * sc, y + 1.45 * sc, -1.8 * sc, 1.8 * sc, v);
   };
 
-  // USS Intrepid (Essex class): flared hull, hangar gallery, angled flight deck, starboard island, air wing, shuttle pavilion
+  // Museum aircraft carrier (Essex class): flared hull, hangar gallery, angled flight deck, starboard island, air wing, shuttle pavilion
   ships.carrier = (S) => {
     hull(S, 100, 16, 10.8, -3.2, 0, 0.22, 0.04);
     S.box(PA, -44, 40, 7.6, 10.2, -9, 9, 0);
@@ -1148,7 +1148,7 @@ function buildWaterfrontPiers(group) {
   };
   ships.schooner = (S) => ships.tallShip(S, 26, 5.6, [[4, 18], [-4.5, 21]], 1.6, false);
 
-  // Staten Island Ferry: double-ended, Staten Island Ferry orange, glazed passenger decks, wheelhouse at each end
+  // Harbor ferry: double-ended, bright orange, glazed passenger decks, wheelhouse at each end
   ships.siFerry = (S) => {
     hull(S, 46, 13, 5.2, -2.8, 1, 0.2, 0, true);
     S.box(PA, -18, 18, 1.8, 2.4, -6.55, 6.55, 2);
@@ -1164,7 +1164,7 @@ function buildWaterfrontPiers(group) {
     }
   };
 
-  // Commuter / sightseeing ferry (NYC Ferry, NY Waterway, Circle Line): white hull, navy band, glazed cabins
+  // Commuter / sightseeing ferry: white hull, navy band, glazed cabins
   ships.ferry = (S, len, decks = 1) => {
     const hb = len * 0.15;
     hull(S, len, hb * 2, 3.4, -2.6, 4, 0.3, 0.05);
@@ -1195,7 +1195,7 @@ function buildWaterfrontPiers(group) {
     }
   };
 
-  // Pier 86: Intrepid Sea, Air & Space Museum (carrier alongside, Concorde and Growler, glass entry pavilion)
+  // Pier 86: sea, air & space museum (carrier alongside, Concorde and Growler, glass entry pavilion)
   kinds.intrepid = (F) => {
     const { L, hw } = F;
     deck(F, F.u0, L, -hw, hw, { lamps: 16 });
@@ -1347,15 +1347,15 @@ function buildWaterfrontPiers(group) {
     for (let u = ua + 4; u < ub - 6; u += 9) F.tree(u, (u % 2 ? 1 : -1) * (hw - 3.5), UY, 1.5);
     ships.schooner(F.sub(L * 0.62, hw + 4.4, Math.PI));
   };
-  // Ferry piers (Pier 11, Pier 79, E 34th St; Circle Line at Pier 83): terminal at the head, floating barges with gangways
+  // Ferry piers (Pier 11, Pier 79, E 34th St; the harbor cruises at Pier 83): terminal at the head, floating barges with gangways
   kinds.ferryPier = (F, p) => {
     const { L, hw } = F;
     deck(F, F.u0, L, -hw, hw, { lamps: 16 });
-    if (p.circleLine) {
+    if (p.harborCruises) {
       F.box(BL, 2.4, 23.6, DY, DY + 4.2, -hw + 1.9, hw - 1.9, 7);
       F.box(BL, 2, 24, DY + 4.2, DY + 9.2, -hw + 1.5, hw - 1.5, 6);
       F.box(PA, 1.7, 24.3, DY + 9.2, DY + 9.7, -hw + 1.2, hw - 1.2, 5);
-      F.sign('CIRCLE LINE', 1.94, DY + 6.7, 0, 2.3, -Math.PI / 2);
+      F.sign('HARBOR CRUISES', 1.94, DY + 6.7, 0, 2.3, -Math.PI / 2);
       ships.ferry(F.sub(L * 0.5, hw + 6.8, 0), 40, 3);
       ships.ferry(F.sub(L * 0.66, -hw - 6, Math.PI), 34, 2);
       return;
@@ -1394,7 +1394,7 @@ function buildWaterfrontPiers(group) {
     }
   };
 
-  // Whitehall Terminal (Staten Island Ferry): tall glass facade with the lettering toward the city, canopy, slips with racks
+  // Whitehall ferry terminal: tall glass facade with the lettering toward the city, canopy, slips with racks
   kinds.whitehall = () => {
     const F = frame(35, 1463, Math.atan2(-0.987, 0.158)); // u points out into the harbor, +s points west
     deck(F, 0, 16, -33, 33, { rail: false });
@@ -1405,7 +1405,7 @@ function buildWaterfrontPiers(group) {
     F.box(BL, -16, 8, DY + 16.0, DY + 19.0, -22, 22, 6);
     F.box(BL, -29, -20, DY + 14.4, DY + 15.0, -26, 26, 6);
     for (const s of [-24, 24]) F.box(PA, -28.2, -27.8, DY, DY + 14.4, s - 0.2, s + 0.2, 9);
-    F.sign('STATEN ISLAND FERRY', -20.06, DY + 18.4, 0, 2.4, -Math.PI / 2);
+    F.sign('FERRY', -20.06, DY + 18.4, 0, 2.4, -Math.PI / 2);
     for (const sr of [-33, -11, 11, 33]) {
       F.box(PA, 14, 50, -3.0, DY + 1.5, sr - 0.6, sr + 0.6, 8);
       for (let u = 16; u <= 50; u += 4.5) F.box(PA, u - 0.3, u + 0.3, -3.0, DY + 2.6, sr - 0.3, sr + 0.3, 8);
@@ -2626,8 +2626,8 @@ function buildCityGrid(scene) {
   // 8. AUTHENTIC HUDSON RIVER & EAST RIVER WATERFRONT PIERS (29 Piers)
   // =========================================================================
   // Concrete decks on timber piles with fenders, railings & lanterns, plus each pier's real structures:
-  // cruise terminals, Chelsea Piers, Pier 57, Little Island, Pier 40, the Intrepid, the 79th St Boat Basin,
-  // Pier 17, the Wavertree, Pier 15, Pier 11 and the Staten Island Ferry Whitehall Terminal (see buildWaterfrontPiers)
+  // cruise terminals, the sports piers, Pier 57, Little Island, Pier 40, the museum carrier, the 79th St Boat Basin,
+  // Pier 17, the Wavertree, Pier 15, Pier 11 and the Whitehall ferry terminal (see buildWaterfrontPiers)
   buildWaterfrontPiers(group);
 
   // 9 & 10. The East River bridges, harbor islands and the surrounding boroughs are built by boroughs.js

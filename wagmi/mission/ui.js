@@ -17,7 +17,7 @@
 //   failed(reason, { skip, tip, retryLabel, skipLabel, quitLabel }) -> Promise<'retry'|'quit'|'skip'>   the reason, a
 //                                                TIP (objective-style parts, key caps and all) and the choices, each label
 //                                                'Main: sub' ('Retry: the tail': RETRY big, 'the tail' small under it)
-//   fade(to, secs) · gate({ when, onStart, hold, fine }) -> Promise (up once when() is true; any key or a click starts. Over
+//   fade(to, secs) · gate({ when, onStart, hold, fine, credit }) -> Promise (up once when() is true; any key or a click starts. Over
 //                                                the instant title, index.html: up at once in its place, a start
 //                                                taken before when() is true kept, resolving the moment it is;
 //                                                hold() -> Promise: 'Starting…' kept until that settles too)
@@ -803,12 +803,19 @@ export function createUI() {
     // until when() is true, then the start, with no second tap. The still fades out over the live city once it is
     // hold(): asked once a start is taken and when() is true (on the next microtask: the caller set up by then); a Promise
     // from it keeps 'Starting…' up until it settles (what comes next needs it in first), nothing lets the start through
-    gate({ fine = '', when = () => true, onStart = null, hold = null } = {}) {
+    // credit() -> a line (or nothing yet): the map data's credit under the small print, a Hometown town's (asked until it
+    // answers: the package's words may land after the gate is up)
+    gate({ fine = '', when = () => true, onStart = null, hold = null, credit = null } = {}) {
       document.body.classList.add('wg-gating');
       const touch = matchMedia('(pointer: coarse)').matches;
       // (with a game pad the last used: its A, wagmi/pad.js)
-      const g = el('wg-gate', `<div class="go">${touch ? '<span>Tap to start</span>' : '<span class="wg-nopad">Click or press any key to start</span><span class="wg-padonly">Press <kbd data-pad="A">A</kbd> to start</span>'}</div><div class="fine">${esc(fine)}</div>`);
+      const g = el('wg-gate', `<div class="go">${touch ? '<span>Tap to start</span>' : '<span class="wg-nopad">Click or press any key to start</span><span class="wg-padonly">Press <kbd data-pad="A">A</kbd> to start</span>'}</div><div class="fine">${esc(fine)}<span class="cr"></span></div>`);
       const goEl = g.querySelector('.go');
+      if (credit) {
+        const cr = g.querySelector('.fine .cr');
+        const put = () => { let t = null; try { t = credit(); } catch {} if (!t) return false; cr.textContent = t; cr.style.cssText = 'display:block;margin-top:4px;font:500 clamp(10px,.95vw,12px)/1.4 Inter,system-ui,sans-serif;letter-spacing:0;opacity:.9'; return true; };
+        if (!put()) { let n = 0; const iv = setInterval(() => { if (put() || ++n > 600 || !g.isConnected && n > 20) clearInterval(iv); }, 100); }
+      }
       const T = window.__wgTitle?.adopt?.() || null;
       // (its line blinks on the page's clock, its gold rules breathing with it, as the title's do)
       try { for (const a of goEl.getAnimations({ subtree: true })) if (/^wg(Blink|Breath)$/.test(a.animationName)) a.startTime = 0; } catch {}

@@ -55,6 +55,10 @@ const CSS = `
 @keyframes wgpIn { from { opacity: 0; } to { opacity: 1; } }
 body.wg-paused .hud, body.wg-paused #wg .wg-line, body.wg-paused #wg .wg-help { opacity: 0 !important; }
 #wg-pause * { box-sizing: border-box; }
+#wg-pause .mapcr { position: absolute; left: 16px; right: 16px; bottom: max(4px, 1.6vh, env(safe-area-inset-bottom)); text-align: center; font: 500 12px/1.35 Inter, system-ui, sans-serif;
+  color: rgba(255,255,255,.62); text-decoration: none; text-shadow: 0 1px 2px rgba(0,0,0,.8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#wg-pause .mapcr[hidden] { display: none; }
+#wg-pause .mapcr:hover, #wg-pause .mapcr:focus-visible { color: #fff; text-decoration: underline; }
 #wg-pause .sh { text-shadow: 0 2px 10px rgba(0,0,0,.55), 0 1px 2px rgba(0,0,0,.85); }
 #wg-pause .wrap { position: absolute; left: max(16px, 6vw); right: max(16px, 6vw); top: max(16px, 9vh); bottom: max(16px, 7vh); display: flex; gap: clamp(16px, 3vw, 44px); }
 #wg-pause .side { flex: 0 0 clamp(220px, 26vw, 330px); display: flex; flex-direction: column; }
@@ -183,8 +187,16 @@ export function createPause(ui) {
   if (!document.getElementById('wg-pause-css')) { const st = document.createElement('style'); st.id = 'wg-pause-css'; st.textContent = CSS; document.head.appendChild(st); }
   const root = document.createElement('div'); root.id = 'wg-pause';
   root.innerHTML = `<div class="wrap"><div class="side"><div class="hd sh">Paused</div><div class="rule"></div><div class="menu"></div>
-    <div class="keys"><kbd>↑</kbd><kbd>↓</kbd> select · <kbd>Enter</kbd> OK · <kbd>Esc</kbd> back</div></div><div class="panel"></div></div>`;
+    <div class="keys"><kbd>↑</kbd><kbd>↓</kbd> select · <kbd>Enter</kbd> OK · <kbd>Esc</kbd> back</div></div><div class="panel"></div></div><a class="mapcr" target="_blank" rel="noopener noreferrer" hidden></a>`;
   document.body.appendChild(root);
+  // (a Hometown town: the map data's credit at the menu's foot, linked to OpenStreetMap's copyright page; the full lines
+  // on the Credits page. Its place in a game, not over the play: cities/pkg/js/pkg-hud.js, NOTICE)
+  const mapCr = root.querySelector('.mapcr');
+  const mapCredit = () => {
+    const c = window.NYC?.PKG && window.NYC.PKG_CREDIT;
+    if (!c) { mapCr.hidden = true; return; }
+    mapCr.hidden = false; mapCr.href = c.href; mapCr.title = c.full; mapCr.textContent = `Map data ${c.short}`;
+  };
   const menuEl = root.querySelector('.menu'), panel = root.querySelector('.panel');
   // the toolbar's button, beside the Map's
   const btn = document.createElement('button');
@@ -346,6 +358,7 @@ export function createPause(ui) {
     duck(); duckT = setInterval(duck, 500);
     ui.brief?.(false);
     items(); sel = Math.max(0, typeof at === 'string' ? ITEMS.findIndex(([id]) => id === at) : 0); inPanel = false; sub = 0; draw();
+    mapCredit();
     root.classList.add('on'); document.body.classList.add('wg-paused');
   }
   function close() {
