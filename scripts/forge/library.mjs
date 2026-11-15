@@ -189,10 +189,13 @@ export function shell(ctx, spec) {
   // (spec.shoulder.slope, ~16 deg), and anything above it (a strong deltoid's corner, a shoulder-pad look) is let down
   // onto it, softly; the line starts at the cloth's own top beside the neck (NK: for a stand collar's coat, whose
   // neckline rises at the back's corners to meet the collar, read no further back than 2 cm behind the neck's axis))
+  const SX = Math.min(0.24, Math.abs(ctx.jpos('upperarm01.L')[0]));
   const letDown = () => { if (!spec.shoulder) return; const nz = ctx.jpos('neck01')[2]; let yN = -9; const yMin = (ctx.ARMPIT ?? ctx.NECKY - 0.2) + 0.03; for (let i = 0; i < nv; i++) { const ax = Math.abs(Pp[i * 3]); if (ax > 0.065 && ax < 0.115 && Math.abs(Pp[i * 3 + 2] - nz) < 0.06 && !(spec.shoulder.besideOnly && Pp[i * 3 + 2] - nz < -0.02) && !(spec.fieldBase && C[i] === 0 && spec.fieldBase([P0[i * 3], P0[i * 3 + 1], P0[i * 3 + 2]], C[i]) < 0) && Pp[i * 3 + 1] > yMin) yN = Math.max(yN, Pp[i * 3 + 1]); }
     if (yN < 0) { ctx.log?.(`${spec.id}: shoulder line skipped (no cloth over the shoulders)`); return; }
     let n = 0; if (yN > 0) for (let i = 0; i < nv; i++) { const ax = Math.abs(Pp[i * 3]); if (ax < 0.08 || ax > 0.3 || C[i] === 2) continue; const line = yN - spec.shoulder.slope * (ax - 0.075) - (spec.shoulder.round ?? 0) * (ax - 0.075) ** 2 + 0.003, y = Pp[i * 3 + 1]; if (y <= line) continue;
-      const w = sm(0.08, 0.11, ax); Pp[i * 3 + 1] = y - (y - line) * 0.8 * w; n++; }
+      // (people3: eased out over the deltoid, from 2 cm past the shoulder joint to 0.3 m out: it stopped dead at 0.3 m, a
+      // 1-2 cm step across the top of the arm that the arm hanging down turned into a notch out of the sleeve's side)
+      const w = sm(0.08, 0.11, ax) * (1 - sm(SX + 0.02, 0.3, ax)); Pp[i * 3 + 1] = y - (y - line) * 0.8 * w; n++; }
     ctx.log?.(`${spec.id}: shoulder line from ${yN.toFixed(3)}, ${n} points let down`); };
   letDown();
   // (forge v2.2, the shoulder bridge (spec.shoulder.bridge): tailored cloth spans from the neck point to the shoulder
@@ -241,6 +244,7 @@ export function shell(ctx, spec) {
   // (C5, spec.stiff { iters, only(cls) }: a stiff cloth's weights spread over its neighbours (a tailored jacket's front
   // moves as one panel, not each point with the bone under it: the belly and hips under a heavy man's jacket no longer
   // fold its front into the shirt and trousers under it))
+  relaxWeights(spec, nv, nW, wOfI, first, adj, Pp, JI, WT, C, ctx, P0, d);
   if (spec.stiff) { const nWt = nW, dense = Array.from({ length: nWt }, () => new Map());
     for (let w = 0; w < nWt; w++) { const i = first[w]; for (let k = 0; k < 4; k++) if (WT[i * 4 + k] > 0) dense[w].set(JI[i * 4 + k], (dense[w].get(JI[i * 4 + k]) || 0) + WT[i * 4 + k]); }
     const can = (w) => spec.stiff.only ? spec.stiff.only(C[first[w]], [Pp[first[w] * 3], Pp[first[w] * 3 + 1], Pp[first[w] * 3 + 2]]) : true;
@@ -291,6 +295,65 @@ export function shell(ctx, spec) {
   ctx.log?.(`${spec.id}: shell ${nv} points ${idx.length / 3} tris, hides ${hide.size} body tris`);
   if (spec.skirt) out.skirt = skirt(ctx, out, spec);
   return out;
+}
+// (people3, jagged cloth: the weights relaxed over the finished cloth. Each shell point keeps the weights of the body
+// point it was cut from, but the shaping moves it: the hang lets the torso's side out under the arm, the chest envelope
+// and the shoulder bridge lift it, the smoothing evens it. Points a few millimetres apart on the finished cloth then
+// carry very different weights (a torso point let out against the inner sleeve: spine 0.6 beside upperarm 0.7), and
+// posed (the arms down from the bind's A, a stride) the triangle between them shoots out 3-6 cm: the shoulder wedges and
+// the collar shards at play distance (Teddy's suit: 258 edges stretched past 1.8x in his idle, the skin under it none).
+// Now each point's weights move toward its neighbours' (welded by place, the nearer the stronger) a few times, so the
+// weights vary as smoothly over the cloth as over the skin and the cloth bends as one surface. Neighbours on the mesh
+// only, never across a gap. spec.relax: the passes (default 60; 0 off))
+export function relaxWeights(spec, nv, nW, wOfI, first, adj, Pp, JI, WT, C, ctx, Pp0 = null, need = null, mask = null) {
+  const iters = globalThis.process?.env?.FORGE_RELAX != null ? +globalThis.process.env.FORGE_RELAX : spec.relax ?? 60; if (!iters) return 0;
+  let cur = Array.from({ length: nW }, () => new Map()), cnt = new Float32Array(nW);
+  for (let i = 0; i < nv; i++) { const w = wOfI[i], m = cur[w]; cnt[w]++; for (let k = 0; k < 4; k++) { const x = WT[i * 4 + k]; if (x > 0) m.set(JI[i * 4 + k], (m.get(JI[i * 4 + k]) || 0) + x); } }
+  for (let w = 0; w < nW; w++) if (cnt[w] > 1) for (const [j, x] of cur[w]) cur[w].set(j, x / cnt[w]);
+  // (first, where the shaping moved a point off the body point it was cut from (more than 1 cm), its weights are read
+  // again from the body where it now stands: the nearest 4 body points of its own kind (torso, arm, leg...), blended by
+  // nearness. A neckline point let in from the shoulder kept the shoulder's upper-arm share beside the neck's)
+  const { bPos, nBody, cls, si, sw } = ctx, cell = 0.02, G = new Map(), gk = (x, y, z) => x + ',' + y + ',' + z;
+  for (let v = 0; v < nBody; v++) { const k = gk(Math.floor(bPos[v * 3] / cell), Math.floor(bPos[v * 3 + 1] / cell), Math.floor(bPos[v * 3 + 2] / cell)); (G.get(k) || G.set(k, []).get(k)).push(v); }
+  let moved = 0;
+  if (Pp0) for (let w = 0; w < nW; w++) { const i = first[w], d0 = Math.hypot(Pp[i * 3] - Pp0[i * 3], Pp[i * 3 + 1] - Pp0[i * 3 + 1], Pp[i * 3 + 2] - Pp0[i * 3 + 2]) - (need?.[w] ?? 0); if (d0 < 0.01) continue;
+    const p = [Pp[i * 3], Pp[i * 3 + 1], Pp[i * 3 + 2]], c = C[i], cx = Math.floor(p[0] / cell), cy = Math.floor(p[1] / cell), cz = Math.floor(p[2] / cell), best = [];
+    for (let r = 1; r <= 3 && best.length < 4; r++) { best.length = 0; for (let a = -r; a <= r; a++) for (let b = -r; b <= r; b++) for (let e = -r; e <= r; e++) { const L = G.get(gk(cx + a, cy + b, cz + e)); if (!L) continue;
+      for (const v of L) { if (cls[v] !== c) continue; const d = Math.hypot(bPos[v * 3] - p[0], bPos[v * 3 + 1] - p[1], bPos[v * 3 + 2] - p[2]); best.push([d, v]); } } }
+    if (best.length < 4) continue; best.sort((x, y) => x[0] - y[0]); const m = new Map();
+    for (const [d, v] of best.slice(0, 4)) { const f = 1 / Math.max(0.003, d); for (let k = 0; k < 4; k++) { const x = sw[v * 4 + k] / 255; if (x > 0) m.set(si[v * 4 + k], (m.get(si[v * 4 + k]) || 0) + x * f); } }
+    const s = [...m.values()].reduce((a, x) => a + x, 0) || 1; for (const [j, x] of m) m.set(j, x / s); cur[w] = m; moved++; }
+  // (each edge's pull: 1 / its length, at least 4 mm, so a sliver's two ends agree first)
+  const nb = Array.from({ length: nW }, (_, w) => { const i = first[w]; return [...adj[w]].map((o) => { const q = first[o]; return [o, 1 / Math.max(0.004, Math.hypot(Pp[i * 3] - Pp[q * 3], Pp[i * 3 + 1] - Pp[q * 3 + 1], Pp[i * 3 + 2] - Pp[q * 3 + 2]))]; }); });
+  // (how long each point keeps relaxing: the torso and the shoulder's cap all the passes (a tailored top moves as one
+  // panel over the shoulders, its weights spread over ~10 cm: no corner where the cap meets the sleeve); the arm fading
+  // out by 18 cm down it (an elbow keeps its bend); legs, feet, hands, head only the first 6 (the legs' insides each
+  // their own leg's: a stride must not drag one trouser leg with the other))
+  const SX = Math.abs(ctx.jpos('upperarm01.L')[0]), live = new Int32Array(nW);
+  for (let w = 0; w < nW; w++) { const i = first[w], c = C[i], p = [Pp[i * 3], Pp[i * 3 + 1], Pp[i * 3 + 2]];
+    if (mask) { live[w] = mask[w] ? iters : 0; continue; }
+    live[w] = c === 0 ? iters : c === 1 ? Math.round(6 + (iters - 6) * (1 - sm(0.1, 0.18, ctx.down ? ctx.down(p) : Math.abs(p[0]) - SX))) : Math.min(iters, 6); }
+  for (let it = 0; it < iters; it++) { const nx = new Array(nW);
+    for (let w = 0; w < nW; w++) { if (!nb[w].length || it >= live[w]) { nx[w] = cur[w]; continue; } const m = new Map(); for (const [j, x] of cur[w]) m.set(j, x * 0.5);
+      let s = 0; for (const [, k] of nb[w]) s += k; for (const [o, k] of nb[w]) { const f = (0.5 * k) / s; for (const [j, x] of cur[o]) m.set(j, (m.get(j) || 0) + x * f); } nx[w] = m; }
+    cur = nx; }
+  for (let i = 0; i < nv; i++) { const e = [...cur[wOfI[i]].entries()].sort((a, b) => b[1] - a[1]).slice(0, 4), s = e.reduce((a, x) => a + x[1], 0) || 1; while (e.length < 4) e.push([0, 0]);
+    e.forEach(([j, x], k) => { JI[i * 4 + k] = j; WT[i * 4 + k] = x / s; }); }
+  ctx.log?.(`${spec.id}: weights relaxed over the cloth, ${moved} moved points read again from the body, ${iters} passes`); return iters;
+}
+// (people3: the same relaxation on a finished piece { P, idx, JI, WT } (a lapel, a collar, a coat's front after wrapWeights
+// copied each of its points the weights of its own nearest outer point: neighbours a few millimetres apart then took two
+// different points' weights, and in a talk or a stride the lapels' tops and the neckline under the collar split into
+// dark shards round the shirt's collar). Welded by place, the nearer neighbour the stronger, `only(v)` the points that
+// move (their neighbours are read, not moved). Returns the points moved)
+export function relaxMesh(m, iters = 8, only = null) {
+  const nv = m.P.length / 3, key = (i) => Math.round(m.P[i * 3] * 2e4) + ',' + Math.round(m.P[i * 3 + 1] * 2e4) + ',' + Math.round(m.P[i * 3 + 2] * 2e4);
+  const wk = new Map(), wOfI = new Int32Array(nv); for (let i = 0; i < nv; i++) { const k = key(i); if (!wk.has(k)) wk.set(k, wk.size); wOfI[i] = wk.get(k); }
+  const nW = wk.size, first = new Int32Array(nW).fill(-1), adj = Array.from({ length: nW }, () => new Set()); for (let i = 0; i < nv; i++) if (first[wOfI[i]] < 0) first[wOfI[i]] = i;
+  for (let q = 0; q < m.idx.length; q += 3) for (let e = 0; e < 3; e++) { const a = wOfI[m.idx[q + e]], b = wOfI[m.idx[q + (e + 1) % 3]]; if (a !== b) { adj[a].add(b); adj[b].add(a); } }
+  const mov = new Uint8Array(nW); let n = 0; for (let w = 0; w < nW; w++) if (first[w] >= 0 && adj[w].size && (!only || only(first[w]))) { mov[w] = 1; n++; }
+  const C = new Uint8Array(nv); relaxWeights({ id: 'piece', relax: iters }, nv, nW, wOfI, first, adj, m.P, m.JI, m.WT, C, { log: null, jpos: () => [0, 0, 0], down: () => 0, bPos: new Float32Array(0), nBody: 0, cls: new Uint8Array(0), si: null, sw: null }, null, null, mov);
+  return n;
 }
 // a coat's skirt: from the shell's hem loop (the points the hem line made, in order round the body) down `len`, each
 // ring round the convex hull of the legs (and whatever is on them) at its height plus the cloth's room, flaring out;
@@ -595,6 +658,8 @@ function coat(ctx, o) {
     if (o.db) { bspots.push([0.045 + widen, y], [-0.045 - widen, y]); } else bspots.push([o.kind === 'overcoat' ? 0.012 : 0, y]); }
   if (o.kind === 'overcoat') bspots.splice(0, bspots.length, ...bspots.map(([x, y], i) => [x, ctx.WAIST + 0.12 - i * 0.1]));
   if (bspots.length) extras.push({ name: o.kind + '-buttons', mesh: buttons(sh, bspots, btn), S: 64, base: o.kind === 'doorman' ? acc : o.kind === 'chef' ? hexRGB(o.accent, [232, 230, 224]) : [22, 20, 20], rough: o.kind === 'doorman' ? 0.35 : 0.6, metal: o.kind === 'doorman' ? 0.6 : 0, paint: null });
+  // (people3: the collar's and lapels' weights, copied point by point from the nearest cloth, relaxed over each piece)
+  for (const e of extras) if (/-(collar|lapels|neckband)$/.test(e.name) && e.mesh?.JI && e.mesh.idx) relaxMesh(e.mesh, 8);
   return { parts, extras, shell: sh, field: spec.field };
 }
 // (forge v2.2) the front surface of a finished shell, for pieces laid on it (lapels): its frontmost point's depth and
@@ -683,6 +748,8 @@ function suitJacket(ctx, o) {
     if (u > 0.8 && u < 0.86 && Math.sin(uv[0] * 900) > 0.6) k *= 0.82; return shade(col, k); } });
   const spots = db ? [[0.058, yV - 0.005], [-0.058, yV - 0.005], [0.055, yV - 0.08], [-0.055, yV - 0.08], [0.052, yV - 0.155], [-0.052, yV - 0.155]] : [[edgeX + 0.002, yV - 0.012], [edgeX + 0.002, yV - 0.115]];
   extras.push({ name: spec.id + '-buttons', mesh: buttons(sh, spots, { r: 0.0085, h: 0.0035 }), S: 64, base: hexRGB(o.accent2, [24, 20, 18]), rough: 0.45, paint: null });
+  // (people3: the collar's and lapels' weights, copied point by point from the nearest cloth, relaxed over each piece)
+  for (const e of extras) if (/-(collar|lapels|neckband)$/.test(e.name) && e.mesh?.JI && e.mesh.idx) relaxMesh(e.mesh, 8);
   return { parts, extras, shell: sh, field };
 }
 function trousers(ctx, o) {
