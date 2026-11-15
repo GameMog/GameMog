@@ -61,7 +61,8 @@ export const POLISH = {
   // KK: [primary exponent, primary strength, secondary exponent, secondary strength (x the hair's colour), shift]
   hair: { volume: 0.72, mottle: 0.3, crisp: 0.3, kk: [140, 0.03, 30, 0.14, 0.1], strand: 0.8, wrap: 0.3, rough: 0.78, spec: 0.25, soft: 0.2, cut: 0.5,
     // (people7: a light head of hair's: mottle, crisp, the sky's specular, the strands in the sheen, the sheen itself)
-    light: { mottle: 0.6, crisp: -0.35, spec: 0.5, strand: 0.25, kk: 0.45 } },
+    // (people8 r6: mottle 0.75, crisp -0.5: the grandmother's silver still showed its source's swirl and zigzag)
+    light: { mottle: 0.75, crisp: -0.5, spec: 0.5, strand: 0.25, kk: 0.45 } },
   skin: {
     gain: 0.88, sat: 1.08, warm: [1.025, 0.99, 0.975], dark: 0.03, sheen: [0.06, 0.035, 0.025], sheenRough: 0.75,
     // the hairline: the blur's mip level and reach (texels of a 2048 map), the band's coverage window, the line's place
