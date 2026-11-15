@@ -984,7 +984,9 @@ const CLOTHSPEC = [0.45, [1, 1, 1]];
 // the skin: the three young skins blended (her own tone), 2048 square
 const skinImg = await (async () => {
   const S = Object.entries(CFG.skins).filter(([, w]) => w > 0);
-  const raws = await Promise.all(S.map(([k]) => sharp(A + (k.includes('-') ? PKD + '/skin-' : ATH + '/skin-') + k + '.jpg').resize(2048, 2048).removeAlpha().raw().toBuffer()));
+  // (people4: a 'c-' key is one of the MakeHuman community's older skins, human-skins-community, on the same uvs)
+  const skinFile = (k) => A + (k.startsWith('c-') ? 'human-skins-community/skin-' + k.slice(2) : k.includes('-') ? PKD + '/skin-' + k : ATH + '/skin-' + k) + '.jpg';
+  const raws = await Promise.all(S.map(([k]) => sharp(skinFile(k)).resize(2048, 2048).removeAlpha().raw().toBuffer()));
   const o = new Uint8Array(2048 * 2048 * 3); const tot = S.reduce((a, [, w]) => a + w, 0);
   const tn = CFG.skinTint || [1, 1, 1];
   for (let i = 0; i < o.length; i++) { let v = 0; for (let k = 0; k < S.length; k++) v += raws[k][i] * S[k][1] / tot; o[i] = Math.min(255, Math.round(255 * Math.pow(Math.pow(v / 255, 2.2) * tn[i % 3], 1 / 2.2))); }
@@ -1808,6 +1810,24 @@ async function shellTexStrokes(SX = 1) {
   }
   return sharp(data, { raw: { width: S, height: S, channels: 4 } }).png().toBuffer();
 }
+// (people4) the card strip from the library's hair cards (hair-strand-cards: A the strands, R their tone, G the root, B
+// the depth), resized to W x H: the root's colour to the ramp's middle over the strand's first part (G), each strand's
+// own shade of the middle by its tone (R), the gaps between strands darker by the depth (B), a share of strands grey
+// or light by their tone (as strandAtlas: no light tips); the clear texels take the nearest strand's colour (the mips)
+async function strandCards(W, H, ramp, grey = 0.15, seed = 3) {
+  const { data } = await sharp(A + 'hair-strand-cards/strands.png').resize(W, H, { fit: 'fill' }).raw().toBuffer({ resolveWithObject: true });
+  const img = new Uint8Array(W * H * 4), lin = (c) => Math.pow(c / 255, 2.2), enc = (l) => Math.max(0, Math.min(255, Math.round(255 * Math.pow(l, 1 / 2.2))));
+  const R = ramp.map((c) => c.map(lin)), gT = 1 - grey;
+  for (let i = 0; i < W * H; i++) {
+    const a = data[i * 4 + 3]; if (a < 4) continue;
+    const tone = data[i * 4] / 255, root = data[i * 4 + 1] / 255, depth = data[i * 4 + 2] / 255;
+    const lite = tone > gT ? R[2].map((x, j) => x * 0.92 + R[1][j] * 0.08) : R[1], k = (0.82 + 0.3 * ((tone * 7.31 + seed * 0.37) % 1)) * (0.7 + 0.3 * depth);
+    for (let c = 0; c < 3; c++) img[i * 4 + c] = enc((lite[c] + (R[0][c] - lite[c]) * Math.min(1, root * 1.4)) * k);
+    img[i * 4 + 3] = a;
+  }
+  for (let y = 0; y < H; y++) { let last = -1; for (let x = 0; x < W; x++) { const i = (y * W + x) * 4; if (img[i + 3] > 8) last = i; else if (last >= 0) { img[i] = img[last]; img[i + 1] = img[last + 1]; img[i + 2] = img[last + 2]; } } }
+  return img;
+}
 // (forge v2.3: the beard's one texture: the shells' strokes squeezed into its left shell.SX (their uvs are), the cards'
 // strand strip (library.mjs strandAtlas, 512 x 2048) in the rest)
 async function beardTex() {
@@ -1815,7 +1835,10 @@ async function beardTex() {
   const S = CFG.shells?.tex || 2048, W = Math.round(S * (1 - shell.SX)), SW = S - W;
   const silver = !CFG.shells?.cols, ramp3 = silver ? [[112, 110, 108], [178, 176, 174], [228, 228, 228]] : [CFG.beard.root, CFG.beard.mid, CFG.beard.col];
   // (a grey beard's cards silver as its shells are (Mr. Big's strokes, 128-220), not the paint's dark roots)
-  const strip = await sharp(strandAtlas(W, S, ramp3, silver ? 0.3 : CFG.cards.grey ?? 0.12, CFG.cards.seed || 3), { raw: { width: W, height: S, channels: 4 } }).png().toBuffer();
+  // (people4: the strands drawn from real hair cards (hair-strand-cards), coloured by the beard's ramp; the drawn atlas
+  // where they can't be had)
+  const cards = await strandCards(W, S, ramp3, silver ? 0.3 : CFG.cards.grey ?? 0.12, CFG.cards.seed || 3).catch((e) => { console.error('strand cards: drawn instead,', String(e).slice(0, 120)); return null; });
+  const strip = await sharp(cards || strandAtlas(W, S, ramp3, silver ? 0.3 : CFG.cards.grey ?? 0.12, CFG.cards.seed || 3), { raw: { width: W, height: S, channels: 4 } }).png().toBuffer();
   const left = shell.layers ? await sharp(await shellTexStrokes(shell.SX)).extract({ left: 0, top: 0, width: SW, height: S }).png().toBuffer() : null;
   return sharp({ create: { width: S, height: S, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } }).composite([...(left ? [{ input: left, left: 0, top: 0 }] : []), { input: strip, left: SW, top: 0 }]).png().toBuffer();
 }
@@ -1960,7 +1983,8 @@ const HAIRTEX = (CFG.hairStrands && !HAIR_BODY && hairTX.length) ? await (async 
 })() : null;
 const M = {
   beard: shell ? mat('beard', { spec: HAIRSPEC, rough: shell.cards ? 0.8 : 0.72, alpha: shell.cards ? 0.45 : 0.5, ds: !!shell.cards, map: await tex('', await beardTex()) }) : null,
-  skin: ((m) => (CFG.scalp && hairTX.length ? m.setExtras({ scalpLine: 'graded' }) : m))(mat('skin', { rough: CFG.skinRough ?? 0.55, map: await tex('', await guardSkin(await paintBrows(await paintShaved(CFG.beard?.style === 'stubble' ? await paintStubble(await paintMouthIn(await paintFace(skinImg))) : await paintBeard(await paintMouthIn(await paintFace(skinImg)))))), 'image/jpeg') })),
+  // (people4: the body's age (0 young .. 0.9 old, the compiled sheet's) and sex on the skin, for the runtime's wrinkles)
+  skin: ((m) => m.setExtras({ ...(CFG.scalp && hairTX.length ? { scalpLine: 'graded' } : {}), age: +(+CFG.age || 0).toFixed(3), sex: CFG.sex }))(mat('skin', { rough: CFG.skinRough ?? 0.55, map: await tex('', await guardSkin(await paintBrows(await paintShaved(CFG.beard?.style === 'stubble' ? await paintStubble(await paintMouthIn(await paintFace(skinImg))) : await paintBeard(await paintMouthIn(await paintFace(skinImg)))))), 'image/jpeg') })),
   eyes: mat('eyes', { rough: 0.2, alpha: 0.5, map: await tex('', eyeImg) }),
   brows: mat('brows', { spec: HAIRSPEC, rough: 0.8, alpha: CFG.browAlpha ?? 0.4, ds: true, map: await tex('', await browHeads(await ramp(A + ATH + '/brows.png', CFG.browRamp))) }),
   lashes: mat('lashes', { rough: 0.8, alpha: 0.35, ds: true, map: await tex('', await rd(A + ATH + '/lashes.png')), color: [0.6, 0.58, 0.56] }),

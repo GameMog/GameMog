@@ -54,6 +54,16 @@ export function compile(S) {
   else if (toneDark < 0) { const d = Math.min(sw.african, -toneDark * 0.5); sw.african -= d; sw.caucasian += d; }
   const dom2 = Object.entries(sw).sort((a, c) => c[1] - a[1]);
   for (const [eth, w] of dom2) { if (w < 0.12) continue; if (band === 'old') { add(atlas(eth, 'old'), w * 0.7); add(atlas(eth, 'middle'), w * 0.3); } else if (band === 'middle') { add(atlas(eth, 'middle'), w * 0.7); add(atlas(eth, 'young'), w * 0.3); } else add(atlas(eth, 'young'), w); }
+  // (people4: the MakeHuman community's older skins (human-skins-community) take half of their atlas's share: a Eurasian
+  // woman's or man's old or middle-aged face (the Caucasian and Asian atlases), a middle-aged African man's; a bearded
+  // white man's Slavic skin, painted with his beard, only under a beard)
+  const beard = !!S.facialHair?.style && !['none', 'stubble'].includes(S.facialHair.style);
+  const share = (from, to, k = 0.5) => { const w = C.skins[from]; if (!w) return; C.skins[from] = +(w * (1 - k)).toFixed(3); add(to, w * k); };
+  if (fem) { if (band === 'old') { share('caucasian-old', 'c-eurasian-old-f'); share('asian-old', 'c-eurasian-old-f'); } else if (band === 'middle') { share('caucasian-middle', 'c-eurasian-middle-f'); share('asian-middle', 'c-eurasian-middle-f'); } }
+  else {
+    if (band === 'old') { share('caucasian-old', beard ? 'c-slavic-old-m' : 'c-eurasian-old-m'); share('asian-old', 'c-eurasian-old-m'); }
+    else if (band === 'middle') { share('african-middle', 'c-african-middle-m'); if (beard) share('caucasian-middle', 'c-slavic-middle-m', 0.4); }
+  }
   const T = S.heritage.skin, tone = { 'very-light': 1.06, light: 1.02, 'light-medium': 0.98, medium: 0.95, tan: 0.92, brown: 0.97, 'dark-brown': 1.04, deep: 1.08 }[T.tone];
   // (a darker atlas lifted in shade, as Knox's was 1.3x: dark skin read black in shaded streets; a lighter one held)
   const ut = { cool: [0.98, 1.0, 1.04], neutral: [1, 1, 1], warm: [1.04, 1.0, 0.95], olive: [0.99, 1.01, 0.93] }[T.undertone];
