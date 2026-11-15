@@ -69,6 +69,15 @@ export default function Library() {
           <a href="https://mc.gamemog.com/assets/vehicles/fleet/CREDITS.md">assets/vehicles/fleet/CREDITS.md</a>.
           They are look-alikes with no connection to any car maker.
         </p>
+        <p>
+          A hometown town&apos;s map is built from open data: map data &copy;{' '}
+          <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> (ODbL 1.0), via{' '}
+          <a href="https://overturemaps.org">Overture Maps</a> (whose building footprints also include Microsoft&apos;s
+          ML building footprints, ODbL, and Esri Community Maps contributors, CC BY 4.0; its places CDLA Permissive 2.0),
+          and elevation from the <a href="https://www.usgs.gov/3d-elevation-program">USGS 3D Elevation Program</a>{' '}
+          (public domain). Mog City credits them on the town&apos;s loading screen and title, its pause menu, its full
+          map and its Credits page.
+        </p>
         <p className="dim">
           The raw data is not sold or offered for download as a product. It is converted into these
           assets, which exist to run inside GameMog games.

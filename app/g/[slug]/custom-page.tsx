@@ -197,6 +197,15 @@ export function CustomGamePage({ game, kdiag = null, storyOpen, mogOpen = canMog
                       <p style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--ink-2)', maxWidth: 720 }}>{storyWorld ? ownLine(storyOwn?.how) ?? storyHow(storyWhere) : noGm ? NO_GM_HOW : mode === 'kart' ? kartHow(kartDna?.laps, kartDna?.itemsOn) : page!.how}</p>
                     </>
                   )}
+                  {/* (a hometown's map data, credited where the game page lists what the world is made of; in the game it is
+                      on the loading screen, the title, the pause menu, the full map and the Credits page) */}
+                  {storyWorld && storyCity === 'hometown' && (
+                    <p className="t-meta dim-2" style={{ marginTop: 18 }}>
+                      Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> &middot;{' '}
+                      <a href="https://overturemaps.org">Overture Maps</a> &middot;{' '}
+                      <a href="https://www.usgs.gov/3d-elevation-program">USGS 3DEP</a>
+                    </p>
+                  )}
                 </div>
               ),
             },
