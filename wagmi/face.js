@@ -261,7 +261,15 @@ export function faceMorphs(meshes, { fix = {}, hair = false } = {}) {
   // skin it grows from does, each point by the forehead's own share there: all of it 6.2 mm, as the cards go, carried
   // its lowest hairs' roots 2-3 mm off the skin of the brow's lower edge, which rises less)
   const browV = verts(by.brows), strands = by.brows && (by.brows.material.userData?.browStrands || browV.size > 2000);
-  for (const v of browV) { if (strands) { p.fromBufferAttribute(P, v); out.brow[v * 3 + 1] = 0.006 * foreW(eyeOf(p.x)); } else out.brow[v * 3 + 1] = 0.0062; }
+  // (people7: each hair as one piece, by its root's share (the hair's point furthest up its uvs' v, the forge's root): by
+  // each point's own share a hair whose tip lay lower than its root stretched as the brow rose, thin lines down to the lid)
+  if (strands) { const ix = by.brows.geometry.index.array, UVb = by.brows.geometry.attributes.uv, par = new Map(), find = (a) => { while (par.get(a) !== a) { const g = par.get(par.get(a)); par.set(a, g); a = g; } return a; };
+    for (const v of browV) par.set(v, v);
+    for (let i = 0; i < ix.length; i += 3) { const a = find(ix[i]); for (let k = 1; k < 3; k++) { const b = find(ix[i + k]); if (a !== b) par.set(b, a); } }
+    const rootOf = new Map(); for (const v of browV) { const r = find(v), y = UVb ? UVb.getY(v) : 0, c = rootOf.get(r); if (!c || y > c[1]) rootOf.set(r, [v, y]); }
+    const shareOf = new Map(); for (const [r, [v]] of rootOf) { p.fromBufferAttribute(P, v); shareOf.set(r, 0.006 * foreW(eyeOf(p.x))); }
+    for (const v of browV) out.brow[v * 3 + 1] = shareOf.get(find(v)); }
+  else for (const v of browV) out.brow[v * 3 + 1] = 0.0062;
   if (hair) for (const v of verts(by.hair)) { p.fromBufferAttribute(P, v); const fw = foreW(eyeOf(p.x)); if (fw > 0.002) out.brow[v * 3 + 1] = 0.006 * fw; }
   // the eyeballs: turned about their middles (to the left: about y; up: about x, the other way)
   const qx = new THREE.Quaternion(), qy = new THREE.Quaternion();

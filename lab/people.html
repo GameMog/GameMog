@@ -32,6 +32,7 @@
 //   ?lens=<distance>,<height over the eyes>,<fov> (the lens itself; view=neck: the collar)   ?tm=0 (no tone mapping)
 //   ?polish=r8 (a '!' body with r8's finish: the round before people2)   ?detail=0 (a '!' body without people4's scanned
 //   pores, wrinkles and weave)
+//   ?brow=<0..1> (every face's brows held raised that far: its brow morph, the forged brow hairs with it; people7)
 //   ?blink=<0..1> (every face's lids held there, its live blinks off: without ?t= a face blinks every 2-6 s, and a shot
 //   taken mid-blink reads as a fault in the lids; people5's nurse)
 //   a body's own switches after a '~', ';' between them: x.glb!~clip=talk;hide=^suit;at=hair:0.6;flat=hair;wire=clothes
@@ -104,6 +105,7 @@ async function column(src0, i) {
   root.updateMatrixWorld(true);
   if (face && (cq.get('talk') || q.get('talk'))) face.jaw(+(cq.get('talk') || q.get('talk')));
   const blink = cq.get('blink') ?? q.get('blink'); if (face && blink != null) face.set({ blink: +blink });
+  const brow = cq.get('brow') ?? q.get('brow'); if (face && brow != null) face.set({ brow: +brow });
   const cam = new THREE.PerspectiveCamera(LENS[2], 1, 0.05, 100);
   const key = new THREE.SpotLight(night ? '#FFD2A0' : golden ? '#FFE0B8' : '#FFF2E2', 0, 4.5, 0.42, 0.95, 2);
   key.castShadow = true; key.shadow.mapSize.set(1024, 1024); key.shadow.bias = -0.0006; key.shadow.normalBias = 0.015; key.shadow.radius = 6; key.shadow.camera.near = 0.2; key.shadow.camera.far = 7;
