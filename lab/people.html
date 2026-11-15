@@ -32,7 +32,7 @@
 //   ?lens=<distance>,<height over the eyes>,<fov> (the lens itself; view=neck: the collar)   ?tm=0 (no tone mapping)
 //   ?polish=r8 (a '!' body with r8's finish: the round before people2)   ?detail=0 (a '!' body without people4's scanned
 //   pores, wrinkles and weave)
-//   ?brow=<0..1> (every face's brows held raised that far: its brow morph, the forged brow hairs with it; people7)
+//   ?aa=0 (the low tier: no MSAA, the cards cut by their alpha test)   ?brow=<0..1> (every face's brows held raised that far: its brow morph, the forged brow hairs with it; people7)
 //   ?blink=<0..1> (every face's lids held there, its live blinks off: without ?t= a face blinks every 2-6 s, and a shot
 //   taken mid-blink reads as a fault in the lids; people5's nurse)
 //   a body's own switches after a '~', ';' between them: x.glb!~clip=talk;hide=^suit;at=hair:0.6;flat=hair;wire=clothes
@@ -52,7 +52,9 @@ const only = q.get('only') ? Object.fromEntries(['hair', 'skin'].map((k) => [k, 
 const DRAWS = Math.max(1, +q.get('draws') || 1);
 const freeze = q.get('t'), turn = (+q.get('turn') || 0) * Math.PI / 180;
 const W = { app: null, faces: new Set(), paused: false };
-const renderer = new THREE.WebGPURenderer({ antialias: true });
+// (people7: ?aa=0, the low tier: no MSAA, so the cut-out cards' alpha test (polish.js softCard without alpha to coverage))
+const NOAA = q.get('aa') === '0'; if (NOAA) window.NYC = { ...(window.NYC || {}), quality: { ...(window.NYC?.quality || {}), antialias: false } };
+const renderer = new THREE.WebGPURenderer({ antialias: !NOAA });
 renderer.setPixelRatio(1); renderer.setSize(innerWidth, innerHeight);
 renderer.toneMapping = q.get('tm') === '0' ? THREE.NoToneMapping : THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0; renderer.shadowMap.enabled = true; 
 renderer.setScissorTest(true);
