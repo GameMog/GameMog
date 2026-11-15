@@ -10,9 +10,14 @@
 //   fitSheet(car, rs)           the city's car entity's numbers from the sheet (tune.js: body box, axle, mass, chase
 //                               framing, pace, brakes, handling), in place of the roadster's
 import { buildVehicle } from './vehicles/build-vehicle.js';
+import { buildFleetCar, fleetModelReady } from '../fleet-car.js';
 
+// (a sheet naming one of a town fleet's ready-made models, fleet: '<id>', wagmi/fleet-car.js, wears it when it has
+// loaded; the sheet's own Story Kit body otherwise)
 export function buildSheetCar(THREE, sheet) {
-  const rs = buildVehicle(THREE, sheet);
+  let rs = null;
+  if (sheet && sheet.fleet && fleetModelReady(sheet.fleet)) { try { rs = buildFleetCar(THREE, sheet); } catch (err) { console.warn('[fleet] car', err); rs = null; } }
+  if (!rs) { const { fleet, ...plain } = sheet || {}; rs = buildVehicle(THREE, plain); }
   rs.doorless = !rs.doors?.L;
   if (rs.doorless) { rs.setDoor = rs.door = () => {}; rs.doorT = () => 0; rs.doors = null; }
   rs.scale = 1;
@@ -24,7 +29,7 @@ export function buildSheetCar(THREE, sheet) {
 }
 
 // a vehicle's class, for what it sounds like and whether it boosts (the owner: "the truck shouldn't make the same noise
-// as the porsche or have the booster"). Only a sports car (sports, supercar, coupe, muscle; the hero's own GT and Dan's
+// as the [sports car] or have the booster"). Only a sports car (sports, supercar, coupe, muscle; the hero's own GT and Dan's
 // roadster are sports) has the boost: its push, its flame, its sound and its HUD. Every other car drives on its own
 // pace alone, whatever its sheet's abilities say, and has an engine of its own (wagmi/audio/playercar.js: voice):
 //   van    van, minivan              a diesel six's low, slow clatter (the city's bus engine, in the cab)
@@ -72,6 +77,8 @@ export function wearRide(THREE, car, sheet) {
   if (st.id) {
     st.rigs[st.id].group.visible = false;
     for (const [m, v] of st.base.meshes) m.visible = v;
+    // (the driver's seat and the wheel he holds back in the hero car's own places)
+    for (const [o, p] of st.base.seatAt || []) o.position.copy(p);
     for (const k of WORN_KEYS) car[k] = st.base.car[k];
     car.handling = { ...st.base.handling };
     rs.update = st.base.update; rs.setThrust = st.base.setThrust;
@@ -100,6 +107,19 @@ export function wearRide(THREE, car, sheet) {
     // (the hero rig still runs (its wheel the hands hold), its flame off; the sheet's body turns its own wheels)
     rs.update = (dt, v, s) => { st.base.update.call(rs, dt, v, s); w.update(dt, v, s); };
     rs.setThrust = (a, b) => { st.base.setThrust.call(rs, 0, 0); w.setThrust?.(a, b); };
+    // (Mog City, Hometown) a town fleet's model worn (wagmi/fleet-car.js, which seats its driver under its roof): the
+    // driver (who sits on the hero car's anchor) and the wheel his hands hold moved by as much as its seat lies off the
+    // hero car's, his hip onto its hip (a low sports car's roof over his head); a mission's other rides as before
+    try {
+      if (!st.base.seatAt) st.base.seatAt = [rs.anchor, rs.wheel, rs.yoke].filter(Boolean).map((o) => [o, o.position.clone()]);
+      for (const [o, p] of st.base.seatAt) o.position.copy(p);
+      if (w.fleet && rs.anchor && w.anchor && rs.seat?.hip && w.seat?.hip) {
+        car.chassisPivot.updateMatrixWorld(true);
+        const hip = (r) => r.anchor.localToWorld(new THREE.Vector3(...r.seat.hip));
+        const d = hip(w).sub(hip(rs));
+        for (const [o] of st.base.seatAt) { const at = o.getWorldPosition(new THREE.Vector3()).add(d); o.position.copy(o.parent.worldToLocal(at)); }
+      }
+    } catch (err) { console.warn('[storyrun] seat', err); }
     st.id = id;
   }
   const lab = typeof document !== 'undefined' && document.getElementById('hud-active-mode'); if (lab) lab.textContent = car.label;

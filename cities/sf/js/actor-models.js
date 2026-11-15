@@ -317,6 +317,120 @@ BODY_SPECS.van = Object.assign({}, BODY_SPECS.suv, {
   name: 'van', cladding: 0, rails: false,
   cabin: Object.assign({}, BODY_SPECS.suv.cabin, { roofY: [[0.08, 2.0], [-0.9, 2.08], [-2.15, 2.06]], roofRear: -2.15, deck: -2.25, pillars: [-0.3] })
 });
+// (Mog City, Hometown fleets) the town's other everyday bodies: a hatchback, a boxy older sedan, a minivan, a pickup
+// with an open bed (spec.bed: the tub lofted into the body behind the cab), a low two-door coupe, a long-hooded muscle
+// car and an open two-seater (spec.open: the glasshouse behind the windscreen dropped to the belt and painted as the
+// cockpit, two headrests standing in it). Generic look-alikes all: no maker's face, badge or name (the brand rule).
+// js/traffic.js FLEETS mixes them by the town's region, climate and density.
+BODY_SPECS.hatch = {
+  name: 'hatch', zFront: 1.98, zRear: -1.98, wheelRadius: 0.315, wheelZ: 1.27, wheelX: 0.8, archGap: 0.06, archFlare: 0.022, tuck: 0.07,
+  halfWidth: [[1.98, 0.86], [1.27, 0.875], [0, 0.88], [-1.27, 0.878], [-1.98, 0.865]],
+  sill: [[1.98, 0.28], [1.1, 0.26], [-1.1, 0.26], [-1.98, 0.3]],
+  shoulder: [[1.98, 0.64], [0, 0.7], [-1.98, 0.74]],
+  edge: [[1.85, 0.8], [1.3, 0.86], [0.8, 0.92], [0.5, 0.95], [-1.0, 0.99], [-1.6, 1.02], [-1.9, 1.03]],
+  crown: [[1.85, 0.035], [0.9, 0.03], [0.6, 0.004], [-1.98, 0.004]],
+  tumble: [[1.98, 0.11], [0.8, 0.09], [-1.98, 0.09]],
+  nose: { halfWidth: [0.32, 0.6, 2], edge: [0.2, 0.62, 2.4], crown: [0.2, 0.01, 2], sill: [0.12, 0.4, 2], shoulder: [0.26, 0.52, 2] },
+  tail: { halfWidth: [0.2, 0.72, 2], edge: [0.06, 0.98, 2.6], crown: [0.06, 0, 2], sill: [0.12, 0.46, 2], shoulder: [0.16, 0.74, 2] },
+  cabin: { cowl: 0.72, roofFront: -0.1, roofRear: -1.62, deck: -1.9, roofY: [[-0.1, 1.47], [-0.85, 1.49], [-1.62, 1.45]], rail: [0.64, 0.62],
+    inset: 0.035, bulge: 0.012, roofEdge: 0.05, roofCrown: 0.03, roofRound: 4, pillars: [-0.62] },
+  doors: [0.7, -0.62, -1.32], handles: [-0.48, -1.16],
+  headlight: [0.55, 0.72, 0.19, 0.055], taillight: [0.62, 0.9, 0.16, 0.07], grille: [0.66, 0.24, 0.02], intake: [0.44, 0.4, 0.09],
+  plates: [0.45, 0.62], bumperLine: [0.76, 0.58], chrome: false, cladding: 0, sign: false, rails: false
+};
+// a boxy sedan of the nineties: square corners, a flat hood and deck, chrome along the glass, square lamps
+BODY_SPECS.oldsedan = Object.assign({}, BODY_SPECS.sedan, {
+  name: 'oldsedan', lowerRound: 4.2, upperRound: 6, wheelRadius: 0.33,
+  halfWidth: [[2.3, 0.9], [1.4, 0.905], [0, 0.91], [-1.4, 0.91], [-2.3, 0.9]],
+  zFront: 2.3, zRear: -2.3, wheelZ: 1.4,
+  edge: [[2.15, 0.8], [1.5, 0.83], [0.85, 0.87], [0.55, 0.88], [-1.0, 0.9], [-1.62, 0.91], [-2.2, 0.91]],
+  crown: [[2.1, 0.02], [0.95, 0.02], [0.66, 0.004], [-1.56, 0.004], [-1.78, 0.012], [-2.3, 0.014]],
+  tumble: [[2.3, 0.07], [0.9, 0.06], [-1.6, 0.06], [-2.3, 0.07]],
+  nose: { halfWidth: [0.16, 0.8, 3.4], edge: [0.1, 0.72, 3], crown: [0.1, 0.006, 2], sill: [0.1, 0.42, 2], shoulder: [0.14, 0.6, 3] },
+  tail: { halfWidth: [0.14, 0.82, 3.4], edge: [0.06, 0.86, 3], crown: [0.06, 0, 2], sill: [0.12, 0.44, 2], shoulder: [0.12, 0.7, 3] },
+  cabin: Object.assign({}, BODY_SPECS.sedan.cabin, { cowl: 0.8, roofFront: 0.05, roofRear: -1.05, deck: -1.6,
+    roofY: [[0.05, 1.42], [-0.5, 1.43], [-1.05, 1.42]], roofRound: 5.5, rail: [0.67, 0.66] }),
+  headlight: [0.58, 0.68, 0.24, 0.06], taillight: [0.6, 0.78, 0.26, 0.06], grille: [0.68, 0.3, 0.05], chrome: true
+});
+// the family minivan: the SUV's chassis lower down, a long roof, a short sloping nose, sliding rear doors
+BODY_SPECS.minivan = Object.assign({}, BODY_SPECS.suv, {
+  name: 'minivan', zFront: 2.5, zRear: -2.55, wheelRadius: 0.36, wheelZ: 1.5, wheelX: 0.85, archFlare: 0.015,
+  halfWidth: [[2.5, 0.93], [1.5, 0.97], [0, 0.98], [-1.5, 0.975], [-2.55, 0.955]],
+  sill: [[2.5, 0.33], [1.2, 0.31], [-1.2, 0.31], [-2.55, 0.38]],
+  shoulder: [[2.5, 0.7], [1.5, 0.78], [0, 0.82], [-2.55, 0.84]],
+  edge: [[2.36, 0.86], [1.9, 0.93], [1.55, 0.99], [0.8, 1.04], [-0.5, 1.07], [-1.6, 1.1], [-2.45, 1.11]],
+  crown: [[2.36, 0.035], [1.6, 0.03], [1.4, 0.004], [-2.55, 0.004]],
+  tumble: [[2.5, 0.12], [1.5, 0.1], [-2.55, 0.11]],
+  nose: { halfWidth: [0.36, 0.7, 2.6], edge: [0.18, 0.84, 2.5], crown: [0.18, 0.012, 2], sill: [0.18, 0.36, 2], shoulder: [0.24, 0.62, 2.5] },
+  tail: { halfWidth: [0.22, 0.8, 2.8], edge: [0.06, 1.06, 3], crown: [0.06, 0.004, 2], sill: [0.14, 0.44, 2], shoulder: [0.18, 0.84, 2.6] },
+  cabin: Object.assign({}, BODY_SPECS.suv.cabin, { cowl: 1.25, roofFront: 0.38, roofRear: -2.15, deck: -2.45,
+    roofY: [[0.38, 1.72], [-0.6, 1.76], [-1.6, 1.755], [-2.15, 1.715]], rail: [0.75, 0.71], pillars: [0.2, -1.1] }),
+  doors: [1.05, 0.2, -1.1], handles: [0.36, 0.05],
+  headlight: [0.64, 0.8, 0.22, 0.055], taillight: [0.7, 1.0, 0.16, 0.08], grille: [0.74, 0.3, 0.035], intake: [0.48, 0.52, 0.1],
+  plates: [0.48, 0.82], bumperLine: [0.7, 0.72], cladding: 0, rails: false, chrome: false
+});
+// the pickup: a tall square nose, a crew cab, an open bed behind it (bed: where its front wall stands, its floor below
+// the rails, the rails' and the tailgate's thickness)
+BODY_SPECS.pickup = {
+  name: 'pickup', zFront: 2.75, zRear: -2.75, wheelRadius: 0.4, wheelZ: 1.8, wheelX: 0.9, archGap: 0.07, archFlare: 0.04, tuck: 0.06,
+  lowerRound: 3.4, upperRound: 4.4,
+  halfWidth: [[2.75, 0.98], [1.8, 1.0], [0, 1.005], [-1.8, 1.0], [-2.75, 0.99]],
+  sill: [[2.75, 0.5], [1.4, 0.47], [-1.4, 0.47], [-2.75, 0.52]],
+  shoulder: [[2.75, 0.98], [1.8, 1.04], [0, 1.06], [-2.75, 1.06]],
+  edge: [[2.6, 1.18], [2.0, 1.22], [1.3, 1.24], [1.05, 1.25], [0, 1.25], [-2.7, 1.25]],
+  crown: [[2.6, 0.04], [1.3, 0.035], [1.05, 0.004], [-2.75, 0.004]],
+  tumble: [[2.75, 0.08], [1.0, 0.07], [-2.75, 0.06]],
+  nose: { halfWidth: [0.24, 0.84, 3], edge: [0.12, 1.15, 3], crown: [0.12, 0.012, 2], sill: [0.16, 0.56, 2.2], shoulder: [0.16, 0.98, 2.8] },
+  tail: { halfWidth: [0.1, 0.94, 3.2], edge: [0.04, 1.24, 3], crown: [0.04, 0, 2], sill: [0.14, 0.56, 2.2], shoulder: [0.1, 1.04, 2.8] },
+  cabin: { cowl: 1.0, roofFront: 0.32, roofRear: -0.62, deck: -0.78, roofY: [[0.32, 1.93], [-0.15, 1.95], [-0.62, 1.94]], rail: [0.76, 0.75],
+    inset: 0.035, bulge: 0.01, roofEdge: 0.055, roofCrown: 0.028, roofRound: 4.5, pillars: [-0.05] },
+  bed: { front: -0.88, depth: 0.5, wall: 0.07, gate: 0.08 },
+  doors: [0.98, -0.05, -0.74], handles: [0.15, -0.58],
+  headlight: [0.72, 1.0, 0.2, 0.085], taillight: [0.86, 1.0, 0.07, 0.15], grille: [0.95, 0.46, 0.19], intake: [0.62, 0.52, 0.06],
+  plates: [0.66, 0.84], bumperLine: [0.78, 0.74], chrome: true, cladding: 0, sign: false, rails: false
+};
+// the low two-door coupe (a sports car look-alike): wide hips, a long fastback down to a short deck
+BODY_SPECS.coupe = {
+  name: 'coupe', zFront: 2.3, zRear: -2.25, wheelRadius: 0.345, wheelZ: 1.36, wheelX: 0.85, archGap: 0.05, archFlare: 0.05, tuck: 0.08,
+  halfWidth: [[2.3, 0.9], [1.36, 0.95], [0, 0.94], [-1.36, 0.965], [-2.25, 0.92]],
+  sill: [[2.3, 0.22], [1.2, 0.2], [-1.2, 0.2], [-2.25, 0.25]],
+  shoulder: [[2.3, 0.5], [0, 0.6], [-2.25, 0.66]],
+  edge: [[2.15, 0.64], [1.5, 0.72], [0.9, 0.79], [0.55, 0.81], [-0.8, 0.84], [-1.6, 0.88], [-2.15, 0.9]],
+  crown: [[2.15, 0.03], [0.9, 0.03], [0.6, 0.004], [-1.9, 0.01], [-2.25, 0.02]],
+  tumble: [[2.3, 0.12], [0.8, 0.11], [-2.25, 0.11]],
+  nose: { halfWidth: [0.4, 0.62, 2], edge: [0.24, 0.48, 2.2], crown: [0.24, 0.008, 2], sill: [0.14, 0.32, 2], shoulder: [0.32, 0.42, 2] },
+  tail: { halfWidth: [0.28, 0.72, 2.2], edge: [0.08, 0.82, 2.6], crown: [0.08, 0, 2], sill: [0.12, 0.38, 2], shoulder: [0.18, 0.62, 2] },
+  cabin: { cowl: 0.62, roofFront: -0.32, roofRear: -0.95, deck: -1.78, roofY: [[-0.32, 1.27], [-0.62, 1.29], [-0.95, 1.26]], rail: [0.6, 0.57],
+    inset: 0.04, bulge: 0.014, roofEdge: 0.045, roofCrown: 0.03, roofRound: 4, pillars: [] },
+  doors: [0.58, -0.9, -0.9], handles: [-0.74],
+  headlight: [0.6, 0.6, 0.22, 0.045], taillight: [0.6, 0.73, 0.26, 0.04], grille: [0.55, 0.3, 0.02], intake: [0.36, 0.55, 0.08],
+  plates: [0.36, 0.56], bumperLine: [0.62, 0.5], chrome: false, cladding: 0, sign: false, rails: false
+};
+// the muscle car look-alike: a long flat hood, a short fastback cabin set well back, a square tail
+BODY_SPECS.muscle = {
+  name: 'muscle', zFront: 2.45, zRear: -2.4, wheelRadius: 0.36, wheelZ: 1.45, wheelX: 0.87, archGap: 0.05, archFlare: 0.05, tuck: 0.07,
+  lowerRound: 3.4, upperRound: 4.2,
+  halfWidth: [[2.45, 0.92], [1.45, 0.965], [0, 0.95], [-1.45, 0.985], [-2.4, 0.95]],
+  sill: [[2.45, 0.26], [1.2, 0.24], [-1.2, 0.24], [-2.4, 0.28]],
+  shoulder: [[2.45, 0.62], [0, 0.68], [-2.4, 0.74]],
+  edge: [[2.3, 0.8], [1.6, 0.84], [0.9, 0.87], [0.4, 0.89], [-0.8, 0.9], [-1.6, 0.92], [-2.3, 0.93]],
+  crown: [[2.3, 0.03], [1.2, 0.04], [0.45, 0.006], [-2.4, 0.01]],
+  tumble: [[2.45, 0.1], [0.6, 0.1], [-2.4, 0.1]],
+  nose: { halfWidth: [0.2, 0.8, 3], edge: [0.1, 0.76, 3], crown: [0.1, 0.01, 2], sill: [0.12, 0.36, 2], shoulder: [0.16, 0.6, 2.6] },
+  tail: { halfWidth: [0.14, 0.86, 3], edge: [0.05, 0.9, 3], crown: [0.05, 0, 2], sill: [0.1, 0.4, 2], shoulder: [0.12, 0.72, 2.6] },
+  cabin: { cowl: 0.42, roofFront: -0.4, roofRear: -1.1, deck: -1.72, roofY: [[-0.4, 1.33], [-0.75, 1.35], [-1.1, 1.32]], rail: [0.62, 0.6],
+    inset: 0.04, bulge: 0.012, roofEdge: 0.045, roofCrown: 0.03, roofRound: 4.2, pillars: [] },
+  doors: [0.4, -1.05, -1.05], handles: [-0.88],
+  headlight: [0.62, 0.7, 0.2, 0.055], taillight: [0.58, 0.8, 0.32, 0.05], grille: [0.68, 0.6, 0.07], intake: [0.42, 0.5, 0.05],
+  plates: [0.42, 0.58], bumperLine: [0.6, 0.6], chrome: false, cladding: 0, sign: false, rails: false
+};
+// the open two-seater: the coupe's body with its top down (spec.open: the roof falls from the windscreen's header to
+// the rear deck, the cockpit painted, two headrests)
+BODY_SPECS.convertible = Object.assign({}, BODY_SPECS.coupe, {
+  name: 'convertible', open: true,
+  cabin: Object.assign({}, BODY_SPECS.coupe.cabin, { cowl: 0.6, roofFront: 0.05, roofRear: -0.45, deck: -1.55,
+    roofY: [[0.05, 1.16], [-0.2, 1.0], [-0.45, 0.98]], roofRound: 6, pillars: [] })
+});
 for (const spec of Object.values(BODY_SPECS)) {
   // Kept for code that places lamp flares: lamp heights (front, rear) and centres across the car
   spec.lamps = [spec.headlight[1], spec.taillight[1]];
@@ -535,6 +649,8 @@ function bodyStations(spec, detail) {
     add(spec.cabin.cowl);
     add(spec.cabin.deck);
   }
+  // (a pickup's bed: its front wall and its tailgate each a sharp step, a station either side)
+  if (spec.bed) for (const z of [spec.bed.front, spec.zRear + spec.bed.gate]) { add(z + 0.012); add(z - 0.012); }
   zs.sort((a, b) => b - a);
   const eps = detail ? 0.004 : 0.04;
   const out = [];
@@ -546,11 +662,21 @@ function bodyStations(spec, detail) {
   return out;
 }
 
+// Is z inside a pickup's bed (between its front wall and its tailgate)?
+const inBed = (spec, z) => !!spec.bed && z < spec.bed.front && z > spec.zRear + spec.bed.gate;
 function buildBodyLoft(spec, detail = 1) {
   const body = bodyProfile(spec);
   const sections = bodyStations(spec, detail).map((z) => {
     const s = body(z);
-    return mirrorSection(bodyHalfProfile(s, detail, spec), [0, s.yT], z);
+    const right = bodyHalfProfile(s, detail, spec);
+    // (in the bed the top points step in over the rail and down the inner wall to the floor: the same number of
+    // points as the closed top, so the loft's sections still match)
+    if (inBed(spec, z)) {
+      const n = detail ? 2 : 1, xi = s.xE - spec.bed.wall, yf = s.yE - spec.bed.depth;
+      right.splice(right.length - n, n, ...(detail ? [[xi, s.yE], [xi, yf]] : [[xi, yf]]));
+      return mirrorSection(right, [0, yf], z);
+    }
+    return mirrorSection(right, [0, s.yT], z);
   });
   return new LoftGeometry(sections, { capStart: true, capEnd: true });
 }
@@ -855,7 +981,20 @@ function buildCarGeometry(spec, includeWheels = true) {
   if (spec.rails) parts.push(...buildRoofRails(spec));
   if (spec.sign) parts.push(...buildTaxiSign(spec));
   if (spec.sensors) parts.push(...buildSensorSuite(spec));
+  if (spec.open) parts.push(...buildHeadrests(spec));
   return mergeGeometries(parts);
+}
+
+// An open car's two headrests, standing in the cockpit behind the windscreen (dark trim)
+function buildHeadrests(spec) {
+  const L = carLayout(spec);
+  const z = spec.cabin.roofFront - 0.62, y = L.belt.cowl.y;
+  const list = [];
+  for (const side of [-1, 1]) {
+    list.push(part(roundedBox(0.13, 0.11, 0.07, 0.05, 0.02).translate(side * 0.36, y + 0.24, z), CAR_PARTS.TRIM));
+    list.push(part(new THREE.BoxGeometry(0.03, 0.12, 0.03).translate(side * 0.36, y + 0.1, z), CAR_PARTS.TRIM));
+  }
+  return list;
 }
 
 // A ~250-triangle stand-in for distant cars (a few pixels tall): the same body & glasshouse lofted from a handful of
@@ -1054,8 +1193,11 @@ function createLoftedCarMaterial(spec, fixedColorHex = null) {
   let sideG = polygonDistance(p.z, p.y, sideGlassPlanes, 0.07);
   for (const zp of cab.pillars) sideG = max(sideG, float(0.036).sub(abs(p.z.sub(zp))));
   const backlight = coverage(polygonDistance(ax, p.z, rearGlassPlanes, 0.09)).mul(isWindow);
-  const glass = max(max(coverage(sideG), coverage(polygonDistance(ax, p.z, frontGlassPlanes, 0.09))), backlight.div(max(isWindow, 1e-4)))
+  // (an open car: the glasshouse behind the windscreen is the cockpit, the top folded away: no glass there)
+  const cockpit = spec.open ? step(p.z, cab.roofFront - 0.03).mul(isWindow) : float(0.0);
+  let glass = max(max(coverage(sideG), coverage(polygonDistance(ax, p.z, frontGlassPlanes, 0.09))), backlight.div(max(isWindow, 1e-4)))
     .mul(isWindow);
+  if (spec.open) glass = glass.mul(float(1.0).sub(cockpit));
   const seal = max(
     coverage(polygonDistance(p.z, p.y, sideSealPlanes, 0.07)),
     max(coverage(polygonDistance(ax, p.z, frontSealPlanes, 0.09)), coverage(polygonDistance(ax, p.z, rearSealPlanes, 0.09)))
@@ -1108,6 +1250,13 @@ function createLoftedCarMaterial(spec, fixedColorHex = null) {
   const mirrorGlass = isMirror.mul(step(0.55, n.z.negate()));
   const lamp = max(headlight, taillight);
   const plates = max(plateFront, plateRear);
+  // (a pickup's bed: its floor and inner walls a dark liner, below the rails, between the front wall and the gate)
+  let bedLiner = float(0.0);
+  if (spec.bed) {
+    const sb = L.body((spec.bed.front + spec.zRear) / 2), xi = sb.xE - spec.bed.wall;
+    bedLiner = step(p.z, spec.bed.front - 0.004).mul(step(spec.zRear + spec.bed.gate + 0.004, p.z))
+      .mul(step(p.y, sb.yE - 0.012)).mul(step(ax, xi + 0.004)).mul(isBody);
+  }
   const cladding =
     spec.cladding > 0
       ? max(smoothstep(spec.cladding + 0.01, spec.cladding - 0.01, p.y), smoothstep(archR + (spec.hero ? 0.028 : 0.075), archR + (spec.hero ? 0.018 : 0.06), wheelDist))
@@ -1134,8 +1283,8 @@ function createLoftedCarMaterial(spec, fixedColorHex = null) {
   const alloyMetal = clamp(max(max(spokes, valveDot), max(rimRing, centerHub)).sub(centerCap.mul(0.85)), 0.0, 1.0);
 
   // Black plastic & rubber (grilles, seals, trims, tyres, cladding) is matte; lamps, glass & chrome are glossy
-  const matte = max(
-    max(max(isTyre, isTrim), max(intake, grille)),
+  const matte = max(max(max(bedLiner, cockpit),
+    max(max(isTyre, isTrim), max(intake, grille))),
     max(max(diffuser, under), max(max(cowlPanel, cladding), seal.mul(one.sub(max(glass, chromeBelt)))))
   );
 
@@ -1143,7 +1292,9 @@ function createLoftedCarMaterial(spec, fixedColorHex = null) {
   // Liveries: the police cruiser (state.w 1; San Francisco, P4.6: a generic black-and-white, white doors with dark
   // lettering on a black body; SFPD's own current scheme is not verified, docs/landmarks/muni.md); the taxi's door
   // badges and medallion number
-  const isNYPD = step(0.5, state.w).mul(isSide).mul(isBody);
+  // (state.w 2: a town's parked car (traffic.js): no livery, no lamp lit)
+  const isNYPD = step(0.5, state.w).mul(step(state.w, 1.5)).mul(isSide).mul(isBody);
+  const lampsOn = float(1.0).sub(step(1.5, state.w));
   const doorMid = (spec.doors[0] + spec.doors[1]) / 2;
   const lettering = step(0.45, sin(p.z.mul(70.0)))
     .mul(smoothstep(0.725, 0.73, p.y))
@@ -1192,10 +1343,12 @@ function createLoftedCarMaterial(spec, fixedColorHex = null) {
   body = mix(body, body.mul(0.55), plateRecess);
   body = mix(body, color(0xeeeeea), plates); // California: white plates
   body = mix(body, color(0x0e1013), under);
+  if (spec.bed) body = mix(body, color(0x1c1e20).mul(step(0.5, fract(p.x.mul(9.0))).mul(0.12).add(0.88)), bedLiner);
 
   // Glasshouse: tinted glass, black seals & B / C pillars, painted roof & A pillars, chrome sill strip, CHMSL
   const glassCol = mix(color(0x0a1016), color(0x1a2632), smoothstep(0.2, 0.9, n.y));
-  const windowCol = mix(mix(mix(mix(paint, color(0x111315), seal), glassCol, glass), color(0xc9ced3), chromeBelt), color(0x6a0a0e), chmsl);
+  let windowCol = mix(mix(mix(mix(paint, color(0x111315), seal), glassCol, glass), color(0xc9ced3), chromeBelt), color(0x6a0a0e), chmsl);
+  if (spec.open) windowCol = mix(windowCol, mix(color(0x2b2420), color(0x4a3a2e), smoothstep(0.3, 0.9, n.y)), cockpit);
 
   // Mirror caps (paint, glass facing back), taxi roof light, trims, alloys & tyres
   const mirrorCol = mix(paint, color(0x7c8a94), mirrorGlass);
@@ -1250,7 +1403,7 @@ function createLoftedCarMaterial(spec, fixedColorHex = null) {
   mat.colorNode = col;
   mat.roughnessNode = rough;
   mat.metalnessNode = spec.hero ? mix(metal, float(.12), one.sub(max(glass, max(lamp, max(isTyre, isAlloy))))) : metal;
-  mat.emissiveNode = headlamps.add(tail).add(stop).add(turn).add(sign).mul(CAR_LAMP_POWER);
+  mat.emissiveNode = headlamps.add(tail).add(stop).add(turn).add(sign).mul(CAR_LAMP_POWER).mul(lampsOn);
 
   _carMaterialCache.set(cacheKey, mat);
   return mat;

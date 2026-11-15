@@ -161,8 +161,9 @@ missions too (the test drive is put down by the next one's corona).
 
 `/lab/people.html?a=<glb>,<glb>!,dan&view=face|close|mid|full&t=1` stands bodies side by side, each built as `cast.js`
 builds a forged person (Dan's clips, the face, the set's key, fill and rim on a close shot), the same lens on each
-head; a name ending in `!` is drawn with `polish.js` (soft hair edges, the skin graded), so `x.glb,x.glb!` is a before
-and after. `&hide=<regex>` hides pieces by material name (`^suit` the made jacket, `^clothes` the pack's garments),
+head; a name ending in `!` is drawn with `polish.js` (the hair lit as one head of hair with a strand's sheen and soft
+edges, the scalp's line at the temples drawn again without its teeth, pores and skin's light, wet eyes), so
+`x.glb,x.glb!` is a before and after; `&polish=r8` draws `!` with r8's finish instead (the last round's look). `&hide=<regex>` hides pieces by material name (`^suit` the made jacket, `^clothes` the pack's garments),
 `&clip=bind` the rest pose, `&light=golden|night|street`.
 
 ## Address switches
@@ -184,3 +185,4 @@ and after. `&hide=<regex>` hides pieces by material name (`^suit` the made jacke
 | `&fair=1` | under the autopilot, no health topped up and no finishing blow (is the fight winnable?) |
 | `&nosave` | no Continue checkpoint saved |
 | `&polish=0` | every forged person as their GLB has them (no `polish.js`: hard hair cards, the skin ungraded), for a look at the difference |
+| `&polish=r8` | every forged person with r8's finish only (alpha to coverage, the skin graded), the look before people2 |

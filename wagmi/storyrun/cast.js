@@ -131,7 +131,12 @@ export function createCast(W, world) {
     const find = (n) => (n ? THREE.AnimationClip.findByName(own, n) : null);
     const clip = suit ? (n) => find(n) || find(SUIT_CLIP[n]) : find;
     const idle = clip(c.idle) || (suit && find('suitIdle')) || clip('idle') || clip('thugIdle');
-    if (idle) { const a = mixer.clipAction(idle); a.play(); }
+    if (idle) {
+      const a = mixer.clipAction(idle); a.play();
+      // (a forged person's idle from their own moment in it and at their own pace, by their name: two people on one set
+      // no longer shift their weight in step, a still figure doesn't read as a clip on a loop)
+      if (!nat) { let h = 2166136261; for (const ch of name) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0; a.time = (h % 997) / 997 * idle.duration; a.timeScale = 0.92 + ((h >>> 10) % 160) / 1000; }
+    }
     let face = null;
     try { face = createFace(W, { speaker: name, inner, bones, head: true, open: 0.45 }); } catch (err) { console.warn('[storyrun] face', name, err.message); }
     scene.add(root);

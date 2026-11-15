@@ -24,7 +24,7 @@
 // Units are metres; the car stands on y = 0, nose to +z, the driver's side +x (the frame of the lifted cars).
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { positionLocal, normalLocal, mx_noise_float, smoothstep, mix, vec3, float, abs, step, color, max } from 'three/tsl';
+import { positionLocal, normalLocal, mx_noise_float, smoothstep, mix, vec3, float, abs, step, color, max, uniform } from 'three/tsl';
 import { checkSheet } from './sheet.js';
 import { CLASSES, REAR } from './classes.js';
 import { driveTune, soundProfile } from './tune.js';
@@ -1170,9 +1170,11 @@ export function buildVehicle(THREE, raw, o = {}) {
   for (const cz of [AXF, AXR]) for (const side of [1, -1]) wheels.push(wheel(cz, side));
 
   /* ---------------------------------------------- the paint: tone, stripes, wear -- */
+  const paintBase = uniform(new THREE.Color(sheet.paint.base));
   {
     const p = positionLocal, n = normalLocal;
-    let col = color(sheet.paint.base);
+    // (the base colour a uniform: setPaint(hex) repaints the car without a new shader; Mog City's taken cars, wagmi/jack.js)
+    let col = paintBase;
     const second = sheet.paint.second ? color(sheet.paint.second) : null;
     const cr = float(S.crease), bl = float(S.yBelt);
     if (second && sheet.paint.split === 'lower' && !M.lowerGloss) col = mix(col, second, step(p.y, cr));
@@ -1395,6 +1397,7 @@ export function buildVehicle(THREE, raw, o = {}) {
   };
 
   const rs = {
+    setPaint: (hex) => { paintBase.value.set(hex); },
     group: g, body, materials: M, wheels, childSeat, booster, anchor, seat: SEAT, tune, sound, springs,
     // (the back bench's hip marks, in the anchor's frame: behind the passenger and behind the driver; null: no bench)
     rear: sockets.rearLeft ? { pass: sockets.rearLeft, drv: sockets.rearRight } : null,

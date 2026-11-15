@@ -32,7 +32,10 @@ by a hill) and its scenic shots (`SCENIC_CAMERAS`, below); none of it runs in Ne
   the crash's hooks, the low things on foot, `baseHeight(x, z)` (the bare ground), and the curb for a car's wheels; each
   building's outline given a fitted turned box (`obb`) for the game's readers of the colliders.
 - `js/world-collision.js`: a car's footprint from its own body's box (`carShape(..., body)`, `bodyReach`).
-- `js/traffic.js`: the game's `blockers` and `hold(rects)`, and the freeway cars' `place`, `near` and `knock`.
+- `js/traffic.js`: the game's `blockers` and `hold(rects)`, and the freeway cars' `place`, `near` and `knock`; a
+  Hometown town's own fleet (regional mixes, parked cars, `take`), drawn with ready-made models (`js/fleet-models.js`,
+  `js/fleet-data.js`: CC BY 4.0 models, `assets/vehicles/fleet`, the town's sports cars leading) in three levels of
+  detail, each model's procedural body standing in while it loads.
 - `js/sf-street-details.js`: `window.NYC.breakables` (masts, lamps, signs and poles that snap, hydrants and meters
   that fly, the street trees solid) and `window.NYC.streetFootprints`, as New York's street details publish them.
 - `js/sf-map.js`: the player's waypoint (`userWaypoint`, `onWaypoint`), the game's places in the search

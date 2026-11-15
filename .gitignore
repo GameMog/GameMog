@@ -5,3 +5,6 @@
 # Hometown packages: compiled by tools/hometown/compile.py (open map data, ODbL-derived), reproducible from the compiler
 cities/pkg/packages/
 __pycache__/
+
+# the fleet build tools' own dependencies (tools/vehicles/build-fleet.mjs)
+tools/vehicles/node_modules

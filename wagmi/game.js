@@ -39,9 +39,30 @@ installDriveMode(WAGMI);
   // (the horse, Ranger: wagmi/horse/ranger.js, the same interface; a world's sheet car or model car is then not built)
   let horseRs = null;
   if (HORSE) try { horseRs = await HORSE.buildRanger(THREE, { label: PACK?.modelCar?.label }); } catch (err) { console.warn('[horse] Ranger', err); }
+  // (a Hometown town whose story names no car of its own (no sheet, model or stock car), or a town with no story: one
+  // of the town fleet's ready-made sports cars (the owner, 14 Nov: "mainly sports cars"; cities/sf/js/fleet-models.js),
+  // the same for the same town, in the story's paint or a bold one; wagmi/fleet-car.js wears it on a sports sheet. If
+  // it can't load in time, Dan's roadster as before)
+  let heroSheet = null;
+  if (!horseRs && window.NYC?.CITY === 'pkg' && window.NYC.Fleet && !(PACK?.ok && (PACK.sheetCar || PACK.modelCar || PACK.stockCar))) {
+    try {
+      const F = window.NYC.Fleet, have = (k) => !!F.data.models[k];
+      const pool = [['gt95', 3], ['sport99', 3], ['turbo81', 2], ['muscle69', 2], ['gt83', 1], ['roadster00', 1]].filter(([k]) => have(k));
+      let h = 2166136261; for (const c of String(window.NYC.PKG?.id || window.NYC.PKG?.name || 'town') + ':hero') { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); }
+      let r = ((h >>> 0) % 10007) / 10007 * pool.reduce((a, [, w]) => a + w, 0), id = pool[0]?.[0];
+      for (const [k, w] of pool) { r -= w; if (r <= 0) { id = k; break; } }
+      const PAINTS = ['#B3121A', '#F2C230', '#2F63B8', '#111214', '#E4E4E0', '#F08A1C', '#1C8A8C', '#D8DADE'];
+      if (id) {
+        await Promise.race([F.load(id), new Promise((res, rej) => setTimeout(() => rej(new Error('slow')), 12000))]);
+        const { MODEL_SHEETS } = await import('./jack-sheets.js');
+        const { say, ...base } = MODEL_SHEETS[id];
+        heroSheet = { v: 1, id: 'fleet-hero-' + id, family: 'car4', ...base, label: ['Your', 'car'].join(' '), fleet: id, paint: { base: story.paint && !/^#e7e7e3$/i.test(story.paint) ? story.paint : PAINTS[(h >>> 7) % PAINTS.length], finish: 'metallic' } };
+      }
+    } catch (err) { console.warn('[fleet] hero car', err); heroSheet = null; }
+  }
   // (a world's own car, from its vehicle sheet: wagmi/storyrun/ride.js; else, and always without ?pack=, Dan's roadster)
-  const RIDE = !horseRs && PACK?.ok && PACK.sheetCar ? await import('./storyrun/ride.js').catch(() => null) : null;
-  let sheetRs = null; if (RIDE) try { sheetRs = RIDE.buildSheetCar(THREE, PACK.sheetCar); } catch (err) { console.warn('[storyrun] car', err); }
+  const RIDE = !horseRs && ((PACK?.ok && PACK.sheetCar) || heroSheet) ? await import('./storyrun/ride.js').catch(() => null) : null;
+  let sheetRs = null; if (RIDE) try { sheetRs = RIDE.buildSheetCar(THREE, heroSheet || PACK.sheetCar); } catch (err) { console.warn('[storyrun] car', err); }
   // (or one of Mog City's own models a world names, wagmi/storyrun/gt.js: the Vantor GT, on the roadster's handling)
   const MODEL = !horseRs && PACK?.ok && !sheetRs && PACK.modelCar && PACK.modelCar.model !== 'mogcity/horse' ? await import('./storyrun/gt.js').catch(() => null) : null;
   // (it wears its downloaded body, wagmi/storyrun/vantor.js, the same interface; gt.js's own with car.body 'built' or if
@@ -473,8 +494,8 @@ installDriveMode(WAGMI);
     const s = Math.sin(car.heading), c = Math.cos(car.heading), v = car.speed || 0;
     Object.assign(b, { x: car.position.x, z: car.position.z, yaw: car.heading, vx: s * v + (car.vx || 0), vz: c * v + (car.vz || 0) });
   };
-  // (y: the lane's height there, the deck looked for at it; none, the car's own level)
-  function place(x, z, h, y) {
+  // (y: the lane's height there, the deck looked for at it; none, the car's own level. quiet: no whoosh)
+  function place(x, z, h, y, quiet = false) {
     const driving = cm.activeMode === 'car';
     // (the camera snapped to its usual place behind it, not glided from where it was: wedged by a wall or a bus, that
     // was low and tight against the car. Its clear-view state goes too, _view: swung round to the side of a car backed
@@ -489,11 +510,13 @@ installDriveMode(WAGMI);
     if (car.wet) { car.wet = null; car.mesh.rotation.x = car.mesh.rotation.z = 0; }
     Object.assign(car, { bayHit: null, terrainPitch: undefined, terrainRoll: undefined }); off.t = 0;
     if (driving) { person.position.copy(car.position); person.heading = h; }
-    WAGMI.audio?.play?.('whoosh', { pos: [x, 0.8, z], vol: 0.6, rate: 0.8 });
+    if (!quiet) WAGMI.audio?.play?.('whoosh', { pos: [x, 0.8, z], vol: 0.6, rate: 0.8 });
     // (the stall help's 'Stuck?' offer, if it is up, has been answered)
     WAGMI.ui?.offer?.(null);
   }
   WAGMI.recoverCar = Object.assign(recoverCar, { key: 'KeyX' });
+  // (the car put down at x, z facing h, as the reset does: a town's taken car, wagmi/jack.js; quiet: no whoosh)
+  WAGMI.placeCar = (x, z, h, quiet = false) => place(x, z, h, undefined, quiet);
   // stopped (under 5 m/s) facing more than 120 degrees off the GPS route's way, WRONG s on end: the prompt offers the
   // reset (a phone's RESET CAR, the pad's B). WAGMI.carWrongWay(dt) (the prompt's tick) is how long it has been
   const WRONG = 1.5, wrong = { t: 0 };
@@ -1130,6 +1153,8 @@ addEventListener('keydown', (e) => {
   if (WAGMI.cutscene || WAGMI.directed) return;
   if (ride.phase) return skip();
   if (cm.activeMode === 'person' && near()) getIn(!!WAGMI.combat?.fighting);
+  // (a town's car on the street, taken: wagmi/jack.js)
+  else if (cm.activeMode === 'person' && WAGMI.jack?.()) return;
   else if (cm.activeMode === 'car') getOut();
 });
 addEventListener('keydown', (e) => {
@@ -1254,6 +1279,7 @@ let last = performance.now();
   // (a town's car in the water, or stuck off the road: wagmi/game.js rescue)
   const rescue = WAGMI.carRescue?.() || '';
   const show = ride.phase || WAGMI.paused || WAGMI.cutscene || WAGMI.directed || (WAGMI.carF && WAGMI.carF()) ? '' : cm.activeMode === 'person' && near() ? (MOUNT ? 'F  ·  Mount' : 'F  ·  Get in')
+    : cm.activeMode === 'person' && WAGMI.jackPrompt?.() ? WAGMI.jackPrompt()
     : rescue ? RESCUE[rescue] : pinned ? (MOUNT ? 'X  ·  Back to the road' : 'X  ·  Reset car to road') : cm.activeMode === 'car' && Math.abs(car.speed) < (MOUNT ? 2.2 : 4) ? (MOUNT ? 'F  ·  Dismount' : 'F  ·  Get out') : '';
   // (the key in a key cap that reads as plain text, so a game pad's button can stand in for it: wagmi/pad.js; what is
   // offered, WAGMI.prompt, for the pad's Y: the car's door, or else the fight's heavy)
@@ -1276,6 +1302,6 @@ WAGMI.trailerEarly = import('./trailer.js').then((m) => m.createTrailer(WAGMI)).
 // missions, which are set on Manhattan's streets. The city: the world contract's, wagmi/world world.id. And
 // ?start=chase in any city: free roam opened on a chase, wagmi/chase-start.js)
 const ROAM = !PACK && (world.id !== 'ny' || CHASE_START);
-for (const m of PACK ? ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './storyrun/index.js'] : ROAM ? ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './city.js'] : ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './intro.js', './mission/m2.js', './mission/m3.js']) {
+for (const m of PACK ? ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './jack.js', './storyrun/index.js'] : ROAM ? ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './jack.js', './city.js'] : ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './intro.js', './mission/m2.js', './mission/m3.js']) {
   try { const mod = await import(m); if (mod.install) await mod.install(WAGMI); } catch (err) { console.error('[wagmi]', m, err); }
 }

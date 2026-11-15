@@ -29,6 +29,9 @@
 //                        (cast.js polishBody), any other as the GLB has it. 'dan' is assets/characters/dan.glb
 //   ?view=face|close|mid|full   ?light=day|golden|night|street   ?clip=<name>  ?t=<seconds> (a frozen frame)
 //   ?talk=0.6 (the jaw held that open)   ?turn=<degrees> (every body turned)   ?draws=<n> (each drawn n times a frame)
+//   ?lens=<distance>,<height over the eyes>,<fov> (the lens itself; view=neck: the collar)   ?tm=0 (no tone mapping)
+//   ?polish=r8 (a '!' body with r8's finish: the round before people2)
+//   a body's own switches after a '~', ';' between them: x.glb!~clip=talk;hide=^suit;at=hair:0.6;flat=hair;wire=clothes
 import * as THREE from 'three/webgpu';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
@@ -47,7 +50,7 @@ const freeze = q.get('t'), turn = (+q.get('turn') || 0) * Math.PI / 180;
 const W = { app: null, faces: new Set(), paused: false };
 const renderer = new THREE.WebGPURenderer({ antialias: true });
 renderer.setPixelRatio(1); renderer.setSize(innerWidth, innerHeight);
-renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0; renderer.shadowMap.enabled = true; 
+renderer.toneMapping = q.get('tm') === '0' ? THREE.NoToneMapping : THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0; renderer.shadowMap.enabled = true; 
 renderer.setScissorTest(true);
 document.body.appendChild(renderer.domElement); await renderer.init();
 const env = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.03).texture;
@@ -55,9 +58,10 @@ const danClips = loadGLB('../assets/characters/dan.glb').then((g) => g.animation
 
 const night = mood === 'night', golden = mood === 'golden', street = mood === 'street';
 // the lens on the head: [distance in front, height above the eyes' bone, fov]
-const LENS = { face: [0.62, 0.0, 30], close: [1.05, 0.03, 30], mid: [2.3, -0.32, 34], full: [4.6, -0.75, 34] }[view] || [1.05, 0.03, 30];
+const LENS = q.get('lens') ? q.get('lens').split(',').map(Number) : ({ face: [0.62, 0.0, 30], close: [1.05, 0.03, 30], neck: [0.75, -0.2, 30], mid: [2.3, -0.32, 34], full: [4.6, -0.75, 34] }[view] || [1.05, 0.03, 30]);
 
-async function column(src, i) {
+async function column(src0, i) {
+  const [src, colq = ''] = src0.split('~'); const cq = new URLSearchParams(colq.replace(/;/g, '&'));
   const polish = src.endsWith('!'), path = polish ? src.slice(0, -1) : src;
   const url = path === 'dan' ? '../assets/characters/dan.glb' : path === 'mrbig' ? '../assets/characters/mrbig.glb' : path;
   const scene = new THREE.Scene(); scene.background = new THREE.Color(street ? '#9FB6CC' : night ? '#070A14' : golden ? '#E9C9A0' : '#BFD6EE');
@@ -76,20 +80,25 @@ async function column(src, i) {
   const native = path === 'dan' || path === 'mrbig';
   if (arm && arm !== inner && !native) { arm.quaternion.identity(); arm.position.y += 0.02; }
   inner.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; } });
-  if (q.get('hide')) { const re = new RegExp(q.get('hide')); inner.traverse((o) => { if (o.isMesh && re.test(o.material?.name + ':' + (o.material?.userData?.garment || ''))) o.visible = false; }); }
+  if ((cq.get('hide') || q.get('hide'))) { const re = new RegExp((cq.get('hide') || q.get('hide'))); inner.traverse((o) => { if (o.isMesh && re.test(o.material?.name + ':' + (o.material?.userData?.garment || ''))) o.visible = false; }); }
+  // (a look inside: at=hair:0.6 an alpha cut, flat=hair a plain colour, wire=hair its triangles over it)
+  const dbg = (k) => (cq.get(k) || q.get(k) || '').split(',').filter(Boolean).map((x) => x.split(':'));
+  for (const [n, v] of dbg('at')) inner.traverse((o) => { if (o.isMesh && o.material?.name === n) { o.material = o.material.clone(); o.material.alphaTest = +v; } });
+  for (const [n] of dbg('flat')) inner.traverse((o) => { if (o.isMesh && o.material?.name === n) { const m = o.material.clone(); m.map = null; m.normalMap = null; m.color.set('#ff2050'); m.alphaTest = 0; m.transparent = false; o.material = m; } });
+  for (const [n] of dbg('wire')) inner.traverse((o) => { if (o.isMesh && o.material?.name === n) { const w = o.clone(); w.material = new THREE.MeshBasicMaterial({ color: '#00ff40', wireframe: true }); o.parent.add(w); } });
   if (polish) { const t0 = performance.now(); const r = polishBody(inner, only); console.log('polish', path, JSON.stringify(r), (performance.now() - t0).toFixed(1) + ' ms'); window.__polish = (window.__polish || []).concat([{ path, ...r, ms: +(performance.now() - t0).toFixed(1) }]); }
   const bones = {}; inner.traverse((o) => { if (o.isBone) bones[o.name] = o; });
   const own = g.animations.slice(), names = new Set(own.map((a) => a.name));
   for (const a of await danClips) if (!names.has(a.name)) own.push(a);
   const mixer = new THREE.AnimationMixer(inner);
-  const clip = THREE.AnimationClip.findByName(own, q.get('clip') || 'idle') || own[0];
-  if (clip && q.get('clip') !== 'bind') mixer.clipAction(clip).play();
+  const clip = THREE.AnimationClip.findByName(own, (cq.get('clip') || q.get('clip')) || 'idle') || own[0];
+  if (clip && (cq.get('clip') || q.get('clip')) !== 'bind') mixer.clipAction(clip).play();
   let face = null;
   if (path !== 'dan') try { face = createFace(W, { speaker: 'x' + i, inner, bones, head: true, open: 0.45, auto: false }); } catch (e) { console.warn('face', e); }
   root.rotation.y = turn; scene.add(root);
   if (freeze != null) mixer.setTime(+freeze); else mixer.update(0.5);
   root.updateMatrixWorld(true);
-  if (face && q.get('talk')) face.jaw(+q.get('talk'));
+  if (face && (cq.get('talk') || q.get('talk'))) face.jaw(+(cq.get('talk') || q.get('talk')));
   const cam = new THREE.PerspectiveCamera(LENS[2], 1, 0.05, 100);
   const key = new THREE.SpotLight(night ? '#FFD2A0' : golden ? '#FFE0B8' : '#FFF2E2', 0, 4.5, 0.42, 0.95, 2);
   key.castShadow = true; key.shadow.mapSize.set(1024, 1024); key.shadow.bias = -0.0006; key.shadow.normalBias = 0.015; key.shadow.radius = 6; key.shadow.camera.near = 0.2; key.shadow.camera.far = 7;
@@ -110,7 +119,7 @@ async function column(src, i) {
   };
   place();
   let tris = 0; inner.traverse((o) => { if (o.isMesh && o.visible) tris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; });
-  return { src, scene, cam, mixer, face, place, tris };
+  return { src: src0, scene, cam, mixer, face, place, tris };
 }
 const cols = await Promise.all(list.map(column));
 document.getElementById('lab').innerHTML = cols.map((c) => `<div>${c.src.split('/').pop()}</div>`).join('');
