@@ -264,7 +264,7 @@ nothing and ends; empty or `0` builds). Optional: `HOMETOWN_RUN_CAP_S` (7200), `
 
 Workflows build on the native runtime only (`runtime: python`; no Dockerfile). The buildCommand installs the Render SDK
 (`workflow-requirements.txt`) and runs `workflow-build.sh`, which writes `.town-builder/`:
-- **the compiler at `MOGCITY_SHA`** (THE one line to re-pin; now `b9dbc9dae565bbb756d92583f6cb41ff08ceda9e`, compiler
+- **the compiler at `MOGCITY_SHA`** (THE one line to re-pin; now `747e1752953b643d8adaee925162f778fde51d41`, compiler
   0.12.0), fetched by SHA from github.com/GameMog/GameMog; when a SHA alone cannot be fetched, the branch
   `HOMETOWN_MOGCITY_REF` (default `hometown-compiler`) and then the SHA inside it;
 - its packages from the compiler's own hash lock (`--require-hashes`, wheels only) in their own venv;
@@ -371,6 +371,26 @@ is first created), and the workflow service is created and built the moment `mai
    owner test pick.
 
 Safe fallback while any step is open: `HOMETOWN_BUILDER=owner` and `NEXT_PUBLIC_HOMETOWN_SEARCH=off`.
+
+## Release r12 (compiler 0.12.0, re-pinned)
+
+Live before it: gamemog.com `main` a0080406, mc.gamemog.com `mogcity` ef951329 (the tree of MogCity `r11`
+`b9dbc9dae565bbb756d92583f6cb41ff08ceda9e`), `hometown-compiler` b9dbc9da. r12 adds: the Story Kit people round
+(scanned skin and cloth detail, forged hair and brows, in `wagmi/face.js` and `wagmi/storyrun/polish.js`; 20 credited
+detail tiles under `assets/people/detail/`; the people lab's turntable); the cache stamp `20261115-r12`. `tools/hometown` is unchanged, so
+the compiler stays 0.12.0 and the buildId does not change; the pin moves to the r12 tip only to keep `MOGCITY_SHA` on
+the branch's tip. The `wagmi/` modules carry no stamp, so returning players pick them up within the Pages cache's
+10 minutes.
+
+In this order:
+
+1. **Mog City's engine**: push the local MogCity branch `mogcity-release-r12` (parent `ef951329` = the live `mogcity`,
+   a fast-forward; the tree of MogCity `r12` `747e1752953b643d8adaee925162f778fde51d41` without `.scratch`, the live
+   README and `CNAME` kept; no live file deleted) to `mogcity`.
+2. **The compiler commit**: push MogCity `r12` (tip `747e1752953b643d8adaee925162f778fde51d41`) to
+   `hometown-compiler` BEFORE `main` (it descends from the live b9dbc9da, a fast-forward).
+3. **Nothing building** on Render, then push GameMog `people-rel` to `main` (a fast-forward of a0080406). The pin
+   changed under `deploy/town-builder/**`, so the workflow rebuilds, at the same compiler 0.12.0.
 
 ## Release r11 (compiler 0.12.0, re-pinned)
 

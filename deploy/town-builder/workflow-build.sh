@@ -31,7 +31,7 @@ set -euo pipefail
 # rules (planting strips, dunes, hedge walls where lots front the road, their gaps, trees over them) and r8's approach
 # points: every story place's ax, az where a person on foot is sent, outdoors and clear of buildings); re-pinned for release r10
 # (MogCity r10-misc; tools/hometown unchanged since r8, so the same compiler and buildId), on the branch below
-MOGCITY_SHA=b9dbc9dae565bbb756d92583f6cb41ff08ceda9e
+MOGCITY_SHA=747e1752953b643d8adaee925162f778fde51d41
 # the branch that carries it: fetched when the commit cannot be fetched by its SHA alone (the checkout is still the SHA)
 MOGCITY_REF="${HOMETOWN_MOGCITY_REF:-hometown-compiler}"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
