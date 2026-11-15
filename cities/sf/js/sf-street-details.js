@@ -123,6 +123,39 @@ function buildSFStreetDetails(scene, network, buildingColliders = []) {
     }
   }
 
+  // (stage 0, compiler 0.13: OSM's street lamps (1), hydrants (2) and benches (3), GEO.streetProps [x, z, kind, ...];
+  // where the town maps its lamps, the drawn ones keep DATA_LAMP_CLEAR m off them; where it maps hydrants, only those)
+  const SP = window.NYC.GEO.streetProps || [];
+  const dataOf = (k) => { const o = []; for (let i = 0; i + 2 < SP.length; i += 3) if (SP[i + 2] === k) o.push([SP[i], SP[i + 1]]); return o; };
+  const dataLamps = dataOf(1), dataHydrants = dataOf(2), dataBenches = dataOf(3);
+  const DATA_LAMP_CLEAR = 20, LAMP_CELL = 20, lampCells = new Map();
+  for (const [x, z] of dataLamps) {
+    const k = Math.floor(x / LAMP_CELL) * 100000 + Math.floor(z / LAMP_CELL);
+    if (!lampCells.has(k)) lampCells.set(k, []);
+    lampCells.get(k).push([x, z]);
+  }
+  const nearDataLamp = (x, z) => {
+    for (let gx = Math.floor(x / LAMP_CELL) - 1; gx <= Math.floor(x / LAMP_CELL) + 1; gx++) {
+      for (let gz = Math.floor(z / LAMP_CELL) - 1; gz <= Math.floor(z / LAMP_CELL) + 1; gz++) {
+        for (const [px, pz] of lampCells.get(gx * 100000 + gz) || []) if (Math.hypot(px - x, pz - z) < DATA_LAMP_CLEAR) return true;
+      }
+    }
+    return false;
+  };
+  const lampAt = (spot, rx, rz, side) => {
+    const base = groundAt(spot.x, spot.z) + CURB_H;
+    const out = Math.atan2(-rx * side, -rz * side); // the arm leans out over the road
+    push(mats.lampPole, spot.x, base + 4, spot.z, 0, 0.09, 8, 0.09);
+    lampArm.push(mats.arm.length);
+    push(mats.arm, spot.x - rx * side * 0.7, base + 7.98, spot.z - rz * side * 0.7, out, 0.07, 0.07, 1.4);
+    dummy.position.set(spot.x - rx * side * 1.4, base + 7.9, spot.z - rz * side * 1.4);
+    dummy.rotation.set(0, out, 0);
+    dummy.scale.set(1, 1, 1);
+    dummy.updateMatrix();
+    mats.lampHead.push(dummy.matrix.clone());
+    footprints.push({ minX: spot.x - 0.2, maxX: spot.x + 0.2, minZ: spot.z - 0.2, maxZ: spot.z + 0.2 });
+  };
+
   // 3. Lamps along every street (each road once: its edges one way, or the only way of a one-way street)
   const seen = new Set();
   let lamps = 0;
@@ -135,23 +168,18 @@ function buildSFStreetDetails(scene, network, buildingColliders = []) {
       const off = e.half + 0.6;
       const spot = findSpot(e.sx + e.dx * s + e.rx * off * side, e.sz + e.dz * s + e.rz * off * side, e.dx, e.dz, e.rx * side, e.rz * side);
       if (!spot) continue;
-      const base = groundAt(spot.x, spot.z) + CURB_H;
-      const out = Math.atan2(-e.rx * side, -e.rz * side); // the arm leans out over the road
-      push(mats.lampPole, spot.x, base + 4, spot.z, 0, 0.09, 8, 0.09);
-      lampArm.push(mats.arm.length);
-      push(mats.arm, spot.x - e.rx * side * 0.7, base + 7.98, spot.z - e.rz * side * 0.7, out, 0.07, 0.07, 1.4);
-      dummy.position.set(spot.x - e.rx * side * 1.4, base + 7.9, spot.z - e.rz * side * 1.4);
-      dummy.rotation.set(0, out, 0);
-      dummy.scale.set(1, 1, 1);
-      dummy.updateMatrix();
-      mats.lampHead.push(dummy.matrix.clone());
-      footprints.push({ minX: spot.x - 0.2, maxX: spot.x + 0.2, minZ: spot.z - 0.2, maxZ: spot.z + 0.2 });
+      if (dataLamps.length && nearDataLamp(spot.x, spot.z)) continue;
+      lampAt(spot, e.rx, e.rz, side);
       lamps++;
     }
   }
 
-  // 4. A hydrant on a corner of every junction (the first approach's right-hand corner, set back from it)
+  // 4. A hydrant on a corner of every junction (the first approach's right-hand corner, set back from it); where the
+  // town maps its own (below), none within HYDRANT_CLEAR m of one (OSM's hydrants are mapped street by street)
+  const HYDRANT_CLEAR = 80;
+  const nearDataHydrant = (x, z) => dataHydrants.some(([px, pz]) => Math.abs(px - x) < HYDRANT_CLEAR && Math.abs(pz - z) < HYDRANT_CLEAR && Math.hypot(px - x, pz - z) < HYDRANT_CLEAR);
   for (const n of network.nodes) {
+    if (dataHydrants.length && nearDataHydrant(n.x, n.z)) continue;
     if (n.shape || !n.in || !n.in.length) continue;
     const e = n.in[0];
     const x = n.x - e.dx * (e.half + 6) + e.rx * (e.half + 0.5);
@@ -187,6 +215,37 @@ function buildSFStreetDetails(scene, network, buildingColliders = []) {
     }
     return best;
   };
+
+  // 4b. (stage 0) OSM's own lamps, hydrants and benches, each moved up to ~3 m onto the sidewalk (else left out), turned
+  // to its nearest street
+  let dataLampN = 0, dataHydrantN = 0;
+  const benches = [];
+  const snapIsland = (x, z) => (onIsland(x, z) ? { x, z } : findSpot(x, z, 1, 0, 0, 1) || findSpot(x, z, -1, 0, 0, -1));
+  for (const [x, z] of dataLamps) {
+    const spot = snapIsland(x, z);
+    if (!spot) continue;
+    const near = nearestEdge(spot.x, spot.z, 0, 0, 20);
+    if (near && near.e.bore) continue;
+    if (near) lampAt(spot, near.e.rx, near.e.rz, near.off >= 0 ? 1 : -1);
+    else lampAt(spot, 1, 0, 1);
+    lamps++;
+    dataLampN++;
+  }
+  for (const [x, z] of dataHydrants) {
+    const spot = snapIsland(x, z);
+    if (!spot) continue;
+    push(mats.hydrant, spot.x, groundAt(spot.x, spot.z) + CURB_H + 0.38, spot.z, 0, 1, 1, 1);
+    dataHydrantN++;
+  }
+  for (const [x, z] of dataBenches) {
+    const spot = snapIsland(x, z);
+    if (!spot) continue;
+    const near = nearestEdge(spot.x, spot.z, 0, 0, 25);
+    // (its seat faces the street: the back away from it)
+    const ry = near ? Math.atan2(-near.e.rx * (near.off >= 0 ? 1 : -1), -near.e.rz * (near.off >= 0 ? 1 : -1)) : 0;
+    push(benches, spot.x, groundAt(spot.x, spot.z) + CURB_H, spot.z, ry, 1, 1, 1);
+    footprints.push({ minX: spot.x - 0.85, maxX: spot.x + 0.85, minZ: spot.z - 0.85, maxZ: spot.z + 0.85 });
+  }
 
   // 5. Muni stops: the pole at the curb on the stop's side of the street, a shelter 1.6 m behind it facing the road
   let muniStops = 0, shelters = 0;
@@ -433,6 +492,16 @@ function buildSFStreetDetails(scene, network, buildingColliders = []) {
   inst.lampPole = add(unitCyl, metal, mats.lampPole, 'LampPoles');
   inst.lampHead = add(lampHeadGeo, lampGlow, mats.lampHead, 'LampHeads', false);
   inst.hydrant = add(hydrantGeo, hydrantMat, mats.hydrant, 'Hydrants');
+  // (stage 0) a park bench: seat, back and a leg frame, 3 boxes (36 triangles), one draw call; its seat faces +z
+  if (benches.length) {
+    const benchGeo = mergeGeometries([
+      new THREE.BoxGeometry(1.7, 0.07, 0.46).translate(0, 0.45, 0),
+      new THREE.BoxGeometry(1.7, 0.36, 0.05).translate(0, 0.72, -0.21),
+      new THREE.BoxGeometry(1.5, 0.42, 0.36).translate(0, 0.21, -0.02)
+    ].map((g) => g.toNonIndexed()));
+    const benchMat = new THREE.MeshStandardNodeMaterial({ color: 0x5b4636, roughness: 0.8 });
+    inst.bench = add(benchGeo, benchMat, benches, 'Benches');
+  }
   // Muni: a dark-grey pole with a yellow band; shelters: grey frame, see-through glass, an advert lit at night
   const muniYellow = new THREE.MeshStandardNodeMaterial({ color: 0xf2c230, roughness: 0.5 });
   const frame = new THREE.MeshStandardNodeMaterial({ color: 0x45494e, roughness: 0.45, metalness: 0.6 });
@@ -509,6 +578,7 @@ function buildSFStreetDetails(scene, network, buildingColliders = []) {
   window.NYC.streetFootprints = footprints;
   window.NYC.breakables = breakables;
   console.info(`[details] ${sites.length} street trees (${snapped} moved up to ${TREE_SNAP} m onto the sidewalk, ${offSidewalk} further off left out)`);
+  if (SP.length) console.info(`[details] OSM street props: ${dataLampN} of ${dataLamps.length} lamps, ${dataHydrantN} of ${dataHydrants.length} hydrants, ${benches.length} of ${dataBenches.length} benches`);
   console.info(`[details] ${signals} signal masts, ${stops} stop signs, ${lamps} lamps, ${mats.hydrant.length} hydrants, ${muniStops} Muni stops (${shelters} shelters), ${wireKm.toFixed(1)} km of trolley wire pairs on ${trolleyPoles} poles, ${mats.meterHead.length} parking meters`);
   return { group, footprints, signalClock, trees: treeField, sidewalkScenes };
 }

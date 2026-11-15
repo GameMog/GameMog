@@ -135,7 +135,7 @@ const MALL_TRIMS = [0xffffff, 0xf7f5ef, 0xece7dc];
 const MALL_ROOFS = [0x8e8e89, 0x878883, 0x96958f];
 const SURFACE = { brick: 0, stucco: 1, siding: 2, clapboard: 2, wood: 2, stone: 3, concrete: 3, metal: 3, glass: 3 };
 const ROOF_TAG = { gabled: 'gabled', hipped: 'hipped', half_hipped: 'half_hipped', gambrel: 'gambrel', mansard: 'mansard', pyramidal: 'pyramidal',
-  skillion: 'skillion', saltbox: 'saltbox', dome: 'hipped', round: 'gabled', sawtooth: 'skillion', flat: 'flat' };
+  skillion: 'skillion', saltbox: 'saltbox', dome: 'dome', round: 'round', sawtooth: 'skillion', flat: 'flat' };
 
 function pickW(list, h) {
   let t = 0;
@@ -236,9 +236,37 @@ function createPkgBuilder() {
     stats.pitched++;
     const o = Math.min(0.45, S * 0.15); // eave overhang
     const top = y + rise;
-    if (shape === 'gabled' || shape === 'gambrel' || shape === 'saltbox' || shape === 'skillion') {
-      // a profile across the ridge (v, height fraction), extruded along u; the gable ends are walls
-      const prof = shape === 'gambrel' ? [[-S, 0], [-0.6 * S, 0.72], [0, 1], [0.6 * S, 0.72], [S, 0]]
+    if (shape === 'dome') {
+      // (stage 0) a low-poly dome on the mass's inscribed ellipse: 8 segments x 3 rings and a cap, 48 triangles, its
+      // drum's ring a hair outside the walls
+      const SEG = 8, RINGS = 3, a0 = L * 1.02, b0 = S * 1.02;
+      const ring = (k) => {
+        const t = (k / RINGS) * (Math.PI / 2), rr = Math.cos(t), yy = y + Math.sin(t) * rise;
+        const out = [];
+        for (let j = 0; j < SEG; j++) {
+          const ang = (j / SEG) * Math.PI * 2;
+          out.push(P(Math.cos(ang) * a0 * rr, Math.sin(ang) * b0 * rr, yy));
+        }
+        return out;
+      };
+      let lo = ring(0);
+      for (let k = 1; k < RINGS; k++) {
+        const hi = ring(k);
+        for (let j = 0; j < SEG; j++) quad(lo[j], lo[(j + 1) % SEG], hi[(j + 1) % SEG], hi[j], roofHex);
+        lo = hi;
+      }
+      const apex = P(0, 0, top);
+      for (let j = 0; j < SEG; j++) tri(lo[j], lo[(j + 1) % SEG], apex, roofHex);
+      // (the flat roof round the dome, the corners the ellipse leaves)
+      quad(P(-L, -S, y), P(L, -S, y), P(L, S, y), P(-L, S, y), wallHex);
+      stats.domes = (stats.domes || 0) + 1;
+      return;
+    }
+    if (shape === 'gabled' || shape === 'gambrel' || shape === 'saltbox' || shape === 'skillion' || shape === 'round') {
+      // a profile across the ridge (v, height fraction), extruded along u; the gable ends are walls (a round roof: a
+      // barrel vault, the arc in 6 facets)
+      const prof = shape === 'round' ? [[-S, 0], [-0.87 * S, 0.5], [-0.5 * S, 0.87], [0, 1], [0.5 * S, 0.87], [0.87 * S, 0.5], [S, 0]]
+        : shape === 'gambrel' ? [[-S, 0], [-0.6 * S, 0.72], [0, 1], [0.6 * S, 0.72], [S, 0]]
         : shape === 'saltbox' ? [[-S, 0], [0.3 * S, 1], [S, 0.35]]
           : shape === 'skillion' ? [[-S, 1], [S, 0]]
             : [[-S, 0], [0, 1], [S, 0]];

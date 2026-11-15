@@ -285,6 +285,29 @@ function buildRoadPaint(scene, network) {
         lines.set(g, span);
       }
     }
+    // (stage 0, compiler 0.13: OSM's mid-block crossings, GEO.streetProps kind 5: a crosswalk across the road the node
+    // stands on, where it keeps clear of every crosswalk and stop bar placed above)
+    const SP = window.NYC.GEO.streetProps || [];
+    stats.midBlock = 0;
+    for (let i = 0; i + 2 < SP.length; i += 3) {
+      if (SP[i + 2] !== 5) continue;
+      const x = SP[i], z = SP[i + 1];
+      let best = null;
+      for (const f of cells.get(Math.floor(x / C) * 100000 + Math.floor(z / C)) || []) {
+        const px = x - f.x0, pz = z - f.z0, u = px * f.dx + pz * f.dz, d = Math.abs(px * f.rx + pz * f.rz);
+        if (u > CROSSWALK && u < f.span - CROSSWALK && d < f.half + 1 && (!best || d < best.d)) best = { f, s: u - b0(f), d };
+      }
+      if (!best) continue;
+      const { f, s } = best;
+      if (s < 1 || s > f.len - 1) continue;
+      const [l, r] = curbs(f, s).map((c) => Math.min(c, f.half + 0.3));
+      if (l + r < 2) continue;
+      const q = quad(f, s, -l, r, W);
+      if (placed.some((p) => overlaps(q, p.xw.q)) || barQuads.some((p) => overlaps(q, p.q))) continue;
+      placed.push({ xw: { q } });
+      crosswalks.push([f, s, l, r]);
+      stats.midBlock++;
+    }
     stats.crosswalks = crosswalks.length;
     return { lines, crosswalks, bars, stats };
   }
