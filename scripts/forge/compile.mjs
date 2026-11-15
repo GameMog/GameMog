@@ -171,10 +171,27 @@ export function compile(S) {
       Object.assign(B7, { root: warmG(br[1], k * 0.92), tip: warmG(mix(br[1], br[2], 0.6), k), altRoot: [46, 39, 34], altTip: [80, 68, 58], altShare: bcol === 'white' ? 0.34 : 0.4,
         whiteRoot: warmG(br[2], k * 0.96), whiteTip: warmG(br[2], k * 1.04), whiteShare: darkSkin ? 0.12 : 0.2, cols: 32,
         keep: +(B7.keep * (fem ? 0.62 : 0.55)).toFixed(3), width: fem ? 0.00006 : 0.0001, len: fem ? 1.04 : 1.18, lenVar: fem ? 0.4 : 0.5, angVar: fem ? 0.2 : 0.3, stray: fem ? 0.03 : 0.07,
-        paint: darkSkin ? 0.12 : 0.1, paintCol: darkSkin ? [70, 60, 50] : warmG(br[0], 0.9), spec: 0.16 }); }
+        paint: darkSkin ? 0.12 : 0.1, paintCol: darkSkin ? [70, 60, 50] : warmG(br[0], 0.9), spec: 0.16 });
+      // (people8 r6: an old man's grey brow sparser toward its tail and ragged underneath, more skin through it (the old
+      // boss's band read dense and even grey), its paint half as much (a grey pad under the veteran's inner ends))
+      if (!fem) Object.assign(B7, { keep: +(B7.keep * (bw === 'heavy' ? 0.88 : 1)).toFixed(3), tailKeep: 0.4, tailLen: 0.25, edgeKeep: 0.6, headKeep: 0.6, paint: 0.05 });
+      // (people8 r6: an old woman's grey brow on dark skin a mid grey-taupe, not a pale cream (it read as a highlighter
+      // stroke), a third of its hairs dark so the band breaks up against the skin, few near white, finer hairs (more of
+      // them, round 6a: at a fifth fewer they all but vanished), its head and tail sparse, a ragged lower edge, and no paint under it at all)
+      if (fem && darkSkin) Object.assign(B7, { root: warmG(br[1], 0.66), tip: warmG(mix(br[1], br[2], 0.35), 0.74), altRoot: [38, 31, 27], altTip: [62, 52, 44], altShare: 0.32,
+        whiteRoot: warmG(br[2], 0.72), whiteTip: warmG(br[2], 0.8), whiteShare: 0.06, keep: +(B7.keep * 1.25).toFixed(3), width: 0.000062, tailKeep: 0.45, tailLen: 0.3, headKeep: 0.55, headLen: 0.2, edgeKeep: 0.55, paint: 0, spec: 0.12 }); }
     // (people7: a young woman's brow finer: a quarter fewer hairs, its tail thinner and its hairs shorter toward the end
     // (the young mother's read heavy and blunt), the root a step off black)
-    else if (fem && !old) Object.assign(B7, { keep: +(B7.keep * 0.75).toFixed(3), tailKeep: 0.5, tailLen: 0.4, root: mix(br[1], br[2], 0.2).map(Math.round), paint: 0.24, angVar: 0.08 });
+    else if (fem && !old) { Object.assign(B7, { keep: +(B7.keep * 0.75).toFixed(3), tailKeep: 0.42, tailLen: 0.45, root: mix(br[1], br[2], 0.2).map(Math.round), paint: 0.24, angVar: 0.08, edgeKeep: 0.6 });
+      // (people8 r6: on dark skin a dark brow is a painted line unless its hairs show: their tips a warm brown a step
+      // lighter, a third of them brown, a few standing off the skin, a sparse head, a ragged lower edge, less paint)
+      if (darkSkin) Object.assign(B7, { keep: +(B7.keep * 1.2).toFixed(3), tip: mix(br[2], [96, 74, 58], 0.3).map(Math.round), altRoot: [48, 37, 30], altTip: [88, 68, 54], altShare: 0.22, lift: 0.16, stray: 0.05, angVar: 0.14,
+        headKeep: 0.5, headLen: 0.22, edgeKeep: 0.55, paint: 0.16 }); }
+    // (people8 r6: a man's dark brow a third fewer hairs, its head and tail tapered and sparse, a ragged lower edge, the
+    // root off black and a few hairs off the skin: the bald man's read as a black mat, the long-haired man's as a fuzzy
+    // caterpillar band with a ruled lower edge)
+    else if (!old) Object.assign(B7, { angVar: 0.12, keep: +(B7.keep * 0.9).toFixed(3), tailKeep: 0.45, tailLen: 0.35, headKeep: 0.5, headLen: 0.2, edgeKeep: 0.4, lift: 0.06, stray: 0.02, paint: 0.18,
+      root: bcol === 'black' || bcol === 'dark-brown' ? mix(B7.root, [62, 48, 38], 0.4).map(Math.round) : B7.root, tip: bcol === 'black' || bcol === 'dark-brown' ? mix(B7.tip, [96, 74, 56], 0.4).map(Math.round) : B7.tip });
     else Object.assign(B7, { angVar: 0.1 }); }
   const st = S.hair.style;
   // (people5: a crop's hairs (the fur shells) never lighter than a warm 200: a white buzz's 244 strands took the sky's
@@ -203,13 +220,20 @@ export function compile(S) {
   // (G8b: a horseshoe's hairs 11 px long, not 9, and 45 % of the way from the scalp's paint to their own tone, not 55:
   // seen from behind, the old boss's and the mechanic's read as specks and dark scribbles (1.4 % specks, the old boss's
   // browser build 1.52 % in round 7))
-  if (st === 'balding') { C.hair = 'none'; C.bald = { crown: age > 60 ? 0.055 : 0.07 }; C.shaved = { a: 0.62, col: mix(ramp[0], ramp[1], 0.6).map(Math.round), horseshoe: true }; C.fuzz = { layers: 3, depth: 0.0017, colors: buzzCols(ramp), grey: clamp(S.hair.greying ?? 0, 0, 1) * 0.5, len: 7, w: 1.7, lift: 0.75, contrast: 0.68, soft: true, ragged: 0.2 }; } // (people6: shallower (2.6 mm of blended shells stood off the skull's outline as a translucent haze))
+  if (st === 'balding') { C.hair = 'none'; C.bald = { crown: age > 60 ? 0.055 : 0.07 }; C.shaved = { a: 0.62, col: mix(ramp[0], ramp[1], 0.6).map(Math.round), horseshoe: true }; C.fuzz = { layers: 3, depth: 0.0017, colors: buzzCols(ramp), grey: clamp(S.hair.greying ?? 0, 0, 1) * 0.5, len: 7, w: 1.7, lift: 0.75, contrast: 0.68, soft: true, ragged: 0.2 };
+    // (people8 r6: a grey horseshoe's nape lifted as a light crop's is: a faint orange band showed under the old boss's
+    // side crop at 180 degrees)
+    if (lightCrop || (S.hair.greying ?? 0) > 0.5 || ['grey', 'silver', 'white', 'salt-and-pepper'].includes(S.hair.color)) C.shaved.napeLift = 0.85; } // (people6: shallower (2.6 mm of blended shells stood off the skull's outline as a translucent haze))
   // (a buzz is the scalp painted, no cards: a card cap that short reads as a helmet (the gates' helmet check))
   // (H5: and fur shells over it, 1.8 mm, short hairs along their growth: a buzz reads as hair at 2 m and in silhouette)
   // (people6: a light buzz (the veteran's white crop) quieter: its scalp paint from the ramp's middle, not its root (the
   // dark root paint between pale hairs was the 'tweed' fleck), its dark hairs lifted most of the way to the middle, fewer
   // of them, and less contrast against the paint; its hairline broken up wider (the cap's even outline))
   if (st === 'buzz') { C.hair = 'none'; C.shaved = { a: lightCrop ? 0.6 : 0.7, col: lightCrop ? mix(mix(ramp[1], ramp[0], 0.25), [150, 114, 92], 0.4).map(Math.round) : ramp[0].map((x, i) => Math.round((x + ramp[1][i]) / 2)), buzz: true }; C.fuzz = { layers: 3, depth: 0.0013, colors: buzzCols(ramp), grey: clamp(S.hair.greying ?? 0, 0, 1) * (lightCrop ? 0.7 : 0.5), len: 5.5, w: 1.7, lift: lightCrop ? 0.94 : 0.75, contrast: lightCrop ? 0.36 : 0.72, soft: true, ragged: lightCrop ? 0.5 : 0.2 };
+    // (people8 r6: a light crop's strands and scalp back in, quietly (round 5's read as a smooth cream felt cap): its hairs
+    // half way from the paint to their own colour, their roots darker, a sixth of the scalp through between them, and its
+    // front a line of hairs, not a blurred film (a slightly narrower ease, a little more wander: at 0.14-0.72 and 0.9 it tore into bald islands); its paint as before: at 0.5 the skin's orange stubble showed at the forehead)
+    if (lightCrop) { Object.assign(C.fuzz, { contrast: 0.5, lift: 0.84, base: 0.12, edge: [0.06, 0.82], ragged: 0.6 }); }
     // (people7: a light crop's fleck quieter still (contrast 0.36, the dark hairs nearer the middle; its paint two fifths of the way to a warm skin, so the scalp reads through the white, not a white cap) and its hairline more
     // ragged; past its edge the skin's own painted stubble lifted to the neck's colour (core.mjs napeLift: the orange band))
     if (lightCrop) C.shaved.napeLift = 0.85; }
@@ -308,7 +332,7 @@ export function compile(S) {
       if (sil) { C.beard.root = silC[0]; C.beard.mid = mix(silC[0], silC[1], 0.5); C.beard.col = silC[1]; }
       // (people7: a dark full beard's area smoothed four times over the skin, not twice: its cheek and jaw borders stepped
       // along the face's triangles (the bald man's, at 60 and 300 degrees))
-      else C.beard.feather = 4; } }
+      else C.beard.feather = 7; } } // (people8 r6: 7, not 4: the bald man's cheek border still stepped)
   else if (GROOM && !globalThis.process?.env?.FORGE_SHELL_BEARDS) {
     C.beard = { style: GROOM, col: fc[2], mid: fc[1], root: fc[0], a: clamp(0.35 + 0.4 * dens, 0.3, 0.8), depth: GROOM === 'fullgrown' ? 0.0025 : 0.0012, grey: ['silver', 'white', 'grey', 'salt-and-pepper'].includes(FH.color) ? 0.5 : 0.15, len: 16, feather: 2 };
     C.cards = { groom: GROOM === 'fullgrown' ? 'full' : GROOM, grey: ['salt-and-pepper'].includes(FH.color) ? 0.35 : 0.1, seed: [...S.id].reduce((a, c) => a * 31 + c.charCodeAt(0), 7) >>> 0 };

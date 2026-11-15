@@ -466,10 +466,20 @@ const BROWS = CFG.browStrands ? await (async () => {
   for (let h = 0; h < st.hairs; h++) { const pts = []; for (let k = start[h]; k < start[h + 1]; k++) pts.push(fit(k)); if (pts.length < 2) continue; hairs.push(pts); const s = pts[0].p[0] > 0 ? 0 : 1, a = Math.abs(pts[0].p[0]); ax[s] = Math.min(ax[s], a); bx[s] = Math.max(bx[s], a); }
   const R0 = BS.width ?? 0.00009, keep = BS.keep ?? 1, tailKeep = BS.tailKeep ?? 1, lenK = BS.len ?? 1, lenVar = BS.lenVar ?? 0.25, cols = BS.cols || 16;
   const P = [], NN = [], UV = [], src = [], tri = []; let kept = 0;
+  // (people8: the brow's band at each place along it (its roots' lowest and highest, in 14 steps a side), for a ragged
+  // lower edge: a brow is never a ruled line underneath. A hair low in the band is kept by BS.edgeKeep where a slow
+  // noise along the brow says the edge is ragged there, so the edge comes and goes, not one even thinning)
+  const NB = 14, tOf = (p) => { const s = p[0] > 0 ? 0 : 1; return [s, clamp01((Math.abs(p[0]) - ax[s]) / Math.max(0.005, bx[s] - ax[s]))]; };
+  const band = [0, 1].map(() => Array.from({ length: NB }, () => [9, -9]));
+  for (const pts of hairs) { const [s, t] = tOf(pts[0].p), b = band[s][Math.min(NB - 1, Math.floor(t * NB))]; b[0] = Math.min(b[0], pts[0].p[1]); b[1] = Math.max(b[1], pts[0].p[1]); }
   hairs.forEach((pts, h) => {
-    const s = pts[0].p[0] > 0 ? 0 : 1, t = clamp01((Math.abs(pts[0].p[0]) - ax[s]) / Math.max(0.005, bx[s] - ax[s]));
-    // (fewer at the tail: kept by keep, less toward the tail's end; and by the head's start a little too)
-    const pk = keep * (1 - (1 - tailKeep) * sm(0.55, 1, t)) * (0.75 + 0.25 * sm(0.0, 0.12, t));
+    const [s, t] = tOf(pts[0].p);
+    // (fewer at the tail: kept by keep, less toward the tail's end; and by the head's start too (BS.headKeep, people8:
+    // a brow's head is a few upright hairs with skin between them, not the band's full density))
+    let pk = keep * (1 - (1 - tailKeep) * sm(0.55, 1, t)) * ((BS.headKeep ?? 0.75) + (1 - (BS.headKeep ?? 0.75)) * sm(0.0, BS.headLen ?? 0.12, t));
+    if (BS.edgeKeep != null) { const b = band[s][Math.min(NB - 1, Math.floor(t * NB))], v = (pts[0].p[1] - b[0]) / Math.max(0.0008, b[1] - b[0]), q = t * 9 + s * 5.3, qi = Math.floor(q), qf = q - qi;
+      const nz = hash3(qi, 31, s) + (hash3(qi + 1, 31, s) - hash3(qi, 31, s)) * qf * qf * (3 - 2 * qf);
+      if (v < 0.1 + 0.32 * nz) pk *= BS.edgeKeep; }
     if (hash3(h, 11, 3) > pk) return;
     // (its length its own: cut along its rings, the tip carried back along the last segment)
     const L0 = []; let tot = 0; for (let i = 1; i < pts.length; i++) { const d = Math.hypot(pts[i].p[0] - pts[i - 1].p[0], pts[i].p[1] - pts[i - 1].p[1], pts[i].p[2] - pts[i - 1].p[2]); L0.push(d); tot += d; }
@@ -485,6 +495,10 @@ const BROWS = CFG.browStrands ? await (async () => {
       for (let i = 1; i < line.length; i++) { const v = line[i].map((x, j) => x - o[j]), kv = kx[0] * v[0] + kx[1] * v[1] + kx[2] * v[2], cr = [kx[1] * v[2] - kx[2] * v[1], kx[2] * v[0] - kx[0] * v[2], kx[0] * v[1] - kx[1] * v[0]];
         // (Rodrigues, about the root's normal; a stray lifted off the skin a little too)
         line[i] = v.map((x, j) => o[j] + x * c + cr[j] * sn + kx[j] * kv * (1 - c) + (stray ? kx[j] * 0.12 * Math.hypot(...v) : 0)); } }
+    // (people8: a share of the hairs (BS.lift) stand off the skin toward their tips, so the brow has a few hairs in the
+    // air, as real ones do, not every hair pressed flat into a painted line)
+    if (BS.lift && hash3(h, 37, 5) < BS.lift) { const nr = [N0[pts[0].v * 3] / 127, N0[pts[0].v * 3 + 1] / 127, N0[pts[0].v * 3 + 2] / 127], nl = Math.hypot(...nr) || 1, o = line[0], up = 0.1 + 0.14 * hash3(h, 43, 6);
+      for (let i = 1; i < line.length; i++) { const d = Math.hypot(line[i][0] - o[0], line[i][1] - o[1], line[i][2] - o[2]); line[i] = line[i].map((x, j) => x + nr[j] / nl * up * d); } }
     const root = pts[0].v, n = [N0[root * 3] / 127, N0[root * 3 + 1] / 127, N0[root * 3 + 2] / 127], u = (Math.floor(hash3(h, 7, 1) * cols) + 0.5) / cols, base = n0 + P.length / 3;
     const rot = hash3(h, 3, 5) * 2.1, cum = [0]; for (let i = 1; i < line.length; i++) cum.push(cum[i - 1] + Math.hypot(line[i][0] - line[i - 1][0], line[i][1] - line[i - 1][1], line[i][2] - line[i - 1][2]));
     const wR = R0 * (0.75 + 0.5 * hash3(h, 2, 8));
@@ -2802,7 +2816,9 @@ if (CFG.fuzz && CFG.shaved) {
       // the cap's even outline)
       // (people5 r3: per hair, its coverage 0.2 between hairs (the scalp shows through three shells' gaps) to 0.66 on its middle; the hairline's
       // thinning by fewer hairs as well as fainter ones)
-      const cov = FZ.soft ? sm(0.02, 0.9, wv + (vnoise(x / 5, y / 5, 35) - 0.5) * 0.12 + (FZ.ragged ? (vnoise(x / 14, y / 14, 53) - 0.5) * FZ.ragged * (1 - sm(0.6, 0.95, wv)) : 0)) : sm(0.1, 0.75, wv + (vnoise(x / 6, y / 6, 35) - 0.5) * 0.5), a = cov * (FZ.soft ? (0.2 + 0.46 * h) * (wv > 0.75 ? 1 : sm(0, 0.6, h - 0.55 * (1 - wv / 0.75))) : sm(0.38, 0.74, h)); if (a * 255 <= img[i + 3]) continue;
+      // (people8 r6: FZ.edge, the ease's ends (a light crop's narrower: its hairline a soft blurred film, not hairs) and
+      // FZ.base, the coverage between hairs (a light crop's lower, so about a sixth of its scalp shows through))
+      const cov = FZ.soft ? sm(FZ.edge?.[0] ?? 0.02, FZ.edge?.[1] ?? 0.9, wv + (vnoise(x / 5, y / 5, 35) - 0.5) * 0.12 + (FZ.ragged ? (vnoise(x / 14, y / 14, 53) - 0.5) * FZ.ragged * (1 - sm(0.6, 0.95, wv)) : 0)) : sm(0.1, 0.75, wv + (vnoise(x / 6, y / 6, 35) - 0.5) * 0.5), a = cov * (FZ.soft ? ((FZ.base ?? 0.2) + (0.66 - (FZ.base ?? 0.2)) * h) * (wv > 0.75 ? 1 : sm(0, 0.6, h - 0.55 * (1 - wv / 0.75))) : sm(0.38, 0.74, h)); if (a * 255 <= img[i + 3]) continue;
       const tone = vnoise(ac / fw + 77, al / (len * 1.7), 37), isL = !FZ.soft && vnoise(ac / fw + 50, al / (len * 1.3), 39) < gS;
       // (people5 r3: each hair its own tone (salt and pepper by the greying), not one blend of the two)
       const hs = FZ.soft ? (() => { const lw = fw * 1.2, ln = Math.floor(ac / lw); return [hash3(ln, Math.floor(al / len + hash3(ln, 7, 43)), 49), hash3(ln, 1, 51)]; })() : null;
