@@ -1,85 +1,85 @@
 {
  "$comment": "npm run storykit:forge-browser-check (B6): every anchor forged in headless Chrome with this forge.js (key: sha256 of forge.js, the kit and the anchors' sheets); bytes under the store's 6291456 a person",
- "key": "001efa17967b02bffb45e5edcbb3ada9789f80f70ac05093b8b71cc51622f685",
- "at": "2026-11-15T01:34:54.904Z",
+ "key": "c38c9c63e28c15d368bf9ba44faee4ba1cb610e92040962693fda6db6a371eae",
+ "at": "2026-11-15T02:48:58.867Z",
  "chrome": "Chrome/157.0.0.0",
  "runs": [
   {
    "id": "old-boss",
-   "bytes": 2401820,
-   "ms": 13896,
-   "uncoveredCm2": 5.6
+   "bytes": 2390172,
+   "ms": 16458,
+   "uncoveredCm2": 9.1
   },
   {
    "id": "young-hero",
-   "bytes": 2877696,
-   "ms": 31440,
-   "uncoveredCm2": 0.2
+   "bytes": 2877728,
+   "ms": 35465,
+   "uncoveredCm2": 4.2
   },
   {
    "id": "grandmother",
-   "bytes": 2343692,
-   "ms": 21220,
+   "bytes": 2344188,
+   "ms": 17889,
    "uncoveredCm2": 1.9
   },
   {
    "id": "cop",
-   "bytes": 2876664,
-   "ms": 18733,
-   "uncoveredCm2": 7.7
+   "bytes": 2943344,
+   "ms": 18679,
+   "uncoveredCm2": 12.5
   },
   {
    "id": "teen",
-   "bytes": 2494080,
-   "ms": 12704,
-   "uncoveredCm2": 0.2
+   "bytes": 2494116,
+   "ms": 13008,
+   "uncoveredCm2": 5.1
   },
   {
    "id": "young-mother",
-   "bytes": 2690956,
-   "ms": 37785,
+   "bytes": 2691024,
+   "ms": 29568,
    "uncoveredCm2": 2.2
   },
   {
    "id": "office-worker",
-   "bytes": 2440216,
-   "ms": 34876,
+   "bytes": 2440676,
+   "ms": 23827,
    "uncoveredCm2": 1
   },
   {
    "id": "chef",
-   "bytes": 2650188,
-   "ms": 39233,
-   "uncoveredCm2": 0.3
+   "bytes": 2648728,
+   "ms": 28109,
+   "uncoveredCm2": 2.6
   },
   {
    "id": "club-promoter",
-   "bytes": 2842192,
-   "ms": 23295,
-   "uncoveredCm2": 7.8
+   "bytes": 2842376,
+   "ms": 20901,
+   "uncoveredCm2": 13.6
   },
   {
    "id": "nurse",
-   "bytes": 2459828,
-   "ms": 8043,
+   "bytes": 2459880,
+   "ms": 7420,
    "uncoveredCm2": 1.4
   },
   {
    "id": "mechanic",
-   "bytes": 2802704,
-   "ms": 13823,
-   "uncoveredCm2": 6.4
+   "bytes": 2780524,
+   "ms": 12622,
+   "uncoveredCm2": 11.5
   },
   {
    "id": "veteran",
-   "bytes": 2976736,
-   "ms": 13791,
-   "uncoveredCm2": 4.8
+   "bytes": 2549140,
+   "ms": 14560,
+   "uncoveredCm2": 5.6
   },
   {
    "id": "probe-bib",
-   "bytes": 2809460,
-   "ms": 9672,
+   "bytes": 2809512,
+   "ms": 9393,
    "uncoveredCm2": 1.9
   }
  ]
