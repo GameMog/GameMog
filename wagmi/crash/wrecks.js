@@ -15,7 +15,8 @@ const rnd = (a, b) => a + Math.random() * (b - a);
 const wrap = (a) => a - Math.round(a / (Math.PI * 2)) * Math.PI * 2;
 // (by the city's body kinds, js/traffic.js CAR_KINDS: the modern fleet, after Slop New York 52f84db, adds minivans,
 // pickups and delivery vans, heavier, with the SUV's deeper horn)
-const MASS = { sedan: 1.4, taxi: 1.5, suv: 2.1, minivan: 2.0, pickup: 2.4, van: 2.7 };
+// (a town's fleet too, cities/sf/js/traffic.js FLEET: hatch, old sedan, coupe, muscle car, convertible)
+const MASS = { sedan: 1.4, taxi: 1.5, suv: 2.1, minivan: 2.0, pickup: 2.4, van: 2.7, hatch: 1.2, oldsedan: 1.5, coupe: 1.4, muscle: 1.6, convertible: 1.3 };
 export const massOf = (v) => (v.bus ? 12 : MASS[v.bodyType] ?? (v.isSUV ? 2.1 : v.isTaxi ? 1.5 : 1.4));
 export const dims = (v) => [v.bodyW ?? (v.bus ? 1.3 : v.halfWidth), v.bodyL ?? (v.bus ? 5.72 : v.isSUV ? 2.22 : 2.18)];
 const BIG = { suv: 1, minivan: 1, pickup: 1, van: 1 };

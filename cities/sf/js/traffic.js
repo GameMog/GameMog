@@ -46,6 +46,109 @@ const NUM_CARS = Math.max(8, Math.round(60 * DENSITY));
 const NUM_BUSES = Math.max(1, Math.round(6 * DENSITY));
 const NUM_PEDS = Math.round(340 * DENSITY);
 
+// (Mog City, Hometown) A town's own fleet: what people drive there, by its region, climate and density (window.NYC.PKG:
+// its name's state, latitude, compiled climate zone, density and places), all generic look-alikes (actor-models.js).
+//   rural      a small town inland (Okemah): pickups and older sedans, SUVs, a muscle car, few hatchbacks, no robotaxi
+//   resort     a warm resort strip (hotels thick among its places, Bal Harbour): SUVs and sedans in black, white, silver
+//              and champagne, convertibles and coupes in bright colours, a few cabs
+//   city       a dense city (Pittsburgh): sedans and compact hatchbacks, SUVs, delivery vans, cabs, a few pickups
+//   suburbs    the rest: SUVs, sedans, minivans and pickups
+// The snow belt drives no convertibles and more SUVs; the warm south a few more open cars and pickups. mix: weights of
+// body kinds; parked: how many stand along the curbs round the camera; pace: the drivers' cruising speed by kind.
+const FLEETS = {
+  rural: { mix: { pickup: 26, oldsedan: 17, suv: 16, sedan: 12, muscle: 6, minivan: 6, van: 4, hatch: 4, coupe: 2, taxi: 0 }, parked: 18,
+    paints: [0xf2f2ef, 0xc9ccd0, 0x7a1e22, 0x2b3f33, 0xb7a58a, 0x1f2b44, 0x16181b, 0x8a3a24, 0x5b6067, 0x9a8c6e, 0x6b5a45] },
+  resort: { mix: { suv: 22, sedan: 17, convertible: 14, coupe: 10, hatch: 6, minivan: 4, van: 5, pickup: 4, muscle: 3, taxi: 5 }, parked: 22,
+    paints: [0xe4e4e0, 0x111214, 0xd8dade, 0xcab89a, 0xe4e4e0, 0x111214, 0x2a2d33, 0xb3121a, 0x1c8a8c, 0xe0705a, 0x2f63b8, 0xf2c230] },
+  city: { mix: { sedan: 24, hatch: 17, suv: 18, oldsedan: 7, van: 9, minivan: 6, pickup: 5, taxi: 8, coupe: 3, muscle: 2 }, parked: 26,
+    paints: [0xe9ecef, 0x1c2026, 0xcfd6de, 0x52575e, 0x1d3b6c, 0x8a8f96, 0x6e1f24, 0x3a4a3f, 0x2c2f38, 0xa13a2a] },
+  suburbs: { mix: { suv: 22, sedan: 20, minivan: 10, pickup: 12, hatch: 9, oldsedan: 6, van: 5, coupe: 5, muscle: 4, convertible: 2, taxi: 2 }, parked: 20,
+    paints: [0xf0f1f2, 0x1a1c20, 0xc4c9cf, 0x4c525a, 0x24406e, 0x7a1f27, 0x30443a, 0xa8957a, 0x8c9096] }
+};
+// (by kind: a van fleet white, the sporty ones bright, a resort's big cars in its dark and pale colours)
+const KIND_PAINTS = {
+  van: [0xf2f3f4, 0xf2f3f4, 0xf2f3f4, 0xd8dcdf, 0x2b4a6e, 0x8e959c],
+  convertible: [0xb3121a, 0xf2c230, 0x1c8a8c, 0xe4e4e0, 0x111214, 0xe0705a, 0x2f63b8, 0xd8dade],
+  coupe: [0xb3121a, 0x111214, 0xe4e4e0, 0x2f63b8, 0xd8dade, 0xf08a1c, 0x1d3b6c],
+  muscle: [0x8f1a1d, 0x111214, 0xf2f2ef, 0x24406e, 0xf08a1c, 0x2b3f33, 0xe0b52a]
+};
+const PACE = { pickup: 9.4, van: 9, minivan: 9.6, oldsedan: 9.8, coupe: 11.4, muscle: 11.2, convertible: 11 };
+// (Mog City, Hometown) The ready-made cars (fleet-models.js, window.NYC.Fleet: realistic models, CC BY 4.0, every
+// badge and maker-like lettering taken off; each stands in for one of the bodies above, its proc, which is drawn while
+// it loads or if it cannot). With them a town's mix is of models, by the same regions, the owner's sports cars leading
+// (14 Nov: "mainly sports cars"): over half the traffic and the parked cars in a resort, a city or the suburbs, about
+// two in five in the country (the snow belt's missing open car handing its share to the other sports cars).
+// Their roles (group: sports, everyday, taxi, police, service, bus) come with the models (fleet-data.js).
+const FMD = (window.NYC.Fleet && window.NYC.Fleet.data && window.NYC.Fleet.data.models) || null;
+const MODEL_FLEETS = {
+  rural: { muscle69: 18, gt83: 12, sport99: 10, turbo81: 8, gt95: 7, roadster00: 9,
+    pickup89: 22, sedan80: 13, suv10: 12, sedan10: 9, minivan20: 4, van92: 5, hatch11: 3, box95: 3, utility: 1, mailvan: 1, tow: 1 },
+  resort: { gt95: 16, turbo81: 11, sport99: 14, gt83: 10, roadster00: 14, muscle69: 10,
+    suv10: 15, sedan10: 13, hatch11: 6, city07: 4, minivan20: 4, van92: 3, pickup89: 4, sedan80: 2, box95: 2, taxi75: 3, taxi20: 2, ambulance: 1, mailvan: 1 },
+  city: { gt95: 14, turbo81: 12, sport99: 16, gt83: 14, roadster00: 10, muscle69: 14,
+    sedan10: 13, hatch11: 8, city07: 6, suv10: 9, sedan80: 3, van92: 4, box95: 3, minivan20: 3, pickup89: 2, taxi75: 3, taxi20: 3, garbage: 1, mailvan: 1, ambulance: 1, utility: 1, firetruck: 0.5 },
+  suburbs: { gt95: 14, turbo81: 13, sport99: 17, gt83: 15, roadster00: 12, muscle69: 17,
+    suv10: 15, sedan10: 13, minivan20: 7, pickup89: 9, hatch11: 6, city07: 3, sedan80: 5, van92: 3, box95: 2, taxi75: 1, mailvan: 1, utility: 1, tow: 0.5 }
+};
+// (the sports cars' paint: bright and dark show colours)
+const SPORTS_PAINTS = [0xb3121a, 0xf2c230, 0xf08a1c, 0x2f63b8, 0x111214, 0xe4e4e0, 0xd8dade, 0x1c8a8c, 0x1f6b3a, 0x7a1e22, 0x6a2fb8, 0x1d3b6c];
+const FLEET = (() => {
+  const P = window.NYC.PKG;
+  if (!P) return null;
+  const name = String(P.name || ''), state = (name.match(/,\s*([A-Z]{2})\s*$/) || [])[1] || '';
+  const lat = Number(P.frame?.lat0), d = Number(P.density ?? DENSITY);
+  const places = Object.values(P.places || {}), hotels = places.filter((p) => p.kind === 'hotel' || p.kind === 'resort').length;
+  const warm = /tropical|subtropical/.test(String(P.climateZone || '')) || (Number.isFinite(lat) && lat < 31);
+  const snow = Number.isFinite(lat) && lat > 39.5 && !/^(CA|OR|WA)$/.test(state);
+  const resort = warm && places.length >= 20 && hotels / places.length >= 0.06;
+  const region = resort ? 'resort' : d >= 0.7 ? 'city' : d < 0.3 ? 'rural' : 'suburbs';
+  // (the models' mix when their numbers are here, each model's procedural body standing in; else the bodies' own)
+  const models = !!FMD;
+  const F = FLEETS[region], mix = models ? Object.fromEntries(Object.entries(MODEL_FLEETS[region]).filter(([k]) => FMD[k])) : { ...F.mix };
+  const K = models ? { conv: 'roadster00', suv: 'suv10', pickup: 'pickup89' } : { conv: 'convertible', suv: 'suv', pickup: 'pickup' };
+  if (snow) {
+    // (the models' open car's share goes to the other sports cars, so they still lead)
+    const share = models ? mix[K.conv] || 0 : 0, hard = models ? Object.keys(mix).filter((k) => k !== K.conv && FMD[k].group === 'sports') : [];
+    for (const k of hard) mix[k] += share / hard.length;
+    mix[K.conv] = 0; mix[K.suv] = (mix[K.suv] || 0) + 4;
+  }
+  if (warm && region !== 'resort') mix[K.conv] = (mix[K.conv] || 0) + 3;
+  if (/^(TX|OK|KS|NE|WY|MT|ND|SD|AR|LA|MS|AL|NM|ID)$/.test(state)) mix[K.pickup] = (mix[K.pickup] || 0) + 6;
+  // (a model's procedural body and its role)
+  const proc = (k) => (models && FMD[k] ? FMD[k].proc : k), group = (k) => (models && FMD[k] ? FMD[k].group : k === 'taxi' ? 'taxi' : 'everyday');
+  // a small seeded random (the town's id), so the same town always has the same fleet
+  const random = (salt) => {
+    let h = 2166136261;
+    for (const c of String(P.id || name) + ':' + salt) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); }
+    return () => { h ^= h << 13; h ^= h >>> 17; h ^= h << 5; return ((h >>> 0) % 1000003) / 1000003; };
+  };
+  const kinds = Object.keys(mix).filter((k) => mix[k] > 0 && BODY_SPECS[proc(k)]);
+  const total = kinds.reduce((a, k) => a + mix[k], 0);
+  // (parked: never a cab, a fire truck, an ambulance or a garbage truck)
+  const noPark = (k) => group(k) === 'taxi' || /^(ambulance|firetruck|garbage|tow)$/.test(k);
+  // (sports: true only a sports car, false anything but; undefined either, by the mix)
+  const pick = (rnd, parkedOnly = false, sports) => {
+    for (;;) {
+      let r = rnd() * total, k = kinds[kinds.length - 1];
+      for (const q of kinds) { r -= mix[q]; if (r <= 0) { k = q; break; } }
+      if (parkedOnly && noPark(k)) continue;
+      if (sports !== undefined && (group(k) === 'sports') !== sports) continue;
+      return k;
+    }
+  };
+  // (the sports cars' share of the mix, of the traffic's and of the parked cars': the draws are spread so a town's
+  // cars come out at that share, not a few short by chance; the owner's "mainly sports cars")
+  const shareOf = (ok) => { const ks = kinds.filter(ok), t = ks.reduce((a, k) => a + mix[k], 0); return t ? ks.filter((k) => group(k) === 'sports').reduce((a, k) => a + mix[k], 0) / t : 0; };
+  const sportsShare = { traffic: shareOf(() => true), parked: shareOf((k) => !noPark(k)) };
+  const spread = (i, share) => Math.floor((i + 1) * share + 0.5) > Math.floor(i * share + 0.5);
+  const paint = (kind, rnd) => {
+    const own = group(kind) === 'sports' ? SPORTS_PAINTS : KIND_PAINTS[proc(kind)];
+    const list = own && (proc(kind) === 'van' || rnd() < 0.8) ? own : F.paints;
+    return list[Math.floor(rnd() * list.length)];
+  };
+  return { id: P.id || name, region, mix, parked: Math.round(F.parked * (0.6 + 0.4 * Math.min(1, d + 0.4))), pick, paint, random, pace: PACE, proc, group, models, sportsShare, spread };
+})();
+
 // Intelligent Driver Model: max acceleration, comfortable braking, time headway, standstill gap; and the sideways
 // acceleration drivers accept in bends, which sets how fast they take each turn or lane shift
 const CAR_DRIVER = { a: 2.0, b: 3.0, T: 1.2, s0: 2.0, aLat: 3.5 };
@@ -178,18 +281,9 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
   }
 
   // Build 4 distinct 3D LoftGeometry vehicle classes (robotaxi, sedan / police cruiser, SUV, van) with separate
-  // spinning 3D wheels
-  const taxiGeo = buildCarGeometry(BODY_SPECS.taxi, false);
-  const sedanGeo = buildCarGeometry(BODY_SPECS.sedan, false);
-  const suvGeo = buildCarGeometry(BODY_SPECS.suv, false);
-  const vanGeo = buildCarGeometry(BODY_SPECS.van, false);
+  // spinning 3D wheels; (Mog City, a Hometown package) the town's own fleet as well (FLEET below)
   const carWheelLeftGeo = buildSteerableWheelGeo(BODY_SPECS.sedan, -1);
   const carWheelRightGeo = buildSteerableWheelGeo(BODY_SPECS.sedan, 1);
-
-  const taxiMat = createLoftedCarMaterial(BODY_SPECS.taxi);
-  const sedanMat = createLoftedCarMaterial(BODY_SPECS.sedan);
-  const suvMat = createLoftedCarMaterial(BODY_SPECS.suv);
-  const vanMat = createLoftedCarMaterial(BODY_SPECS.van);
   const carWheelMat = createLoftedCarMaterial(BODY_SPECS.sedan, 0xffbe14);
 
   const taxiYellow = new THREE.Color(0x3a4a5c); // the 'taxi' class: the Story Kit's neutral slate-blue robotaxi fleet (actor-models.js)
@@ -215,66 +309,147 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
   ];
 
   const cars = [];
-  let taxiCount = 0;
-  let sedanCount = 0;
-  let suvCount = 0;
-  let vanCount = 0;
+  const counts = {};
   let nypdCount = 0;
-
-  // San Francisco's mix (P4.6): 1 in 20 a police cruiser, 1 in 7 a robotaxi with its roof sensor pod, 1 in 6 of the
-  // rest a van, then SUVs and sedans half each
-  for (let i = 0; i < NUM_CARS; i++) {
-    const isNYPD = (i % 20) === 6;
-    const isTaxi = !isNYPD && (i % 7) === 0;
-    const isVan = !isNYPD && !isTaxi && (i % 6) === 3;
-    const isSUV = !isNYPD && !isTaxi && !isVan && (i % 2 === 0);
-
-    let bodyType = 'sedan';
-    let col;
-
-    if (isTaxi) {
-      bodyType = 'taxi';
-      taxiCount++;
-      col = taxiYellow;
-    } else if (isVan) {
-      bodyType = 'van';
-      vanCount++;
-      col = vanPalette[i % vanPalette.length];
-    } else if (isSUV) {
-      bodyType = 'suv';
-      suvCount++;
-      col = suvPalette[i % suvPalette.length];
-    } else {
-      sedanCount++;
-      col = isNYPD ? nypdWhite : sedanPalette[i % sedanPalette.length];
-      if (isNYPD) nypdCount++;
-    }
-
-    const car = createVehicle(false, isSUV || isVan ? 2.3 : 2.25, isSUV || isVan ? 0.92 : 0.86, isSUV || isVan ? 1.4 : 1.38, CAR_DRIVER, 10 + (i % 5) * 0.9);
+  // (a body kind's numbers for the rest of the game: half length and width, axle, the roof's top, the mass and horn
+  // wagmi/crash reads, and whether it counts as a big one (wagmi: horns, the fight's cover, the chase's thrusters))
+  const dimsOf = (kind) => {
+    const spec = BODY_SPECS[kind];
+    const half = (spec.zFront - spec.zRear) / 2, hw = Math.max(...spec.halfWidth.map((p) => p[1]));
+    return { half: Math.max(1.9, half), hw: hw - 0.06, axle: spec.wheelZ, roof: Math.max(...spec.cabin.roofY.map((p) => p[1])) };
+  };
+  const BIG_KINDS = { suv: 1, van: 1, minivan: 1, pickup: 1 };
+  // (a ready-made car's numbers, fleet-data.js: its box (the mirrors' width left out), axles and roof)
+  const modelDims = (M) => ({ half: Math.max(1.9, M.zF, -M.zR), hw: M.hw * 0.94, axle: M.axle, roof: M.height });
+  const modelCounts = {};
+  function makeCar(kind, col, i, isNYPD = false) {
+    // (a model's id: its procedural body (bodyType) stands in for it; car.model names it)
+    const M = FLEET && FLEET.models && FMD[kind] ? FMD[kind] : null, proc = M ? M.proc : kind;
+    const d = M ? modelDims(M) : dimsOf(proc), big = !!BIG_KINDS[proc] || (M && M.height > 1.7);
+    const car = FLEET
+      ? createVehicle(false, d.half, d.hw, d.axle, CAR_DRIVER, (FLEET.pace[proc] || 10) * (M && M.group === 'sports' ? 1.08 : M && M.group === 'service' ? 0.9 : 1) + (i % 5) * 0.9)
+      : createVehicle(false, kind === 'suv' || kind === 'van' ? 2.3 : 2.25, kind === 'suv' || kind === 'van' ? 0.92 : 0.86, kind === 'suv' || kind === 'van' ? 1.4 : 1.38, CAR_DRIVER, 10 + (i % 5) * 0.9);
     // paint as float32 values, so renderCar() can tell whether an instance slot's paint changes by comparing
     const paint = [Math.fround(col.r), Math.fround(col.g), Math.fround(col.b)];
-    Object.assign(car, { isTaxi, isNYPD, isSUV: isSUV || isVan, bodyType, paint });
-    cars.push(car);
+    Object.assign(car, { isTaxi: proc === 'taxi', isNYPD, isSUV: big, bodyType: proc, paint, model: M ? kind : null });
+    // (a town's fleet: its true box and roof, for the crash, the chase and the fight; San Francisco's as before)
+    if (FLEET) Object.assign(car, { bodyW: d.hw, bodyL: d.half, roof: d.roof });
+    counts[proc] = (counts[proc] || 0) + 1;
+    if (M) modelCounts[kind] = (modelCounts[kind] || 0) + 1;
+    if (isNYPD) nypdCount++;
+    return car;
+  }
+
+  if (!FLEET) {
+    // San Francisco's mix (P4.6): 1 in 20 a police cruiser, 1 in 7 a robotaxi with its roof sensor pod, 1 in 6 of the
+    // rest a van, then SUVs and sedans half each
+    for (let i = 0; i < NUM_CARS; i++) {
+      const isNYPD = (i % 20) === 6;
+      const isTaxi = !isNYPD && (i % 7) === 0;
+      const isVan = !isNYPD && !isTaxi && (i % 6) === 3;
+      const isSUV = !isNYPD && !isTaxi && !isVan && (i % 2 === 0);
+      const kind = isTaxi ? 'taxi' : isVan ? 'van' : isSUV ? 'suv' : 'sedan';
+      const col = isTaxi ? taxiYellow : isVan ? vanPalette[i % vanPalette.length] : isSUV ? suvPalette[i % suvPalette.length] : isNYPD ? nypdWhite : sedanPalette[i % sedanPalette.length];
+      cars.push(makeCar(kind, col, i, isNYPD));
+    }
+  } else {
+    // a Hometown's own: 1 in 20 still a police cruiser; every other car drawn from the town's mix (FLEET.mix: its region,
+    // climate and density), each in a colour of its kind from the town's palette, the same town always the same fleet
+    const rnd = FLEET.random('traffic');
+    // (the police: the town's cruiser model, the newer one in a city)
+    const cop = FLEET.models && FMD.police90 ? (FLEET.region === 'city' && FMD.police20 ? ['police90', 'police20'] : ['police90']) : ['sedan'];
+    const sp = FLEET.models ? FLEET.sportsShare.traffic : null;
+    for (let i = 0, j = 0; i < NUM_CARS; i++) {
+      const isNYPD = (i % 20) === 6;
+      const kind = isNYPD ? cop[Math.floor(i / 20) % cop.length] : FLEET.pick(rnd, false, sp === null ? undefined : FLEET.spread(j++, sp));
+      cars.push(makeCar(kind, isNYPD ? nypdWhite : kind === 'taxi' ? taxiYellow : new THREE.Color(FLEET.paint(kind, rnd)), i, isNYPD));
+    }
+  }
+  // (a town's parked cars: along the curbs of its wider streets round the camera, never driven; FLEET.parked of them,
+  // drawn from the same mix)
+  const parked = [];
+  if (FLEET) {
+    const rnd = FLEET.random('parked');
+    for (let i = 0; i < FLEET.parked; i++) {
+      const kind = FLEET.pick(rnd, true, FLEET.models ? FLEET.spread(i, FLEET.sportsShare.parked) : undefined);
+      const v = makeCar(kind, new THREE.Color(FLEET.paint(kind, rnd)), i);
+      Object.assign(v, { parked: true, placed: false, speed: 0, acc: 0 });
+      parked.push(v);
+    }
   }
 
   // Per body type: the full model (with separately instanced spinning wheels near the camera) and, beyond
   // CAR_PROXY_DISTANCE, the ~250-triangle stand-in. Instance slots are handed out every frame to the cars the camera
   // can see (or whose shadow it may see), see renderCar(). Per-instance paint & lamp / livery state the car material
-  // reads: brake lights, left (+x) & right (-x) turn signals, livery (1 = NYPD).
+  // reads: brake lights, left (+x) & right (-x) turn signals, livery (1 = NYPD; 2 = parked: no lamps lit).
   const bodies = {};
-  for (const [kind, geo, count, mat] of [['taxi', taxiGeo, taxiCount, taxiMat], ['sedan', sedanGeo, sedanCount, sedanMat], ['suv', suvGeo, suvCount, suvMat], ['van', vanGeo, vanCount, vanMat]]) {
-    const n = Math.max(1, count);
+  const kindsBuilt = FLEET ? Object.keys(counts) : ['taxi', 'sedan', 'suv', 'van'];
+  for (const kind of kindsBuilt) {
+    const n = Math.max(1, counts[kind] || 0);
+    const mat = createLoftedCarMaterial(BODY_SPECS[kind]);
     const lodMesh = (g) => {
       g.setAttribute('paintColor', new THREE.InstancedBufferAttribute(new Float32Array(n * 3), 3));
       g.setAttribute('carState', new THREE.InstancedBufferAttribute(new Float32Array(n * 4), 4));
       return new THREE.InstancedMesh(g, mat, n);
     };
-    bodies[kind] = { near: lodMesh(geo), far: lodMesh(buildCarProxyGeometry(BODY_SPECS[kind])) };
+    const spec = BODY_SPECS[kind], d = dimsOf(kind);
+    bodies[kind] = { near: lodMesh(buildCarGeometry(spec, false)), far: lodMesh(buildCarProxyGeometry(spec)),
+      shadow: FLEET ? [2 * d.hw + 0.4, spec.zFront - spec.zRear + 0.6] : [2.22, 5.05] };
   }
   const bodyMeshes = Object.values(bodies).flatMap((b) => [b.near, b.far]);
+  if (FLEET) window.NYC.fleetProfile = { id: FLEET.id, region: FLEET.region, counts: { ...counts }, models: { ...modelCounts }, parked: parked.length };
 
-  const carWheelLeftInst = new THREE.InstancedMesh(carWheelLeftGeo, carWheelMat, NUM_CARS * 2);
-  const carWheelRightInst = new THREE.InstancedMesh(carWheelRightGeo, carWheelMat, NUM_CARS * 2);
+  const carWheelLeftInst = new THREE.InstancedMesh(carWheelLeftGeo, carWheelMat, (NUM_CARS + parked.length) * 2);
+  const carWheelRightInst = new THREE.InstancedMesh(carWheelRightGeo, carWheelMat, (NUM_CARS + parked.length) * 2);
+
+  // (Mog City, Hometown) The ready-made cars of the town's mix (window.NYC.Fleet), loaded as the town boots (only the
+  // models its own fleet drives); each, once here, is drawn in place of its procedural stand-in: per model, instanced
+  // like the bodies, LOD0 (the full model: body, glass, lamps, decals, and its wheels, spun and steered) near the camera,
+  // LOD1 (~4k triangles, wheels and glass in it) further, LOD2 (~700) far; only LOD0 casts a shadow. Their bodies read the same per-instance paint
+  // and lamp state (paintColor, carState) as the procedural ones, and join bodyMeshes for it; glass, decals and wheels
+  // are counted in modelAux.
+  const modelBodies = {};
+  const modelAux = [];
+  const FM = FLEET && FLEET.models ? window.NYC.Fleet : null;
+  function buildModelMeshes(id, model) {
+    const n = Math.max(1, modelCounts[id] || 0), m = model.meta, g = model.geo, own = m.own ? id : null;
+    const inst = (geo, mat, cap, body) => {
+      if (body) {
+        geo.setAttribute('paintColor', new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3));
+        geo.setAttribute('carState', new THREE.InstancedBufferAttribute(new Float32Array(cap * 4), 4));
+      }
+      const im = new THREE.InstancedMesh(geo, mat, cap);
+      im.name = 'fleet-' + id; im.frustumCulled = false; im.castShadow = im.receiveShadow = true;
+      for (let i = 0; i < cap; i++) im.setMatrixAt(i, zero);
+      im.count = 0;
+      group.add(im);
+      (body ? bodyMeshes : modelAux).push(im);
+      return im;
+    };
+    const bodyMat = FM.material('body', { livery: m.livery, instanced: true, own });
+    const wheels = FM.wheelsOf(m), nR = wheels.filter((w) => w.rearMesh).length;
+    const MB = {
+      meta: m, wheels, lod0: inst(g.body, bodyMat, n, true), glass: inst(g.glass, FM.material('glass'), n),
+      lod1: inst(g.lod1, bodyMat, n, true), lod2: inst(g.lod2, bodyMat, n, true),
+      wheel: inst(g.wheel, FM.material('wheel', { own }), n * (wheels.length - nR)),
+      // (the size of its contact shadow; where its headlamps' spots go, as placeVehicleHeadlight reads a spec)
+      shadow: [2 * m.hw * 0.94 + 0.4, m.length + 0.6], lampSpec: { headlight: m.head ? [Math.abs(m.head[0]), m.head[1]] : [m.hw * 0.7, 0.7], zFront: m.zF - 0.25 }
+    };
+    if (nR && g.wheelR) MB.wheelR = inst(g.wheelR, FM.material('wheel', { own }), n * nR);
+    if (g.optics) MB.optics = inst(g.optics, FM.material('optics', { instanced: true, own }), n, true);
+    if (g.decal) MB.decal = inst(g.decal, FM.material('decal', { own }), n);
+    if (g.lod1glass) MB.lod1glass = inst(g.lod1glass, FM.material('glass'), n);
+    // (no shadow from the glass, nor from the cars past LOD0: their contact shadow is enough from 30 m off, and the sun's
+    // cascades redraw every caster each frame)
+    MB.glass.castShadow = false; MB.lod1.castShadow = false; MB.lod2.castShadow = false;
+    if (MB.lod1glass) MB.lod1glass.castShadow = false;
+    // (nor from the decals, which lie on the body)
+    if (MB.decal) MB.decal.castShadow = false;
+    // (its shaders compile with the frame it first shows in: the models share a handful of materials, and a
+    // compileAsync() of our own could run into the boot's precompilation, main.js, which keeps one state on the renderer)
+    modelBodies[id] = MB;
+  }
+
 
   // 3D Collision Spark & Debris Particle Pool
   const MAX_SPARKS = 120;
@@ -309,7 +484,8 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
 
   // NYPD roof light bars (the blue & white livery is painted by the sedan material from the instance's carState)
   const nypdBarInst = new THREE.InstancedMesh(buildLightbarGeometry(BODY_SPECS.sedan), createLightbarMaterial(), Math.max(1, nypdCount));
-  const carShadowInst = new THREE.InstancedMesh(unitPlane, contactShadowMat, NUM_CARS);
+  // (a town's ready-made buses draw their contact shadow here too)
+  const carShadowInst = new THREE.InstancedMesh(unitPlane, contactShadowMat, NUM_CARS + parked.length + NUM_BUSES);
   carShadowInst.renderOrder = 998;
   // (SF 2040, abandon: a front door left hanging open on some of the near cars; the panel's origin at its hinge, the
   // door running back along -z, painted by the instance's colour, its window dark)
@@ -374,8 +550,42 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
   busWheelRightInst.castShadow = busWheelRightInst.receiveShadow = true;
 
   const buses = [];
-  for (let i = 0; i < NUM_BUSES; i++) buses.push(createVehicle(true, 6.0, 1.3, 3.6, BUS_DRIVER, 8 + (i % 3)));
+  // (a town: the ready-made city bus, every third one a school bus outside the cities; its own size)
+  for (let i = 0; i < NUM_BUSES; i++) {
+    const id = FLEET && FLEET.models ? (FLEET.region !== 'city' && i % 3 === 2 && FMD.schoolbus ? 'schoolbus' : FMD.bus ? 'bus' : null) : null;
+    const M = id ? FMD[id] : null, d = M ? modelDims(M) : null;
+    const b = createVehicle(true, d ? d.half : 6.0, d ? d.hw : 1.3, d ? d.axle : 3.6, BUS_DRIVER, 8 + (i % 3));
+    if (M) { Object.assign(b, { model: id, bodyW: d.hw, bodyL: d.half, roof: d.roof, paint: [1, 1, 1] }); modelCounts[id] = (modelCounts[id] || 0) + 1; }
+    buses.push(b);
+  }
   const vehicles = [...cars, ...buses];
+  // (a town's ready-made city bus: its destination sign the town's own name (pkg-hud.js pkgVehicleSigns), as the lofted
+  // buses' was, painted over the model's own in its lettering's place (that texture holds it upside down), in amber)
+  if (FM && !headless && window.NYC.PKG && window.NYC.pkgVehicleSigns) {
+    const signs = window.NYC.pkgVehicleSigns(window.NYC.PKG), town = signs && signs.town ? String(signs.town).toUpperCase() : 'LOCAL';
+    (window.NYC.fleetDecalPaint || (window.NYC.fleetDecalPaint = {})).bus = (img) => {
+      const w = img.width, h = img.height, c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      const x = c.getContext('2d');
+      x.drawImage(img, 0, 0);
+      const y0 = Math.floor(h * 0.44), y1 = Math.ceil(h * 0.525), yc = (y0 + y1) / 2;
+      x.clearRect(0, y0, w, y1 - y0);
+      x.setTransform(1, 0, 0, -1, 0, 2 * yc);
+      let px = Math.round((y1 - y0) * 0.78);
+      const fit = () => { x.font = `800 ${px}px JetBrains Mono, monospace`; return x.measureText(town).width <= w * 0.94; };
+      while (!fit() && px > 6) px--;
+      x.fillStyle = '#ffb81c'; x.textBaseline = 'middle'; x.textAlign = 'left';
+      x.fillText(fit() ? town : 'LOCAL', w * 0.03, yc);
+      return c;
+    };
+  }
+  // (the town's ready-made cars and buses loaded now, the most driven first; each drawn as soon as it is here)
+  if (FM && !headless) {
+    for (const id of Object.keys(modelCounts).sort((a, b) => modelCounts[b] - modelCounts[a])) {
+      FM.load(id).then((model) => { try { buildModelMeshes(id, model); } catch (e) { console.warn('[fleet]', id, e); } })
+        .catch((e) => console.warn('[fleet] load', id, String((e && e.message) || e)));
+    }
+  }
   group.add(busBodyInst, busHeaderInst, busWheelLeftInst, busWheelRightInst);
 
   // =========================================================================
@@ -609,6 +819,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
 
   // Edges and the junctions with crosswalks (signals & stop signs) around the focus, to place vehicles and pedestrians on
   const nearEdges = [];
+  let nearVersion = 0;
   const nearSignals = [];
   let nearX = Infinity;
   let nearZ = Infinity;
@@ -618,6 +829,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
     nearZ = focusZ;
     nearEdges.length = 0;
     nearSignals.length = 0;
+    nearVersion++;
     for (const e of edges) if (Math.hypot(e.mx - focusX, e.mz - focusZ) < NEAR_RADIUS) nearEdges.push(e);
     for (const n of nodes) if ((n.signal || n.stop) && Math.hypot(n.x - focusX, n.z - focusZ) < NEAR_RADIUS) nearSignals.push(n);
   }
@@ -1328,6 +1540,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
 
   // Move v along and across its path by (dx, dz), as far as the road allows
   function shove(v, dx, dz) {
+    if (v.parked) { v.x += dx; v.z += dz; return; } // (a town's parked car: off the lanes, it just slides)
     const along = dx * v.tx + dz * v.tz;
     if (v.conn) v.cs = clamp(v.cs + along, -v.half, v.conn.len - 0.01);
     else v.s = clamp(v.s + along, 0, v.edge.len - v.half);
@@ -1621,6 +1834,145 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
     return false;
   }
 
+  // (Mog City, Hometown) A town's parked cars: along the right-hand curb of a street with room for them beside its
+  // outer lane (not a divided road, a tunnel or a bridge, 12 m or more from either junction), on the roadway itself
+  // (no curb, sidewalk or building under the car), 7 m or more from the next one, never in a hold zone or by the game's
+  // own cars. Placed round the camera like the traffic (PARK_MIN..PARK_MAX m, out of view once the town is up), never
+  // driven; shoved, they slide and turn and settle where they end up
+  const PARK_MAX = 230, PARK_KEEP = 290;
+  // (the near streets with a curb a car can stand at, kept with the near edges)
+  const parkEdges = [];
+  let parkVersion = -1;
+  function parkPool() {
+    if (parkVersion === nearVersion) return parkEdges;
+    parkVersion = nearVersion; parkEdges.length = 0;
+    for (const e of nearEdges) {
+      if (e.bore || e.divided || e.noWalk || e.len < 36) continue;
+      const lo = Math.min(...e.lanes), hi = Math.max(...e.lanes), room = e.half - 1.35;
+      if (room - hi >= 2.35 || (lo < 0 && room + lo >= 2.35)) parkEdges.push(e);
+    }
+    return parkEdges;
+  }
+  function parkCar(v, rMin, rMax, hidden) {
+    const pool = parkPool();
+    if (!pool.length) return false;
+    for (let attempt = 0; attempt < 14; attempt++) {
+      const e = pool[Math.floor(Math.random() * pool.length)];
+      // (the right-hand curb; a one-way street's left-hand one too, its lanes either side of its middle)
+      const lo = Math.min(...e.lanes), hi = Math.max(...e.lanes), room = e.half - v.halfWidth - 0.35, need = v.halfWidth + 1.35;
+      const sides = [];
+      if (room - hi >= need) sides.push(room);
+      if (lo < 0 && room + lo >= need) sides.push(-room);
+      if (!sides.length) continue;
+      const side = sides[Math.floor(Math.random() * sides.length)] > 0 ? 1 : -1;
+      const s = 12 + v.half + Math.random() * (e.len - 24 - 2 * v.half);
+      // (the curb itself, felt for at the car's nose, middle and tail: from past the outer lane out to a little past the
+      // street's mapped width (its real curb is often nearer or further), the first curb island or obstacle. Parked
+      // parallel to it, 0.3 m off; a curb that bends, ends or steps along the car (a corner, a driveway) is no place)
+      const lane0 = side > 0 ? hi : -lo, st = [-v.half + 0.4, 0, v.half - 0.4], kerb = [];
+      for (const t of st) {
+        const bx = e.sx + e.dx * (s + t), bz = e.sz + e.dz * (s + t);
+        let k = null;
+        for (let d = lane0 + 1.6; d <= e.half + 2.5; d += 0.15) {
+          const px = bx + e.rx * side * d, pz = bz + e.rz * side * d;
+          if (onSidewalk(px, pz) || !walkable(px - 0.05, px + 0.05, pz - 0.05, pz + 0.05)) { k = d; break; }
+        }
+        if (k === null) break;
+        kerb.push(k);
+      }
+      if (kerb.length < 3 || Math.max(...kerb) - Math.min(...kerb) > 0.35) continue;
+      const off = side * (Math.min(...kerb) - v.halfWidth - 0.3);
+      if (Math.abs(off) - lane0 < need) continue;
+      const x = e.sx + e.dx * s + e.rx * off, z = e.sz + e.dz * s + e.rz * off;
+      const d = Math.hypot(x - focusX, z - focusZ);
+      if (d < rMin || d > rMax || (hidden && visible(x, z, v.half + 3))) continue;
+      if (player.active && Math.hypot(x - player.x, z - player.z) < 10) continue;
+      if (held(x, z, v.half + 3) || blockers.some((k) => Math.hypot(x - k.x, z - k.z) < 25)) continue;
+      const own = window.WAGMI && window.WAGMI.car && window.WAGMI.car.position;
+      if (own && Math.hypot(x - own.x, z - own.z) < 9) continue;
+      // (every corner and the middle of each side on the roadway: no curb, sidewalk, lawn or building under the car)
+      let clear = true;
+      for (const t of st) for (const w of [-v.halfWidth, 0, v.halfWidth]) {
+        const px = x + e.dx * t + e.rx * w, pz = z + e.dz * t + e.rz * w;
+        if (onSidewalk(px, pz) || !walkable(px - 0.3, px + 0.3, pz - 0.3, pz + 0.3)) { clear = false; break; }
+      }
+      if (!clear) continue;
+      for (const o of parked) if (o !== v && o.placed && Math.hypot(o.x - x, o.z - z) < Math.max(7.5, o.half + v.half + 2.6)) { clear = false; break; }
+      if (!clear) continue;
+      Object.assign(v, { placed: true, x, z, prevX: x, prevZ: z, tx: e.dx, tz: e.dz, yaw: Math.atan2(e.dx, e.dz) + (Math.random() - 0.5) * 0.012,
+        yawOffset: 0, yawVel: 0, vx: 0, vz: 0, pitch: 0, pitchVel: 0, roll: 0, rollVel: 0, speed: 0, acc: 0, blink: 0, steer: 0 });
+      settleParked(v);
+      return true;
+    }
+    return false;
+  }
+  // its height, and its pitch and roll, from the ground under its axles
+  function settleParked(v) {
+    const sx = Math.sin(v.yaw), cz = Math.cos(v.yaw);
+    v.yFront = groundAt(v.x + sx * v.axle, v.z + cz * v.axle);
+    v.yRear = groundAt(v.x - sx * v.axle, v.z - cz * v.axle);
+    v.y = groundAt(v.x, v.z);
+    v.grade = (v.yFront - v.yRear) / (2 * v.axle);
+    v.gradePitch = Math.atan(v.grade);
+    const T = window.NYC.Terrain;
+    if (T && T.loaded) {
+      T.normalAt(v.x, v.z, _normal);
+      v.gradeRoll = clamp(Math.atan((_normal.x * cz - _normal.z * sx) / Math.max(_normal.y, 0.2)), -0.07, 0.07);
+    } else v.gradeRoll = 0;
+  }
+  // (one sliding into the next along the curb hands it its push, as knockOn() does for the traffic; never through it)
+  function shuntParked(v) {
+    for (const o of parked) {
+      if (o === v || !o.placed) continue;
+      const dx = o.x - v.x, dz = o.z - v.z, dist = Math.hypot(dx, dz);
+      if (dist > v.half + o.half || dist < 0.001) continue;
+      if (Math.abs(dz * v.tx - dx * v.tz) > v.halfWidth + o.halfWidth) continue; // (side by side)
+      const nx = dx / dist, nz = dz / dist, along = Math.abs(nx * v.tx + nz * v.tz);
+      const gap = v.half * along + v.halfWidth * (1 - along) + o.half * along + o.halfWidth * (1 - along) - dist;
+      if (gap <= 0) continue;
+      o.x += nx * gap * 0.5; o.z += nz * gap * 0.5; v.x -= nx * gap * 0.5; v.z -= nz * gap * 0.5;
+      const relVn = (v.vx - o.vx) * nx + (v.vz - o.vz) * nz;
+      if (relVn > 0) { o.vx += nx * relVn * 0.6; o.vz += nz * relVn * 0.6; v.vx -= nx * relVn * 0.5; v.vz -= nz * relVn * 0.5; }
+      settleParked(o);
+    }
+  }
+  let parkT0 = null;
+  function updateParked(dt, jump) {
+    let budget = jump ? Infinity : 3;
+    if (parkT0 === null) parkT0 = clock;
+    // (in the town's first seconds a car not yet placed may stand anywhere; after that only out of view)
+    const early = clock - parkT0 < 4;
+    for (const v of parked) {
+      if (v.taken) { if (clock < v.takenUntil) continue; v.taken = false; v.placed = false; v.wasPlaced = true; }
+      const d = v.placed ? Math.hypot(v.x - focusX, v.z - focusZ) : Infinity;
+      if (!v.placed || (jump && d > PARK_MAX)) {
+        if (budget > 0) { budget--; const free = jump || (early && !v.wasPlaced); parkCar(v, free ? 0 : 60, PARK_MAX, !free); if (v.placed) v.wasPlaced = true; }
+      } else if (budget > 0 && d > PARK_KEEP && !visible(v.x, v.z, v.half + 2)) {
+        budget--; if (!parkCar(v, 60, PARK_MAX, true)) v.placed = true;
+      }
+      if (!v.placed) continue;
+      v.prevX = v.x; v.prevZ = v.z;
+      // (a shove from the player: it slides on, turning, and stops)
+      if (v.vx || v.vz || v.yawVel || v.yawOffset) {
+        v.x += v.vx * dt; v.z += v.vz * dt;
+        const damp = Math.exp(-3.2 * dt);
+        v.vx *= damp; v.vz *= damp;
+        if (v.vx * v.vx + v.vz * v.vz < 1e-4) v.vx = v.vz = 0;
+        v.yaw += v.yawOffset + v.yawVel * dt; v.yawOffset = 0;
+        v.yawVel *= Math.exp(-4 * dt); if (Math.abs(v.yawVel) < 1e-3) v.yawVel = 0;
+        v.tx = Math.sin(v.yaw); v.tz = Math.cos(v.yaw);
+        settleParked(v);
+        if (v.vx * v.vx + v.vz * v.vz > 0.04) shuntParked(v);
+      }
+      v.pitchVel += (-v.pitch * 68.0 - v.pitchVel * 10.8) * dt;
+      v.pitch = clamp(v.pitch + v.pitchVel * dt, -0.22, 0.22);
+      v.rollVel += (-v.roll * 68.0 - v.rollVel * 10.8) * dt;
+      v.roll = clamp(v.roll + v.rollVel * dt, -0.26, 0.26);
+      if (player.active) collideWithPlayer(v, v.yaw, v.bodyW, v.bodyL);
+      if (!headless) renderCar(v);
+    }
+  }
+
   // =========================================================================
   // 7. PEDESTRIANS
   // =========================================================================
@@ -1870,6 +2222,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
   // body + 4 separate wheel instances; vehicles outside the view frustum (with a margin for cast shadows and headlight
   // cones) are skipped altogether.
   const CAR_PROXY_DISTANCE = 90;
+  const PARKED_PROXY_DISTANCE = 55;
   const dirtyPaint = new Set();
   const dirtyState = new Set();
   const litVehicles = [];
@@ -1918,6 +2271,9 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
   }
 
   function renderCar(c) {
+    // (a ready-made car, once its model has loaded; its procedural body until then)
+    const MB = c.model ? modelBodies[c.model] : null;
+    if (MB) return renderModelCar(c, MB);
     const rotY = c.yaw + c.yawOffset + (abandoned ? c.askew || 0 : 0);
     const sinY = Math.sin(rotY);
     const cosY = Math.cos(rotY);
@@ -1927,7 +2283,8 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
     c.wheelSpin = (c.wheelSpin + Math.sign(rawStep) * Math.min(Math.abs(rawStep), 0.48)) % (Math.PI * 2);
     if (hasView && !visible(c.x, c.z, 18)) return;
 
-    const near = Math.hypot(c.x - focusX, c.z - focusZ) < CAR_PROXY_DISTANCE;
+    // (a town's parked car: the stand-in sooner, it stands still)
+    const near = Math.hypot(c.x - focusX, c.z - focusZ) < (c.parked ? PARKED_PROXY_DISTANCE : CAR_PROXY_DISTANCE);
     const bodyInst = near ? bodies[c.bodyType].near : bodies[c.bodyType].far;
     const slot = bodyInst.count++;
 
@@ -1962,10 +2319,10 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
     const state = attrs.carState.array;
     const o4 = slot * 4;
     const blinkOn = c.blink !== 0 && (clock + c.blinkPhase) % 0.8 <= 0.4;
-    const b0 = !abandoned && (c.acc < -0.8 || c.speed < 0.3) ? 1 : 0;
+    const b0 = !abandoned && !c.parked && (c.acc < -0.8 || c.speed < 0.3) ? 1 : 0;
     const b1 = blinkOn && (c.blink < 0 || c.blink === 2) ? 1 : 0;
     const b2 = blinkOn && c.blink > 0 ? 1 : 0;
-    const b3 = c.isNYPD ? 1 : 0;
+    const b3 = c.isNYPD ? 1 : c.parked ? 2 : 0;
     if (state[o4] !== b0 || state[o4 + 1] !== b1 || state[o4 + 2] !== b2 || state[o4 + 3] !== b3) {
       state[o4] = b0;
       state[o4 + 1] = b1;
@@ -1978,7 +2335,8 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
     const visIdx = visibleCars++;
     dummy.rotation.set(-c.gradePitch, rotY, c.gradeRoll, 'YXZ');
     dummy.position.set(c.x, c.y + 0.018, c.z);
-    dummy.scale.set(2.22, 1.0, 5.05);
+    const sh = bodies[c.bodyType].shadow;
+    dummy.scale.set(sh[0], 1.0, sh[1]);
     dummy.updateMatrix();
     carShadowInst.setMatrixAt(visIdx, dummy.matrix);
 
@@ -1986,7 +2344,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
     const dzCam = c.z - camZ;
     const dyCam = camY - c.y;
     const distSq = dxCam * dxCam + dzCam * dzCam + dyCam * dyCam;
-    if (distSq < MAX_LIGHT_DIST_SQ && !abandoned) {
+    if (distSq < MAX_LIGHT_DIST_SQ && !abandoned && !c.parked) {
       const d = Math.sqrt(distSq);
       const forwardDot = dxCam * camFwdX + dzCam * camFwdZ;
       const effDist = d + Math.max(0, 5.0 - forwardDot) * 3.2;
@@ -2005,7 +2363,97 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
     }
   }
 
+  // A ready-made car (or bus) of the town's fleet: its LOD by its distance from the camera (LOD0 within 32 m, a parked
+  // one's within 24; LOD1 to 120 m), the body instance's paint and lamps as the procedural bodies', and near the camera its glass, lamps, decals
+  // and wheels, each wheel turned on its axle and the front ones steered
+  const LOD0_DIST = 32, LOD0_PARKED = 24, LOD1_DIST = 120;
+  const _wl = new THREE.Matrix4(), _wa = new THREE.Matrix4(), _wb = new THREE.Matrix4(), _ww = new THREE.Matrix4();
+  function slotState(inst, slot, c, b0, b1, b2, b3) {
+    const attrs = inst.geometry.attributes;
+    const paint = attrs.paintColor.array, o3 = slot * 3, cp = c.paint || [1, 1, 1];
+    if (paint[o3] !== cp[0] || paint[o3 + 1] !== cp[1] || paint[o3 + 2] !== cp[2]) {
+      paint[o3] = cp[0]; paint[o3 + 1] = cp[1]; paint[o3 + 2] = cp[2];
+      dirtyPaint.add(inst);
+    }
+    const state = attrs.carState.array, o4 = slot * 4;
+    if (state[o4] !== b0 || state[o4 + 1] !== b1 || state[o4 + 2] !== b2 || state[o4 + 3] !== b3) {
+      state[o4] = b0; state[o4 + 1] = b1; state[o4 + 2] = b2; state[o4 + 3] = b3;
+      dirtyState.add(inst);
+    }
+  }
+  function renderModelCar(c, MB) {
+    const m = MB.meta;
+    const rotY = c.yaw + c.yawOffset + (abandoned ? c.askew || 0 : 0);
+    const sinY = Math.sin(rotY);
+    const cosY = Math.cos(rotY);
+    const forwardDist = (c.x - c.prevX) * sinY + (c.z - c.prevZ) * cosY;
+    const rawStep = forwardDist / m.wheels.front.r;
+    c.wheelSpin = (c.wheelSpin + Math.sign(rawStep) * Math.min(Math.abs(rawStep), 0.48)) % (Math.PI * 2);
+    c._lampSpec = MB.lampSpec;
+    if (hasView && !visible(c.x, c.z, Math.max(18, m.length))) return;
+    const dCam = Math.hypot(c.x - camX, c.z - camZ);
+    const lod = dCam < (c.parked ? LOD0_PARKED : LOD0_DIST) ? 0 : dCam < LOD1_DIST ? 1 : 2;
+    const bodyInst = lod === 0 ? MB.lod0 : lod === 1 ? MB.lod1 : MB.lod2;
+    const slot = bodyInst.count++;
+    dummy.position.set(c.x, c.y, c.z);
+    dummy.rotation.set(c.pitch - c.gradePitch, rotY, c.roll + c.gradeRoll, 'YXZ');
+    dummy.scale.set(1, 1, 1);
+    dummy.updateMatrix();
+    bodyInst.setMatrixAt(slot, dummy.matrix);
+    const blinkOn = c.blink !== 0 && (clock + c.blinkPhase) % 0.8 <= 0.4;
+    const b0 = !abandoned && !c.parked && (c.acc < -0.8 || c.speed < 0.3) ? 1 : 0;
+    const b1 = blinkOn && (c.blink < 0 || c.blink === 2) ? 1 : 0;
+    const b2 = blinkOn && c.blink > 0 ? 1 : 0;
+    const b3 = c.isNYPD ? 1 : c.parked ? 2 : 0;
+    slotState(bodyInst, slot, c, b0, b1, b2, b3);
+    if (lod === 0) {
+      MB.glass.setMatrixAt(MB.glass.count++, dummy.matrix);
+      if (MB.optics) { const s2 = MB.optics.count++; MB.optics.setMatrixAt(s2, dummy.matrix); slotState(MB.optics, s2, c, b0, b1, b2, b3); }
+      if (MB.decal) MB.decal.setMatrixAt(MB.decal.count++, dummy.matrix);
+      // the wheels: on the axle (x), steered (y) at the front, the right-hand ones the same wheel turned round
+      for (const w of MB.wheels) {
+        const inst = w.rearMesh && MB.wheelR ? MB.wheelR : MB.wheel;
+        _wa.makeRotationY(w.side < 0 ? Math.PI : 0);
+        _wb.makeRotationX(c.wheelSpin);
+        _wl.multiplyMatrices(_wb, _wa);
+        if (w.front && c.steer) { _wa.makeRotationY(c.steer); _wl.premultiply(_wa); }
+        _wl.setPosition(w.x, w.y, w.z);
+        _ww.multiplyMatrices(dummy.matrix, _wl);
+        inst.setMatrixAt(inst.count++, _ww);
+      }
+    } else if (lod === 1 && MB.lod1glass) MB.lod1glass.setMatrixAt(MB.lod1glass.count++, dummy.matrix);
+
+    // Soft Under-Car Contact Shadow (AO) stays flat on the asphalt
+    const visIdx = visibleCars++;
+    dummy.rotation.set(-c.gradePitch, rotY, c.gradeRoll, 'YXZ');
+    dummy.position.set(c.x, c.y + 0.018, c.z);
+    dummy.scale.set(MB.shadow[0], 1.0, MB.shadow[1]);
+    dummy.updateMatrix();
+    carShadowInst.setMatrixAt(visIdx, dummy.matrix);
+
+    const dxCam = c.x - camX;
+    const dzCam = c.z - camZ;
+    const dyCam = camY - c.y;
+    const distSq = dxCam * dxCam + dzCam * dzCam + dyCam * dyCam;
+    if (distSq < MAX_LIGHT_DIST_SQ && !abandoned && !c.parked) {
+      const d = Math.sqrt(distSq);
+      const forwardDot = dxCam * camFwdX + dzCam * camFwdZ;
+      const effDist = d + Math.max(0, 5.0 - forwardDot) * 3.2;
+      if (effDist < MAX_LIGHT_DIST) {
+        c._camDistSq = distSq;
+        c._effDist = effDist;
+        c._sinY = sinY;
+        c._cosY = cosY;
+        c._braking = b0;
+        litVehicles[litVehicleCount++] = c;
+      }
+    }
+  }
+
   function renderBus(b) {
+    // (a town's ready-made bus, once loaded)
+    const MB = b.model ? modelBodies[b.model] : null;
+    if (MB) return renderModelCar(b, MB);
     const rotY = b.yaw + b.yawOffset;
     const sinY = Math.sin(rotY);
     const cosY = Math.cos(rotY);
@@ -2077,7 +2525,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
         const v = litVehicles[i];
         const fade = smoothDistFade(v._effDist, vehCutoff * 0.62, vehCutoff);
         if (fade <= 0.001) continue;
-        const spec = v.bus ? BUS_SPEC : BODY_SPECS[v.bodyType];
+        const spec = v._lampSpec || (v.bus ? BUS_SPEC : BODY_SPECS[v.bodyType]);
         const fullReach = HEADLIGHTS.distance;
         let maxReach = fullReach;
         if (player.active && v.pAhead > 0 && v.pAhead < 30) {
@@ -2222,6 +2670,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
     // 1. Cars & buses
     buildOccupancy();
     for (const m of bodyMeshes) m.count = 0;
+    for (const m of modelAux) m.count = 0;
     litVehicleCount = 0;
     wheelCars = 0;
     visibleCars = 0;
@@ -2232,6 +2681,8 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
     for (let i = 0; i < vehicles.length; i++) {
       const v = vehicles[i];
       if (v.disabled) continue;
+      // (Mog City, Hometown: one the player took (take()) stays off the road a while, then comes back out of view)
+      if (v.taken) { if (clock < v.takenUntil || !spawnVehicle(v, 100, 300, true)) continue; v.taken = false; }
       const d = v.edge ? Math.hypot(v.x - focusX, v.z - focusZ) : Infinity;
       // (Mog City: one found in a hold zone is put somewhere else out of view)
       if (v.edge && holds.length && held(v.x, v.z, v.half) && spawnVehicle(v, 100, 300, true)) continue;
@@ -2255,13 +2706,14 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
       if (abandoned) { v.x += v.offX || 0; v.z += v.offZ || 0; }
       knock(v, dt);
       pose(v, dt);
-      if (player.active) collideWithPlayer(v, v.yaw + v.yawOffset + (abandoned ? v.askew || 0 : 0), v.bus ? 1.30 : v.isSUV ? 0.92 : 0.86, v.bus ? 5.72 : v.isSUV ? 2.22 : 2.18);
+      if (player.active) collideWithPlayer(v, v.yaw + v.yawOffset + (abandoned ? v.askew || 0 : 0), v.bus ? v.bodyW ?? 1.30 : v.bodyW ?? (v.isSUV ? 0.92 : 0.86), v.bus ? v.bodyL ?? 5.72 : v.bodyL ?? (v.isSUV ? 2.22 : 2.18));
       if (v.vx * v.vx + v.vz * v.vz > 0.36) knockOn(v);
 
       if (headless) continue;
       if (v.bus) renderBus(v);
       else renderCar(v);
     }
+    if (parked.length) updateParked(dt, jump);
     if (!headless) syncVehicleMeshes();
 
     // 2. Pedestrians
@@ -2333,6 +2785,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
       inst.count = n;
       flagRange(inst.instanceMatrix, n);
     };
+    for (const m of modelAux) syncInst(m, m.count);
     syncInst(carWheelLeftInst, wheelCars * 2);
     syncInst(carWheelRightInst, wheelCars * 2);
     syncInst(nypdBarInst, nypdDrawn);
@@ -2420,6 +2873,16 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
     // (SF 2040) avoid(fn(x, z) -> true where no abandoned car may be placed: the GPS route's corridor), or null
     avoid(fn) { avoidAt = typeof fn === 'function' ? fn : null; },
     setPeds(n) { pedLimit = Math.max(0, Math.min(NUM_PEDS, Math.round(n))); },
+    // (Mog City, Hometown) the town's parked cars, and take(v): the player takes v (wagmi/jack.js), a car of the traffic
+    // or a parked one: it leaves the street at once and comes back somewhere out of view later
+    parked,
+    take(v) {
+      if (!v || v.bus) return false;
+      v.taken = true; v.takenUntil = clock + (v.parked ? 45 : 25);
+      if (v.parked) v.placed = false;
+      else { v.edge = null; v.conn = null; v.commit = null; v.speed = 0; }
+      return true;
+    },
     setDensity(fraction) {
       const count = Math.round(vehicles.length * Math.max(0, Math.min(1, fraction)));
       vehicles.forEach((v,i) => { v.disabled = i >= count; if(v.disabled) { v.edge=null; v.conn=null; v.commit=null; } });

@@ -1,0 +1,1076 @@
+{
+ "format": "mogcity-fleet/1",
+ "what": "Mog City's realistic town cars (Hometown traffic, parked cars and the cars a player takes)",
+ "licence": "CC-BY-4.0 (each model, see models[].licence); NOT covered by the MIT License in LICENSE",
+ "credits": "assets/vehicles/fleet/CREDITS.md",
+ "built": "tools/vehicles/build-fleet.mjs (from the raw downloads, never committed)",
+ "v": "f69268567f",
+ "kit": {
+  "hi": "kit.webp",
+  "lo": "kit-lo.webp",
+  "orm": "kit-orm.webp",
+  "ormLo": "kit-orm-lo.webp",
+  "livery": {
+   "taxi": [
+    null,
+    "livery-taxi-lo.webp"
+   ],
+   "police": [
+    null,
+    "livery-police-lo.webp"
+   ]
+  },
+  "optics": [
+   null,
+   "c1280-optics-lo.webp"
+  ]
+ },
+ "files": {
+  "ambulance-decal-lo.webp": {
+   "sha256": "fc6c345ce2ff49e1cb470c260f8b60d93f39165d5310c5b37560f0368064e12c",
+   "bytes": 13888
+  },
+  "ambulance-lo.webp": {
+   "sha256": "4ce32d2604d81f34784057f4ae9aec91f81610a4b32ddbe956a896ce7a1fa7be",
+   "bytes": 26450
+  },
+  "ambulance-orm-lo.webp": {
+   "sha256": "e8b1fb57e770f8828362856ef20c18291a47118650376634519b45353373fc1e",
+   "bytes": 5228
+  },
+  "ambulance.glb": {
+   "sha256": "844ed61c9dad3515d2d5c776f98921baa95c562b30dab6413e3027979abc8d0e",
+   "bytes": 233584
+  },
+  "box95.glb": {
+   "sha256": "589ab6659ed8cfec829945cff150f6f1ca3fceae8d4bdcb3360f3ed5f96b94f8",
+   "bytes": 253640
+  },
+  "bus-decal-lo.webp": {
+   "sha256": "8da2eb2e1ffb9ec7c44b3490c12162fafd9867ea79931e0d1aab7829852e5975",
+   "bytes": 8346
+  },
+  "bus-lo.webp": {
+   "sha256": "dd690c62fb662466db6fa86ea4bab3c7c3cad6ab450482f28f6ddece03c5f8ac",
+   "bytes": 16910
+  },
+  "bus-orm-lo.webp": {
+   "sha256": "1cf3617a2ffdd8b600a3cdae1aa46926bc63e5b615d46cb83ab4567a0e72eb05",
+   "bytes": 4736
+  },
+  "bus.glb": {
+   "sha256": "101cb5e037ed5792721541be56e66b729b3990d5382128031fdc26ad36c9874e",
+   "bytes": 236904
+  },
+  "c1280-optics-lo.webp": {
+   "sha256": "57a241117b9c4d7a007830b664d0555dd12d71866d789a428454d1dc62e1e4ca",
+   "bytes": 17196
+  },
+  "city07.glb": {
+   "sha256": "9c1afc2d9d4a07fe5c2f4c8b89c9ce71bde2c6578ec2e0e518fd948d1809d4c4",
+   "bytes": 213956
+  },
+  "firetruck-decal-lo.webp": {
+   "sha256": "3e3095644996cb47b5bcb879b541beb9fc1a96b3452909d92fa143b81b4f12b2",
+   "bytes": 18122
+  },
+  "firetruck-lo.webp": {
+   "sha256": "86f6196b9708cbc127fb3fe5cf87d8973fc705ea6a70c76a0d69a64fa3c5d82d",
+   "bytes": 32924
+  },
+  "firetruck-orm-lo.webp": {
+   "sha256": "dfa9ae86aaf87044c1116143bbb4b8595cc61084f13e0eb5035df12e48e0848b",
+   "bytes": 7182
+  },
+  "firetruck.glb": {
+   "sha256": "68bf67f6e34cd51f88c1688c6a7409b6e97a6bdefac35bd748d3013de1521212",
+   "bytes": 268452
+  },
+  "garbage-lo.webp": {
+   "sha256": "ebf17f96240a9e3797ea3878fc64ced31feec3e7ff06044a240fa10b4928b54a",
+   "bytes": 14472
+  },
+  "garbage-orm-lo.webp": {
+   "sha256": "ecefd40406b23219c704d5355dbdcd0db80c3a7d099ebf3fc68144236e69a991",
+   "bytes": 6294
+  },
+  "garbage.glb": {
+   "sha256": "e4b90372e109afd744fd8a2c861d54b34098a3f438e9904127cf6b8205e992e6",
+   "bytes": 253480
+  },
+  "gt83.glb": {
+   "sha256": "e6a5855708d40c5d0985d20ea110340c5be6db796c7385f31b61d52b8ae306b6",
+   "bytes": 252696
+  },
+  "gt95.glb": {
+   "sha256": "28055d9adb7a4e0b4a01f73f3bbbdcf54ad70a39f9fbfa5ed7293cf6e6d2a687",
+   "bytes": 284424
+  },
+  "hatch11.glb": {
+   "sha256": "3394fdd3b532175e0ed07e11a052765e13f65aca3157a4e8c1010239ef3ec8a8",
+   "bytes": 237432
+  },
+  "kit-lo.webp": {
+   "sha256": "0e6fd5b6920f217333389a1ff7d3aa3c91f657a1ba98d016dc8b9b935d35e7b9",
+   "bytes": 49710
+  },
+  "kit-orm-lo.webp": {
+   "sha256": "76885a98bd6ebbd0ce6c5882068a92a75c376ce2fe0cdac47447acc68b544ccc",
+   "bytes": 11012
+  },
+  "kit-orm.webp": {
+   "sha256": "f52ced977721aae768910f268dfb02c7500e540c0c32157955f88f769ab4d266",
+   "bytes": 35168
+  },
+  "kit.webp": {
+   "sha256": "50908a0dcc37961924ec24d8af801ee12237008d8a5f71d4bfc941fa8a763b3a",
+   "bytes": 162790
+  },
+  "livery-police-lo.webp": {
+   "sha256": "f8e31e89e9c1d8433ee85b1a0d7c7ee9543ad7fe6572ba66e075d231c629b3f2",
+   "bytes": 9268
+  },
+  "livery-taxi-lo.webp": {
+   "sha256": "9f8a26ddf733f32c15b0a1d95b12b4fecac7ca3517776854cb14b25b128537e4",
+   "bytes": 28116
+  },
+  "mailvan-decal-lo.webp": {
+   "sha256": "6fe8f0829df46a8748571810e847af5bb0b26ade93b87f29d91200044af8dda3",
+   "bytes": 17708
+  },
+  "mailvan-lo.webp": {
+   "sha256": "f9b2b122f70a817deb88d8e17d1e83be4f4ba4849014311b833e5181b2aa1870",
+   "bytes": 17832
+  },
+  "mailvan-orm-lo.webp": {
+   "sha256": "5c4c3652b0989088835e0406b05c44e3c8faa548d3a7728721fccf1ec9188c9d",
+   "bytes": 6136
+  },
+  "mailvan.glb": {
+   "sha256": "07631229bccca1d3d85ab1dbecd8f6768f8a67a1b0d8f22e703f0a95387c12fa",
+   "bytes": 164416
+  },
+  "minivan20-lo.webp": {
+   "sha256": "e99583852b37d7db86ef6b3eba2fcbe51946e9cdf4541974083786d9993dad01",
+   "bytes": 11088
+  },
+  "minivan20-orm-lo.webp": {
+   "sha256": "ce50aabc0e47b6e0b7547fed761ccfb72421eec0ea6090623450c05506689a7e",
+   "bytes": 2890
+  },
+  "minivan20.glb": {
+   "sha256": "fd8b9fb5e7340688be44a57b9a23f4bd7f71adf6d83bfda99a6b9ccf0fddd59d",
+   "bytes": 178636
+  },
+  "muscle69.glb": {
+   "sha256": "43763291fbc6c483a96537dcc772ba7b0006ee486f33853bd851f7abddd40b0e",
+   "bytes": 224356
+  },
+  "pickup89.glb": {
+   "sha256": "17d16cf6e64e035b462d8239995669fcbcee0fd79bf451b1b34fdc83a77782dc",
+   "bytes": 268752
+  },
+  "police20-decal-lo.webp": {
+   "sha256": "07d357a04bd433d8f3af994b96b301db2bb78dd31609981a51b5138bb19e97bd",
+   "bytes": 15824
+  },
+  "police20-lo.webp": {
+   "sha256": "2270bbc4694794e53a8bc3d7a18f78a1e516d08fd8ae021e5e29d1811f8b74d0",
+   "bytes": 9796
+  },
+  "police20-orm-lo.webp": {
+   "sha256": "d24337f931ede7c2d1ef3bd021f9e564ed7df8d905ef67bab53addad1f197b66",
+   "bytes": 5668
+  },
+  "police20.glb": {
+   "sha256": "de9f073e5d29c862c8126393b5cdb9f70a4b6cc2181542ba95e3dcb94bcded39",
+   "bytes": 205596
+  },
+  "police90.glb": {
+   "sha256": "36305dfc2337b51e1c90732f2aef9bf21ec4f3ae38abd391434e607193847b81",
+   "bytes": 268824
+  },
+  "roadster00.glb": {
+   "sha256": "e770756368117a40475145fc08c7b427009412002299288e025d8be1a4e6f54e",
+   "bytes": 227732
+  },
+  "schoolbus-decal-lo.webp": {
+   "sha256": "0eed5a327a8927f47ba518a0602ba381f6d9e423b966bc9dca89116a1c55da83",
+   "bytes": 14954
+  },
+  "schoolbus-lo.webp": {
+   "sha256": "0a09a3ef213a4f9b6861ff5eb79ace1bdcad99a096f1fbb25ec52d64f12a200f",
+   "bytes": 22234
+  },
+  "schoolbus-orm-lo.webp": {
+   "sha256": "5fb91b4740a57822db7925cb25cec9989ceefb4fa242caa8555340e6aa2178e9",
+   "bytes": 4698
+  },
+  "schoolbus.glb": {
+   "sha256": "2cb548d25d9db2eac0b07c6fa8f67f63cb8ea4d003b953d355f987e8240c1487",
+   "bytes": 241164
+  },
+  "sedan10.glb": {
+   "sha256": "6cfb3dd31e91c9d6611f52dcb5ff800e163db7c5393cfb2685563e535ad9b6f5",
+   "bytes": 184780
+  },
+  "sedan80.glb": {
+   "sha256": "36ff0b41486f6ef7686e71759ac3134b9e92edbe862f9c4b8118162c59855c17",
+   "bytes": 248204
+  },
+  "sport99.glb": {
+   "sha256": "a1d7ced2c3072721396f02aa287ef6cef16b63a7739f37c28eb2c7d63b9b5d92",
+   "bytes": 268244
+  },
+  "suv10.glb": {
+   "sha256": "a78e38fc60c45552f23170af639e12e3476d48c1e977767051b679ff079a0747",
+   "bytes": 210712
+  },
+  "taxi20-decal-lo.webp": {
+   "sha256": "70aaf3ac9fc4b1d7c9a8759703f46537ac6898d64e8e7bd7a814b3abaf855f6d",
+   "bytes": 6304
+  },
+  "taxi20-lo.webp": {
+   "sha256": "719e86806849912e0601fc54eea08a80d98c2c9047d5a4cd94ca71720a27e692",
+   "bytes": 27676
+  },
+  "taxi20-orm-lo.webp": {
+   "sha256": "c0e399c0faf998ab65477cc8e5a7c9937ef4ec8d7f5ba1f16dd0b1e28342cc1f",
+   "bytes": 4818
+  },
+  "taxi20.glb": {
+   "sha256": "4260fbe15a840bcbd090ce6dd37e9741817f5532b6ab1047cb96eac4e76c8ba3",
+   "bytes": 186140
+  },
+  "taxi75.glb": {
+   "sha256": "a6cf6824e9fc4df633c82fe70e70beba38df68278892b0814f68a549a2f06f4a",
+   "bytes": 274252
+  },
+  "tow-lo.webp": {
+   "sha256": "e7ac9efcb70685a184f94f0348b3b68739bfb2065ef3c85905c3541264db03e9",
+   "bytes": 22082
+  },
+  "tow-orm-lo.webp": {
+   "sha256": "53577c1bb4a07b95f29b2f5c47cf542ee8d1dfc86d2f33d85e3851041de8ce3e",
+   "bytes": 6604
+  },
+  "tow.glb": {
+   "sha256": "a8b740127198c17f5a159e4b5b0777997adf6c5a642bd98ca4372dd7dea81d12",
+   "bytes": 218292
+  },
+  "turbo81.glb": {
+   "sha256": "428ccb068b2fa574dfbe36651a3185bfcaa9725f1cf3d4ef6ba847754a99acf4",
+   "bytes": 307452
+  },
+  "utility-decal-lo.webp": {
+   "sha256": "6dedbfddd742398d0e1bde0a06d2f2307b72e2b80a5bcc09273265989e7ed84e",
+   "bytes": 12766
+  },
+  "utility-lo.webp": {
+   "sha256": "6dff3694fb9a35cbfe8211e247bded53799f26207a6b083cd3c26d58f8b1599c",
+   "bytes": 30774
+  },
+  "utility-orm-lo.webp": {
+   "sha256": "4ee82a237f337158807a06ba9cb50e2b2bb327ede73b267699147a74a1f0b677",
+   "bytes": 6742
+  },
+  "utility.glb": {
+   "sha256": "46a388dacfdf3b838afe8980b378d559dc2cacc1f2702043fa3da6e3272e1989",
+   "bytes": 214768
+  },
+  "van92.glb": {
+   "sha256": "e0a42227f5851f6ce69852cf49d1efb77318c984fe8a2a6a58628f123c5fd4f0",
+   "bytes": 274512
+  }
+ },
+ "models": {
+  "gt95": {
+   "file": "gt95.glb",
+   "title": "Saba V12 '95 - Low poly model",
+   "creator": "Daniel Zhabotinsky",
+   "licence": "CC-BY-4.0",
+   "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+   "source": "https://sketchfab.com/3d-models/3ab977050c334c13b6abb5de078b4957",
+   "sourceUid": "3ab977050c334c13b6abb5de078b4957",
+   "downloaded": "2026-11-14",
+   "sourceFile": "gm-car-saba-v12-95.glb",
+   "sourceSha256": "77115682340c573c9cb3bf163ffbabd78a83499e253a53c7cd52b85cb78a8b2d",
+   "sourceBytes": 12715496,
+   "part": null,
+   "sha256": "28055d9adb7a4e0b4a01f73f3bbbdcf54ad70a39f9fbfa5ed7293cf6e6d2a687",
+   "bytes": 284424,
+   "tris": {
+    "lod0": 17585,
+    "body": 12403,
+    "bodyModelled": 19298,
+    "glass": 518,
+    "wheel": 1166,
+    "wheelR": 1166,
+    "lod1": 3971,
+    "lod2": 506,
+    "source": 24512,
+    "dropped": 12,
+    "plateLetters": 20
+   },
+   "changes": "badges and their atlas removed; number-plate characters removed (blank plates); tyre sidewall lettering removed; re-oriented and re-centred to the engine frame; parts merged onto a shared texture atlas; two simplified LODs added; textures downscaled and WebP-encoded; geometry meshopt-compressed"
+  },
+  "turbo81": {
+   "file": "turbo81.glb",
+   "title": "Hazer Turbo '81 - Low poly model",
+   "creator": "Daniel Zhabotinsky",
+   "licence": "CC-BY-4.0",
+   "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+   "source": "https://sketchfab.com/3d-models/ef6411864cd24046aad6ae75dbdb7ea7",
+   "sourceUid": "ef6411864cd24046aad6ae75dbdb7ea7",
+   "downloaded": "2026-11-14",
+   "sourceFile": "gm-car-hazer-turbo-81.glb",
+   "sourceSha256": "803943a0131cd5663c3b471ae7abcfa82ecd02ceeef38679f9844cf0fcb6b1d9",
+   "sourceBytes": 12786360,
+   "part": null,
+   "sha256": "428ccb068b2fa574dfbe36651a3185bfcaa9725f1cf3d4ef6ba847754a99acf4",
+   "bytes": 307452,
+   "tris": {
+    "lod0": 17433,
+    "body": 12621,
+    "bodyModelled": 20927,
+    "glass": 648,
+    "wheel": 1041,
+    "wheelR": 1041,
+    "lod1": 3999,
+    "lod2": 1015,
+    "source": 25821,
+    "dropped": 62,
+    "plateLetters": 20
+   },
+   "changes": "badges and their atlas removed; number-plate characters removed (blank plates); tyre sidewall lettering removed; re-oriented and re-centred to the engine frame; parts merged onto a shared texture atlas; two simplified LODs added; textures downscaled and WebP-encoded; geometry meshopt-compressed"
+  },
+  "sport99": {
+   "file": "sport99.glb",
+   "title": "JDM Sport '99 - Low Poly model",
+   "creator": "Daniel Zhabotinsky",
+   "licence": "CC-BY-4.0",
+   "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+   "source": "https://sketchfab.com/3d-models/6dd4ae19c454414d9eed2bc524515d78",
+   "sourceUid": "6dd4ae19c454414d9eed2bc524515d78",
+   "downloaded": "2026-11-14",
+   "sourceFile": "gm-car-jdm-sport-99.glb",
+   "sourceSha256": "db95f53893a4c2ef5e65007619817cf4db8e405649ba895c74f9df3fb43c7f04",
+   "sourceBytes": 11433472,
+   "part": null,
+   "sha256": "a1d7ced2c3072721396f02aa287ef6cef16b63a7739f37c28eb2c7d63b9b5d92",
+   "bytes": 268244,
+   "tris": {
+    "lod0": 19976,
+    "body": 14536,
+    "bodyModelled": 17695,
+    "glass": 476,
+    "wheel": 1241,
+    "wheelR": 0,
+    "lod1": 4000,
+    "lod2": 546,
+    "source": 23187,
+    "dropped": 32,
+    "plateLetters": 20
+   },
+   "changes": "badges and their atlas removed; number-plate characters removed (blank plates); tyre sidewall lettering removed; re-oriented and re-centred to the engine frame; parts merged onto a shared texture atlas; two simplified LODs added; textures downscaled and WebP-encoded; geometry meshopt-compressed"
+  },
+  "gt83": {
+   "file": "gt83.glb",
+   "title": "Tiara GT '83 - Low Poly model",
+   "creator": "Daniel Zhabotinsky",
+   "licence": "CC-BY-4.0",
+   "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+   "source": "https://sketchfab.com/3d-models/8918b07a427443cd8d1b334d9ad213a5",
+   "sourceUid": "8918b07a427443cd8d1b334d9ad213a5",
+   "downloaded": "2026-11-14",
+   "sourceFile": "gm-car-tiara-gt-83.glb",
+   "sourceSha256": "f22ba98a92abd9f409fe425c54526436132ca05ad97a7402c1468014ee509bf8",
+   "sourceBytes": 11501748,
+   "part": null,
+   "sha256": "e6a5855708d40c5d0985d20ea110340c5be6db796c7385f31b61d52b8ae306b6",
+   "bytes": 252696,
+   "tris": {
+    "lod0": 14093,
+    "body": 9083,
+    "bodyModelled": 13488,
+    "glass": 338,
+    "wheel": 1168,
+    "wheelR": 0,
+    "lod1": 3999,
+    "lod2": 611,
+    "source": 18755,
+    "dropped": 217,
+    "plateLetters": 40
+   },
+   "changes": "badges and their atlas removed; number-plate characters removed (blank plates); tyre sidewall lettering removed; re-oriented and re-centred to the engine frame; parts merged onto a shared texture atlas; two simplified LODs added; textures downscaled and WebP-encoded; geometry meshopt-compressed"
+  },
+  "roadster00": {
+   "file": "roadster00.glb",
+   "title": "Roadster '00 - Low poly model",
+   "creator": "Daniel Zhabotinsky",
+   "licence": "CC-BY-4.0",
+   "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+   "source": "https://sketchfab.com/3d-models/82fd2008ce304df688ec4dfcd42d41ce",
+   "sourceUid": "82fd2008ce304df688ec4dfcd42d41ce",
+   "downloaded": "2026-11-14",
+   "sourceFile": "gm-car-roadster-00.glb",
+   "sourceSha256": "2781b134f2c15389f492bb0b45aa1385805a18415d6ec9d72bfe6f6d52a069a2",
+   "sourceBytes": 7947600,
+   "part": null,
+   "sha256": "e770756368117a40475145fc08c7b427009412002299288e025d8be1a4e6f54e",
+   "bytes": 227732,
+   "tris": {
+    "lod0": 12937,
+    "body": 8007,
+    "bodyModelled": 10846,
+    "glass": 242,
+    "wheel": 1172,
+    "wheelR": 0,
+    "lod1": 3999,
+    "lod2": 658,
+    "source": 15852,
+    "dropped": 56,
+    "plateLetters": 20
+   },
+   "changes": "badges and their atlas removed; number-plate characters removed (blank plates); tyre sidewall lettering removed; re-oriented and re-centred to the engine frame; parts merged onto a shared texture atlas; two simplified LODs added; textures downscaled and WebP-encoded; geometry meshopt-compressed"
+  },
+  "muscle69": {
+   "file": "muscle69.glb",
+   "title": "Duke '69 - Low Poly Model",
+   "creator": "Daniel Zhabotinsky",
+   "licence": "CC-BY-4.0",
+   "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+   "source": "https://sketchfab.com/3d-models/46fed79f600c4fc69e060991f9e3e4f9",
+   "sourceUid": "46fed79f600c4fc69e060991f9e3e4f9",
+   "downloaded": "2026-11-14",
+   "sourceFile": "gm-car-duke-69.glb",
+   "sourceSha256": "0e721371763d481763ccf29c451598de14ec2dfd632897bc803f4b3a3b060228",
+   "sourceBytes": 8537220,
+   "part": null,
+   "sha256": "43763291fbc6c483a96537dcc772ba7b0006ee486f33853bd851f7abddd40b0e",
+   "bytes": 224356,
+   "tris": {
+    "lod0": 13775,
+    "body": 9337,
+    "bodyModelled": 14091,
+    "glass": 158,
+    "wheel": 1070,
+    "wheelR": 0,
+    "lod1": 4000,
+    "lod2": 930,
+    "source": 18555,
+    "dropped": 6,
+    "plateLetters": 20
+   },
+   "changes": "badges and their atlas removed; number-plate characters removed (blank plates); tyre sidewall lettering removed; re-oriented and re-centred to the engine frame; parts merged onto a shared texture atlas; two simplified LODs added; textures downscaled and WebP-encoded; geometry meshopt-compressed"
+  },
+  "sedan10": {
+   "file": "sedan10.glb",
+   "title": "Kiri '10 - Low poly model",
+   "creator": "Daniel Zhabotinsky",
+   "licence": "CC-BY-4.0",
+   "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+   "source": "https://sketchfab.com/3d-models/7fd6e15785fa4aa9bfd6e31eb7c97ba6",
+   "sourceUid": "7fd6e15785fa4aa9bfd6e31eb7c97ba6",
+   "downloaded": "2026-11-14",
+   "sourceFile": "gm-car-kiri-10.glb",
+   "sourceSha256": "3ba16efb0c177bac12e9009606b0b43433534210b5af718ec721506f0262c6b3",
+   "sourceBytes": 10998364,
+   "part": null,
+   "sha256": "6cfb3dd31e91c9d6611f52dcb5ff800e163db7c5393cfb2685563e535ad9b6f5",
+   "bytes": 184780,
+   "tris": {
+    "lod0": 9853,
+    "body": 6049,
+    "bodyModelled": 9112,
+    "glass": 184,
+    "wheel": 905,
+    "wheelR": 0,
+    "lod1": 4000,
+    "lod2": 789,
+    "source": 12980,
+    "dropped": 24,
+    "plateLetters": 40
+   },
+   "changes": "badges and their atlas removed; number-plate characters removed (blank plates); tyre sidewall lettering removed; re-oriented and re-centred to the engine frame; parts merged onto a shared texture atlas; two simplified LODs added; textures downscaled and WebP-encoded; geometry meshopt-compressed"
+  },
+  "hatch11": {
+   "file": "hatch11.glb",
+   "title": "Ace '11 - Low Poly model",
+   "creator": "Daniel Zhabotinsky",
+   "licence": "CC-BY-4.0",
+   "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+   "source": "https://sketchfab.com/3d-models/055ff8a21b8d4d279debca089e2fafcd",
+   "sourceUid": "055ff8a21b8d4d279debca089e2fafcd",
+   "downloaded": "2026-11-14",
+   "sourceFile": "gm-car-ace-11.glb",
+   "sourceSha256": "076823a82e8f3a615246c74e66b21fabb69c6144135b7985d536047e624a5a35",
+   "sourceBytes": 10871828,
+   "part": null,
+   "sha256": "3394fdd3b532175e0ed07e11a052765e13f65aca3157a4e8c1010239ef3ec8a8",
+   "bytes": 237432,
+   "tris": {
+    "lod0": 13262,
+    "body": 9330,
+    "bodyModelled": 14376,
+    "glass": 312,
+    "wheel": 905,
+    "wheelR": 0,
+    "lod1": 3999,
+    "lod2": 814,
+    "source": 18432,
+    "dropped": 84,
+    "plateLetters": 40
+   },
+   "changes": "badges and their atlas removed; number-plate characters removed (blank plates); tyre sidewall lettering removed; re-oriented and re-centred to the engine frame; parts merged onto a shared texture atlas; two simplified LODs added; textures downscaled and WebP-encoded; geometry meshopt-compressed"
+  },
+  "city07": {
+   "file": "city07.glb",
+   "title": "Compact '07 - Low poly model",
+   "creator": "Daniel Zhabotinsky",
+   "licence": "CC-BY-4.0",
+   "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+   "source": "https://sketchfab.com/3d-models/25c6874d173a4f6ca63e150bbd505686",
+   "sourceUid": "25c6874d173a4f6ca63e150bbd505686",
+   "downloaded": "2026-11-14",
+   "sourceFile": "gm-car-compact-07.glb",
+   "sourceSha256": "5b0257921eb1f62fc7e3e906d776aa34b768925c7f5a2fbaa37e5e8228b80c33",
+   "sourceBytes": 11136340,
+   "part": null,
+   "sha256": "9c1afc2d9d4a07fe5c2f4c8b89c9ce71bde2c6578ec2e0e518fd948d1809d4c4",
+   "bytes": 213956,
+   "tris": {
+    "lod0": 12440,
+    "body": 7240,
+    "bodyModelled": 9763,
+    "glass": 236,
+    "wheel": 1241,
+    "wheelR": 0,
+    "lod1": 4000,
+    "lod2": 624,
+    "source": 15025,
+    "dropped": 22,
+    "plateLetters": 40
+   },
+   "changes": "badges and their atlas removed; number-plate characters removed (blank plates); tyre sidewall lettering removed; re-oriented and re-centred to the engine frame; parts merged onto a shared texture atlas; two simplified LODs added; textures downscaled and WebP-encoded; geometry meshopt-compressed"
+  },
+  "sedan80": {
+   "file": "sedan80.glb",
+   "title": "Negotiator '80 - Low poly model",
+   "creator": "Daniel Zhabotinsky",
+   "licence": "CC-BY-4.0",
+   "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+   "source": "https://sketchfab.com/3d-models/892b2684fb37442299bfad9222cf331c",
+   "sourceUid": "892b2684fb37442299bfad9222cf331c",
+   "downloaded": "2026-11-14",
+   "sourceFile": "gm-car-negotiator-80.glb",
+   "sourceSha256": "3581857044e1c1c70896c08addd7ed96c37f8b0cd6467fbaa243e6759cb5af95",
+   "sourceBytes": 11486020,
+   "part": null,
+   "sha256": "36ff0b41486f6ef7686e71759ac3134b9e92edbe862f9c4b8118162c59855c17",
+   "bytes": 248204,
+   "tris": {
+    "lod0": 13696,
+    "body": 10736,
+    "bodyModelled": 16629,
+    "glass": 228,
+    "wheel": 683,
+    "wheelR": 0,
+    "lod1": 4000,
+    "lod2": 700,
+    "source": 19765,
+    "dropped": 136,
+    "plateLetters": 40
+   },
+   "changes": "badges and their atlas removed; number-plate characters removed (blank plates); tyre sidewall lettering removed; re-oriented and re-centred to the engine frame; parts merged onto a shared texture atlas; two simplified LODs added; textures downscaled and WebP-encoded; geometry meshopt-compressed"
+  },
+  "suv10": {
+   "file": "suv10.glb",
+   "title": "Urban '10 - Low poly model",
+   "creator": "Daniel Zhabotinsky",
+   "licence": "CC-BY-4.0",
+   "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+   "source": "https://sketchfab.com/3d-models/2866efdfa943484391ef8313768e074d",
+   "sourceUid": "2866efdfa943484391ef8313768e074d",
+   "downloaded": "2026-11-14",
+   "sourceFile": "gm-car-urban-10.glb",
+   "sourceSha256": "2db4792ab26bd4aabd9de129955e50f3f017ba48c8131ff42713712b35a8e4f3",
+   "sourceBytes": 11122568,
+   "part": null,
+   "sha256": "a78e38fc60c45552f23170af639e12e3476d48c1e977767051b679ff079a0747",
+   "bytes": 210712,
+   "tris": {
+    "lod0": 12782,
+    "body": 8740,
+    "bodyModelled": 12383,
+    "glass": 422,
+    "wheel": 905,
+    "wheelR": 0,
+    "lod1": 4000,
+    "lod2": 700,
+    "source": 16491,
+    "dropped": 26,
+    "plateLetters": 40
+   },
+   "changes": "badges and their atlas removed; number-plate characters removed (blank plates); tyre sidewall lettering removed; re-oriented and re-centred to the engine frame; parts merged onto a shared texture atlas; two simplified LODs added; textures downscaled and WebP-encoded; geometry meshopt-compressed"
+  },
+  "van92": {
+   "file": "van92.glb",
+   "title": "Shvan '92 - Low poly model",
+   "creator": "Daniel Zhabotinsky",
+   "licence": "CC-BY-4.0",
+   "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+   "source": "https://sketchfab.com/3d-models/09d718c9cf72401b8534d265a06a803f",
+   "sourceUid": "09d718c9cf72401b8534d265a06a803f",
+   "downloaded": "2026-11-14",
+   "sourceFile": "gm-car-shvan-92.glb",
+   "sourceSha256": "5f817b226678e538f6cae3622589911dd264882409d8533e06aed51719d826cc",
+   "sourceBytes": 12569044,
+   "part": null,
+   "sha256": "e0a42227f5851f6ce69852cf49d1efb77318c984fe8a2a6a58628f123c5fd4f0",
+   "bytes": 274512,
+   "tris": {
+    "lod0": 17450,
+    "body": 13962,
+    "bodyModelled": 19461,
+    "glass": 428,
+    "wheel": 765,
+    "wheelR": 0,
+    "lod1": 4000,
+    "lod2": 796,
+    "source": 23045,
+    "dropped": 56,
+    "plateLetters": 40
+   },
+   "changes": "badges and their atlas removed; number-plate characters removed (blank plates); tyre sidewall lettering removed; re-oriented and re-centred to the engine frame; parts merged onto a shared texture atlas; two simplified LODs added; textures downscaled and WebP-encoded; geometry meshopt-compressed"
+  },
+  "pickup89": {
+   "file": "pickup89.glb",
+   "title": "Conquer '89 Pickup - Low poly model",
+   "creator": "Daniel Zhabotinsky",
+   "licence": "CC-BY-4.0",
+   "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+   "source": "https://sketchfab.com/3d-models/6c48c94be8974dc7a5932f697c0ba68f",
+   "sourceUid": "6c48c94be8974dc7a5932f697c0ba68f",
+   "downloaded": "2026-11-14",
+   "sourceFile": "gm-car-conquer-89-pickup.glb",
+   "sourceSha256": "dc82f88610bde7981fcf8310abc3b3d89d03ccf1da99ef57bfff2aaea26b83f0",
+   "sourceBytes": 11538572,
+   "part": null,
+   "sha256": "17d16cf6e64e035b462d8239995669fcbcee0fd79bf451b1b34fdc83a77782dc",
+   "bytes": 268752,
+   "tris": {
+    "lod0": 16027,
+    "body": 12199,
+    "bodyModelled": 17226,
+    "glass": 364,
+    "wheel": 866,
+    "wheelR": 0,
+    "lod1": 3999,
+    "lod2": 1048,
+    "source": 21130,
+    "dropped": 36,
+    "plateLetters": 40
+   },
+   "changes": "badges and their atlas removed; number-plate characters removed (blank plates); tyre sidewall lettering removed; re-oriented and re-centred to the engine frame; parts merged onto a shared texture atlas; two simplified LODs added; textures downscaled and WebP-encoded; geometry meshopt-compressed"
+  },
+  "taxi75": {
+   "file": "taxi75.glb",
+   "title": "Canyon '75 Taxi - Low poly model",
+   "creator": "Daniel Zhabotinsky",
+   "licence": "CC-BY-4.0",
+   "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+   "source": "https://sketchfab.com/3d-models/9e8f92a215784f3d8aaaaeab1bef54c4",
+   "sourceUid": "9e8f92a215784f3d8aaaaeab1bef54c4",
+   "downloaded": "2026-11-14",
+   "sourceFile": "gm-car-canyon-75-taxi.glb",
+   "sourceSha256": "bb2499931253c6e99158a3df3a05d36ea07ae897ba36798fdcadaa384ad84f5f",
+   "sourceBytes": 12428824,
+   "part": null,
+   "sha256": "a6cf6824e9fc4df633c82fe70e70beba38df68278892b0814f68a549a2f06f4a",
+   "bytes": 274252,
+   "tris": {
+    "lod0": 13932,
+    "body": 10286,
+    "bodyModelled": 16275,
+    "glass": 198,
+    "wheel": 862,
+    "wheelR": 0,
+    "lod1": 4000,
+    "lod2": 1045,
+    "source": 20029,
+    "dropped": 68,
+    "plateLetters": 40
+   },
+   "changes": "badges and their atlas removed; number-plate characters removed (blank plates); tyre sidewall lettering removed; re-oriented and re-centred to the engine frame; parts merged onto a shared texture atlas; two simplified LODs added; textures downscaled and WebP-encoded; geometry meshopt-compressed"
+  },
+  "police90": {
+   "file": "police90.glb",
+   "title": "Illinois '90 Police cruiser - Low poly model",
+   "creator": "Daniel Zhabotinsky",
+   "licence": "CC-BY-4.0",
+   "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+   "source": "https://sketchfab.com/3d-models/dc81625478a744649b210c7f248b0b6a",
+   "sourceUid": "dc81625478a744649b210c7f248b0b6a",
+   "downloaded": "2026-11-14",
+   "sourceFile": "gm-car-illinois-90-police.glb",
+   "sourceSha256": "5a1864ccb7471b899859bbed7f192f26bf2a6f89f7ae78212157df65be9fb6fb",
+   "sourceBytes": 11743960,
+   "part": null,
+   "sha256": "36305dfc2337b51e1c90732f2aef9bf21ec4f3ae38abd391434e607193847b81",
+   "bytes": 268824,
+   "tris": {
+    "lod0": 13365,
+    "body": 9739,
+    "bodyModelled": 15966,
+    "glass": 382,
+    "wheel": 811,
+    "wheelR": 0,
+    "lod1": 3999,
+    "lod2": 829,
+    "source": 19674,
+    "dropped": 42,
+    "plateLetters": 40
+   },
+   "changes": "badges and their atlas removed; number-plate characters removed (blank plates); tyre sidewall lettering removed; re-oriented and re-centred to the engine frame; parts merged onto a shared texture atlas; two simplified LODs added; textures downscaled and WebP-encoded; geometry meshopt-compressed"
+  },
+  "box95": {
+   "file": "box95.glb",
+   "title": "LCT 3000 '95 - Low poly model",
+   "creator": "Daniel Zhabotinsky",
+   "licence": "CC-BY-4.0",
+   "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+   "source": "https://sketchfab.com/3d-models/663a0953c038434a918cb85725c88ffa",
+   "sourceUid": "663a0953c038434a918cb85725c88ffa",
+   "downloaded": "2026-11-14",
+   "sourceFile": "gm-car-lct-3000-95.glb",
+   "sourceSha256": "df7b96fe65a4119cf2b71fdd59cd9e06d7ff98d95747ed94cce4695e65f3eb43",
+   "sourceBytes": 11483568,
+   "part": null,
+   "sha256": "589ab6659ed8cfec829945cff150f6f1ca3fceae8d4bdcb3360f3ed5f96b94f8",
+   "bytes": 253640,
+   "tris": {
+    "lod0": 13028,
+    "body": 8882,
+    "bodyModelled": 14683,
+    "glass": 434,
+    "wheel": 826,
+    "wheelR": 1030,
+    "lod1": 4000,
+    "lod2": 719,
+    "source": 18939,
+    "dropped": 70,
+    "plateLetters": 40
+   },
+   "changes": "badges and their atlas removed; number-plate characters removed (blank plates); tyre sidewall lettering removed; re-oriented and re-centred to the engine frame; parts merged onto a shared texture atlas; two simplified LODs added; textures downscaled and WebP-encoded; geometry meshopt-compressed"
+  },
+  "bus": {
+   "file": "bus.glb",
+   "title": "Generic civil service vehicles pack",
+   "creator": "Comrade1280",
+   "licence": "CC-BY-4.0",
+   "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+   "source": "https://sketchfab.com/3d-models/8ff2a13f30914932a70c7950cfa58465",
+   "sourceUid": "8ff2a13f30914932a70c7950cfa58465",
+   "downloaded": "2026-11-14",
+   "sourceFile": "gm-car-c1280-civil-pack.glb",
+   "sourceSha256": "b846400afc2e1fab96dada90ef359ba47439fc34c745f9ed24815f7502c1f752",
+   "sourceBytes": 55961824,
+   "part": "citybus",
+   "sha256": "101cb5e037ed5792721541be56e66b729b3990d5382128031fdc26ad36c9874e",
+   "bytes": 236904,
+   "tris": {
+    "lod0": 9062,
+    "body": 6430,
+    "glass": 152,
+    "optics": 162,
+    "decal": 14,
+    "wheel": 432,
+    "wheels": 4,
+    "lod1": 3614,
+    "lod2": 611
+   },
+   "changes": "split from the pack; wheels split from the body by geometry; re-oriented and re-centred to the engine frame; textures downscaled (normal maps dropped) and WebP-encoded; lamps tagged; two simplified LODs added; geometry meshopt-compressed"
+  },
+  "schoolbus": {
+   "file": "schoolbus.glb",
+   "title": "Generic civil service vehicles pack",
+   "creator": "Comrade1280",
+   "licence": "CC-BY-4.0",
+   "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+   "source": "https://sketchfab.com/3d-models/8ff2a13f30914932a70c7950cfa58465",
+   "sourceUid": "8ff2a13f30914932a70c7950cfa58465",
+   "downloaded": "2026-11-14",
+   "sourceFile": "gm-car-c1280-civil-pack.glb",
+   "sourceSha256": "b846400afc2e1fab96dada90ef359ba47439fc34c745f9ed24815f7502c1f752",
+   "sourceBytes": 55961824,
+   "part": "school_bus",
+   "sha256": "2cb548d25d9db2eac0b07c6fa8f67f63cb8ea4d003b953d355f987e8240c1487",
+   "bytes": 241164,
+   "tris": {
+    "lod0": 11472,
+    "body": 8224,
+    "glass": 98,
+    "optics": 610,
+    "decal": 44,
+    "wheel": 528,
+    "wheels": 4,
+    "lod1": 3594,
+    "lod2": 639
+   },
+   "changes": "split from the pack; wheels split from the body by geometry; re-oriented and re-centred to the engine frame; textures downscaled (normal maps dropped) and WebP-encoded; lamps tagged; two simplified LODs added; geometry meshopt-compressed"
+  },
+  "ambulance": {
+   "file": "ambulance.glb",
+   "title": "Generic civil service vehicles pack",
+   "creator": "Comrade1280",
+   "licence": "CC-BY-4.0",
+   "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+   "source": "https://sketchfab.com/3d-models/8ff2a13f30914932a70c7950cfa58465",
+   "sourceUid": "8ff2a13f30914932a70c7950cfa58465",
+   "downloaded": "2026-11-14",
+   "sourceFile": "gm-car-c1280-civil-pack.glb",
+   "sourceSha256": "b846400afc2e1fab96dada90ef359ba47439fc34c745f9ed24815f7502c1f752",
+   "sourceBytes": 55961824,
+   "part": "ambulance",
+   "sha256": "844ed61c9dad3515d2d5c776f98921baa95c562b30dab6413e3027979abc8d0e",
+   "bytes": 233584,
+   "tris": {
+    "lod0": 9404,
+    "body": 6220,
+    "glass": 70,
+    "optics": 662,
+    "decal": 52,
+    "wheel": 480,
+    "wheels": 4,
+    "lod1": 3553,
+    "lod2": 616
+   },
+   "changes": "split from the pack; wheels split from the body by geometry; re-oriented and re-centred to the engine frame; textures downscaled (normal maps dropped) and WebP-encoded; lamps tagged; two simplified LODs added; geometry meshopt-compressed"
+  },
+  "firetruck": {
+   "file": "firetruck.glb",
+   "title": "Generic civil service vehicles pack",
+   "creator": "Comrade1280",
+   "licence": "CC-BY-4.0",
+   "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+   "source": "https://sketchfab.com/3d-models/8ff2a13f30914932a70c7950cfa58465",
+   "sourceUid": "8ff2a13f30914932a70c7950cfa58465",
+   "downloaded": "2026-11-14",
+   "sourceFile": "gm-car-c1280-civil-pack.glb",
+   "sourceSha256": "b846400afc2e1fab96dada90ef359ba47439fc34c745f9ed24815f7502c1f752",
+   "sourceBytes": 55961824,
+   "part": "fire_truck",
+   "sha256": "68bf67f6e34cd51f88c1688c6a7409b6e97a6bdefac35bd748d3013de1521212",
+   "bytes": 268452,
+   "tris": {
+    "lod0": 12110,
+    "body": 9066,
+    "glass": 276,
+    "optics": 436,
+    "decal": 28,
+    "wheel": 432,
+    "wheels": 4,
+    "lod1": 3549,
+    "lod2": 603
+   },
+   "changes": "split from the pack; wheels split from the body by geometry; re-oriented and re-centred to the engine frame; textures downscaled (normal maps dropped) and WebP-encoded; lamps tagged; two simplified LODs added; geometry meshopt-compressed"
+  },
+  "garbage": {
+   "file": "garbage.glb",
+   "title": "Generic civil service vehicles pack",
+   "creator": "Comrade1280",
+   "licence": "CC-BY-4.0",
+   "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+   "source": "https://sketchfab.com/3d-models/8ff2a13f30914932a70c7950cfa58465",
+   "sourceUid": "8ff2a13f30914932a70c7950cfa58465",
+   "downloaded": "2026-11-14",
+   "sourceFile": "gm-car-c1280-civil-pack.glb",
+   "sourceSha256": "b846400afc2e1fab96dada90ef359ba47439fc34c745f9ed24815f7502c1f752",
+   "sourceBytes": 55961824,
+   "part": "garbage_truck",
+   "sha256": "e4b90372e109afd744fd8a2c861d54b34098a3f438e9904127cf6b8205e992e6",
+   "bytes": 253480,
+   "tris": {
+    "lod0": 12747,
+    "body": 8411,
+    "glass": 58,
+    "optics": 418,
+    "decal": 0,
+    "wheel": 500,
+    "wheels": 6,
+    "lod1": 3531,
+    "lod2": 669
+   },
+   "changes": "split from the pack; wheels split from the body by geometry; re-oriented and re-centred to the engine frame; textures downscaled (normal maps dropped) and WebP-encoded; lamps tagged; two simplified LODs added; geometry meshopt-compressed"
+  },
+  "mailvan": {
+   "file": "mailvan.glb",
+   "title": "Generic civil service vehicles pack",
+   "creator": "Comrade1280",
+   "licence": "CC-BY-4.0",
+   "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+   "source": "https://sketchfab.com/3d-models/8ff2a13f30914932a70c7950cfa58465",
+   "sourceUid": "8ff2a13f30914932a70c7950cfa58465",
+   "downloaded": "2026-11-14",
+   "sourceFile": "gm-car-c1280-civil-pack.glb",
+   "sourceSha256": "b846400afc2e1fab96dada90ef359ba47439fc34c745f9ed24815f7502c1f752",
+   "sourceBytes": 55961824,
+   "part": "postvan",
+   "sha256": "07631229bccca1d3d85ab1dbecd8f6768f8a67a1b0d8f22e703f0a95387c12fa",
+   "bytes": 164416,
+   "tris": {
+    "lod0": 6031,
+    "body": 3853,
+    "glass": 64,
+    "optics": 170,
+    "decal": 24,
+    "wheel": 480,
+    "wheels": 4,
+    "lod1": 3564,
+    "lod2": 635
+   },
+   "changes": "split from the pack; wheels split from the body by geometry; re-oriented and re-centred to the engine frame; textures downscaled (normal maps dropped) and WebP-encoded; lamps tagged; two simplified LODs added; geometry meshopt-compressed"
+  },
+  "utility": {
+   "file": "utility.glb",
+   "title": "Generic civil service vehicles pack",
+   "creator": "Comrade1280",
+   "licence": "CC-BY-4.0",
+   "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+   "source": "https://sketchfab.com/3d-models/8ff2a13f30914932a70c7950cfa58465",
+   "sourceUid": "8ff2a13f30914932a70c7950cfa58465",
+   "downloaded": "2026-11-14",
+   "sourceFile": "gm-car-c1280-civil-pack.glb",
+   "sourceSha256": "b846400afc2e1fab96dada90ef359ba47439fc34c745f9ed24815f7502c1f752",
+   "sourceBytes": 55961824,
+   "part": "rdservtruck",
+   "sha256": "46a388dacfdf3b838afe8980b378d559dc2cacc1f2702043fa3da6e3272e1989",
+   "bytes": 214768,
+   "tris": {
+    "lod0": 8216,
+    "body": 5414,
+    "glass": 238,
+    "optics": 252,
+    "decal": 8,
+    "wheel": 432,
+    "wheels": 4,
+    "lod1": 3620,
+    "lod2": 645
+   },
+   "changes": "split from the pack; wheels split from the body by geometry; re-oriented and re-centred to the engine frame; textures downscaled (normal maps dropped) and WebP-encoded; lamps tagged; two simplified LODs added; geometry meshopt-compressed"
+  },
+  "tow": {
+   "file": "tow.glb",
+   "title": "Generic civil service vehicles pack",
+   "creator": "Comrade1280",
+   "licence": "CC-BY-4.0",
+   "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+   "source": "https://sketchfab.com/3d-models/8ff2a13f30914932a70c7950cfa58465",
+   "sourceUid": "8ff2a13f30914932a70c7950cfa58465",
+   "downloaded": "2026-11-14",
+   "sourceFile": "gm-car-c1280-civil-pack.glb",
+   "sourceSha256": "b846400afc2e1fab96dada90ef359ba47439fc34c745f9ed24815f7502c1f752",
+   "sourceBytes": 55961824,
+   "part": "towtruck",
+   "sha256": "a8b740127198c17f5a159e4b5b0777997adf6c5a642bd98ca4372dd7dea81d12",
+   "bytes": 218292,
+   "tris": {
+    "lod0": 7953,
+    "body": 5031,
+    "glass": 186,
+    "optics": 296,
+    "decal": 0,
+    "wheel": 500,
+    "wheels": 4,
+    "lod1": 3611,
+    "lod2": 518
+   },
+   "changes": "split from the pack; wheels split from the body by geometry; re-oriented and re-centred to the engine frame; textures downscaled (normal maps dropped) and WebP-encoded; lamps tagged; two simplified LODs added; geometry meshopt-compressed"
+  },
+  "police20": {
+   "file": "police20.glb",
+   "title": "Generic civil service vehicles pack",
+   "creator": "Comrade1280",
+   "licence": "CC-BY-4.0",
+   "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+   "source": "https://sketchfab.com/3d-models/8ff2a13f30914932a70c7950cfa58465",
+   "sourceUid": "8ff2a13f30914932a70c7950cfa58465",
+   "downloaded": "2026-11-14",
+   "sourceFile": "gm-car-c1280-civil-pack.glb",
+   "sourceSha256": "b846400afc2e1fab96dada90ef359ba47439fc34c745f9ed24815f7502c1f752",
+   "sourceBytes": 55961824,
+   "part": "police_sedan",
+   "sha256": "de9f073e5d29c862c8126393b5cdb9f70a4b6cc2181542ba95e3dcb94bcded39",
+   "bytes": 205596,
+   "tris": {
+    "lod0": 8430,
+    "body": 5456,
+    "glass": 252,
+    "optics": 290,
+    "decal": 120,
+    "wheel": 578,
+    "wheels": 4,
+    "lod1": 3617,
+    "lod2": 624
+   },
+   "changes": "split from the pack; wheels split from the body by geometry; re-oriented and re-centred to the engine frame; textures downscaled (normal maps dropped) and WebP-encoded; lamps tagged; two simplified LODs added; geometry meshopt-compressed"
+  },
+  "taxi20": {
+   "file": "taxi20.glb",
+   "title": "Generic civil service vehicles pack",
+   "creator": "Comrade1280",
+   "licence": "CC-BY-4.0",
+   "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+   "source": "https://sketchfab.com/3d-models/8ff2a13f30914932a70c7950cfa58465",
+   "sourceUid": "8ff2a13f30914932a70c7950cfa58465",
+   "downloaded": "2026-11-14",
+   "sourceFile": "gm-car-c1280-civil-pack.glb",
+   "sourceSha256": "b846400afc2e1fab96dada90ef359ba47439fc34c745f9ed24815f7502c1f752",
+   "sourceBytes": 55961824,
+   "part": "taxi",
+   "sha256": "4260fbe15a840bcbd090ce6dd37e9741817f5532b6ab1047cb96eac4e76c8ba3",
+   "bytes": 186140,
+   "tris": {
+    "lod0": 7282,
+    "body": 4540,
+    "glass": 128,
+    "optics": 282,
+    "decal": 20,
+    "wheel": 578,
+    "wheels": 4,
+    "lod1": 3620,
+    "lod2": 601
+   },
+   "changes": "split from the pack; wheels split from the body by geometry; re-oriented and re-centred to the engine frame; textures downscaled (normal maps dropped) and WebP-encoded; lamps tagged; two simplified LODs added; geometry meshopt-compressed"
+  },
+  "minivan20": {
+   "file": "minivan20.glb",
+   "title": "Generic passenger car pack",
+   "creator": "Comrade1280",
+   "licence": "CC-BY-4.0",
+   "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+   "source": "https://sketchfab.com/3d-models/20f9af9b8a404d5cb022ac6fe87f21f5",
+   "sourceUid": "20f9af9b8a404d5cb022ac6fe87f21f5",
+   "downloaded": "2026-11-14",
+   "sourceFile": "gm-car-c1280-passenger-pack.glb",
+   "sourceSha256": "1d3869f1afa742a1c401850b2e691cc93ce7255ffd1ff25ebcf1250fcba1add0",
+   "sourceBytes": 26701140,
+   "part": "minivan body",
+   "sha256": "fd8b9fb5e7340688be44a57b9a23f4bd7f71adf6d83bfda99a6b9ccf0fddd59d",
+   "bytes": 178636,
+   "tris": {
+    "lod0": 7450,
+    "body": 4601,
+    "glass": 197,
+    "optics": 196,
+    "decal": 0,
+    "wheel": 614,
+    "wheels": 4,
+    "lod1": 3620,
+    "lod2": 563
+   },
+   "changes": "split from the pack; wheels split from the body by geometry; re-oriented and re-centred to the engine frame; textures downscaled (normal maps dropped) and WebP-encoded; lamps tagged; two simplified LODs added; geometry meshopt-compressed"
+  }
+ }
+}

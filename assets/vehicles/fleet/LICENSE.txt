@@ -1,0 +1,9 @@
+The models in this folder (*.glb and the textures beside them) are adaptations of works licensed under the
+Creative Commons Attribution 4.0 International License (CC BY 4.0):
+https://creativecommons.org/licenses/by/4.0/  (legal code: https://creativecommons.org/licenses/by/4.0/legalcode)
+
+Each adaptation is shared under the same licence, CC BY 4.0. They are NOT covered by the MIT License in the
+repository's LICENSE. Who made each original, where it came from and what was changed: CREDITS.md and fleet.json
+in this folder. No warranties are given. The licence covers the modellers' copyright only: the cars are look-alikes
+with invented names and no maker's badge, crest, name or lettering, and nothing here claims any connection with any
+car maker or any other trademark.

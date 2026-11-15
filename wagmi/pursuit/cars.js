@@ -58,7 +58,24 @@ function policeGeo(spec) {
   return (cache.geo[key] = g);
 }
 
+// (a Hometown town's cruiser: the town fleet's ready-made police car (cities/sf/js/fleet-models.js, CC BY 4.0), its
+// plain POLICE livery and its bar flashing, once its model has loaded (the town's own traffic loads it); the lofted
+// cruiser otherwise. Its wheels' spin groups are the rims the chase turns)
+function fleetCruiser(i) {
+  const F = globalThis.window?.NYC?.CITY === 'pkg' ? globalThis.window.NYC.Fleet : null;
+  const model = F && ((i % 2 && F.get('police20')) || F.get('police90'));
+  if (!model) return null;
+  const group = new THREE.Group(); group.name = `wagmi-chase-police-${i}`;
+  const tilt = new THREE.Group(); group.add(tilt);
+  const car = F.buildCar(model, {});
+  car.setState(0, 0, 0, 1);
+  for (const part of [...car.group.children]) tilt.add(part);
+  const m = model.meta;
+  return { group, tilt, rims: car.wheels.map((w) => w.spin), hw: m.hw * 0.95, hl: Math.max(m.zF, -m.zR), roof: m.height, kind: 'police', mass: 1.7, wheelR: m.wheels.front.r, fleet: model.id };
+}
+
 export function buildChaseCar(kind = 'suits', i = 0) {
+  if (kind === 'police') { try { const f = fleetCruiser(i); if (f) return f; } catch (err) { console.warn('[fleet] cruiser', err); } }
   const C = shared(), N = C.N, police = kind === 'police';
   const group = new THREE.Group(); group.name = `wagmi-chase-${kind}-${i}`;
   const tilt = new THREE.Group(); group.add(tilt);
