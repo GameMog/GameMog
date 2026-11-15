@@ -1,0 +1,45 @@
+// Mog City, Hometown: the car a story's creator picked for its hero (GameMog's Create, the optional Car dropdown, 14 Nov:
+// the owner, "car selection an optional dropdown menu when creating a story world"). GameMog's Story Kit writes the pick
+// as the pack's heroCar and the runner world's fleetCar, by a generic name (GameMog storykit/pack/hero-cars.mjs); here
+// each name is one of the town fleet's ready-made, player-drivable models (cities/sf/js/fleet-data.js, CC BY 4.0,
+// assets/vehicles/fleet/CREDITS.md). No three.js here (tests/fleet-picks.test.mjs reads it in node).
+//   FLEET_PICKS                       name -> model id, sports cars first
+//   fleetPickOf(name)                 the model id of a known name, or null (an unknown name plays as if none was picked)
+//   pickedFleetSheet(name, o)         the hero car's sheet for a picked car: the model's own tuned sheet (wagmi/jack-sheets.js
+//                                     MODEL_SHEETS, so it drives as that model does) wearing it (fleet: id), with the story's
+//                                     own name for its car and its paint when the story's sheet gives them; null when the
+//                                     name is unknown or the model is not in the fleet
+// A story that names a car of its own and has a pick drives the picked model (the cars9 gap: such a story kept the
+// procedural car); with no pick, a story's own car and the town's default sports car are as before (wagmi/game.js).
+export const FLEET_PICKS = Object.freeze({
+  'gt-coupe': 'gt83',
+  'muscle-car': 'muscle69',
+  roadster: 'roadster00',
+  'sports-car': 'turbo81',
+  'sports-coupe': 'sport99',
+  supercar: 'gt95',
+  sedan: 'sedan10',
+  'old-sedan': 'sedan80',
+  hatchback: 'hatch11',
+  'city-car': 'city07',
+  suv: 'suv10',
+  minivan: 'minivan20',
+  pickup: 'pickup89',
+  van: 'van92',
+});
+
+export const fleetPickOf = (name) => (typeof name === 'string' && Object.prototype.hasOwnProperty.call(FLEET_PICKS, name) ? FLEET_PICKS[name] : null);
+
+const COLOUR = /^#[0-9A-Fa-f]{6}$/;
+// o: { models: FLEET_DATA.models, sheets: MODEL_SHEETS, story: the story's own sheet (PACK.sheetCar) or null,
+//      paint: a fallback paint (#rrggbb), label: the fallback name ('Your car') }
+export function pickedFleetSheet(name, o = {}) {
+  const id = fleetPickOf(name);
+  if (!id || !o.models || !o.models[id] || !o.sheets || !o.sheets[id]) return null;
+  const { say, ...base } = o.sheets[id];
+  const story = o.story && typeof o.story === 'object' ? o.story : null;
+  const storyPaint = story && story.paint && COLOUR.test(story.paint.base || '') ? story.paint.base : null;
+  const paint = storyPaint || (COLOUR.test(o.paint || '') ? o.paint : null) || o.models[id].paint || '#B3121A';
+  const label = story && typeof story.label === 'string' && story.label.trim() ? story.label.trim().slice(0, 40) : (o.label || base.label);
+  return { v: 1, id: 'fleet-pick-' + id, family: 'car4', ...base, label, fleet: id, paint: { base: paint, finish: (story && story.paint && story.paint.finish) || 'metallic' } };
+}
