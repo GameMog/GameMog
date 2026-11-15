@@ -987,6 +987,10 @@ const RELEVEL_STEP = 10;
 // LOW_CUTOFF is behind the buildings anyway
 const MAX_DIST = [3000, 1600, 950];
 const LOW_CUTOFF = 1150;
+// (stage 0) A field built with { tierLod }: on the Low graphics (a phone's, ?gfx=phone) and Medium ones its full and coarse
+// levels come this much nearer (a Hometown town's OSM trees, thousands downtown, at full detail cost a phone ~1.5 M
+// triangles); High keeps them. Read live from window.NYC.quality.tier, so Auto's pick after the first 3 s applies too
+const TIER_LOD = { low: 0.5, medium: 0.75, high: 1 };
 
 function hashPos(x, y, z) {
   const s = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453;
@@ -998,7 +1002,7 @@ function hashPos(x, y, z) {
  * tree's level of detail up to date from the camera of every view pass (scene.onBeforeRender). Returns
  * { group, material, atlas, update(cameraPosition) }.
  */
-function createTreeField(scene, sites) {
+function createTreeField(scene, sites, opts = {}) {
   const group = new THREE.Group();
   group.name = 'Trees';
   const atlas = createLeafAtlas();
@@ -1124,12 +1128,16 @@ function createTreeField(scene, sites) {
   // Levels from the camera position (3D distance to mid-crown), with hysteresis at every boundary
   const last = new V3(Infinity, Infinity, Infinity);
   const cam = new V3();
+  let lodScale = 1;
   function update(position) {
     cam.copy(position);
     const T = window.NYC.Terrain;
     const above = cam.y - (T && T.loaded ? T.groundAt(cam.x, cam.z) : 0);
     const step = Math.max(RELEVEL_STEP, above * 0.2); // (from the air the levels change slowly)
-    if (cam.distanceToSquared(last) < step * step) return false;
+    const q = window.NYC.quality;
+    const scale = (opts.tierLod && q && TIER_LOD[q.tier]) || 1;
+    if (scale === lodScale && cam.distanceToSquared(last) < step * step) return false;
+    lodScale = scale;
     last.copy(cam);
     const low = cam.y < 40;
     let changed = false;
@@ -1141,7 +1149,7 @@ function createTreeField(scene, sites) {
       const maxD = low ? Math.min(MAX_DIST[tier[i]], LOW_CUTOFF) : MAX_DIST[tier[i]];
       // levels 0-2, 3 = hidden; next to a boundary a tree keeps the level it has
       const curL = lod[i] === 255 ? 3 : lod[i];
-      const near = nearOf[i], mid = midOf[i];
+      const near = nearOf[i] * lodScale, mid = midOf[i] * lodScale;
       let nextL = d < near ? 0 : d < mid ? 1 : d < maxD ? 2 : 3;
       if (Math.abs(nextL - curL) === 1) {
         const edge = [near, mid, maxD][Math.min(nextL, curL)];

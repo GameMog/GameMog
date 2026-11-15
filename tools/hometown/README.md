@@ -310,8 +310,8 @@ What OSM maps and Overture carries, read where it is tagged; where it is not, th
 - **Part roofs** (`compile.part_roof`): a part tagged gabled / hipped / pyramidal / dome / round / mansard ... gets
   `roofShape` and its rise: `roof_height` (at most 60% of the part) or 0.38 of its short half-span (0.75 to 9 m);
   `roof` is its eave, `peak` its top (Overture's height is the top; a height from the floors has the roof put on it).
-  The engine draws `dome` as a low-poly dome (8 x 3 facets and a cap, 48 triangles) and `round` as a barrel vault;
-  both were hipped / gabled before.
+  The engine draws `dome` as a low-poly dome (8 x 3 facets to the apex, 40 triangles, on a flat roof a shade darker
+  than the roof's colour) and `round` as a barrel vault; both were hipped / gabled before.
 - **Junction control** (`World.junction_data`): an OSM `traffic_signals` node within 15 m of a junction of 3 or more
   drive approaches and within 3 m of one of them signals it (control 1); else `stop` / `give_way` nodes within 25 m
   on an approach (nearer this end of the piece than its other) mark those approaches: all of them an all-way stop
@@ -322,19 +322,23 @@ What OSM maps and Overture carries, read where it is tagged; where it is not, th
   `bench` (3) nodes off the footprints, and `crossing` nodes on a drive piece (2 m) more than 12 m from its ends
   (5: a mid-block crosswalk); owned by the tile their cm point is in, at most 600 a tile. `assemble.py` writes them to
   `GEO.streetProps` `[x, z, kind, ...]` (an older assembler or engine ignores both). The engine
-  (`sf-street-details.js`) stands the lamps and hydrants on the sidewalk (its drawn lamps keep 20 m off a mapped one,
-  its junction hydrants 80 m), benches as one instanced mesh (36 triangles each), and `road-paint.js` paints a zebra
-  across the road at each crossing clear of the junctions' markings.
+  (`sf-street-details.js`) stands the lamps and hydrants on the sidewalk (its drawn lamps keep 20 m off a mapped one;
+  a junction with a mapped hydrant within 35 m has that one instead of its own), benches as one instanced mesh (36
+  triangles each, breakable: they fly as New York's plaza benches do), and `road-paint.js` paints a zebra across the
+  road at each crossing clear of the junctions' markings, its lane and centre lines cut 0.5 m either side of it.
+  (The engine also sets every stop bar 1 m behind its crosswalk.)
 - **Data trees**: OSM `natural=tree` nodes and `tree_row` ways (one every 8 m) in the trees section, off buildings,
   decks, the roadway, lots and water, the climate's species by hash, at most 500 a tile; no lattice tree within 6 m of
-  one. Same section and format.
+  one. Same section and format. On phones the engine brings the town's tree levels nearer (`trees.js TIER_LOD`: the
+  Low graphics, `?gfx=phone`, full detail within 52 m and coarse within 210 m; Medium 0.75 of High's), so the extra
+  trees cost a phone 4 to 9% more triangles at street level instead of High's 45 to 62%.
 - `building:levels` was already read (`num_floors`: the height where `height` is missing), and so was `roof_shape` on
   whole buildings. Not read yet: `roof_direction` / `roof_orientation` (fetched; 3% of NYC's parts), `min_floor`.
 
 **Releasing it (r13).** Stored worlds pin their buildId: 0.12.0's tiles, frames and bundles stay in the store and are
 served as before, and the new engine plays them (every new field is optional: no `streetProps`, 0 colours, no part
 roof shape is 0.12.0's look). Order: (1) the engine files (`cities/sf/js/sf-street-details.js`, `road-paint.js`,
-`cities/pkg/js/pkg-buildings.js`, `index.html` stamps `20261116-r13`) to `mogcity` first; (2) this compiler to
+`trees.js`, `cities/pkg/js/pkg-buildings.js`, `index.html` stamps `20261116-r13`) to `mogcity` first; (2) this compiler to
 `hometown-compiler`; (3) GameMog's `deploy/town-builder/workflow-build.sh` MOGCITY_SHA re-pinned to it. No new env var
 or secret. The builder's cached regions are refused once each and top up their two building extras files (one small
 S3 read per layer); every town then rebuilds cold under the new buildId on its first visit, which counts against

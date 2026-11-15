@@ -79,11 +79,18 @@ function buildRoadPaint(scene, network) {
   // Edges run between stop lines; s is measured from the start one and o to the right of the centre line
   const at = (e, s, o) => [e.sx + e.dx * s + e.rx * o, e.sz + e.dz * s + e.rz * o];
   // (a Hometown package: between its junctions' markings, planJunctions)
+  // (stage 0: a mid-block crosswalk cuts the lines along its road, plan.gaps)
   const along = (e, o, w, col, period, duty) => {
     const [s0, s1] = (plan && plan.lines.get(e)) || [0.9, e.len - 0.9];
     if (s1 - s0 < 1) return;
     owner = e; kind = col === YELLOW ? 'yellow' : col === GREEN ? 'bike' : period > 1 ? 'dash' : 'line';
-    strip(...at(e, s0, o), ...at(e, s1, o), w, col, period, duty);
+    let a = s0;
+    for (const [g0, g1] of (plan && plan.gaps.get(e)) || []) {
+      if (g1 <= a || g0 >= s1) continue;
+      if (g0 - a >= 1) strip(...at(e, a, o), ...at(e, g0, o), w, col, period, duty);
+      a = Math.max(a, g1);
+    }
+    if (s1 - a >= 1) strip(...at(e, a, o), ...at(e, s1, o), w, col, period, duty);
     kind = 'other'; owner = null;
   };
   const across = (e, s, o0, o1, w, col, period, duty) => { owner = e; kind = period > 1 ? 'crosswalk' : 'stopbar'; strip(...at(e, s, o0), ...at(e, s, o1), w, col, period, duty); kind = 'other'; owner = null; };
@@ -250,7 +257,7 @@ function buildRoadPaint(scene, network) {
       if (placed.some((x) => overlaps(end.xw.q, x.xw.q))) { end.xw = null; stats.onAnother++; }
       else placed.push(end);
     }
-    const lines = new Map(), bars = new Map(), crosswalks = [];
+    const lines = new Map(), bars = new Map(), crosswalks = [], gaps = new Map();
     const barQuads = [];
     for (const end of ends) {
       const { e, back, node } = end;
@@ -261,7 +268,7 @@ function buildRoadPaint(scene, network) {
       if (f && (node.signal || f.stop)) {
         const left = back ? Math.max(0, f.lanes[0] - 1.8) : -f.half;
         const fb = f.span - f.len - b0(f);
-        let D = end.xw ? Math.max(end.xw.D + 1.6, fb + 0.35) : firstClear(f, node, fb + 0.35, end.Dmax + 1.6, left, f.half);
+        let D = end.xw ? Math.max(end.xw.D + W / 2 + 1.25, fb + 0.35) : firstClear(f, node, fb + 0.35, end.Dmax + 1.6, left, f.half);
         if (D !== null) {
           const s = sAt(f, node, D), q = quad(f, s, left + 0.1, f.half - 0.1, 0.45);
           if (placed.some((x) => x.rk !== end.rk && overlaps(q, x.xw.q)) || barQuads.some((x) => x.rk !== end.rk && overlaps(q, x.q))) D = null;
@@ -307,9 +314,17 @@ function buildRoadPaint(scene, network) {
       placed.push({ xw: { q } });
       crosswalks.push([f, s, l, r]);
       stats.midBlock++;
+      // (the lane and centre lines of its road, both ways, stop 0.5 m short of it either side)
+      const [cx, cz] = at(f, s, 0);
+      for (const g of roads.get(roadKey(f)) || [f]) {
+        const sg = (cx - g.sx) * g.dx + (cz - g.sz) * g.dz;
+        if (!gaps.has(g)) gaps.set(g, []);
+        gaps.get(g).push([sg - W / 2 - 0.5, sg + W / 2 + 0.5]);
+      }
     }
+    for (const list of gaps.values()) list.sort((p, q) => p[0] - q[0]);
     stats.crosswalks = crosswalks.length;
-    return { lines, crosswalks, bars, stats };
+    return { lines, crosswalks, bars, gaps, stats };
   }
 
   for (const [e, back] of roads.values()) {

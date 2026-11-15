@@ -137,6 +137,9 @@ const SURFACE = { brick: 0, stucco: 1, siding: 2, clapboard: 2, wood: 2, stone: 
 const ROOF_TAG = { gabled: 'gabled', hipped: 'hipped', half_hipped: 'half_hipped', gambrel: 'gambrel', mansard: 'mansard', pyramidal: 'pyramidal',
   skillion: 'skillion', saltbox: 'saltbox', dome: 'dome', round: 'round', sawtooth: 'skillion', flat: 'flat' };
 
+// a colour (0xRRGGBB) times k, each channel
+const shade = (hex, k) => (Math.round(((hex >> 16) & 255) * k) << 16) | (Math.round(((hex >> 8) & 255) * k) << 8) | Math.round((hex & 255) * k);
+
 function pickW(list, h) {
   let t = 0;
   for (const e of list) t += e[1];
@@ -237,7 +240,7 @@ function createPkgBuilder() {
     const o = Math.min(0.45, S * 0.15); // eave overhang
     const top = y + rise;
     if (shape === 'dome') {
-      // (stage 0) a low-poly dome on the mass's inscribed ellipse: 8 segments x 3 rings and a cap, 48 triangles, its
+      // (stage 0) a low-poly dome on the mass's inscribed ellipse: 8 segments x 3 rings to the apex, 40 triangles, its
       // drum's ring a hair outside the walls
       const SEG = 8, RINGS = 3, a0 = L * 1.02, b0 = S * 1.02;
       const ring = (k) => {
@@ -257,8 +260,8 @@ function createPkgBuilder() {
       }
       const apex = P(0, 0, top);
       for (let j = 0; j < SEG; j++) tri(lo[j], lo[(j + 1) % SEG], apex, roofHex);
-      // (the flat roof round the dome, the corners the ellipse leaves)
-      quad(P(-L, -S, y), P(L, -S, y), P(L, S, y), P(-L, S, y), wallHex);
+      // (the flat roof round the dome, the corners the ellipse leaves: the roof's colour, a shade darker)
+      quad(P(-L, -S, y), P(L, -S, y), P(L, S, y), P(-L, S, y), shade(roofHex, 0.82));
       stats.domes = (stats.domes || 0) + 1;
       return;
     }

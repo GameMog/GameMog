@@ -174,9 +174,10 @@ function buildSFStreetDetails(scene, network, buildingColliders = []) {
     }
   }
 
-  // 4. A hydrant on a corner of every junction (the first approach's right-hand corner, set back from it); where the
-  // town maps its own (below), none within HYDRANT_CLEAR m of one (OSM's hydrants are mapped street by street)
-  const HYDRANT_CLEAR = 80;
+  // 4. A hydrant on a corner of every junction (the first approach's right-hand corner, set back from it); a junction
+  // with one of the town's own (below) within HYDRANT_CLEAR m has that one instead (a town that maps a few keeps the
+  // rest of its junctions' own)
+  const HYDRANT_CLEAR = 35;
   const nearDataHydrant = (x, z) => dataHydrants.some(([px, pz]) => Math.abs(px - x) < HYDRANT_CLEAR && Math.abs(pz - z) < HYDRANT_CLEAR && Math.hypot(px - x, pz - z) < HYDRANT_CLEAR);
   for (const n of network.nodes) {
     if (dataHydrants.length && nearDataHydrant(n.x, n.z)) continue;
@@ -436,7 +437,7 @@ function buildSFStreetDetails(scene, network, buildingColliders = []) {
     const r = Math.abs(Math.sin(x * 12.9898 + z * 78.233) * 43758.5453) % 1;
     sites.push({ x, y: groundAt(x, z) + CURB_H, z, scale: s, species: SPECIES_OF[cls] ?? 2, yaw: r * Math.PI * 2, tier: 1 });
   }
-  const treeField = sites.length && window.NYC.createTreeField ? window.NYC.createTreeField(scene, sites) : null;
+  const treeField = sites.length && window.NYC.createTreeField ? window.NYC.createTreeField(scene, sites, { tierLod: document.documentElement.dataset.city === 'pkg' }) : null;
   if (treeField) group.add(treeField.group);
 
   // Meshes: one instanced mesh per part
@@ -556,6 +557,11 @@ function buildSFStreetDetails(scene, network, buildingColliders = []) {
     mats.hydrant.forEach((m, k) => {
       const [x, z] = at(m);
       breakables.push({ kind: 'hydrant', x, y: foot(x, z), z, r: 0.26, parts: parts([inst.hydrant, k]) });
+    });
+    // (stage 0: OSM's benches fly, as New York's plaza benches do: a box turned with them)
+    if (inst.bench) benches.forEach((m, k) => {
+      const e = m.elements;
+      breakables.push({ kind: 'bench', x: e[12], y: e[13], z: e[14], r: 0.3, w: 1.75, d: 0.5, yaw: Math.atan2(e[8], e[10]), parts: [[inst.bench, k]] });
     });
     mats.meterPost.forEach((m, k) => {
       const [x, z] = at(m);
