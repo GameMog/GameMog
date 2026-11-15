@@ -264,7 +264,7 @@ nothing and ends; empty or `0` builds). Optional: `HOMETOWN_RUN_CAP_S` (7200), `
 
 Workflows build on the native runtime only (`runtime: python`; no Dockerfile). The buildCommand installs the Render SDK
 (`workflow-requirements.txt`) and runs `workflow-build.sh`, which writes `.town-builder/`:
-- **the compiler at `MOGCITY_SHA`** (THE one line to re-pin; now `7f68d4e052703808467a775ee560d726c35b004b`, compiler
+- **the compiler at `MOGCITY_SHA`** (THE one line to re-pin; now `b9dbc9dae565bbb756d92583f6cb41ff08ceda9e`, compiler
   0.12.0), fetched by SHA from github.com/GameMog/GameMog; when a SHA alone cannot be fetched, the branch
   `HOMETOWN_MOGCITY_REF` (default `hometown-compiler`) and then the SHA inside it;
 - its packages from the compiler's own hash lock (`--require-hashes`, wheels only) in their own venv;
@@ -385,9 +385,9 @@ unchanged, so the compiler stays 0.12.0 and the buildId does not change; the pin
 In this order:
 
 1. **Mog City's engine**: push the local MogCity branch `mogcity-release-r11` (parent `6faee4bf` = the live `mogcity`,
-   a fast-forward; the tree of MogCity `r11` `7f68d4e052703808467a775ee560d726c35b004b` without `.scratch`, the live
+   a fast-forward; the tree of MogCity `r11` `b9dbc9dae565bbb756d92583f6cb41ff08ceda9e` without `.scratch`, the live
    README and `CNAME` kept; no live file deleted) to `mogcity`.
-2. **The compiler commit**: push MogCity `r11` (tip `7f68d4e052703808467a775ee560d726c35b004b`) to
+2. **The compiler commit**: push MogCity `r11` (tip `b9dbc9dae565bbb756d92583f6cb41ff08ceda9e`) to
    `hometown-compiler` BEFORE `main` (it descends from the live e8c98e67, a fast-forward).
 3. **Nothing building** on Render, then push GameMog `r10-misc` to `main` (a fast-forward of f81fea8e). The pin changed
    under `deploy/town-builder/**`, so the workflow rebuilds, at the same compiler 0.12.0.

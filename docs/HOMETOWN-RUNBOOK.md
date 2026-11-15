@@ -8,7 +8,7 @@ State of the code (14 Nov 2026; release r6 is live, release r8 is committed and 
 `HOMETOWN_RUNS` workflows, `HOMETOWN_TILES` on, `NEXT_PUBLIC_HOMETOWN_SEARCH` on, `STORYKIT` on,
 `HOMETOWN_DAILY_COLD` 100). `deploy/town-builder/workflow-build.sh` pins MogCity compiler 0.12.0 (re-pinned for release r11, see
 [HOMETOWN-HOSTING.md](HOMETOWN-HOSTING.md#release-r11-compiler-0120-re-pinned)),
-`MOGCITY_SHA=7f68d4e052703808467a775ee560d726c35b004b`, fetched from github.com/GameMog/GameMog (branch
+`MOGCITY_SHA=b9dbc9dae565bbb756d92583f6cb41ff08ceda9e`, fetched from github.com/GameMog/GameMog (branch
 `hometown-compiler`).
 
 ---------------------------------------------------------------------------------------------------------------------
@@ -30,7 +30,7 @@ idle. Idle costs $0.
 
 ## 2. Before the push (prerequisites)
 
-1. **The compiler commit is on GitHub.** Push MogCity `r11` (tip `7f68d4e0...`) to the branch
+1. **The compiler commit is on GitHub.** Push MogCity `r11` (tip `b9dbc9da...`) to the branch
    `hometown-compiler` of GameMog/GameMog. `workflow-build.sh` fetches the SHA by itself (GitHub serves any commit
    reachable from a branch of the public repo) and falls back to fetching that branch.
 2. **The OSM lane table** ships in that commit (`tools/hometown/osm/osm-roads-us.parquet`, 19,372,313 bytes, ODbL, its
