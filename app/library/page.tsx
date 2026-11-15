@@ -62,6 +62,13 @@ export default function Library() {
           recorded at CaixaForum Barcelona) and the GameSoundCon 2024 walla by Shane Vincent (ShangusBurger), both CC0.
           None of these require credit; we give it anyway.
         </p>
+        <p>
+          The cars, vans, trucks and buses of a hometown town (played on Mog City) are realistic models by Daniel
+          Zhabotinsky and Comrade1280 on Sketchfab, licensed CC BY 4.0, adapted with every badge, emblem and
+          maker-like lettering removed. Mog City credits each one on its Credits page and in its{' '}
+          <a href="https://mc.gamemog.com/assets/vehicles/fleet/CREDITS.md">assets/vehicles/fleet/CREDITS.md</a>.
+          They are look-alikes with no connection to any car maker.
+        </p>
         <p className="dim">
           The raw data is not sold or offered for download as a product. It is converted into these
           assets, which exist to run inside GameMog games.
