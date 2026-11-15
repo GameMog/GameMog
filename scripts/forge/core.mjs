@@ -1229,7 +1229,10 @@ async function paintFace(img) {
   // beside the cheek); the lower limit (EY - 6 cm, or the nape's) eased over 1.5 cm, not cut)
   if (CFG.scalp && hairTX.length) {
     const NB = B.get('normal'), lim = CFG.scalp.nape ?? 0.06, minW = CFG.scalp.nape ? 0.15 : 0.4;
-    const V = [...skinV].filter((v) => headW(v) >= minW - 0.1 && bPos[v * 3 + 1] >= EY - lim - 0.02);
+    // (people5 r3: the ears never scalp (a box round them, 6.8 cm out and under EY + 8 mm): a short cut's cards over them took their rims
+    // into the paint, the grandmother's grey-washed ears)
+    const isEar = (v) => Math.abs(bPos[v * 3]) > 0.068 && bPos[v * 3 + 1] < EY + 0.008 && bPos[v * 3 + 1] > EY - 0.06 && bPos[v * 3 + 2] > EZ - 0.115 && bPos[v * 3 + 2] < EZ - 0.055;
+    const V = [...skinV].filter((v) => headW(v) >= minW - 0.1 && bPos[v * 3 + 1] >= EY - lim - 0.02 && !isEar(v));
     const SL = scalpLine({ P: bPos, N: NB, V, T: skinT }, { P: pPosX, T: hairTX }, { R: 0.035 }), inV = new Set(V);
     // (a light head of hair (grey, silver, blond: its middle tone over 90) painted from near its middle, not from its
     // dark roots: the grandmother's silver cards lay on a dark grey band, a step of their own; its light tone was brighter
@@ -1618,6 +1621,9 @@ async function browHeads(img) {
   const { data, info } = await sharp(img).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   for (let y = 0; y < info.height; y++) { const w = (y + 0.5) / info.height, f = fit.find((F) => w >= F.w0 - 0.03 && w <= F.w1 + 0.03); if (!f) continue;
     for (let x = 0; x < info.width; x++) { const t = clamp01(f.a + f.b * (x + 0.5) / info.width), i = (y * info.width + x) * 4; data[i + 3] = Math.round(data[i + 3] * (0.45 + 0.55 * sm(0.0, 0.33, t))); } }
+  // (people5 r3: CFG.browGain, the strokes' alpha raised (an old man's brows): the template's strokes are mostly under 0.4
+  // alpha, so under the cut only a thin core passed and the soft paint under them read as a flat painted line)
+  if (CFG.browGain > 1) for (let i = 3; i < data.length; i += 4) data[i] = Math.min(255, Math.round(data[i] * CFG.browGain));
   return sharp(data, { raw: info }).png().toBuffer();
 }
 // the suit: its dark cloth navy (its own light and folds kept), the shirt's whites kept, the tie a deep burgundy (its
@@ -1909,7 +1915,7 @@ if (CFG.shaved) for (const v of skinV) { const x = Math.abs(bPos[v * 3]), y = bP
   // smudge of paint shows on the forehead below the first row)
   // (people5 r2: under close curls, the paint starts where the coils do (their wandering line), a centimetre's fade
   // under it: the forehead's band and the side's wedge down in front of the ear lay past the coils, a dark painted cap)
-  if (CFG.afro?.curl) { const ph = Math.atan2(bPos[v * 3] - CAPC[0], z - CAPC[2]), cy = afroCut(ph); SCALP[v] = Math.min(1, sm(cy - 0.003, cy + 0.009, y)); continue; }
+  if (CFG.afro?.curl) { const ph = Math.atan2(bPos[v * 3] - CAPC[0], z - CAPC[2]), cy = afroCut(ph); SCALP[v] = Math.min(1, sm(cy - 0.002, cy + 0.016, y + 0.003 * (vnoise(bPos[v * 3] * 400, y * 400, 9) - 0.5))); continue; } // (people5 r3: the paint's fade 1.8 cm and grained, not 1.2: a hard dark line under the curls' hairline)
   if (CFG.boxBraids) { const c = Math.cos(Math.atan2(bPos[v * 3], z - (EZ - 0.088))), bandY = c > 0 ? EY + 0.012 + 0.04 * Math.pow(c, 1.5) : EY + 0.012 - 0.082 * Math.pow(-c, 1.3); a = sm(bandY - 0.002, bandY + 0.006, y); }
   a = Math.max(a, sm(EZ - 0.045, EZ - 0.075, z) * sm(EY - 0.075, EY - 0.04, y));
   a = Math.max(a, sm(0.058, 0.07, x) * sm(EY + 0.0, EY + 0.03, y) * sm(EZ - 0.03, EZ - 0.05, z));
@@ -1918,8 +1924,11 @@ if (CFG.shaved) for (const v of skinV) { const x = Math.abs(bPos[v * 3]), y = bP
   // the horseshoe round the sides and back kept)
   // (people5 r2: the recession a notch at the hairline's corner, most at its height and gone 6 cm above it; it grew upward
   // before (most above EY + 6 cm), so the hair under it was kept and the veteran had a bare island on each temple)
-  if (CFG.shaved.buzz) a *= 1 - 0.75 * sm(EZ - 0.05, EZ - 0.022, z) * sm(0.032, 0.056, x) * (1 - sm(EY + 0.065, EY + 0.09, y));
-  if (CFG.shaved.horseshoe) a *= 1 - sm(EY + (CFG.bald?.crown ?? 0.07) - 0.02, EY + (CFG.bald?.crown ?? 0.07) + 0.005, y + 0.25 * Math.max(0, z - (EZ - 0.09))) * (1 - sm(0.05, 0.068, x));
+  // (people5 r3: the notch shallower (0.45) and eased in over its whole width: at 0.75 it was a skin-coloured patch inside the crop)
+  if (CFG.shaved.buzz) a *= 1 - 0.45 * sm(EZ - 0.06, EZ - 0.02, z) * sm(0.026, 0.058, x) * (1 - sm(EY + 0.055, EY + 0.095, y));
+  // (people5 r3: the horseshoe's top a thinning over 4 cm with a wandering line (+-7 mm), not a 2.5 cm step: the old
+  // boss's crown read as a cut-out tonsure with a straight corner)
+  if (CFG.shaved.horseshoe) { const cr = EY + (CFG.bald?.crown ?? 0.07), wob = (vnoise(bPos[v * 3] * 60 + 5, z * 60, 7) - 0.5) * 0.014; a *= 1 - sm(cr - 0.045, cr + 0.022, y + 0.25 * Math.max(0, z - (EZ - 0.09)) + wob) * (1 - sm(0.046, 0.075, x) * (1 - sm(cr + 0.012, cr + 0.045, y + wob))); } // (and the sides kept only to 1-4 cm over it: they ran to the top as two straight walls, the tonsure's corners)
   // (box braids' parts: the scalp in boxes, a thin line of skin between each braid's square (in angle round the head
   // and by height), so the braids sit on hair-coloured squares, never bare scalp, and read rooted)
   if (CFG.shaved.parts) { const dx = bPos[v * 3] - CAPC[0], dy = y - CAPC[1], dz = z - CAPC[2], ph = Math.atan2(dx, dz), th = Math.atan2(dy, Math.hypot(dx, dz)), st = (u, n) => { const f0 = ((u * n) % 1 + 1) % 1; return 1 - sm(0.06, 0.16, Math.min(f0, 1 - f0)); };
@@ -1940,7 +1949,7 @@ async function paintMask(img, MASK, a0, col, bare = false) {
       // texels between two patches filtered in as a pale line through a shaved scalp (the 'scalp seam'))
       if (x < 0 || y < 0 || x >= S || y >= S) continue; if (l1 < -0.03 || l2 < -0.03 || l3 < -0.03) { const dd = Math.min(l1, l2, l3) * Math.abs(det) / Math.max(...[0, 1, 2].map((k) => Math.hypot(U[(k + 1) % 3][0] - U[(k + 2) % 3][0], U[(k + 1) % 3][1] - U[(k + 2) % 3][1]))); if (dd < -2) continue; }
       const wv = Math.max(0, Math.min(1, l1 * ws[0] + l2 * ws[1] + l3 * ws[2])); if (wv <= 0) continue;
-      const grain = MASK === SCALP && CFG.shaved?.buzz ? (CFG.fuzz?.lift != null ? 0.78 + 0.22 * vnoise(x / 2.2, y / 2.2, 13) : 0.55 + 0.45 * hash(x, y) * hash(x + 3, y >> 1)) : 0.8 + 0.2 * hash(x, y), w = Math.min(1, wv * 1.3) * a0 * grain, pi = y * S + x; if (w > WMAX[pi]) WMAX[pi] = w; } }
+      const grain = MASK === SCALP && CFG.shaved?.buzz ? (CFG.fuzz?.lift != null ? 0.78 + 0.22 * vnoise(x / 2.2, y / 2.2, 13) : 0.55 + 0.45 * hash(x, y) * hash(x + 3, y >> 1)) : 0.8 + 0.2 * hash(x, y), w = (MASK === SCALP && CFG.shaved?.horseshoe ? sm(0.08, 1, wv) : Math.min(1, wv * 1.3)) * a0 * grain, pi = y * S + x; if (w > WMAX[pi]) WMAX[pi] = w; } }
   const lumC = 0.3 * col[0] + 0.59 * col[1] + 0.11 * col[2];
   for (let pi = 0; pi < S * S; pi++) { let w = WMAX[pi]; if (w <= 0) continue; if (bare === 'lift') { w *= sm(0.06, 0.28, (lumC - (0.3 * data[pi * 3] + 0.59 * data[pi * 3 + 1] + 0.11 * data[pi * 3 + 2])) / lumC); if (w <= 0) continue; } for (let ch = 0; ch < 3; ch++) data[pi * 3 + ch] = Math.round(data[pi * 3 + ch] * (1 - w) + col[ch] * w); if (!bare) hairPx(pi, w); }
   return sharp(data, { raw: { width: S, height: S, channels: 3 } }).jpeg({ quality: 92 }).toBuffer();
@@ -1981,7 +1990,7 @@ async function paintBare(img) {
   if (ref[0].length < 5) return img;
   const col = ref.map((a) => a.sort((p, q) => p - q)[a.length >> 1]), BARE = new Float32Array(nB);
   for (const v of skinV) { if (headW(v) < 0.4) continue; const x = bPos[v * 3], y = bPos[v * 3 + 1], z = bPos[v * 3 + 2];
-    BARE[v] = front ? sm(EZ - 0.06, EZ - 0.036, z) * (1 - sm(0.042, 0.058, Math.abs(x))) * sm(EY + 0.02, EY + 0.03, y) * (1 - sm(EY + 0.07, EY + 0.084, y)) : sm(EY + 0.03, EY + 0.05, y) * (1 - sm(0.12, 0.55, SCALP[v])); }
+    BARE[v] = front ? sm(EZ - 0.06, EZ - 0.036, z) * (1 - sm(0.042, 0.058, Math.abs(x))) * sm(EY + 0.02, EY + 0.03, y) * (1 - sm(EY + 0.07, EY + 0.084, y)) : sm(EY + 0.03, EY + 0.05, y) * (1 - sm(0.04, 0.75, SCALP[v])); } // (people5 r3: the crown's bare lift eased over the horseshoe's whole thinning, not cut at 0.12-0.55)
   console.error(front ? 'bare forehead' : 'bare crown', ': forehead colour', col.join(','), ref[0].length, 'points');
   return paintMask(img, BARE, 0.92, col, front ? 'lift' : true);
 }
@@ -2017,7 +2026,7 @@ const HAIRTEX = (CFG.hairStrands && !HAIR_BODY && hairTX.length) ? await (async 
       for (let x = Math.max(0, Math.floor(Math.min(...U.map((u) => u[0]))) - 1); x <= Math.min(S0 - 1, Math.ceil(Math.max(...U.map((u) => u[0]))) + 1); x++) {
         const l1 = ((U[1][1] - U[2][1]) * (x + 0.5 - U[2][0]) + (U[2][0] - U[1][0]) * (y + 0.5 - U[2][1])) / det, l2 = ((U[2][1] - U[0][1]) * (x + 0.5 - U[2][0]) + (U[0][0] - U[2][0]) * (y + 0.5 - U[2][1])) / det, l3 = 1 - l1 - l2;
         if (l1 < -0.04 || l2 < -0.04 || l3 < -0.04) continue; const d = l1 * ds[0] + l2 * ds[1] + l3 * ds[2], i = y * S0 + x; if (!(dmap[i] <= d)) dmap[i] = d; } }
-  const T = cardHairTex(src, S0, S0, CFG.hairRamp, dmap, { fw: H5.fw, d0: H5.d0, hl: H5.hl, normal: H5.normal, seed: H5.seed, contrast: H5.contrast, base: H5.base });
+  const T = cardHairTex(src, S0, S0, CFG.hairRamp, dmap, { fw: H5.fw, d0: H5.d0, hl: H5.hl, normal: H5.normal, seed: H5.seed, contrast: H5.contrast, base: H5.base, clump: H5.clump, broad: H5.broad, align: H5.align });
   console.error('hair strands (H5):', HAIR, S0 + 'px, bare forehead points', bare, 'of', band.length, '; front-edge texels', T.edge);
   return { color: await sharp(T.rgba, { raw: { width: S0, height: S0, channels: 4 } }).png().toBuffer(), normal: await sharp(T.nrm, { raw: { width: S0, height: S0, channels: 3 } }).png().toBuffer() };
 })() : null;
@@ -2548,15 +2557,21 @@ if (CFG.afro) {
   // stacked over another's, so the edge reads as a soft fuzz, not as rays))
   const CP = [], CUV = [], CJI = [], CWT = [], CCO = [], cidx = [];
   const ring = (f, L, out) => { const [PP, UU, JJ, WW, CC, II] = out, base = PP.length / 3, du = L * 0.1373, dv = Math.max(0, L) * 0.0211;
-    for (let j = 0; j <= NT; j++) for (let i = 0; i <= NP; i++) { const ph = (i / NP) * 2 * Math.PI - Math.PI, t0 = thMin(ph), th = t0 + (TH1 - t0) * (j / NT);
+    // (people5 r3: close curls' opaque core starts 0.1 rad (about 9 mm) over the hairline, so the hairline itself is the
+    // fuzz shells' coils over the scalp's paint: the core down to the band was a hard scalloped cut across the forehead)
+    for (let j = 0; j <= NT; j++) for (let i = 0; i <= NP; i++) { const ph = (i / NP) * 2 * Math.PI - Math.PI, t0 = thMin(ph) + (AF.curl && L < 0 ? 0.1 : 0), th = t0 + (TH1 - t0) * (j / NT);
       const dir = P3(ph, th, 1).map((c, k) => c - C[k]), front = Math.max(0, Math.cos(ph)) * sm(-0.1, 0.5, th), edge = AF.curl ? 0.02 + 0.98 * Math.pow(sm(0, 0.8, th - t0), 0.7) : 0.03 + 0.97 * Math.pow(sm(0, 0.55, th - t0), 0.45);
       const clump = 1 + 0.5 * (nz3(dir[0] * 6 + 3, dir[1] * 6, dir[2] * 6 + 7) - 0.5) * 2 + 0.22 * (nz3(dir[0] * 13, dir[1] * 13 + 5, dir[2] * 13) - 0.5) * 2;
       const T = size * (1 - (1 - (AF.frontK ?? 0.55)) * front) * edge * clump, r = rHead(ph, th) + 0.0025 + T * f;
       PP.push(...P3(ph, th, r)); UU.push(i / NP + du, j / NT * 0.27 + dv); JJ.push(head, 0, 0, 0); WW.push(1, 0, 0, 0);
-      const k = L < 0 ? 0.55 : 0.5 + 0.5 * (f - 0.62) / 0.42, a = (L < 0 ? 1 : 1 - 0.42 * (f - 0.62) / 0.42) * (AF.curl && L >= 0 ? 0.35 + 0.65 * sm(0, 0.3, th - t0) : 1); CC.push(k, k, k, a); }
+      const k = L < 0 ? 0.55 : 0.5 + 0.5 * (f - 0.62) / 0.42, a = (L < 0 ? 1 : 1 - 0.42 * (f - 0.62) / 0.42) * (AF.curl && L >= 0 ? 0.12 + 0.88 * sm(0, 0.5, th - t0) : 1); CC.push(k, k, k, a); }
     for (let j = 0; j < NT; j++) for (let i = 0; i < NP; i++) { const a = base + j * (NP + 1) + i, b = a + 1, c = a + NP + 1, d = c + 1; II.push(a, b, c, b, d, c); } };
   ring(0.7, -1, [CP, CUV, CJI, CWT, CCO, cidx]);
-  for (let L = 0; L < NL; L++) ring(0.62 + 0.42 * L / Math.max(1, NL - 1), L, [P, UV, JI, WT, CO, idx]);
+  // (people5 r3: close curls' coils thinning over their first 0.5 rad (4-5 cm) from the hairline, from an eighth, not
+  // over 0.3 from a third: they came in as a dense row at the hairline)
+  // (people5 r3: close curls' shells to 0.94 of the size, not 1.04: the outermost few were a scatter of single coils seen
+  // edge-on in the silhouette, flat flakes standing off the crown and the lower rim)
+  for (let L = 0; L < NL; L++) ring(0.62 + (AF.curl ? 0.32 : 0.42) * L / Math.max(1, NL - 1), L, [P, UV, JI, WT, CO, idx]);
   // (the coils' texture: W x H texels at about 0.7 mm each; height = two scales of coil noise, seamless round the head
   // (the noise read on a circle in u); the colour from the ramp by height, a few lighter coils)
   const W = 1024, H = 1024, img = new Uint8Array(W * H * 4), Rn = W / (2 * Math.PI);
@@ -2581,7 +2596,7 @@ if (CFG.afro) {
 // it alone: the veteran's white buzz read bald from every side). On the skin's weights; material 'hairShell'
 if (CFG.fuzz && CFG.shaved) {
   const FZ = CFG.fuzz, NL = FZ.layers ?? 3, depth = FZ.depth ?? 0.0018, uvB = B.get('uv'), NB = B.get('normal'), SI = B.get('skinIndex'), SW = B.get('skinWeight');
-  const T = []; for (let q = 0; q < skinOut.length; q += 3) { const a = skinOut[q], b = skinOut[q + 1], c = skinOut[q + 2]; if (Math.max(SCALP[a], SCALP[b], SCALP[c]) <= (FZ.soft ? 0.15 : 0.04)) continue;
+  const T = []; for (let q = 0; q < skinOut.length; q += 3) { const a = skinOut[q], b = skinOut[q + 1], c = skinOut[q + 2]; if (Math.max(SCALP[a], SCALP[b], SCALP[c]) <= (FZ.soft ? (CFG.shaved.horseshoe ? 0.05 : 0.15) : 0.04)) continue;
     // (none down the face's sides under the brows' height (the sideburns stay painted): the gates' hair on the face)
     // (people5: the face's sides only (in front of the ears): the test had no depth, so it also took every triangle off the
     // back of the head under the brows' height, and a dense crop stopped there in a hard line over the painted nape)
@@ -2608,19 +2623,39 @@ if (CFG.fuzz && CFG.shaved) {
       // light one the same all along it (a tone per texel read as dark grains), and none darker than FZ.lift of the way
       // from the root's colour to the middle's (the darkest roots on a pale scalp were the pepper))
       const al = x * d[0] + y * d[1], ac = -x * d[1] + y * d[0];
-      const fine = vnoise(ac / fw + 31, al / len, 31 * 0.37), clump = vnoise(x / 4, y / 4, 33), h = 0.85 * fine + 0.15 * clump;
+      // (people5 r3, FZ.soft: the crop as single hairs, not a noise: lanes FZ.w px across along the growth, each lane cut
+      // into hairs len px long at its own offset, each hair a tapered streak (round 2's value noise, two px blobs, read as
+      // a mottled felt with no direction from every side: the 'painted helmet'))
+      let h; if (FZ.soft) { const lw = fw * 1.2, ln = Math.floor(ac / lw), fr = ac / lw - ln, hl = len * (0.75 + 0.5 * hash3(ln, 3, 41)), o = hash3(ln, 7, 43) * hl, sg = Math.floor((al + o) / hl), t = (al + o) / hl - sg;
+        const hw = 0.42 + 0.3 * hash3(ln, sg, 47), prof = Math.max(0, 1 - Math.abs(fr - 0.5) / hw), tap = Math.sin(Math.PI * Math.min(1, Math.max(0, t * 1.08)));
+        h = hash3(ln, sg, 45) < 0.86 ? Math.min(1, prof * 1.25) * (0.45 + 0.55 * tap) : 0;
+        // (a second set of lanes half a lane over, its own cuts: the gaps between hairs irregular, not rows of scalp)
+        const ac2 = ac + lw * 0.5, l2 = Math.floor(ac2 / lw) + 7919, f2 = ac2 / lw - Math.floor(ac2 / lw), hl2 = len * (0.75 + 0.5 * hash3(l2, 3, 41)), o2 = hash3(l2, 7, 43) * hl2, s2 = Math.floor((al + o2) / hl2), t2 = (al + o2) / hl2 - s2;
+        if (hash3(l2, s2, 45) < 0.6) h = Math.max(h, 0.8 * Math.min(1, Math.max(0, 1 - Math.abs(f2 - 0.5) / (0.36 + 0.3 * hash3(l2, s2, 47))) * 1.25) * (0.45 + 0.55 * Math.sin(Math.PI * Math.min(1, Math.max(0, t2 * 1.08))))); }
+      else { const fine = vnoise(ac / fw + 31, al / len, 31 * 0.37), clump = vnoise(x / 4, y / 4, 33); h = 0.85 * fine + 0.15 * clump; }
       // (people5 r2, FZ.soft: the crop a blended film, not a cut: its coverage eased in over the paint's own ramp (the
       // hairline thins out over its 1.8 cm, never a torn edge), 0.16 between the hairs to 0.5 on them per shell, so three
       // shells come to about three quarters and the scalp shows through; its tone one blend of the dark and light hairs
       // by the greying with a fine grain along the growth (round 1's two tones in 2 x 13 px patches read as camouflage))
-      const cov = FZ.soft ? sm(0.02, 0.9, wv + (vnoise(x / 5, y / 5, 35) - 0.5) * 0.12) : sm(0.1, 0.75, wv + (vnoise(x / 6, y / 6, 35) - 0.5) * 0.5), a = cov * (FZ.soft ? 0.16 + 0.34 * sm(0.3, 0.75, h) : sm(0.38, 0.74, h)); if (a * 255 <= img[i + 3]) continue;
+      // (people5 r3: per hair, its coverage 0.2 between hairs (the scalp shows through three shells' gaps) to 0.66 on its middle; the hairline's
+      // thinning by fewer hairs as well as fainter ones)
+      const cov = FZ.soft ? sm(0.02, 0.9, wv + (vnoise(x / 5, y / 5, 35) - 0.5) * 0.12) : sm(0.1, 0.75, wv + (vnoise(x / 6, y / 6, 35) - 0.5) * 0.5), a = cov * (FZ.soft ? (0.2 + 0.46 * h) * (wv > 0.75 ? 1 : sm(0, 0.6, h - 0.55 * (1 - wv / 0.75))) : sm(0.38, 0.74, h)); if (a * 255 <= img[i + 3]) continue;
       const tone = vnoise(ac / fw + 77, al / (len * 1.7), 37), isL = !FZ.soft && vnoise(ac / fw + 50, al / (len * 1.3), 39) < gS;
-      const c = FZ.soft ? cols[1].map((v, j) => { const lo = cols[0][j] + (v - cols[0][j]) * lift, hi = cols[2][j] * 0.92 + v * 0.08, b = mix1(lo, hi, Math.min(1, gS * 1.6)); return b * (0.88 + 0.24 * (0.6 * h + 0.4 * tone)); })
+      // (people5 r3: each hair its own tone (salt and pepper by the greying), not one blend of the two)
+      const hs = FZ.soft ? (() => { const lw = fw * 1.2, ln = Math.floor(ac / lw); return [hash3(ln, Math.floor(al / len + hash3(ln, 7, 43)), 49), hash3(ln, 1, 51)]; })() : null;
+      const c = FZ.soft ? cols[1].map((v, j) => { const lo = cols[0][j] + (v - cols[0][j]) * lift, hi = cols[2][j] * 0.92 + v * 0.08, b = hs[0] < Math.min(0.9, gS * 1.6) ? hi : mix1(lo, v, 0.5); return b * (0.84 + 0.3 * hs[1]) * (0.9 + 0.12 * h); })
         : isL ? cols[2].map((v, j) => v * 0.9 + cols[1][j] * 0.1 * tone) : cols[0].map((v, j) => v + (cols[1][j] - v) * (lift + (1 - lift) * tone));
       // (and each hair only FZ.contrast of the way from the painted scalp's colour under it to its own: at the study's
       // 1 mm a pixel a crop is a tone with a grain, its hairs never resolved; full contrast read as dots or a crackle)
       const cc = c.map((v, j) => sc[j] + (v - sc[j]) * con);
       img[i] = Math.round(cc[0]); img[i + 1] = Math.round(cc[1]); img[i + 2] = Math.round(cc[2]); img[i + 3] = Math.round(255 * a); } }
+  // (people5 r3: the crop's patches grown 6 texels past their uv edges (colour and alpha, the mean of the painted
+  // neighbours): at the uv seam down the back of the head the filtered alpha fell to nothing along the seam, a bare
+  // crease through the crop (the old boss's back))
+  if (FZ.soft) { const seen = new Uint8Array(S * S); for (let k = 0; k < S * S; k++) seen[k] = img[k * 4 + 3] > 0 ? 1 : 0;
+    for (let it = 0; it < 6; it++) { const add = []; for (let y = 1; y < S - 1; y++) for (let x = 1; x < S - 1; x++) { const k = y * S + x; if (seen[k]) continue; let n = 0, r = 0, g = 0, b = 0, al = 0;
+        for (const o of [-1, 1, -S, S]) if (seen[k + o]) { const j = (k + o) * 4; n++; r += img[j]; g += img[j + 1]; b += img[j + 2]; al += img[j + 3]; } if (n) add.push(k, r / n, g / n, b / n, al / n); }
+      for (let q = 0; q < add.length; q += 5) { const k = add[q], j = k * 4; img[j] = add[q + 1]; img[j + 1] = add[q + 2]; img[j + 2] = add[q + 3]; img[j + 3] = add[q + 4]; seen[k] = 1; } } }
   // (the clear texels the nearest hair's colour along the row, for the mips)
   for (let y = 0; y < S; y++) { let last = -1; for (let x = 0; x < S; x++) { const i = (y * S + x) * 4; if (img[i + 3] > 8) last = i; else if (last >= 0) { img[i] = img[last]; img[i + 1] = img[last + 1]; img[i + 2] = img[last + 2]; } } }
   // (people5, FZ.soft: the hairs 1.9 px across (a head's texel is about 1 mm, and at 0.8 px only single texels passed the

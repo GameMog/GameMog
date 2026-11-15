@@ -56,13 +56,16 @@ export function lic(N, D, W, H, len) {
 
 // the strand height (0..1) of a W x H card texture with lightness L: fine single strands (white noise smeared 14 px),
 // the clumps they lie in (a coarser noise smeared 30 px), both normalised to their own spread
-export function strandField(L, W, H, seed = 1) {
+export function strandField(L, W, H, seed = 1, ck = 0.45, align = 0) {
   const D = strandDirs(L, W, H, Math.max(4, Math.round(W / 100)));
+  // (people5 r3: align, the strands drawn that share of the way to the card's own length (its v: root to tip), so a short
+  // cut reads combed, not as the source's swirls repeated card to card)
+  if (align > 0) for (let i = 0; i < W * H; i++) { const dx = D[i * 2] * (1 - align), dy = D[i * 2 + 1] * (1 - align) + align, l = Math.hypot(dx, dy) || 1; D[i * 2] = dx / l; D[i * 2 + 1] = dy / l; }
   const n1 = new Float32Array(W * H), n2 = new Float32Array(W * H);
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { n1[y * W + x] = hash(x, y, seed); n2[y * W + x] = hash(x >> 2, y >> 2, seed + 7); }
   const norm = (F) => { let m = 0, v = 0; for (const f of F) m += f; m /= F.length; for (const f of F) v += (f - m) ** 2; const s = Math.sqrt(v / F.length) || 1; return F.map((f) => 0.5 + (f - m) / s * 0.22); };
   const fine = norm(lic(n1, D, W, H, Math.round(W / 70))), clump = norm(lic(n2, D, W, H, Math.round(W / 34)));
-  const h = new Float32Array(W * H); for (let i = 0; i < W * H; i++) h[i] = Math.min(1, Math.max(0, 0.55 * fine[i] + 0.45 * clump[i]));
+  const h = new Float32Array(W * H); for (let i = 0; i < W * H; i++) h[i] = Math.min(1, Math.max(0, (1 - ck) * fine[i] + ck * clump[i]));
   return { h, D };
 }
 
@@ -78,7 +81,9 @@ export function cardHairTex(src, W, H, ramp, dmap, o = {}) {
   const Lb = blur(L, W, H, Math.max(2, Math.round(W / 170)));
   const Ls = []; for (let i = 0; i < W * H; i += 5) if (A0[i] > 0.8) Ls.push(Lb[i]); Ls.sort((a, b) => a - b);
   const lo = Ls[Math.floor(Ls.length * 0.05)] ?? 0, hi = Ls[Math.floor(Ls.length * 0.95)] ?? 1;
-  const { h } = strandField(L, W, H, o.seed ?? 3);
+  // (people5 r3: o.clump, the clumps' share of a strand's height (0.45): the clumps follow the source's own swirls, so on a
+  // short cut whose cards repeat its few texture islands they tiled as one swirl pattern across the head (the grandmother))
+  const { h } = strandField(L, W, H, o.seed ?? 3, o.clump ?? 0.45, o.align ?? 0);
   const fw = o.fw ?? 0.014, d0 = o.d0 ?? 0.002, hlK = o.hl ?? 0.35, rgba = new Uint8Array(W * H * 4); let edge = 0;
   for (let i = 0; i < W * H; i++) {
     const Ln = Math.min(1, Math.max(0, (Lb[i] - lo) / Math.max(1e-3, hi - lo))), hh = h[i];
@@ -87,7 +92,7 @@ export function cardHairTex(src, W, H, ramp, dmap, o = {}) {
     const hl = sm(0.68, 0.86, hh) * hlK;
     // (people2: the source's broad light and shade at 0.26, not 0.42: its patches, under a set's key light, were the
     // crumple in the "crumpled-foil hair"; the strands carry the texture)
-    const t = (o.base ?? 0.16) + 0.26 * Ln + (o.contrast ?? 0.62) * (hh - 0.5) + hl * 0.35;
+    const t = (o.base ?? 0.16) + (o.broad ?? 0.26) * Ln + (o.contrast ?? 0.62) * (hh - 0.5) + hl * 0.35;
     const c = rampAt(t);
     // (the cut-out: the cards' own soft borders broken into strand ends (a strand passes as far as its height carries it))
     let a = A0[i]; if (a > 0.02 && a < 0.98) a = sm(0.15, 0.85, a + (hh - 0.5) * 0.9);
