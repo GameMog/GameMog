@@ -275,49 +275,76 @@ def fetch_regions(dom, blocks, data_dir, use_index=True, parallel=True):
     os.rmdir(tmp)
 
 
-# Segment extras (grade-lanes): the OSM way ids (`sources[].record_id`) and `speed_limits` of every segment of a fetched
-# region, in their own file beside the segments (overture-transportation-segment-extras.parquet), so the lanes can be
-# joined to the OSM side table (osm_roads.py) without refetching the regions. One S3 read of the union per run.
+# Extras: columns a region's layer file was fetched without, in their own files beside it (semi-joined to its ids), so a
+# fetched region tops up with one small read instead of a refetch (a widened LAYERS column list would leave every cached
+# region silently short of the columns). One S3 read of the union per layer per run.
+#   segment extras (grade-lanes): the OSM way ids (`sources[].record_id`) and `speed_limits` of every segment, joined
+#     to the OSM side table (osm_roads.py)
+#   building / building_part extras (stage 0): the facade and roof colours and materials, the roof's direction, and a
+#     part's own roof shape and height (OSM building:colour, roof:colour, building:material, roof:material, roof:shape,
+#     roof:height, roof:direction, roof:orientation, building:min_level as Overture normalises them)
 EXTRAS = ('transportation', 'segment', 'id, sources, speed_limits')
 EXTRAS_FILE = 'overture-transportation-segment-extras.parquet'
+BUILDING_EXTRA_COLS = 'roof_direction, roof_orientation, roof_color, roof_material, facade_color, facade_material, min_floor'
+EXTRAS_SPECS = [
+    (EXTRAS[0], EXTRAS[1], EXTRAS[2], EXTRAS_FILE),
+    ('buildings', 'building', 'id, ' + BUILDING_EXTRA_COLS, 'overture-buildings-building-extras.parquet'),
+    ('buildings', 'building_part', 'id, roof_shape, roof_height, ' + BUILDING_EXTRA_COLS, 'overture-buildings-building_part-extras.parquet'),
+]
+EXTRAS_FILES = [s[3] for s in EXTRAS_SPECS]
 
 
 def fetch_extras(dom, blocks, data_dir):
-    todo = []
+    pending = {}
     for C, R in blocks:
         out = region_dir(data_dir, dom, C, R)
         if not os.path.exists(os.path.join(out, 'region.json')):
             raise SystemExit('region %s/%d/%d not fetched: fetch it first (--regions)' % (dom, C, R))
-        if not os.path.exists(os.path.join(out, EXTRAS_FILE)):
-            todo.append((C, R, out, region_envelope(dom, C, R)))
-    if not todo:
+        for spec in EXTRAS_SPECS:
+            if not os.path.exists(os.path.join(out, spec[3])):
+                pending.setdefault(spec, []).append((C, R, out, region_envelope(dom, C, R)))
+    if not pending:
         return
-    W = min(t[3][0] for t in todo); S_ = min(t[3][1] for t in todo); E_ = max(t[3][2] for t in todo); N = max(t[3][3] for t in todo)
-    c = connect()
+    ix = load_index(data_dir)
+    c = connect(threads=FETCH_THREADS, memory_limit=FETCH_MEMORY, object_cache=True)
     tmp = os.path.join(data_dir, 'regions', '.tmp-extras')
     os.makedirs(tmp, exist_ok=True)
-    theme, typ, cols = EXTRAS
-    f = os.path.join(tmp, 'extras.parquet')
-    t = time.time()
-    if not os.path.exists(f):
-        c.execute(f"""COPY (SELECT {cols}, bbox FROM read_parquet('{S3}/theme={theme}/type={typ}/*.parquet', hive_partitioning=0)
-            WHERE bbox.xmin <= {E_} AND bbox.xmax >= {W} AND bbox.ymin <= {N} AND bbox.ymax >= {S_} ORDER BY id)
-            TO '{f}.part' (FORMAT parquet, COMPRESSION zstd)""")
-        os.replace(f + '.part', f)
-    print(f'extras: union read {time.time() - t:.1f}s', flush=True)
-    for C, R, out, (w, s, e, n) in todo:
-        g = os.path.join(out, EXTRAS_FILE)
-        # (exactly the region's segment ids)
-        c.execute(f"""COPY (SELECT x.id, x.sources, x.speed_limits FROM read_parquet('{f}') x
-            SEMI JOIN read_parquet('{os.path.join(out, 'overture-transportation-segment.parquet')}') s ON s.id = x.id ORDER BY x.id) TO '{g}.part' (FORMAT parquet, COMPRESSION zstd)""")
-        os.replace(g + '.part', g)
-        rj = os.path.join(out, 'region.json')
-        rec = json.load(open(rj))
-        rec['overture']['layers']['transportation/segment-extras'] = {'rows': c.execute(f"SELECT count(*) FROM read_parquet('{g}')").fetchone()[0], 'columns': cols}
-        json.dump(rec, open(rj, 'w'), indent=1, sort_keys=True)
-        print('extras', dom, C, R, rec['overture']['layers']['transportation/segment-extras'], flush=True)
-    for name in os.listdir(tmp):
-        os.remove(os.path.join(tmp, name))
+    for spec in EXTRAS_SPECS:
+        todo = pending.get(spec)
+        if not todo:
+            continue
+        theme, typ, cols, fname = spec
+        W = min(t[3][0] for t in todo); S_ = min(t[3][1] for t in todo); E_ = max(t[3][2] for t in todo); N = max(t[3][3] for t in todo)
+        # (the union file is named by the layer and its envelope: a run for other regions never reuses it)
+        import hashlib
+        tag = hashlib.sha256(json.dumps([RELEASE, theme, typ, cols, round(W, 9), round(S_, 9), round(E_, 9), round(N, 9)]).encode()).hexdigest()[:12]
+        f = os.path.join(tmp, '%s-%s-%s.parquet' % (theme, typ, tag))
+        t = time.time()
+        if not os.path.exists(f):
+            src = layer_files(ix, theme, typ, W, S_, E_, N) if typ != 'segment' else "'%s/theme=%s/type=%s/*.parquet'" % (S3, theme, typ)
+            if src is None:
+                src = "'%s/theme=%s/type=%s/*.parquet'" % (S3, theme, typ)
+            c.execute(f"""COPY (SELECT {cols}, bbox FROM read_parquet({src}, hive_partitioning=0)
+                WHERE bbox.xmin <= {E_} AND bbox.xmax >= {W} AND bbox.ymin <= {N} AND bbox.ymax >= {S_} ORDER BY id)
+                TO '{f}.part' (FORMAT parquet, COMPRESSION zstd)""")
+            os.replace(f + '.part', f)
+        print(f'extras {theme}/{typ}: union read {time.time() - t:.1f}s', flush=True)
+        sel = ', '.join('x.' + k.strip() for k in cols.split(','))
+        for C, R, out, _ in todo:
+            g = os.path.join(out, fname)
+            base = layer_file(out, theme, typ)
+            # (exactly the region's ids of that layer)
+            c.execute(f"""COPY (SELECT {sel} FROM read_parquet('{f}') x
+                SEMI JOIN read_parquet('{base}') s ON s.id = x.id ORDER BY x.id) TO '{g}.part' (FORMAT parquet, COMPRESSION zstd)""")
+            os.replace(g + '.part', g)
+            rj = os.path.join(out, 'region.json')
+            rec = json.load(open(rj))
+            rec['overture']['layers']['%s/%s-extras' % (theme, typ)] = {'rows': c.execute(f"SELECT count(*) FROM read_parquet('{g}')").fetchone()[0], 'columns': cols}
+            with open(rj + '.part', 'w') as fh:
+                json.dump(rec, fh, indent=1, sort_keys=True)
+            os.replace(rj + '.part', rj)
+            print('extras', dom, C, R, '%s/%s' % (theme, typ), rec['overture']['layers']['%s/%s-extras' % (theme, typ)]['rows'], flush=True)
+        os.remove(f)
 
 
 def fetch(pid, bbox, data_dir, margin_m=150, place=None, how=None):
@@ -360,7 +387,7 @@ if __name__ == '__main__':
     ap.add_argument('--index', action='store_true', help='build the per-release file index (overture-index/{release}.json under --data)')
     ap.add_argument('--no-index', action='store_true', help='--regions: glob every file (the pre-index read, for measuring)')
     ap.add_argument('--serial', action='store_true', help='--regions: one layer at a time (the pre-M5 read, for measuring)')
-    ap.add_argument('--extras', help='hg1 L4 blocks (as --regions): add the segments\' OSM way ids and speed limits (grade-lanes)')
+    ap.add_argument('--extras', help='hg1 L4 blocks (as --regions): add the extras files a region lacks (segments: OSM way ids, speed limits; buildings and parts: colours, materials, part roofs)')
     ap.add_argument('--data', default=os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../.scratch/hometown-m2/data'))
     a = ap.parse_args()
     if a.index:

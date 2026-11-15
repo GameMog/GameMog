@@ -27,13 +27,37 @@ LAYER_SQL = {
     # of it and is refused, REQUIRED_FILES)
     'sand': ("base", "land", "id, ST_AsWKB(geometry) AS wkb, subtype, class, surface, name",
              "WHERE (subtype = 'sand' OR class IN ('beach', 'sand', 'dune')) AND ST_GeometryType(geometry) IN ('POLYGON', 'MULTIPOLYGON')"),
+    # (stage 0: the street furniture OSM maps as nodes, highway=traffic_signals / stop / give_way / crossing /
+    # street_lamp, emergency=fire_hydrant, amenity=bench, which the infrastructure file of every region already holds)
+    'furniture': ("base", "infrastructure", "id, ST_AsWKB(geometry) AS wkb, class",
+                  "WHERE class IN ('traffic_signals', 'stop', 'give_way', 'crossing', 'street_lamp', 'fire_hydrant', 'bench') AND ST_GeometryType(geometry) = 'POINT'"),
+    # (stage 0: OSM natural=tree nodes and natural=tree_row ways, in the land file)
+    'treepts': ("base", "land", "id, ST_AsWKB(geometry) AS wkb, class",
+                "WHERE subtype = 'tree' AND class IN ('tree', 'tree_row') AND ST_GeometryType(geometry) IN ('POINT', 'LINESTRING')"),
 }
-OPTIONAL = {'parking'}
+OPTIONAL = {'parking', 'furniture'}
 # (layers a fetched region must have a file of: one fetched before the layer was added is refused as not fetched, with
 # the fetch command that tops it up (fetch.py --regions fetches only a region's missing layers), never read without it)
 REQUIRED_FILES = (('base', 'land'),)
 BLOCK = grid.TILE << grid.CTX_L   # 8192 grid m
 EXTRAS_FILE = 'overture-transportation-segment-extras.parquet'   # fetch.py --extras: OSM way ids and speed limits
+# (stage 0, fetch.py EXTRAS_SPECS: the buildings' and parts' colours, materials and the parts' own roofs; a region
+# without them is refused like one without its segment extras, never compiled differently under the same buildId)
+BUILDING_EXTRAS = (('building extras', 'overture-buildings-building-extras.parquet'), ('part extras', 'overture-buildings-building_part-extras.parquet'))
+
+
+def building_extras(c, dirs, fname):
+    """{id: {column: value}} of one building extras file over the loaded regions (non-null columns only)."""
+    lst = ', '.join("'%s'" % os.path.join(d, fname) for d in dirs)
+    cur = c.execute(f"""SELECT * FROM (SELECT * FROM read_parquet([{lst}], union_by_name=true)
+        QUALIFY row_number() OVER (PARTITION BY id ORDER BY id) = 1) ORDER BY id""")
+    names = [d[0] for d in cur.description]
+    out = {}
+    for row in cur.fetchall():
+        e = {k: v for k, v in zip(names, row) if v is not None and k != 'id'}
+        if e:
+            out[row[0]] = e
+    return out
 
 
 def mph(v, unit):
@@ -85,6 +109,7 @@ class Sources:
             short = ['%s/%s' % t for t in REQUIRED_FILES if not os.path.exists(os.path.join(d, 'overture-%s-%s.parquet' % t))]
             if not os.path.exists(os.path.join(d, EXTRAS_FILE)):
                 short.append('segment extras')
+            short += [what for what, f in BUILDING_EXTRAS if not os.path.exists(os.path.join(d, f))]
             if not os.path.exists(os.path.join(d, 'region.json')) or short:
                 if skip_missing:
                     self.missing.append((C, R))
@@ -94,7 +119,7 @@ class Sources:
             self.blocks.append((C, R))
             dirs.append(d)
         if not dirs:
-            raise MissingRegion('no region of %s fetched' % sorted(set(blocks)))
+            raise MissingRegion('no region of %s fetched (tools/hometown/fetch.py --regions %s:%s)' % (sorted(set(blocks)), dom, ';'.join('%d,%d' % b for b in sorted(set(blocks)))))
         c = duck.connect('spatial')
         self.rows = {}
         for key, (theme, typ, cols, *where) in LAYER_SQL.items():
@@ -111,7 +136,7 @@ class Sources:
                 QUALIFY row_number() OVER (PARTITION BY id ORDER BY id) = 1) {where[0] if where else ''} ORDER BY id""")
             names = [d[0] for d in cur.description]
             self.rows[key] = [dict(zip(names, r)) for r in cur.fetchall()]
-        for key in ('buildings', 'parts', 'segments', 'water', 'land_use', 'parking', 'sand'):
+        for key in ('buildings', 'parts', 'segments', 'water', 'land_use', 'parking', 'sand', 'furniture', 'treepts'):
             rs = self.rows[key]
             geoms = shapely.from_wkb([bytes(r.pop('wkb')) for r in rs]) if rs else []
             geoms = shapely.transform(geoms, self._proj) if len(geoms) else geoms
@@ -124,8 +149,10 @@ class Sources:
             for p, a, b in zip(P, gx.tolist(), gs.tolist()):
                 p['gx'], p['gs'] = a, b
         self.extras = segment_extras(c, dirs)
+        self.bextra = building_extras(c, dirs, BUILDING_EXTRAS[0][1])
+        self.pextra = building_extras(c, dirs, BUILDING_EXTRAS[1][1])
         self.trees = {}
-        for key in ('buildings', 'segments', 'water', 'land_use', 'parking', 'sand'):
+        for key in ('buildings', 'segments', 'water', 'land_use', 'parking', 'sand', 'furniture', 'treepts'):
             self.trees[key] = shapely.STRtree([r['geom'] for r in self.rows[key]])
         # (a building's parts, by its Overture id, each list in part id order)
         self.parts_of = {}

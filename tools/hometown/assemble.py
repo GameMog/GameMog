@@ -249,6 +249,7 @@ def assemble(pid, places, data, store, bid, out_root, window='full', frame=None,
     hcm = np.zeros((Hp, Wp), np.int64)
     mask = np.zeros((nr * grid.TILE, nc * grid.TILE), np.uint8)
     bverts, btable, trees, places_raw, wparts, pparts = [], [], [], [], [], {}
+    props = []   # (stage 0) [x, z, kind] of OSM's street lamps (1), hydrants (2), benches (3), mid-block crosswalks (5)
     bcount_play, area_play = 0, 0.0
     for (c, r) in order:
         h, s, _ = dec[(c, r)]
@@ -270,12 +271,16 @@ def assemble(pid, places, data, store, bid, out_root, window='full', frame=None,
                 x, z = S(mx + c * TCM, mz + r * TCM)
                 ms.append([x, z, mw / (100.0 * k0), md / (100.0 * k0)])
             btable.append((b['id'], [y(b['base']), y(b['roof']), y(b['peak']), start, b['ringCount'], b['theta'], 0, len(ms), b['shops'], b['type'],
-                                     b['palette'], b.get('bays', 0), 0, 0, b.get('frontW', 0), b.get('row', 1), 3.4, b['stories'], 0, b.get('podium', 0),
-                                     b.get('kind', 0), b.get('roofShape', 0), 0, 0, 0, b.get('front', -1), b.get('frontDist', 0), b.get('minH', 0) / 100.0], b, ms))
+                                     b['palette'], b.get('bays', 0), 0, 0, b.get('frontW', 0), b.get('row', 1), 3.4, b['stories'], b.get('facade', 0), b.get('podium', 0),
+                                     b.get('kind', 0), b.get('roofShape', 0), b.get('wall', 0), b.get('wallRGB', 0), b.get('roofRGB', 0), b.get('front', -1), b.get('frontDist', 0), b.get('minH', 0) / 100.0], b, ms))
         tr = s['trees'].reshape(-1, 4) if s['trees'].size else np.zeros((0, 4), np.int64)
         for u, v, cls, trunk in tr.tolist():
             x, z = S(u + c * TCM, v + r * TCM)
             trees += [C.q1(x), C.q1(z), int(cls), int(trunk)]
+        pr = s['props'].reshape(-1, 4) if 'props' in s and s['props'].size else np.zeros((0, 4), np.int64)
+        for u, v, kind, _ in pr.tolist():
+            x, z = S(u + c * TCM, v + r * TCM)
+            props += [C.q1(x), C.q1(z), int(kind)]
         for p in s['places']:
             x, z = S(p['u'] + c * TCM, p['v'] + r * TCM)
             places_raw.append(dict(p, x=x, z=z))
@@ -398,7 +403,10 @@ def assemble(pid, places, data, store, bid, out_root, window='full', frame=None,
              'projection': 'hg1 %s: Lambert Conformal Conic on GRS80 (tools/hometown/grid.py); session metres = grid metres / k0' % dom}
     box = {k: C.q1(v) for k, v in B.items()}
     stats = {'buildings': len(btable), 'roadLinks': len(rl), 'roadNodes': len(nodes), 'blocks': len(blocks),
-             'islands': sum(1 for b in blocks if b[6] == 'island'), 'places': len(places), 'trees': len(trees) // 4, 'density': density,
+             'islands': sum(1 for b in blocks if b[6] == 'island'), 'places': len(places), 'trees': len(trees) // 4,
+             'streetProps': {k: props[2::3].count(v) for k, v in (('lamps', 1), ('hydrants', 2), ('benches', 3), ('crosswalks', 5))},
+             'signals': sum(1 for v in control if v == 1), 'stopJunctions': sum(1 for v in control if v in (2, 3)),
+             'coloured': sum(1 for _, rec, _, _ in btable if rec[23] or rec[24]), 'density': density,
              'tiles': len(order), 'playTiles': len(play), 'heightsFromOverture': sum(1 for _, _, b, _ in btable if b['fromOverture']),
              'buildingKinds': dict(sorted(((C.KINDS[k], n) for k, n in __import__('collections').Counter(b.get('kind', 0) for _, _, b, _ in btable).items()))),
              'masses': len(mass) // 4, 'outlines': sum(1 for _, rec, _, _ in btable if rec[7] == 0), 'parts': sum(1 for _, _, b, _ in btable if b.get('parent')),
@@ -431,7 +439,7 @@ def assemble(pid, places, data, store, bid, out_root, window='full', frame=None,
            'data': {'terrain': {'url': 'data/terrain.bin', 'waterLevel': water_level, 'minH': minH, 'maxH': maxH},
                     'buildings': {'url': 'data/buildings.bin', 'count': len(btable)}, 'groundMask': {'url': 'data/groundmask.bin'}},
            'land': land, 'blocks': blocks, 'roadGraph': rg, 'parks': parks, 'piers': [], 'water': water, 'rail': [], 'trolley': [], 'muniStops': [],
-           'bikeways': [], 'trees': trees, 'transit': [], 'landmarks': {}, 'bridges': {}}
+           'bikeways': [], 'trees': trees, 'streetProps': props, 'transit': [], 'landmarks': {}, 'bridges': {}}
     GEO['frame']['up'] = 'NAVD88 m minus %d' % y_off
     # (the arrivals a player can be sent to: a district bundle's are only those inside its window less 150 m, the engine's
     # traffic margin, wagmi/world/growing.js; the frame's spawns all stay in PKG.spawns for the story)

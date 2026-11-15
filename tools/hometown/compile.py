@@ -49,6 +49,7 @@ import grade  # noqa: E402
 import climate  # noqa: E402
 from sources import Sources, blocks_for, MissingRegion  # noqa: E402
 import rects as rects_mod  # noqa: E402
+import looks  # noqa: E402
 import shapely.ops  # noqa: E402
 
 # bump on ANY change to a tile's bytes (a rule, a constant, an output field). 0.1.0 90bae8c; 0.2.0 water rule, 1 cm
@@ -94,9 +95,18 @@ import shapely.ops  # noqa: E402
 # 0.12.0 release r8 (reach): the frame's places carry their approach ax, az (aHow, approach.py): where a person on foot
 # is sent, outdoors, clear of every building, off the water and the carriageway; the frame's bytes (and so the bundle's
 # PKG.places) change, the tiles do not
-COMPILER_VERSION = '0.12.0'
+# 0.13.0 release r13 (stage 0, "use what we already download"): the buildings' and parts' facade / roof colours and
+# materials (looks.py, from two new extras files per region: fetch.py EXTRAS_SPECS; a region without them is refused
+# and topped up), each part's own roof shape and height; junction control from OSM's traffic_signals / stop / give_way
+# nodes where they are mapped (World.junction_data; the rank heuristic elsewhere); OSM's trees and tree rows in the
+# trees section; a new tile section `props` (street lamps, hydrants, benches, mid-block crosswalks), assembled into
+# GEO.streetProps
+COMPILER_VERSION = '0.13.0'
 OVERTURE_RELEASE = '2026-10-21.0'
 TILE, TCM = grid.TILE, grid.TILE_CM
+SIGNAL_REACH = 15.0  # m (stage 0): an OSM traffic_signals node this near a junction, on one of its approaches, signals it
+STOP_REACH = 25.0    # m: a stop / give_way node this near a junction, on an approach, marks that approach
+SIGN_OFF = 3.0       # m: how far off its road's centre line a signal / sign node may stand
 ROAD_HALO = 160      # m: segments read round a tile (owned pieces, curb islands' roadway, sidewalk bands)
 ISLAND_HALO = 128    # m: the curb islands' window
 POST_HALO = 128      # m: the post window (building bases may overhang the tile)
@@ -817,6 +827,12 @@ def shape_building(W, r, rec, near, downtown):
     rec.update({'kind': kind, 'roofShape': shape, 'front': front, 'frontDist': front_d, 'row': row, 'minH': minh, 'cover': cov,
                 'rects': rects if cov >= 0.9 or kind in ('house', 'garage', 'church') else [], 'frontW': frontw, 'podium': podium,
                 'bays': min(2, int(frontw // 3.5)) if kind == 'rowhouse' else 0})
+    # stage 0: its walls and colours from the OSM tags Overture carries (looks.py; 0 = the engine's region palette)
+    bx = src.bextra.get(r['id']) or {}
+    lk = looks.look_of(bx)
+    rec['wall'] = WALLS.index(lk['wall']) if lk['wall'] else 0
+    rec['facade'] = FACADES.index(lk['facade']) if lk['facade'] and btype in ('tower', 'midrise') else 0
+    rec['wallRGB'], rec['roofRGB'] = lk['wallRGB'], lk['roofRGB']
     # parts: a building whose parts cover 90% of it is drawn as its parts (each its own heights and masses)
     rec['parts'] = []
     plist = src.parts_of.get(r['id']) or []
@@ -836,9 +852,32 @@ def shape_building(W, r, rec, near, downtown):
             ppts = neg_ring(list(g.exterior.coords))
             pth = -dominant_angle(ppts)
             pc, prs = rects_mod.rect_cover(ppts, pth)
-            pg.append({'id': pr['id'], 'g': g, 'h': ph, 'minH': pmin, 'theta': pth, 'rects': prs if pc >= 0.9 else []})
+            # stage 0: the part's own roof (roof:shape / roof:height, the parts' extras) and looks, the parent's where
+            # the part has none; Overture's part height is the top of its roof, as a building's
+            px = src.pextra.get(pr['id']) or {}
+            pshape, proof, ph = part_roof(px, ph, pmin, _short_half(prs) if prs else 0.5 * math.sqrt(g.area), pr['height'] is not None)
+            plk = looks.look_of(px, bx)
+            pg.append({'id': pr['id'], 'g': g, 'h': ph, 'minH': pmin, 'theta': pth, 'rects': prs if pc >= 0.9 else [], 'roofShape': pshape,
+                       'roofH': proof, 'wall': WALLS.index(plk['wall']) if plk['wall'] else 0,
+                       'facade': FACADES.index(plk['facade']) if plk['facade'] and ph >= 18 else 0, 'wallRGB': plk['wallRGB'], 'roofRGB': plk['roofRGB']})
         if pg and unary_union([q['g'] for q in pg]).intersection(wg).area >= 0.9 * wg.area:
             rec['parts'] = pg
+
+
+def part_roof(px, ph, pmin, half, height_given):
+    """(roof shape index, roof rise m, top m) of a part from its extras row: a pitched / dome tag gets its rise from
+    roof:height (at most 60% of the part) or, untagged, 0.38 of its short half-span (0.75 to 9 m). Overture's height is
+    the roof's top; a part whose height came from its floors (or its building) has the roof put on top of it."""
+    rs = (px.get('roof_shape') or '').lower()
+    shape = ROOF_SHAPES.index(rs) if rs in ROOF_SHAPES else (ROOF_SHAPES.index('other') if rs else 0)
+    if shape < 2 or shape == ROOF_SHAPES.index('other'):
+        return shape, 0.0, ph
+    rh = px.get('roof_height')
+    rise = float(rh) if rh is not None and rh > 0 else min(9.0, max(0.75, 0.38 * half))
+    if not height_given:
+        rise = min(rise, max(0.0, ph - pmin) * 0.6)
+        return shape, rise, ph + rise
+    return shape, min(rise, max(0.0, ph - pmin) * 0.6), ph
 
 
 def lib_versions():
@@ -1037,6 +1076,7 @@ class World:
         self.store, self.bid = store, bid
         self.ctxs = {}
         self.pieces_c, self.junction_c, self.brec_c, self.bridge_c, self.k_c = {}, {}, {}, {}, {}
+        self.junction_marked = {}
         self.kept_c, self.foot_c, self.inside_c = {}, {}, {}
         self.lanes_c, self.osm_c, self.deck_c, self.prof_c, self.gstats = {}, None, {}, {}, {}
         self.pair_c, self.side_c = {}, {}
@@ -1492,8 +1532,13 @@ class World:
         # (no signal or stop where only motorways, trunks and their links meet: merges yield by rank; none on a deck)
         free_flow = drive and all(p['cls'] in MAINLINE or p['link'] for p in drive)
         on_deck = drive and all(self.deck_touches(p, 'a' if p['a'] == cid else 'b') for p in drive)
+        data = self.junction_data(x, z, drive) if drive and len(drive) >= 3 and not (free_flow or on_deck) else None
         if free_flow or on_deck:
             res = (0, max(p['rank'] for p in drive))
+        elif data is not None:
+            # (stage 0: the junction's control as OSM maps it, where it does: a signal on an approach within
+            # SIGNAL_REACH m; else the approaches a stop / give-way sign stands on (all of them: an all-way stop))
+            res = data
         elif len(set(p['name'] for p in drive)) >= 2 and len(drive) >= 3:
             ranks = sorted((p['rank'] for p in drive), reverse=True)
             top = ranks[0]
@@ -1504,8 +1549,41 @@ class World:
                 if ctl == 3 and not any(p['rank'] < top for p in inc):
                     ctl = 0
                 res = (ctl, top)
+        if len(res) == 3:
+            # (data: the approaches with a sign, for the links' stop flags; signals and the heuristic keep none)
+            if res[2] is not None:
+                self.junction_marked[cid] = res[2]
+            res = res[:2]
         self.junction_c[cid] = res
         return res
+
+    def junction_data(self, x, z, drive):
+        """(control, top rank, marked approaches) from the OSM signal / stop / give-way nodes round a connector, or None
+        where none is mapped there (the rank heuristic stands). marked: the (seg, piece) of each approach with a sign,
+        None for a signal. Pure: a Sources query round the connector and its own pieces."""
+        near = [f for f in self.src.query('furniture', Point(x, z).buffer(max(SIGNAL_REACH, STOP_REACH)))
+                if f['class'] in ('traffic_signals', 'stop', 'give_way')]
+        if not near:
+            return None
+        top = max(p['rank'] for p in drive)
+        lines = [(p, self.pgeom(p)[0]) for p in drive]
+        on = lambda f, reach, w: [p for p, ln in lines if ln.distance(f['geom']) <= w and Point(x, z).distance(f['geom']) <= reach]  # noqa: E731
+        if any(on(f, SIGNAL_REACH, SIGN_OFF) for f in near if f['class'] == 'traffic_signals'):
+            return (1, top, None)
+        marked = set()
+        for f in near:
+            if f['class'] in ('stop', 'give_way'):
+                d0 = Point(x, z).distance(f['geom'])
+                for p in on(f, STOP_REACH, SIGN_OFF):
+                    # (a sign nearer this end of its piece than the other: a short piece's far sign is the far junction's)
+                    ln = self.pgeom(p)[0]
+                    far_end = Point(ln.coords[-1]) if Point(ln.coords[0]).distance(Point(x, z)) < 0.5 else Point(ln.coords[0])
+                    if d0 <= far_end.distance(f['geom']):
+                        marked.add((p['seg'], p['i']))
+        if not marked:
+            return None
+        keys = {(p['seg'], p['i']) for p in drive}
+        return (2 if keys <= marked else 3, top, frozenset(marked & keys))
 
     # ---- bridges raised on the ground (pure per segment)
     def bridge_lines(self, s):
@@ -2220,6 +2298,11 @@ class World:
         return rec
 
 
+def _looks_out(q):
+    """A tile building's stage-0 look fields, only those set (an untagged building's record is unchanged)."""
+    return {k: q[k] for k in ('wall', 'facade', 'wallRGB', 'roofRGB') if q.get(k)}
+
+
 # ------------------------------------------------------------------------------------------------------------- one tile
 def htl1(header, sections):
     """HTL1: 'HTL1', u32 header length, the header JSON (padded to 4 bytes), then the sections back to back; gzipped."""
@@ -2314,7 +2397,11 @@ def _compile_tile(Wd, c, r, dem_files):
                 stop = 0
                 if nid.startswith('c:'):
                     ctl, top = Wd.junction(nid[2:], pts[0] if end == 'a' else pts[-1])
-                    stop = 1 if ctl in (2, 3) and (ctl == 2 or p['rank'] < top) else 0
+                    marked = Wd.junction_marked.get(nid[2:])
+                    if marked is not None:
+                        stop = 1 if (p['seg'], p['i']) in marked else 0
+                    else:
+                        stop = 1 if ctl in (2, 3) and (ctl == 2 or p['rank'] < top) else 0
                 stops.append(stop)
             links.append({'a': node(sb['na'], pts[0]), 'b': node(sb['nb'], pts[-1]), 'pts': [[x - c * TCM, z - r * TCM] for x, z in pts],
                           'w': p['w'], 'lanes': p['lanes'], 'dir': p['dir'], 'flags': p['flags'], 'sw': p['sw'], 'cls': p['cls'], 'rank': p['rank'],
@@ -2500,16 +2587,20 @@ def _compile_tile(Wd, c, r, dem_files):
                 start = len(bverts) // 2
                 for x, z in qp:
                     bverts += [cm(x) - c * TCM, cm(z) - r * TCM]
-                bout.append(dict(common, id=q['id'], parent=rec['id'], base=cm(base), roof=cm(base + rise + q['h']), peak=cm(base + rise + q['h'] + 0.6),
-                                 ringStart=start, ringCount=len(qp), theta=round(q['theta'], 4), stories=max(1, int(round((q['h'] - q['minH']) / 3.4))),
-                                 roofShape=0, minH=cm(q['minH']), masses=[mrec(m) for m in q['rects']], podium=0))
+                # (stage 0: a part with a pitched roof tag: its walls to the eave, the roof up to its top; else flat)
+                qe = q['h'] - q.get('roofH', 0.0)
+                bout.append(dict(common, id=q['id'], parent=rec['id'], base=cm(base), roof=cm(base + rise + qe),
+                                 peak=cm(base + rise + q['h'] + (0.0 if q.get('roofH') else 0.6)),
+                                 ringStart=start, ringCount=len(qp), theta=round(q['theta'], 4), stories=max(1, int(round((qe - q['minH']) / 3.4))),
+                                 roofShape=q.get('roofShape', 0), minH=cm(q['minH']), masses=[mrec(m) for m in q['rects']], podium=0,
+                                 **_looks_out(q)))
             continue
         start = len(bverts) // 2
         for x, z in pts:
             bverts += [cm(x) - c * TCM, cm(z) - r * TCM]
         bout.append(dict(common, id=rec['id'], base=cm(base), roof=cm(base + rise + rec['h']), peak=cm(base + rise + rec['h'] + rec['peakAdd']),
                          ringStart=start, ringCount=len(pts), theta=round(rec['theta'], 4), stories=int(rec['stories']), roofShape=rec['roofShape'],
-                         minH=cm(rec['minH']), masses=[mrec(m) for m in rec['rects']]))
+                         minH=cm(rec['minH']), masses=[mrec(m) for m in rec['rects']], **_looks_out(rec)))
     # ---- what keeps trees off (footprints within 25 m, buffered 8 / 12 m: the yards' trees stand clear of them) and
     # the sidewalk bands
     paved = [rec['g'].buffer(12 if rec['downtown'] else 8, quad_segs=2) for bid, (b, rec) in sorted(brecs_near.items()) if rec['btype'] not in ('rowhouse', 'shed')]
@@ -2742,7 +2833,20 @@ def _compile_tile(Wd, c, r, dem_files):
                 trees.append((cm(x) - c * TCM, cm(z) - r * TCM, 0 if hh < 0.6 else 1 if hh < 0.9 else 4, int(16 + 30 * hash01(i, j, 10 ^ d.index))))
     if warm:
         trees += warm_plantings(Wd, warm, pieces, a, narrow_m, btree, deck_tree, c, r)
+    # ---- stage 0: the trees OSM maps (natural=tree nodes; natural=tree_row ways, one every DATA_ROW_STEP m), owned by the
+    # tile their cm point is in, off buildings, decks, the roadway, lots and water; the lattice's within DATA_TREE_CLEAR m
+    # of one are left out (one tree, not two). Their species is the climate's mix by hash, as the yards'
+    dtrees = data_trees(Wd, c, r, TB, a, btree, deck_tree, warm, desert)
+    if dtrees:
+        dt_tree = shapely.STRtree(shapely.points(np.array([(t[0] / 100.0, t[1] / 100.0) for t in dtrees])))
+        keep = []
+        for t in trees:
+            if t[2] == TREE_CLASS['hedge'] or not len(dt_tree.query(Point(t[0] / 100.0, t[1] / 100.0).buffer(DATA_TREE_CLEAR), predicate='intersects')):
+                keep.append(t)
+        trees = keep + dtrees
     trees.sort()
+    # ---- stage 0: street furniture and mid-block crosswalks from OSM's nodes (props.py)
+    props = street_props(Wd, c, r, TB, btree, pieces)
     # ---- places (POIs owned by the tile)
     places = []
     for p in Wd.src.places_in(TB):
@@ -2781,6 +2885,7 @@ def _compile_tile(Wd, c, r, dem_files):
         ('roads', 'json', jdump({'nodes': nodes_out, 'links': links}).encode()),
         ('blocks', 'json', jdump(blocks).encode()),
         ('trees', 'i32', np.array(trees, dtype='<i4').reshape(-1).tobytes()),
+        ('props', 'i32', np.array(props, dtype='<i4').reshape(-1).tobytes()),
         ('places', 'json', jdump(places).encode()),
         ('water', 'json', jdump(wsec).encode()),
         ('parks', 'json', jdump(psec).encode()),
@@ -2794,6 +2899,7 @@ def _compile_tile(Wd, c, r, dem_files):
               'region': region_of(lon_c, lat_c),
               'buildingKinds': dict(sorted(kinds.items())), 'roofShapesFromData': from_data,
               'counts': {'links': len(links), 'nodes': len(nodes_out), 'blocks': len(blocks), 'trees': len(trees), 'places': len(places),
+                         'dataTrees': len(dtrees), 'props': len(props),
                          'deckLinks': sum(1 for l in links if l.get('deck')), 'underDeckDropped': under_deck}}
     if nan == wetp.size:
         raise RefusedTile('tile %s: no 3DEP data under any post (%s)' % (grid.tile_id(dom, c, r), '; '.join(sorted(Wd.dem.missing)) or 'outside the DEM'))
@@ -2884,6 +2990,83 @@ def write_stream(dom, keys, body_of, id_of):
             why = str(e).encode()
             w.write(struct.pack('<II', 0xffffffff, len(why)) + why)
     w.flush()
+
+
+# ---- stage 0: OSM's trees and street furniture
+DATA_ROW_STEP = 8.0      # m between the trees of a tree row
+DATA_TREE_CLEAR = 6.0    # m: no lattice tree this near a data tree
+DATA_TREE_CAP = 500      # data trees a tile keeps (the first by id)
+PROPS_CAP = 600          # street props a tile keeps
+PROP_KINDS = {'street_lamp': 1, 'fire_hydrant': 2, 'bench': 3}
+PROP_CROSSING = 5        # a mid-block crosswalk (a crossing node on a drive piece, XWALK_CLEAR m from its ends)
+XWALK_OFF = 2.0          # m: a crossing node this near a drive piece's centre line is on it
+XWALK_CLEAR = 12.0       # m from the piece's ends (the junctions' own crosswalks are painted by their control)
+
+
+def data_trees(Wd, c, r, TB, a, btree, deck_tree, warm, desert):
+    """[(u, v, cls, trunk)] of the OSM trees the tile owns."""
+    d = Wd.d
+    X0, Z0 = c * TILE, r * TILE
+    pts = []
+    for t in Wd.src.query('treepts', TB.buffer(DATA_ROW_STEP)):
+        g = t['geom']
+        if g.geom_type == 'Point':
+            pts.append((t['id'], 0, g.x, g.y))
+        elif g.geom_type == 'LineString' and g.length > 0:
+            n = max(1, int(g.length // DATA_ROW_STEP))
+            for k in range(n + 1):
+                q = g.interpolate(min(g.length, k * g.length / n if n else 0))
+                pts.append((t['id'], k, q.x, q.y))
+    out = []
+    bad = (MASK['asphalt'], MASK['lot'], MASK['waterEdge'], MASK['water'], MASK['wetsand'])
+    for tid, k, x, z in sorted(pts):
+        u, v = cm(x) - c * TCM, cm(z) - r * TCM
+        if not (0 <= u < TCM and 0 <= v < TCM):
+            continue
+        if a[min(TILE - 1, max(0, int(z - Z0))), min(TILE - 1, max(0, int(x - X0)))] in bad:
+            continue
+        pt = Point(x, z)
+        if btree is not None and len(btree.query(pt.buffer(1.5), predicate='intersects')):
+            continue
+        if deck_tree is not None and len(deck_tree.query(pt.buffer(2.0), predicate='intersects')):
+            continue
+        i, j = int(math.floor(x)), int(math.floor(z))
+        hh = hash01(i, j, 11 ^ d.index)
+        if warm:
+            cls = pick_w(WARM_YARD[warm], hh)
+        else:
+            cls = (2 if hh < 0.55 else 0) if desert else (0 if hh < 0.5 else 1 if hh < 0.85 else 4)
+        out.append((u, v, cls, int(12 + 30 * hash01(i, j, 12 ^ d.index))))
+        if len(out) >= DATA_TREE_CAP:
+            break
+    return out
+
+
+def street_props(Wd, c, r, TB, btree, pieces):
+    """[(u, v, kind, 0)] of the street lamps, hydrants, benches and mid-block crosswalks the tile owns (the fourth
+    field reserved: the engine turns each to its nearest street)."""
+    drive = [p for p in pieces if not p['flags'] & (FLAGS['pedestrian'] | FLAGS['private'] | FLAGS['tunnel'])]
+    lines = [Wd.pgeom(p) for p in drive]
+    ltree = shapely.STRtree([ln for ln, _, _ in lines]) if lines else None
+    out = []
+    for f in Wd.src.query('furniture', TB):
+        g = f['geom']
+        u, v = cm(g.x) - c * TCM, cm(g.y) - r * TCM
+        if not (0 <= u < TCM and 0 <= v < TCM):
+            continue
+        if f['class'] in PROP_KINDS:
+            if btree is not None and len(btree.query(g.buffer(0.3), predicate='intersects')):
+                continue
+            out.append((PROP_KINDS[f['class']], f['id'], u, v))
+        elif f['class'] == 'crossing' and ltree is not None:
+            for i in sorted(ltree.query(g.buffer(XWALK_OFF), predicate='intersects').tolist()):
+                ln, L, _ = lines[i]
+                s_ = ln.project(g)
+                if XWALK_CLEAR < s_ < L - XWALK_CLEAR and ln.distance(g) <= XWALK_OFF:
+                    out.append((PROP_CROSSING, f['id'], u, v))
+                    break
+    out.sort()
+    return [(u, v, k, 0) for k, _, u, v in out[:PROPS_CAP]]
 
 
 def warm_plantings(Wd, warm, pieces, a, narrow_m, btree, deck_tree, c, r):
