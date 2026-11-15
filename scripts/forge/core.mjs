@@ -225,7 +225,12 @@ if (CFG.beard?.feather) {
   const nW = wid.size, adj = Array.from({ length: nW }, () => new Set());
   for (let q = 0; q < skinT.length; q += 3) for (let e = 0; e < 3; e++) { const a = wOf[skinT[q + e]], b = wOf[skinT[q + (e + 1) % 3]]; adj[a].add(b); adj[b].add(a); }
   let val = new Float32Array(nW); for (const v of skinV) val[wOf[v]] = Math.max(val[wOf[v]], BEARD[v]);
-  for (let it = 0; it < CFG.beard.feather; it++) { const nx = new Float32Array(nW); for (let w = 0; w < nW; w++) { let s0 = val[w], c = 1; for (const o of adj[w]) { s0 += val[o]; c++; } nx[w] = s0 / c; } val = nx; }
+  let val2 = null;
+  for (let it = 0; it < CFG.beard.feather; it++) { const nx = new Float32Array(nW); for (let w = 0; w < nW; w++) { let s0 = val[w], c = 1; for (const o of adj[w]) { s0 += val[o]; c++; } nx[w] = s0 / c; } val = nx; if (it === 1) val2 = val; }
+  // (people11 r9, CFG.shells.calmEdge: the area no thinner than it is smoothed twice (round 3's): seven passes thinned the
+  // narrow sideburn in front of the ear, so the beard pulled back from it at 60 and 120 degrees; the wide borders keep
+  // the seven passes' soft edge)
+  if (CFG.shells?.calmEdge && val2) for (let w = 0; w < nW; w++) val[w] = Math.max(val[w], val2[w]);
   const clear = (v) => { const x = Math.abs(bPos[v * 3]), y = bPos[v * 3 + 1], z = bPos[v * 3 + 2];
     const lip = (1 - sm(MH - 0.0012, MH + 0.0045, x)) * sm(MOUTHY - 0.0125, MOUTHY - 0.009, y) * sm(MOUTHY + 0.0045, MOUTHY + 0.0025, y) * sm(EZ - 0.0, EZ + 0.01, z);
     return x < MH + 0.009 && Math.abs(y - MOUTHY) < 0.012 && z < EYEFRONT - 0.004 ? 0 : 1 - lip; };
@@ -329,7 +334,8 @@ const shell = (() => {
   const SX = CC ? 0.75 : 1, nSh = nS * layers;
   // (people10 r8, CFG.shells.calmEdge: the cards rooted only where the shells are solid (the share taken 0.4-0.85 to 0-1):
   // over the feathered fringe a lone card stood as a dark tuft apart from the beard, the bald man's clump at 300 degrees)
-  const cardMask = S?.calmEdge ? BEARD.map((w) => sm(0.4, 0.85, w)) : BEARD;
+  // (people11 r9: 0.55-0.95, the shells now reaching further out than the cards' roots)
+  const cardMask = S?.calmEdge ? BEARD.map((w) => sm(0.55, 0.95, w)) : BEARD;
   const C0 = CC ? beardCards({ P: bPos, N: N0, T: skinT, mask: cardMask }, { MOUTHY, EZ, EY, half: MH }, CC.groom, CC.seed || 7, { u0: SX, tune: CC.tune }) : null;
   if (C0) console.error('beard cards', CC.groom, C0.count, 'cards,', C0.P.length / 3, 'points; cut short at the lips', C0.cut, 'dropped', C0.dropped);
   const nC = C0 ? C0.P.length / 3 : 0, P = new Float32Array((nSh + nC) * 3); P.set(PS); if (C0) P.set(C0.P, nSh * 3);
@@ -508,6 +514,13 @@ const BROWS = CFG.browStrands ? await (async () => {
       const turn = (a) => { const c = Math.cos(a), sn = Math.sin(a); return line.map((p, i) => { if (!i) return p; const v = p.map((x, j) => x - o[j]), kv = kx[0] * v[0] + kx[1] * v[1] + kx[2] * v[2], cr = [kx[1] * v[2] - kx[2] * v[1], kx[2] * v[0] - kx[0] * v[2], kx[0] * v[1] - kx[1] * v[0]];
         return v.map((x, j) => o[j] + x * c + cr[j] * sn + kx[j] * kv * (1 - c) + (stray ? kx[j] * 0.12 * Math.hypot(...v) : 0)); }); };
       let L1 = turn(ang); if (stray && L1[L1.length - 1][1] < o[1]) { L1 = turn(-ang); strayN++; } line.splice(0, line.length, ...L1); }
+    // (people11 r9, BS.headUp: the brow's head (its first BS.headUpLen of the span) a few hairs turned up toward the
+    // forehead, the most at the inner end, each the way that takes its tip up (the grandmother's inner ends read as a band))
+    if (BS.headUp && t < (BS.headUpLen ?? 0.25)) { const nr = [N0[pts[0].v * 3] / 127, N0[pts[0].v * 3 + 1] / 127, N0[pts[0].v * 3 + 2] / 127], nl = Math.hypot(...nr) || 1, kx = nr.map((c) => c / nl), o = line[0];
+      const a0 = BS.headUp * (1 - t / (BS.headUpLen ?? 0.25)) * (0.6 + 0.4 * hash3(h, 47, 3));
+      const turn = (a) => { const c = Math.cos(a), sn = Math.sin(a); return line.map((p, i) => { if (!i) return p; const v = p.map((x, j) => x - o[j]), kv = kx[0] * v[0] + kx[1] * v[1] + kx[2] * v[2], cr = [kx[1] * v[2] - kx[2] * v[1], kx[2] * v[0] - kx[0] * v[2], kx[0] * v[1] - kx[1] * v[0]];
+        return v.map((x, j) => o[j] + x * c + cr[j] * sn + kx[j] * kv * (1 - c)); }); };
+      const La = turn(a0), Lb = turn(-a0); line.splice(0, line.length, ...(La[La.length - 1][1] >= Lb[Lb.length - 1][1] ? La : Lb)); }
     // (people8: a share of the hairs (BS.lift) stand off the skin toward their tips, so the brow has a few hairs in the
     // air, as real ones do, not every hair pressed flat into a painted line)
     if (lifted) { const nr = [N0[pts[0].v * 3] / 127, N0[pts[0].v * 3 + 1] / 127, N0[pts[0].v * 3 + 2] / 127], nl = Math.hypot(...nr) || 1, o = line[0], up = 0.1 + 0.14 * hash3(h, 43, 6);
@@ -1799,14 +1812,20 @@ async function paintBeard(img) {
       const rw = Math.max(0, l1 * rs[0] + l2 * rs[1] + l3 * rs[2]), red = (data[i] - data[i + 1]) / Math.max(1, data[i]);
       const wv = Math.max(0, Math.min(1, Math.max(l1 * ws[0] + l2 * ws[1] + l3 * ws[2], sm(0, 0.6, rw) * 0.72 * (1 - sm(0.33, 0.42, red))))); if (wv <= 0.01 || done[y * S + x]) continue; done[y * S + x] = 1;
       // (the base: the skin under a dense beard darkened toward the roots' colour, by how full the beard is there)
-      const base = sm(0.05, 0.75, wv) * A0;
+      // (people11 r9, CFG.shells.calmEdge: under the seven-pass feather the painted fringe ran a hand's width past the
+      // shells, its hairs in the beard's middle brown at a third of their alpha and its grey streaks over bare skin: a pale
+      // beige-grey wash between the ear and the beard at 60 and 120 degrees. Now the shadow from 0.12, no grey streak
+      // under 0.45, and the fringe thinned by its hairs (each whole, fewer toward the edge, none under 0.1), the root's dark)
+      const cE = CFG.shells?.calmEdge;
+      const base = (cE ? sm(0.12, 0.7, wv) : sm(0.05, 0.75, wv)) * A0;
       // (the strands over it: dark hairs along the growth, sparser toward the edge; grey ones as fine streaks)
-      const h = sm(0.42, 0.68, strand(x, y, d, CFG.beard.len || 16, 1)), gr = sm(0.8, 0.9, strand(x, y, d, (CFG.beard.len || 16) * 1.3, 7)) * (CFG.beard.grey ?? 0.2) * 5;
-      const ha = h * sm(0.02, 0.45, wv) * 0.9;
+      const h = sm(0.42, 0.68, strand(x, y, d, CFG.beard.len || 16, 1)), gr = sm(0.8, 0.9, strand(x, y, d, (CFG.beard.len || 16) * 1.3, 7)) * (CFG.beard.grey ?? 0.2) * 5 * (cE ? sm(0.45, 0.8, wv) : 1);
+      const sv = strand(x, y, d, CFG.beard.len || 16, 1), pb = 0.42 + 0.45 * (1 - sm(0.15, 0.6, wv));
+      const ha = cE ? (wv > 0.1 ? sm(pb, pb + 0.1, sv) * 0.92 : 0) : h * sm(0.02, 0.45, wv) * 0.9;
       const k = 0.85 + 0.3 * vnoise(x / 3, y / 3, 2);
       for (let ch = 0; ch < 3; ch++) {
         let c = data[i + ch] * (1 - base) + root[ch] * base;
-        const hc = gr > 0.5 ? col[ch] : CFG.beard.mid[ch] * k;
+        const hc = gr > 0.5 ? col[ch] : cE ? CFG.beard.mid[ch] * k * sm(0.2, 0.6, wv) + root[ch] * (1 - sm(0.2, 0.6, wv)) : CFG.beard.mid[ch] * k;
         c = c * (1 - ha) + hc * ha;
         data[i + ch] = Math.max(0, Math.min(255, Math.round(c)));
       }
@@ -1971,7 +1990,7 @@ async function shellTexStrokes(SX = 1) {
       // man's sideburn's confetti at 60 degrees. The fringe fades by its alpha instead)
       // (people10 r8, calmEdge: the noise only inside the beard (from 0.35, full at 0.75) and the edge's band narrower
       // (0.25-0.6, not 0.06-0.62): its single hairs far out on the feathered fringe stood apart as flecks at 120 degrees)
-      const cov = calm ? sm(0.25, 0.6, wv + (vnoise(x / 7, y / 7, 21) - 0.5) * 0.45 * sm(0.35, 0.75, wv)) : sm(0.06, 0.62, wv + (vnoise(x / 7, y / 7, 21) - 0.5) * 0.45);
+      const cov = calm ? sm(0.03, 0.6, wv + (vnoise(x / 7, y / 7, 21) - 0.5) * 0.45 * sm(0.35, 0.75, wv)) : sm(0.06, 0.62, wv + (vnoise(x / 7, y / 7, 21) - 0.5) * 0.45);
       // (people9 r7, calmEdge: and the fringe's alpha eased (cov^1.8): four shells over a third-covered fringe still stacked
       // into opaque clumps, so the fringe thins out instead of breaking into flecks)
       if (calm) { const pi = y * S + x; if (cov > covB[pi]) covB[pi] = cov; if (wv > wvB[pi]) wvB[pi] = wv; }
@@ -1980,7 +1999,10 @@ async function shellTexStrokes(SX = 1) {
       // the beard the strands' own soft ramp, 0.36-0.81, so the layers keep their depth), the
       // clumps' share giving way to the single strands there. Alpha eased toward the cut and the cut's own threshold
       // stood the fringe's slow cover noise up as blobs, round 7's clumps over the sideburn at 120 and 300 degrees)
-      const hE = calm ? h * cov + fine * (1 - cov) : h, g0 = 0.3 + (CFG.shells.gap ?? 0), bar = calm ? g0 + Math.pow(1 - cov, 1.5) * 0.5 : g0;
+      // (people11 r9, calmEdge: the fringe's cover from 0.03 (round 8's 0.25 cut the sideburn short), its hairs a third of a
+      // texel's noise across (a strand's 0.9 stood as dark blobs on the edge), fewer of them (the bar 0.9 up, not 0.5))
+      const thin = calm ? (() => { const a0 = x * d[0] + y * d[1], b0 = -x * d[1] + y * d[0]; return vnoise(b0 / 0.35 + 3, a0 / len, 3 * 0.37); })() : fine;
+      const hE = calm ? h * cov + thin * (1 - cov) : h, g0 = 0.3 + (CFG.shells.gap ?? 0), bar = calm ? g0 + Math.pow(1 - cov, 1.5) * 0.9 : g0;
       const a = calm ? (cov > 0.02 ? sm(bar, bar + 0.14 + 0.31 * cov * cov, hE) : 0) : cov * (stub ? 0.7 * sm(0.7, 0.82, h) : sm(g0, 0.78 + (CFG.shells.gap ?? 0) * 0.5, h)); if (a * 255 <= data[i + 3]) continue; // (F6: gap: fewer, separate strands)
       const tone = strand(x, y, d, len * 1.4, 5), isL = vnoise(x / 1.4, y / 4, 23) < gS;
       if (C) { const lo = isL ? C[1] : C[0], hi = isL ? C[1].map((c) => Math.min(255, c * 1.15)) : C[1]; for (let ch = 0; ch < 3; ch++) data[i + ch] = Math.min(255, Math.round(lo[ch] + (hi[ch] - lo[ch]) * tone)); }

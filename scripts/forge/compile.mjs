@@ -191,7 +191,12 @@ export function compile(S) {
       // step darker (the grey-brown kept), none near white and less sheen (their glints read as grain), a third of the
       // paint under them: round 7's read as a grainy dark band)
       if (fem && darkSkin) Object.assign(B7, { keep: +(B7.keep * 0.7).toFixed(3), width: 0.0001, len: 1.2, root: [54, 47, 41], tip: [74, 65, 57], altShare: 0.5, whiteShare: 0,
-        tipFade: 0.4, tipFrom: 0.9, paint: 0.035, spec: 0.07 }); }
+        tipFade: 0.4, tipFrom: 0.9, paint: 0.035, spec: 0.07 });
+      // (people11 r9: salt and pepper that belongs with her silver hair: round 8's read near-black, pencilled on, at a
+      // face's distance. The hairs a grey-brown midway to round 6's, two in five dark, three in ten a light grey, and
+      // the inner end a few hairs turned up (headUp), sparser and shorter (round 8's inner ends read as a band))
+      if (fem && darkSkin) Object.assign(B7, { root: [62, 55, 48], tip: [86, 77, 69], altRoot: [40, 34, 29], altTip: [60, 51, 44], altShare: 0.45,
+        whiteRoot: [104, 97, 89], whiteTip: [130, 122, 112], whiteShare: 0.2, headKeep: 0.35, headLen: 0.3, headUp: 0.7, headUpLen: 0.22 }); }
     // (people7: a young woman's brow finer: a quarter fewer hairs, its tail thinner and its hairs shorter toward the end
     // (the young mother's read heavy and blunt), the root a step off black)
     else if (fem && !old) { Object.assign(B7, { keep: +(B7.keep * 0.75).toFixed(3), tailKeep: 0.42, tailLen: 0.45, root: mix(br[1], br[2], 0.2).map(Math.round), paint: 0.24, angVar: 0.08, edgeKeep: 0.6 });
