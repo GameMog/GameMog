@@ -593,7 +593,7 @@ function createWaterfrontPierMaterialsPart2(shared) {
   }
 
   // Sign atlas: one 1024x512 canvas, one row per sign (white letters, alpha-tested, lit at night)
-  const SIGNS = ['STATEN ISLAND FERRY', 'CHELSEA PIERS', 'PIER 17', 'CIRCLE LINE'];
+  const SIGNS = ['FERRY', 'SPORTS PIERS', 'PIER 17', 'HARBOR CRUISES'];
   const canvas = document.createElement('canvas');
   canvas.width = 1024;
   canvas.height = 512;
@@ -963,7 +963,7 @@ function buildWaterfrontPiers(group) {
     };
     arch(-0.2, Math.min(8, hw - 3));
     if (!p.golf) arch(shedEnd + 0.2, Math.min(7, hw - 3.5));
-    if (p.sign) F.sign('CHELSEA PIERS', -0.8, DY + 16.8, 0, 1.7, -Math.PI / 2);
+    if (p.sign) F.sign('SPORTS PIERS', -0.8, DY + 16.8, 0, 1.7, -Math.PI / 2);
     if (p.golf) {
       const g0 = shedEnd, g1 = L - 2, H = 46;
       F.box(GR, g0, g1, DY, DY + 0.05, s0, s1, 6);
@@ -1347,15 +1347,15 @@ function buildWaterfrontPiers(group) {
     for (let u = ua + 4; u < ub - 6; u += 9) F.tree(u, (u % 2 ? 1 : -1) * (hw - 3.5), UY, 1.5);
     ships.schooner(F.sub(L * 0.62, hw + 4.4, Math.PI));
   };
-  // Ferry piers (Pier 11, Pier 79, E 34th St; Circle Line at Pier 83): terminal at the head, floating barges with gangways
+  // Ferry piers (Pier 11, Pier 79, E 34th St; the harbor cruises at Pier 83): terminal at the head, floating barges with gangways
   kinds.ferryPier = (F, p) => {
     const { L, hw } = F;
     deck(F, F.u0, L, -hw, hw, { lamps: 16 });
-    if (p.circleLine) {
+    if (p.harborCruises) {
       F.box(BL, 2.4, 23.6, DY, DY + 4.2, -hw + 1.9, hw - 1.9, 7);
       F.box(BL, 2, 24, DY + 4.2, DY + 9.2, -hw + 1.5, hw - 1.5, 6);
       F.box(PA, 1.7, 24.3, DY + 9.2, DY + 9.7, -hw + 1.2, hw - 1.2, 5);
-      F.sign('CIRCLE LINE', 1.94, DY + 6.7, 0, 2.3, -Math.PI / 2);
+      F.sign('HARBOR CRUISES', 1.94, DY + 6.7, 0, 2.3, -Math.PI / 2);
       ships.ferry(F.sub(L * 0.5, hw + 6.8, 0), 40, 3);
       ships.ferry(F.sub(L * 0.66, -hw - 6, Math.PI), 34, 2);
       return;
@@ -1405,7 +1405,7 @@ function buildWaterfrontPiers(group) {
     F.box(BL, -16, 8, DY + 16.0, DY + 19.0, -22, 22, 6);
     F.box(BL, -29, -20, DY + 14.4, DY + 15.0, -26, 26, 6);
     for (const s of [-24, 24]) F.box(PA, -28.2, -27.8, DY, DY + 14.4, s - 0.2, s + 0.2, 9);
-    F.sign('STATEN ISLAND FERRY', -20.06, DY + 18.4, 0, 2.4, -Math.PI / 2);
+    F.sign('FERRY', -20.06, DY + 18.4, 0, 2.4, -Math.PI / 2);
     for (const sr of [-33, -11, 11, 33]) {
       F.box(PA, 14, 50, -3.0, DY + 1.5, sr - 0.6, sr + 0.6, 8);
       for (let u = 16; u <= 50; u += 4.5) F.box(PA, u - 0.3, u + 0.3, -3.0, DY + 2.6, sr - 0.3, sr + 0.3, 8);

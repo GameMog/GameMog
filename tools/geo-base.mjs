@@ -283,6 +283,9 @@ class Raster {
 // 3. FRAME CALIBRATION FROM THE CENTERLINE
 // =====================================================================================================================
 const cscl = load('cscl_manhattan.json');
+// Labels name no real operators or venues: the centreline's few such street names go by generic ones
+const NAME_GENERIC = { 'CHELSEA PIERS ACCESS RD': 'SPORTS PIERS ACCESS RD' };
+for (const s of cscl) if (NAME_GENERIC[s.full_street_name]) s.full_street_name = NAME_GENERIC[s.full_street_name];
 function segLines(s) {
   const g = s.the_geom;
   if (!g) return [];
