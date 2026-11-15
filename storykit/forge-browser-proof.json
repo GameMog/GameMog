@@ -1,85 +1,85 @@
 {
  "$comment": "npm run storykit:forge-browser-check (B6): every anchor forged in headless Chrome with this forge.js (key: sha256 of forge.js, the kit and the anchors' sheets); bytes under the store's 6291456 a person",
- "key": "ef8ebc00c2f35ad86a40dd0e66b5721b8a38b97cb090446414133c9347b0cd74",
- "at": "2026-11-15T08:30:13.256Z",
+ "key": "7226b29128d33da74f61445f18fb1764ba32fe89c781130f8797272c163f0a4b",
+ "at": "2026-11-15T09:04:28.114Z",
  "chrome": "Chrome/157.0.0.0",
  "runs": [
   {
    "id": "old-boss",
    "bytes": 2595948,
-   "ms": 18811,
+   "ms": 22346,
    "uncoveredCm2": 9.1
   },
   {
    "id": "young-hero",
    "bytes": 2635108,
-   "ms": 25698,
+   "ms": 28406,
    "uncoveredCm2": 4.2
   },
   {
    "id": "grandmother",
-   "bytes": 2478432,
-   "ms": 16128,
+   "bytes": 2418820,
+   "ms": 19086,
    "uncoveredCm2": 1.9
   },
   {
    "id": "cop",
    "bytes": 2737564,
-   "ms": 21362,
+   "ms": 28265,
    "uncoveredCm2": 12.5
   },
   {
    "id": "teen",
    "bytes": 2718696,
-   "ms": 12233,
+   "ms": 16224,
    "uncoveredCm2": 5.1
   },
   {
    "id": "young-mother",
    "bytes": 2873064,
-   "ms": 26126,
+   "ms": 33714,
    "uncoveredCm2": 2.2
   },
   {
    "id": "office-worker",
    "bytes": 2628188,
-   "ms": 29104,
+   "ms": 31735,
    "uncoveredCm2": 1
   },
   {
    "id": "chef",
    "bytes": 2839756,
-   "ms": 32202,
+   "ms": 34272,
    "uncoveredCm2": 2.6
   },
   {
    "id": "club-promoter",
    "bytes": 2619144,
-   "ms": 23216,
+   "ms": 23043,
    "uncoveredCm2": 13.6
   },
   {
    "id": "nurse",
-   "bytes": 2758680,
-   "ms": 12272,
+   "bytes": 2760072,
+   "ms": 9935,
    "uncoveredCm2": 1.6
   },
   {
    "id": "mechanic",
    "bytes": 2891320,
-   "ms": 22553,
+   "ms": 22606,
    "uncoveredCm2": 11.5
   },
   {
    "id": "veteran",
    "bytes": 2963364,
-   "ms": 21556,
+   "ms": 18531,
    "uncoveredCm2": 5.6
   },
   {
    "id": "probe-bib",
-   "bytes": 2956176,
-   "ms": 14391,
+   "bytes": 2957600,
+   "ms": 11804,
    "uncoveredCm2": 1.4
   }
  ]
