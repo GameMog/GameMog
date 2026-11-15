@@ -6,9 +6,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
-import { FLEET_PICKS, fleetPickOf, pickedFleetSheet } from '../wagmi/fleet-picks.js';
+import { FLEET_PICKS, fleetPickOf, pickedFleetSheet, TOW_CLASSES } from '../wagmi/fleet-picks.js';
 import { MODEL_SHEETS } from '../wagmi/jack-sheets.js';
-import { checkSheet } from '../wagmi/storyrun/vehicles/sheet.js';
+import { checkSheet, TOW_CLASSES as SHEET_TOW } from '../wagmi/storyrun/vehicles/sheet.js';
 
 const NYCD = {}; vm.runInNewContext(readFileSync(new URL('../cities/sf/js/fleet-data.js', import.meta.url), 'utf8'), { window: { NYC: NYCD } });
 const FD = NYCD.FLEET_DATA;
@@ -60,6 +60,15 @@ test('a picked car: the model\'s own sheet wearing it, the story\'s name and pai
   assert.deepEqual(sh.handling, MODEL_SHEETS.gt83.handling);
   // (no paint anywhere: the model's own)
   assert.equal(pickedFleetSheet('van', { models: FD.models, sheets: MODEL_SHEETS }).paint.base, FD.models.van92.paint);
+  // (the story's abilities ride along: a pickup keeps its tow and ram, a car drops a tow it has no rig for, thrusters never)
+  const tow = { ...story, class: 'pickup', abilities: ['tow', 'ram', 'hop'] };
+  const towed = pickedFleetSheet('pickup', { models: FD.models, sheets: MODEL_SHEETS, story: tow });
+  assert.deepEqual(towed.abilities, ['tow', 'ram']);
+  { const { fleet, ...plain } = towed; const r = checkSheet(plain); assert.ok(r.ok, r.problems.join('; ')); }
+  assert.deepEqual(pickedFleetSheet('sedan', { models: FD.models, sheets: MODEL_SHEETS, story: tow }).abilities, ['ram']);
+  assert.equal(pickedFleetSheet('sedan', { models: FD.models, sheets: MODEL_SHEETS, story: { ...story, abilities: ['tow', 'dash'] } }).abilities, MODEL_SHEETS.sedan10.abilities);
+  assert.equal(sh.id, 'fleet-pick-gt83');
+  assert.deepEqual([...TOW_CLASSES], [...SHEET_TOW]);
   // (a model missing from the data: no pick)
   assert.equal(pickedFleetSheet('van', { models: {}, sheets: MODEL_SHEETS }), null);
 });

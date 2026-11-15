@@ -31,6 +31,8 @@ export const FLEET_PICKS = Object.freeze({
 export const fleetPickOf = (name) => (typeof name === 'string' && Object.prototype.hasOwnProperty.call(FLEET_PICKS, name) ? FLEET_PICKS[name] : null);
 
 const COLOUR = /^#[0-9A-Fa-f]{6}$/;
+// (the classes that carry a tow rig: wagmi/storyrun/vehicles/sheet.js TOW_CLASSES, asserted equal in tests/fleet-picks.test.mjs)
+export const TOW_CLASSES = Object.freeze(['wrecker', 'pickup']);
 // o: { models: FLEET_DATA.models, sheets: MODEL_SHEETS, story: the story's own sheet (PACK.sheetCar) or null,
 //      paint: a fallback paint (#rrggbb), label: the fallback name ('Your car') }
 export function pickedFleetSheet(name, o = {}) {
@@ -41,5 +43,8 @@ export function pickedFleetSheet(name, o = {}) {
   const storyPaint = story && story.paint && COLOUR.test(story.paint.base || '') ? story.paint.base : null;
   const paint = storyPaint || (COLOUR.test(o.paint || '') ? o.paint : null) || o.models[id].paint || '#B3121A';
   const label = story && typeof story.label === 'string' && story.label.trim() ? story.label.trim().slice(0, 40) : (o.label || base.label);
-  return { v: 1, id: 'fleet-pick-' + id, family: 'car4', ...base, label, fleet: id, paint: { base: paint, finish: (story && story.paint && story.paint.finish) || 'metallic' } };
+  // (the story's abilities for its car ride along, so a mission's tow or ram still has its rig: no thrusters on a real
+  // car, and the tow only on a model whose class carries a tow rig; none left, the model's own)
+  const ab = story && Array.isArray(story.abilities) ? story.abilities.filter((a) => typeof a === 'string' && a !== 'hop' && a !== 'dash' && (a !== 'tow' || TOW_CLASSES.includes(base.class))) : [];
+  return { v: 1, family: 'car4', ...base, id: 'fleet-pick-' + id, label, fleet: id, ...(ab.length ? { abilities: [...new Set(ab)] } : {}), paint: { base: paint, finish: (story && story.paint && story.paint.finish) || 'metallic' } };
 }
