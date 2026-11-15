@@ -1,85 +1,85 @@
 {
  "$comment": "npm run storykit:forge-browser-check (B6): every anchor forged in headless Chrome with this forge.js (key: sha256 of forge.js, the kit and the anchors' sheets); bytes under the store's 6291456 a person",
- "key": "d95878ed98cd0e8bb87ae321d05e9d0fc072f60f8ace4028ed68b8abda4c82b4",
- "at": "2026-11-15T07:30:00.349Z",
+ "key": "10ab21eab33df013f733766fc1a0b107fd87206d53949ff52ab8653537ef2537",
+ "at": "2026-11-15T07:39:51.729Z",
  "chrome": "Chrome/157.0.0.0",
  "runs": [
   {
    "id": "old-boss",
    "bytes": 2660840,
-   "ms": 13750,
+   "ms": 13371,
    "uncoveredCm2": 9.1
   },
   {
    "id": "young-hero",
    "bytes": 2806916,
-   "ms": 21576,
+   "ms": 18807,
    "uncoveredCm2": 4.2
   },
   {
    "id": "grandmother",
    "bytes": 2425788,
-   "ms": 14097,
+   "ms": 12786,
    "uncoveredCm2": 1.9
   },
   {
    "id": "cop",
-   "bytes": 2886876,
-   "ms": 17906,
+   "bytes": 2884172,
+   "ms": 17629,
    "uncoveredCm2": 12.5
   },
   {
    "id": "teen",
    "bytes": 2888536,
-   "ms": 11002,
+   "ms": 11259,
    "uncoveredCm2": 5.1
   },
   {
    "id": "young-mother",
    "bytes": 2909516,
-   "ms": 22525,
+   "ms": 23369,
    "uncoveredCm2": 2.2
   },
   {
    "id": "office-worker",
    "bytes": 2660516,
-   "ms": 21151,
+   "ms": 21672,
    "uncoveredCm2": 1
   },
   {
    "id": "chef",
-   "bytes": 2885056,
-   "ms": 24676,
+   "bytes": 2873780,
+   "ms": 26041,
    "uncoveredCm2": 2.6
   },
   {
    "id": "club-promoter",
    "bytes": 2792484,
-   "ms": 18579,
+   "ms": 19662,
    "uncoveredCm2": 13.6
   },
   {
    "id": "nurse",
-   "bytes": 2773084,
-   "ms": 8483,
+   "bytes": 2768340,
+   "ms": 9301,
    "uncoveredCm2": 1.6
   },
   {
    "id": "mechanic",
-   "bytes": 2905568,
-   "ms": 15795,
+   "bytes": 3040544,
+   "ms": 17403,
    "uncoveredCm2": 11.5
   },
   {
    "id": "veteran",
    "bytes": 2963356,
-   "ms": 16199,
+   "ms": 17925,
    "uncoveredCm2": 5.6
   },
   {
    "id": "probe-bib",
-   "bytes": 2971648,
-   "ms": 10527,
+   "bytes": 2967672,
+   "ms": 11839,
    "uncoveredCm2": 1.4
   }
  ]
