@@ -210,8 +210,11 @@ function softCard(m, msaa, strands) {
     n.alphaToCoverage = true; n.alphaTest = 0;
     // (the coverage eased over the texture's own alpha round the GLB's cut, so a strand's end fades over a few samples)
     n.colorNode = vec4(rgb, float(1));
-    n.opacityNode = smoothstep(float(cut - H.soft), float(cut + H.soft), a);
-    n.maskNode = a.greaterThan(Math.max(0.02, cut - H.soft));
+    // (people5 r3: a beard's coverage eased over +-0.07, not +-0.2: its mipped strand cards' faint texels (0.25-0.45)
+    // came out a dithered translucent ghost round the beard's edge, the old boss's halo)
+    const sw = m.name === 'beard' ? Math.min(H.soft, 0.07) : H.soft;
+    n.opacityNode = smoothstep(float(cut - sw), float(cut + sw), a);
+    n.maskNode = a.greaterThan(Math.max(0.02, cut - sw));
   } else { n.colorNode = vec4(rgb, a); n.alphaTest = cut; }
   // (its shadow cut as before)
   n.maskShadowNode = a.greaterThan(cut);
