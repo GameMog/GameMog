@@ -472,6 +472,13 @@ const BROWS = CFG.browStrands ? await (async () => {
   const NB = 14, tOf = (p) => { const s = p[0] > 0 ? 0 : 1; return [s, clamp01((Math.abs(p[0]) - ax[s]) / Math.max(0.005, bx[s] - ax[s]))]; };
   const band = [0, 1].map(() => Array.from({ length: NB }, () => [9, -9]));
   for (const pts of hairs) { const [s, t] = tOf(pts[0].p), b = band[s][Math.min(NB - 1, Math.floor(t * NB))]; b[0] = Math.min(b[0], pts[0].p[1]); b[1] = Math.max(b[1], pts[0].p[1]); }
+  // (people9 r7: the brow's height a side (its roots' band at its tallest), and a floor under it at each place (the lowest
+  // roots there and either side, less a quarter of that height): a stray or a lifted hair is at most BS.strayLen of the
+  // height long (1.25), a stray turned the way that takes its tip up, and no hair's line goes under the floor (it is cut
+  // there): the bald man's, the long-haired man's and the grandmother's strays ran three heights long across the lids)
+  const bH = band.map((bs) => Math.max(0.004, ...bs.filter((b) => b[0] < b[1]).map((b) => b[1] - b[0])));
+  const floorY = (s, t) => { const i = Math.min(NB - 1, Math.max(0, Math.floor(t * NB))); let m = 9; for (let j = Math.max(0, i - 1); j <= Math.min(NB - 1, i + 1); j++) if (band[s][j][0] < 9) m = Math.min(m, band[s][j][0]); return (m < 9 ? m : -9) - 0.25 * bH[s]; };
+  let strayN = 0, floorCut = 0;
   hairs.forEach((pts, h) => {
     const [s, t] = tOf(pts[0].p);
     // (fewer at the tail: kept by keep, less toward the tail's end; and by the head's start too (BS.headKeep, people8:
@@ -486,19 +493,26 @@ const BROWS = CFG.browStrands ? await (async () => {
     // (people7: a stray (BS.stray of an old brow's hairs) longer and turned well off the brow's lie; every hair turned a
     // little about the skin's normal at its root (BS.angVar), so the hairs cross; the tail's hairs shorter (BS.tailLen))
     const stray = hash3(h, 17, 4) < (BS.stray ?? 0), ang = stray ? (hash3(h, 19, 2) < 0.5 ? -1 : 1) * (0.5 + 0.4 * hash3(h, 23, 7)) : (hash3(h, 29, 1) - 0.5) * 2 * (BS.angVar ?? 0);
-    const want = tot * Math.min(1.45, (stray ? 1.3 : 1) * lenK * (1 - (BS.tailLen ?? 0) * sm(0.45, 1, t)) * (1 - lenVar + 2 * lenVar * hash3(h, 5, 9)));
+    const lifted = BS.lift && hash3(h, 37, 5) < BS.lift;
+    let want = tot * Math.min(1.45, (stray ? 1.3 : 1) * lenK * (1 - (BS.tailLen ?? 0) * sm(0.45, 1, t)) * (1 - lenVar + 2 * lenVar * hash3(h, 5, 9)));
+    if (stray || lifted) want = Math.min(want, (BS.strayLen ?? 1.25) * bH[s]);
     const line = [pts[0].p]; let acc = 0; for (let i = 1; i < pts.length; i++) { if (acc + L0[i - 1] >= want) { const f = (want - acc) / L0[i - 1]; line.push(pts[i - 1].p.map((c, j) => c + (pts[i].p[j] - c) * f)); acc = want; break; } acc += L0[i - 1]; line.push(pts[i].p); }
     // (longer than its source: the last segment carried on)
     if (acc < want - 1e-6) { const a = line[line.length - 2], b = line[line.length - 1], d = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]) || 1, f = (want - acc) / d; line.push(b.map((c, j) => c + (b[j] - a[j]) * f)); }
     if (line.length < 2) return;
-    if (ang) { const nr = [N0[pts[0].v * 3] / 127, N0[pts[0].v * 3 + 1] / 127, N0[pts[0].v * 3 + 2] / 127], nl = Math.hypot(...nr) || 1, kx = nr.map((c) => c / nl), c = Math.cos(ang), sn = Math.sin(ang), o = line[0];
-      for (let i = 1; i < line.length; i++) { const v = line[i].map((x, j) => x - o[j]), kv = kx[0] * v[0] + kx[1] * v[1] + kx[2] * v[2], cr = [kx[1] * v[2] - kx[2] * v[1], kx[2] * v[0] - kx[0] * v[2], kx[0] * v[1] - kx[1] * v[0]];
-        // (Rodrigues, about the root's normal; a stray lifted off the skin a little too)
-        line[i] = v.map((x, j) => o[j] + x * c + cr[j] * sn + kx[j] * kv * (1 - c) + (stray ? kx[j] * 0.12 * Math.hypot(...v) : 0)); } }
+    if (ang) { const nr = [N0[pts[0].v * 3] / 127, N0[pts[0].v * 3 + 1] / 127, N0[pts[0].v * 3 + 2] / 127], nl = Math.hypot(...nr) || 1, kx = nr.map((c) => c / nl), o = line[0];
+      // (Rodrigues, about the root's normal; a stray lifted off the skin a little too; a stray whose tip would go down is turned the other way)
+      const turn = (a) => { const c = Math.cos(a), sn = Math.sin(a); return line.map((p, i) => { if (!i) return p; const v = p.map((x, j) => x - o[j]), kv = kx[0] * v[0] + kx[1] * v[1] + kx[2] * v[2], cr = [kx[1] * v[2] - kx[2] * v[1], kx[2] * v[0] - kx[0] * v[2], kx[0] * v[1] - kx[1] * v[0]];
+        return v.map((x, j) => o[j] + x * c + cr[j] * sn + kx[j] * kv * (1 - c) + (stray ? kx[j] * 0.12 * Math.hypot(...v) : 0)); }); };
+      let L1 = turn(ang); if (stray && L1[L1.length - 1][1] < o[1]) { L1 = turn(-ang); strayN++; } line.splice(0, line.length, ...L1); }
     // (people8: a share of the hairs (BS.lift) stand off the skin toward their tips, so the brow has a few hairs in the
     // air, as real ones do, not every hair pressed flat into a painted line)
-    if (BS.lift && hash3(h, 37, 5) < BS.lift) { const nr = [N0[pts[0].v * 3] / 127, N0[pts[0].v * 3 + 1] / 127, N0[pts[0].v * 3 + 2] / 127], nl = Math.hypot(...nr) || 1, o = line[0], up = 0.1 + 0.14 * hash3(h, 43, 6);
+    if (lifted) { const nr = [N0[pts[0].v * 3] / 127, N0[pts[0].v * 3 + 1] / 127, N0[pts[0].v * 3 + 2] / 127], nl = Math.hypot(...nr) || 1, o = line[0], up = 0.1 + 0.14 * hash3(h, 43, 6);
       for (let i = 1; i < line.length; i++) { const d = Math.hypot(line[i][0] - o[0], line[i][1] - o[1], line[i][2] - o[2]); line[i] = line[i].map((x, j) => x + nr[j] / nl * up * d); } }
+    // (people9 r7: never under the brow's floor: cut where it crosses it)
+    for (let i = 1; i < line.length; i++) { const fy = floorY(s, tOf(line[i])[1]); if (line[i][1] >= fy) continue;
+      const a = line[i - 1]; if (a[1] < fy) { line.length = i; floorCut++; break; } const f = (a[1] - fy) / (a[1] - line[i][1]); line[i] = a.map((c, j) => c + (line[i][j] - c) * f); line.length = i + 1; floorCut++; break; }
+    if (line.length < 2 || Math.hypot(line[1][0] - line[0][0], line[1][1] - line[0][1], line[1][2] - line[0][2]) < 0.0004) return;
     const root = pts[0].v, n = [N0[root * 3] / 127, N0[root * 3 + 1] / 127, N0[root * 3 + 2] / 127], u = (Math.floor(hash3(h, 7, 1) * cols) + 0.5) / cols, base = n0 + P.length / 3;
     const rot = hash3(h, 3, 5) * 2.1, cum = [0]; for (let i = 1; i < line.length; i++) cum.push(cum[i - 1] + Math.hypot(line[i][0] - line[i - 1][0], line[i][1] - line[i - 1][1], line[i][2] - line[i - 1][2]));
     const wR = R0 * (0.75 + 0.5 * hash3(h, 2, 8));
@@ -522,7 +536,7 @@ const BROWS = CFG.browStrands ? await (async () => {
       else { const sa = k === 'skinIndex' ? SI : SW; for (let c = 0; c < 4; c++) o[q + c] = sa[src[i] * 4 + c]; } }
     return o; };
   const pos = new Float32Array(n * 3); pos.set(P0.subarray(0, n0 * 3)); pos.set(P, n0 * 3);
-  console.error('brow strands (people6): style', BS.style, kept, 'of', hairs.length, 'hairs,', nS, 'points,', tri.length / 3, 'triangles');
+  console.error('brow strands (people6): style', BS.style, kept, 'of', hairs.length, 'hairs,', nS, 'points,', tri.length / 3, 'triangles; height', bH.map((x) => (x * 1000).toFixed(1)).join('/'), 'mm, strays turned up', strayN, ', cut at the floor', floorCut);
   return { src: { n, get: (k) => cache[k] || (cache[k] = ext(k)) }, pos, tri, hairs: hairs.length, kept, roots: P, nS, n0 };
 })() : null;
 // the pack's pieces: the hair, the garments (a part of one: its triangles above or under the waist), the shoes
@@ -1850,7 +1864,7 @@ async function browStrandTex() {
   for (let x = 0; x < W; x++) { const alt = rank[x] < (BS.altShare ?? 0), wht = !alt && rank[x] > 1 - (BS.whiteShare ?? 0), k = 0.82 + 0.36 * hash3(x, 13, 6), r0 = alt ? BS.altRoot || BS.root : wht ? BS.whiteRoot : BS.root, r1 = alt ? BS.altTip || BS.tip : wht ? BS.whiteTip : BS.tip;
     for (let y = 0; y < H; y++) { const t = (y + 0.5) / H, f = Math.pow(t, 0.8), i = (y * W + x) * 4;
       for (let c = 0; c < 3; c++) o[i + c] = srgb((lin(r0[c]) + (lin(r1[c]) - lin(r0[c])) * f) * k);
-      o[i + 3] = Math.round(255 * (1 - 0.75 * sm(0.72, 1.0, t))); } }
+      o[i + 3] = Math.round(255 * (1 - (BS.tipFade ?? 0.75) * sm(BS.tipFrom ?? 0.72, 1.0, t))); } }
   return sharp(o, { raw: { width: W, height: H, channels: 4 } }).png().toBuffer();
 }
 // (people6: under strand brows, the skin's soft shadow where the hairs lie, from the hairs themselves: each hair's
@@ -1949,8 +1963,13 @@ async function shellTexStrokes(SX = 1) {
       if (l1 < -0.08 || l2 < -0.08 || l3 < -0.08 || x < 0 || y < 0 || x >= S || y >= S) continue;
       const wv = Math.max(0, Math.min(1, l1 * ws[0] + l2 * ws[1] + l3 * ws[2])), i = (y * S + x) * 4;
       const fine = stub ? vnoise(x / 0.85, y / 0.85, 3) : strand(x, y, d, len, 3), clump = strand(x / 3.2, y / 3.2, d, len / 2.2, 8), h = stub ? fine : 0.62 * fine + 0.38 * clump;
-      const cov = sm(0.06, 0.62, wv + (vnoise(x / 7, y / 7, 21) - 0.5) * 0.45);
-      const a = cov * (stub ? 0.7 * sm(0.7, 0.82, h) : sm(0.3 + (CFG.shells.gap ?? 0), 0.78 + (CFG.shells.gap ?? 0) * 0.5, h)); if (a * 255 <= data[i + 3]) continue; // (F6: gap: fewer, separate strands)
+      // (people9 r7, CFG.shells.calmEdge: the edge's noise eased in only where the beard is (its feathered fringe under 0.1
+      // gets none, full from 0.45): the noise's peaks over the faint fringe stood as clumps apart from the beard, the bald
+      // man's sideburn's confetti at 60 degrees. The fringe fades by its alpha instead)
+      const cov = sm(0.06, 0.62, wv + (vnoise(x / 7, y / 7, 21) - 0.5) * 0.45 * (CFG.shells.calmEdge ? sm(0.1, 0.45, wv) : 1));
+      // (people9 r7, calmEdge: and the fringe's alpha eased (cov^1.8): four shells over a third-covered fringe still stacked
+      // into opaque clumps, so the fringe thins out instead of breaking into flecks)
+      const a = (CFG.shells.calmEdge ? Math.pow(cov, 1.8) : cov) * (stub ? 0.7 * sm(0.7, 0.82, h) : sm(0.3 + (CFG.shells.gap ?? 0), 0.78 + (CFG.shells.gap ?? 0) * 0.5, h)); if (a * 255 <= data[i + 3]) continue; // (F6: gap: fewer, separate strands)
       const tone = strand(x, y, d, len * 1.4, 5), isL = vnoise(x / 1.4, y / 4, 23) < gS;
       if (C) { const lo = isL ? C[1] : C[0], hi = isL ? C[1].map((c) => Math.min(255, c * 1.15)) : C[1]; for (let ch = 0; ch < 3; ch++) data[i + ch] = Math.min(255, Math.round(lo[ch] + (hi[ch] - lo[ch]) * tone)); }
       else { const g = (isL ? 196 : 118) + 52 * tone; data[i] = Math.min(255, Math.round(g + 3)); data[i + 1] = Math.min(255, Math.round(g + 1)); data[i + 2] = Math.min(255, Math.round(g)); }
@@ -2053,7 +2072,14 @@ if (CFG.shaved) for (const v of skinV) { const x = Math.abs(bPos[v * 3]), y = bP
   // smudge of paint shows on the forehead below the first row)
   // (people5 r2: under close curls, the paint starts where the coils do (their wandering line), a centimetre's fade
   // under it: the forehead's band and the side's wedge down in front of the ear lay past the coils, a dark painted cap)
-  if (CFG.afro?.curl) { const ph = Math.atan2(bPos[v * 3] - CAPC[0], z - CAPC[2]), cy = afroCut(ph); SCALP[v] = Math.min(1, sm(cy - 0.002, cy + 0.016, y + 0.003 * (vnoise(bPos[v * 3] * 400, y * 400, 9) - 0.5))); continue; } // (people5 r3: the paint's fade 1.8 cm and grained, not 1.2: a hard dark line under the curls' hairline)
+  if (CFG.afro?.curl) { const ph = Math.atan2(bPos[v * 3] - CAPC[0], z - CAPC[2]), cy = afroCut(ph), gy = y + 0.003 * (vnoise(bPos[v * 3] * 400, y * 400, 9) - 0.5); SCALP[v] = Math.min(1, sm(cy - 0.002, cy + 0.016, gy));
+    // (people9 r7, CFG.afro.fade: at the sides, a close fade under the coils' line: the paint carried down over the
+    // temples and round the ears as a soft gradient (its share at the line, nothing CFG.afro.fade[1] under it, grained
+    // coarser), the ear itself clear: round 3's dark undercut band, which round 5's ear lift took back to bare skin under the coils' stepped edge)
+    if (CFG.afro.fade) { const [fa, fl] = CFG.afro.fade, ear = sm(0.06, 0.066, x) * sm(EY - 0.07, EY - 0.06, y) * (1 - sm(EY + 0.008, EY + 0.02, y)) * sm(EZ - 0.125, EZ - 0.115, z) * (1 - sm(EZ - 0.06, EZ - 0.05, z));
+      const g2 = gy + 0.004 * (vnoise(bPos[v * 3] * 160 + 2, y * 160, 17) - 0.5);
+      SCALP[v] = Math.max(SCALP[v], fa * sm(0.042, 0.06, x) * Math.pow(sm(cy - fl, cy - 0.002, g2), 1.4) * (1 - ear)); }
+    continue; } // (people5 r3: the paint's fade 1.8 cm and grained, not 1.2: a hard dark line under the curls' hairline)
   if (CFG.boxBraids) { const c = Math.cos(Math.atan2(bPos[v * 3], z - (EZ - 0.088))), bandY = c > 0 ? EY + 0.012 + 0.04 * Math.pow(c, 1.5) : EY + 0.012 - 0.082 * Math.pow(-c, 1.3); a = sm(bandY - 0.002, bandY + 0.006, y); }
   a = Math.max(a, sm(EZ - 0.045, EZ - 0.075, z) * sm(EY - 0.075, EY - 0.04, y));
   a = Math.max(a, sm(0.058, 0.07, x) * sm(EY + 0.0, EY + 0.03, y) * sm(EZ - 0.03, EZ - 0.05, z));
@@ -2115,8 +2141,11 @@ const paintShaved = async (img) => earLift(CFG.shaved ? await napeLift(await pai
 // darker than the skin, lifted to the cheek's colour: under a short cut it showed past the cards as a dark speck behind
 // the ear (the grandmother's, at 240 degrees). Only texels a quarter or more darker than the cheek, so the ear's own
 // folds keep their shade)
+// (people9 r7: never under coils or braids (CFG.afro, CFG.boxBraids): there the dark paint round the ear and temple is the
+// close fade of the hair itself, and lifting it left the nurse bare skin under the coils' stepped edge at 60/120/300)
 async function earLift(img) {
   if (!(CFG.scalp && hairTX.length) && !CFG.shaved) return img;
+  if (CFG.afro || CFG.boxBraids) return img;
   const S = 2048, { data } = await sharp(img).removeAlpha().raw().toBuffer({ resolveWithObject: true }), uv = B.get('uv'), ref = [[], [], []];
   for (const v of skinV) { const x = Math.abs(bPos[v * 3]), y = bPos[v * 3 + 1], z = bPos[v * 3 + 2]; if (x < 0.045 || x > 0.058 || y < EY - 0.04 || y > EY - 0.015 || z < EZ - 0.05) continue;
     const px = Math.min(S - 1, Math.floor(uv[v * 2] / 65535 * S)), py = Math.min(S - 1, Math.floor((1 - uv[v * 2 + 1] / 65535) * S)), i = (py * S + px) * 3; for (let c = 0; c < 3; c++) ref[c].push(data[i + c]); }
