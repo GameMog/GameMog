@@ -3,12 +3,13 @@
 // (wagmi/jack-sheets.js for a car he takes, the town's default car in wagmi/game.js) is built as the Story Kit builds
 // any sheet (wagmi/storyrun/vehicles/build-vehicle.js: its seat and the wheel his hands hold, its engine's sound, its
 // handling from the sheet's class and adjectives), shaped near the model's size, and then wears the model: the Story
-// Kit's own body hidden (the driver's anchor kept, moved with the wheel he holds onto the model's own steering wheel),
-// the model's body and glass on its springs, its wheels in the Story Kit's wheel list (so update() spins and steers
+// Kit's own body hidden (the driver's anchor kept, moved with the wheel he holds onto the model's own steering wheel;
+// a tow rig kept, built on the model's bed and roof, rigFit), the model's body and glass on its springs, its wheels in the Story Kit's wheel list (so update() spins and steers
 // them), its paint and lamps the model's own uniforms (brake lamps from its speed, as the Story Kit's do), its box,
 // axles and chase framing the model's. Its doors don't open: it is a doorless car to ride.js (he just gets in).
 //   buildFleetCar(THREE, sheet) -> rs (throws when the model isn't loaded: the caller builds the plain sheet then)
 //   fleetModelReady(id)         the model is loaded (synchronous)
+//   rigFit(model) -> marks      where a tow rig sits on the model (build-vehicle.js's o.rig)
 import { buildVehicle } from './storyrun/vehicles/build-vehicle.js';
 import { CLASSES } from './storyrun/vehicles/classes.js';
 
@@ -25,15 +26,81 @@ function shapedSheet(sheet, m) {
   return { ...sheet, proportions: P };
 }
 
+// where a tow rig (wagmi/storyrun/vehicles/build-vehicle.js, o.rig) sits on the model: from its body's and glass's own
+// vertices (the model's frame is the body's), the tail, the bumper's foot, the bed's rails and floor, the cab's back wall,
+// the roof over the cab and the widths, so the boom, the wheel-lift and the light bar sit on it, not inside or off it
+export function rigFit(model) {
+  const m = model.meta, zR = m.zR, len = m.zF - m.zR, BIN = 0.05, nb = Math.ceil(len / BIN) + 1, top = new Float32Array(nb).fill(-1);
+  const binOf = (z) => Math.max(0, Math.min(nb - 1, Math.floor((z - zR) / BIN)));
+  let foot = Infinity, bedW = 0, any = false;
+  const P = [];
+  for (const k of ['body', 'glass']) {
+    const geo = model.geo[k], a = geo?.attributes?.position; if (!a) continue;
+    any = true;
+    const first = P.length / 3; for (let i = 0; i < a.count; i++) P.push(a.getX(i), a.getY(i), a.getZ(i));
+    // (the highest point over each 5 cm of its length: a triangle's highest in a slab lies on its edges, so each edge
+    // is read at the slab's two faces; a long flat panel has vertices only at its ends)
+    const idx = geo.index ? geo.index.array : null, n = idx ? idx.length : a.count;
+    const Y = (i) => P[(first + i) * 3 + 1], Z = (i) => P[(first + i) * 3 + 2];
+    const edge = (i, j) => {
+      let za = Z(i), zb = Z(j), ya = Y(i), yb = Y(j); if (za > zb) { [za, zb] = [zb, za]; [ya, yb] = [yb, ya]; }
+      const dz = zb - za;
+      for (let b = binOf(za); b <= binOf(zb); b++) {
+        for (const zz of [Math.max(za, zR + b * BIN), Math.min(zb, zR + (b + 1) * BIN)]) {
+          const y = dz > 1e-6 ? ya + (yb - ya) * (zz - za) / dz : Math.max(ya, yb);
+          if (y > top[b]) top[b] = y;
+        }
+      }
+    };
+    for (let t = 0; t + 2 < n; t += 3) {
+      const i = idx ? idx[t] : t, j = idx ? idx[t + 1] : t + 1, k2 = idx ? idx[t + 2] : t + 2;
+      edge(i, j); edge(j, k2); edge(k2, i);
+    }
+  }
+  if (!any) return null;
+  for (let i = 0; i < P.length; i += 3) {
+    const x = P[i], y = P[i + 1], z = P[i + 2];
+    if (z < zR + 0.12 && y > 0.12) foot = Math.min(foot, y);
+    if (z > zR + 0.25 && z < zR + 1.2) bedW = Math.max(bedW, Math.abs(x));
+  }
+  const binsIn = (z0, z1) => { const o = []; for (let b = Math.floor((z0 - zR) / BIN); b <= Math.floor((z1 - zR) / BIN); b++) if (b >= 0 && b < nb && top[b] > 0) o.push(top[b]); return o; };
+  const med = (v) => { const s = [...v].sort((p, q) => p - q); return s.length ? s[s.length >> 1] : null; };
+  const yBed = med(binsIn(zR + 0.25, zR + 1.0)) ?? m.height * 0.55;
+  // (the roof: the highest run of the middle of its length; the cab's back wall: from the roof's back edge rearward to
+  // where it drops to the rails)
+  let peak = -1, pb = Math.floor(nb / 2);
+  for (let b = Math.floor(nb * 0.15); b < Math.ceil(nb * 0.85); b++) if (top[b] > peak) { peak = top[b]; pb = b; }
+  const roofY = peak > 0 ? peak : m.height;
+  let b0 = pb, b1 = pb;
+  while (b0 > 0 && top[b0 - 1] > roofY - 0.06) b0--;
+  while (b1 < nb - 1 && top[b1 + 1] > roofY - 0.06) b1++;
+  let bc = b0; while (bc > 0 && top[bc - 1] > yBed + 0.2) bc--;
+  const zCab = zR + bc * BIN, r0 = zR + b0 * BIN, r1 = zR + (b1 + 1) * BIN;
+  let roofHalfW = 0, floor = -1;
+  for (let i = 0; i < P.length; i += 3) {
+    const x = P[i], y = P[i + 1], z = P[i + 2];
+    if (z >= r0 && z <= r1 && y > roofY - 0.08) roofHalfW = Math.max(roofHalfW, Math.abs(x));
+    if (Math.abs(x) < 0.45 && z > zR + 0.3 && z < zCab - 0.15 && y < yBed - 0.12 && y > floor) floor = y;
+  }
+  const roofMid = (r0 + r1) / 2;
+  return {
+    zR, zCab, yBed, halfW: Math.min(m.hw, bedW || m.hw), yBump: Number.isFinite(foot) ? foot : 0.45,
+    yFloor: floor > 0 ? floor : Math.max(yBed - 0.45, m.wheels.rear.r * 2 + 0.05),
+    roofY, roofZ: Math.min(r1 - 0.25, roofMid + 0.15), roofHalfW: roofHalfW || m.hw * 0.7,
+  };
+}
+
 export function buildFleetCar(THREE, sheet) {
   const F = Fleet(), model = F && F.get(sheet.fleet);
   if (!model) throw new Error('fleet model not loaded: ' + sheet.fleet);
   const m = model.meta;
   const { fleet, ...plain } = shapedSheet(sheet, m);
-  const rs = buildVehicle(THREE, plain);
+  // (a tow rig, the tow ability on a bed: built on the model's bed and roof, rigFit)
+  const rig = (plain.abilities || []).includes('tow') ? rigFit(model) : null;
+  const rs = buildVehicle(THREE, plain, rig ? { rig } : {});
   const g = rs.group, V = (x, y, z) => new THREE.Vector3(x, y, z);
-  // the Story Kit's own body put away: every mesh but the driver's (the anchor's subtree)
-  const keep = new Set(); rs.anchor.traverse((o) => keep.add(o));
+  // the Story Kit's own body put away: every mesh but the driver's (the anchor's subtree) and the tow rig's
+  const keep = new Set(); rs.anchor.traverse((o) => keep.add(o)); rs.tow?.rig?.traverse((o) => keep.add(o));
   g.traverse((o) => { if (o.isMesh && !keep.has(o)) o.visible = false; });
   // the model: body, glass, lamps and decals on the body (its springs lean it), the wheels on the car
   const car = F.buildCar(model, { paint: sheet.paint?.base, hero: true });

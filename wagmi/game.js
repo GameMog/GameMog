@@ -108,7 +108,10 @@ installDriveMode(WAGMI);
     // 0.60 down and the horizon 0.42 down; it was 0.35, 0.80, 0.58 and 0.46: a little further back, higher, and the car
     // lower in the frame. The zoom still scales both, out to 2.4x)
     chaseDistance: 5.58, chaseHeight: 2.05, chase: { fov: 58, pull: 0.002, kick: 1.1, boostKick: 3.0, vmax: 34, shake: 0.03, vtop: 56 } });
-  Object.assign(car, { label: story.t("Dan's car"), topSpeed: 34, boostSpeed: 56, accel: 16, boostAccel: 32, roadster: rs });
+  // (dial: the HUD's speed, js/main.js carDial: Dan's roadster's own scale (the owner, 24 Oct: it peaks at 176); any other
+  // body here, a sheet's, a fleet model's, a picked car, the horse, its real mph: ride.js's fitSheet / wearRide clear it;
+  // a world's model car (PACK.modelCar, the Vantor GT) keeps every number of the roadster's, its dial included)
+  Object.assign(car, { label: story.t("Dan's car"), topSpeed: 34, boostSpeed: 56, accel: 16, boostAccel: 32, roadster: rs, dial: rs === horseRs || rs === sheetRs ? null : 'dan' });
   // (a Hometown town, ?city=pkg: the player's own town, so the car is theirs, not Dan's; a story world's sheet still
   // names its own car, wagmi/storyrun/ride.js)
   if (window.NYC && window.NYC.CITY === 'pkg') car.label = ['Your', 'car'].join(' ');

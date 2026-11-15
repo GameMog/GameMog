@@ -988,9 +988,13 @@ export function buildVehicle(THREE, raw, o = {}) {
   // (rs.tow.set(out, lift): 0 stowed, 1 out and down / raised); an amber light bar on the cab's roof (rs.setBeacon).
   // No lettering: the safety stripes on the crossbar are plain bands.
   const towRig = sheet.abilities.includes('tow') && isBed;
-  let towLift = null, liftArm = null, liftBar = null, beacons = null;
+  let towLift = null, liftArm = null, liftBar = null, beacons = null, towG = null, towFit = null;
   const TOW = { out: 0, lift: 0 };
   if (towRig) {
+    // (all of it in its own group, out of the body's merge (merged on its own, below), so a car wearing another body
+    // (wagmi/fleet-car.js) keeps it; o.rig fits it to that body: { zR its tail, zCab its cab's back, yBed its bed's
+    // rails, yFloor its floor, halfW its half width, yBump its bumper's foot, roofY / roofZ / roofHalfW its roof })
+    towG = new THREE.Group(); towG.name = 'tow-rig'; body.add(towG);
     M.rig = std({ color: sheet.paint.second || '#2B2E31', roughness: 0.42, metalness: 0.65 });
     M.boom = std({ color: '#D2A626', roughness: 0.5, metalness: 0.35 });
     M.chain = std({ color: '#8A8D90', roughness: 0.32, metalness: 0.95 });
@@ -999,33 +1003,37 @@ export function buildVehicle(THREE, raw, o = {}) {
     M.work = std({ color: '#C9CDD0', emissive: '#FFF6E0', emissiveIntensity: 0, roughness: 0.2, metalness: 0.3 });
     const _up = V3(0, 1, 0);
     // a bar from a to b (w across, d deep), any direction
-    const bar = (a, b, w, d, mat, parent = body, round = 0.012) => {
+    const bar = (a, b, w, d, mat, parent = towG, round = 0.012) => {
       const dir = b.clone().sub(a), L = dir.length();
       const m = rbox(w, L, d, round, mat, (a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2);
       m.quaternion.setFromUnitVectors(_up, dir.normalize()); parent.add(m); return m;
     };
-    const rod = (a, b, r, mat, parent = body) => {
+    const rod = (a, b, r, mat, parent = towG) => {
       const dir = b.clone().sub(a), L = dir.length(), m = cyl(r, r, L, 10, mat);
       m.position.set((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2); m.quaternion.setFromUnitVectors(_up, dir.normalize()); parent.add(m); return m;
     };
-    const z0 = ZR + 0.07, z1 = zBack - 0.05, yf = Math.max(yb + 0.22, WR + 0.12), yt = YS((z0 + z1) / 2), bw = W - 0.08;
+    const own = { zR: ZR, zCab: zBack, yFloor: Math.max(yb + 0.22, WR + 0.12), yBed: YS((ZR + 0.07 + zBack - 0.05) / 2), halfW: W, yBump: yb,
+      roofY: roofY(roofMid), roofZ: Math.min(zRoofF - 0.25, roofMid + 0.15), roofHalfW: S.wRoof };
+    towFit = { ...own, ...(o.rig || {}) };
+    const F = towFit, RZ = F.zR;
+    const z0 = RZ + 0.07, z1 = F.zCab - 0.05, yf = F.yFloor, yt = F.yBed, bw = F.halfW - 0.08;
     // the headboard (a guard behind the cab's back glass) and the tower
     const tz = z1 - 0.2, th = 1.0;
-    body.add(rbox(2 * bw - 0.1, 0.56, 0.05, 0.01, M.rig, 0, yt + 0.24, z1 - 0.02));
-    for (let k = 0; k < 5; k++) body.add(rbox(2 * bw - 0.2, 0.02, 0.03, 0.006, M.black, 0, yt + 0.04 + k * 0.1, z1 - 0.05));
+    towG.add(rbox(2 * bw - 0.1, 0.56, 0.05, 0.01, M.rig, 0, yt + 0.24, z1 - 0.02));
+    for (let k = 0; k < 5; k++) towG.add(rbox(2 * bw - 0.2, 0.02, 0.03, 0.006, M.black, 0, yt + 0.04 + k * 0.1, z1 - 0.05));
     for (const s of [1, -1]) {
       bar(V3(s * 0.46, yf, tz), V3(s * 0.4, yt + th, tz), 0.14, 0.16, M.rig);
       // (a brace down to the bed's front corner)
       bar(V3(s * 0.44, yt + th * 0.55, tz), V3(s * (bw - 0.1), yf + 0.05, z1 - 0.06), 0.06, 0.06, M.rig);
       // a toolbox along each side of the bed
-      body.add(rbox(0.36, 0.42, Math.min(1.4, (z1 - z0) * 0.5), 0.02, M.chrome, s * (bw - 0.2), yt - 0.02, z1 - 0.38 - Math.min(1.4, (z1 - z0) * 0.5) / 2));
+      towG.add(rbox(0.36, 0.42, Math.min(1.4, (z1 - z0) * 0.5), 0.02, M.chrome, s * (bw - 0.2), yt - 0.02, z1 - 0.38 - Math.min(1.4, (z1 - z0) * 0.5) / 2));
       // work lamps on the tower, aimed back
-      body.add(rbox(0.14, 0.1, 0.08, 0.02, M.black, s * 0.36, yt + th + 0.02, tz - 0.12));
-      const wl = new THREE.Mesh(new THREE.PlaneGeometry(0.11, 0.07), M.work); wl.rotation.y = Math.PI; wl.position.set(s * 0.36, yt + th + 0.02, tz - 0.165); body.add(wl);
+      towG.add(rbox(0.14, 0.1, 0.08, 0.02, M.black, s * 0.36, yt + th + 0.02, tz - 0.12));
+      const wl = new THREE.Mesh(new THREE.PlaneGeometry(0.11, 0.07), M.work); wl.rotation.y = Math.PI; wl.position.set(s * 0.36, yt + th + 0.02, tz - 0.165); towG.add(wl);
     }
-    body.add(rbox(0.98, 0.14, 0.2, 0.02, M.rig, 0, yt + th, tz));
+    towG.add(rbox(0.98, 0.14, 0.2, 0.02, M.rig, 0, yt + th, tz));
     // the boom: from its pin on the tower up and back past the tail, on a ram from the bed's floor
-    const pin = V3(0, yt + th - 0.18, tz - 0.12), tip = V3(0, yt + th + 0.42, ZR - 0.32);
+    const pin = V3(0, yt + th - 0.18, tz - 0.12), tip = V3(0, yt + th + 0.42, RZ - 0.32);
     bar(pin, tip, 0.2, 0.17, M.boom);
     bar(pin.clone().add(V3(0, 0.03, -0.25)), tip.clone().lerp(pin, 0.2), 0.14, 0.12, M.boom);
     for (const s of [1, -1]) {
@@ -1033,11 +1041,11 @@ export function buildVehicle(THREE, raw, o = {}) {
       rod(ramA, ramA.clone().lerp(ramB, 0.55), 0.055, M.rig); rod(ramA.clone().lerp(ramB, 0.5), ramB, 0.035, M.chrome);
     }
     // the sheave at the tip, the cable down to the hook, the hook; chains looped over the boom
-    const sheave = cyl(0.13, 0.13, 0.09, 18, M.rig); sheave.rotation.z = Math.PI / 2; sheave.position.copy(tip).add(V3(0, -0.04, -0.06)); body.add(sheave);
-    const hookAt = V3(0, Math.max(yb + 0.35, yt - 0.25), tip.z - 0.12);
+    const sheave = cyl(0.13, 0.13, 0.09, 18, M.rig); sheave.rotation.z = Math.PI / 2; sheave.position.copy(tip).add(V3(0, -0.04, -0.06)); towG.add(sheave);
+    const hookAt = V3(0, Math.max(F.yBump + 0.35, yt - 0.25), tip.z - 0.12);
     rod(V3(0, tip.y - 0.15, tip.z - 0.12), hookAt.clone().add(V3(0, 0.1, 0)), 0.009, M.black);
-    body.add(rbox(0.07, 0.12, 0.05, 0.015, M.rig, 0, hookAt.y + 0.08, hookAt.z));
-    const hk = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.019, 8, 18, Math.PI * 1.45), M.chain); hk.position.copy(hookAt).add(V3(0, -0.04, 0)); hk.rotation.set(0, Math.PI / 2, -Math.PI * 0.72); body.add(hk);
+    towG.add(rbox(0.07, 0.12, 0.05, 0.015, M.rig, 0, hookAt.y + 0.08, hookAt.z));
+    const hk = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.019, 8, 18, Math.PI * 1.45), M.chain); hk.position.copy(hookAt).add(V3(0, -0.04, 0)); hk.rotation.set(0, Math.PI / 2, -Math.PI * 0.72); towG.add(hk);
     // (a chain hung in a loop from two points under the boom: links along a sag, each turned a quarter from the last)
     for (const s of [1, -1]) {
       const A = pin.clone().lerp(tip, 0.62).add(V3(s * 0.12, -0.09, 0)), B = pin.clone().lerp(tip, 0.86).add(V3(s * 0.12, -0.09, 0)), n = 16;
@@ -1045,25 +1053,25 @@ export function buildVehicle(THREE, raw, o = {}) {
         const u = k / n, p = A.clone().lerp(B, u); p.y -= 0.34 * Math.sin(u * Math.PI);
         const q = A.clone().lerp(B, Math.min(1, u + 0.02)); q.y -= 0.34 * Math.sin(Math.min(1, u + 0.02) * Math.PI);
         const ln = new THREE.Mesh(new THREE.TorusGeometry(0.026, 0.007, 5, 10), M.chain); ln.scale.set(1, 1.5, 1);
-        ln.position.copy(p); ln.quaternion.setFromUnitVectors(_up, q.sub(p).normalize()); if (k % 2) ln.rotateY(Math.PI / 2); body.add(ln);
+        ln.position.copy(p); ln.quaternion.setFromUnitVectors(_up, q.sub(p).normalize()); if (k % 2) ln.rotateY(Math.PI / 2); towG.add(ln);
       }
     }
     // amber marker lamps on the boom's tip
-    for (const s of [1, -1]) body.add(rbox(0.05, 0.035, 0.05, 0.01, M.beaconB, s * 0.12, tip.y + 0.06, tip.z + 0.05));
+    for (const s of [1, -1]) towG.add(rbox(0.05, 0.035, 0.05, 0.01, M.beaconB, s * 0.12, tip.y + 0.06, tip.z + 0.05));
     // the light bar on the cab's roof: a black base, six lenses flashing in two banks (rs.setBeacon)
     {
-      const ry = roofY(roofMid) + 0.02, rz = Math.min(zRoofF - 0.25, roofMid + 0.15), lw = Math.min(1.3, 2 * S.wRoof - 0.1);
-      body.add(rbox(lw, 0.05, 0.26, 0.02, M.black, 0, ry + 0.025, rz));
-      for (const s of [1, -1]) body.add(rbox(0.05, 0.05, 0.05, 0.01, M.black, s * (lw / 2 - 0.12), ry, rz));
-      for (let k = 0; k < 6; k++) { const x = lerp(-lw / 2 + 0.1, lw / 2 - 0.1, k / 5); body.add(rbox(lw / 6 - 0.025, 0.085, 0.22, 0.025, k < 3 ? M.beaconA : M.beaconB, x, ry + 0.09, rz)); }
+      const ry = F.roofY + 0.02, rz = F.roofZ, lw = Math.min(1.3, 2 * F.roofHalfW - 0.1);
+      towG.add(rbox(lw, 0.05, 0.26, 0.02, M.black, 0, ry + 0.025, rz));
+      for (const s of [1, -1]) towG.add(rbox(0.05, 0.05, 0.05, 0.01, M.black, s * (lw / 2 - 0.12), ry, rz));
+      for (let k = 0; k < 6; k++) { const x = lerp(-lw / 2 + 0.1, lw / 2 - 0.1, k / 5); towG.add(rbox(lw / 6 - 0.025, 0.085, 0.22, 0.025, k < 3 ? M.beaconA : M.beaconB, x, ry + 0.09, rz)); }
       beacons = { on: false, t: 0 };
     }
     // the wheel-lift, under the tail: an arm out of the bed's frame, a crossbar, two wheel cradles (forks)
-    towLift = new THREE.Group(); towLift.name = 'wheel-lift'; body.add(towLift);
+    towLift = new THREE.Group(); towLift.name = 'wheel-lift'; towG.add(towLift);
     const chev = textMat((cx, w, h) => { cx.fillStyle = '#F2C230'; cx.fillRect(0, 0, w, h); cx.fillStyle = '#16171A'; for (let x = -h; x < w + h; x += 64) { cx.beginPath(); cx.moveTo(x, h); cx.lineTo(x + 32, h); cx.lineTo(x + 32 + h, 0); cx.lineTo(x + h, 0); cx.fill(); } }, 512, 64, { roughness: 0.6, metalness: 0.1 });
     // (in the lift's frame: z 0 at the crossbar, the arm forward into the frame rails)
     // (the arm from its pivot under the bed's frame to the crossbar: set with the lift, setTow)
-    liftArm = new THREE.Mesh(new THREE.BoxGeometry(0.16, 1, 0.12), M.rig); liftArm.name = 'wheel-lift-arm'; body.add(liftArm);
+    liftArm = new THREE.Mesh(new THREE.BoxGeometry(0.16, 1, 0.12), M.rig); liftArm.name = 'wheel-lift-arm'; towG.add(liftArm);
     towLift.add(rbox(1.55, 0.13, 0.16, 0.015, M.rig, 0, 0, 0));
     const plate = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.11), chev); plate.rotation.y = Math.PI; plate.position.set(0, 0, -0.082); towLift.add(plate);
     for (const s of [1, -1]) {
@@ -1073,7 +1081,7 @@ export function buildVehicle(THREE, raw, o = {}) {
       towLift.add(rbox(0.06, 0.06, 0.46, 0.01, M.boom, s * 0.8, -0.02, 0));
       const tie = new THREE.Mesh(new THREE.TorusGeometry(0.04, 0.008, 6, 12), M.chain); tie.position.set(s * 0.45, 0.07, 0.02); tie.rotation.x = Math.PI / 2; towLift.add(tie);
     }
-    liftBar = { yStow: Math.max(yb + 0.02, 0.4), zStow: ZR - 0.24, zOut: ZR - 1.05, yDown: 0.08, yUp: 0.42, pivot: V3(0, Math.max(yb - 0.04, 0.42), ZR + 0.55) };
+    liftBar = { yStow: Math.max(F.yBump + 0.02, 0.4), zStow: RZ - 0.24, zOut: RZ - 1.05, yDown: 0.08, yUp: 0.42, pivot: V3(0, Math.max(F.yBump - 0.04, 0.42), RZ + 0.55) };
   }
   function setTow(out = TOW.out, lift = TOW.lift) {
     TOW.out = clamp(out, 0, 1); TOW.lift = clamp(lift, 0, 1);
@@ -1218,7 +1226,7 @@ export function buildVehicle(THREE, raw, o = {}) {
     body.updateMatrixWorld(true);
     const inv = new THREE.Matrix4().copy(body.matrixWorld).invert();
     const byMat = new Map(), gone = [];
-    const keep = new Set([childSeat, booster, roofSign, towLift, liftArm].filter(Boolean));
+    const keep = new Set([childSeat, booster, roofSign, towLift, liftArm, towG].filter(Boolean));
     body.traverse((m) => {
       if (!m.isMesh || m.material.map || keep.has(m)) return;
       let p = m.parent; while (p && p !== body) { if (keep.has(p)) return; p = p.parent; }
@@ -1231,6 +1239,19 @@ export function buildVehicle(THREE, raw, o = {}) {
       const mm = new THREE.Mesh(mergeGeometries(geos), mat);
       mm.castShadow = !mat.transparent; mm.receiveShadow = true; body.add(mm); merged.push(mm);
     }
+  }
+  // (the tow rig's own: its fixed parts one mesh per material, in its group's frame; the wheel-lift and its arm move)
+  if (towG) {
+    towG.updateMatrixWorld(true);
+    const inv = new THREE.Matrix4().copy(towG.matrixWorld).invert(), byMat = new Map(), gone = [];
+    for (const m of [...towG.children]) {
+      if (!m.isMesh || m.material.map || m === liftArm) continue;
+      let geo = m.geometry.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, m.matrixWorld)); if (geo.index) geo = geo.toNonIndexed();
+      for (const k of Object.keys(geo.attributes)) if (k !== 'position' && k !== 'normal') geo.deleteAttribute(k);
+      if (!byMat.has(m.material)) byMat.set(m.material, []); byMat.get(m.material).push(geo); gone.push(m);
+    }
+    for (const m of gone) towG.remove(m);
+    for (const [mat, geos] of byMat) { const mm = new THREE.Mesh(mergeGeometries(geos), mat); mm.name = 'tow-rig-part'; mm.castShadow = !mat.transparent; mm.receiveShadow = true; towG.add(mm); }
   }
 
   /* ------------------------------------------------- the front doors, opening -- */
@@ -1415,7 +1436,8 @@ export function buildVehicle(THREE, raw, o = {}) {
     setDoor, door: setDoor, doorT: (sideK) => doors[sideK]?.t ?? 0, doors: doors.L ? doors : null,
     // the tow rig (a wrecker's): set(out, lift) moves the wheel-lift; hitch(out) is where a towed car's front wheels sit
     // (the crossbar's top, in the world); setBeacon(on) the light bar
-    tow: towLift ? { set: setTow, get out() { return TOW.out; }, get lift() { return TOW.lift; }, arm: towLift,
+    // (rig: its group; fit: the marks it was built to; zOut: the crossbar's z, out, in the body's frame)
+    tow: towLift ? { set: setTow, get out() { return TOW.out; }, get lift() { return TOW.lift; }, arm: towLift, rig: towG, fit: towFit, zOut: liftBar.zOut,
       hitch(out = new THREE.Vector3()) { towLift.updateWorldMatrix(true, false); return towLift.localToWorld(out.set(0, 0.07, 0)); } } : null,
     setBeacon(on) { if (beacons) beacons.on = !!on; },
     // what the story layer reads: the words, the abilities, the sockets, the gate's checks and the sheet's clamps

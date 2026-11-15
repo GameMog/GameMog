@@ -2414,7 +2414,7 @@ export function createRunner(ctx) {
     M.towing = T; M.tow = { phase: 'reach', name };
     const front = () => ({ x: st.fx, z: st.fz });
     // where the truck's lift reaches when it is out (its crossbar), in the world
-    const liftZ = rig ? rs.shape.ZR - 1.05 : (car.body?.z0 ?? -2.3) - 0.9;
+    const liftZ = rig ? (rig.zOut ?? rs.shape.ZR - 1.05) : (car.body?.z0 ?? -2.3) - 0.9;
     const reachOf = () => { const c = Math.cos(car.heading), sn = Math.sin(car.heading); return { x: car.position.x + liftZ * sn, z: car.position.z + liftZ * c }; };
     // (the spot the truck backs to: in front of the car, facing its way, its lift's crossbar under the front wheels)
     const spot = { x: st.fx - Math.sin(h0) * liftZ, z: st.fz - Math.cos(h0) * liftZ, h: h0 };
