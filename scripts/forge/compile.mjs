@@ -132,6 +132,10 @@ export function compile(S) {
     col: lightB ? mix(br[0], br[1], 0.45) : mix(br[1], br[2], 0.3), arch: +((fem ? 0.0016 : 0.0006) + 0.0006 * (hb('a') - 0.5)).toFixed(5), droop: !fem && age > 60 ? 0.0009 : 0, soft: 1 };
   C.browAlpha = { fine: 0.36, average: 0.38, heavy: 0.4 }[bw] + 0.12; // (F6: the cards' cut higher: fewer, finer hairs over the soft mass, not a solid strip)
   const st = S.hair.style;
+  // (people5: a crop's hairs (the fur shells) never lighter than a warm 200: a white buzz's 244 strands took the sky's
+  // blue and the rim as blue-white specks on warm skin (the veteran). Light ramps taken a quarter of the way to a warm grey)
+  const lightCrop = 0.3 * ramp[1][0] + 0.59 * ramp[1][1] + 0.11 * ramp[1][2] > 150;
+  const buzzCols = (r) => r.map((c) => (0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2] > 150 ? mix(c, [168, 156, 142], 0.25).map((x) => Math.round(Math.min(200, x))) : c));
   // (forge v2 adds: bob-tucked (behind the ear), slicked, balding, locs; curls falls back to the short curly cards (the
   // library's curls are not built yet))
   const HM = fem ? { shaved: 'none', buzz: 'body:short02', short: 'short01', 'swept-back': 'short03', slicked: 'short03', 'short-curly': 'bob02', curls: 'bob02', bob: 'bob01', 'bob-tucked': 'bob01', long: 'long01', ponytail: 'ponytail01', 'single-braid': 'braid01', 'box-braids': 'long01', locs: 'long01', balding: 'short01', afro: 'body:afro01' }
@@ -148,10 +152,10 @@ export function compile(S) {
   // (G8b: a horseshoe's hairs 11 px long, not 9, and 45 % of the way from the scalp's paint to their own tone, not 55:
   // seen from behind, the old boss's and the mechanic's read as specks and dark scribbles (1.4 % specks, the old boss's
   // browser build 1.52 % in round 7))
-  if (st === 'balding') { C.hair = 'none'; C.bald = { crown: age > 60 ? 0.055 : 0.07 }; C.shaved = { a: 0.62, col: mix(ramp[0], ramp[1], 0.6).map(Math.round), horseshoe: true }; C.fuzz = { layers: 3, depth: 0.0026, colors: [ramp[0], ramp[1], ramp[2]], grey: clamp(S.hair.greying ?? 0, 0, 1) * 0.5, len: 11, w: 0.8, lift: 0.75, contrast: 0.45 }; }
+  if (st === 'balding') { C.hair = 'none'; C.bald = { crown: age > 60 ? 0.055 : 0.07 }; C.shaved = { a: 0.62, col: mix(ramp[0], ramp[1], 0.6).map(Math.round), horseshoe: true }; C.fuzz = { layers: 3, depth: 0.0026, colors: buzzCols(ramp), grey: clamp(S.hair.greying ?? 0, 0, 1) * 0.5, len: 12, w: 1.9, lift: 0.75, contrast: 0.45, soft: true }; }
   // (a buzz is the scalp painted, no cards: a card cap that short reads as a helmet (the gates' helmet check))
   // (H5: and fur shells over it, 1.8 mm, short hairs along their growth: a buzz reads as hair at 2 m and in silhouette)
-  if (st === 'buzz') { C.hair = 'none'; C.shaved = { a: 0.7, col: ramp[0].map((x, i) => Math.round((x + ramp[1][i]) / 2)), buzz: true }; C.fuzz = { layers: 3, depth: 0.0013, colors: [ramp[0], ramp[1], ramp[2]], grey: clamp(S.hair.greying ?? 0, 0, 1) * 0.5, len: 8, w: 0.8, lift: 0.75, contrast: 0.55 }; }
+  if (st === 'buzz') { C.hair = 'none'; C.shaved = { a: 0.7, col: ramp[0].map((x, i) => Math.round((x + ramp[1][i]) / 2)), buzz: true }; C.fuzz = { layers: 3, depth: 0.0013, colors: buzzCols(ramp), grey: clamp(S.hair.greying ?? 0, 0, 1) * 0.5, len: 10, w: 1.9, lift: 0.75, contrast: lightCrop ? 0.32 : 0.55, soft: true }; }
   // (short card cuts tousled, so they read as hair, not a shell: the gates' helmet check)
   if (['short01', 'short02', 'short03', 'short04', 'bob02'].includes(C.hair)) C.hairTousle = { amp: 0.018, size: 0.024 };
   if (C.hair !== 'none' && !C.hair.startsWith('body:')) { C.hairCut = 0.32; C.hairAlpha = 0.3; C.hairNormal = 3.2; C.hairRough = 0.45; }
