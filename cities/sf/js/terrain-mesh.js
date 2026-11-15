@@ -87,14 +87,21 @@ function buildTerrainMesh(scene) {
     const x0 = c.cx * CHUNK, z0 = c.cz * CHUNK;
     const base = pos.length / 3;
     const skirt = Math.max(2, step / 2);
-    const yAt = (a, b) => surfaceY(x0 + a * step, z0 + b * step);
+    // (each grid point's height read once, with a ring round the chunk for the central differences: five surfaceY()
+    // reads a vertex were most of a tile's rebuild, which runs inside a frame as the camera moves)
+    const m = n + 3;
+    const ys = new Float64Array(m * m);
+    for (let b = -1; b <= n + 1; b++) {
+      for (let a = -1; a <= n + 1; a++) ys[(b + 1) * m + a + 1] = surfaceY(Math.max(0, x0 + a * step), Math.max(0, z0 + b * step));
+    }
+    const yAt = (a, b) => ys[(b + 1) * m + a + 1];
     for (let b = 0; b <= n; b++) {
       for (let a = 0; a <= n; a++) {
         const y = yAt(a, b);
         pos.push(T.originX + x0 + a * step, y, T.originZ + z0 + b * step);
         // central differences at this level's spacing (one-sided at the data's edges)
-        const gx = (surfaceY(x0 + (a + 1) * step, z0 + b * step) - surfaceY(Math.max(0, x0 + (a - 1) * step), z0 + b * step)) / (2 * step);
-        const gz = (surfaceY(x0 + a * step, z0 + (b + 1) * step) - surfaceY(x0 + a * step, Math.max(0, z0 + (b - 1) * step))) / (2 * step);
+        const gx = (yAt(a + 1, b) - yAt(a - 1, b)) / (2 * step);
+        const gz = (yAt(a, b + 1) - yAt(a, b - 1)) / (2 * step);
         const len = Math.hypot(gx, 1, gz);
         nrm.push(-gx / len, 1 / len, -gz / len);
       }
