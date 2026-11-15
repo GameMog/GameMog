@@ -198,6 +198,8 @@ function softCard(m, msaa, strands) {
   for (const k of ['name', 'color', 'map', 'roughness', 'roughnessMap', 'metalness', 'metalnessMap', 'side', 'vertexColors', 'specularIntensity', 'specularColor', 'envMapIntensity'])
     if (m[k] !== undefined && k in n) n[k] = m[k] && m[k].isColor ? m[k].clone() : m[k];
   n.metalness = 0;
+  // (people6: the forge's marks kept (extras: a brow of single hairs, browStrands, which face.js moves with the skin))
+  n.userData = { ...m.userData };
   const cut = m.alphaTest > 0 ? m.alphaTest : H.cut;
   if (!m.map) { n.alphaTest = cut; return n; }
   const tex = texture(m.map), a = tex.a, tint = uniform(m.color ? m.color.clone() : new THREE.Color(1, 1, 1));

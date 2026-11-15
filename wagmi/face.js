@@ -257,7 +257,11 @@ export function faceMorphs(meshes, { fix = {}, hair = false } = {}) {
       if (lw > 0.002) { out.lip[v * 3 + 1] = 0.0021 * lw; out.lip[v * 3 + 2] = 0.0006 * lw; } }
   }
   for (const v of verts(by.lashes)) { const e = eyeOf(P.getX(v)); if (P.getY(v) > e.c.y - 0.002 + sh) lid(v, e, lidUp); }
-  for (const v of verts(by.brows)) out.brow[v * 3 + 1] = 0.0062;
+  // (people6: a forged brow of single hairs (the forge's browStrands; or a brow of thousands of points) goes up as the
+  // skin it grows from does, each point by the forehead's own share there: all of it 6.2 mm, as the cards go, carried
+  // its lowest hairs' roots 2-3 mm off the skin of the brow's lower edge, which rises less)
+  const browV = verts(by.brows), strands = by.brows && (by.brows.material.userData?.browStrands || browV.size > 2000);
+  for (const v of browV) { if (strands) { p.fromBufferAttribute(P, v); out.brow[v * 3 + 1] = 0.006 * foreW(eyeOf(p.x)); } else out.brow[v * 3 + 1] = 0.0062; }
   if (hair) for (const v of verts(by.hair)) { p.fromBufferAttribute(P, v); const fw = foreW(eyeOf(p.x)); if (fw > 0.002) out.brow[v * 3 + 1] = 0.006 * fw; }
   // the eyeballs: turned about their middles (to the left: about y; up: about x, the other way)
   const qx = new THREE.Quaternion(), qy = new THREE.Quaternion();
