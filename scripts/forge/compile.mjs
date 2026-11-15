@@ -105,9 +105,11 @@ export function compile(S) {
   C.iris = { 'dark-brown': [0.36, 0.26, 0.2], brown: [0.48, 0.33, 0.22], hazel: [0.62, 0.55, 0.32], blue: null, 'grey-blue': [0.55, 0.62, 0.68] }[F.eyes || 'brown'];
 
   /* hair */
+  // (people5 r2: the grey, silver, white and salt-and-pepper ramps a little warm (yellowed, as old hair is), not neutral:
+  // neutral greys took the sky's blue, the veteran's moustache and brows and the old boss's beard read blue-grey)
   const HC = (c) => ({ black: [[6, 6, 7], [26, 24, 24], [62, 58, 56]], 'dark-brown': [[12, 9, 8], [44, 32, 26], [92, 70, 56]], brown: [[24, 16, 11], [72, 50, 34], [128, 96, 70]], 'light-brown': [[48, 34, 24], [112, 84, 60], [172, 140, 106]],
     auburn: [[36, 14, 8], [104, 44, 24], [164, 86, 52]], red: [[50, 16, 8], [140, 56, 28], [206, 118, 70]], 'dark-blonde': [[70, 52, 34], [140, 110, 76], [196, 166, 120]], blonde: [[110, 86, 56], [190, 160, 112], [236, 214, 170]],
-    platinum: [[102, 96, 88], [164, 158, 147], [242, 239, 230]], 'salt-and-pepper': [[30, 29, 30], [96, 94, 96], [184, 182, 184]], grey: [[66, 63, 61], [132, 128, 124], [200, 196, 190]], silver: [[70, 70, 74], [150, 150, 154], [214, 214, 216]], white: [[140, 140, 142], [204, 204, 206], [244, 244, 244]] }[c] || [[20, 16, 14], [60, 46, 38], [120, 96, 80]]);
+    platinum: [[102, 96, 88], [164, 158, 147], [242, 239, 230]], 'salt-and-pepper': [[31, 29, 28], [98, 93, 88], [184, 178, 170]], grey: [[68, 63, 58], [134, 127, 118], [198, 191, 180]], silver: [[72, 70, 68], [150, 146, 140], [212, 207, 198]], white: [[142, 138, 131], [202, 197, 188], [236, 232, 222]] }[c] || [[20, 16, 14], [60, 46, 38], [120, 96, 80]]);
   let ramp = HC(S.hair.color);
   if (S.hair.greying) { const g = HC('grey'); ramp = ramp.map((s, i) => mix(s, g[i], clamp(S.hair.greying, 0, 1))); }
   // (forge v2.3, HB: brows matched as Mr. Big's are: their ramp a quarter of the way from the hair's root toward its middle,
@@ -116,7 +118,7 @@ export function compile(S) {
   // heavy brows)
   const bcol = F.brows?.color || (S.facialHair?.style && !['none', 'stubble'].includes(S.facialHair.style) ? S.facialHair.color : null) || S.hair.color;
   // (F6: brows go grey with the hair, a little behind it (the mechanic's auburn brows were red lines under his greying hair))
-  let br = HC(bcol); if (S.hair.greying && !['grey', 'silver', 'white', 'salt-and-pepper', 'platinum'].includes(bcol)) { const g = HC('grey'); br = br.map((c, i) => mix(c, g[i], clamp(S.hair.greying * 0.6, 0, 1))); }
+  let br = ['grey', 'silver', 'white', 'salt-and-pepper'].includes(bcol) ? HC(bcol).map((c) => [c[0], Math.round(c[1] * 0.97), Math.round(c[2] * 0.88)]) : HC(bcol); // (people5 r2: yellowed as the facial hair) if (S.hair.greying && !['grey', 'silver', 'white', 'salt-and-pepper', 'platinum'].includes(bcol)) { const g = HC('grey'); br = br.map((c, i) => mix(c, g[i], clamp(S.hair.greying * 0.6, 0, 1))); }
   // (FC, talking faces: the cards' ramp from the hair's middle a little toward its light (Mr. Big's grey cards read soft;
   // a black ramp from the root read as a pen line with a hook), and under them a soft painted brow (core.mjs paintBrows:
   // a feathered fill, no strokes; the skin's texels are half a millimetre, so strokes painted there read as stitches))
@@ -150,7 +152,7 @@ export function compile(S) {
   // a woman's; a man's 2.6), not BRAIDS.curls: its 260 flat helical ribbons read as tiles face-on, its gaps showed the
   // painted scalp as holes, and its 11 cm hanging ribbons as strips down the neck (the nurse). The pack's 'curly' bob
   // (bob02) was tried: a sleek straight bob. FORGE_RIBBON_CURLS=1 keeps the ribbons)
-  if (st === 'curls' && !globalThis.process?.env?.FORGE_RIBBON_CURLS) { C.hair = 'none'; C.afro = { ...HAIR_STYLES.afro, size: HAIR_STYLES.afro.size * (fem ? 0.6 : 0.52), colors: [ramp[0], ramp[1], ramp[2]] }; C.shaved = { a: 0.92, col: ramp[0].map((x) => Math.round(x * 1.2 + 6)) }; }
+  if (st === 'curls' && !globalThis.process?.env?.FORGE_RIBBON_CURLS) { C.hair = 'none'; C.afro = { ...HAIR_STYLES.afro, curl: true, size: HAIR_STYLES.afro.size * (fem ? 0.6 : 0.52), colors: [ramp[0], ramp[1], ramp[2]] }; C.shaved = { a: 0.92, col: ramp[0].map((x) => Math.round(x * 1.2 + 6)) }; }
   if (st === 'curls' && globalThis.process?.env?.FORGE_RIBBON_CURLS) { C.hair = 'none'; C.boxBraids = { ...BRAIDS.curls, colors: [ramp[0], ramp[1], ramp[2]] }; C.shaved = { a: 0.9, col: ramp[0].map((x) => Math.round(x * 1.2 + 6)) }; }
   if (st === 'box-braids' || st === 'locs') { C.hair = 'none'; C.boxBraids = { ...BRAIDS[st], colors: [ramp[0], ramp[1], ramp[2]] }; C.shaved = { a: 0.92, col: ramp[0].map((x) => Math.round(x * 1.3 + 8)), parts: BRAIDS[st].partLines }; }
   if (st === 'bob-tucked') { C.tuck = true; C.trimFringe = 0.018; }
@@ -198,15 +200,25 @@ export function compile(S) {
     // temples, past the cards' edge. Light strands over a dark scalp is what grey hair on dark skin looks like)
     const lum = (c) => 0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2], sk = mix([150, 110, 90], [92, 62, 48], C.face.african);
     if (lum(C.scalp.col) > 90 && lum(sk) < lum(C.scalp.col) - 20) { const k = clamp((lum(C.scalp.col) - lum(sk)) / 120, 0, 1) * 0.65; C.scalp = { ...C.scalp, col: mix(C.scalp.col, sk, k).map(Math.round), root: mix(C.scalp.root, sk, k).map(Math.round) }; }
+    // (people5 r2: and light hair (its middle over 70) on lighter skin painted a third of the way from its middle to its light,
+    // its roots from half way to the middle: under the long-haired man's light brown cards the middle's paint was a dark
+    // band past their edge)
+    else if (lum(C.scalp.col) > 70) C.scalp = { ...C.scalp, col: mix(C.scalp.col, ramp[2], 0.35).map(Math.round), root: mix(C.scalp.root, C.scalp.col, 0.5).map(Math.round) };
     // (people5: the cards' normals turned 45 % of the way to the hair's volume, not 72: at 72 a short cut lit as one
     // smooth sphere (the grandmother's helmet); the strands' own relief (hairStrands.normal) carries the rest)
     C.hairVolume = 0.45;
     // (people5: a light ramp's strands at 0.42 of its range, not 0.62: on silver the dark gaps between strands read as
     // lines etched in a painted shell)
-    if (lum(ramp[1]) > 110) C.hairStrands.contrast = 0.42; }
+    if (lum(ramp[1]) > 110) C.hairStrands.contrast = 0.42;
+    // (people5 r2: and light hair over dark skin a step deeper in its ramp (the tone from 0.06, not 0.16): the grandmother's
+    // silver read as white paint with no depth; silver over a dark scalp shows grey between its lit strands)
+    if (lum(ramp[1]) > 110 && C.face.african > 0.5) C.hairStrands.base = 0.06; }
 
   /* facial hair (men or anyone the sheet gives it to) */
-  const FH = S.facialHair, fc = HC(FH.color || S.hair.color), dens = clamp(FH.density ?? 0.85, 0.1, 1);
+  // (people5 r2: light facial hair yellowed a little more (blue 12 % down): a white moustache and a grey beard sit on warm
+  // skin under a blue sky, and the hair's own neutral grey read blue-grey against it (the veteran, the old boss))
+  const yel = (r) => (['grey', 'silver', 'white', 'salt-and-pepper'].includes(FH.color || S.hair.color) ? r.map((c) => [c[0], Math.round(c[1] * 0.97), Math.round(c[2] * 0.88)]) : r);
+  const FH = S.facialHair, fc = yel(HC(FH.color || S.hair.color)), dens = clamp(FH.density ?? 0.85, 0.1, 1);
   // (forge v2.2: the grooms are hair cards (library.mjs GROOMS) over the painted beard; stubble stays paint)
   const GROOM = { 'short-boxed': 'boxed', 'full-trimmed': 'boxed', full: 'fullgrown', goatee: 'goatee', moustache: 'moustache', 'chin-strap': 'chinstrap' }[FH.style];
   // (H5: stubble a 5 o'clock shadow with short strokes over it (core.mjs paintStubbleTex) and two shells 0.9 mm out, so
@@ -234,7 +246,7 @@ export function compile(S) {
     // real hair cards (hair-strand-cards) of the full groom, sparse and short (5 a cm2, 9 mm), so the beard's outline and
     // its jaw line break into strands from every side. FORGE_SHELL_BEARDS=1 keeps the shells alone)
     if (!globalThis.process?.env?.FORGE_SHELL_BEARDS) {
-      const silC = [[112, 110, 108], [178, 176, 174]];
+      const silC = [[118, 108, 94], [182, 172, 154]]; // (people5 r2: warmed and yellowed, as the ramps)
       C.shells = { style: 'strokes', layers: 4, depth: +(0.005 * (0.8 + 0.2 * dens)).toFixed(4), alpha: [1, 0.86, 0.72, 0.58], shade: [0.55, 0.72, 0.86, 1], tex: 2048, taper: 0.6, clump: 0.3, len: 9, gap: 0.06,
         cols: sil ? silC : [mix(fc[0], fc[1], 0.7), mix(fc[1], fc[2], 0.6)], grey: sil ? 0.3 : 0.08 };
       C.cards = { groom: 'full', grey: sil ? 0.3 : 0.1, seed: [...S.id].reduce((a, c) => a * 31 + c.charCodeAt(0), 7) >>> 0, tune: { density: +(4 + 2 * dens).toFixed(1), len: 0.009 } };
@@ -264,13 +276,20 @@ export function compile(S) {
       C.cards.tune = { density: +(GROOMS.moustache.density * (0.5 + 0.3 * dens)).toFixed(1), len: +(GROOMS.moustache.len * (0.8 + 0.1 * dens)).toFixed(4) };
       C.shells.depth = +(C.shells.depth * 0.75).toFixed(4);
       if (lt) { const old = (c) => mix(c, [150, 140, 128], 0.2).map((x) => Math.round(Math.min(200, x * 0.84)));
-        C.beard.root = old(fc[0]); C.beard.mid = old(fc[1]); C.beard.col = old(fc[2]); C.shells.cols = C.shells.cols.map(old); } }
+        C.beard.root = old(fc[0]); C.beard.mid = old(fc[1]); C.beard.col = old(fc[2]); C.shells.cols = C.shells.cols.map(old);
+        // (people5 r2: and a light one a soft mass of fine hairs, not strokes with skin between them: its strokes' gaps a
+        // tenth (0.24 showed skin and the strokes' own cut ends as blue-grey specks), the paint under them stronger)
+        C.shells.gap = 0.1; C.beard.a = clamp(0.3 + 0.2 * dens, 0.3, 0.5); } }
   }
   else if (FH.style !== 'none') {
     C.beard = { style: { moustache: 'moustache', goatee: 'goatee', 'full-trimmed': 'full', 'short-boxed': 'full', full: 'full', 'chin-strap': 'full' }[FH.style], col: fc[2], mid: fc[1], root: fc[0], a: clamp(0.6 + 0.35 * dens, 0.4, 0.95), depth: clamp(0.0015 + 0.0015 * dens, 0.001, 0.003), grey: 0.4, len: 16, feather: 2 };
     C.shells = { style: 'strokes', layers: FH.style === 'moustache' ? 4 : 4, depth: clamp(FH.style === 'moustache' ? 0.0055 : 0.0075 * dens, 0.003, 0.008), alpha: [1, 0.86, 0.74, 0.62], shade: [0.55, 0.72, 0.86, 1], tex: 2048,
       cols: ['silver', 'white', 'grey'].includes(FH.color) ? null : [fc[1], fc[2]] };
   }
+
+  // (people5 r2: light facial hair and brows a quieter warm sheen (specular 0.3, not 0.6): white and grey hair lit by
+  // the sky's reflection read blue-grey on warm skin)
+  C.lightFacial = ['silver', 'white', 'grey', 'salt-and-pepper'].includes(FH.color || S.hair.color); C.lightBrows = lightB;
 
   /* the wardrobe */
   const W = S.wardrobe, top = W.top, bot = W.bottom, c3 = (g, d) => hex(g?.color, d), lin3 = (c) => c.map((x) => +(lin(x) / lin(200)).toFixed(3));
