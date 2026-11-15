@@ -87,7 +87,7 @@ export function cardHairTex(src, W, H, ramp, dmap, o = {}) {
     const hl = sm(0.68, 0.86, hh) * hlK;
     // (people2: the source's broad light and shade at 0.26, not 0.42: its patches, under a set's key light, were the
     // crumple in the "crumpled-foil hair"; the strands carry the texture)
-    const t = 0.16 + 0.26 * Ln + 0.62 * (hh - 0.5) + hl * 0.35;
+    const t = 0.16 + 0.26 * Ln + (o.contrast ?? 0.62) * (hh - 0.5) + hl * 0.35;
     const c = rampAt(t);
     // (the cut-out: the cards' own soft borders broken into strand ends (a strand passes as far as its height carries it))
     let a = A0[i]; if (a > 0.02 && a < 0.98) a = sm(0.15, 0.85, a + (hh - 0.5) * 0.9);

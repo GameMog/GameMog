@@ -1979,7 +1979,7 @@ const HAIRTEX = (CFG.hairStrands && !HAIR_BODY && hairTX.length) ? await (async 
       for (let x = Math.max(0, Math.floor(Math.min(...U.map((u) => u[0]))) - 1); x <= Math.min(S0 - 1, Math.ceil(Math.max(...U.map((u) => u[0]))) + 1); x++) {
         const l1 = ((U[1][1] - U[2][1]) * (x + 0.5 - U[2][0]) + (U[2][0] - U[1][0]) * (y + 0.5 - U[2][1])) / det, l2 = ((U[2][1] - U[0][1]) * (x + 0.5 - U[2][0]) + (U[0][0] - U[2][0]) * (y + 0.5 - U[2][1])) / det, l3 = 1 - l1 - l2;
         if (l1 < -0.04 || l2 < -0.04 || l3 < -0.04) continue; const d = l1 * ds[0] + l2 * ds[1] + l3 * ds[2], i = y * S0 + x; if (!(dmap[i] <= d)) dmap[i] = d; } }
-  const T = cardHairTex(src, S0, S0, CFG.hairRamp, dmap, { fw: H5.fw, d0: H5.d0, hl: H5.hl, normal: H5.normal, seed: H5.seed });
+  const T = cardHairTex(src, S0, S0, CFG.hairRamp, dmap, { fw: H5.fw, d0: H5.d0, hl: H5.hl, normal: H5.normal, seed: H5.seed, contrast: H5.contrast });
   console.error('hair strands (H5):', HAIR, S0 + 'px, bare forehead points', bare, 'of', band.length, '; front-edge texels', T.edge);
   return { color: await sharp(T.rgba, { raw: { width: S0, height: S0, channels: 4 } }).png().toBuffer(), normal: await sharp(T.nrm, { raw: { width: S0, height: S0, channels: 3 } }).png().toBuffer() };
 })() : null;
@@ -2170,7 +2170,7 @@ if (!HAIR_BODY && M.hair) {
       const p = [Ph[v * 3], Ph[v * 3 + 1], Ph[v * 3 + 2]], t = Math.min(1, Math.max(0, ((p[0] - HC[0]) * AB[0] + (p[1] - HC[1]) * AB[1] + (p[2] - HC[2]) * AB[2]) / ab2));
       const vol = [(p[0] - HC[0] - AB[0] * t) * 1.15, p[1] - HC[1] - AB[1] * t, p[2] - HC[2] - AB[2] * t], vl = Math.hypot(...vol) || 1;
       let nx = Nh[v * 3], ny = Nh[v * 3 + 1], nz = Nh[v * 3 + 2]; if (nx * vol[0] + ny * vol[1] + nz * vol[2] < 0) { nx = -nx; ny = -ny; nz = -nz; }
-      const q = [nx + (vol[0] / vl - nx) * 0.72, ny + (vol[1] / vl - ny) * 0.72, nz + (vol[2] / vl - nz) * 0.72], ql = Math.hypot(...q) || 1;
+      const VW = CFG.hairVolume ?? 0.72, q = [nx + (vol[0] / vl - nx) * VW, ny + (vol[1] / vl - ny) * VW, nz + (vol[2] / vl - nz) * VW], ql = Math.hypot(...q) || 1;
       Nh[v * 3] = q[0] / ql; Nh[v * 3 + 1] = q[1] / ql; Nh[v * 3 + 2] = q[2] / ql; n++; }
     // (in the pack's one list of normals: the hair's points are its own, no garment or shoe draws from them)
     aN.setArray(Nh);
