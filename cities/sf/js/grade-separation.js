@@ -714,9 +714,29 @@ function buildGradeSeparation(scene, network) {
   };
   // The terrain mesh dips under a bore where the hill's surface comes down into it (terrain-mesh.js): the portals'
   // mouths stay open; deeper in, the hill covers the bore as it is
+  // (terrain-mesh.js asks this for every vertex it writes, five times a vertex, and rebuilds a whole 512 m tile when
+  // one of its chunks changes level as the camera moves: walking the whole floors list there, a town's hundreds of
+  // package decks and discs that never carve, cost 0.3-1.5 s a rebuild, a hitch every few seconds of driving (Long
+  // Beach: 776 floors, 0 tunnels). Only the tunnels, found through a grid of the cells their carve can reach, in the
+  // floors' order, so the first tunnel that carves a point is the same one as before.)
+  const tunnelCells = new Map();
+  for (const s of floors) {
+    if (s.kind !== 'tunnel') continue;
+    const xs = [], zs = [];
+    for (const t of [s.t0, s.t1]) for (const o of [s.L - CARVE_SIDE, s.R + CARVE_SIDE]) { xs.push(s.x0 + s.dx * t + s.rx * o); zs.push(s.z0 + s.dz * t + s.rz * o); }
+    for (let i = Math.floor(Math.min(...xs) / CELL) - 1; i <= Math.floor(Math.max(...xs) / CELL) + 1; i++) {
+      for (let j = Math.floor(Math.min(...zs) / CELL) - 1; j <= Math.floor(Math.max(...zs) / CELL) + 1; j++) {
+        const k = ck(i, j);
+        if (!tunnelCells.has(k)) tunnelCells.set(k, []);
+        tunnelCells.get(k).push(s);
+      }
+    }
+  }
   const carveAt = (x, z) => {
-    for (const s of floors) {
-      if (s.kind !== 'tunnel') continue;
+    if (!tunnelCells.size) return null;
+    const list = tunnelCells.get(ck(Math.floor(x / CELL), Math.floor(z / CELL)));
+    if (!list) return null;
+    for (const s of list) {
       const px = x - s.x0, pz = z - s.z0;
       const t = px * s.dx + pz * s.dz;
       if (t < s.t0 || t > s.t1) continue;
