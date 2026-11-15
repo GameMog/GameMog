@@ -95,15 +95,20 @@ test('the ready-made fleet: every model of the mixes is in the data, its stand-i
   }
 });
 
-test('the ready-made fleet is mainly sports cars: ~40% in a resort or a city, a third in suburbs, a quarter in the country', () => {
+test('the ready-made fleet is mainly sports cars: over half in a resort, a city or the suburbs, 35% or more in the country', () => {
   const bal = fleetWith(balHarbour), pit = fleetWith(pittsburgh), oke = fleetWith(okemah);
   const sub = fleetWith({ id: 'us-3900000', name: 'Somewhere, OH', density: 0.5, frame: { lat0: 39.9 }, places: {} });
   assert.ok(bal.models && bal.region === 'resort' && pit.region === 'city' && oke.region === 'rural' && sub.region === 'suburbs');
   const s = (F) => share(F, draw(F, 4000));
-  assert.ok(Math.abs(s(bal) - 0.4) < 0.06, `resort ${s(bal)}`);
-  assert.ok(Math.abs(s(pit) - 0.4) < 0.06, `city ${s(pit)}`);
-  assert.ok(Math.abs(s(sub) - 0.33) < 0.06, `suburbs ${s(sub)}`);
-  assert.ok(Math.abs(s(oke) - 0.25) < 0.06, `rural ${s(oke)}`);
+  const p = (F) => share(F, draw(F, 4000, true));
+  for (const [name, F, min] of [['resort', bal, 0.5], ['city', pit, 0.5], ['suburbs', sub, 0.5], ['rural', oke, 0.35]]) {
+    assert.ok(s(F) >= min + 0.02 && s(F) < 0.7, `${name} traffic ${s(F)}`);
+    assert.ok(p(F) >= min + 0.02 && p(F) < 0.75, `${name} parked ${p(F)}`);
+  }
+  // (the snow belt and the pickup states too)
+  for (const PKG of [{ id: 'us-5600000', name: 'Somewhere, WY', density: 0.5, frame: { lat0: 42.8 }, places: {} }, { id: 'us-4200000', name: 'Somewhere, PA', density: 0.5, frame: { lat0: 41 }, places: {} }]) {
+    const F = fleetWith(PKG); assert.ok(s(F) >= 0.5, `${PKG.name} ${s(F)}`);
+  }
   // (the snow belt: no open car; parked: no cab, no fire truck, ambulance, garbage or tow truck)
   assert.equal(draw(pit, 2000).roadster00 || 0, 0);
   const parked = draw(bal, 2000, true);

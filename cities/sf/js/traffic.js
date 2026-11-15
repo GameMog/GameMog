@@ -59,7 +59,7 @@ const FLEETS = {
   rural: { mix: { pickup: 26, oldsedan: 17, suv: 16, sedan: 12, muscle: 6, minivan: 6, van: 4, hatch: 4, coupe: 2, taxi: 0 }, parked: 18,
     paints: [0xf2f2ef, 0xc9ccd0, 0x7a1e22, 0x2b3f33, 0xb7a58a, 0x1f2b44, 0x16181b, 0x8a3a24, 0x5b6067, 0x9a8c6e, 0x6b5a45] },
   resort: { mix: { suv: 22, sedan: 17, convertible: 14, coupe: 10, hatch: 6, minivan: 4, van: 5, pickup: 4, muscle: 3, taxi: 5 }, parked: 22,
-    paints: [0xf6f6f3, 0x111214, 0xd8dade, 0xcab89a, 0xf6f6f3, 0x111214, 0x2a2d33, 0xb3121a, 0x1c8a8c, 0xe0705a, 0x2f63b8, 0xf2c230] },
+    paints: [0xe4e4e0, 0x111214, 0xd8dade, 0xcab89a, 0xe4e4e0, 0x111214, 0x2a2d33, 0xb3121a, 0x1c8a8c, 0xe0705a, 0x2f63b8, 0xf2c230] },
   city: { mix: { sedan: 24, hatch: 17, suv: 18, oldsedan: 7, van: 9, minivan: 6, pickup: 5, taxi: 8, coupe: 3, muscle: 2 }, parked: 26,
     paints: [0xe9ecef, 0x1c2026, 0xcfd6de, 0x52575e, 0x1d3b6c, 0x8a8f96, 0x6e1f24, 0x3a4a3f, 0x2c2f38, 0xa13a2a] },
   suburbs: { mix: { suv: 22, sedan: 20, minivan: 10, pickup: 12, hatch: 9, oldsedan: 6, van: 5, coupe: 5, muscle: 4, convertible: 2, taxi: 2 }, parked: 20,
@@ -68,29 +68,30 @@ const FLEETS = {
 // (by kind: a van fleet white, the sporty ones bright, a resort's big cars in its dark and pale colours)
 const KIND_PAINTS = {
   van: [0xf2f3f4, 0xf2f3f4, 0xf2f3f4, 0xd8dcdf, 0x2b4a6e, 0x8e959c],
-  convertible: [0xb3121a, 0xf2c230, 0x1c8a8c, 0xf6f6f3, 0x111214, 0xe0705a, 0x2f63b8, 0xd8dade],
-  coupe: [0xb3121a, 0x111214, 0xf6f6f3, 0x2f63b8, 0xd8dade, 0xf08a1c, 0x1d3b6c],
+  convertible: [0xb3121a, 0xf2c230, 0x1c8a8c, 0xe4e4e0, 0x111214, 0xe0705a, 0x2f63b8, 0xd8dade],
+  coupe: [0xb3121a, 0x111214, 0xe4e4e0, 0x2f63b8, 0xd8dade, 0xf08a1c, 0x1d3b6c],
   muscle: [0x8f1a1d, 0x111214, 0xf2f2ef, 0x24406e, 0xf08a1c, 0x2b3f33, 0xe0b52a]
 };
 const PACE = { pickup: 9.4, van: 9, minivan: 9.6, oldsedan: 9.8, coupe: 11.4, muscle: 11.2, convertible: 11 };
 // (Mog City, Hometown) The ready-made cars (fleet-models.js, window.NYC.Fleet: realistic models, CC BY 4.0, every
 // badge and maker-like lettering taken off; each stands in for one of the bodies above, its proc, which is drawn while
 // it loads or if it cannot). With them a town's mix is of models, by the same regions, the owner's sports cars leading
-// (14 Nov: "mainly sports cars"): about 40% in a resort or a city, a third in the suburbs, a quarter in the country.
+// (14 Nov: "mainly sports cars"): over half the traffic and the parked cars in a resort, a city or the suburbs, about
+// two in five in the country (the snow belt's missing open car handing its share to the other sports cars).
 // Their roles (group: sports, everyday, taxi, police, service, bus) come with the models (fleet-data.js).
 const FMD = (window.NYC.Fleet && window.NYC.Fleet.data && window.NYC.Fleet.data.models) || null;
 const MODEL_FLEETS = {
-  rural: { muscle69: 8, gt83: 5, sport99: 4, turbo81: 3, gt95: 2, roadster00: 3,
+  rural: { muscle69: 18, gt83: 12, sport99: 10, turbo81: 8, gt95: 7, roadster00: 9,
     pickup89: 22, sedan80: 13, suv10: 12, sedan10: 9, minivan20: 4, van92: 5, hatch11: 3, box95: 3, utility: 1, mailvan: 1, tow: 1 },
-  resort: { gt95: 9, turbo81: 6, sport99: 8, gt83: 5, roadster00: 8, muscle69: 4,
+  resort: { gt95: 16, turbo81: 11, sport99: 14, gt83: 10, roadster00: 14, muscle69: 10,
     suv10: 15, sedan10: 13, hatch11: 6, city07: 4, minivan20: 4, van92: 3, pickup89: 4, sedan80: 2, box95: 2, taxi75: 3, taxi20: 2, ambulance: 1, mailvan: 1 },
-  city: { gt95: 7, turbo81: 6, sport99: 9, gt83: 7, roadster00: 5, muscle69: 6,
+  city: { gt95: 14, turbo81: 12, sport99: 16, gt83: 14, roadster00: 10, muscle69: 14,
     sedan10: 13, hatch11: 8, city07: 6, suv10: 9, sedan80: 3, van92: 4, box95: 3, minivan20: 3, pickup89: 2, taxi75: 3, taxi20: 3, garbage: 1, mailvan: 1, ambulance: 1, utility: 1, firetruck: 0.5 },
-  suburbs: { gt95: 5, turbo81: 5, sport99: 7, gt83: 6, roadster00: 5, muscle69: 5,
+  suburbs: { gt95: 14, turbo81: 13, sport99: 17, gt83: 15, roadster00: 12, muscle69: 17,
     suv10: 15, sedan10: 13, minivan20: 7, pickup89: 9, hatch11: 6, city07: 3, sedan80: 5, van92: 3, box95: 2, taxi75: 1, mailvan: 1, utility: 1, tow: 0.5 }
 };
 // (the sports cars' paint: bright and dark show colours)
-const SPORTS_PAINTS = [0xb3121a, 0xf2c230, 0xf08a1c, 0x2f63b8, 0x111214, 0xf6f6f3, 0xd8dade, 0x1c8a8c, 0x1f6b3a, 0x7a1e22, 0x6a2fb8, 0x1d3b6c];
+const SPORTS_PAINTS = [0xb3121a, 0xf2c230, 0xf08a1c, 0x2f63b8, 0x111214, 0xe4e4e0, 0xd8dade, 0x1c8a8c, 0x1f6b3a, 0x7a1e22, 0x6a2fb8, 0x1d3b6c];
 const FLEET = (() => {
   const P = window.NYC.PKG;
   if (!P) return null;
@@ -105,7 +106,12 @@ const FLEET = (() => {
   const models = !!FMD;
   const F = FLEETS[region], mix = models ? Object.fromEntries(Object.entries(MODEL_FLEETS[region]).filter(([k]) => FMD[k])) : { ...F.mix };
   const K = models ? { conv: 'roadster00', suv: 'suv10', pickup: 'pickup89' } : { conv: 'convertible', suv: 'suv', pickup: 'pickup' };
-  if (snow) { mix[K.conv] = 0; mix[K.suv] = (mix[K.suv] || 0) + 4; }
+  if (snow) {
+    // (the models' open car's share goes to the other sports cars, so they still lead)
+    const share = models ? mix[K.conv] || 0 : 0, hard = models ? Object.keys(mix).filter((k) => k !== K.conv && FMD[k].group === 'sports') : [];
+    for (const k of hard) mix[k] += share / hard.length;
+    mix[K.conv] = 0; mix[K.suv] = (mix[K.suv] || 0) + 4;
+  }
   if (warm && region !== 'resort') mix[K.conv] = (mix[K.conv] || 0) + 3;
   if (/^(TX|OK|KS|NE|WY|MT|ND|SD|AR|LA|MS|AL|NM|ID)$/.test(state)) mix[K.pickup] = (mix[K.pickup] || 0) + 6;
   // (a model's procedural body and its role)
@@ -120,19 +126,27 @@ const FLEET = (() => {
   const total = kinds.reduce((a, k) => a + mix[k], 0);
   // (parked: never a cab, a fire truck, an ambulance or a garbage truck)
   const noPark = (k) => group(k) === 'taxi' || /^(ambulance|firetruck|garbage|tow)$/.test(k);
-  const pick = (rnd, parkedOnly = false) => {
+  // (sports: true only a sports car, false anything but; undefined either, by the mix)
+  const pick = (rnd, parkedOnly = false, sports) => {
     for (;;) {
-      let r = rnd() * total;
-      for (const k of kinds) { r -= mix[k]; if (r <= 0) { if (parkedOnly && noPark(k)) break; return k; } }
-      if (!parkedOnly) return kinds[kinds.length - 1];
+      let r = rnd() * total, k = kinds[kinds.length - 1];
+      for (const q of kinds) { r -= mix[q]; if (r <= 0) { k = q; break; } }
+      if (parkedOnly && noPark(k)) continue;
+      if (sports !== undefined && (group(k) === 'sports') !== sports) continue;
+      return k;
     }
   };
+  // (the sports cars' share of the mix, of the traffic's and of the parked cars': the draws are spread so a town's
+  // cars come out at that share, not a few short by chance; the owner's "mainly sports cars")
+  const shareOf = (ok) => { const ks = kinds.filter(ok), t = ks.reduce((a, k) => a + mix[k], 0); return t ? ks.filter((k) => group(k) === 'sports').reduce((a, k) => a + mix[k], 0) / t : 0; };
+  const sportsShare = { traffic: shareOf(() => true), parked: shareOf((k) => !noPark(k)) };
+  const spread = (i, share) => Math.floor((i + 1) * share + 0.5) > Math.floor(i * share + 0.5);
   const paint = (kind, rnd) => {
     const own = group(kind) === 'sports' ? SPORTS_PAINTS : KIND_PAINTS[proc(kind)];
     const list = own && (proc(kind) === 'van' || rnd() < 0.8) ? own : F.paints;
     return list[Math.floor(rnd() * list.length)];
   };
-  return { id: P.id || name, region, mix, parked: Math.round(F.parked * (0.6 + 0.4 * Math.min(1, d + 0.4))), pick, paint, random, pace: PACE, proc, group, models };
+  return { id: P.id || name, region, mix, parked: Math.round(F.parked * (0.6 + 0.4 * Math.min(1, d + 0.4))), pick, paint, random, pace: PACE, proc, group, models, sportsShare, spread };
 })();
 
 // Intelligent Driver Model: max acceleration, comfortable braking, time headway, standstill gap; and the sideways
@@ -344,9 +358,10 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
     const rnd = FLEET.random('traffic');
     // (the police: the town's cruiser model, the newer one in a city)
     const cop = FLEET.models && FMD.police90 ? (FLEET.region === 'city' && FMD.police20 ? ['police90', 'police20'] : ['police90']) : ['sedan'];
-    for (let i = 0; i < NUM_CARS; i++) {
+    const sp = FLEET.models ? FLEET.sportsShare.traffic : null;
+    for (let i = 0, j = 0; i < NUM_CARS; i++) {
       const isNYPD = (i % 20) === 6;
-      const kind = isNYPD ? cop[Math.floor(i / 20) % cop.length] : FLEET.pick(rnd);
+      const kind = isNYPD ? cop[Math.floor(i / 20) % cop.length] : FLEET.pick(rnd, false, sp === null ? undefined : FLEET.spread(j++, sp));
       cars.push(makeCar(kind, isNYPD ? nypdWhite : kind === 'taxi' ? taxiYellow : new THREE.Color(FLEET.paint(kind, rnd)), i, isNYPD));
     }
   }
@@ -356,7 +371,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
   if (FLEET) {
     const rnd = FLEET.random('parked');
     for (let i = 0; i < FLEET.parked; i++) {
-      const kind = FLEET.pick(rnd, true);
+      const kind = FLEET.pick(rnd, true, FLEET.models ? FLEET.spread(i, FLEET.sportsShare.parked) : undefined);
       const v = makeCar(kind, new THREE.Color(FLEET.paint(kind, rnd)), i);
       Object.assign(v, { parked: true, placed: false, speed: 0, acc: 0 });
       parked.push(v);
@@ -1849,8 +1864,25 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
       if (room - hi >= need) sides.push(room);
       if (lo < 0 && room + lo >= need) sides.push(-room);
       if (!sides.length) continue;
-      const off = sides[Math.floor(Math.random() * sides.length)];
+      const side = sides[Math.floor(Math.random() * sides.length)] > 0 ? 1 : -1;
       const s = 12 + v.half + Math.random() * (e.len - 24 - 2 * v.half);
+      // (the curb itself, felt for at the car's nose, middle and tail: from past the outer lane out to a little past the
+      // street's mapped width (its real curb is often nearer or further), the first curb island or obstacle. Parked
+      // parallel to it, 0.3 m off; a curb that bends, ends or steps along the car (a corner, a driveway) is no place)
+      const lane0 = side > 0 ? hi : -lo, st = [-v.half + 0.4, 0, v.half - 0.4], kerb = [];
+      for (const t of st) {
+        const bx = e.sx + e.dx * (s + t), bz = e.sz + e.dz * (s + t);
+        let k = null;
+        for (let d = lane0 + 1.6; d <= e.half + 2.5; d += 0.15) {
+          const px = bx + e.rx * side * d, pz = bz + e.rz * side * d;
+          if (onSidewalk(px, pz) || !walkable(px - 0.05, px + 0.05, pz - 0.05, pz + 0.05)) { k = d; break; }
+        }
+        if (k === null) break;
+        kerb.push(k);
+      }
+      if (kerb.length < 3 || Math.max(...kerb) - Math.min(...kerb) > 0.35) continue;
+      const off = side * (Math.min(...kerb) - v.halfWidth - 0.3);
+      if (Math.abs(off) - lane0 < need) continue;
       const x = e.sx + e.dx * s + e.rx * off, z = e.sz + e.dz * s + e.rz * off;
       const d = Math.hypot(x - focusX, z - focusZ);
       if (d < rMin || d > rMax || (hidden && visible(x, z, v.half + 3))) continue;
@@ -1858,15 +1890,16 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
       if (held(x, z, v.half + 3) || blockers.some((k) => Math.hypot(x - k.x, z - k.z) < 25)) continue;
       const own = window.WAGMI && window.WAGMI.car && window.WAGMI.car.position;
       if (own && Math.hypot(x - own.x, z - own.z) < 9) continue;
+      // (every corner and the middle of each side on the roadway: no curb, sidewalk, lawn or building under the car)
       let clear = true;
-      for (const t of [-v.half + 0.4, 0, v.half - 0.4]) {
-        const px = x + e.dx * t, pz = z + e.dz * t;
-        if (onSidewalk(px, pz) || !walkable(px - 0.5, px + 0.5, pz - 0.5, pz + 0.5)) { clear = false; break; }
+      for (const t of st) for (const w of [-v.halfWidth, 0, v.halfWidth]) {
+        const px = x + e.dx * t + e.rx * w, pz = z + e.dz * t + e.rz * w;
+        if (onSidewalk(px, pz) || !walkable(px - 0.3, px + 0.3, pz - 0.3, pz + 0.3)) { clear = false; break; }
       }
       if (!clear) continue;
       for (const o of parked) if (o !== v && o.placed && Math.hypot(o.x - x, o.z - z) < Math.max(7.5, o.half + v.half + 2.6)) { clear = false; break; }
       if (!clear) continue;
-      Object.assign(v, { placed: true, x, z, prevX: x, prevZ: z, tx: e.dx, tz: e.dz, yaw: Math.atan2(e.dx, e.dz) + (Math.random() - 0.5) * 0.04,
+      Object.assign(v, { placed: true, x, z, prevX: x, prevZ: z, tx: e.dx, tz: e.dz, yaw: Math.atan2(e.dx, e.dz) + (Math.random() - 0.5) * 0.012,
         yawOffset: 0, yawVel: 0, vx: 0, vz: 0, pitch: 0, pitchVel: 0, roll: 0, rollVel: 0, speed: 0, acc: 0, blink: 0, steer: 0 });
       settleParked(v);
       return true;

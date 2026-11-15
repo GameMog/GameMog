@@ -51,7 +51,7 @@ installDriveMode(WAGMI);
       let h = 2166136261; for (const c of String(window.NYC.PKG?.id || window.NYC.PKG?.name || 'town') + ':hero') { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); }
       let r = ((h >>> 0) % 10007) / 10007 * pool.reduce((a, [, w]) => a + w, 0), id = pool[0]?.[0];
       for (const [k, w] of pool) { r -= w; if (r <= 0) { id = k; break; } }
-      const PAINTS = ['#B3121A', '#F2C230', '#2F63B8', '#111214', '#F6F6F3', '#F08A1C', '#1C8A8C', '#D8DADE'];
+      const PAINTS = ['#B3121A', '#F2C230', '#2F63B8', '#111214', '#E4E4E0', '#F08A1C', '#1C8A8C', '#D8DADE'];
       if (id) {
         await Promise.race([F.load(id), new Promise((res, rej) => setTimeout(() => rej(new Error('slow')), 12000))]);
         const { MODEL_SHEETS } = await import('./jack-sheets.js');
