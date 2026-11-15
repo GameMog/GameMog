@@ -114,7 +114,8 @@ export function compile(S) {
   // (people7: never for hair that is already grey, silver or white: a white crop greying 1 was taken all the way to the
   // grey ramp, so the veteran's 'white' crop was forged mid grey and every light crop's care (lightCrop) passed him by,
   // and the grandmother's silver came out a taupe grey)
-  if (S.hair.greying && !['grey', 'silver', 'white', 'platinum', 'salt-and-pepper'].includes(S.hair.color)) { const g = HC('grey'); ramp = ramp.map((s, i) => mix(s, g[i], clamp(S.hair.greying, 0, 1))); }
+  // (and toward a warm grey, three quarters as far: the nurse's black curls greying 0.2 read ash grey under the sky)
+  if (S.hair.greying && !['grey', 'silver', 'white', 'platinum', 'salt-and-pepper'].includes(S.hair.color)) { const g = [[66, 56, 46], [128, 112, 94], [190, 174, 150]]; ramp = ramp.map((s, i) => mix(s, g[i], clamp(S.hair.greying * 0.75, 0, 1))); }
   // (forge v2.3, HB: brows matched as Mr. Big's are: their ramp a quarter of the way from the hair's root toward its middle,
   // to the middle (v2.2 took the root darker, so a grey man's brows read black-and-white); a bearded man's brows from his
   // beard's colours unless the sheet names theirs; and painted on the skin under the strip (CFG.browPaint), denser for
