@@ -247,6 +247,16 @@ export function runHometownChecks(ok: Ok) {
     const cp = checkHometownReply(reply(cine), { pkg: OK, id: 'sk-okemah8' });
     ok('a cinematic story passes the town\'s pass: a cold open, named chases with stings and a low camera, shot grammar, a roadblock in a Create, a cliffhanger', cp.problems.length === 0 && !!cp.pack, show(cp.problems));
     ok('and pacing has nothing to send back', pacingProblems(cine.pack).length === 0, pacingProblems(cine.pack).join(' | '));
+    // (leg lengths in the town, Colter Land 16 Nov: a 250 m Mission 1 drive, a 1.9 km Mission 2 opener; LEG)
+    const legs = pacingProblems(flat.pack, OK);
+    ok('in the town, pacing sends back a Mission 1 under two minutes of play and an opener over 1.2 km', legs.some((p) => /^Pacing: Mission 1 \(M1\) plays about \d+ s/.test(p)) && legs.some((p) => /^Pacing: M4 opens with a 1\.9 km drive/.test(p)), legs.join(' | ').slice(0, 400));
+    const near = clone(flat), nm = near.pack.acts[0].missions, goal = (nm[0].steps.find((x: PackV2) => x.type === 'drive')?.to as string).replace(/^@/, '');
+    const gp = OK.places.find((p) => p.id === (near.pack.places?.[goal]?.['@'] ?? goal))!;
+    const by = OK.places.filter((p) => p.id !== gp.id && displayName(p) !== null).map((p) => ({ p, d: Math.hypot(p.x - gp.x, p.z - gp.z) })).filter((x) => x.d > 60 && x.d < 300).sort((a, b) => a.d - b.d)[0];
+    nm[0].start = { '@': by.p.id };
+    ok('a Mission 1 whose first drive is a couple of hundred metres is sent back (400 to 900 m)', pacingProblems(near.pack, OK).some((p) => /^Pacing: Mission 1 \(M1\) opens with a \d+ m drive .*too short to learn the car/.test(p)), `${by.p.id} ${Math.round(by.d)} m`);
+    const far = clone(flat), fm = far.pack.acts[0].missions; fm[3].start = { '@': 'water-tower' };
+    ok('an opener started near its goal is not sent back', !pacingProblems(far.pack, OK).some((p) => /^Pacing: M4 opens/.test(p)));
     if (cp.pack) {
       const w = toRunnerPack(cp.pack, { townName: 'Okemah, Oklahoma' }) as PackV2;
       const shot = w.missions[0].steps.find((x: PackV2) => x.type === 'cutscene').shots[1];

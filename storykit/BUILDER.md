@@ -239,7 +239,15 @@ After it come at most the lines and a short cutscene of what it won. Never end M
 timer or a line that only says the job is done ("Good, it's towed"): the gate sends that back. Mission 1 also
 teaches: one drive with a call, one thing to do at the goal, one short scene. **It opens cold, in motion**: its first
 or second step is already pressure (a `timer`, a short `pursuit` at `level` 1, a `"rules": "lesson"` fight), never a
-standing cutscene that explains. Keep it short and forgiving; save the hard fight and the long chase for later missions.
+standing cutscene that explains. Keep it forgiving, but give it two to three minutes of play, never a fifteen-second
+hop; save the hard fight and the long chase for later missions.
+
+**Distances (a hometown: its places are real, so their distances are too).** Mission 1's first drive is 400 to 900 m
+as the crow flies (a street route runs about a third longer): long enough to learn the car, short enough that the
+action comes soon. No mission opens with a drive or a walk of more than 1.2 km: set its `start` nearer, or break a
+long haul with a stop, a call and a chase on the way. Mission 1 plays at least two minutes (about 14 m/s at the wheel,
+a fight about 40 s, a chase about a minute). The build measures every leg from the town's own map and sends a pack
+that breaks these back.
 
 ## Set pieces: make it cinematic and adrenaline-filled
 
