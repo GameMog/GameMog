@@ -419,10 +419,24 @@ function facadeCell(windowWidth, floorHeight, boxLocal, cornerPier = 0) {
   let wallH = float(1.0);
   let fromTop = float(0.0);
   let boxSeed = float(0.0);
+  // New York as mapped (js/buildings.js DATA): the building's facade colour and its roof's (sRGB, 6 bits a channel),
+  // carried in `faces` above each wall's kind (createFacadeBoxes: faces = kind + 8 * (channel + 1), 0: none; the roof
+  // r * 4096 + g * 64 + b + 1 above the +z wall's kind)
+  let facadeTint = vec4(0.0);
+  let roofTint = vec4(0.0);
 
   if (boxLocal) {
+    const facesRaw = attribute('faces', 'vec4');
+    const packed = floor(facesRaw.add(0.5).div(8.0));
+    // (decoded once a vertex, not a pixel: varyings, constant over an instance)
+    const faces = varying(facesRaw.sub(packed.mul(8.0)), 'vFacesKind'); // WALL_KINDS of the -x, +x, -z & +z walls
+    facadeTint = varying(vec4(pow(packed.xyz.sub(1.0).max(0.0).div(63.0), vec3(2.2)), step(0.5, packed.x)), 'vFacadeTint');
+    const rw = packed.w.sub(1.0);
+    const rr = floor(rw.add(0.5).div(4096.0));
+    const rg = floor(rw.add(0.5).div(64.0)).sub(rr.mul(64.0));
+    const rb = rw.sub(rr.mul(4096.0)).sub(rg.mul(64.0));
+    roofTint = varying(vec4(pow(vec3(rr, rg, rb).max(0.0).div(63.0), vec3(2.2)), step(0.5, packed.w)), 'vRoofTint');
     const box = attribute('box', 'vec4'); // width, height, depth, seed (+ the building's tone in its fraction)
-    const faces = attribute('faces', 'vec4'); // WALL_KINDS of the -x, +x, -z & +z walls
     const wallWidth = mix(box.x, box.z, alongZ);
     // The box-local normal's sign tells which wall this is
     kind = mix(
@@ -489,7 +503,7 @@ function facadeCell(windowWidth, floorHeight, boxLocal, cornerPier = 0) {
   const solid = max(max(inPier.mul(float(1.0).sub(isGroundFloor)), blank), partial);
   return {
     isRoof, uCoord, vCoord, gridV, cellId, cellUV, fw, bayWidth, isGroundFloor, solid, floor0, back, blank, door, tone,
-    wallS, wallW, wallH, fromTop, boxSeed, partial, coping
+    wallS, wallW, wallH, fromTop, boxSeed, partial, coping, facadeTint, roofTint
   };
 }
 
@@ -526,8 +540,8 @@ function createCurtainWallMaterial(opts = {}) {
   });
 
   // The style's parameters are uniforms (not baked-in constants), so every curtain-wall style compiles to one shader
-  const cGlass = uniform(new THREE.Color(glassTint));
-  const cFrame = uniform(new THREE.Color(frameTint));
+  const cGlassU = uniform(new THREE.Color(glassTint));
+  const cFrameU = uniform(new THREE.Color(frameTint));
   const uWindowWidth = uniform(windowWidth);
   const uFloorHeight = uniform(floorHeight);
   const uLitProbability = uniform(litProbability);
@@ -542,6 +556,9 @@ function createCurtainWallMaterial(opts = {}) {
   // The facade cell and the apartment behind each pane are built once and shared by every output below, so the
   // shader carries a single copy of them (and evaluates the interior mapping once per pixel)
   const facade = facadeCell(uWindowWidth, uFloorHeight, boxLocal);
+  // (the mapped facade colour on the frames and spandrels, a touch of it in the glass)
+  const cFrame = mix(cFrameU, facade.facadeTint.xyz, facade.facadeTint.w.mul(0.7));
+  const cGlass = mix(cGlassU, facade.facadeTint.xyz.mul(0.5), facade.facadeTint.w.mul(0.3));
   const { isRoof, uCoord, vCoord, gridV, cellId, cellUV, fw, bayWidth, isGroundFloor, blank, tone, partial, coping } = facade;
   // Pane UV inside the mullions & spandrel, the 3D apartment behind it and whether the ground-floor shop is lit
   const winUV = clamp(
@@ -618,7 +635,7 @@ function createCurtainWallMaterial(opts = {}) {
     const canyonGlow = cCanyonBounce.mul(canyonBand.mul(cityUniforms.uCanyonBounce).mul(0.16));
 
     const roofNoise = noise2D(positionWorld.xz.mul(0.35));
-    const roofColor = mix(color(0x202429), color(0x3b4149), roofNoise);
+    const roofColor = mix(mix(color(0x202429), color(0x3b4149), roofNoise), facade.roofTint.xyz.mul(roofNoise.mul(0.2).add(0.85)), facade.roofTint.w.mul(0.85));
 
     const facadeCol = mix(frameBase, glassColor, isGlassPane.mul(float(1.0).sub(isMechFloor))).add(canyonGlow);
     const mechCol = mix(cFrame.mul(0.36), cFrame.mul(0.76), louverStripes);
@@ -908,7 +925,9 @@ function createPreWarBuildingMaterial(opts = {}) {
       signPaint.assign(vec4(mix(ground, ink, max(letters, border)), cover));
     });
 
-    const wallTint = mix(mix(cStone, backTint, back), signPaint.xyz, signPaint.w);
+    // (the mapped facade colour, js/buildings.js DATA, in place of the style's stone on the street fronts)
+    const stoneCol = mix(cStone, facade.facadeTint.xyz, facade.facadeTint.w.mul(0.85));
+    const wallTint = mix(mix(stoneCol, backTint, back), signPaint.xyz, signPaint.w);
     // Trim stone on the band courses, the storefront fascia and the coping capping every wall
     const trimMix = max(isCornice.mul(0.62).add(isGroundFloor.mul(0.28)), coping.mul(0.8));
     const masonryTint = mix(wallTint, cTrim, trimMix)
@@ -941,7 +960,7 @@ function createPreWarBuildingMaterial(opts = {}) {
 
     const frameCol = masonryTint.mul(0.46).mul(recessShade);
     const roofNoise = noise2D(positionWorld.xz.mul(0.35));
-    const roofCol = mix(cTrim.mul(0.42), cTrim.mul(0.62), roofNoise);
+    const roofCol = mix(mix(cTrim.mul(0.42), cTrim.mul(0.62), roofNoise), facade.roofTint.xyz.mul(roofNoise.mul(0.2).add(0.85)), facade.roofTint.w.mul(0.85));
 
     const wallOrRoof = mix(masonryWeathered, roofCol, isRoof);
     const withFrames = mix(wallOrRoof, frameCol, isWindowOpening.mul(sashMask));
@@ -1101,7 +1120,14 @@ function createFacadeBoxes(material, boxes) {
     if (b.ry) mesh.setMatrixAt(i, matrix.compose(pos.set(b.x, b.y, b.z), quat.setFromAxisAngle(up, b.ry), scale.set(b.w, b.h, b.d)));
     else mesh.setMatrixAt(i, matrix.makeScale(b.w, b.h, b.d).setPosition(b.x, b.y, b.z));
     box.setXYZW(i, b.w, b.h, b.d, ((i * 29) % 1000) + 0.1 + 0.8 * (b.tone ?? 0.5));
-    if (b.faces) faces.setXYZW(i, b.faces[0], b.faces[1], b.faces[2], b.faces[3]);
+    // (js/buildings.js DATA: the mapped facade colour, a channel above each of the first three walls' kinds, and the
+    // roof's above the fourth's, 6 bits a channel, + 1 (0: none); see facadeCell)
+    const f = b.faces || [0, 0, 0, 0];
+    const c6 = (hex, sh) => Math.round((((hex >> sh) & 255) * 63) / 255) + 1;
+    const t = b.tint || 0, rh = b.roofHex || 0;
+    faces.setXYZW(i,
+      f[0] + 8 * (t ? c6(t, 16) : 0), f[1] + 8 * (t ? c6(t, 8) : 0), f[2] + 8 * (t ? c6(t, 0) : 0),
+      f[3] + 8 * (rh ? (c6(rh, 16) - 1) * 4096 + (c6(rh, 8) - 1) * 64 + c6(rh, 0) : 0));
   });
   return mesh;
 }

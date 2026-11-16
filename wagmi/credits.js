@@ -27,7 +27,9 @@ const cityLines = () => world.id === 'pkg' ? PKGLINES() : SF ? [
   { what: 'Elevation', who: 'USGS 3D Elevation Program', note: 'the hills: San Francisco\'s 1 m terrain', licence: 'public domain', licenceUrl: null, src: 'https://www.usgs.gov/3d-elevation-program' },
 ] : [
   { what: 'Slop New York', who: 'Mr.doob', note: 'the city this game is built on; some city code is ported from its newer commits', licence: 'MIT', licenceUrl: 'https://opensource.org/license/mit', src: null },
-  { what: 'Map data', who: '© OpenStreetMap contributors', note: 'Central Park, the piers, the landmarks\' footprints and the New Jersey shore', licence: 'ODbL 1.0', licenceUrl: 'https://opendatacommons.org/licenses/odbl/1-0/', src: 'https://www.openstreetmap.org/copyright' },
+  { what: 'Map data', who: '© OpenStreetMap contributors', note: 'Central Park, the piers, the landmarks\' footprints, the New Jersey shore, the buildings\' looks (heights, facade and roof colours and materials, roof shapes) and the street corners as mapped (traffic signals, marked crossings and street trees, read 15 Nov 2026)', licence: 'ODbL 1.0', licenceUrl: 'https://opendatacommons.org/licenses/odbl/1-0/', src: 'https://www.openstreetmap.org/copyright' },
+  { what: 'Overture Maps Foundation', who: 'Overture Maps', note: 'the buildings as mapped, release 2026-10-21.0 (only the footprints and tags from OpenStreetMap; the machine-traced footprints left out)', licence: 'ODbL 1.0', licenceUrl: 'https://docs.overturemaps.org/attribution/', src: 'https://overturemaps.org' },
+  { what: 'Building heights', who: 'USGS 3D Elevation Program', note: 'lidar heights of the buildings as mapped (via Overture Maps)', licence: 'public domain', licenceUrl: null, src: 'https://www.usgs.gov/3d-elevation-program' },
   { what: 'City data', who: 'NYC Open Data', note: 'the borough line, the street centrelines and the parks (NYC DCP Borough Boundaries, NYC Street Centerline (CSCL), NYC Parks Properties)', licence: null, licenceUrl: null, src: 'https://opendata.cityofnewyork.us' },
 ];
 

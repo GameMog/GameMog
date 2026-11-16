@@ -117,7 +117,11 @@ The map data: Central Park's features, the piers, the landmarks' footprints and 
 © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright), under the
 [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/); the borough line, the street centrelines and the parks are
 from [NYC Open Data](https://opendata.cityofnewyork.us) (NYC DCP Borough Boundaries, NYC Street Centerline (CSCL), NYC
-Parks Properties).
+Parks Properties). The street corners as mapped (traffic signals, marked mid-block crossings and street trees, read 15
+Nov 2026) are © OpenStreetMap contributors (ODbL 1.0). The buildings as mapped (heights, facade and roof colours and
+materials, roof shapes) are from [Overture Maps](https://overturemaps.org)' buildings theme, release 2026-10-21.0: only
+the footprints and tags from OpenStreetMap (ODbL 1.0), the heights also from the USGS 3D Elevation Program's lidar
+(public domain); the machine-traced footprints are left out.
 
 ## Street combat
 

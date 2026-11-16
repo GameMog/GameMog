@@ -14,11 +14,17 @@ Some city code is ported from Slop New York's newer commits by Mr.doob, under th
 Map data
 --------
 The city's geography (js/nyc-geodata.js, made by tools/build-geodata.mjs): Central Park's features,
-the piers, the landmarks' footprints and the New Jersey shore are (c) OpenStreetMap contributors,
-available under the Open Database License (ODbL 1.0, https://opendatacommons.org/licenses/odbl/1-0/;
-https://www.openstreetmap.org/copyright). The borough line, the street centrelines and the parks are
-from NYC Open Data (NYC DCP Borough Boundaries, NYC Street Centerline (CSCL), NYC Parks Properties;
-https://opendata.cityofnewyork.us).
+the piers, the landmarks' footprints, the New Jersey shore and the street corners as mapped (traffic
+signals, marked mid-block crossings and street trees; tools/geo-props.mjs, read 15 Nov 2026) are
+(c) OpenStreetMap contributors, available under the Open Database License (ODbL 1.0,
+https://opendatacommons.org/licenses/odbl/1-0/; https://www.openstreetmap.org/copyright). The borough
+line, the street centrelines and the parks are from NYC Open Data (NYC DCP Borough Boundaries, NYC
+Street Centerline (CSCL), NYC Parks Properties; https://opendata.cityofnewyork.us).
+New York's buildings as mapped (js/nyc-looks.js, made by tools/geo-looks.py: heights, facade and roof
+colours and materials, roof shapes) are from Overture Maps Foundation's buildings theme (release
+2026-10-21.0), the footprints and their tags (c) OpenStreetMap contributors (ODbL 1.0), the heights
+also from the USGS 3D Elevation Program's lidar (a US government work, public domain); Overture's
+machine-traced footprints are left out.
 
 
 Slop San Francisco (?city=sf)

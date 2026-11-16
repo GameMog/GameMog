@@ -138,6 +138,43 @@ const STREETS = [
   coreSt(23, '23rd St', { isMajor: true })
 ];
 
+// Signalised grid intersections: the midtown core's (AVENUES x STREETS, as ever) and every other grid intersection with
+// a traffic signal mapped in OpenStreetMap (GEO.signals, tools/geo-props.mjs); masts by street-details.js, signal nodes
+// by road-network.js, so the heads and the traffic always agree. { x, z, aveWidth, stWidth, core }
+const SIGNAL_SITES = (() => {
+  const out = [];
+  const seen = new Set();
+  const key = (x, z) => `${Math.round(x)}_${Math.round(z)}`;
+  for (const a of AVENUES) for (const s of STREETS) {
+    out.push({ x: a.x, z: s.z, aveWidth: a.width, stWidth: s.width, core: true });
+    seen.add(key(a.x, s.z));
+  }
+  if (/[?&]signals=core\b/.test(typeof location !== 'undefined' ? location.search : '')) return out;
+  const sig = GEO.signals || [];
+  for (let i = 0; i < sig.length; i += 2) {
+    const x = sig[i], z = sig[i + 1];
+    if (seen.has(key(x, z))) continue;
+    const ga = GEO.avenues.find((a) => Math.abs(a.x - x) < 0.6);
+    const gs = GEO.streets.find((st) => Math.abs(st.z - z) < 0.6);
+    if (!ga || !gs) continue;
+    const seg = ga.segs.find((q) => z >= q.z0 - 5 && z <= q.z1 + 5);
+    const sseg = gs.segs.find((q) => x >= q[0] - 5 && x <= q[1] + 5);
+    if (!seg || !sseg) continue;
+    const aveWidth = ga.id === 'park' ? 33 : seg.w, stWidth = sseg[3];
+    // (a T-junction: only the masts on the sides the roads go on. The NE mast faces the street's east arm and the
+    // avenue's north one, the SW mast the west and south ones; a junction with neither mast's pair is left unsignalised)
+    const ex = aveWidth * 0.5 + 10, ez = stWidth * 0.5 + 10;
+    const e = gs.segs.some((q) => q[0] <= x + 2 && q[1] >= x + ex), w = gs.segs.some((q) => q[0] <= x - ex && q[1] >= x - 2);
+    const n = ga.segs.some((q) => q.z0 <= z - ez && q.z1 >= z - 2), so = ga.segs.some((q) => q.z0 <= z + 2 && q.z1 >= z + ez);
+    const ne = e && n, sw = w && so;
+    if (!ne && !sw) continue;
+    // (Park Ave: both roadways and the malls between them, as the core's)
+    out.push({ x, z, aveWidth, stWidth, core: false, ne, sw });
+    seen.add(key(x, z));
+  }
+  return out;
+})();
+
 // ---------------------------------------------------------------------------------------------------------------------
 // Central Park (the NYC Parks property: 59th to 110th St, 5th Ave to Central Park West, at the park walls)
 // ---------------------------------------------------------------------------------------------------------------------
@@ -807,6 +844,7 @@ Object.assign(window.NYC, {
   OUTER_BRIDGES,
   STREETS,
   ALL_STREETS,
+  SIGNAL_SITES,
   ROADS,
   NYC_LANDMARKS,
   LANDMARK_SITES,

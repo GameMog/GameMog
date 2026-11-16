@@ -181,7 +181,8 @@ function setupSceneCulling(scene, roots, shadow = null, quality = {}) {
   for (const mesh of chunkable) {
     // unlit (glowing) props, like signal lenses & lamp bulbs, read from much further away at night
     const glow = mesh.material.isMeshBasicNodeMaterial || mesh.material.type === 'MeshBasicNodeMaterial' ? 3 : 1;
-    const cullDist = Math.max(CULL_MIN, instanceSize(mesh) * CULL_PER_METRE * glow);
+    // (a mesh may ask to go sooner: userData.cullScale, e.g. the signal masts' palm-sized heads, blades and walk signals)
+    const cullDist = Math.max(CULL_MIN, instanceSize(mesh) * CULL_PER_METRE * glow * (mesh.userData.cullScale || 1));
     // big things (sidewalk slabs, light pools...) are kept at any distance: split for the view frustum only (3.)
     if (cullDist > CULL_MAX) {
       largeMeshes.push(mesh);
