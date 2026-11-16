@@ -12,7 +12,7 @@ import { useEffect, useState } from 'react';
  * which it is (the server's HTML and the first paint), the frame's place holds the art alone, so a phone never starts
  * loading the city it will not play.
  */
-export const DESK_ONLY_NOTE = 'Story worlds play on a desktop or laptop browser. Phones come later.';
+export const DESK_ONLY_NOTE = 'Mog City worlds play on a desktop or laptop browser. Phones come later.';
 export const DESK_ONLY_QUERY = '(hover: none) and (pointer: coarse)';
 
 export function DeskOnly({ title, poster, children }: { title: string; poster: React.ReactNode; children: React.ReactNode }) {

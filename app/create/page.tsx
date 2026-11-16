@@ -315,8 +315,9 @@ export default function Create() {
           <h1>Create a world</h1>
           {telling ? (
             <p className="secsub">
-              Pick a city and tell a story, and GameMog makes it a game: three acts of missions on the city&apos;s own
-              streets, with its own people, cars and voices. Anyone can Mog it; the city stays yours.
+              Your own Mog City: pick a city, or your hometown, and tell a story. GameMog turns it into an open-world story
+              game on Mog City&apos;s engine: three acts of missions on that city&apos;s real streets, with cars to drive, fights,
+              chases and its own people and voices. Anyone can Mog it; the city stays yours.
             </p>
           ) : (
             <p className="secsub">
@@ -327,7 +328,7 @@ export default function Create() {
           {storykit && (
             <div className="ckind" role="radiogroup" aria-label="Kind of world">
               <button type="button" role="radio" aria-checked={!story} className={!story ? 'on' : undefined} disabled={busy} onClick={() => setStory(false)}>Arcade world</button>
-              <button type="button" role="radio" aria-checked={story} className={story ? 'on' : undefined} disabled={busy} onClick={() => setStory(true)}>Story world<span className="cnew">New</span></button>
+              <button type="button" role="radio" aria-checked={story} className={story ? 'on' : undefined} disabled={busy} onClick={() => setStory(true)}>Mog City<span className="cnew">New</span></button>
             </div>
           )}
           {storykit && HOMETOWN && (
@@ -511,7 +512,7 @@ export default function Create() {
         <section className="sec">
           <div className="sechead">
             <div className="sectext">
-              <h2 className="sectitle">{telling ? 'What every story world gets' : options.open ? 'How every open world plays' : 'How every world plays'}</h2>
+              <h2 className="sectitle">{telling ? 'What every Mog City world gets' : options.open ? 'How every open world plays' : 'How every world plays'}</h2>
               <p className="secsub">{telling ? 'The Story Kit supplies the city, the engine and the rules, so you only tell the story.' : <>The GameMog Runtime supplies the rules, so every world is fair to {options.open ? 'play' : 'race'} and fair to Mog.</>}</p>
             </div>
           </div>

@@ -118,7 +118,7 @@ export function StoryCityCard({ city, town }: { city: StoryCity; town?: { name: 
       <ul className="skcard-list">
         {STORY_RULES.slice(2, 6).map((r) => <li key={r.title}><b>{r.title}</b><span>{r.text}</span></li>)}
       </ul>
-      <p className="t-meta dim-2 skcard-desk">Story worlds play on a desktop or laptop browser. Phones come later.</p>
+      <p className="t-meta dim-2 skcard-desk">Mog City worlds play on a desktop or laptop browser. Phones come later.</p>
     </aside>
   );
 }

@@ -693,7 +693,7 @@ export async function generateStorykit(
   if (!town) {
     if (!city || !PLACES[city]) return emit({ type: 'error', error: 'Pick a city for the story world.' });
     // (every story world plays on Mog City's engine, which plays New York so far: an older world set elsewhere is not mogged)
-    if (!STORYKIT_CITIES.includes(city)) return emit({ type: 'error', error: `Story worlds play on Mog City's engine, which plays ${STORYKIT_CITIES.map((c) => CITY_NAME[c]).join(' and ')} so far.` });
+    if (!STORYKIT_CITIES.includes(city)) return emit({ type: 'error', error: `Mog City worlds can be set in ${STORYKIT_CITIES.map((c) => CITY_NAME[c]).join(' and ')} so far.` });
   }
   const stopped = () => !!input.signal?.aborted;
   const started = Date.now();
