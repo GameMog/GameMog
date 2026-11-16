@@ -259,6 +259,49 @@ console.log('\nthe asset library: every file licensed, listed and unchanged');
   }
 }
 
+console.log('\nthe Story Kit\'s shipped cast: every file credited, every licence that is not MIT or CC0 in the notices');
+{
+  // (16 Nov: the licence gate above covers public/assets only; the Story Kit ships its own cast, clip pack and one GPL file)
+  const { readFileSync, readdirSync, statSync, existsSync } = await import('node:fs');
+  const { createHash } = await import('node:crypto');
+  const SK = 'public/storykit', notices = readFileSync('THIRD-PARTY-NOTICES.md', 'utf8');
+  const walk = (d: string): string[] => readdirSync(d).flatMap((f) => (statSync(`${d}/${f}`).isDirectory() ? walk(`${d}/${f}`) : [`${d}/${f}`]));
+  const credits = readFileSync(`${SK}/CREDITS.md`, 'utf8');
+  // every file in public/storykit/cast: its folder's own CREDITS.md, the Story Kit's CREDITS.md naming it, or a forged
+  // test cast (cast/<pack>/, a pack in packs/<pack>.json, each body beside its sheet: "the cast's bodies" in CREDITS.md)
+  const files = walk(`${SK}/cast`).filter((f) => !f.endsWith('/CREDITS.md'));
+  const uncredited = files.filter((f) => {
+    const rel = f.slice(SK.length + 1), dir = rel.split('/').slice(0, -1).join('/');
+    if (existsSync(`${SK}/${dir}/CREDITS.md`) || credits.includes(`\`${rel}\``)) return false;
+    const pack = rel.split('/')[1];
+    if (dir === `cast/${pack}` && existsSync(`${SK}/packs/${pack}.json`) && credits.includes('`cast/<pack>/*.glb`')) return !(f.endsWith('.glb') ? existsSync(f.replace(/\.glb$/, '.sheet.json')) : /\.(sheet\.json|forge)$/.test(f));
+    // (the voice manifest is in its folder's parent's table)
+    return !(dir.startsWith('cast/mogcity') && existsSync(`${SK}/cast/mogcity/CREDITS.md`) && readFileSync(`${SK}/cast/mogcity/CREDITS.md`, 'utf8').includes(`\`${rel.slice('cast/mogcity/'.length)}\``));
+  });
+  ok(`every file in public/storykit/cast is credited (${files.length} files)`, uncredited.length === 0, uncredited.join(', '));
+  // a credit that names a non-commercial or GPL licence: every file it names (a GLB or a script) is on disk and in THIRD-PARTY-NOTICES.md
+  const blocks = (txt: string) => txt.split(/\n(?=- |\||\n)/);
+  const named: string[] = [];
+  for (const cf of [`${SK}/CREDITS.md`, ...walk(`${SK}/cast`).filter((f) => f.endsWith('/CREDITS.md'))]) {
+    const base = cf.split('/').slice(0, -1).join('/');
+    for (const b of blocks(readFileSync(cf, 'utf8'))) {
+      if (!/CC BY-NC|GPL/.test(b)) continue;
+      for (const m of b.matchAll(/`([^`]+\.(?:glb|js))`/g)) named.push(existsSync(`${base}/${m[1]}`) ? `${base}/${m[1]}` : `${SK}/${m[1]}`);
+    }
+  }
+  const unnoticed = [...new Set(named)].filter((f) => !existsSync(f) || !notices.includes(`\`${f}\``));
+  ok(`every Story Kit file under CC BY-NC or the GPL is in THIRD-PARTY-NOTICES.md (${new Set(named).size}: ${[...new Set(named)].map((f) => f.split('/').pop()).join(', ')})`,
+    named.length >= 4 && unnoticed.length === 0, unnoticed.join(', '));
+  // the clip pack says what it carries; the notices say so too
+  const glbJson = (f: string) => { const b = readFileSync(f); return b.toString('utf8', 20, 20 + b.readUInt32LE(12)); };
+  const bandai = files.filter((f) => f.endsWith('.glb') && /bandai/i.test(glbJson(f)));
+  ok('every cast GLB that names Bandai Namco motion inside it is in the notices, under CC BY-NC 4.0', bandai.length > 0 && bandai.every((f) => notices.includes(`\`${f}\``)) && /Bandai Namco Research Motion Dataset[\s\S]{0,400}CC BY-NC 4\.0/.test(notices), bandai.join(', '));
+  // the one GPL file: its licence text and source offer beside it, unchanged
+  const gpl = `${SK}/vendor/gpl/phonemizer.js`;
+  ok('the GPL phonemizer ships with its licence and source offer, byte for byte', existsSync(gpl) && /GNU GENERAL PUBLIC LICENSE\s+Version 3/.test(readFileSync(`${SK}/vendor/gpl/COPYING`, 'utf8'))
+    && readFileSync(`${SK}/vendor/gpl/SOURCE.md`, 'utf8').includes(createHash('sha256').update(readFileSync(gpl)).digest('hex')) && notices.includes(`\`${gpl}\``) && /GPL-3\.0-or-later/.test(notices));
+}
+
 // the owner, 3 Oct: hands looked like claws. Motion capture has no fingers, so the build poses them: a relaxed hand
 // with its fingers together (the library hand rests splayed, 16 degrees between index and middle finger), a fighter's
 // hand closed into a fist

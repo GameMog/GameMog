@@ -36,6 +36,17 @@ the permission is GameMog's alone: anyone else, in a fork or elsewhere, needs th
 `lib/runtime/traversal/LICENSE`, `lib/runtime/maps/city/LICENSE` and their `NOTICE.md` files (what was taken
 and what GameMog changed).
 
+### phonemizer.js, which is eSpeak NG (GPL-3.0-or-later, not MIT)
+
+`public/storykit/vendor/gpl/phonemizer.js` (served at `/storykit/vendor/gpl/phonemizer.js`) is the npm package
+[phonemizer.js](https://github.com/xenova/phonemizer.js) 1.2.1 by Xenova, byte for byte, and it is
+[eSpeak NG](https://github.com/espeak-ng/espeak-ng) (text to phonemes, with its language data) compiled to JavaScript:
+**GPL-3.0-or-later**, whatever the package's own label says. **This file is not covered by GameMog's MIT licence.** It is
+served unmodified as its own file, with the licence's full text (`public/storykit/vendor/gpl/COPYING`) and the source
+offer (`public/storykit/vendor/gpl/SOURCE.md`: where its Corresponding Source is, its SHA-256, a copy on request) beside
+it, and is loaded only by the Story Kit's voice pass, in the creator's browser, by a dynamic import; it is never bundled
+into GameMog's code (`storykit/voices/LICENSING.md`). `npm run check` fails if a byte of it changes.
+
 ## Assets
 
 The asset library in `public/assets` is built from pinned sources: those listed in
@@ -101,6 +112,28 @@ mesh eyebrows from the MakeHuman community's
 [eyebrows01](https://static.makehumancommunity.org/assets/assetpacks/eyebrows01.html) asset pack, CC0 1.0, credited
 with thanks though CC0 does not require it. Changed: each hair kept as its rings' middles with MakeHuman's proxy fit
 (three base-mesh points, their weights and an offset), and drawn again by the forge to its own width and taper.
+
+### Story Kit motion: the Bandai Namco Research Motion Dataset (CC BY-NC 4.0, not MIT)
+
+Motion data: [Bandai Namco Research Motion Dataset](https://github.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset),
+(c) 2022 Bandai Namco Research Inc., licensed [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/):
+**non-commercial use only**, with this credit. **These files are not covered by GameMog's MIT licence**, and they are
+why the Story Kit stays free on gamemog.com and is never sold. Changed: retargeted from the dataset's BVH files to Mog
+City's rigs and then to the Story Kit cast's 66-bone rig, trimmed to loops, played in place, feet set on the ground.
+
+- `public/storykit/cast/cast-clips.glb`, the Story Kit's clip pack: Dan's clips as shipped in GameMog's Mog City, beside
+  CMU motion capture and Spiderbench's freeflow moves (above). From the dataset: `run`, `sprint`, `walk` and `jog`
+  (retargeted), and the legs of `idle`, `phone` and `talk` (each clip says so in its glTF `extras.motion`). Every
+  person a story world draws plays it: the hand-built cast (`public/storykit/cast/hand/`), the forged test casts and
+  every creator's forged person.
+- `public/storykit/cast/mogcity/dan.glb`: Mog City's Dan, copied for his headshot, with the same clips.
+- `public/storykit/cast/mogcity/suits-clips.glb`: Dan's own clips retargeted onto the Suits' rig in Mog City; its
+  walks and runs are his, so the same terms are applied to it.
+- `public/storykit/cast/mogcity/fiona-moves.glb` and `public/storykit/cast/mogcity/gears-moves.glb`: Fiona's and Gears'
+  standing idles and Fiona's run, copied from Mog City for their headshots.
+
+`public/storykit/CREDITS.md` and `public/storykit/cast/mogcity/CREDITS.md` credit every Story Kit file; `npm run check`
+holds every file in `public/storykit/cast` to a credit, and every one under a licence that is not MIT or CC0 to a line here.
 
 ### Mog City episode key art (`lib/episode/art/`)
 

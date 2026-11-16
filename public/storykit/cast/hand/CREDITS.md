@@ -1,5 +1,9 @@
 # Hand-built cast: credits
 
+Every person here moves with the Story Kit's clip pack (`cast/cast-clips.glb`): its clips are from the CMU Graphics Lab
+Motion Capture Database, Spiderbench (by permission) and the Bandai Namco Research Motion Dataset (CC BY-NC 4.0,
+non-commercial use only; `../../CREDITS.md`, `THIRD-PARTY-NOTICES.md`).
+
 `young-hero.glb` (`hand/young-hero`, "Mateo"): an original Story Kit character, an invented person with no real
 likeness. Built by the Character Forge from its young-hero anchor (MakeHuman's base body, clothes and hair, CC0 1.0),
 then polished by hand (skin and stubble paint, shell hair, hands, face shape, cloth).

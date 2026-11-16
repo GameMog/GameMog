@@ -31,7 +31,13 @@ The GameMog Story Kit: the creator's side of a story world (forge, voices, the s
   (https://static.makehumancommunity.org/assets/assetpacks/eyebrows01.html, CC0 1.0), each hair kept as its rings'
   middles with MakeHuman's proxy fit; the forge draws each hair again on every face (`scripts/forge/browkit.mjs`).
 - **Their motion** (`cast/cast-clips.glb`): Dan's clips as shipped in GameMog's Mog City, retargeted to the cast's
-  66-bone rig. They include Bandai Namco motion data under CC BY-NC: free GameMog only, never sold.
+  66-bone rig: CMU motion capture (free for all uses; the data itself may not be resold), Spiderbench's freeflow moves
+  (by permission, not MIT), and motion from the **Bandai Namco Research Motion Dataset**
+  (https://github.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset), (c) 2022 Bandai Namco Research Inc.,
+  **CC BY-NC 4.0** (https://creativecommons.org/licenses/by-nc/4.0/): the run, sprint, walk and jog, and the legs of the
+  idle, phone and talk clips (each clip's glTF `extras.motion` says so). Non-commercial use only: free GameMog only,
+  never sold, and not under GameMog's MIT licence (`THIRD-PARTY-NOTICES.md`). Every person a story world draws plays
+  this pack.
 - **Mog City's shipped cast** (`cast/mogcity/`, the cast registry `cast/registry.json`): Dan, Jane, Mr. Big, Gears,
   Fiona and the Suits, copied from GameMog's Mog City for their headshots, and the list of their recorded lines (the
   recordings themselves stay in Mog City, which plays them). MakeHuman (CC0), CMU motion capture, Bandai Namco motion
