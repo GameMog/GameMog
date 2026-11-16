@@ -9,7 +9,7 @@
  * white sheen at 150 degrees, a lit top rim and a hairline border. The cover is blurred once, and every glass shape
  * draws its own region of that one copy. Browser only.
  */
-import { PLATFORM } from './byline';
+import { PLATFORM, shownCreator } from './byline';
 
 export type DareCardInput = {
   /** the game's cover, same origin (/g/<slug>/cover), so the canvas stays readable */
@@ -306,7 +306,8 @@ export async function renderDareCard(input: DareCardInput): Promise<Blob> {
   // the title and its credit, from the panel's foot up
   {
     const credit: { text: string; bold?: boolean; line?: boolean; dim?: boolean }[] = [];
-    if (input.creator?.trim()) credit.push({ text: input.creator.trim() === PLATFORM ? 'By ' : 'Created by ' }, { text: input.creator.trim(), bold: true });
+    const who = shownCreator(input.creator);
+    if (who) credit.push({ text: who === PLATFORM ? 'By ' : 'Created by ' }, { text: who, bold: true });
     if (input.parentTitle?.trim()) {
       if (credit.length) credit.push({ text: ' · ', dim: true });
       credit.push({ text: 'Remixed from ' }, { text: input.parentTitle.trim(), bold: true, line: true });

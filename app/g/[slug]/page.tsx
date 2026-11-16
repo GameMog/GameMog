@@ -114,7 +114,7 @@ export default async function GamePage({ params, searchParams }: { params: Promi
             <div className="gtitle">
               <span className="tag solid classic-label">Classic</span>
               <h1>{game.title}</h1>
-              <p className="by">{isFirstParty(game) ? <>By <b>{PLATFORM}</b></> : game.creator ? <>Created by <b>{game.creator}</b></> : <>By <b>a GameMog creator</b></>} <span className="maturity">· Difficulty: {difficulty}</span></p>
+              <p className="by">{isFirstParty(game) ? <>By <b>{PLATFORM}</b></> : byName(game) ? <>Created by <b>{byName(game)}</b></> : <>By <b>a GameMog creator</b></>} <span className="maturity">· Difficulty: {difficulty}</span></p>
               <Lineage game={game} />
             </div>
             <GameActions gameId={game.id} slug={game.slug} title={game.title} initial={voteCounts(game.id)} />
