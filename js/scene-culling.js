@@ -157,11 +157,15 @@ function replaceWithChunks(mesh, cell) {
  * - nearShadowsOnly: the far sun cascade draws the building stand-ins only, so beyond the near cascade (~40 m at
  *   street level) only the buildings cast. Each cascade draws its casters again, so this nearly halves the shadow
  *   draws, which is what a phone's CPU pays for.
+ * - propCell (a Hometown town's, cities/sf/js/main.js): the small props' chunks this many times wider. A town's props
+ *   are few (a few hundred hydrants, a thousand lamps) and cheap to draw, so what they cost is the draw calls: the
+ *   view and both cascades draw each chunk in reach, and a wider chunk is fewer of them for the same props.
  */
 function setupSceneCulling(scene, roots, shadow = null, quality = {}) {
   const propScale = quality.propScale ?? 1;
   const propShadows = quality.propShadows !== false;
   const staticFar = quality.staticFar ?? Infinity;
+  const propCell = quality.propCell ?? 1;
   scene.updateMatrixWorld(true);
   const stats = { chunkedMeshes: 0, chunks: 0, proxiedMeshes: 0, proxies: 0, proxyTriangles: 0 };
   const culled = [];
@@ -188,7 +192,7 @@ function setupSceneCulling(scene, roots, shadow = null, quality = {}) {
       largeMeshes.push(mesh);
       continue;
     }
-    const cell = Math.min(600, Math.max(250, cullDist * 0.5));
+    const cell = Math.min(600, Math.max(250, cullDist * 0.5)) * propCell;
     const chunks = replaceWithChunks(mesh, cell);
     for (const chunk of chunks) {
       if (!propShadows) chunk.castShadow = false;

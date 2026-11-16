@@ -307,6 +307,7 @@ function buildRoadPaint(scene, network) {
     // (stage 0, compiler 0.13: OSM's mid-block crossings, GEO.streetProps kind 5: a crosswalk across the road the node
     // stands on, where it keeps clear of every crosswalk and stop bar placed above)
     const SP = window.NYC.GEO.streetProps || [];
+    const LOW_DECK = 3.5; // (m: a deck's underside this near the ground over a crossing leaves it out)
     stats.midBlock = 0;
     for (let i = 0; i + 2 < SP.length; i += 3) {
       if (SP[i + 2] !== 5) continue;
@@ -321,6 +322,14 @@ function buildRoadPaint(scene, network) {
       if (s < 1 || s > f.len - 1) continue;
       const [l, r] = curbs(f, s).map((c) => Math.min(c, f.half + 0.3));
       if (l + r < 2) continue;
+      // (r14) not where a deck runs low over it (a ramp's foot: from above its road covers half the zebra, under it a
+      // car's roof clears it by a hand; Pittsburgh's Penn-Lincoln ramp at (-2042, 1006), 2.4 m up)
+      const G = window.NYC.GradeSeparation;
+      if (G && G.roofAt && T && T.loaded && [-l, 0, r].some((o) => {
+        const [px, pz] = at(f, s, o), g = T.groundAt(px, pz);
+        const top = G.roofAt(px, pz, g + 0.3);
+        return Number.isFinite(top) && top - g < LOW_DECK;
+      })) { stats.underDeck = (stats.underDeck || 0) + 1; continue; }
       const q = quad(f, s, -l, r, W);
       if (anyNear(PG, q, (p) => overlaps(q, p.xw.q)) || anyNear(BG, q, (p) => overlaps(q, p.q))) continue;
       { const pe = { xw: { q } }; placed.push(pe); addQ(PG, q, pe); }

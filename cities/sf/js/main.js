@@ -255,6 +255,25 @@ async function initApp() {
   const scene = new THREE.Scene();
   const lightingSystem = new LightingSystem(scene, renderer);
   markInit('lighting');
+  // (perf) The sun's cascades are drawn inside the city's own render (the first lit material's update), after that render
+  // has recomputed every world matrix; each cascade's render(scene, ...) recomputed them all again (three's _renderScene:
+  // scene.updateMatrixWorld()), two full passes over the scene's thousands of objects a frame for nothing. Inside a render
+  // of the city, a cascade's render skips it
+  {
+    const render0 = renderer.render.bind(renderer), sunShadow = lightingSystem.sunLight.shadow;
+    let inCity = 0;
+    renderer.render = function (scn, camera, ...rest) {
+      if (scn !== scene) return render0(scn, camera, ...rest);
+      const cascade = inCity > 0 && camera && camera.isOrthographicCamera && scene.matrixWorldAutoUpdate === true &&
+        (camera === sunShadow.getCamera(0) || camera === sunShadow.getCamera(1));
+      if (cascade) scene.matrixWorldAutoUpdate = false;
+      inCity++;
+      try { return render0(scn, camera, ...rest); } finally {
+        inCity--;
+        if (cascade) scene.matrixWorldAutoUpdate = true;
+      }
+    };
+  }
 
   if (loadingStatus) {
     loadingStatus.textContent = LOADING_TEXT;
@@ -334,7 +353,10 @@ async function initApp() {
   const cullingRoots = ['ManhattanCityGrid', 'ManhattanCityBlocks', 'ManhattanStreetDetails', 'ManhattanLandmarks', 'Boroughs', 'SFGround', 'SFBuildings', 'SFStreetDetails', 'SFLandmarks', 'SFBridges']
     .map((name) => scene.getObjectByName(name))
     .filter(Boolean);
-  const cullingStats = setupSceneCulling(scene, cullingRoots, lightingSystem.sunLight.shadow);
+  // (r14) a Hometown town's small props in chunks 2.5x wider (scene-culling.js propCell): the same props drawn, ~half the
+  // draw calls for them in the view and the cascades
+  const cullingStats = setupSceneCulling(scene, cullingRoots, lightingSystem.sunLight.shadow,
+    document.documentElement.dataset.city === 'pkg' ? { propCell: 2.5 } : {});
   markInit('culling');
   await breathe();
 
@@ -908,9 +930,17 @@ async function initApp() {
     const y0 = urlParams.get('camGround') === '1' ? window.NYC.Terrain.groundAt(x, z) : 0;
     if ([x, y, z].every(Number.isFinite)) debugState.camera = { x, y: y + y0, z, yaw, pitch };
   }
-  if (BENCH_PATHS[urlParams.get('bench')]) {
-    const name = urlParams.get('bench');
-    debugState.bench = { name, keys: BENCH_PATHS[name], onGround: BENCH_ON_GROUND.has(name), t: -2, frames: [], gpu: [] };
+  // (a Hometown town's paths, around its arrival: town-street = a turn on the spot 1.7 m up at the arrival, town-aerial =
+  // a loop 220 m up round it. Its y over the ground, as BENCH_ON_GROUND's)
+  const benchSpawn = window.NYC.PKG && window.NYC.PKG.spawn;
+  const TOWN_BENCH = benchSpawn ? {
+    'town-street': [[benchSpawn.x, 1.7, benchSpawn.z, 0, -3], [benchSpawn.x, 1.7, benchSpawn.z, 360, -3]],
+    'town-aerial': [0, 90, 180, 270, 360].map((a) => [benchSpawn.x + 350 * Math.sin((a * Math.PI) / 180), 220, benchSpawn.z + 350 * Math.cos((a * Math.PI) / 180), a, -25])
+  } : {};
+  const benchName = urlParams.get('bench');
+  if (BENCH_PATHS[benchName] || TOWN_BENCH[benchName]) {
+    const name = benchName;
+    debugState.bench = { name, keys: BENCH_PATHS[name] || TOWN_BENCH[name], onGround: BENCH_ON_GROUND.has(name) || !!TOWN_BENCH[name], t: -2, frames: [], gpu: [], work: [] };
   }
 
   // Expose programmatic API for testing & inspection
@@ -1116,6 +1146,7 @@ async function initApp() {
     if (window.__NYC_APP.ready && !b.done) {
       b.t += rawDt;
       if (b.t >= 0) b.frames.push(rawDt * 1000);
+      if (b.t >= 0) b.work.push(lastWork); // (the loop's own work, the frame before: CPU, not the wait for the GPU or vsync)
       if (b.t >= BENCH_SECONDS) {
         b.done = true;
         const ms = b.frames.slice().sort((p, q) => p - q);
@@ -1123,6 +1154,8 @@ async function initApp() {
         const p95 = ms[Math.floor(ms.length * 0.95)];
         window.__NYC_APP.bench = { name: b.name, medianMs: +median.toFixed(2), p95Ms: +p95.toFixed(2), fps: Math.round(1000 / median), frames: ms.length, width: renderer.domElement.width, height: renderer.domElement.height, heapMB: performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1e6) : null };
         const gpu = b.gpu.slice().sort((a, c) => a - c);
+        const work = b.work.slice().sort((p, q) => p - q);
+        if (work.length) Object.assign(window.__NYC_APP.bench, { workMedianMs: +work[Math.floor(work.length / 2)].toFixed(2), workP95Ms: +work[Math.floor(work.length * 0.95)].toFixed(2) });
         if (gpu.length) Object.assign(window.__NYC_APP.bench, { gpuMedianMs: +gpu[Math.floor(gpu.length / 2)].toFixed(3), gpuSamples: gpu.length });
         if (fogCompare) {
           const med = values => { const sorted = values.slice().sort((a, b) => a - b); return sorted.length ? sorted[Math.floor(sorted.length / 2)] : null; };
@@ -1149,6 +1182,7 @@ async function initApp() {
   }
 
   let gpuTimingPending = false;
+  let gpuFrames = 0; // (frames since the last GPU timing resolve)
   let lastWork = 0; // (perf) the last frame's own work, ms: the loop from its start to the frame handed to the GPU
   renderer.setAnimationLoop((now) => {
     const rawDt = (now - lastTime) * 0.001;
@@ -1242,13 +1276,17 @@ async function initApp() {
       }
     }
     const timedBench = debugState.bench;
+    gpuFrames++;
     if (warmedUp && renderer.backend.trackTimestamp && timedBench && !timedBench.done && !gpuTimingPending) {
       gpuTimingPending = true;
+      // (the queries since the last resolve: every frame since, so its total over their count is a frame's)
+      const perFrames = Math.max(1, gpuFrames);
+      gpuFrames = 0;
       const block = Math.floor(timedBench.t / 5);
       const settledBlock = fogCompare && timedBench.t >= 0 && timedBench.t % 5 >= 1 && block < 8;
       renderer.resolveTimestampsAsync().then(ms => {
-        if (settledBlock && !timedBench.done && Number.isFinite(ms)) fogBlocks[block].push(ms);
-        if (timedBench.t >= 0 && !timedBench.done && Number.isFinite(ms)) timedBench.gpu.push(ms);
+        if (settledBlock && !timedBench.done && Number.isFinite(ms)) fogBlocks[block].push(ms / perFrames);
+        if (timedBench.t >= 0 && !timedBench.done && Number.isFinite(ms)) timedBench.gpu.push(ms / perFrames);
       }).catch(error => console.warn('GPU timing unavailable:', error.message)).finally(() => { gpuTimingPending = false; });
     }
     if (!warmedUp) {

@@ -1187,6 +1187,11 @@ function createPreWarBuildingMaterial(opts = {}) {
  */
 function createFacadeBoxes(material, boxes) {
   const geometry = new THREE.BoxGeometry(1, 1, 1);
+  // (perf) no uv: the facades read the box's own position. With it a painted box's vertex buffers (position, normal, uv,
+  // box, faces, boxBase, paintWall, paintTrim + the instance matrix) were 9, over three's 8, so it bound the instance
+  // data per object (objectSpecific): every chunk of the mesh (js/scene-culling.js) built its own shader node graph,
+  // ~25 ms of the main thread each, on the frame it first came into view (a hitch at each new block a turn showed)
+  geometry.deleteAttribute('uv');
   const box = new THREE.InstancedBufferAttribute(new Float32Array(boxes.length * 4), 4);
   const faces = new THREE.InstancedBufferAttribute(new Float32Array(boxes.length * 4), 4);
   const boxBase = new THREE.InstancedBufferAttribute(new Float32Array(boxes.length * 3), 3);

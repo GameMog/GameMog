@@ -991,6 +991,22 @@ const LOW_CUTOFF = 1150;
 // levels come this much nearer (a Hometown town's OSM trees, thousands downtown, at full detail cost a phone ~1.5 M
 // triangles); High keeps them. Read live from window.NYC.quality.tier, so Auto's pick after the first 3 s applies too
 const TIER_LOD = { low: 0.5, medium: 0.75, high: 1 };
+// (r14) A field built with { shadowReach }: a level's mesh whose nearest tree is further than the sun's shadow reach (its
+// cascades' far distance, cities/sf/js/lighting.js: 300 m at street level, up to 720 m from the air) plus SHADOW_MARGIN
+// casts no shadow. The cascades are fitted to the view out to that far distance, so none of its trees' shadows were in
+// them, but the mesh was drawn into both cascades every frame anyway (at street level every whole-crown level, 420 m
+// and more: two draw calls each, and ~0.4 M triangles in Pittsburgh's downtown). The margin keeps a long golden-hour
+// shadow that falls back into the cascades
+const SHADOW_MARGIN = 60;
+// (r14) A field built with { viewCull }: at street level (the camera under 40 m) a tree further than VIEW_CULL_NEAR m and
+// more than VIEW_CULL_MARGIN degrees outside the side of the view is not drawn at all; the levels are worked out again
+// once the view turns VIEW_CULL_TURN degrees (the margin is wider, so nothing shows up late at the edge). A tree that
+// far behind the camera casts its shadow (even a golden-hour one, ~4x its height) behind the camera too. A town's
+// trees surround the camera, so this halves what the scene pass and both cascades draw of them
+const VIEW_CULL_NEAR = 80;
+const VIEW_CULL_MARGIN = 35;
+const VIEW_CULL_TURN = 15;
+const VIEW_CULL_MIN_HALF = 45;
 
 function hashPos(x, y, z) {
   const s = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453;
@@ -1129,18 +1145,52 @@ function createTreeField(scene, sites, opts = {}) {
   const last = new V3(Infinity, Infinity, Infinity);
   const cam = new V3();
   let lodScale = 1;
-  function update(position) {
+  // (shadowReach) the sun (found once): its shadow camera's far distance, which lighting.js sets from the camera's height
+  let sun = null, reach = Infinity;
+  const nearest = new Float32Array(meshes.length); // per mesh, its nearest tree's distance at the last re-level
+  // (window.NYC.treeTrim = false turns both r14 trims off live, for an A/B in one page: the probes' switch)
+  const trimOn = () => window.NYC.treeTrim !== false;
+  const shadowReach = () => {
+    if (!opts.shadowReach || !trimOn()) return Infinity;
+    if (!sun) scene.traverse((o) => { if (!sun && o.isLight && o.castShadow && o.shadow && o.shadow.camera) sun = o; });
+    return sun ? sun.shadow.camera.far + SHADOW_MARGIN : Infinity;
+  };
+  const fwd = new V3(), lastFwd = new V3(); // (viewCull) the view's horizontal direction, and at the last re-level
+  let lastTrim = true;
+  let cullCos = -2; // (viewCull) cos of the widest angle off the view's direction a far tree is drawn at (-2: all)
+  function update(position, camera = null) {
     cam.copy(position);
+    let turned = false;
+    if (!trimOn()) cullCos = -2;
+    else if (opts.viewCull && camera && camera.isPerspectiveCamera) {
+      camera.getWorldDirection(fwd);
+      fwd.y = 0;
+      if (fwd.lengthSq() > 1e-6) {
+        fwd.normalize();
+        // (the view's horizontal half-angle, at least VIEW_CULL_MIN_HALF: a phone held upright sees ~15 degrees either
+        // side, and a side tree culled 50 degrees off it would drop its long golden-hour shadow into the view)
+        const halfH = Math.max((VIEW_CULL_MIN_HALF * Math.PI) / 180, Math.atan(Math.tan((camera.fov * Math.PI) / 360) * (camera.aspect || 1)));
+        cullCos = Math.cos(Math.min(Math.PI, halfH + (VIEW_CULL_MARGIN * Math.PI) / 180));
+        turned = fwd.dot(lastFwd) < Math.cos((VIEW_CULL_TURN * Math.PI) / 180);
+      } else cullCos = -2;
+    }
     const T = window.NYC.Terrain;
     const above = cam.y - (T && T.loaded ? T.groundAt(cam.x, cam.z) : 0);
     const step = Math.max(RELEVEL_STEP, above * 0.2); // (from the air the levels change slowly)
     const q = window.NYC.quality;
     const scale = (opts.tierLod && q && TIER_LOD[q.tier]) || 1;
-    if (scale === lodScale && cam.distanceToSquared(last) < step * step) return false;
+    const r = shadowReach();
+    const trim = trimOn();
+    if (trim !== lastTrim) turned = true;
+    lastTrim = trim;
+    if (!turned && scale === lodScale && Math.abs(r - reach) < RELEVEL_STEP && cam.distanceToSquared(last) < step * step) return false;
     lodScale = scale;
+    reach = r;
+    lastFwd.copy(fwd);
     last.copy(cam);
     const low = cam.y < 40;
     let changed = false;
+    nearest.fill(Infinity);
     for (let i = 0; i < N; i++) {
       const dx = px[i] - cam.x;
       const dy = py[i] - cam.y;
@@ -1151,6 +1201,11 @@ function createTreeField(scene, sites, opts = {}) {
       const curL = lod[i] === 255 ? 3 : lod[i];
       const near = nearOf[i] * lodScale, mid = midOf[i] * lodScale;
       let nextL = d < near ? 0 : d < mid ? 1 : d < maxD ? 2 : 3;
+      // (viewCull) a far tree well outside the side of the view: hidden (no hysteresis needed: the margin is wider than the turn)
+      if (above < 40 && cullCos > -2 && d > VIEW_CULL_NEAR && (dx * fwd.x + dz * fwd.z) < cullCos * Math.hypot(dx, dz)) {
+        if (lod[i] !== 255) { lod[i] = 255; changed = true; }
+        continue;
+      }
       if (Math.abs(nextL - curL) === 1) {
         const edge = [near, mid, maxD][Math.min(nextL, curL)];
         if (Math.abs(d - edge) < LOD_HYSTERESIS) nextL = curL;
@@ -1160,8 +1215,11 @@ function createTreeField(scene, sites, opts = {}) {
         lod[i] = next;
         changed = true;
       }
+      if (next !== 255) { const mi = meshOf[i * 3 + next]; if (d < nearest[mi]) nearest[mi] = d; }
     }
     if (changed) rebuild();
+    // (shadowReach) a level's mesh casts only while one of its trees is within reach (Infinity when off: as before)
+    for (let mi = 0; mi < instanced.length; mi++) instanced[mi].castShadow = meshes[mi].shadow && nearest[mi] < reach;
     return changed;
   }
 
@@ -1175,13 +1233,17 @@ function createTreeField(scene, sites, opts = {}) {
     // (Mog City, ?origin=float: the camera draws shifted by the render origin, wagmi/world/origin.js; the trees are absolute)
     const o = window.NYC.renderOrigin;
     if (o) { viewPos.x += o.x; viewPos.z += o.z; }
-    update(viewPos);
+    // (viewCull: only the city's own view turns the culling; another camera drawing this scene keeps the view's)
+    const app = window.__NYC_APP, main = app && app.cameraSystem && app.cameraSystem.camera;
+    update(viewPos, !main || camera === main ? camera : null);
   };
 
   // Levels for the start-up view (Midtown, 5th Ave), so the precompile pass sees the tree meshes; a mesh the view has
   // no tree for draws one zero-scale instance until its first rebuild, so its pipeline is compiled up front too (not
   // on the frame its first tree comes into range)
   update(new V3(0, 10, 140));
+  // (and every level casts for it, so its shadow pipelines compile up front too: the first view's re-level sets the reach)
+  instanced.forEach((mesh, mi) => { mesh.castShadow = meshes[mi].shadow; });
   for (const mesh of instanced) {
     if (mesh.count > 0) continue;
     mesh.instanceMatrix.array.fill(0, 0, 16);

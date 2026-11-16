@@ -437,7 +437,10 @@ function buildSFStreetDetails(scene, network, buildingColliders = []) {
     const r = Math.abs(Math.sin(x * 12.9898 + z * 78.233) * 43758.5453) % 1;
     sites.push({ x, y: groundAt(x, z) + CURB_H, z, scale: s, species: SPECIES_OF[cls] ?? 2, yaw: r * Math.PI * 2, tier: 1 });
   }
-  const treeField = sites.length && window.NYC.createTreeField ? window.NYC.createTreeField(scene, sites, { tierLod: document.documentElement.dataset.city === 'pkg' }) : null;
+  // (a Hometown town: its tree levels by the graphics tier, and (r14) no shadow from a level beyond the cascades' reach, no
+  // far tree well outside the view; trees.js)
+  const town = document.documentElement.dataset.city === 'pkg';
+  const treeField = sites.length && window.NYC.createTreeField ? window.NYC.createTreeField(scene, sites, { tierLod: town, shadowReach: town, viewCull: town }) : null;
   if (treeField) group.add(treeField.group);
 
   // Meshes: one instanced mesh per part
