@@ -2,14 +2,14 @@
 import { cookies, headers } from 'next/headers';
 import { setScoreHidden, setWorldHidden, setWorldVisibility, type WorldVisibility } from '@/lib/analytics';
 import { repinStoryWorld } from '@/lib/storykit-publish';
-import { COOKIE, adminEnabled, clearMisses, isAdmin, lockedOut, passwordMatches, recordMiss, sessionValue } from './session';
+import { COOKIE, adminEnabled, clearMisses, isAdmin, lockedOut, passwordMatches, recordMiss, sessionValue, signInKey } from './session';
 
 /** Server actions for /admin. Every one but signing in checks the session first. */
 
 export async function signIn(password: string): Promise<{ ok: boolean; error?: string }> {
   const h = await headers();
-  // Netlify's own client address header cannot be set by the caller; the rest are fallbacks
-  const who = h.get('x-nf-client-connection-ip') ?? h.get('x-forwarded-for')?.split(',')[0].trim() ?? h.get('x-real-ip') ?? 'local';
+  // (the trusted hop, never an address the client wrote: session.ts signInKey)
+  const who = signInKey(h);
   if (!adminEnabled()) return { ok: false, error: 'Admin is switched off on this server.' };
   if (lockedOut(who)) return { ok: false, error: 'Too many tries. Wait fifteen minutes.' };
   await new Promise((r) => setTimeout(r, 400));

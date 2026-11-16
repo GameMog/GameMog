@@ -18,6 +18,7 @@ import { optionsOf } from './world-options';
 import { byName } from './byline';
 import { dna } from './mog-dna';
 import { KartScore, kartConstants, checkKartRun, raceClock, ordinal, type KartConstants } from './kart-score';
+import { townClientKey } from './hometown/client';
 
 /* ----------------------------------------------------------------- boards -- */
 /** How a game ranks a run, the same as its page's board (app/g/[slug]/custom-page.tsx `by`). */
@@ -393,10 +394,9 @@ export function cardBudgetOk(bytes: number, now = Date.now()): boolean {
   cardDay.bytes += bytes;
   return true;
 }
-/** The address a request came from, for the rate limit only: Cloudflare's header, else the first forwarded-for. */
+/** The address a request came from, for the rate limit only: the trusted hop (lib/hometown/client.ts), never one the client wrote. */
 export function clientKey(req: Request): string {
-  const h = req.headers;
-  return h.get('cf-connecting-ip') ?? h.get('x-forwarded-for')?.split(',')[0]?.trim() ?? h.get('x-real-ip') ?? 'local';
+  return townClientKey(req);
 }
 /** The checks app/api/hit/route.ts makes: no crawlers, and only the site's own pages. */
 export function fromOwnPage(req: Request): boolean {

@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { REPORT_MAX_BYTES, allowReport, cleanReport, kartReports, storeReport } from '@/lib/kart-report';
 import { COOKIE, validSession } from '../../admin/session';
+import { townClientKey } from '@/lib/hometown/client';
 
 export const runtime = 'nodejs';
 
@@ -18,8 +19,8 @@ export async function POST(req: Request) {
   try { b = JSON.parse(text); } catch { return new Response(null, { status: 400 }); }
   const r = cleanReport(b, req.headers.get('user-agent') ?? '');
   if (!r) return new Response(null, { status: 400 });
-  const h = req.headers;
-  const who = h.get('x-nf-client-connection-ip') ?? h.get('x-forwarded-for')?.split(',')[0].trim() ?? h.get('x-real-ip') ?? 'local';
+  // (the trusted hop, never an address the client wrote: lib/hometown/client.ts)
+  const who = townClientKey(req);
   if (!allowReport(who)) return new Response(null, { status: 429 });
   storeReport(r);
   return new Response(null, { status: 204 });

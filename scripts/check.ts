@@ -39,6 +39,7 @@ import { runHometownTilesChecks } from './hometown-tiles-check.ts';
 import { runBuildChecks } from './hometown-build-check.ts';
 import { runDispatchChecks } from './hometown-dispatch-check.ts';
 import { runPerfChecks } from './perf-check.ts';
+import { runClientKeyChecks } from './client-key-check.ts';
 
 let failures = 0;
 const ok = (name: string, cond: boolean, detail = '') => {
@@ -577,6 +578,8 @@ await runBuildChecks(ok);
 await runDispatchChecks(ok);
 // Machines (16 Nov): how each machine runs the game, its report kept anonymous and bounded (lib/perf.ts)
 await runPerfChecks(ok);
+// Limits (16 Nov): every per-address limit keys on the trusted hop, and the sign-in lockout across all addresses
+await runClientKeyChecks(ok);
 // Story Kit (16 Nov): who may open a store draft, and the store's caps asked at the build route's door. Its own process:
 // it runs in a throwaway folder (its own data/) and drives the real routes, so nothing here sees its databases
 {

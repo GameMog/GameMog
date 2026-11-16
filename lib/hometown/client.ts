@@ -1,8 +1,10 @@
 /**
- * Hometown towns: the address a new town build is counted against (POST /api/towns, HOMETOWN_PER_IP_HOUR), read only
- * from a header the client cannot write. lib/dare.ts clientKey (the dares' limit) takes the first X-Forwarded-For or a
- * CF-Connecting-IP as sent, so a client that sends its own gets a fresh address on every ask; that one is left as it is
- * (its checks send their own X-Forwarded-For), and the town builder, which spends a server's minutes per ask, uses this.
+ * The address a request is counted against, read only from a header the client cannot write: a new town build (POST
+ * /api/towns, HOMETOWN_PER_IP_HOUR), and since 16 Nov every other per-address limit too: the owner's sign-in lockout
+ * (app/admin/session.ts signInKey), the kart crash reports (app/api/kart-report), the dares (lib/dare.ts clientKey) and the
+ * machine reports (app/api/perf). They took the first X-Forwarded-For (or Netlify's or Cloudflare's header) as sent, so a
+ * client that sent its own got a fresh address on every ask. (The local checks that send their own X-Forwarded-For still
+ * name themselves: with no proxy, the one hop is theirs, below.)
  *
  *   On Render (RENDER=true, which Render sets on every service): Render serves a web service through Cloudflare, whose
  *   edge sets CF-Connecting-IP and True-Client-IP itself (a value a client sent is replaced), while Render's own proxy
@@ -19,7 +21,7 @@
 const IP = /^[0-9A-Fa-f:.]{2,45}$/;
 const clean = (v: string | null | undefined): string | null => { const s = (v ?? '').trim(); return s && IP.test(s) ? s : null; };
 
-export function townClientKey(req: Request, env: Record<string, string | undefined> = process.env): string {
+export function townClientKey(req: { headers: { get(name: string): string | null } }, env: Record<string, string | undefined> = process.env): string {
   const h = req.headers;
   const hops = (h.get('x-forwarded-for') ?? '').split(',').map((s) => s.trim()).filter(Boolean);
   const n = Math.min(5, Math.max(1, Math.floor(Number(env.HOMETOWN_TRUSTED_HOPS) || 1)));

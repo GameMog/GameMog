@@ -40,20 +40,5 @@ export function passwordMatches(attempt: string) {
   return adminEnabled() && timingSafeEqual(want, got);
 }
 
-/**
- * Wrong passwords slow the next try from the same address, in memory only:
- * five misses lock that address out for fifteen minutes. Nothing is stored.
- */
-const misses = new Map<string, { n: number; until: number }>();
-export function lockedOut(who: string) {
-  const m = misses.get(who);
-  return !!m && m.until > Date.now();
-}
-export function recordMiss(who: string) {
-  const m = misses.get(who) ?? { n: 0, until: 0 };
-  m.n += 1;
-  if (m.n >= 5) { m.until = Date.now() + 15 * 60_000; m.n = 0; }
-  misses.set(who, m);
-  if (misses.size > 5000) misses.clear();
-}
-export const clearMisses = (who: string) => misses.delete(who);
+/** The sign-in lockout (lib/sign-in-lock.ts: kept apart from next/headers so the offline checks can run it). */
+export { signInKey, GLOBAL_MISSES, lockedOut, recordMiss, clearMisses, resetMisses } from '../../lib/sign-in-lock';
