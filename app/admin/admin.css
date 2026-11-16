@@ -227,3 +227,10 @@
   .seg.line::-webkit-scrollbar{display:none}
   .seg.line .seg-bar{bottom:0}
 }
+/* the Machines tab (lib/perf.ts): a plain table of numbers, the code search */
+.ptab{width:100%;border-collapse:collapse;font:500 13px/1.35 var(--ui);font-variant-numeric:tabular-nums}
+.ptab th{text-align:left;font-weight:600;color:var(--ink-3);padding:6px 10px 8px 0;white-space:nowrap}
+.ptab td{padding:7px 10px 7px 0;border-top:1px solid var(--canvas);color:var(--ink-2);white-space:nowrap}
+.ptab td:first-child{color:var(--ink);white-space:normal;min-width:180px}
+.ptab .bad{color:var(--ink)}
+.adm-in{border:0;border-radius:var(--pill);background:var(--canvas);padding:8px 14px;font:500 14px/1 var(--ui);color:var(--ink)}

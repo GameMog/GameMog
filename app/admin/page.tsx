@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { RANGES, activeNow, adminBuilds, adminScores, adminWorlds, mcStats, stats, type McStats, type Range, type Stats } from '@/lib/analytics';
 import { kartReports } from '@/lib/kart-report';
+import { perfAdmin, type PerfAdmin } from '@/lib/perf';
 import { buildSlots, slotsHeld, queueLength, queueMax, spendToday, IN_FLIGHT_USD } from '@/lib/build-limits';
 import { dareLoop } from '@/lib/funnel';
 import { adminEnabled, isAdmin } from './session';
@@ -37,6 +38,9 @@ export default async function AdminPage() {
   const all = Object.fromEntries(RANGES.map((r) => [r, stats(r, now)])) as Record<Range, Stats>;
   // Mog City (mc.gamemog.com), counted apart (lib/analytics.ts mcStats)
   const mc = Object.fromEntries(RANGES.map((r) => [r, mcStats(r, now)])) as Record<Range, McStats>;
+  // how each machine runs the game (lib/perf.ts: Mog City's wagmi/perf.js reports), per range
+  let perf: Record<Range, PerfAdmin> | null = null;
+  try { perf = JSON.parse(JSON.stringify(Object.fromEntries(RANGES.map((r) => [r, perfAdmin(r, now)])))) as Record<Range, PerfAdmin>; } catch (e) { console.error('admin: machines', String((e as Error).message).slice(0, 200)); }
   // capacity now (lib/build-limits.ts): the slots, the line, and the day's spend against its ceiling (Los Angeles's day)
   const day = spendToday(now);
   const slots = { held: slotsHeld(), max: buildSlots(), queue: queueLength(), queueMax: queueMax(), spent: day.total, inFlight: day.inFlight, perBuild: IN_FLIGHT_USD, ceiling: day.ceiling };
@@ -52,5 +56,5 @@ export default async function AdminPage() {
   // the published hometown story worlds pinned to an older build of their town: what each plays, and why (lib/storykit-upgrade.ts)
   let storyTowns = null;
   if (towns && storykit) { try { storyTowns = JSON.parse(JSON.stringify(storyTownsAdmin())); } catch (e) { console.error('admin: story towns', String((e as Error).message).slice(0, 200)); } }
-  return <Dashboard storyTowns={storyTowns} towns={towns} stats={all} worlds={adminWorlds()} builds={builds} scores={adminScores()} active={activeNow()} reports={kartReports()} slots={slots} loop={dareLoop(now)} mc={mc} storykit={storykit} />;
+  return <Dashboard storyTowns={storyTowns} towns={towns} stats={all} worlds={adminWorlds()} builds={builds} scores={adminScores()} active={activeNow()} reports={kartReports()} perf={perf} slots={slots} loop={dareLoop(now)} mc={mc} storykit={storykit} />;
 }

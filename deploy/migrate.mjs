@@ -1766,7 +1766,45 @@ export const MIGRATIONS = [
     async: true,
     run: (db, path) => sf2040World(5, db, path),
   },
+  {
+    // 16 Nov (friends' QA on many machines): how each machine runs the game, lib/perf.ts (POST /api/perf, the admin
+    // screen's Machines tab). The same tables the module makes for itself (CREATE ... IF NOT EXISTS, so harmless twice):
+    // a load per page load, its frame-time windows and its quality steps. No IP address, no account, no full user-agent
+    id: '2026-11-16-perf-tables',
+    run(db) {
+      db.exec(PERF_DDL);
+      return 'perf_loads, perf_frames, perf_events';
+    },
+  },
 ];
+
+/** lib/perf.ts PERF_DDL, as it is there (scripts/check.ts checks the two match). */
+export const PERF_DDL = `
+  CREATE TABLE IF NOT EXISTS perf_loads (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, updated INTEGER NOT NULL, sid TEXT NOT NULL, n INTEGER NOT NULL,
+    owner INTEGER NOT NULL DEFAULT 0, game TEXT, engine TEXT, town TEXT, browser TEXT, bver INTEGER, os TEXT, device TEXT,
+    backend TEXT, backend_why TEXT, cls TEXT, gpu TEXT, gpu_vendor TEXT, gpu_arch TEXT, cores INTEGER, mem REAL, screen TEXT,
+    dpr REAL, tier_auto TEXT, tier_choice TEXT, tier TEXT, override TEXT, why TEXT, ttfb INTEGER, ready_ms INTEGER,
+    gate_ms INTEGER, story_ms INTEGER, outcome TEXT, errors INTEGER, lost INTEGER, data TEXT NOT NULL,
+    UNIQUE (sid, n)
+  );
+  CREATE INDEX IF NOT EXISTS perf_loads_at ON perf_loads(at);
+  CREATE INDEX IF NOT EXISTS perf_loads_game ON perf_loads(game, at);
+  CREATE INDEX IF NOT EXISTS perf_loads_gpu ON perf_loads(gpu, browser);
+  CREATE TABLE IF NOT EXISTS perf_frames (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, sid TEXT NOT NULL, n INTEGER NOT NULL, scene TEXT, tier TEXT,
+    scale REAL, secs INTEGER, frames INTEGER, hist TEXT NOT NULL, long50 INTEGER, long100 INTEGER, stalls INTEGER,
+    p50 INTEGER, p95 INTEGER, p99 INTEGER, work50 INTEGER, work95 INTEGER
+  );
+  CREATE INDEX IF NOT EXISTS perf_frames_at ON perf_frames(at);
+  CREATE INDEX IF NOT EXISTS perf_frames_sid ON perf_frames(sid, n);
+  CREATE TABLE IF NOT EXISTS perf_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, sid TEXT NOT NULL, n INTEGER NOT NULL, kind TEXT NOT NULL,
+    tier TEXT, scene TEXT, data TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS perf_events_at ON perf_events(at);
+  CREATE INDEX IF NOT EXISTS perf_events_sid ON perf_events(sid, n);
+`;
 
 /**
  * SF 2040's world refreshed to world-<n> (deploy/migrations/sf2040-world-<n>.json, scripts/storykit-sf2040.ts --next <n>):

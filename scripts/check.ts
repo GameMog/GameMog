@@ -36,6 +36,7 @@ import { runPlacesChecks } from './places-check.ts';
 import { runHometownTilesChecks } from './hometown-tiles-check.ts';
 import { runBuildChecks } from './hometown-build-check.ts';
 import { runDispatchChecks } from './hometown-dispatch-check.ts';
+import { runPerfChecks } from './perf-check.ts';
 
 let failures = 0;
 const ok = (name: string, cond: boolean, detail = '') => {
@@ -568,6 +569,8 @@ await runHometownTilesChecks(ok);
 // Hometown production builder (13 Nov): one box, stage 1 against the compiler, the queue, towns, the worker protocol, lock v3
 await runBuildChecks(ok);
 await runDispatchChecks(ok);
+// Machines (16 Nov): how each machine runs the game, its report kept anonymous and bounded (lib/perf.ts)
+await runPerfChecks(ok);
 
 console.log(`\n${failures ? `${failures} FAILED` : 'all checks passed'}\n`);
 process.exit(failures ? 1 : 0);

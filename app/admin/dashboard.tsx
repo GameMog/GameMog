@@ -8,6 +8,7 @@ import { LineChart } from './chart';
 import { Bar, BlurIn, MorphButton, Num, Segmented, Toasts, useToast, type Busy } from './motion';
 import { Palette, type Command } from './palette';
 import type { KartReportRow } from '@/lib/kart-report';
+import type { PerfAdmin, PerfGroup, PerfSession } from '@/lib/perf';
 import type { DareLoop, LoopWindow } from '@/lib/funnel';
 import type { StoreUsage } from '@/lib/storykit-store';
 import type { StoryTownRow } from '@/lib/storykit-publish';
@@ -15,10 +16,10 @@ import type { StoryTownRow } from '@/lib/storykit-publish';
 /** The Story Kit's store on the owner's screen, only while the switch is on or owner-only (else null: nothing shown). */
 export type StoryKitAdmin = StoreUsage & { mode: 'owner' | 'on' };
 
-type Tab = 'overview' | 'dares' | 'worlds' | 'builds' | 'names' | 'traffic' | 'mogcity' | 'reports';
+type Tab = 'overview' | 'dares' | 'worlds' | 'builds' | 'names' | 'traffic' | 'mogcity' | 'perf' | 'reports';
 const TABS = [
   { id: 'overview', label: 'Overview' }, { id: 'dares', label: 'Dares' }, { id: 'worlds', label: 'Worlds' }, { id: 'builds', label: 'Builds' },
-  { id: 'names', label: 'Names' }, { id: 'traffic', label: 'Traffic' }, { id: 'mogcity', label: 'Mog City' }, { id: 'reports', label: 'Crashes' },
+  { id: 'names', label: 'Names' }, { id: 'traffic', label: 'Traffic' }, { id: 'mogcity', label: 'Mog City' }, { id: 'perf', label: 'Machines' }, { id: 'reports', label: 'Crashes' },
 ] as const satisfies readonly { id: Tab; label: string }[];
 const RANGE_ITEMS = [{ id: '24h', label: '24h' }, { id: '7d', label: '7 days' }, { id: '30d', label: '30 days' }, { id: 'all', label: 'All time' }] as const satisfies readonly { id: Range; label: string }[];
 // (All time has no period before it: its numbers say since when instead, Delta)
@@ -26,7 +27,7 @@ const RANGE_WORDS: Record<Exclude<Range, 'all'>, string> = { '24h': 'the day bef
 const RANGE_COMMANDS: Record<Range, string> = { '24h': 'Show the last 24 hours', '7d': 'Show the last 7 days', '30d': 'Show the last 30 days', all: 'Show all time' };
 const since = (at: number) => new Date(at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 // the tabs that follow the range switch
-const ranged = (t: Tab) => t === 'overview' || t === 'traffic' || t === 'mogcity';
+const ranged = (t: Tab) => t === 'overview' || t === 'traffic' || t === 'mogcity' || t === 'perf';
 
 // slots: capacity now (lib/build-limits.ts): the builds running, of the site's cap (BUILD_SLOTS); the builds waiting in
 // line, of its length (BUILD_QUEUE_MAX); and the day's spend (Los Angeles's day, running builds at their estimate) against
@@ -48,7 +49,7 @@ export type TownBuilderAdmin = {
   runs?: { problem?: string; inFlight?: number; maxRuns?: number; byState?: Record<string, number>; plan?: { want: number; ready: number } | null;
     lastError?: { status: number; message: string } | null; holdS?: number } | null;
 };
-export type AdminData = { stats: Record<Range, Stats>; worlds: AdminWorld[]; builds: AdminBuild[]; scores: AdminScore[]; active: number; reports: KartReportRow[]; slots: Capacity; loop: DareLoop; mc: Record<Range, McStats>; storykit?: StoryKitAdmin | null; towns?: TownBuilderAdmin | null; storyTowns?: StoryTownRow[] | null };
+export type AdminData = { stats: Record<Range, Stats>; worlds: AdminWorld[]; builds: AdminBuild[]; scores: AdminScore[]; active: number; reports: KartReportRow[]; perf?: Record<Range, PerfAdmin> | null; slots: Capacity; loop: DareLoop; mc: Record<Range, McStats>; storykit?: StoryKitAdmin | null; towns?: TownBuilderAdmin | null; storyTowns?: StoryTownRow[] | null };
 
 export function Dashboard(props: AdminData) {
   return <Toasts><Board {...props} /></Toasts>;
@@ -65,7 +66,7 @@ export function ago(at: number) {
   return new Date(at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function Board({ stats, worlds: initialWorlds, builds, scores: initialScores, active, reports, slots, loop, mc, storykit = null, towns = null, storyTowns = null }: AdminData) {
+function Board({ stats, worlds: initialWorlds, builds, scores: initialScores, active, reports, perf = null, slots, loop, mc, storykit = null, towns = null, storyTowns = null }: AdminData) {
   const router = useRouter();
   const toast = useToast();
   const [tab, setTab] = useState<Tab>('overview');
@@ -143,6 +144,7 @@ function Board({ stats, worlds: initialWorlds, builds, scores: initialScores, ac
           {tab === 'names' && <Names scores={scores} setScores={setScores} />}
           {tab === 'traffic' && <Traffic s={s} />}
           {tab === 'mogcity' && <MogCity m={mc[range]} />}
+          {tab === 'perf' && <Machines p={perf ? perf[range] : null} />}
           {tab === 'reports' && <Reports reports={reports} />}
         </BlurIn>
       </main>
@@ -682,6 +684,96 @@ function MogCity({ m }: { m: McStats }) {
         <section className="card"><div className="card-h"><h2>Where visitors came from</h2></div><Bars rows={m.sources} unit="visitors" /></section>
         <section className="card"><div className="card-h"><h2>Devices</h2></div><Bars rows={m.devices} unit="visitors" /></section>
       </div>
+    </>
+  );
+}
+
+/* ------------------------------------------------------------ machines -- */
+// How each machine runs the game (16 Nov, friends' QA; lib/perf.ts): Mog City's own report of every load (wagmi/perf.js),
+// anonymous: a random id a browser tab, the graphics card, the browser's family and major, the tier its Auto picked
+const msS = (ms: number | null | undefined) => (ms == null ? '-' : ms >= 10_000 ? `${(ms / 1000).toFixed(0)} s` : `${(ms / 1000).toFixed(1)} s`);
+const msF = (ms: number | null | undefined) => (ms == null ? '-' : `${ms} ms`);
+const OUTCOME: Record<string, string> = { ready: 'Ready', late: 'Ready after 90 s', stuck: 'Stuck', lost: 'Graphics lost', error: 'Error', left: 'Left while loading' };
+
+function PerfTable({ rows, first }: { rows: PerfGroup[]; first: string }) {
+  if (!rows.length) return <p className="none">Nothing in this range yet.</p>;
+  return (
+    <div style={{ overflowX: 'auto' }}>
+      <table className="ptab">
+        <thead><tr><th>{first}</th><th>Loads</th><th>Ready in</th><th>Frame p50</th><th>p95</th><th>p99</th><th>Long / min</th><th>WebGL 2</th><th>Stepped down</th><th>Stuck</th><th>Tier</th></tr></thead>
+        <tbody>
+          {rows.map((g) => (
+            <tr key={g.key}>
+              <td>{g.key}</td><td>{g.n}</td><td>{msS(g.readyMs)}</td><td>{msF(g.p50)}</td><td>{msF(g.p95)}</td><td>{msF(g.p99)}</td>
+              <td>{g.longPerMin ?? '-'}</td><td>{g.webgl2}</td><td>{g.downgraded}</td><td>{g.stuck ? <b className="bad">{g.stuck}</b> : 0}</td><td>{g.tier ?? '-'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function Machine({ s }: { s: PerfSession }) {
+  const [open, setOpen] = useState(false);
+  const phases = Object.entries(s.phases);
+  const bad = s.outcome !== 'ready';
+  return (
+    <li className="build">
+      <p className="build-h">
+        <button type="button" className="chip" onClick={() => setOpen((o) => !o)} aria-expanded={open}>{open ? '−' : '+'} {s.code}</button>
+        <span className={bad ? 'chip bad' : 'chip'}>{OUTCOME[s.outcome] ?? s.outcome}</span>
+        <span className="chip">{s.tier ?? '?'}{s.backend ? ` · ${s.backend === 'webgpu' ? 'WebGPU' : 'WebGL 2'}` : ''}</span>
+        {s.owner && <span className="chip">you</span>}
+        <span className="dim">{ago(s.at)} · {s.game ?? s.town ?? s.engine ?? '?'} · ready {msS(s.readyMs)} · frames p50 {msF(s.p50)} p95 {msF(s.p95)}{s.playSecs ? ` · ${Math.round(s.playSecs / 60)} min played` : ''}</span>
+      </p>
+      <p className="build-p">{[s.gpu ?? 'unknown graphics', s.cls ? `(${s.cls})` : '', s.browser, s.os, s.cores ? `${s.cores} cores` : '', s.mem ? `${s.mem} GB` : '', s.screen ? `${s.screen} @${s.dpr ?? 1}x` : ''].filter(Boolean).join(' · ')}</p>
+      {open && (
+        <div className="build-of dim" style={{ fontSize: 13, whiteSpace: 'pre-wrap' }}>
+          {`Auto picked ${s.tierAuto ?? '?'} (${s.why ?? '?'}); choice ${s.tierChoice ?? '?'}${s.override ? `, this load ?tier=${s.override}` : ''}; backend ${s.backend ?? '?'}${s.backendWhy ? ` (${s.backendWhy})` : ''}; CPU check ${s.cpuMs ?? '?'} ms; display ${s.refreshMs ?? '?'} ms a frame\n`}
+          {`First byte ${msS(s.ttfb)} · city ready ${msS(s.readyMs)} · story ${msS(s.storyMs)} · start pressed ${msS(s.gateMs)} · errors ${s.errors} · graphics lost ${s.lost}\n`}
+          {phases.length ? `Build: ${phases.map(([k, v]) => `${k} ${v} ms`).join(', ')}\n` : ''}
+          {s.events.map((e) => `${e.kind} ${e.what ?? ''} ${String(e.from ?? '')} → ${String(e.to ?? '')}${e.live ? ' (live)' : ''} · ${e.why ?? ''}${e.p50 != null ? ` at p50 ${e.p50} ms` : ''}\n`).join('')}
+          {s.windows.map((w) => `${w.scene ?? '?'} · ${w.tier ?? '?'} @${Math.round((w.scale ?? 1) * 100)}% · ${w.secs ?? 0} s · p50 ${w.p50 ?? '?'} p95 ${w.p95 ?? '?'} ms · work p95 ${w.work95 ?? '?'} ms · ${w.long50 ?? 0} long\n`).join('')}
+        </div>
+      )}
+    </li>
+  );
+}
+
+function Machines({ p }: { p: PerfAdmin | null }) {
+  const [q, setQ] = useState('');
+  if (!p) return <p className="none">The machine reports could not be read.</p>;
+  const k = p.kpis;
+  const list = q.trim() ? p.sessions.filter((s) => s.code.toLowerCase().startsWith(q.trim().toLowerCase())) : p.sessions;
+  return (
+    <>
+      <section className="kpis">
+        <div className="kpi" title="Browser tab sessions that loaded the game"><p className="kpi-l">Sessions</p><p className="kpi-n"><Num value={k.sessions} /></p><p className="kpi-x">{k.loads} load{k.loads === 1 ? '' : 's'} · {k.playMin} min played</p></div>
+        <div className="kpi" title="Loads whose city came up"><p className="kpi-l">Ready</p><p className="kpi-n">{k.readyPct == null ? '-' : `${k.readyPct}%`}</p><p className="kpi-x">{k.stuckPct ? `${k.stuckPct}% stuck` : 'none stuck'}</p></div>
+        <div className="kpi" title="From the page's start to the city on screen"><p className="kpi-l">Load to ready</p><p className="kpi-n">{msS(k.readyMedian)}</p><p className="kpi-x">p90 {msS(k.readyP90)}</p></div>
+        <div className="kpi" title="Loads whose resolution or tier was stepped down for slow frames"><p className="kpi-l">Stepped down</p><p className="kpi-n">{k.downgradedPct == null ? '-' : `${k.downgradedPct}%`}</p><p className="kpi-x">{k.lost} graphics device{k.lost === 1 ? '' : 's'} lost</p></div>
+      </section>
+      <p className="fine">
+        Every load of Mog City, its stories and its towns reports how it ran: no names, no addresses, a random id for the browser tab only, the browser&apos;s family and version,
+        and the graphics card. Nothing is sent with Do Not Track or Global Privacy Control on. A friend finds their own session by the code in the game&apos;s Graphics menu.
+      </p>
+      <section className="card"><div className="card-h"><h2>By machine: graphics card and browser</h2></div><PerfTable rows={p.byMachine} first="Machine" /></section>
+      <div className="two">
+        <section className="card"><div className="card-h"><h2>By game</h2></div><PerfTable rows={p.byGame} first="Game" /></section>
+        <section className="card"><div className="card-h"><h2>By tier</h2></div><PerfTable rows={p.byTier} first="Tier" /></section>
+      </div>
+      <section className="card"><div className="card-h"><h2>Frame times, every machine</h2></div><Bars rows={p.hist} unit="frames" /></section>
+      <section className="card flush">
+        <div className="tools">
+          <p className="tools-t">The worst loads first: stuck, lost or failed, then the slowest frames. Open one for its timings, its steps and its minutes of play.</p>
+          <input className="adm-in" placeholder="Find a code" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Find a session by its code" style={{ maxWidth: 160 }} />
+        </div>
+        <ul className="rows">
+          {list.map((s) => <Machine key={`${s.sid}.${s.n}`} s={s} />)}
+          {!list.length && <li className="none">{q ? 'No session with that code in this range.' : 'No machine has reported in this range yet.'}</li>}
+        </ul>
+      </section>
     </>
   );
 }

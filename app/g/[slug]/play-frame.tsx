@@ -291,7 +291,14 @@ export function PlayFrame({ slug, gameId, poster, src: base0 = `/g/${slug}/play`
   }, [gameId, scores, slug, episode, target, mc, story, storykit]);
 
   // (an episode: its frame loads now, after the listener above is in place)
-  useEffect(() => { if (episode && src === null) setSrc(base); }, [episode, base, src]);
+  // (16 Nov) the page's own ?tier=low|phone|medium|high|auto (or ?gfx=) passed on to Mog City for this load: a friend
+  // testing a machine picks the graphics without the pause menu (js/gfx-auto.js reads it there)
+  useEffect(() => {
+    if (!episode || src !== null) return;
+    let tier = '';
+    try { const p = new URLSearchParams(location.search); tier = p.get('tier') || p.get('gfx') || ''; } catch {}
+    setSrc(/^(low|phone|medium|high|auto)$/.test(tier) ? `${base}${base.includes('?') ? '&' : '?'}tier=${tier}` : base);
+  }, [episode, base, src]);
 
   // The dare: read from the address, loaded, and kept only when it is this game's (a published game's page only)
   useEffect(() => {
