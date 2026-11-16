@@ -530,7 +530,10 @@ and speak but never stands in a scene: never an `npc`, an enemy or a close-up.
 - **Make every person specific**, as a casting director would: an age, a build, a face, clothes worn for this story's
   season and job, a way of standing and walking, wants and a way of speaking: their voice sheet (`speech`, How people
   talk, rule 9), on every speaking cast entry, voice-only people too. Two people in one story never share a
-  silhouette. A winter night means coats; a summer noon means shirt sleeves.
+  silhouette. A winter night means coats; a summer noon means shirt sleeves. Dress them for the place too: in ranch
+  or mountain country, ranch people and the hired men alike wear work shirts, jeans, boots and a western hat
+  (headwear `cowboy-hat`, its `accent` the hatband); a `peaked-cap` is a doorman's or a cop's, and hoodies and ball
+  caps are a city kid's. A creator's "cowboy hat" or "Stetson" is always a `cowboy-hat`.
 - **Invented people only.** No real person, living or dead, famous or not, by name, likeness or voice: no "looks
   like", "sounds like", "played by", "in the style of", "a younger version of". There is no field for a likeness, a
   photo or a reference, and a pack with one is refused. If the creator names a real person, write an original

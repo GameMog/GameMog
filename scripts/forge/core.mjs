@@ -3081,6 +3081,43 @@ if (CFG.cap?.make) {
     // (a badge: a small gold oval on the band's front)
     { const { p } = base(0), base0 = pts.length / 3, R0 = 0.011; add([p[0], p[1] + bandH * 0.5 + 0.004, p[2] + 0.0035], bandC.map((c) => c * 1.25)); for (let i = 0; i < 18; i++) { const a = (i / 18) * 2 * Math.PI; add([p[0] + R0 * Math.cos(a), p[1] + bandH * 0.5 + 0.004 + R0 * 0.8 * Math.sin(a), p[2] + 0.0025], bandC.map((c) => c * 1.1)); }
       for (let i = 0; i < 18; i++) tri.push(base0, base0 + 1 + i, base0 + 1 + ((i + 1) % 18)); }
+  } else if (STYLE === 'cowboy') {
+    // FORGE (Colter Land, 16 Nov: a rancher's "cowboy hat" had only a peaked cap to be, and read as a pith helmet): a
+    // western felt hat. A tall crown up from the band, a little in toward the top, pinched in at the front's sides; its
+    // top creased down the middle front to back (a cattleman's crease); a hatband in its own colour; a wide brim all
+    // the way round, flat at the front and back and curled up at the sides, with a thickness and a rolled edge
+    const H = K.crown ?? 0.105, taper = K.taper ?? 0.012, pinch = K.pinch ?? 0.016, crease = K.crease ?? 0.018, bandH = K.bandH ?? 0.018;
+    const bandC = K.band || navy.map((c) => c * 0.35), NR = 16, NK = 10, ring = [];
+    const base = (ph) => { const t0 = thMin(ph); return P3(ph, t0, rHead(ph, t0) + (K.off ?? 0.008)); };
+    const dirOf = (ph) => [Math.sin(ph), 0, Math.cos(ph)];
+    const ss = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+    // (the band's top is level all round: the crown stands upright on a head however its band slopes)
+    let topY = -9; for (let i = 0; i < NP; i++) topY = Math.max(topY, base((i / NP) * 2 * Math.PI)[1]); topY += H;
+    for (let j = 0; j <= NR; j++) { const row = [], t = j / NR; for (let i = 0; i < NP; i++) { const ph = (i / NP) * 2 * Math.PI, p = base(ph), d = dirOf(ph), front = Math.max(0, Math.cos(ph));
+      const out = 0.004 - taper * Math.pow(t, 1.4) - pinch * front * front * Math.abs(Math.sin(ph)) * ss(0.45, 1, t), y = p[1] + (topY - p[1]) * t;
+      const inBand = y - p[1] < bandH, sh = inBand ? 0.95 : 0.78 + 0.22 * t;
+      row.push(add([p[0] + d[0] * out, y, p[2] + d[2] * out], (inBand ? bandC : navy).map((c) => c * sh))); } ring.push(row); }
+    for (let j = 0; j < ring.length - 1; j++) for (let i = 0; i < NP; i++) { const a = ring[j][i], b = ring[j][(i + 1) % NP], c = ring[j + 1][i], d = ring[j + 1][(i + 1) % NP]; tri.push(a, c, b, b, c, d); }
+    // (the top: rings in to its middle, a soft dome, the crease down its middle front to back, deepest at the front)
+    { const last = ring[NR]; let cx = 0, cz = 0; for (const k of last) { cx += pts[k * 3]; cz += pts[k * 3 + 2]; } cx /= last.length; cz /= last.length;
+      let prev = last;
+      for (let k = 1; k <= NK; k++) { const s = 1 - k / NK, row = [];
+        for (let i = 0; i < NP; i++) { const q = last[i], ex = pts[q * 3], ez = pts[q * 3 + 2], x = cx + (ex - cx) * s, z = cz + (ez - cz) * s, lat = (x - cx) / 0.03;
+          const y = topY + 0.008 * (1 - s * s) - crease * Math.exp(-lat * lat) * ss(0, 0.7, 1 - s) * (0.75 + 0.25 * ((z - cz) / 0.1 + 0.5));
+          row.push(add([x, y, z], navy.map((c) => c * (0.9 + 0.1 * Math.min(1, Math.abs(lat)))))); }
+        if (k === NK) { const ctr = row[0]; for (let i = 0; i < NP; i++) tri.push(prev[i], ctr, prev[(i + 1) % NP]); break; }
+        for (let i = 0; i < NP; i++) { const a = prev[i], b = prev[(i + 1) % NP], c = row[i], d = row[(i + 1) % NP]; tri.push(a, c, b, b, c, d); }
+        prev = row; } }
+    // (the brim: from the band's foot straight out all round, its sides curled up toward the edge, its front and back
+    // a little down; a top and an underside 4 mm apart, joined by a rolled edge)
+    const WB = K.brim ?? 0.082, NV = 9, TK = 0.004, curl = K.curl ?? 0.04;
+    const brim = (ph, v, lo) => { const p = base(ph), d = dirOf(ph), s = Math.sin(ph), c = Math.cos(ph), w = WB * (0.92 + 0.08 * c * c), r = w * v;
+      return [p[0] + d[0] * (r + 0.004), p[1] + curl * s * s * v * v * v - 0.012 * c * c * v * v - (lo ? TK : 0), p[2] + d[2] * (r + 0.004)]; };
+    const bT = [], bB = [];
+    for (let j = 0; j <= NV; j++) { const rt = [], rb = []; for (let i = 0; i < NP; i++) { const ph = (i / NP) * 2 * Math.PI, v = j / NV; rt.push(add(brim(ph, v, false), navy.map((c) => c * (0.92 - 0.08 * v)))); rb.push(add(brim(ph, v, true), navy.map((c) => c * 0.5))); } bT.push(rt); bB.push(rb); }
+    for (let j = 0; j < NV; j++) for (let i = 0; i < NP; i++) { const i1 = (i + 1) % NP, a = bT[j][i], b = bT[j][i1], c = bT[j + 1][i], d = bT[j + 1][i1]; tri.push(a, c, b, b, c, d);
+      const e = bB[j][i], f = bB[j][i1], g = bB[j + 1][i], h = bB[j + 1][i1]; tri.push(e, f, g, f, h, g); }
+    for (let i = 0; i < NP; i++) { const i1 = (i + 1) % NP, a = bT[NV][i], b = bT[NV][i1], c = bB[NV][i], d = bB[NV][i1]; tri.push(a, c, b, b, c, d); }
   }
   // (smooth normals, area-weighted)
   const N = new Float32Array(pts.length);

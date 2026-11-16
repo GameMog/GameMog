@@ -75,6 +75,20 @@ export function runWardrobeChecks(ok: Ok) {
     const known = tops.has(got[0]) && bottoms.has(got[1]) && shoes.has(got[2]), probs = v.check((FORGE as any).$id, { ...clone(FORGE_BASE), wardrobe: p.wardrobe }).problems;
     ok(name, changes.length > 0 && got.join() === want.join() && known && !probs.length && !fitWardrobe(p, look).length, `${got.join(' / ')}${known ? '' : ' (not in the forge\'s lists)'} ${probs.slice(0, 2).join('; ')}`);
   }
+  // a western hat (Colter Land, 16 Nov: the rancher's "cowboy hat" was forged as a peaked cap and read as a pith helmet)
+  {
+    const hatted = (p: any, look: string | null, why: string) => { const ch = fitWardrobe(p, look); const hw = (p.wardrobe as any).headwear;
+      const probs = v.check((FORGE as any).$id, { ...clone(FORGE_BASE), wardrobe: p.wardrobe }).problems;
+      ok(why, ch.some((c: string) => c.startsWith('headwear')) && hw?.item === 'cowboy-hat' && /^#[0-9A-F]{6}$/i.test(hw.color) && !probs.length && !fitWardrobe(p, look).length, `${JSON.stringify(hw)} ${probs.slice(0, 2).join('; ')}`); };
+    const jack = person('owner of the Colter Ranch', 'Fifty years on the same land.', W('long-sleeve', 'jeans', 'boots')); (jack.wardrobe as any).headwear = { item: 'peaked-cap', color: '#C9A05A' };
+    hatted(jack, 'a weathered rancher in his sixties, grey stubble, a cowboy hat', 'a cowboy hat in the creator\'s look becomes the forge\'s cowboy-hat (its colour kept), not a peaked cap');
+    const hand = person('the ranch hand', 'Up before the cattle.', W('long-sleeve', 'jeans', 'boots')); (hand.wardrobe as any).headwear = { item: 'peaked-cap' };
+    hatted(hand, null, 'a ranch hand in a peaked cap gets a cowboy hat');
+    const stet = person('the drifter', 'Rides in under a black Stetson.', W('tee', 'jeans', 'boots'));
+    hatted(stet, null, 'a Stetson in the logline gets a cowboy hat (no job named)');
+    const kid = person('the college student', 'Home for the summer.', W('hoodie', 'jeans', 'sneakers')); (kid.wardrobe as any).headwear = { item: 'ball-cap' };
+    ok('a student in a ball cap keeps it (no western hat in his words)', !fitWardrobe(kid).length && (kid.wardrobe as any).headwear.item === 'ball-cap');
+  }
   const security = person('the sheriff', '', SUIT()); fitWardrobe(security);
   ok('the uniform carries no insignia: its trim is the cloth\'s own colour and no cap is added', security.wardrobe.top.accent === security.wardrobe.top.color && !(security.wardrobe as any).headwear);
   // left as written

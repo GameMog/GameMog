@@ -1,85 +1,85 @@
 {
  "$comment": "npm run storykit:forge-browser-check (B6): every anchor forged in headless Chrome with this forge.js (key: sha256 of forge.js, the kit and the anchors' sheets); bytes under the store's 6291456 a person",
- "key": "f6d648d8e0839e1661ac1d843db19ffef7ff8447f10877dfdce00ea367f9bfb3",
- "at": "2026-11-15T10:06:12.382Z",
+ "key": "09982cb297952f7aa5482ab473732e42c6e9cea80ad5da05ee3ffec2fcf57a9f",
+ "at": "2026-11-16T22:53:53.195Z",
  "chrome": "Chrome/157.0.0.0",
  "runs": [
   {
    "id": "old-boss",
    "bytes": 2595948,
-   "ms": 17437,
+   "ms": 14205,
    "uncoveredCm2": 9.1
   },
   {
    "id": "young-hero",
    "bytes": 2635108,
-   "ms": 23256,
+   "ms": 19232,
    "uncoveredCm2": 4.2
   },
   {
    "id": "grandmother",
    "bytes": 2402856,
-   "ms": 16153,
+   "ms": 13951,
    "uncoveredCm2": 1.9
   },
   {
    "id": "cop",
    "bytes": 2737564,
-   "ms": 22471,
+   "ms": 18288,
    "uncoveredCm2": 12.5
   },
   {
    "id": "teen",
    "bytes": 2718696,
-   "ms": 13548,
+   "ms": 10740,
    "uncoveredCm2": 5.1
   },
   {
    "id": "young-mother",
    "bytes": 2873064,
-   "ms": 27592,
+   "ms": 23378,
    "uncoveredCm2": 2.2
   },
   {
    "id": "office-worker",
    "bytes": 2628188,
-   "ms": 26842,
+   "ms": 21138,
    "uncoveredCm2": 1
   },
   {
    "id": "chef",
    "bytes": 2839756,
-   "ms": 32822,
+   "ms": 25787,
    "uncoveredCm2": 2.6
   },
   {
    "id": "club-promoter",
    "bytes": 2619144,
-   "ms": 26581,
+   "ms": 18861,
    "uncoveredCm2": 13.6
   },
   {
    "id": "nurse",
    "bytes": 2760072,
-   "ms": 12004,
+   "ms": 8491,
    "uncoveredCm2": 1.6
   },
   {
    "id": "mechanic",
    "bytes": 2891320,
-   "ms": 21891,
+   "ms": 15742,
    "uncoveredCm2": 11.5
   },
   {
    "id": "veteran",
    "bytes": 2964176,
-   "ms": 22570,
+   "ms": 16060,
    "uncoveredCm2": 5.6
   },
   {
    "id": "probe-bib",
    "bytes": 2957600,
-   "ms": 13641,
+   "ms": 10380,
    "uncoveredCm2": 1.4
   }
  ]
