@@ -128,9 +128,14 @@ function keyOf(server: ServerStage | undefined, story: StoryWork | null): Key {
   if (story?.stage === 'forging') return 'cast';
   return server === 'checking' ? 'check' : 'write';
 }
+/** The share of the Write step shown while the story is planned and nothing is written yet (0 to 0.2, by the time). */
+const planned = (tStage: number) => 0.2 * (1 - Math.exp(-Math.max(0, tStage) / 180));
 /** How far along the step is (0 to 1), from what has been counted. */
 function within(key: Key, chars: number, story: StoryWork | null, tStage: number) {
-  if (key === 'write') return Math.min(0.98, chars / 40000);
+  // (16 Nov, Colter Land: "Write" sat at 0% for 10 minutes. The builder plans before it writes a word, and nothing is
+  // counted while it plans: the first fifth of the step creeps with the time planned (never past it, never a promise of
+  // how long is left), and the words written fill the rest)
+  if (key === 'write') return chars > 0 ? 0.2 + 0.78 * Math.min(1, chars / 40000) : planned(tStage);
   if (key === 'check') return Math.min(0.9, tStage / 8);
   if (key === 'cast') { const c = story?.cast ?? []; return c.length ? c.filter((p) => p.state === 'done' || p.state === 'failed').length / c.length : 0; }
   if (key === 'voices') { const v = story?.voices; return v && v.total ? v.done / v.total : 0; }
@@ -255,6 +260,15 @@ export function StoryShow({ mode, stage, chars, startedAt, now, story, subject, 
 }) {
   const t = useFrameTime();
   const key = keyOf(stage, story);
+  // (16 Nov: the test drive pauses while this tab is behind another (the browser stops drawing a hidden tab, so the
+  // game in it cannot be played), and a creator in another tab never saw the note: the tab's own title says so)
+  const paused = key === 'drive' && /^Paused/.test(story?.drive?.note ?? '');
+  useEffect(() => {
+    if (!paused) return;
+    const was = document.title;
+    document.title = 'Paused: come back to finish your story';
+    return () => { document.title = was; };
+  }, [paused]);
   const since = useRef({ key: '', at: 0 });
   if (since.current.key !== key) since.current = { key, at: Date.now() };
   const tStage = Math.max(0, (now || Date.now()) - since.current.at) / 1000;
@@ -269,7 +283,8 @@ export function StoryShow({ mode, stage, chars, startedAt, now, story, subject, 
   const counted = key === 'cast' && cast.length ? `${cast.filter((p) => p.state === 'done').length} of ${cast.length} people ready`
     : key === 'voices' && story?.voices ? `${story.voices.done} of ${story.voices.total} lines`
     : key === 'drive' && story?.drive ? `${story.drive.missions.filter((m) => m.state === 'passed').length} of ${story.drive.missions.length} missions passed`
-    : key === 'write' && chars > 0 ? `${Math.round(Math.min(0.98, chars / 40000) * 100)}% written` : '';
+    : key === 'write' && chars > 0 ? `${Math.round(Math.min(0.98, chars / 40000) * 100)}% written`
+    : key === 'write' ? `Planning the story · ${clock(tStage * 1000)}` : '';
   return (
     <section className="bshow skshow" role="status" aria-live="polite">
       <div className="bs-top">
