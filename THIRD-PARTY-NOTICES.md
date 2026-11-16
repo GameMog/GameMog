@@ -131,9 +131,12 @@ City's rigs and then to the Story Kit cast's 66-bone rig, trimmed to loops, play
   walks and runs are his, so the same terms are applied to it.
 - `public/storykit/cast/mogcity/fiona-moves.glb` and `public/storykit/cast/mogcity/gears-moves.glb`: Fiona's and Gears'
   standing idles and Fiona's run, copied from Mog City for their headshots.
+- `public/storykit/forge/kit/clips-src.glb`: Dan's skeleton and his `idle` clip (its legs from the dataset), the
+  Character Forge's frame for the clips.
 
-`public/storykit/CREDITS.md` and `public/storykit/cast/mogcity/CREDITS.md` credit every Story Kit file; `npm run check`
-holds every file in `public/storykit/cast` to a credit, and every one under a licence that is not MIT or CC0 to a line here.
+`public/storykit/CREDITS.md` and `public/storykit/cast/mogcity/CREDITS.md` credit the Story Kit's cast; `npm run check`
+holds every file in `public/storykit/cast` to a credit, every one under a licence that is not MIT or CC0 to a line here,
+and every GLB anywhere in `public/storykit` that names Bandai Namco motion inside it to a line here.
 
 ### Mog City episode key art (`lib/episode/art/`)
 

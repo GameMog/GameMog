@@ -294,8 +294,9 @@ console.log('\nthe Story Kit\'s shipped cast: every file credited, every licence
     named.length >= 4 && unnoticed.length === 0, unnoticed.join(', '));
   // the clip pack says what it carries; the notices say so too
   const glbJson = (f: string) => { const b = readFileSync(f); return b.toString('utf8', 20, 20 + b.readUInt32LE(12)); };
-  const bandai = files.filter((f) => f.endsWith('.glb') && /bandai/i.test(glbJson(f)));
-  ok('every cast GLB that names Bandai Namco motion inside it is in the notices, under CC BY-NC 4.0', bandai.length > 0 && bandai.every((f) => notices.includes(`\`${f}\``)) && /Bandai Namco Research Motion Dataset[\s\S]{0,400}CC BY-NC 4\.0/.test(notices), bandai.join(', '));
+  // (every GLB in the Story Kit, not only the cast: the forge's kit/clips-src.glb carries Dan's idle)
+  const bandai = walk(SK).filter((f) => f.endsWith('.glb') && /bandai/i.test(glbJson(f)));
+  ok('every Story Kit GLB that names Bandai Namco motion inside it is in the notices, under CC BY-NC 4.0', bandai.length > 0 && bandai.every((f) => notices.includes(`\`${f}\``)) && /Bandai Namco Research Motion Dataset[\s\S]{0,400}CC BY-NC 4\.0/.test(notices), bandai.join(', '));
   // the one GPL file: its licence text and source offer beside it, unchanged
   const gpl = `${SK}/vendor/gpl/phonemizer.js`;
   ok('the GPL phonemizer ships with its licence and source offer, byte for byte', existsSync(gpl) && /GNU GENERAL PUBLIC LICENSE\s+Version 3/.test(readFileSync(`${SK}/vendor/gpl/COPYING`, 'utf8'))

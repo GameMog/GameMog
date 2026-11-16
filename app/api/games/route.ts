@@ -113,8 +113,11 @@ export async function POST(req: Request) {
   }
 
   // A raw world spec (the race brief's, which no page sends any more): the owner's only (16 Nov), so nobody can publish
-  // straight onto the homepage without a build; anyone else's is not found, as every owner route answers.
-  if (!ownerRequest(req)) return NextResponse.json({ error: 'Not found.' }, { status: 404 });
+  // straight onto the homepage without a build; anyone else's is not found, as every owner route answers. Without a
+  // model key (an open-source fork, a local run) /api/generate returns the offline placeholder spec, which costs
+  // nothing to make and is published this way (app/create, scripts/populate.mjs), so the door stays open there.
+  const hasModelKey = !!(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN);
+  if (hasModelKey && !ownerRequest(req)) return NextResponse.json({ error: 'Not found.' }, { status: 404 });
   // Publishing revalidates. A client can send anything; nothing reaches the
   // database until it passes the same gate a generation did.
   const report = playtest(body.spec);
