@@ -1784,7 +1784,52 @@ export const MIGRATIONS = [
       return 'perf_loads, perf_frames, perf_events';
     },
   },
+  {
+    // 16 Nov, the owner: the title of /g/the-long-way-home "to two words, because it blocks the nice red car right now"
+    // (Mog City's lockup stacked THE / LONG WAY / HOME down over the car). Its title becomes "Long Way" (the slug stays,
+    // so links keep working; the sealed story's own title in the game is left as it is), and its key art goes back to the
+    // plain frame so the cover route titles it again, once, in the lockup (lib/storykit-publish.ts titleStoryArt: it
+    // titles only while art_wide is the cover): art_wide the plain cover, art_icon the plain square the publish titled
+    // (the store draft's key-square, as the report's titling reads it), or none should the store not have it (then the
+    // square is cut from the cover, as lib/story-art.ts storyKeyArt does), never the titled icon (it would be titled
+    // twice). Only while the game still carries its old title; anything else is left alone
+    id: '2026-11-16-long-way-home-title',
+    run(db, path) {
+      const row = db.prepare("SELECT id, title, meta, cover FROM games WHERE slug = 'the-long-way-home'").get();
+      if (!row) return 'left alone: /g/the-long-way-home is not in this database';
+      if (row.title !== 'The Long Way Home') return `left alone: /g/the-long-way-home is titled ${JSON.stringify(row.title)}`;
+      if (!row.cover) {
+        db.prepare("UPDATE games SET title = 'Long Way' WHERE id = ?").run(row.id);
+        return 'titled Long Way; no plain frame, so its art is left as it is';
+      }
+      const square = storyPlainSquare(row.meta, path);
+      db.prepare("UPDATE games SET title = 'Long Way', art_wide = cover, art_icon = ? WHERE id = ?").run(square, row.id);
+      return `titled Long Way; key art back to the plain frame (square: ${square ? 'the store\'s key-square' : 'cut from the cover'}), titled again at its next cover request`;
+    },
+  },
 ];
+
+/**
+ * A published story world's plain square frame (its store draft's art key-square.jpg, which the report's titling reads:
+ * lib/storykit-publish.ts), read straight from the Story Kit store beside this database (data/storykit), read only. Null
+ * when there is none to be had: no store draft named, no store, no such file, or not a JPEG.
+ */
+function storyPlainSquare(meta, path) {
+  let pack;
+  try { pack = JSON.parse(meta ?? '{}')?.storykit?.pack; } catch { return null; }
+  if (typeof pack !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(pack)) return null;
+  const root = join(dirname(resolve(path)), 'storykit'), at = join(root, 'store.db');
+  if (!existsSync(at)) return null;
+  let s = null;
+  try {
+    s = new DatabaseSync(at, { readOnly: true });
+    const f = s.prepare("SELECT hash FROM files WHERE draft_id = ? AND kind = 'art' AND name = 'key-square.jpg' AND ext = 'jpg'").get(pack);
+    if (!f || !/^[0-9a-f]{64}$/.test(f.hash)) return null;
+    const p = join(root, 'blobs', f.hash.slice(0, 2), `${f.hash}.jpg`);
+    const b = existsSync(p) ? readFileSync(p) : null;
+    return b && b.length > 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff ? b : null;
+  } catch { return null; } finally { try { s?.close(); } catch { /* closed */ } }
+}
 
 /** lib/perf.ts PERF_DDL, as it is there (scripts/check.ts checks the two match). */
 export const PERF_DDL = `

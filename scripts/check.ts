@@ -27,6 +27,7 @@ import { runStoryOwnerChecks } from './storykit-owner-check.ts';
 import { runStoryPatchChecks } from './storykit-patch-check.ts';
 import { runOwnRefreshChecks } from './storykit-own-refresh-check.ts';
 import { runKeyArtChecks } from './storykit-keyart-check.ts';
+import { runLongWayHomeChecks } from './long-way-home-check.ts';
 import { runRevoiceChecks } from './storykit-revoice-check.ts';
 import { runForgeBrowserChecks } from './storykit-forge-browser-check.ts';
 import { runHometownChecks } from './storykit-hometown-check.ts';
@@ -605,6 +606,8 @@ runStoryPatchChecks(ok);
 await runOwnRefreshChecks(ok);
 // Story Kit (14 Nov): a published story world's key art taken again by the owner's browser (no test drive had taken it)
 await runKeyArtChecks(ok);
+// (16 Nov): /g/the-long-way-home titled Long Way, its key art titled again from the plain frame (deploy/migrate.mjs)
+await runLongWayHomeChecks(ok);
 // Story Kit (14 Nov): a published story world's voices recorded again by the owner's browser (hometown stories sealed with no lines)
 runRevoiceChecks(ok);
 // Hometown (12 Nov): the builder reads a town's CityPackage, the town lock on Mogs, and the real-place safety rules
