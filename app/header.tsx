@@ -109,6 +109,7 @@ export function SiteFooter() {
       <div className="wrap fcols">
         <div className="fbrand">
           <Wordmark icon />
+          <p className="fpowered">Powered by <a href="https://why.com" target="_blank" rel="noopener noreferrer">WHY.</a></p>
           <p>The internet, playable. Every world on the GameMog Runtime is playtested in a real browser before it publishes.</p>
           <div className="fsocial">
             <a href={DISCORD} target="_blank" rel="noopener noreferrer" aria-label="GameMog on Discord" title="Discord"><DiscordMark /></a>
