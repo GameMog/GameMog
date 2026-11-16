@@ -168,7 +168,7 @@ const HORSE_CONTROLS = [
 ];
 const controlsFor = () => (window.WAGMI?.car?.kind === 'horse' ? [...HORSE_CONTROLS, ...CONTROLS.slice(2).map(([h, rows]) => [h === 'Fighting' ? 'Fighting on foot' : h, rows])] : CONTROLS);
 // Graphics: [the saved choice, its name, what it means] (world.look.quality.set(choice): the next load's)
-const GFX = [['auto', 'Auto', 'Phone settings on a phone'], ['high', 'High', 'Every effect'], ['low', 'Low', 'Lightest, for older phones']];
+const GFX = [['auto', 'Auto', 'Low on a computer, phone settings on a phone'], ['high', 'High', 'Every effect'], ['low', 'Low', 'Lightest, for older phones']];
 const TIER = { high: 'High', phone: 'Phone', low: 'Low' };
 // (a pad's column: its buttons drawn, the words between them as they are)
 const PAD_IDS = new Set(['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', 'LS', 'RS', 'L3', 'R3', 'Up', 'Down', 'Left', 'Right', 'View', 'Start']);

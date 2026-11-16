@@ -78,7 +78,9 @@ function autoGfxTier() {
   // (a touch-first device with no mouse or trackpad, such as a foldable or a tablet, is a phone too, whatever its size)
   let fine = true;
   try { fine = window.matchMedia('(any-pointer: fine)').matches; } catch (e) { /* old browsers */ }
-  return coarse && (short <= 500 || !fine) ? 'phone' : 'high';
+  // (QA, 15 Nov: high was unplayable on a desktop workstation, low smooth) Auto never picks high: low on a computer,
+  // the phone tier on a phone; High stays one tap away in the pause menu's Graphics row (or ?gfx=high)
+  return coarse && (short <= 500 || !fine) ? 'phone' : 'low';
 }
 function createQuality() {
   let override = null;

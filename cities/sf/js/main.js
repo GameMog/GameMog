@@ -79,11 +79,12 @@ function createQuality() {
   const asTier = (v) => (v === 'high' ? 'high' : v === 'low' || v === 'phone' ? 'low' : null);
   override = asTier(override);
   const choice = asTier(saved) || 'auto';
-  const tier = override || (choice === 'auto' ? 'high' : choice);
+  // (QA, 15 Nov: high was unplayable on a desktop workstation, low smooth) Auto is the low tier and stays it; High is
+  // the player's choice (the pause menu's Graphics row, or ?gfx=high)
+  const tier = override || (choice === 'auto' ? 'low' : choice);
   const q = {
-    tier, choice, auto: 'high', override, backend: navigator.gpu ? 'webgpu' : 'webgl2', next: tier,
-    // (auto: the frame times settle it once the city is up, see the loop)
-    measuring: !override && choice === 'auto',
+    tier, choice, auto: 'low', override, backend: navigator.gpu ? 'webgpu' : 'webgl2', next: tier,
+    measuring: false,
     // (loadfix) once the renderer is up: on three's WebGL 2 backend Auto is the low tier, and stays it (no measuring:
     // its pick could turn the shadows and reflections back on); a chosen tier is kept
     settle(isWebGPU) {
