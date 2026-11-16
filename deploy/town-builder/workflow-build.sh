@@ -30,9 +30,10 @@ set -euo pipefail
 # compiler 0.12.0 (release r8: release r6 (round 4, rough-dem, the fidelity line, street-name casing), the r7 warm-band
 # rules (planting strips, dunes, hedge walls where lots front the road, their gaps, trees over them) and r8's approach
 # points: every story place's ax, az where a person on foot is sent, outdoors and clear of buildings); re-pinned for release r10
-# (MogCity r10-misc; tools/hometown unchanged since r8, so the same compiler and buildId); now compiler 0.13.0 (release
-# r13, MogCity stage0: stage 0's OSM roofs, colours, materials and street props; a new buildId), on the branch below
-MOGCITY_SHA=9474eba8b911d965b19403467baccd2559b05a8e
+# (MogCity r10-misc; tools/hometown unchanged since r8, so the same compiler and buildId); then compiler 0.13.0 (release
+# r13, MogCity stage0: stage 0's OSM roofs, colours, materials and street props; a new buildId); now compiler 0.13.2 (MogCity chcomp: twin carriageways on one grade, multipolygon
+# halls, at-grade tunnels; a new buildId), on the branch below
+MOGCITY_SHA=3b81f72abb20da5934a24b6039273646e36fdbd9
 # the branch that carries it: fetched when the commit cannot be fetched by its SHA alone (the checkout is still the SHA)
 MOGCITY_REF="${HOMETOWN_MOGCITY_REF:-hometown-compiler}"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
