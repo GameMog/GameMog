@@ -1,4 +1,4 @@
-# Hometown compiler 0.13.0 (the national grid hg1)
+# Hometown compiler 0.13.1 (the national grid hg1)
 
 Turns open US map data into **tiles on one national grid**. A tile is compiled from its own sources and context alone,
 so any tile can be compiled on first request, neighbouring towns share identical tiles, and a place is just a list of
@@ -102,7 +102,7 @@ centres by non-max suppression within 2 km, downtown = within 350 m of a centre)
 A tile reads the ctx blocks within 3.2 km and the regions within 3.2 km (a tile whose regions are not fetched is refused
 with the fetch command to run).
 
-**buildId** `htc-0.13.0-hg1-b{8 hex}`: the first 8 hex of the sha256 of the build record (`builds/{buildId}.json`:
+**buildId** `htc-0.13.1-hg1-b{8 hex}`: the first 8 hex of the sha256 of the build record (`builds/{buildId}.json`:
 compiler version, libraries incl. GEOS and zlib, the CPU architecture (`machine`) and the duckdb `spatial` extension's
 version, image digest (`HOMETOWN_IMAGE_DIGEST` from the environment: the town-builder image sets a recipe id), Overture
 release, DEM snapshot, grid). Compiler logic
@@ -347,6 +347,43 @@ S3 read per layer); every town then rebuilds cold under the new buildId on its f
 Coverage (the fetched regions, inside a district): Okemah has no building tags and almost no street furniture (a few
 stop nodes); Pittsburgh's downtown and Phoenix gain hundreds of signals, stop signs, benches and thousands of trees,
 few colours; New York's midtown parts carry roof shapes on 88%, facade colours on 82% and roof materials on 84%.
+
+## 0.13.1: twin carriageways, multipolygon buildings (Cold Harbor, Long Beach)
+
+The bugs the owner met in Long Beach (pinned to `htc-0.12.0-hg1-b0d9f54c8`), fixed for every town:
+
+- **A divided road's two carriageways share one grade.** Two one-way pieces are the two directions of one road
+  (`World.paired`) when both found another carriageway (`pair()`), they share a name (unnamed: a class), both are
+  mainline or both links, and one runs abeam of the other, travelling the other way within ~25 degrees, 3-45 m off,
+  at 3 or more grade stations (`abeam`). Paired pieces are in each other's `deck_near` (one grade cluster) and each
+  station abeam is a tie (`grade.Piece.ties`). `grade.solve` then solves the cluster three times: untied; tied UP
+  (each deck at least at its twin's untied height, so both stand at the higher of the two, never lowered under a road
+  or water the other must clear); and tied DOWN where one twin is held down by an anchor (an at-grade junction where
+  it lands): the other is capped at the landed one's height + 5 cm abeam, the cap spreading at RELAX along it and to
+  its free end nodes, never under a clearance tent and never steeper than RELAX off its own ends. The stats count
+  `ties` and the widest gap left (`tieGap`). Long Beach's grade cluster of Seaside Freeway / W Ocean Blvd (35 pieces,
+  1,467 tie stations): abeam gaps over 5 m 1,057 -> 151, the widest 39.2 -> 11.8 m (where both data carriageways end on
+  different anchors), mean 23.8 -> 1.2 m; the twin decks over the harbour channel 0-0.1 m apart (were 35-38 m).
+- **No crest ratchet.** The box filter rounds a crest down, so each constraint is raised by its shortfall and profiled
+  again (4 rounds); a shortfall the RELAX cap made (an anchor too near) was raised too, and each round spread its tent
+  higher (a tied carriageway stood 29 m over its twin). A constraint is now raised no further than the cap at its
+  station plus the filter's reach (RELAX x VC / 2). Long Beach's steepest deck grade 0.28 -> 0.25, constraints met the
+  same.
+- **A MultiPolygon building is all of its polygons.** Overture gives some buildings as a MultiPolygon; the compiler
+  drew only the largest. Each other polygon of `MULTI_MIN` (100 m2) and `MULTI_FRAC` (5%) of the largest or more is a
+  row of its own (`building_rows`: id `{id}~{k}`, owned by the tile of its own centroid, the row's height, names and
+  tags), each with the parts standing mostly on it (`parts_for`). The Long Beach Convention & Entertainment Center was
+  its 11,964 m2 arena alone; its 11,350 and 5,591 m2 exhibit halls are back (its 280 m2 stair cores stay out).
+- **A road at grade in a tunnel under a building trims it, never drops it.** The tunnel-cover rule (a building with less
+  than `TUNNEL_COVER` of ground over a tunnel's road is in a portal's cut: dropped) also dropped a building standing ON
+  a cut-and-cover passage at grade: E Seaside Way runs under the Convention Center's 11,350 m2 hall at 2.4-2.6 m, the
+  hall's base 2.41 m. A tunnel road within `AT_GRADE_TUNNEL` (1.5 m) of the ground over it now trims the footprint like
+  a road on the ground (`brec`), and the rule counts only a footprint lying 1 m2 or more over a tunnel's road.
+- **Pico Avenue is a bridge in the data.** OSM way 172876528 (Overture `66d45bf9`, from way 13400335) is
+  `bridge=yes layer=1` over the Pier B rail yard (Pier F and Pier J leads) and the I-710 southbound ramp (way
+  159431149, layer 0), and the 3DEP bare earth shows its approach fills (10.1 and 7.8 m either side of a 4.7-6 m yard),
+  so the compiler builds it as a deck, as it should. Pico's underpass is under W Ocean Blvd / the Seaside Freeway
+  (z 580 m in the town's frame), where Pico runs at grade under both carriageways' decks.
 
 ## Decks and lanes (grade-lanes)
 

@@ -19,6 +19,20 @@
 #     beyond a road it crosses instead of passing a car's height over it (Liberty Bridge's north approach)
 #   - crossings on deck pieces of the same cluster use the other piece's current profile: up to SWEEPS sweeps, stopping
 #     when nothing moves more than 1 cm.
+#   - TIES (0.13.1): the two carriageways of a divided road share one grade. The cluster is solved once untied (each
+#     carriageway on its own anchors and constraints), then again with each tie (s, other, s') a fixed constraint: this
+#     deck at station s at least at the other carriageway's UNTIED height abeam (s' along it), less TIE_TOL. Both
+#     directions are tied, so each comes out at the higher of the two (one height, never lowered under a road or water
+#     the other has to clear), short of it only where an anchor's RELAX holds it down (stats tieGap). The untied
+#     heights are fixed, so a tie never feeds on itself (tied to the other's current profile, the crest rounding lifted
+#     both a little each sweep, up to RELAX off the anchors: 135 m over Long Beach's harbour). Before, Long Beach's
+#     twin Seaside Freeway decks stood up to 35 m apart (one over the interchange's stack, the other on the chord).
+#   - and DOWN: where one carriageway is held down (it lands on an anchor, an at-grade junction, while its twin runs on
+#     through free nodes over the chord), a third solve caps the other near it: at most the twin's tied height +
+#     TIE_TOL abeam, the cap spreading at RELAX along the piece and to its free end nodes. The cap lowers only the
+#     chord and the ties' lift, never a clearance (rail, water, a road or deck under it: their tents still apply over
+#     it), and never steeper than RELAX off its own ends. (Long Beach: W Ocean Blvd's two directions 14-19 m apart at
+#     Pico's junction, one landing, the other on the chord to the bridge.)
 import math
 
 STEP = 5.0          # m between profile stations
@@ -29,6 +43,7 @@ VC_MAIN = 40.0      # m: vertical curve length on mainlines
 VC_LINK = 20.0      # m: ... on links and streets
 LIFT = 0.3          # a deck stands at least this over its own ground
 SWEEPS = 10
+TIE_TOL = 0.05      # m: a tied carriageway stands at least at its partner's height less this
 
 
 def stations(L, step=STEP):
@@ -54,10 +69,11 @@ class Piece:
     """One deck piece. key: a sortable id (segment id, piece index); a, b: its end node ids; L: its length (m);
     u0, u1: its deck interval (arc m); main: a motorway or trunk mainline; ground: ground heights at stations(L);
     fixed: static constraints [(s, y_min)] (rail, water, at-grade roads under it); under: dynamic ones
-    [(s, other_key, other_s, clearance)] (a deck piece under it)."""
-    __slots__ = ('key', 'a', 'b', 'L', 'u0', 'u1', 'main', 'ss', 'ground', 'fixed', 'under', 'ys', 'e0', 'e1')
+    [(s, other_key, other_s, clearance)] (a deck piece under it); ties: [(s, other_key, other_s)] (the other carriageway
+    of a divided road abeam: this deck stands at least at its height, TIE_TOL less)."""
+    __slots__ = ('key', 'a', 'b', 'L', 'u0', 'u1', 'main', 'ss', 'ground', 'fixed', 'under', 'ties', 'ys', 'e0', 'e1')
 
-    def __init__(self, key, a, b, L, u0, u1, main, ground, fixed=(), under=()):
+    def __init__(self, key, a, b, L, u0, u1, main, ground, fixed=(), under=(), ties=()):
         self.key, self.a, self.b, self.L, self.u0, self.u1 = key, a, b, float(L), float(u0), float(u1)
         self.main = bool(main)
         self.ss = stations(self.L)
@@ -65,6 +81,7 @@ class Piece:
         self.ground = [float(g) for g in ground]
         self.fixed = sorted((float(s), float(y)) for s, y in fixed)
         self.under = sorted(under)
+        self.ties = sorted(ties)
         self.ys = None
         self.e0, self.e1 = self.u0, self.u1   # the deck ends the profile uses (moved out by solve(): reach())
 
@@ -72,13 +89,32 @@ class Piece:
         return interp(self.ss, self.ground, s)
 
 
-def solve(pieces, node_ground, free, ext=None):
+def solve(pieces, node_ground, free, ext=None, tie_ref=None, tie_ub=None):
     """pieces: [Piece]; node_ground: {node: ground y} for every end node; free: the set of free nodes (the rest are
     anchors at their ground); ext(key, s): the profile height of a deck piece of ANOTHER cluster (for `under`
-    constraints naming it), None if unknown. -> ({key: [y per station]}, stats)"""
+    constraints naming it), None if unknown. -> ({key: [y per station]}, stats). With ties, the untied solve first
+    (tie_ref: its profiles, {key: (stations, ys)}), then the tied one, then the tied one capped near its twin
+    (tie_ub: {key: [the highest per station]})."""
+    if tie_ref is None and any(p.ties for p in pieces):
+        base, _ = solve(pieces, node_ground, free, ext, tie_ref={})
+        ref = {p.key: (list(p.ss), list(base[p.key])) for p in pieces}
+        up, ust = solve(pieces, node_ground, free, ext, tie_ref=ref)
+        upr = {p.key: (list(p.ss), list(up[p.key])) for p in pieces}
+        ub = {}
+        for p in pieces:
+            pts = [(s, interp(*upr[k2], s2) + TIE_TOL) for s, k2, s2 in p.ties if k2 in upr]
+            if pts and any(u < interp(p.ss, up[p.key], s) - 0.5 for s, u in pts):
+                ub[p.key] = [min(u + RELAX * abs(s - t) for t, u in pts) for s in p.ss]
+        if not ub:
+            return up, ust
+        # (the third solve's ties: at least the twin's TIED height, so a cap's lowered node never takes the chord of a
+        # whole span down with it, but no higher than this deck's own cap)
+        return solve(pieces, node_ground, free, ext, tie_ref=upr, tie_ub=ub)
+    tie_ref = tie_ref or {}
+    tie_ub = tie_ub or {}
     ps = sorted(pieces, key=lambda p: p.key)
     by = {p.key: p for p in ps}
-    stats = {'gradeRelaxed': 0, 'sweeps': 0, 'maxGrade': 0.0, 'constraints': 0, 'unmet': 0, 'grades': [], 'deckEndsMoved': 0}
+    stats = {'gradeRelaxed': 0, 'sweeps': 0, 'maxGrade': 0.0, 'constraints': 0, 'unmet': 0, 'grades': [], 'deckEndsMoved': 0, 'ties': 0, 'tieGap': 0.0}
     nodes = sorted(set([p.a for p in ps] + [p.b for p in ps]))
     inc = {n: [] for n in nodes}
     for p in ps:
@@ -117,7 +153,7 @@ def solve(pieces, node_ground, free, ext=None):
         s, at_node = end_s(p, end)
         return y[p.a if end == 'a' else p.b] if at_node else p.g(s)
 
-    def constraints(p):
+    def constraints(p, ties=True):
         out = list(p.fixed)
         for s, k2, s2, clr in p.under:
             q = by.get(k2)
@@ -127,12 +163,23 @@ def solve(pieces, node_ground, free, ext=None):
                 yu = ext(k2, s2) if ext else None
             if yu is not None:
                 out.append((s, yu + clr))
+        if ties:
+            # (the other carriageway's untied profile (the third solve: its tied one, under this deck's cap): fixed, so
+            # the two never lift each other further)
+            ub = tie_ub.get(p.key)
+            for s, k2, s2 in p.ties:
+                if k2 in tie_ref:
+                    yt = interp(*tie_ref[k2], s2)
+                    if k2 in tie_ub:
+                        yt = min(yt, interp(by[k2].ss, tie_ub[k2], s2))   # (the twin's own cap: it comes down there)
+                    out.append((s, (min(yt, interp(p.ss, ub, s)) if ub is not None else yt) - TIE_TOL))
         return [(s, yc) for s, yc in out if p.u0 - 1e-6 <= s <= p.u1 + 1e-6]
 
     def G(p):
         return G_MAIN if p.main else G_LINK
 
-    def profile(p, cons):
+    def profile(p, cons, nhard=0):
+        ub = tie_ub.get(p.key)
         s0, n0 = end_s(p, 'a')
         s1, n1 = end_s(p, 'b')
         y0, y1 = end_y(p, 'a'), end_y(p, 'b')
@@ -153,6 +200,14 @@ def solve(pieces, node_ground, free, ext=None):
             v = y0 + (y1 - y0) * t
             for sc, yc in cons:
                 v = max(v, yc - g * abs(s - sc))
+            if ub is not None:
+                # (the third solve: no higher than near its twin, never steeper than RELAX off its ends, never under a
+                # clearance)
+                lim = max(ub[k], y0 - RELAX * (s - s0), y1 - RELAX * (s1 - s))
+                if v > lim:
+                    v = lim
+                    for sc, yc in cons[:nhard]:
+                        v = max(v, yc - g * abs(s - sc))
             v = max(v, gr + LIFT) if s0 + 1e-6 < s < s1 - 1e-6 else v
             cap = math.inf
             if fix0:
@@ -179,15 +234,30 @@ def solve(pieces, node_ground, free, ext=None):
                 ys[k] = max(ys[k], p.ground[k] + 0.05)
         return [round(v, 2) for v in ys], relaxed
 
+    def cap_at(p, s):
+        """The highest a deck may stand at s: RELAX off both ends (profile()'s cap)."""
+        s0, _ = end_s(p, 'a')
+        s1, _ = end_s(p, 'b')
+        return min(end_y(p, 'a') + RELAX * max(0.0, s - s0), end_y(p, 'b') + RELAX * max(0.0, s1 - s))
+
     def rounded(p, cons):
-        # the box filter lowers a crest: raise each constraint by its shortfall and profile again (3 rounds at most)
+        # the box filter lowers a crest: raise each constraint by its shortfall and profile again (3 rounds at most).
+        # (0.13.1) never past the climb cap at its station (and the filter's reach over it): a shortfall the cap makes (gradeRelaxed) is not the
+        # filter's, and raising it again each round only spread its tents wider and higher (a tied carriageway on
+        # Long Beach's harbour stood 29 m over its twin, its constraints ratcheted 4 rounds by a shortfall at the anchor)
+        nhard = len(constraints(p, ties=False)) if p.key in tie_ub else 0   # (constraints(): the ties come last)
         cc = list(cons)
+        slack = RELAX * (VC_MAIN if p.main else VC_LINK) / 2   # (the filter's reach: a kink in the cap within it)
+        caps = [cap_at(p, sc) + slack for sc, _ in cons]
         for _ in range(4):
-            ys, relaxed = profile(p, cc)
+            ys, relaxed = profile(p, cc, nhard)
             short = [yc0 - interp(p.ss, ys, sc) for (sc, yc0) in cons]
             if not short or max(short) <= 0.01:
                 break
-            cc = [(sc, yc + max(0.0, d)) for (sc, yc), d in zip(cc, short)]
+            nxt = [(sc, max(yc, min(yc + max(0.0, d), cp))) for (sc, yc), d, cp in zip(cc, short, caps)]
+            if nxt == cc:
+                break
+            cc = nxt
         return ys, relaxed
 
     prev = None
@@ -205,6 +275,19 @@ def solve(pieces, node_ground, free, ext=None):
                 for sc, yc in cons[p.key]:
                     v = max(v, yc - G(p) * abs(sn - sc))
             lb[n] = v
+        # (the third solve: a free node no higher than near the twins of its pieces, never under a clearance's tent)
+        nub, lbh = {}, {}
+        for n in fr:
+            for p, end in inc[n]:
+                if p.key in tie_ub:
+                    nub[n] = min(nub.get(n, math.inf), tie_ub[p.key][0 if end == 'a' else -1])
+            if n in nub:
+                v = node_ground[n] + LIFT
+                for p, end in inc[n]:
+                    sn = 0.0 if end == 'a' else p.L
+                    for sc, yc in constraints(p, ties=False):
+                        v = max(v, yc - G(p) * abs(sn - sc))
+                lbh[n] = v
         for _ in range(200):
             moved = 0.0
             for n in fr:
@@ -220,6 +303,8 @@ def solve(pieces, node_ground, free, ext=None):
                 cap = min((end_y(p, 'b' if end == 'a' else 'a') + RELAX * max(1.0, abs((end_s(p, 'b' if end == 'a' else 'a')[0]) - (0.0 if end == 'a' else p.L))))
                           for p, end in inc[n]) if inc[n] else v
                 v = min(v, max(cap, node_ground[n]))
+                if n in nub and v > nub[n]:
+                    v = min(v, max(nub[n], lbh[n]))
                 moved = max(moved, abs(v - y[n]))
                 y[n] = v
             if moved < 1e-4:
@@ -242,9 +327,15 @@ def solve(pieces, node_ground, free, ext=None):
                 gr = abs(p.ys[k] - p.ys[k - 1]) / ds
                 stats['maxGrade'] = max(stats['maxGrade'], gr)
                 stats['grades'].append((round(gr, 4), 'main' if p.main else 'link'))
-        for sc, yc in constraints(p):
+        for sc, yc in constraints(p, ties=False):
             stats['constraints'] += 1
             if interp(p.ss, p.ys, sc) < yc - 0.5:
                 stats['unmet'] += 1
+        # (ties: how far apart the two carriageways still stand abeam, where an anchor's climb limit held one down)
+        for s, k2, s2 in p.ties:
+            q = by.get(k2)
+            if q is not None and p.u0 - 1e-6 <= s <= p.u1 + 1e-6:
+                stats['ties'] += 1
+                stats['tieGap'] = max(stats['tieGap'], round(abs(interp(p.ss, p.ys, s) - interp(q.ss, q.ys, s2)), 2))
     stats['maxGrade'] = round(stats['maxGrade'], 4)
     return {p.key: p.ys for p in ps}, stats
