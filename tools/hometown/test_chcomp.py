@@ -1,4 +1,4 @@
-# tools/hometown/test_chcomp.py: compiler 0.13.1 (Cold Harbor's compiler bugs, made general): a divided road's two
+# tools/hometown/test_chcomp.py: compiler 0.13.1-0.13.2 (Cold Harbor's compiler bugs, made general): a divided road's two
 # carriageways tied to one grade (grade.py ties, World.paired / abeam / deck_near), and a MultiPolygon building drawn
 # as all of its polygons (building_rows, parts_for). Synthetic rows, no data: python test_chcomp.py
 import os
@@ -111,6 +111,118 @@ class Ties(unittest.TestCase):
         out, _ = G.solve([eb, wb, up], {'A': 0.0, 'F': 0.0, 'C': 0.0, 'D': 0.0, 'E': 0.0}, {'F'})
         self.assertGreaterEqual(out[('eb', 0)][-1], 20.0 - G.G_MAIN * 250 - 0.05, 'the free node keeps the clearance tent')
 
+    def test_twin_under_a_third_deck(self):
+        # (0.13.2; Pittsburgh's Crosstown Blvd under Bigelow Blvd) the eastbound carriageway clears a ramp at s = 300
+        # (24.8 m), so the tie lifts the westbound one; but the westbound one passes under a deck X (a 500 m link over a
+        # road, 18 m) at its s = 400. The tie stops under X: X keeps its untied height and its clearance over the twin
+        L, LX = 600, 500
+        ss, sx = G.stations(L), G.stations(LX)
+
+        def run(tied):
+            eb = G.Piece(('eb', 0), 'A', 'B', L, 0, L, True, [0.0] * len(ss), fixed=[(300, 24.8)],
+                         ties=[(s, ('wb', 0), L - s) for s in ss] if tied else [])
+            wb = G.Piece(('wb', 0), 'C', 'D', L, 0, L, True, [0.0] * len(ss), ties=[(s, ('eb', 0), L - s) for s in ss] if tied else [])
+            x = G.Piece(('x', 0), 'P', 'Q', LX, 0, LX, False, [0.0] * len(sx), fixed=[(250, 18.0)], under=[(250, ('wb', 0), 400, 6.8)])
+            return G.solve([eb, wb, x], {k: 0.0 for k in 'ABCDPQ'}, set())
+        out0, st0 = run(False)
+        out, st = run(True)
+        yw, yx = out[('wb', 0)], out[('x', 0)]
+        self.assertEqual(st0['unmet'], 0)
+        self.assertEqual(st['unmet'], 0, 'every clearance met with the ties')
+        self.assertGreaterEqual(G.interp(sx, yx, 250) - G.interp(ss, yw, 400), 6.8 - 0.05, 'X clears the twin under it')
+        self.assertLessEqual(max(yx), max(out0[('x', 0)]) + 0.05, 'X is never lifted by the tie under it')
+        self.assertGreater(G.interp(ss, out[('eb', 0)], 200) + 6.8 - G.interp(sx, yx, 250), 5.0,
+                           '(abeam, the twin stands high enough that an uncapped tie would lift this one into X)')
+        # (away from X, the westbound deck is still tied to its twin)
+        self.assertLessEqual(abs(G.interp(ss, yw, 100) - G.interp(ss, out[('eb', 0)], 500)), 0.2)
+        self.assertGreater(G.interp(ss, yw, 100) - G.interp(ss, out0[('wb', 0)], 100), 5)
+
+    def test_free_node_under_a_deck(self):
+        # (0.13.2; Long Beach's W Ocean Blvd bridge bafc56c5) X passes under a bridge O 20 m from its free node F; Z, the
+        # other piece at F, is tied to a twin T standing 15 m up all along. The tie lifts Z, but F only as far as O lets
+        # X rise: O keeps its untied height and its clearance over X
+        L = 600
+        ss = G.stations(L)
+
+        def run(tied):
+            o = G.Piece(('o', 0), 'P', 'Q', L, 0, L, True, [0.0] * len(ss), fixed=[(300, 17.0)], under=[(300, ('x', 0), 20, 6.8)])
+            x = G.Piece(('x', 0), 'F', 'B', L, 0, L, False, [0.0] * len(ss))
+            z = G.Piece(('z', 0), 'F', 'H', L, 0, L, True, [0.0] * len(ss), ties=[(s, ('t', 0), L - s) for s in ss] if tied else [])
+            t = G.Piece(('t', 0), 'J', 'K', L, 0, L, True, [15.0] * len(ss), ties=[(s, ('z', 0), L - s) for s in ss] if tied else [])
+            return G.solve([o, x, z, t], {'P': 0.0, 'Q': 0.0, 'F': 0.0, 'B': 0.0, 'H': 0.0, 'J': 15.0, 'K': 15.0}, {'F'})
+        out0, _ = run(False)
+        out, st = run(True)
+        self.assertEqual(st['unmet'], 0, 'O clears X')
+        self.assertLessEqual(max(out[('o', 0)]), max(out0[('o', 0)]) + 0.05, 'O never lifted by the tie')
+        self.assertGreater(out[('z', 0)][0], 5.0, '(the tie lifts Z and its node F)')
+        self.assertGreater(G.interp(ss, out[('z', 0)], 150), 12.0, 'Z still tied up to its twin away from F')
+
+    def test_level_split_unties(self):
+        # (0.13.2) the eastbound carriageway passes over a deck X and the westbound one under it, abeam: no tie within
+        # TIE_SPLIT of the crossings (each on its own clearances there), the ties beyond kept
+        L = 600
+        ss = G.stations(L)
+        eb = G.Piece(('eb', 0), 'A', 'B', L, 0, L, True, [0.0] * len(ss), under=[(300, ('x', 0), 100, 6.8)],
+                     ties=[(s, ('wb', 0), L - s) for s in ss])
+        wb = G.Piece(('wb', 0), 'C', 'D', L, 0, L, True, [0.0] * len(ss), ties=[(s, ('eb', 0), L - s) for s in ss])
+        x = G.Piece(('x', 0), 'P', 'Q', 200, 0, 200, False, [0.0] * len(G.stations(200)), under=[(100, ('wb', 0), 300, 6.8)])
+        _, tl = G.links([eb, wb, x])
+        self.assertTrue(all(abs(s - 300) >= G.TIE_SPLIT for s, _, _ in tl[('eb', 0)]))
+        self.assertTrue(all(abs(s - 300) >= G.TIE_SPLIT for s, _, _ in tl[('wb', 0)]))
+        self.assertEqual(len(tl[('eb', 0)]), len([s for s in ss if abs(s - 300) >= G.TIE_SPLIT]))
+        # (and twins that cross each other: Long Beach's W Ocean Blvd, one direction's bridge over the other's ramp)
+        e2 = G.Piece(('eb', 0), 'A', 'B', L, 0, L, True, [0.0] * len(ss), under=[(300, ('wb', 0), 300, 6.8)],
+                     ties=[(s, ('wb', 0), L - s) for s in ss])
+        _, tl2 = G.links([e2, wb])
+        self.assertTrue(all(abs(s - 300) >= G.TIE_SPLIT for s, _, _ in tl2[('eb', 0)]))
+        self.assertTrue(all(abs(s - 300) >= G.TIE_SPLIT for s, _, _ in tl2[('wb', 0)]))
+        out, st = G.solve([eb, wb, x], {k: 0.0 for k in 'ABCDPQ'}, set())
+        self.assertEqual(st['unmet'], 0)
+        self.assertGreaterEqual(G.interp(ss, out[('eb', 0)], 300) - G.interp(G.stations(200), out[('x', 0)], 100), 6.3)
+        self.assertGreaterEqual(G.interp(G.stations(200), out[('x', 0)], 100) - G.interp(ss, out[('wb', 0)], 300), 6.3)
+
+    def test_down_beside_a_deck(self):
+        # (0.13.2) the eastbound carriageway is brought down beside its landed twin (the third solve) while it passes
+        # over a deck X near its free node F, and the free chain beyond F (F - H - E) must clear a road 20 m past H:
+        # it comes down, but never onto X, and F stays high enough for H to climb to that clearance at RELAX
+        L, L1, L2, LX = 400, 100, 300, 200
+        ss, s1, s2, sx = G.stations(L), G.stations(L1), G.stations(L2), G.stations(LX)
+
+        def run(tied):
+            eb = G.Piece(('eb', 0), 'A', 'F', L, 0, L, True, [0.0] * len(ss), under=[(350, ('x', 0), 100, 6.8)],
+                         ties=[(s, ('wb', 0), L - s) for s in ss] if tied else [])
+            wb = G.Piece(('wb', 0), 'C', 'D', L, 0, L, True, [0.0] * len(ss), ties=[(s, ('eb', 0), L - s) for s in ss] if tied else [])
+            u1 = G.Piece(('u1', 0), 'F', 'H', L1, 0, L1, True, [0.0] * len(s1))
+            u2 = G.Piece(('u2', 0), 'H', 'E', L2, 0, L2, True, [0.0] * len(s2), fixed=[(20, 20.0)])
+            x = G.Piece(('x', 0), 'P', 'Q', LX, 0, LX, False, [0.0] * len(sx))
+            return G.solve([eb, wb, u1, u2, x], {k: (20.0 if k == 'E' else 0.0) for k in 'AFCDHEPQ'}, {'F', 'H'})
+        out0, st0 = run(False)
+        out, st = run(True)
+        self.assertEqual(st0['unmet'], 0)
+        self.assertEqual(st['unmet'], 0, 'the clearances over X and past H both met')
+        ye = out[('eb', 0)]
+        self.assertGreaterEqual(G.interp(ss, ye, 350) - G.interp(sx, out[('x', 0)], 100), 6.8 - 0.5, 'never onto X')
+        self.assertGreaterEqual(G.interp(s2, out[('u2', 0)], 20), 20.0 - 0.5)
+        self.assertLessEqual(max(abs(G.interp(ss, ye, s) - G.interp(ss, out[('wb', 0)], L - s)) for s in ss if s <= 160), 1.5,
+                             'beside its twin away from X')
+        self.assertGreater(ye[-1] - out0[('wb', 0)][0], 5.0, '(the third solve: its free node over the landed twin)')
+        self.assertGreaterEqual(ye[-1], 20.0 - G.G_MAIN * 20 - G.RELAX * L1 - 0.05, 'F stays where H can climb to its clearance')
+
+    def test_tie_never_moves_a_deck_end(self):
+        # (0.13.2; Pittsburgh's Crosstown Blvd at Bigelow Blvd) the eastbound deck starts 100 m into its piece (the data's
+        # bridge stretch; the piece is on its fill before it, where a street crosses it on the ground). Its twin stands
+        # 20 m up there: the tie is short near the deck's end (tieGap), and the deck end stays where the data has it,
+        # instead of moving out over the fill and passing a car's height under the street's deck
+        L = 400
+        ss = G.stations(L)
+        eb = G.Piece(('eb', 0), 'A', 'B', L, 100, L, True, [0.0] * len(ss), ties=[(s, ('wb', 0), L - s) for s in ss if s >= 100])
+        wb = G.Piece(('wb', 0), 'C', 'D', L, 0, L, True, [0.0] * len(ss), fixed=[(260, 20.0)], ties=[(s, ('eb', 0), L - s) for s in ss if s <= 300])
+        out, st = G.solve([eb, wb], {k: 0.0 for k in 'ABCD'}, set())
+        ye = out[('eb', 0)]
+        self.assertEqual(ye[:21], [0.0] * 21, 'on its fill up to its deck end at s = 100')
+        self.assertEqual(st['deckEndsMoved'], 0)
+        self.assertGreater(G.interp(ss, ye, 200), 9.0, 'and tied to its twin beyond, as far as RELAX lets it climb')
+
     def test_order_free(self):
         # (the same pieces in any order: the same profiles to the centimetre)
         L = 500
@@ -197,6 +309,25 @@ class Multi(unittest.TestCase):
         # (a plain building keeps all its parts, as before)
         one = row('b', box(0, 0, 10, 10))
         self.assertEqual(C.parts_for(FakeSrc({'b': parts}), one), parts)
+
+
+class MultiHeight(unittest.TestCase):
+    def test_other_polygons_their_own_height(self):
+        # (0.13.2) the Convention Center's row is 50.1 m (its arena's): its exhibit halls, other polygons with no height
+        # of their own, stand at the default for their area (or the row's floors), never the arena's 50 m
+        arena, hall = box(1000, 1000, 1110, 1110), box(800, 1000, 900, 1110)
+        r = row('cc', MultiPolygon([hall, arena]))
+        main, other = C.building_rows(r)
+        self.assertEqual(C.building_height(main, 12100, 0.0), 50.1, 'the row itself keeps its height')
+        self.assertEqual(C.building_height(other, 11000, 0.0), 9.0, 'the hall: the default for its area')
+        self.assertEqual(C.building_height(other, 11000, 1.0), 9.0)
+        r2 = row('cc2', MultiPolygon([hall, arena]), num_floors=2)
+        self.assertAlmostEqual(C.building_height(C.building_rows(r2)[1], 11000, 0.0), 7.4, msg='its floors')
+        r3 = row('cc3', MultiPolygon([hall, arena]), height=6.0)
+        self.assertEqual(C.building_height(C.building_rows(r3)[1], 11000, 0.0), 6.0, 'never taller than the row')
+        r4 = row('cc4', MultiPolygon([hall, arena]), height=None)
+        self.assertEqual(C.building_height(C.building_rows(r4)[1], 11000, 0.0), 9.0)
+        self.assertEqual(C.building_height(row('b', box(0, 0, 50, 40)), 2000, 0.0), 50.1, 'a plain building as before')
 
 
 class AtGradeTunnel(unittest.TestCase):

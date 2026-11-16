@@ -106,7 +106,12 @@ import shapely.ops  # noqa: E402
 # crest rounding never raises a constraint past the climb cap (no ratchet); a MultiPolygon building is drawn as each of
 # its polygons of MULTI_MIN m2 and MULTI_FRAC of its largest (building_rows, parts_for), not its largest alone; a tunnel road
 # at grade under a building (AT_GRADE_TUNNEL) trims it like a road instead of dropping it (brec, the tunnel-cover rule)
-COMPILER_VERSION = '0.13.1'
+# 0.13.2 (0.13.1's review): a tie never lifts a deck into a deck crossing over it (grade.solve: capped under it; another
+# cluster's deck over it read as its base profile, Piece.over), never ties where the twins cross a deck on different
+# levels (grade.links, TIE_SPLIT), and the third solve's free-node cap keeps the whole free chain's clearances; a
+# MultiPolygon's other polygons stand at their own floors or their area's default height, never the row's tallest
+# (building_height)
+COMPILER_VERSION = '0.13.2'
 OVERTURE_RELEASE = '2026-10-21.0'
 TILE, TCM = grid.TILE, grid.TILE_CM
 SIGNAL_REACH = 15.0  # m (stage 0): an OSM traffic_signals node this near a junction, on one of its approaches, signals it
@@ -720,6 +725,24 @@ def building_rows(r):
                 out.append(q)
         r['rows_'] = out
     return r['rows_']
+
+
+def building_height(r, area, wgt):
+    """A building row's height (m, before its kind's floor): Overture's, else its floors', else the default for its area
+    (wgt: the dense blend). (0.13.2) A MultiPolygon's other polygon (building_rows: 'parent') has no height of its own:
+    the row's is its tallest part's (the Long Beach Convention Center's 50.1 m, its arena), so it stands at the row's
+    floors or the default for its own area, never taller than the row; its parts with no height of their own stand at
+    this one. Before, its exhibit halls stood as 50 m slabs."""
+    h = r['height'] if r.get('parent') is None else None
+    if h is None and r['num_floors']:
+        h = r['num_floors'] * 3.3 + 0.8
+    if h is None:
+        sparse = 4.5 if area < 250 else 7.0 if area < 1500 else 9.0
+        dense = 6.5 if area < 60 else 8.5 if area < 250 else 9.5 if area < 1500 else 9.0
+        h = sparse + (dense - sparse) * wgt
+    if r.get('parent') is not None and r['height'] is not None:
+        h = min(h, r['height'])
+    return float(h)
 
 
 def parts_for(src, r):
@@ -2008,13 +2031,13 @@ class World:
 
     def _group_profiles(self, G, base):
         members, free = G['members'], G['free']
-        gp, ext_refs = [], {}
+        gp, ext_refs, over_refs = [], {}, {}
         for kk in sorted(members):
             q = members[kk]
             _, L, _ = self.pgeom(q)
             u0, u1 = self.deck_iv(q)
             ss, g, wet, _, _ = self.pground(q)
-            fixed, under = [], []
+            fixed, under, over = [], [], []
             # water: wet stations inside the deck (a narrow run: a stream)
             run = []
             for i, s_ in enumerate(ss + [None]):
@@ -2054,6 +2077,11 @@ class World:
                 if (q['lvl'], r['seg'], r['i']) > (r['lvl'], q['seg'], q['i']):
                     under.append((sq, self.pkey(r), sr, CLEAR_ROAD + CLEAR_MARGIN))
                     ext_refs[self.pkey(r)] = r
+                elif self.pkey(r) not in members:
+                    # (0.13.2) a deck of another cluster over it: it caps this one's ties (grade.links; one of this
+                    # cluster over it is found from its own `under`), read as its base profile (no cycle)
+                    over.append((sq, self.pkey(r), sr, CLEAR_ROAD + CLEAR_MARGIN))
+                    over_refs[self.pkey(r)] = r
             # roads of a LOWER level running under it along the way (a stacked deck: Fort Pitt's two; a viaduct over a
             # street): every station within (w + w') / 2 of one, over 20 m of overlap, clear of a node they share
             for r in sorted(self.raw_pieces_near(line.buffer(q['w'] / 2 + 15)), key=self.pkey):
@@ -2088,7 +2116,7 @@ class World:
                 riv = self.deck_iv(r)
                 ties += [(s_, k2, sr) for s_, sr in self.abeam(q, r) if u0 <= s_ <= u1 and riv[0] <= sr <= riv[1]]
             main = q['cls'] in MAINLINE and not q['link']
-            gp.append(grade.Piece(kk, q['a'], q['b'], L, u0, u1, main, g, fixed, under, ties))
+            gp.append(grade.Piece(kk, q['a'], q['b'], L, u0, u1, main, g, fixed, under, ties, over))
         # (a node's ground: its first piece's (in key order) end station; every piece's end there is the same point)
         node_ground = {}
         for gpc in gp:
@@ -2104,6 +2132,9 @@ class World:
                 r = ext_refs[k2]
                 G2 = self.deck_group(r)
                 others[k2] = self.deck_profile(r) if G2['rank'] < G['rank'] else self.deck_base(r)
+            for k2 in sorted(over_refs):
+                if k2 not in members and k2 not in others:
+                    others[k2] = self.deck_base(over_refs[k2])
 
         def ext(k2, s2):
             if others.get(k2) is None:
@@ -2399,20 +2430,13 @@ class World:
         area = wg.area
         gx, gs = own[0] // own[2], own[1] // own[2]
         dt = downtown_at(centres, gx, gs)
-        h = r['height']
-        if h is None and r['num_floors']:
-            h = r['num_floors'] * 3.3 + 0.8
-        if h is None:
-            sparse = 4.5 if area < 250 else 7.0 if area < 1500 else 9.0
-            dense = 6.5 if area < 60 else 8.5 if area < 250 else 9.5 if area < 1500 else 9.0
-            h = sparse + (dense - sparse) * wgt
-        h = float(h)
+        h = building_height(r, area, wgt)
         btype, pal = classify(r, area, h, dt)
         h = max(h, 3.4 if btype in ('rowhouse', 'shed') else 4.0)
         rec = {'id': bid, 'g': wg, 'own': oc, 'gx': gx, 'gs': gs, 'h': h, 'btype': btype, 'pal': pal, 'downtown': dt, 'area': area,
                'shops': 1 if (r['class'] or '') in SHOPS or (dt and btype == 'office-low') else 0,
                'stories': r['num_floors'] or max(1, int(round(h / 3.4))), 'peakAdd': 1.6 if btype == 'rowhouse' and area < 300 else 0.6,
-               'heightFromOverture': r['height'] is not None}
+               'heightFromOverture': r['height'] is not None and r.get('parent') is None}
         shape_building(self, r, rec, near, dt)
         self.brec_c[bid] = rec
         return rec

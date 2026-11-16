@@ -1,4 +1,4 @@
-# Hometown compiler 0.13.1 (the national grid hg1)
+# Hometown compiler 0.13.2 (the national grid hg1)
 
 Turns open US map data into **tiles on one national grid**. A tile is compiled from its own sources and context alone,
 so any tile can be compiled on first request, neighbouring towns share identical tiles, and a place is just a list of
@@ -102,7 +102,7 @@ centres by non-max suppression within 2 km, downtown = within 350 m of a centre)
 A tile reads the ctx blocks within 3.2 km and the regions within 3.2 km (a tile whose regions are not fetched is refused
 with the fetch command to run).
 
-**buildId** `htc-0.13.1-hg1-b{8 hex}`: the first 8 hex of the sha256 of the build record (`builds/{buildId}.json`:
+**buildId** `htc-0.13.2-hg1-b{8 hex}`: the first 8 hex of the sha256 of the build record (`builds/{buildId}.json`:
 compiler version, libraries incl. GEOS and zlib, the CPU architecture (`machine`) and the duckdb `spatial` extension's
 version, image digest (`HOMETOWN_IMAGE_DIGEST` from the environment: the town-builder image sets a recipe id), Overture
 release, DEM snapshot, grid). Compiler logic
@@ -347,6 +347,44 @@ S3 read per layer); every town then rebuilds cold under the new buildId on its f
 Coverage (the fetched regions, inside a district): Okemah has no building tags and almost no street furniture (a few
 stop nodes); Pittsburgh's downtown and Phoenix gain hundreds of signals, stop signs, benches and thousands of trees,
 few colours; New York's midtown parts carry roof shapes on 88%, facade colours on 82% and roof materials on 84%.
+
+## 0.13.2: the ties keep every crossing (0.13.1's review)
+
+0.13.1's ties lifted decks into the decks crossing over them and brought decks down onto the ones under them
+(Pittsburgh: Crosstown Blvd 9.5 -> 2.8 m under Bigelow Blvd; Long Beach: W Ocean Blvd's bridge 1.8-6.3 m short over the
+deck under it). Fixed in `grade.solve` and `building_height`:
+
+- **Every deck crossing keeps the side the untied solve put it on** (`grade.links`: the cluster's `under` both ways, and
+  `Piece.over`, a deck of another cluster crossing over it, read as its base profile). In the tied solves a deck that
+  stood under another rises (by its ties, or by the free nodes its twin's ties lifted) no higher than that deck's
+  untied height less its clearance and the vertical curve's rise (a tent at G off the crossing, never under its own
+  untied height); one that stood over another is never brought down under that deck's untied height plus its clearance
+  (or its own untied height, if that was lower).
+- **No tie where the twins cross a deck on different levels** (one over it, the other under): not within `TIE_SPLIT`
+  (150 m) of it; the twins part there, each on its own clearances.
+- **A tie never moves a deck end** out over its fill (`reach`: the clearances alone do). Moved for its tie, Crosstown
+  Blvd's deck ran out over the fill where Bigelow Blvd crosses it.
+- **The third solve's node cap keeps the free chain's clearances**: a free node brought down beside its twin stays as
+  high as the free nodes beyond it need to climb to their clearances at RELAX.
+- **The crest rounding's climb cap holds the ties only**: a clearance is raised by its shortfall as in 0.13.0 (0.13.1
+  capped it too, and left Pittsburgh's ramps at (444, 631) and (-1355, 919) 2.7 m lower under the decks over them).
+- **A MultiPolygon's other polygons stand at their own height** (`building_height`): the row's floors, else the default
+  for the polygon's own area, never taller than the row; the row's height is its tallest part's (the Long Beach
+  Convention Center's 50.1 m arena), and its exhibit halls stood as 50 m slabs.
+
+| full build | 0.13.0 | 0.13.1 | 0.13.2 |
+|---|---|---|---|
+| Pittsburgh `grade.unmet` | 201 | 209 | 173 |
+| Long Beach `grade.unmet` | 134 | 139 | 123 |
+| Crosstown Blvd under Bigelow Blvd (-1149, 29) | 9.5 m | 2.8 m | 9.5 m |
+| ramp under Penn-Lincoln Pkwy N (-2660, 832) | 6.6 m | 3.8 m | 6.6 m |
+| ramps at (444, 631) / (-1355, 919) | 2.2 / 3.7 m | 0.5 / 2.2 m | 2.5 / 4.0 m |
+| W Ocean Blvd bridge `bafc56c5` over the deck under it | met | 1.8-6.3 m short | met |
+| Seaside Freeway twins over the harbour (x -5600..-4400), widest gap | 34.1 m | 0.3 m | 0.3 m |
+| Convention Center exhibit halls (10,078 / 5,496 m2 drawn) | (not drawn) | 56.5 / 57.5 m | 15.4 / 16.5 m |
+
+(Pittsburgh's two new unmet constraints are counted, not made: ramps `52b01767` (6.3 m short) and `c29a7610` (0.6 m)
+are as short under 0.13.0's solver, their 7-piece cluster now reaching a compiled tile through a twin.)
 
 ## 0.13.1: twin carriageways, multipolygon buildings (Cold Harbor, Long Beach)
 
