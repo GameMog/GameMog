@@ -48,7 +48,7 @@ export function runCastRegistryChecks(ok: Ok) {
   ok('a line in a shipped voice with a shipped line\'s words plays its recording; a changed line is rendered', recd.length === 2 && recd.every((l: any) => /^cast\/mogcity\/voice\/[a-z0-9-]+\.m4a$/.test(l.rec)) && plan!.lines.length === 3, recd.map((l: any) => l.recId).join(' '));
   { const p = clone(P); p.cast[0].voice = { id: 'dan-new', kokoro: 'am_puck', description: 'a young man, bright and quick' }; const r = gatePack(p);
     ok('a shipped person given another voice keeps the body and loses the recordings (all lines rendered)', r.ok && voicePlanOf(r.pack).lines.filter((l: any) => l.who === 'Dan' && l.rec).length === 0, r.problems.join(' | ')); }
-  { const p = clone(P); p.cast[1].name = 'Jo'; p.acts[0].missions[0].steps[3].shots[0].line = 'Your face is on four front pages today. Moon\'s jealous.'; const r = gatePack(p);
+  { const p = clone(P); p.cast[1].name = 'Jo'; p.acts[0].missions[0].steps[3].shots[0].line = 'Don\'t look around. I\'m not there.'; const r = gatePack(p);
     ok('a rename keeps the body and the recordings of lines that still say the same', r.ok && toRunnerPack(r.pack).cast.Jo?.glb === 'cast/mogcity/jane.glb' && voicePlanOf(r.pack).lines.some((l: any) => l.who === 'Jo' && l.rec), r.problems.join(' | ')); }
   // a hand-built person (registry built: 'hand', not Mog City's own): any story's hero, drawn as a forged person from the
   // world's stored copy of their GLB (or the registry's file), never with a model key (the runner reads one as Dan)

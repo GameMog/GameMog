@@ -22,7 +22,7 @@
     { "type": "say", "who": "dan", "text": "Kidding. Obviously.", "secs": 2 },
     { "type": "drive", "to": "@jane-stoop", "radius": 10, "objective": "Take **Moon** to **the library steps**" },
     { "type": "npc", "who": "jane", "id": "jane-kerb", "at": { "rel": "player", "right": 3.4, "fwd": 0.8 } },
-    { "type": "cutscene", "shots": [ { "cam": { "rel": "jane", "fwd": 1.1, "right": 0.2 }, "look": { "rel": "jane", "up": -0.04 }, "fov": 30, "dur": 3.5, "say": "jane", "line": "Your face is on four front pages today. Moon's jealous." } ] },
+    { "type": "cutscene", "shots": [ { "cam": { "rel": "jane", "fwd": 1.1, "right": 0.2 }, "look": { "rel": "jane", "up": -0.04 }, "fov": 30, "dur": 3.5, "say": "jane", "line": "Don't look around. I'm not there." } ] },
     { "type": "say", "who": "jane", "text": "Moon walked you here? Good dog. Bad driver.", "secs": 3 }
    ] } ] } ]
 }

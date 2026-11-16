@@ -1200,7 +1200,8 @@
          },
          "fov": 34,
          "say": "dan",
-         "line": "Hi, Jane. Hi, Moon. Great to see you too."
+         "line": "Hi, Moon. Is that my pretzel?",
+         "how": "tease"
         },
         {
          "cam": {
@@ -1214,7 +1215,8 @@
          },
          "fov": 30,
          "say": "jane",
-         "line": "Plugging it in. Look: two SIMs, one sale, switched on the same minute. Yours, and its twin."
+         "line": "Was. Plugging it in.",
+         "how": "deadpan"
         },
         {
          "cam": {
@@ -1228,21 +1230,8 @@
          },
          "fov": 30,
          "say": "jane",
-         "line": "The twin pinged twenty minutes ago. A van, idling in Times Square. Seventh and Forty-Seventh."
-        },
-        {
-         "cam": {
-          "rel": "jane",
-          "fwd": 1.15,
-          "right": 0.25
-         },
-         "look": {
-          "rel": "jane",
-          "up": -0.04
-         },
-         "fov": 30,
-         "say": "jane",
-         "line": "Don't run up to it. Follow it. It'll take us to the rest of them."
+         "line": "There. The twin pinged twenty minutes ago. Seventh and Forty-Seventh.",
+         "how": "urgent"
         },
         {
          "cam": {
@@ -1257,7 +1246,40 @@
          },
          "fov": 34,
          "say": "dan",
-         "line": "Follow the van. Got it."
+         "line": "That's their van.",
+         "how": "hushed",
+         "pre": 0.7
+        },
+        {
+         "cam": {
+          "rel": "jane",
+          "fwd": 1.15,
+          "right": 0.25
+         },
+         "look": {
+          "rel": "jane",
+          "up": -0.04
+         },
+         "fov": 30,
+         "say": "jane",
+         "line": "Then don't run up to it, okay? Follow it home.",
+         "how": "warm"
+        },
+        {
+         "cam": {
+          "rel": "player",
+          "fwd": 2.3,
+          "right": 0.7,
+          "up": 1.62
+         },
+         "look": {
+          "rel": "player",
+          "up": 1.5
+         },
+         "fov": 34,
+         "say": "dan",
+         "line": "Moon would run up to it.",
+         "how": "tease"
         }
        ]
       },

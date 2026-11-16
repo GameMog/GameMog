@@ -1229,9 +1229,14 @@
         "up": 1.5
        },
        "fov": 34,
+       "say": {
+        "who": "Dan",
+        "text": "Hi, Moon. Is that my pretzel?",
+        "how": "tease"
+       },
        "sub": [
         "Dan",
-        "Hi, Jane. Hi, Moon. Great to see you too."
+        "Hi, Moon. Is that my pretzel?"
        ]
       },
       {
@@ -1245,9 +1250,14 @@
         "up": -0.04
        },
        "fov": 30,
+       "say": {
+        "who": "Jane",
+        "text": "Was. Plugging it in.",
+        "how": "deadpan"
+       },
        "sub": [
         "Jane",
-        "Plugging it in. Look: two SIMs, one sale, switched on the same minute. Yours, and its twin."
+        "Was. Plugging it in."
        ]
       },
       {
@@ -1261,25 +1271,14 @@
         "up": -0.04
        },
        "fov": 30,
+       "say": {
+        "who": "Jane",
+        "text": "There. The twin pinged twenty minutes ago. Seventh and Forty-Seventh.",
+        "how": "urgent"
+       },
        "sub": [
         "Jane",
-        "The twin pinged twenty minutes ago. A van, idling in Times Square. Seventh and Forty-Seventh."
-       ]
-      },
-      {
-       "cam": {
-        "rel": "Jane",
-        "fwd": 1.15,
-        "right": 0.25
-       },
-       "look": {
-        "rel": "Jane",
-        "up": -0.04
-       },
-       "fov": 30,
-       "sub": [
-        "Jane",
-        "Don't run up to it. Follow it. It'll take us to the rest of them."
+        "There. The twin pinged twenty minutes ago. Seventh and Forty-Seventh."
        ]
       },
       {
@@ -1294,9 +1293,58 @@
         "up": 1.5
        },
        "fov": 34,
+       "say": {
+        "who": "Dan",
+        "text": "That's their van.",
+        "how": "hushed",
+        "pre": 0.7
+       },
        "sub": [
         "Dan",
-        "Follow the van. Got it."
+        "That's their van."
+       ]
+      },
+      {
+       "cam": {
+        "rel": "Jane",
+        "fwd": 1.15,
+        "right": 0.25
+       },
+       "look": {
+        "rel": "Jane",
+        "up": -0.04
+       },
+       "fov": 30,
+       "say": {
+        "who": "Jane",
+        "text": "Then don't run up to it, okay? Follow it home.",
+        "how": "warm"
+       },
+       "sub": [
+        "Jane",
+        "Then don't run up to it, okay? Follow it home."
+       ]
+      },
+      {
+       "cam": {
+        "rel": "player",
+        "fwd": 2.3,
+        "right": 0.7,
+        "up": 1.62
+       },
+       "look": {
+        "rel": "player",
+        "up": 1.5
+       },
+       "fov": 34,
+       "say": {
+        "who": "Dan",
+        "text": "Moon would run up to it.",
+        "how": "tease"
+       },
+       "sub": [
+        "Dan",
+        "Moon would run up to it."
        ]
       }
      ]
@@ -3740,7 +3788,7 @@
     "clip": "72a32bd4-717ae4d6",
     "rec": "cast/mogcity/voice/intro-knox-yo-banker-boy-huge.m4a",
     "recId": "intro-knox-yo-banker-boy-huge",
-    "secs": 2.617
+    "secs": 2.78
    },
    {
     "id": "MC-1.s6.c1",
@@ -3795,7 +3843,7 @@
     "clip": "fdfcc0be-2b2dafac",
     "rec": "cast/mogcity/voice/intro-mrbig-dan-big-fan-great.m4a",
     "recId": "intro-mrbig-dan-big-fan-great",
-    "secs": 4.059
+    "secs": 4.322
    },
    {
     "id": "MC-1.s9.l1",
@@ -3817,7 +3865,7 @@
     "clip": "e1d72f26-2b2dafac",
     "rec": "cast/mogcity/voice/intro-mrbig-they-call-me-mr.m4a",
     "recId": "intro-mrbig-they-call-me-mr",
-    "secs": 3.825
+    "secs": 4.043
    },
    {
     "id": "MC-1.s9.l3",
@@ -3839,7 +3887,7 @@
     "clip": "4bbfcc85-2b2dafac",
     "rec": "cast/mogcity/voice/intro-mrbig-somebody-has-to-be.m4a",
     "recId": "intro-mrbig-somebody-has-to-be",
-    "secs": 3.54
+    "secs": 3.853
    },
    {
     "id": "MC-1.s9.l5",
@@ -3850,7 +3898,7 @@
     "clip": "b7e7c5f2-2b2dafac",
     "rec": "cast/mogcity/voice/intro-mrbig-you-sign-the-confession.m4a",
     "recId": "intro-mrbig-you-sign-the-confession",
-    "secs": 3.897
+    "secs": 3.799
    },
    {
     "id": "MC-1.s10",
@@ -5269,62 +5317,79 @@
     "clip": "dc1805aa-f9c669d3",
     "rec": "cast/mogcity/voice/m2-jane-youre-late-sit-burner.m4a",
     "recId": "m2-jane-youre-late-sit-burner",
-    "secs": 2.23
+    "secs": 2.34
    },
    {
     "id": "MC-2.s6.c1",
     "who": "Dan",
     "voice": "mogcity-dan",
-    "text": "Hi, Jane. Hi, Moon. Great to see you too.",
-    "hash": "b126db3a",
-    "clip": "b126db3a-7076f90c",
-    "rec": "cast/mogcity/voice/m2-dan-hi-jane-hi-moon.m4a",
-    "recId": "m2-dan-hi-jane-hi-moon",
-    "secs": 2.64
+    "text": "Hi, Moon. Is that my pretzel?",
+    "hash": "0142a077",
+    "clip": "0142a077-e45555d1",
+    "how": "tease",
+    "rec": "cast/mogcity/voice/m2-dan-hi-moon-is-that.m4a",
+    "recId": "m2-dan-hi-moon-is-that",
+    "secs": 1.75
    },
    {
     "id": "MC-2.s6.c2",
     "who": "Jane",
     "voice": "mogcity-jane",
-    "text": "Plugging it in. Look: two SIMs, one sale, switched on the same minute. Yours, and its twin.",
-    "hash": "efcc5136",
-    "clip": "efcc5136-f9c669d3",
-    "rec": "cast/mogcity/voice/m2-jane-plugging-it-in-look.m4a",
-    "recId": "m2-jane-plugging-it-in-look",
-    "secs": 6.87
+    "text": "Was. Plugging it in.",
+    "hash": "278bc6a7",
+    "clip": "278bc6a7-79c36cc0",
+    "how": "deadpan",
+    "rec": "cast/mogcity/voice/m2-jane-was-plugging-it-in.m4a",
+    "recId": "m2-jane-was-plugging-it-in",
+    "secs": 1.86
    },
    {
     "id": "MC-2.s6.c3",
     "who": "Jane",
     "voice": "mogcity-jane",
-    "text": "The twin pinged twenty minutes ago. A van, idling in Times Square. Seventh and Forty-Seventh.",
-    "hash": "7a113e21",
-    "clip": "7a113e21-f9c669d3",
-    "rec": "cast/mogcity/voice/m2-jane-the-twin-pinged-twenty.m4a",
-    "recId": "m2-jane-the-twin-pinged-twenty",
-    "secs": 6.19
+    "text": "There. The twin pinged twenty minutes ago. Seventh and Forty-Seventh.",
+    "hash": "8fbaae82",
+    "clip": "8fbaae82-aa8cf208",
+    "how": "urgent",
+    "rec": "cast/mogcity/voice/m2-jane-there-the-twin-pinged.m4a",
+    "recId": "m2-jane-there-the-twin-pinged",
+    "secs": 4.57
    },
    {
     "id": "MC-2.s6.c4",
-    "who": "Jane",
-    "voice": "mogcity-jane",
-    "text": "Don't run up to it. Follow it. It'll take us to the rest of them.",
-    "hash": "f8f4377f",
-    "clip": "f8f4377f-f9c669d3",
-    "rec": "cast/mogcity/voice/m2-jane-dont-run-up-to.m4a",
-    "recId": "m2-jane-dont-run-up-to",
-    "secs": 3.29
+    "who": "Dan",
+    "voice": "mogcity-dan",
+    "text": "That's their van.",
+    "hash": "03772367",
+    "clip": "03772367-3292620a",
+    "how": "hushed",
+    "rec": "cast/mogcity/voice/m2-dan-thats-their-van.m4a",
+    "recId": "m2-dan-thats-their-van",
+    "secs": 0.94
    },
    {
     "id": "MC-2.s6.c5",
+    "who": "Jane",
+    "voice": "mogcity-jane",
+    "text": "Then don't run up to it, okay? Follow it home.",
+    "hash": "7e45728c",
+    "clip": "7e45728c-e3886938",
+    "how": "warm",
+    "rec": "cast/mogcity/voice/m2-jane-then-dont-run-up.m4a",
+    "recId": "m2-jane-then-dont-run-up",
+    "secs": 3.1
+   },
+   {
+    "id": "MC-2.s6.c6",
     "who": "Dan",
     "voice": "mogcity-dan",
-    "text": "Follow the van. Got it.",
-    "hash": "b27bbaf3",
-    "clip": "b27bbaf3-7076f90c",
-    "rec": "cast/mogcity/voice/m2-dan-follow-the-van-got.m4a",
-    "recId": "m2-dan-follow-the-van-got",
-    "secs": 1.59
+    "text": "Moon would run up to it.",
+    "hash": "ce282833",
+    "clip": "ce282833-e45555d1",
+    "how": "tease",
+    "rec": "cast/mogcity/voice/m2-dan-moon-would-run-up.m4a",
+    "recId": "m2-dan-moon-would-run-up",
+    "secs": 1.75
    },
    {
     "id": "MC-2.s9.d0.l0",
@@ -6303,7 +6368,7 @@
     "clip": "74635dfd-bc5019d8",
     "rec": "cast/mogcity/voice/m2-mack-my-car-my-beautiful.m4a",
     "recId": "m2-mack-my-car-my-beautiful",
-    "secs": 2.19
+    "secs": 2.43
    },
    {
     "id": "MC-2.s23.c1",
@@ -6314,7 +6379,7 @@
     "clip": "4cf65384-bc5019d8",
     "rec": "cast/mogcity/voice/m2-mack-keep-the-phone-call.m4a",
     "recId": "m2-mack-keep-the-phone-call",
-    "secs": 1.84
+    "secs": 2
    },
    {
     "id": "MC-2.s29",
@@ -6325,7 +6390,7 @@
     "clip": "07089bf0-7076f90c",
     "rec": "cast/mogcity/voice/m2-dan-that-is-my-door.m4a",
     "recId": "m2-dan-that-is-my-door",
-    "secs": 1.14
+    "secs": 1.46
    },
    {
     "id": "MC-2.s32",
@@ -6336,7 +6401,7 @@
     "clip": "b3cf1166-7076f90c",
     "rec": "cast/mogcity/voice/m2-dan-they-know-where-i.m4a",
     "recId": "m2-dan-they-know-where-i",
-    "secs": 1.16
+    "secs": 1.09
    },
    {
     "id": "MC-2.s35",
@@ -6765,7 +6830,7 @@
     "clip": "2d0765fb-22612a80",
     "rec": "cast/mogcity/voice/m3-gears-cold-gas-thrusters-little.m4a",
     "recId": "m3-gears-cold-gas-thrusters-little",
-    "secs": 4.77
+    "secs": 5.14
    },
    {
     "id": "MC-3.s1.c1",
@@ -6776,7 +6841,7 @@
     "clip": "1844a600-7076f90c",
     "rec": "cast/mogcity/voice/m3-dan-define-mostly.m4a",
     "recId": "m3-dan-define-mostly",
-    "secs": 1.1
+    "secs": 0.9
    },
    {
     "id": "MC-3.s1.c2",
@@ -6787,7 +6852,7 @@
     "clip": "252c1617-22612a80",
     "rec": "cast/mogcity/voice/m3-gears-i-tested-them-on.m4a",
     "recId": "m3-gears-i-tested-them-on",
-    "secs": 3.51
+    "secs": 3.57
    },
    {
     "id": "MC-3.s2.l0",
@@ -6798,7 +6863,7 @@
     "clip": "11392668-f9c669d3",
     "rec": "cast/mogcity/voice/m3-jane-dan-are-you-watching.m4a",
     "recId": "m3-jane-dan-are-you-watching",
-    "secs": 4.51
+    "secs": 4.83
    },
    {
     "id": "MC-3.s2.l1",
@@ -6809,7 +6874,7 @@
     "clip": "a005ebe1-493ed308",
     "rec": "cast/mogcity/voice/m3-fiona-jpbank-loves-new-york.m4a",
     "recId": "m3-fiona-jpbank-loves-new-york",
-    "secs": 4.25
+    "secs": 4.46
    },
    {
     "id": "MC-3.s2.l2",
@@ -6820,7 +6885,7 @@
     "clip": "9acb3f49-f9c669d3",
     "rec": "cast/mogcity/voice/m3-jane-right-next-to-the.m4a",
     "recId": "m3-jane-right-next-to-the",
-    "secs": 3.24
+    "secs": 3.02
    },
    {
     "id": "MC-3.s2.l3",
@@ -6831,7 +6896,7 @@
     "clip": "848eafc7-f9c669d3",
     "rec": "cast/mogcity/voice/m3-jane-its-you-ten-feet.m4a",
     "recId": "m3-jane-its-you-ten-feet",
-    "secs": 3.88
+    "secs": 4.16
    },
    {
     "id": "MC-3.s2.l4",
@@ -6842,7 +6907,7 @@
     "clip": "13c9a623-7076f90c",
     "rec": "cast/mogcity/voice/m3-dan-im-going-to-go.m4a",
     "recId": "m3-dan-im-going-to-go",
-    "secs": 1.56
+    "secs": 1.26
    },
    {
     "id": "MC-3.s3",
@@ -6853,7 +6918,7 @@
     "clip": "e0cf088e-22612a80",
     "rec": "cast/mogcity/voice/m3-gears-go-get-your-name.m4a",
     "recId": "m3-gears-go-get-your-name",
-    "secs": 1.3
+    "secs": 2.06
    },
    {
     "id": "MC-3.s5.d0.l0",
@@ -7414,7 +7479,7 @@
     "clip": "20712f11-493ed308",
     "rec": "cast/mogcity/voice/m3-fiona-hiii-new-york-jpbank.m4a",
     "recId": "m3-fiona-hiii-new-york-jpbank",
-    "secs": 3
+    "secs": 2.76
    },
    {
     "id": "MC-3.s9.c1",
@@ -7436,7 +7501,7 @@
     "clip": "3e458855-493ed308",
     "rec": "cast/mogcity/voice/m3-fiona-boo-the-bad-apple.m4a",
     "recId": "m3-fiona-boo-the-bad-apple",
-    "secs": 2.74
+    "secs": 2.76
    },
    {
     "id": "MC-3.s9.c3",
@@ -7447,7 +7512,7 @@
     "clip": "57f6e8c1-0ca6c810",
     "rec": "cast/mogcity/voice/m3-brick-yo-thats-banker-boy.m4a",
     "recId": "m3-brick-yo-thats-banker-boy",
-    "secs": 2.76
+    "secs": 2.25
    },
    {
     "id": "MC-3.s12.d0",
@@ -7546,7 +7611,7 @@
     "clip": "4655c01c-493ed308",
     "rec": "cast/mogcity/voice/m3-fiona-wait-why-is-it.m4a",
     "recId": "m3-fiona-wait-why-is-it",
-    "secs": 3.08
+    "secs": 2.99
    },
    {
     "id": "MC-3.s16.c1",
@@ -7557,7 +7622,7 @@
     "clip": "561c9511-493ed308",
     "rec": "cast/mogcity/voice/m3-fiona-well-be-right-back.m4a",
     "recId": "m3-fiona-well-be-right-back",
-    "secs": 3.16
+    "secs": 3.86
    },
    {
     "id": "MC-3.s16.c2",
@@ -7568,7 +7633,7 @@
     "clip": "22a86a18-7076f90c",
     "rec": "cast/mogcity/voice/m3-dan-take-your-time.m4a",
     "recId": "m3-dan-take-your-time",
-    "secs": 0.77
+    "secs": 0.78
    },
    {
     "id": "MC-3.s18",
@@ -7579,7 +7644,7 @@
     "clip": "138d69bb-7627c905",
     "rec": "cast/mogcity/voice/m3-bea-mic-check.m4a",
     "recId": "m3-bea-mic-check",
-    "secs": 0.99
+    "secs": 0.92
    },
    {
     "id": "MC-3.s19",
@@ -7601,7 +7666,7 @@
     "clip": "fac8b3be-7627c905",
     "rec": "cast/mogcity/voice/m3-bea-anybody-the-bank-hates.m4a",
     "recId": "m3-bea-anybody-the-bank-hates",
-    "secs": 1.99
+    "secs": 2.27
    },
    {
     "id": "MC-3.s21",
@@ -7623,7 +7688,7 @@
     "clip": "f162d13f-7627c905",
     "rec": "cast/mogcity/voice/m3-bea-is-somebody-we-should.m4a",
     "recId": "m3-bea-is-somebody-we-should",
-    "secs": 1.34
+    "secs": 1.7
    },
    {
     "id": "MC-3.s23",
@@ -7667,7 +7732,7 @@
     "clip": "71a58475-7076f90c",
     "rec": "cast/mogcity/voice/m3-dan-rook-the-guy-who.m4a",
     "recId": "m3-dan-rook-the-guy-who",
-    "secs": 1.78
+    "secs": 1.98
    },
    {
     "id": "MC-3.s31.d0.l0",
@@ -8305,7 +8370,7 @@
     "clip": "f6cea498-22612a80",
     "rec": "cast/mogcity/voice/m3-gears-youre-back-and-the.m4a",
     "recId": "m3-gears-youre-back-and-the",
-    "secs": 2.34
+    "secs": 2.16
    },
    {
     "id": "MC-3.s36.c1",
@@ -8316,7 +8381,7 @@
     "clip": "bc186b55-7076f90c",
     "rec": "cast/mogcity/voice/m3-dan-mostly.m4a",
     "recId": "m3-dan-mostly",
-    "secs": 0.6
+    "secs": 0.81
    },
    {
     "id": "MC-3.s36.c2",
@@ -8327,7 +8392,7 @@
     "clip": "ab185092-22612a80",
     "rec": "cast/mogcity/voice/m3-gears-mostly.m4a",
     "recId": "m3-gears-mostly",
-    "secs": 0.6
+    "secs": 0.55
    },
    {
     "id": "MC-3.s36.c3",
@@ -8338,7 +8403,7 @@
     "clip": "a1c3d5bd-7076f90c",
     "rec": "cast/mogcity/voice/m3-dan-moon-sleeps-on-janes.m4a",
     "recId": "m3-dan-moon-sleeps-on-janes",
-    "secs": 3.3
+    "secs": 3.58
    },
    {
     "id": "MC-3.s36.c4",
@@ -8349,7 +8414,7 @@
     "clip": "b79286b7-7076f90c",
     "rec": "cast/mogcity/voice/m3-dan-the-thrusters-work-great.m4a",
     "recId": "m3-dan-the-thrusters-work-great",
-    "secs": 2.76
+    "secs": 3.73
    },
    {
     "id": "MC-3.s36.c5",
@@ -8360,7 +8425,7 @@
     "clip": "18997978-22612a80",
     "rec": "cast/mogcity/voice/m3-gears-saw-the-park-on.m4a",
     "recId": "m3-gears-saw-the-park-on",
-    "secs": 3.31
+    "secs": 2.94
    },
    {
     "id": "MC-3.s36.c6",
@@ -8371,7 +8436,7 @@
     "clip": "43b3eec3-7076f90c",
     "rec": "cast/mogcity/voice/m3-dan-good-chanting-or-bad.m4a",
     "recId": "m3-dan-good-chanting-or-bad",
-    "secs": 1.91
+    "secs": 1.77
    },
    {
     "id": "MC-3.s36.c7",
@@ -8382,7 +8447,7 @@
     "clip": "8774a489-22612a80",
     "rec": "cast/mogcity/voice/m3-gears-ha-rooms-upstairs-kid.m4a",
     "recId": "m3-gears-ha-rooms-upstairs-kid",
-    "secs": 2.99
+    "secs": 2.85
    },
    {
     "id": "MC-4.s0.d0.l0",

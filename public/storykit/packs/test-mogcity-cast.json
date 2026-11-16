@@ -147,7 +147,7 @@
        "dur": 3.5,
        "sub": [
         "Jane",
-        "Your face is on four front pages today. Moon's jealous."
+        "Don't look around. I'm not there."
        ]
       }
      ]
@@ -274,12 +274,12 @@
     "id": "MW-1.s3.c0",
     "who": "Jane",
     "voice": "mogcity-jane",
-    "text": "Your face is on four front pages today. Moon's jealous.",
-    "hash": "e945f2a2",
-    "clip": "e945f2a2-f9c669d3",
-    "rec": "cast/mogcity/voice/m2-jane-your-face-is-on.m4a",
-    "recId": "m2-jane-your-face-is-on",
-    "secs": 3.27
+    "text": "Don't look around. I'm not there.",
+    "hash": "706bf525",
+    "clip": "706bf525-f9c669d3",
+    "rec": "cast/mogcity/voice/m2-jane-dont-look-around-im.m4a",
+    "recId": "m2-jane-dont-look-around-im",
+    "secs": 1.75
    },
    {
     "id": "MW-1.s4",
