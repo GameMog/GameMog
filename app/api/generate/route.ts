@@ -75,7 +75,15 @@ export async function POST(req: Request) {
     // so a store at LIMITS.open open drafts or LIMITS.perDay today refuses the build here, at the door)
     const busy = storyStore().room();
     if (busy) return NextResponse.json({ error: busy.error }, { status: busy.status });
-    if (storyMog) { if (!storyParentPack(from!)) return NextResponse.json({ error: 'The story world you are mogging could not be read.' }, { status: 409 }); }
+    if (storyMog) {
+      // (a story world in a city the builder cannot build in yet, SF 2040: MOG Soon, as below, before its pack is read)
+      if (!ownStory && !canMog(parent!)) return NextResponse.json({ error: MOG_SOON }, { status: 409 });
+      const sp = storyParentPack(from!);
+      if (!sp) return NextResponse.json({ error: 'The story world you are mogging could not be read.' }, { status: 409 });
+      // a hometown world's Mog (16 Nov): its parent's town, read by the parent's own lock (never the town's current build),
+      // here, before a slot is taken or anything is spent; the builder reads it again and locks it (lib/storykit-build.ts)
+      if (sp.pack.base.city === 'hometown' && !cityPackageByLock(sp.pack.base.hometown)) return NextResponse.json({ error: 'The town this story world is set in could not be read.' }, { status: 409 });
+    }
     else {
       // a hometown (HOMETOWN_TOWNS=on): the picked town, built already (lib/hometown/towns.ts; POST /api/towns builds it),
       // its CityPackage read from its bundle by the town's ready lock. Read here, before a slot is taken or anything is

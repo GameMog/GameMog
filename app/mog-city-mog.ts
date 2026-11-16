@@ -2,6 +2,7 @@ import type { GameRow } from '@/lib/db';
 import { canMog } from '@/lib/custom-game';
 import { storykitForViewer } from '@/lib/storykit-http';
 import { isMogCityEpisode, mogCityStoryParent } from '@/lib/storykit-mogcity';
+import { isStoryParent } from '@/lib/storykit-build';
 
 /**
  * The Mog of Mog City on the site's pages (5 Nov): /g/mog-city is the 3 Nov episode and plays exactly as it did, but its
@@ -15,6 +16,9 @@ export async function mogCityStoryFor(storyOpen?: boolean): Promise<GameRow | un
 
 /** Whether a game's Mog is open to this viewer: any kind canMog opens, and /g/mog-city when its story Mog is live. */
 export async function mogOpenFor(game: Pick<GameRow, 'slug' | 'format' | 'code' | 'meta'>, storyOpen?: boolean): Promise<boolean> {
+  // (a story world's Mog is a Story Kit build: while the Story Kit is closed to this viewer the build route refuses it,
+  // so its page says MOG Soon rather than offering a Mog that cannot start)
+  if (isStoryParent(game) && !(storyOpen ?? (await storykitForViewer()))) return false;
   if (canMog(game)) return true;
   return isMogCityEpisode(game) && !!(await mogCityStoryFor(storyOpen));
 }

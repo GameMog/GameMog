@@ -42,7 +42,8 @@ export function runStoryOwnerChecks(ok: Ok) {
     ['app/d/[id]/play/route.ts', /storykitForRequest\(req\)/],
     // (inline, or read once into storyOpen and passed on: the Mog of Mog City reads it too, 5 Nov)
     ['app/g/[slug]/page.tsx', /storyOpen=\{[^}]*await storykitForViewer\(\)|const storyOpen = [^;\n]*await storykitForViewer\(\)[^;\n]*;[\s\S]*storyOpen=\{storyOpen\}/],
-    ['app/mog/[slug]/page.tsx', /storyOf\(game, storyOpen\)/],
+    // (a hometown world's Mog too, 16 Nov: storyPageOf reads a story city's world or a hometown's)
+    ['app/mog/[slug]/page.tsx', /storyPageOf\(game, storyOpen\)/],
     ['app/api/generate/route.ts', /if \(!storykitForRequest\(req\)\) return/],
     ['app/api/games/route.ts', /sealStoryDraft\(d, storykitForRequest\(req\)\)/],
   ];

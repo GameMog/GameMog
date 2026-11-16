@@ -10,7 +10,9 @@ import { optionsOf } from '@/lib/world-options';
 import { clip, pageMeta } from '../../seo';
 import { getDare } from '@/lib/dare';
 import { canMog, MOG_SOON, worldMode, storyMogClosed } from '@/lib/custom-game';
-import { storyOf, storyCityName } from '@/lib/storykit-site';
+import { storyOf, storyPageOf, storyCityName } from '@/lib/storykit-site';
+import { storyTownName } from '@/lib/storykit-publish';
+import { isStoryParent } from '@/lib/storykit-build';
 import { storykitForViewer } from '@/lib/storykit-http';
 import { storykitMode } from '@/lib/storykit-switch';
 import { StoryMogComposer } from '../../create/story';
@@ -40,7 +42,7 @@ export default async function MogPage({ params, searchParams }: { params: Promis
   // (STORYKIT=owner: the owner's story worlds are published hidden, so the owner's session also finds a hidden story
   // world here to Mog it; nothing else changes, and nobody else's lookup does: lib/storykit-switch.ts)
   const storyOpen = await storykitForViewer();
-  const game = getGameBySlug(slug) ?? (storyOpen && storykitMode() === 'owner' ? ((g) => (g && storyOf(g, true) ? g : undefined))(getGameBySlugForOwner(slug)) : undefined);
+  const game = getGameBySlug(slug) ?? (storyOpen && storykitMode() === 'owner' ? ((g) => (g && storyPageOf(g, true) ? g : undefined))(getGameBySlugForOwner(slug)) : undefined);
   if (!game) notFound();
   // a dare's "Mog it back" (/mog/<slug>?dare=<id>): kept only when it is a live dare on this very game
   const asked = (await searchParams).dare;
@@ -55,9 +57,12 @@ export default async function MogPage({ params, searchParams }: { params: Promis
   // missions kept; the card below stays /g/mog-city's own, and the build takes the own world as the parent)
   const mcStory = isMogCityEpisode(game) ? await mogCityStoryFor(storyOpen) : undefined;
   const mcCity = mcStory ? storyOf(mcStory, true) : null;
-  const story = mcCity ?? storyOf(game, storyOpen);
-  // (a story world in a city the builder cannot build in yet, SF 2040: MOG Soon, lib/custom-game.ts storyMogClosed)
-  const open = mcCity ? true : story ? !storyMogClosed(game.meta) : canMog(game);
+  // (a hometown story world, 16 Nov: its Mog keeps its town, the parent's exact build, named as people say it)
+  const story = mcCity ?? storyPageOf(game, storyOpen);
+  const where = story?.city === 'hometown' ? storyTownName(game.meta) ?? 'its town' : story ? storyCityName(story.city) : '';
+  // (a story world in a city the builder cannot build in yet, SF 2040: MOG Soon, lib/custom-game.ts storyMogClosed; and
+  // any story world while the Story Kit is closed to this viewer: the build route refuses its Mog, so no world composer)
+  const open = mcCity ? true : story ? !storyMogClosed(game.meta) : !isStoryParent(game) && canMog(game);
   const kind = worldMode(game.code, game.meta);
   return (
     <>
@@ -67,14 +72,14 @@ export default async function MogPage({ params, searchParams }: { params: Promis
         {/* (a penalty shootout is played, not raced, before it can publish, 13 Oct) */}
         {mcCity ? (
           <p className="dim" style={{ marginBottom: 16, lineHeight: 1.55, maxWidth: '64ch' }}>
-            Remix Mog City&apos;s story. The city stays {storyCityName(mcCity.city)}, street for street, and so do its kinds
+            Remix Mog City&apos;s story. The city stays {where}, street for street, and so do its kinds
             of mission (drives, chases, fights, searches); the story, Dan, Jane, Mr. Big and the Suits, their cars, their
             lines and the season are yours to change. Your browser forges the remade people and records the changed lines, and plays every mission
             before it can publish. The original is always credited.
           </p>
         ) : story && open ? (
           <p className="dim" style={{ marginBottom: 16, lineHeight: 1.55, maxWidth: '64ch' }}>
-            Remix the story. The city stays {storyCityName(story.city)}, street for street; the story, the missions, the
+            Remix the story. The {story.city === 'hometown' ? 'town' : 'city'} stays {where}, street for street; the story, the missions, the
             people, their cars and their voices are yours to change. Your browser forges the new people and records the
             new lines, and plays every mission before it can publish. The original is always credited.
           </p>
@@ -108,7 +113,7 @@ export default async function MogPage({ params, searchParams }: { params: Promis
             <label className="lbl">The game you are challenging</label>
             <p style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.3 }}><Link href={`/g/${game.slug}`}>{game.title}</Link></p>
             <p className="dim" style={{ fontSize: 14, lineHeight: 1.5 }}>{game.tagline}</p>
-            {story ? <p className="skchip" style={{ marginTop: 8 }}><Lock />{storyCityName(story.city)}</p> : null}
+            {story ? <p className="skchip" style={{ marginTop: 8 }} data-city={story.city}><Lock />{where}</p> : null}
             <p className="t-meta dim-2" style={{ marginTop: 4 }}>
               Generation {game.generation}
               {root ? <>, from <Link href={`/g/${root.slug}`}>{root.title}</Link></> : null}
@@ -117,7 +122,7 @@ export default async function MogPage({ params, searchParams }: { params: Promis
           </div>
         </div>
         {story && open
-          ? <StoryMogComposer slug={game.slug} title={mcCity ? 'Mog City' : game.title} city={story.city} cityName={storyCityName(story.city)} dare={dare} {...(mcCity ? MOG_CITY_STORY_MOG : {})} />
+          ? <StoryMogComposer slug={game.slug} title={mcCity ? 'Mog City' : game.title} city={story.city} cityName={where} dare={dare} {...(mcCity ? MOG_CITY_STORY_MOG : {})} />
           : open
           ? <MogComposer slug={game.slug} title={game.title} inherited={optionsOf(game)} dare={dare} kind={kind} />
           : <Link className="btn big" href={`/g/${game.slug}`}>Play {game.title}</Link>}

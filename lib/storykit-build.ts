@@ -86,6 +86,8 @@ export function isStoryMeta(meta?: string | null) {
 }
 /** Whether a Mog's original is a story world: its meta says so, or its module is a pack. */
 export const isStoryParent = (parent?: { format: string; code?: string | null; meta?: string | null } | null) => !!parent && parent.format === 'world' && (isStoryMeta(parent.meta) || isStorykitWorld(parent.code));
+/** A story pack (v2) with its base: what the builder reads as a Mog's parent. */
+const isPackV2 = (p: unknown): p is PackV2 => !!p && typeof p === 'object' && (p as PackV2).storykit === 2 && !!(p as PackV2).base && typeof (p as PackV2).base === 'object';
 /**
  * A story world's pack and its store draft: the kept world its meta names (storykit.pack, a store draft id), else the
  * pack its module carries (no store draft: its files are not carried over). Null when neither can be read.
@@ -95,11 +97,14 @@ export function storyParentPack(parent: { code?: string | null; meta?: string | 
     const id = (JSON.parse(parent.meta ?? '{}') as { storykit?: { pack?: unknown } }).storykit?.pack;
     if (typeof id === 'string' && /^[0-9a-f-]{36}$/.test(id)) {
       const row = storyStore().db.prepare("SELECT pack FROM drafts WHERE id = ? AND state = 'kept'").get(id) as { pack: string } | undefined;
-      if (row) return { pack: JSON.parse(row.pack), store: id };
+      // (a v2 pack only, with its base: a store draft holding a runner world, SF 2040's migration, is not one, and its
+      // Mog is refused at the route's door rather than reaching the builder without a base)
+      const pack = row ? JSON.parse(row.pack) as PackV2 : null;
+      if (row) return isPackV2(pack) ? { pack, store: id } : null;
     }
   } catch { /* the module's pack, below */ }
   const pack = storykitPackOf(parent.code);
-  return pack ? { pack, store: null } : null;
+  return isPackV2(pack) ? { pack, store: null } : null;
 }
 /**
  * The hero a story Create asks for (lib/storykit-site.ts STORY_HERO_MAX): nothing (null, undefined or blank: the builder

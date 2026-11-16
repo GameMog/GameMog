@@ -306,12 +306,17 @@ export function canMog(game: { format: string; code?: string | null; meta?: stri
  * A story world set in a city the story builder cannot build in yet (storykit/pack/cities.ts MOGCITY_BUILDS: New York
  * only; 11 Nov, SF 2040 plays San Francisco on Mog City's engine): its Mog would be refused by the gate after the
  * builder had run, so it is MOG Soon (its page, /mog/<slug>, and the build route before anything is spent).
+ * A hometown story world (storykit.city 'hometown', its town pinned in storykit.hometown) is open (the owner, 16 Nov:
+ * "everything on platform needs to be able to be mogged"): its Mog keeps the parent's town, locked to the exact build
+ * and tiles it pins (lib/storykit-build.ts generateStorykit, the gate's base.hometown lock), and rewrites the rest.
  */
 export function storyMogClosed(meta?: string | null): boolean {
   if (!meta || !meta.includes('"storykit"')) return false;
   try {
-    const m = JSON.parse(meta) as { mode?: unknown; storykit?: { city?: unknown } };
-    return m.mode === 'storykit' && typeof m.storykit?.city === 'string' && !MOGCITY_BUILDS[m.storykit.city as CityId];
+    const m = JSON.parse(meta) as { mode?: unknown; storykit?: { city?: unknown; hometown?: { place?: unknown } } };
+    if (m.mode !== 'storykit' || typeof m.storykit?.city !== 'string') return false;
+    if (m.storykit.city === 'hometown') return typeof m.storykit.hometown?.place !== 'string';
+    return !MOGCITY_BUILDS[m.storykit.city as CityId];
   } catch { return false; }
 }
 export const MOG_SOON = 'Mogs of this kind of game are coming soon. Play it free in the meantime.';

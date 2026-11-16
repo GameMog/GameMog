@@ -152,7 +152,7 @@ const MOG_IDEAS = [
  * app/mog-city-mog.ts MOG_CITY_STORY_MOG) says so here; any other story world keeps the lists below.
  */
 export function StoryMogComposer({ slug, title, city, cityName, dare, change, stays, ideas }: {
-  slug: string; title: string; city: StoryCity; cityName: string; dare?: string | null;
+  slug: string; title: string; city: StoryCity | 'hometown'; cityName: string; dare?: string | null;
   change?: string[]; stays?: string[]; ideas?: string[];
 }) {
   const gen = useGeneration();
@@ -160,12 +160,14 @@ export function StoryMogComposer({ slug, title, city, cityName, dare, change, st
   const { consent, setConsent, said } = useStoryConsent();
   const phone = usePhone();
   const go = () => gen.run({ mogOf: slug, prompt: idea.trim(), consent: said.value });
+  // (a hometown world, 16 Nov: its town, the parent's exact build, stays; the words say town, not city)
+  const where = city === 'hometown' ? 'town' : 'city';
   return (
     <>
       <div className="panel" style={{ marginBottom: 16 }}>
         <div className="skmoghead">
           <label className="lbl" htmlFor="idea" style={{ margin: 0 }}>How your Mog remixes it</label>
-          <span className="skchip" title="A Mog keeps its original's city" data-city={city}><Lock />{cityName}</span>
+          <span className="skchip" title={`A Mog keeps its original's ${where}`} data-city={city}><Lock />{cityName}</span>
         </div>
         <div className="skchange">
           <div>
@@ -184,7 +186,7 @@ export function StoryMogComposer({ slug, title, city, cityName, dare, change, st
           <div>
             <p className="lbl">Stays the same</p>
             <ul>
-              <li>The city: {cityName}, street for street</li>
+              <li>The {where}: {cityName}, street for street</li>
               {stays?.map((x) => <li key={x}>{x}</li>)}
               <li>Whatever you leave alone is kept from {title}, recordings included</li>
             </ul>
