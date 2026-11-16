@@ -17,6 +17,7 @@
     "storykit:builder-check": "node --import ./scripts/ts-resolve.mjs scripts/storykit-builder-check.ts",
     "storykit:mogcity-check": "node --import ./scripts/ts-resolve.mjs scripts/storykit-mogcity-check.ts",
     "storykit:door-check": "node --import ./scripts/ts-resolve.mjs scripts/storykit-door-check.ts",
+    "storykit:hometown-mog-check": "node --import ./scripts/ts-resolve.mjs scripts/storykit-hometown-mog-check.ts",
     "storykit:forge-kit": "node scripts/forge/kit.mjs",
     "storykit:forge-browkit": "node scripts/forge/browkit.mjs",
     "storykit:forge-web": "node scripts/forge/build-web.mjs",

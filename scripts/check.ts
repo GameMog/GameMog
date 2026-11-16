@@ -646,6 +646,16 @@ await runSameOriginChecks(ok);
   for (const l of lines) ok(l.replace(/^\s+(ok|FAIL)\s+/, ''), /^\s+ok\s/.test(l));
   ok('the door check ran to the end', r.status === 0 && lines.length > 0, `${r.status} ${(r.stderr ?? '').slice(-400)}`);
 }
+// Story Kit (16 Nov): a Mog of a hometown story world through the real build route (a stand-in model on 127.0.0.1) and
+// the gate with Oakland's published town table; its own process and throwaway folder, as the door check
+{
+  console.log('\nStory Kit: a hometown world\'s Mog (scripts/storykit-hometown-mog-check.ts, its own process)');
+  const { spawnSync } = await import('node:child_process');
+  const r = spawnSync(process.execPath, ['--import', './scripts/ts-resolve.mjs', 'scripts/storykit-hometown-mog-check.ts'], { encoding: 'utf8', timeout: 180_000 });
+  const lines = `${r.stdout ?? ''}`.split('\n').filter((l) => /^\s+(ok|FAIL)\s/.test(l));
+  for (const l of lines) ok(l.replace(/^\s+(ok|FAIL)\s+/, ''), /^\s+ok\s/.test(l));
+  ok('the hometown Mog check ran to the end', r.status === 0 && lines.length > 0, `${r.status} ${(r.stderr ?? '').slice(-400)}`);
+}
 
 console.log(`\n${failures ? `${failures} FAILED` : 'all checks passed'}\n`);
 process.exit(failures ? 1 : 0);
