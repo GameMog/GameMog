@@ -50,7 +50,7 @@ with `diet/build.mjs` and its `node_modules`; default `.scratch/tools/gltf`), `F
 default `MogCity/` in the checkout), `FORGE_MH_TARGETS` and `FORGE_MH_BASE` (MakeHuman's targets and `base.obj`),
 `FORGE_GAMEMOG`, and `CHROME_LOCK_MODULE` (a shared one-Chrome lock, where a machine has one).
 
-**To play one,** it goes through the store like any world: a draft (`POST /api/storykit/drafts`), sealed, framed on
+**To play one,** it goes through the store like any world: a draft (opened by the build, or by the owner with `POST /api/storykit/drafts`), sealed, framed on
 Mog City as `<mc>/?pack=<site>/storykit/f/<sha256>.json&host=<site>&game=<id>`. Locally `STORYKIT_MC_ORIGIN` names a
 Mog City dev server. Mog City's runner, its test switches (`autopilot`, `autoanswer`, `autochoose`, `skipscenes` ...)
 and its runs live in Mog City's repo (`wagmi/storyrun/`, `tools/storyrun/`).

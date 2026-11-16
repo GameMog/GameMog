@@ -67,6 +67,10 @@ export async function POST(req: Request) {
     // (the store's size guard, lib/storykit-store.ts storeGuard: refused here too, before a slot is taken or anything is spent)
     const full = storeGuard(storyStore());
     if (full) return NextResponse.json({ error: full }, { status: 507 });
+    // (and its draft caps, lib/storykit-store.ts room(): a story build opens its draft only after the writer's paid pass,
+    // so a store at LIMITS.open open drafts or LIMITS.perDay today refuses the build here, at the door)
+    const busy = storyStore().room();
+    if (busy) return NextResponse.json({ error: busy.error }, { status: busy.status });
     if (storyMog) { if (!storyParentPack(from!)) return NextResponse.json({ error: 'The story world you are mogging could not be read.' }, { status: 409 }); }
     else {
       // a hometown (HOMETOWN_TOWNS=on): the picked town, built already (lib/hometown/towns.ts; POST /api/towns builds it),

@@ -577,6 +577,16 @@ await runBuildChecks(ok);
 await runDispatchChecks(ok);
 // Machines (16 Nov): how each machine runs the game, its report kept anonymous and bounded (lib/perf.ts)
 await runPerfChecks(ok);
+// Story Kit (16 Nov): who may open a store draft, and the store's caps asked at the build route's door. Its own process:
+// it runs in a throwaway folder (its own data/) and drives the real routes, so nothing here sees its databases
+{
+  console.log('\nStory Kit: the store\'s door (scripts/storykit-door-check.ts, its own process)');
+  const { spawnSync } = await import('node:child_process');
+  const r = spawnSync(process.execPath, ['--import', './scripts/ts-resolve.mjs', 'scripts/storykit-door-check.ts'], { encoding: 'utf8', timeout: 120_000 });
+  const lines = `${r.stdout ?? ''}`.split('\n').filter((l) => /^\s+(ok|FAIL)\s/.test(l));
+  for (const l of lines) ok(l.replace(/^\s+(ok|FAIL)\s+/, ''), /^\s+ok\s/.test(l));
+  ok('the door check ran to the end', r.status === 0 && lines.length > 0, `${r.status} ${(r.stderr ?? '').slice(-400)}`);
+}
 
 console.log(`\n${failures ? `${failures} FAILED` : 'all checks passed'}\n`);
 process.exit(failures ? 1 : 0);

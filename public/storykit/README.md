@@ -47,7 +47,7 @@ data/storykit/blobs/<first 2 hex>/<sha256>.<ext>   each file once, named by the 
 
 | address | what |
 |---|---|
-| `POST /api/storykit/drafts` `{ pack, parent? }` | gate the pack and open a draft: `{ id, token, limits }`. The token is shown once; only its SHA-256 is kept |
+| `POST /api/storykit/drafts` `{ pack, parent? }` | the owner's session only (a build opens its draft server-side): gate the pack and open a draft: `{ id, token, limits }`. The token is shown once; only its SHA-256 is kept |
 | `PUT /api/storykit/drafts/<id>/files/glb/<cast id>` | a forged person (GLB 2.0; header, length and JSON chunk checked) |
 | `PUT /api/storykit/drafts/<id>/files/voice/<line hash>-<voice key>.ogg` | a voice clip (Ogg or WAV), only for a current line in its speaker's current voice |
 | `PUT /api/storykit/drafts/<id>/files/art/<key-wide, key-square, avatar, head-<cast id>>.jpg` | key art and headshots (.jpg, .webp, .png). `avatar` is the world's round headshot (the homepage's Jump in): its hero straight on over the flat blue key `#3D9BE9`, which the drive's report swaps for the sky's gradient (`lib/portrait-sky.ts`). `work.js` shoots it from the hero's body; one PUT by hand (a better shot) is kept |

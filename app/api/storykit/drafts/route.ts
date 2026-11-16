@@ -1,5 +1,5 @@
 import { storyStore, LIMITS, SHOWCASE_LIMITS } from '@/lib/storykit-store';
-import { storykitOff, json } from '@/lib/storykit-http';
+import { storykitOff, ownerRequest, json } from '@/lib/storykit-http';
 
 export const runtime = 'nodejs';
 
@@ -8,10 +8,14 @@ export const runtime = 'nodejs';
  * everything heavy is made in the creator's browser and stored with the token this returns, which is shown once.
  *   POST /api/storykit/drafts   { pack: <story pack v2>, parent?: <kept draft id, for a Mog> }
  *     -> 201 { id, token, limits, inherited, warnings } | 422 { error, problems } | 429 | 507
- * Off unless STORYKIT=on; refused like a build while NEXT_PUBLIC_BUILDS=off.
+ * Off unless STORYKIT=on; refused like a build while NEXT_PUBLIC_BUILDS=off. Owner only (16 Nov): no page calls it (a
+ * story build opens its draft server-side, lib/storykit-build.ts), and an open door let anyone spend the store's
+ * site-wide caps (60 open, 200 a day) and lock every creator out; the owner's session (app/admin/session.ts) still
+ * opens one by hand, on the dev server too.
  */
 export async function POST(req: Request) {
   const off = storykitOff(req); if (off) return off;
+  if (!ownerRequest(req)) return json({ error: 'Not found.' }, 404);
   if (process.env.NEXT_PUBLIC_BUILDS === 'off') return json({ error: 'Building worlds is coming soon.' }, 503);
   // (the largest pack any world may have, a Mog of a showcase's: the gate holds each pack to its own limit)
   if (Number(req.headers.get('content-length') || 0) > SHOWCASE_LIMITS.pack + 4096) return json({ error: `A story pack is at most ${SHOWCASE_LIMITS.pack} bytes.` }, 413);
