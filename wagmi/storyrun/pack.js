@@ -51,6 +51,26 @@ async function getBytes(url) {
 
 // what the city wears that Mog City draws (dressing.js): a blackout in one of these parts of Manhattan, Christmas, snow,
 // rain. Everything else in a world's dressing (its time, its season, other holidays and weather) leaves the city as it is
+// the hour a world opens at, as a lighting preset of the city's (golden, midday, twilight, midnight) or null (a world
+// that says no time at all: the city's own): its first mission's time (the acts' order, then any left out), else its
+// act's timeline for it, else its dressing's; a dressed world that says none is in daylight. index.js puts the city at
+// it under the gate; wagmi/game.js already as the pack arrives, under the title, so a night world never shows the city
+// in daylight first (the owner, 15 Nov, Cold Harbor: "why did it switch to night view")
+export const HOURS = { dusk: 'twilight', night: 'midnight', day: 'midday', morning: 'golden', dawn: 'twilight' };
+const PRESETS = new Set(['golden', 'midday', 'twilight', 'midnight']);
+export function storyHour(def) {
+  if (!def || typeof def !== 'object') return null;
+  const missions = Array.isArray(def.missions) ? def.missions : [], acts = Array.isArray(def.acts) ? def.acts : [];
+  const byId = new Map(missions.map((m) => [m && m.id, m]));
+  let first = null, act = null;
+  for (const a of acts) { for (const id of (a && a.order) || []) if (byId.has(id)) { first = byId.get(id); act = a; break; } if (first) break; }
+  if (!first && missions[0]) { first = missions[0]; act = acts[0] || null; }
+  const t = first?.time || act?.timeline?.[first?.id]?.time || def.dressing?.time || (def.dressing ? 'day' : null);
+  if (typeof t !== 'string') return null;
+  const id = HOURS[t] || t;
+  return PRESETS.has(id) ? id : null;
+}
+
 export const BLACKOUTS = ['midtown', 'downtown', 'manhattan'];
 export function asksDressing(d) {
   if (!d || typeof d !== 'object') return false;
@@ -298,7 +318,7 @@ export async function load() {
     if (def && def.city === 'hometown' && globalThis.window?.NYC?.townReady) await globalThis.window.NYC.townReady;
     const errs = check(def);
     if (errs.length) throw new Error('refused: ' + errs.slice(0, 4).join('; '));
-    Object.assign(out, { ok: true, hash: h, id: def.id, title: def.title, def });
+    Object.assign(out, { ok: true, hash: h, id: def.id, title: def.title, def, hour: storyHour(def) });
   } catch (err) { out.why = String(err.message || err); }
   if (!out.ok) { console.warn('[storyrun] world refused:', out.why); hostError('load', `the world did not load: ${out.why}`); plainTitle(); return out; }
   applyTheme(out.def);

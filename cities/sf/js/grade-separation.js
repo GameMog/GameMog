@@ -78,6 +78,10 @@ function buildGradeSeparation(scene, network) {
   const done = new Set();
   const lateral = (e, x, z) => (x - e.x0) * e.rx + (z - e.z0) * e.rz;
   const discAt = new Map(); // (package decks) node -> { x, z, y, r, n }: deckEnds()
+  // (a town's window box: its cut-off decks' ends, endBarrier())
+  const EDGE_BOX = (() => { const w = window.NYC.PKG && window.NYC.PKG.window; const b = w && w.full !== false && w.box; return b && [b.x0, b.x1, b.z0, b.z1].every(Number.isFinite) ? b : null; })();
+  const atTownEdge = (n) => !!EDGE_BOX && (Math.abs(n.x - EDGE_BOX.x0) < 1.5 || Math.abs(n.x - EDGE_BOX.x1) < 1.5 || Math.abs(n.z - EDGE_BOX.z0) < 1.5 || Math.abs(n.z - EDGE_BOX.z1) < 1.5);
+  let edgeBarriers = 0, gradeTunnels = 0;
   let linkOnly = 0; // (package decks built from the road graph's links alone: linkDecks())
   const MERGE_GAP = 14;
   const branchy = (n) => (n.in || []).length + (n.out || []).length > 4 || new Set([...(n.in || []), ...(n.out || [])].map((x) => x.name)).size > 1;
@@ -121,6 +125,7 @@ function buildGradeSeparation(scene, network) {
   // dropped tunnel is no through route for traffic, but its decks still stand and the player can drive them. Built
   // from the road graph's links (field [12]) wherever no kept edge's floor already covers the link)
   linkDecks();
+  atGradeTunnels();
   parapets();
   columns();
   // (a package deck's columns: never through another deck or road surface under it. Each stands under its deck's
@@ -333,6 +338,49 @@ function buildGradeSeparation(scene, network) {
     }
   }
 
+  // (a Hometown package's tunnel link that runs at grade: a cut-and-cover road under a building (Long Beach's E Seaside
+  // Way under the Convention Center, S Chestnut Pl). The compiler cut its roadway out over the tunnel's length
+  // (tools/hometown/compile.py ground_lines) and left a curb island's lawn there, but no hill stands over the road, so no
+  // bore is built (road-network.js tunnelOf: null) and the road had grass in it between its pieces, its traffic driving
+  // over the lawn. Its roadway drawn again here, on the island's top, wherever the ground mask has no roadway under it)
+  function atGradeTunnels() {
+    const RG = window.NYC.GEO && window.NYC.GEO.roadGraph, GM = window.NYC.DATA && window.NYC.DATA.groundMask;
+    if (!window.NYC.PKG || !RG || !RG.links || !GM || !GM.mask || !window.NYC.tunnelOf) return;
+    const H = GM.header, M = GM.mask, CURB = 0.15;
+    const road = (x, z) => {
+      const i = Math.floor((x - H.originX) / H.cell), j = Math.floor((z - H.originZ) / H.cell);
+      return i < 0 || j < 0 || i >= H.w || j >= H.h || M[j * H.w + i] === 0 || M[j * H.w + i] === 6;
+    };
+    const pos = [];
+    for (let i = 0; i < RG.nodes.length; i += 2) pos.push({ x: RG.nodes[i], z: RG.nodes[i + 1] });
+    for (const l of RG.links) {
+      const [a, b, , w, , , inner, flags, , , , , elev] = l;
+      if (!(flags & 2) || flags & (8 | 16) || !Array.isArray(elev) || elev.length < 3) continue;
+      const pts = [pos[a]];
+      for (let k = 0; k + 1 < (inner || []).length; k += 2) pts.push({ x: inner[k], z: inner[k + 1] });
+      pts.push(pos[b]);
+      let bore = null;
+      try { bore = window.NYC.tunnelOf({ pts, elev }); } catch (err) { bore = 'err'; }
+      if (bore) continue;
+      const half = Math.max(3, (w > 3 ? w : 9.1) / 2);
+      for (let k = 0; k + 1 < pts.length; k++) {
+        const p = pts[k], q = pts[k + 1], span = Math.hypot(q.x - p.x, q.z - p.z);
+        if (span < 0.5) continue;
+        const dx = (q.x - p.x) / span, dz = (q.z - p.z) / span, rx = -dz, rz = dx;
+        // (1 m stations; a run of them with no roadway under the centreline, one cell more each side)
+        const n = Math.ceil(span), off = [];
+        for (let i = 0; i <= n; i++) { const t = Math.min(span, i); off.push(!road(p.x + dx * t, p.z + dz * t)); }
+        for (let i = 0; i < n; i++) {
+          if (!(off[i] || off[i + 1] || (i > 0 && off[i - 1]) || (i + 2 <= n && off[i + 2]))) continue;
+          const t0 = i, t1 = Math.min(span, i + 1);
+          const at = (t, o) => { const x = p.x + dx * t + rx * o, z = p.z + dz * t + rz * o; return [x, ground(x, z) + CURB + 0.03, z]; };
+          quad(geo.road, at(t0, -half), at(t0, half), at(t1, half), at(t1, -half));
+          gradeTunnels++;
+        }
+      }
+    }
+    if (gradeTunnels) console.info(`[grade] at-grade tunnel roadway: ${gradeTunnels} m`);
+  }
   // A package deck's ends at its graph nodes: floor DISCS at every node where a deck edge stands off the ground (graph
   // nodes and the shape stations at bends alike: the straight floors leave a wedge open on the outside of each bend, and
   // the junction's curves run between them), radius the widest half width there + 1 m
@@ -341,11 +389,34 @@ function buildGradeSeparation(scene, network) {
       if (t < seg.t0 - 1 || t > seg.t1 + 1) continue;
       const [, y] = P(seg, Math.min(seg.t1, Math.max(seg.t0, t)), 0);
       if (y - ground(node.x, node.z) < 0.6) continue;
+      if (atTownEdge(node)) endBarrier(seg, t <= 0 ? Math.max(seg.t0, t) + 0.8 : Math.min(seg.t1, t) - 0.8);
       const r = Math.max(-seg.L, seg.R) + 1;
       const d = discAt.get(node);
       if (!d) discAt.set(node, { x: node.x, z: node.z, y, r, n: 1 });
       else { d.r = Math.max(d.r, r); d.y = (d.y * d.n + y) / (d.n + 1); d.n++; }
     }
+  }
+  // (a Hometown town: a deck whose road the town's window cut off at its edge, tools/hometown/assemble.py: a bridge's
+  // deck stopped in mid-air over the far field, Cold Harbor's Seaside Freeway 45 m up. A road-closed barrier stands
+  // across its end, a crash wall with a striped board on it, and a collider, so no one drives off it; the town's soft
+  // edge, wagmi/world/growing.js, turns the car back before it gets there)
+  function endBarrier(seg, t) {
+    const L = seg.L - 0.3, R = seg.R + 0.3, w = R - L, [cx, y, cz] = P(seg, t, (L + R) / 2);
+    box(geo.concrete, cx, cz, seg.dx, seg.dz, 0.8, w, y - 0.05, y + 1.1);
+    collider(cx, cz, seg.dx, seg.dz, 1.2, w, y - 1, y + 3);
+    // the board over it: yellow and black stripes, both faces, on two posts
+    const YEL = [0.93, 0.72, 0.1], BLK = [0.08, 0.08, 0.08], n = Math.max(2, Math.round(w / 0.9));
+    for (const f of [-0.42, 0.42]) {
+      for (let k = 0; k < n; k++) {
+        const o0 = L + (w * k) / n, o1 = L + (w * (k + 1)) / n;
+        const a = P(seg, t + f * 0.2, o0, 1.3), b = P(seg, t + f * 0.2, o1, 1.3), c = P(seg, t + f * 0.2, o1, 2.0), d = P(seg, t + f * 0.2, o0, 2.0);
+        const col = k % 2 ? BLK : YEL;
+        geo.paint.push({ tri: [...a, ...b, ...c, ...a, ...c, ...d], col });
+        geo.paint.push({ tri: [...a, ...c, ...b, ...a, ...d, ...c], col });
+      }
+    }
+    for (const o of [L + 0.4, R - 0.4]) { const [px, py, pz] = P(seg, t, o); box(geo.concrete, px, pz, seg.dx, seg.dz, 0.14, 0.14, py + 1.1, py + 2.1); }
+    edgeBarriers++;
   }
   // The point t m along a span's edge from its start node, o m to its right, dy m over its floor
   function P(seg, t, o, dy = 0) {
@@ -749,7 +820,8 @@ function buildGradeSeparation(scene, network) {
   };
   const counts = { tunnels: floors.filter((f) => f.kind === 'tunnel').length, bridges: floors.filter((f) => f.kind === 'bridge').length };
   console.info(`[grade] ${counts.tunnels} tunnel bores, ${counts.bridges} bridge decks, ${highwayLanes.length} highway lanes, ${colliders.length} colliders` +
-    (decks ? `, ${decks} package decks (${linkOnly} off the traffic network), ${floors.length - counts.tunnels - counts.bridges - decks} deck discs, ${bents} column bents` : ''));
+    (decks ? `, ${decks} package decks (${linkOnly} off the traffic network), ${floors.length - counts.tunnels - counts.bridges - decks} deck discs, ${bents} column bents` : '') +
+    (edgeBarriers ? `, ${edgeBarriers} road-closed barriers at the town's edge` : ''));
   return { group, colliders, highwayLanes, floorAt, roofAt, carveAt, onDeckAt, floors };
 }
 

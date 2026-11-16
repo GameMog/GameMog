@@ -134,7 +134,7 @@
       // (San Francisco's own modules from cities/sf/js; the ones both cities share as they are (the people, the touch
       // and pad controls, the cameras with their hill clearance, the culling, the lamps) from js/. Not SF's settings
       // dialog or its robotaxi ride: Mog City's pause menu and Dan's car are the game's)
-      const v = '20261115-r13';
+      const v = '20261115-r13b';
       const sf = (f) => `./cities/sf/js/${f}?v=${v}`, shared = (f) => `./js/${f}?v=${v}`;
       // (a Hometown package: its own geodata.js (window.NYC.GEO, PLACE_DATA and PKG, tools/hometown/compile.py) in
       // place of San Francisco's geodata and places, then the same engine)
@@ -188,7 +188,7 @@
         sf('main.js')
       ];
     })() : (() => {
-      const assetVersion = '20261115-r13';
+      const assetVersion = '20261115-r13b';
       return [
         './js/nyc-geodata.js',
         './js/city-config.js',
@@ -486,7 +486,7 @@
        over the city until the gate (or the mission) is up, so the sandbox's own camera and HUD never show first. On the
        gate's paths a start made on it is kept: the start gate (wagmi/mission/ui.js) adopts it, takes its place, and
        fades its still out over the live city once that is ready. It goes by itself 25 s after the city is up if
-       nothing took it) -->
+       nothing took it; a story world's (?pack=) waits for its gate, 120 s at most) -->
   <div id="wg-boot" aria-hidden="true"><div class="wg-boot-pic"></div><div class="wg-boot-bar top"></div><div class="wg-boot-bar bot"></div><div class="wg-boot-veil"></div>
     <div class="wg-boot-fx"><i class="leak"></i><i class="glow"></i><i class="flash"></i><i class="streak"></i><i class="mote m1"></i><i class="mote m2"></i><i class="grain"></i><i class="vig"></i></div>
     <div class="wg-boot-title"><div class="wg-boot-logo" data-t="MOG CITY"><span style="--x:-3">M</span><span style="--x:-2">O</span><span style="--x:-1">G</span> <b><span style="--x:1">C</span><span style="--x:2">I</span><span style="--x:3">T</span><span style="--x:4">Y</span><i class="g" aria-hidden="true"><i><span>C</span><span>I</span><span>T</span><span>Y</span></i></i></b></div><div class="wg-boot-rule"></div><div class="wg-boot-tag"><span style="--x:-9">U</span><span class="k" style="--x:-8">n</span><span style="--x:-7">f</span><span style="--x:-6">i</span><span style="--x:-5">n</span><span style="--x:-4">i</span><span style="--x:-3">s</span><span style="--x:-2">h</span><span style="--x:-1">e</span><span style="--x:0">d</span> <span style="--x:2">B</span><span style="--x:3">u</span><span style="--x:4">s</span><span style="--x:5">i</span><span style="--x:6">n</span><span style="--x:7">e</span><span style="--x:8">s</span><span style="--x:9">s</span></div></div>
@@ -501,7 +501,16 @@
       const t = setInterval(() => {
         if (!window.__NYC_APP || !window.__NYC_APP.ready) return;
         clearInterval(t); H.classList.add('wg-load-done'); setTimeout(() => load.remove(), 900);
-        setTimeout(() => { if (!T.adopted) boot.remove(); }, 25000);
+        // (a story world, ?pack=: held until its gate takes it, however long its game takes to load after the city (on
+        // a slow machine its modules took over two minutes), so a slow load never shows the sandbox (its time-of-day
+        // bar, its camera) between the title and the gate; a world that was refused or whose story runner failed lets
+        // it go as before, 25 s on, and nothing holds it past 10 minutes)
+        const story = /[?&]pack=/.test(location.search), t0 = performance.now();
+        const drop = setInterval(() => {
+          if (T.adopted || !boot.isConnected) { clearInterval(drop); return; }
+          const dt = performance.now() - t0, W = window.WAGMI, P = W && W.pack;
+          if (dt >= 25000 && (!story || (P && !P.ok) || (W && W.storyFailed)) || dt >= 600000) { clearInterval(drop); boot.remove(); }
+        }, 500);
       }, 100);
       if (!H.classList.contains('wg-t')) { load.remove(); return; }
       // (the title's type asked for at once; when it is in, for the timings, and the lettering's arrival let go: html.wg-type,
@@ -883,6 +892,9 @@
         const t = T.townFromQuery(MC_Q);
         if (!t) throw new Error('not a town address');
         const b = await T.loadTown(t);
+        // (its decks' profiles mended before anything reads them: a bridge's deck pulled down to the water mid-span lifted
+        // back onto its span, wagmi/world/deck-repair.js; the build itself as it was stored)
+        try { const R = (await import('./wagmi/world/deck-repair.js')).repairDecks(b.GEO); window.NYC.DECK_REPAIR = R; if (R.lifted.length) console.info('[town] decks mended', R.lifted.length); } catch (e) { console.warn('[town] decks', e); }
         Object.assign(window.NYC, { GEO: b.GEO, PLACE_DATA: b.PLACE_DATA, PKG: b.PKG, BASE: t.base, TOWN: t });
         // (a growing town, &tv=: its far tiles by store key from GameMog's public store, and the district's edge, the
         // swap to the whole town and the time-to-first-drive beacons, wagmi/world/growing.js; nothing of it without tv)
@@ -896,7 +908,10 @@
       }).catch((e) => { bootError('This town could not be loaded. Try again.'); console.warn('[town]', MC_TOWN, String(e && e.message || e)); });
     } else if (pkgAt >= 0) {
       const g = addCityScript(nycAppScripts[pkgAt]);
-      g.onload = () => { for (const src of nycAppScripts.slice(pkgAt + 1)) addCityScript(src); };
+      g.onload = () => {
+        const go = () => { for (const src of nycAppScripts.slice(pkgAt + 1)) addCityScript(src); };
+        import('./wagmi/world/deck-repair.js').then((R) => { window.NYC.DECK_REPAIR = R.repairDecks(window.NYC.GEO); }).catch((e) => console.warn('[pkg] decks', e)).then(go);
+      };
       g.onerror = () => {
         bootError(`No city package "${MC_PKG}" here. Compile it with tools/hometown/compile.py --id ${MC_PKG}.`);
         console.warn('[pkg] no package', MC_PKG);

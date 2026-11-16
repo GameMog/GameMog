@@ -7,8 +7,8 @@
 // is made safe here: a car with no door cut (none built) keeps the no-op setDoor; no yoke (its own wheel turns in its
 // update).
 //   buildSheetCar(THREE, sheet) -> rs (or throws: the roadster then)
-//   fitSheet(car, rs)           the city's car entity's numbers from the sheet (tune.js: body box, axle, mass, chase
-//                               framing, pace, brakes, handling), in place of the roadster's
+//   fitSheet(car, rs)           the city's car entity's numbers from the sheet (tune.js: body box, axle, mass, pace,
+//                               brakes, handling), in place of the roadster's; its chase framing Mog City's (mogFraming)
 import { buildVehicle } from './vehicles/build-vehicle.js';
 import { buildFleetCar, fleetModelReady } from '../fleet-car.js';
 
@@ -50,10 +50,29 @@ export function setClass(car, vclass) {
   return car;
 }
 
+// the chase camera's framing for any car the player drives: Mog City's own car view (wagmi/game.js, the owner's 4 Nov
+// framing of Dan's car: 5.58 m back, 2.05 m up, a 58 degree lens). The owner, 15 Nov: "all games should have initial MOG
+// CITY car view unless specified differently in the build". A sheet's tune keeps its own feel of speed (the lens kick,
+// its top, the shake); only a tall body (a van, a truck: over 1.6 m) sits the lens a little higher and further back by
+// as much as it stands taller, so its roof doesn't fill the frame. A sheet that names its own framing, camera:
+// { distance, height, fov } (the build's choice; the Story Kit never writes it by itself), has that.
+export const MOG_FRAMING = Object.freeze({ distance: 5.58, height: 2.05, fov: 58, pull: 0.002 });
+export function mogFraming(T = {}, sheet = null, h = 0) {
+  const own = sheet && sheet.camera && typeof sheet.camera === 'object' ? sheet.camera : null;
+  const num = (v, lo, hi) => (typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi ? v : null);
+  const tall = Math.max(0, (h || 0) - 1.6);
+  const distance = num(own?.distance, 2, 20) ?? +(MOG_FRAMING.distance + Math.min(1.2 * tall, 0.9)).toFixed(2);
+  const height = num(own?.height, 0.5, 10) ?? +(MOG_FRAMING.height + Math.min(0.86 * tall, 1.2)).toFixed(2);
+  const fov = num(own?.fov, 30, 100) ?? MOG_FRAMING.fov;
+  return { chaseDistance: distance, chaseHeight: height, chase: { ...(T.chase || {}), fov, pull: MOG_FRAMING.pull } };
+}
+const bodyHeight = (T, rs) => (T && T.body && typeof T.body.top === 'number' ? T.body.top : rs && typeof rs.height === 'number' ? rs.height : 0);
+
 export function fitSheet(car, rs) {
   const T = rs.tune || {};
   const pick = (o, keys) => Object.fromEntries(keys.filter((k) => o[k] != null).map((k) => [k, o[k]]));
-  Object.assign(car, pick(T, ['body', 'axle', 'mass', 'chaseDistance', 'chaseHeight', 'chase', 'topSpeed', 'boostSpeed', 'accel', 'boostAccel', 'rolling', 'drag', 'coast', 'brake', 'boostBrake']));
+  Object.assign(car, pick(T, ['body', 'axle', 'mass', 'topSpeed', 'boostSpeed', 'accel', 'boostAccel', 'rolling', 'drag', 'coast', 'brake', 'boostBrake']));
+  Object.assign(car, mogFraming(T, rs.sheet || null, bodyHeight(T, rs)));
   if (T.handling) car.handling = { ...T.handling };
   car.label = rs.label || car.label; car.dial = null;   // (its real mph on the HUD, js/main.js)
   setClass(car, vehicleClass(rs.sheet || null));
@@ -102,6 +121,7 @@ export function wearRide(THREE, car, sheet) {
     w.group.visible = true;
     const T = w.tune || {};
     for (const k of WORN_KEYS) if (T[k] != null) car[k] = T[k];
+    Object.assign(car, mogFraming(T, sheet, bodyHeight(T, w)));   // (Mog City's car view, as fitSheet)
     if (T.handling) car.handling = { ...T.handling };
     car.label = w.label || sheet.label || car.label; car.dial = null;
     setClass(car, vehicleClass(sheet));

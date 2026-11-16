@@ -1392,5 +1392,5 @@ function buildRoadDebug(net) {
   return lines;
 }
 
-Object.assign(window.NYC, { buildRoadNetwork, buildRoadDebug, CROSSWALK, edgeY, edgeGrade, curveY, boreY, edgeArc, linkPoint, deckOf });
+Object.assign(window.NYC, { buildRoadNetwork, buildRoadDebug, CROSSWALK, edgeY, edgeGrade, curveY, boreY, edgeArc, linkPoint, deckOf, tunnelOf });
 })();

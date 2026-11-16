@@ -422,7 +422,15 @@ export function createSets(W, { cast, castName, heroName, idleOf = () => null })
         for (const P of S.people.values()) { place(S, P); pose(S, P); }
       }
       // (the pipelines built now, not on the set's first frame: each set's materials under its own lights)
-      for (const S of sets.values()) { S.cam.position.set(0, 1.6, 3); S.cam.lookAt(0, 1.2, 0); try { await renderer.compileAsync(S.scene, S.cam); } catch (e) { console.warn('[storyrun] set compile', e); } }
+      // (loadfix: for the target the set is drawn into, the city's scene pass (main.js warm(): its colour, normal and
+      // metalRough attachments, its samples), the frames held meanwhile. Compiled for the canvas, the hair's cards came
+      // out with one output for the pass's three, a pipeline WebGPU rejects (renderPipeline_hair: 'targets[1]'), and
+      // nothing was ready for the set's real first frame. Straight onto the canvas when the set is drawn so (direct))
+      for (const S of sets.values()) {
+        S.cam.position.set(0, 1.6, 3); S.cam.lookAt(0, 1.2, 0);
+        try { if (app.warm && !direct) await app.warm(S.scene, { scene: S.scene, camera: S.cam }); else await renderer.compileAsync(S.scene, S.cam); }
+        catch (e) { console.warn('[storyrun] set compile', e); }
+      }
     },
     use(id) {
       const S = id ? sets.get(id) : null;

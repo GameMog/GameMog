@@ -1056,6 +1056,12 @@ export function createRunner(ctx) {
     }
     // (its sets, stood up and compiled before the first shot; the street round the hero held clear of traffic)
     if (o.sets && Object.keys(o.sets).length) try { await setsOf().prepare(o.sets); } catch (err) { console.warn('[storyrun] opening: sets', err); }
+    // (loadfix: its people, the hero and his car compiled for the city's frame before the first shot (main.js warm()):
+    // on their first frame they stalled the opening for seconds, a frozen picture under the voices; on WebGL 2 a minute)
+    try {
+      const E = cm.entities || {}, objs = [...staged.map((n) => cast.get(n)?.root), E.person?.mesh, E.car?.mesh].filter(Boolean);
+      if (W.app?.warm) await W.app.warm(objs);
+    } catch (err) { console.warn('[storyrun] opening: warm', err); }
     // (the hero stays where the world's wide shots are framed on him, by his car, and the traffic is held off him: the
     // people who talk are in the sets)
     const free = holdStreet();

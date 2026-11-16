@@ -81,9 +81,17 @@ function createQuality() {
   const choice = asTier(saved) || 'auto';
   const tier = override || (choice === 'auto' ? 'high' : choice);
   const q = {
-    tier, choice, auto: 'high', override, backend: 'webgpu', next: tier,
+    tier, choice, auto: 'high', override, backend: navigator.gpu ? 'webgpu' : 'webgl2', next: tier,
     // (auto: the frame times settle it once the city is up, see the loop)
     measuring: !override && choice === 'auto',
+    // (loadfix) once the renderer is up: on three's WebGL 2 backend Auto is the low tier, and stays it (no measuring:
+    // its pick could turn the shadows and reflections back on); a chosen tier is kept
+    settle(isWebGPU) {
+      q.backend = isWebGPU ? 'webgpu' : 'webgl2';
+      if (isWebGPU) return;
+      q.measuring = false;
+      if (!q.override && q.choice === 'auto') q.tier = q.auto = q.next = 'low';
+    },
     set(c) {
       const v = c === 'high' || c === 'low' ? c : 'auto';
       try { if (v === 'auto') localStorage.removeItem(GFX_KEY); else localStorage.setItem(GFX_KEY, v); } catch (e) { /* private mode */ }
@@ -129,22 +137,27 @@ async function initApp() {
     loadingStatus.textContent = LOADING_TEXT;
   }
 
-  // No WebGPU (or no adapter): the city can't run (its terrain, fog and crowd are WebGPU-only), so Mog City's card says
-  // so and offers New York, which runs on WebGL 2 too (sf-hud.js showNeedsWebGPU). ?webgpu=0 shows it anywhere
-  let gpuOk = !!navigator.gpu && new URLSearchParams(location.search).get('webgpu') !== '0';
-  if (gpuOk) { try { gpuOk = !!(await navigator.gpu.requestAdapter()); } catch { gpuOk = false; } }
-  if (!gpuOk) {
-    window.__MC_NO_WEBGPU = true;
-    if (loadingOverlay) loadingOverlay.classList.add('hidden');
-    window.NYC.showNeedsWebGPU();
-    return;
-  }
+  // (loadfix) The backend: WebGPU where the browser has it and hands out an adapter, three's WebGL 2 backend everywhere
+  // else, so the city always runs: no WebGPU (an older browser, a blocked GPU), Firefox (its WebGPU's stricter shader
+  // checks reject the shadow and reflection shaders, so it draws WebGL 2 unless ?webgpu=1), and a page reloaded after
+  // the WebGPU device was lost (sessionStorage mc.gpu.lost, see onDeviceLost below). ?webgpu=0 forces WebGL 2, ?webgpu=1
+  // WebGPU. On WebGL 2 the graphics are the low tier (no shadows, no reflections, no sidewalk crowd: its poses live in a
+  // storage buffer). Only a browser with neither shows the card (sf-hud.js showNeedsWebGPU)
+  const gpuParam = new URLSearchParams(location.search).get('webgpu');
+  const isFirefox = /\bFirefox\//.test(navigator.userAgent);
+  let lostBefore = false;
+  try { lostBefore = sessionStorage.getItem('mc.gpu.lost') === '1'; } catch { /* storage blocked */ }
+  let gpuOk = !!navigator.gpu && gpuParam !== '0' && (gpuParam === '1' || (!isFirefox && !lostBefore));
+  if (gpuOk) { try { gpuOk = !!(await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' })); } catch { gpuOk = false; } }
+  const quality0 = window.NYC.quality;
+  if (!gpuOk) quality0.backend = 'webgl2';
 
   // 1. Initialize Three.js WebGPURenderer with 32-bit float reversedDepthBuffer
   const renderer = new THREE.WebGPURenderer({
-    antialias: true,
+    antialias: gpuOk,
     powerPreference: 'high-performance',
     reversedDepthBuffer: true,
+    forceWebGL: !gpuOk,
     trackTimestamp: new URLSearchParams(location.search).has('gpuTiming')
   });
   renderer.setPixelRatio(1.0);
@@ -166,9 +179,56 @@ async function initApp() {
     initTimings.push(`${label} ${Math.round(now - initMark)}ms`);
     initMark = now;
   };
+  // (loadfix) The build gives the browser the main thread back between its steps: the loading screen and the title
+  // gate keep animating, a tap on them is taken, and no browser calls the page unresponsive ("page is slowing down",
+  // whose Stop left the HUD over no city). The terrain's regional patches are on while it waits, as anything else
+  // running then expects (they are off only while the street network is built on the core's own terrain)
+  const breathe = async () => {
+    const T = window.NYC.Terrain, was = T.patchesEnabled;
+    T.patchesEnabled = true;
+    await (globalThis.scheduler?.yield ? globalThis.scheduler.yield() : new Promise((r) => setTimeout(r, 0)));
+    T.patchesEnabled = was;
+  };
 
-  await renderer.init();
+  try {
+    await renderer.init();
+  } catch (e) {
+    // (loadfix) neither WebGPU nor WebGL 2: the one case the city can't run
+    console.error('[gfx] no renderer', e);
+    window.__MC_NO_WEBGPU = true;
+    if (loadingOverlay) loadingOverlay.classList.add('hidden');
+    window.NYC.showNeedsWebGPU('none');
+    return;
+  }
   markInit('renderer');
+  // (loadfix) the backend it got (three falls back to WebGL 2 by itself when the WebGPU device can't be had): on WebGL 2
+  // the low tier, set before anything is built (traffic.js's crowd and trees.js read it as they build)
+  const isWebGPU = !!(renderer.backend && renderer.backend.isWebGPUBackend);
+  window.NYC.quality.settle(isWebGPU);
+  renderer.shadowMap.enabled = window.NYC.quality.tier !== 'low';
+  if (!isWebGPU) {
+    const label = document.querySelector('.brand-subtitle')?.firstChild;
+    if (label && label.nodeType === Node.TEXT_NODE) label.textContent = label.textContent.replace('WebGPU', 'WebGL 2');
+  }
+  // (loadfix) A lost GPU device (a driver reset, Windows' GPU timeout on a long frame, the GPU process dying) or a lost
+  // WebGL context: three stops drawing, but the game, its HUD and its voices would run on over a frozen or black
+  // frame. Stop everything instead and reload once on WebGL 2 (sessionStorage mc.gpu.lost: the story's own save brings
+  // the player back), or, if that was WebGL 2 already, say so with a Reload button
+  let deviceLost = false;
+  renderer.onDeviceLost = (info) => {
+    if (deviceLost) return;
+    deviceLost = true;
+    renderer._isDeviceLost = true;
+    console.error('[gfx] device lost', info && (info.message || info.reason));
+    try { renderer.setAnimationLoop(null); } catch { /* already stopped */ }
+    window.dispatchEvent(new CustomEvent('mc:gpu-lost', { detail: { backend: isWebGPU ? 'webgpu' : 'webgl2' } }));
+    try { for (const ctx of window.__wgCtx || []) ctx.close?.().catch?.(() => {}); } catch { /* no audio */ } // (index.html keeps every context)
+    try { document.querySelectorAll('audio,video').forEach((m) => m.pause()); } catch { /* none */ }
+    const first = isWebGPU && !lostBefore && gpuParam !== '1';
+    if (first) { try { sessionStorage.setItem('mc.gpu.lost', '1'); } catch { /* storage blocked */ } }
+    window.NYC.showNeedsWebGPU(first ? 'reloading' : 'lost');
+    if (first) setTimeout(() => location.reload(), 1500);
+  };
 
   // 2. Build Scene & Physical Atmospheric Sky / PMREM IBL / 4096x4096 Shadow Lighting
   const scene = new THREE.Scene();
@@ -187,16 +247,20 @@ async function initApp() {
   // 3. Build the city: ground & curb islands, buildings, street details & traffic
   const cityGrid = buildSFGround(scene);
   markInit('cityGrid');
+  await breathe();
   const region = buildSFRegion(scene);
   markInit('region');
+  await breathe();
   const { colliders: landmarkColliders } = buildLandmarks(scene);
   // The Golden Gate and Bay bridges (sf-bridges.js, P5.2); the Bay Bridge's decks carry the I-80 freeway (grade-separation.js)
   const bridges = window.NYC.buildSFBridges(scene);
   window.NYC.bridgeDeckAt = bridges.bridgeDeckAt;
   landmarkColliders.push(...bridges.colliders);
   markInit('landmarks');
+  await breathe();
   const cityBlocks = buildCityBlocks(scene, { sf: true });
   markInit('blocks');
+  await breathe();
   const allColliders = [...landmarkColliders, ...cityBlocks.colliders, ...(cityGrid.colliders || [])];
 
   // The road network (road-network.js), for the street furniture & the traffic built on it. Buildings turned along
@@ -207,10 +271,13 @@ async function initApp() {
   window.NYC.Terrain.patchesEnabled = false;
   const roadNetwork = buildRoadNetwork(cityGrid.sidewalks, [...cityGrid.footprints, ...allColliders.filter((c) => !c.obb)]);
   markInit('roads');
+  await breathe();
   const streetDetails = buildSFStreetDetails(scene, roadNetwork, allColliders);
   markInit('streetDetails');
+  await breathe();
   const trafficSystem = createTrafficSystem(scene, cityGrid.sidewalks, [], { network: roadNetwork });
   markInit('traffic');
+  await breathe();
   // Tunnels, bridges and freeway decks (grade-separation.js): their floors for the player and the cameras, their walls
   // and columns as colliders, the freeways' lanes for the highway traffic
   const gradeSeparation = roadNetwork
@@ -219,6 +286,7 @@ async function initApp() {
   window.NYC.GradeSeparation = gradeSeparation;
   if (cityGrid.terrain) cityGrid.terrain.rebuild(); // the portals carved
   markInit('grade');
+  await breathe();
   const highwayTraffic = createHighwayTraffic(scene, gradeSeparation.highwayLanes);
   // Streetcars, light rail & cable cars on the Muni route runs (sf-transit.js, P4.6)
   const transit = window.NYC.buildSFTransit(scene);
@@ -229,6 +297,7 @@ async function initApp() {
   if (trafficSystem.network) buildRoadPaint(scene, trafficSystem.network);
   window.NYC.Terrain.patchesEnabled = true;
   markInit('roadPaint');
+  await breathe();
 
   // 4. Initialize Third-Person Controllers (Person, Car, Cyclist, Helicopter) & Multi-Camera System
   // Outline buildings retain their exact rendered polygon; compound landmark parts remain separate.
@@ -237,6 +306,7 @@ async function initApp() {
   cameraSystem.onResize(...renderSize());
   const touchControls = new TouchControls(controllerManager);
   markInit('controllers');
+  await breathe();
 
   // Island-wide static geometry: chunk & distance-cull the small props, shadow stand-ins for the big casters
   // (scene-culling.js)
@@ -245,15 +315,20 @@ async function initApp() {
     .filter(Boolean);
   const cullingStats = setupSceneCulling(scene, cullingRoots, lightingSystem.sunLight.shadow);
   markInit('culling');
+  await breathe();
 
   // Small InstancedMeshes (<= 1000 instances) keep their matrices in uniform buffers that three.js
   // re-uploads on every draw of every pass (~2.5 MB/frame with the shadow cascades, stalling the GPU queue).
   // Storage attributes are only uploaded when instanceMatrix.needsUpdate is set.
-  scene.traverse((object) => {
-    if (object.isInstancedMesh) {
-      object.instanceMatrix = new THREE.StorageInstancedBufferAttribute(object.instanceMatrix.array, 16);
-    }
-  });
+  // (loadfix: on WebGPU only, as New York's js/main.js: three's WebGL 2 backend can't read an instance's matrix from a
+  // storage buffer)
+  if (isWebGPU) {
+    scene.traverse((object) => {
+      if (object.isInstancedMesh) {
+        object.instanceMatrix = new THREE.StorageInstancedBufferAttribute(object.instanceMatrix.array, 16);
+      }
+    });
+  }
 
   // 5. TSL RenderPipeline with Half-Res Screen Space Reflections (SSRNode), Bloom & Filmic Toning
   //    SSR skips pixels with zero metalness, so fading it out with distance spares the far facades
@@ -713,7 +788,12 @@ async function initApp() {
     }
   });
 
-  window.addEventListener('resize', () => {
+  // (Mog City) The renderer took the window's size at the start, before `await renderer.init()` and the city's data
+  // (loadCityData, seconds on a first visit); a resize while those waited (a game page's Play takes its frame full
+  // screen while the city still loads) went to no listener, and the canvas kept the old, smaller size in a corner of
+  // the full screen until the next resize (ESC and back). So the listener is fitted once now, to whatever size the
+  // window has by the time it exists.
+  const fitToWindow = () => {
     cameraSystem.onResize(...renderSize());
     renderer.setSize(...renderSize(), !benchmarkResolution);
     placeModeIndicator();
@@ -721,7 +801,9 @@ async function initApp() {
       mapSystem.resizeFullCanvas();
       mapSystem.renderFullMap();
     }
-  });
+  };
+  window.addEventListener('resize', fitToWindow);
+  fitToWindow();
 
   // Initialize default selection, overridable from the URL (debug & screenshot harness, see debugParams below):
   // ?mode=person|car|cyclist|heli  ?time=golden|midday|twilight|midnight  ?teleport=x,z,headingDeg  ?hud=0
@@ -821,6 +903,7 @@ async function initApp() {
     selectCamera,
     cycleCamera,
     selectTime,
+    warm, // (loadfix: the game's late arrivals' shaders built ahead of their first frame, see warm())
     getFps: () => currentFps,
     debug: {
       // draw calls, triangles & live counts for the probe (tools/dev/probe.mjs)
@@ -946,6 +1029,33 @@ async function initApp() {
   await precompileShaders();
   markInit('compile');
 
+  // (loadfix) warm(objects): what the game adds once the city runs (a story's cast, its hero, a set piece) compiled for
+  // the very target the city's frame draws them into (the scene pass: its attachments, its samples), not the canvas, the
+  // frames held meanwhile (the loop draws nothing while warming: compileAsync() renders into the scene pass's target).
+  // Without it every new material compiled on its first frame: on WebGPU one long stall per person, on WebGL 2 (where a
+  // program links synchronously) a frozen minute as a story's opening began. Default: every top-level object of the
+  // scene that isn't the static city. { scene, camera }: another scene drawn through the same pass (a story's set)
+  let warming = 0;
+  async function warm(objects, { scene: where = scene, camera = cameraSystem.camera } = {}) {
+    const city = new Set(cullingRoots);
+    const list = (objects ? [].concat(objects) : scene.children.filter((o) => !city.has(o) && !o.userData.shadowProxy)).filter((o) => o && o.isObject3D);
+    if (!list.length || deviceLost) return;
+    warming++;
+    const rt0 = renderer.getRenderTarget(), mrt0 = renderer.getMRT ? renderer.getMRT() : null;
+    try {
+      for (const o of list) {
+        await nextTask();
+        renderer.setRenderTarget(scenePass.renderTarget);
+        renderer.setMRT(sceneMRT);
+        try { await renderer.compileAsync(o, camera, where); } catch (e) { console.warn('[warm]', e); }
+      }
+    } finally {
+      renderer.setRenderTarget(rt0);
+      renderer.setMRT(mrt0);
+      warming--;
+    }
+  }
+
   // 6. Animation Loop
   let lastTime = performance.now();
   let elapsed = 0;
@@ -1008,6 +1118,7 @@ async function initApp() {
   renderer.setAnimationLoop((now) => {
     const rawDt = (now - lastTime) * 0.001;
     lastTime = now;
+    if (warming) return; // (loadfix: warm() holds the frame, see above)
     if (paused) {
       if (pauseDirty) { region.update(cameraSystem.camera, elapsed); lightingSystem.update(cameraSystem.currentPos, elapsed); renderPipeline.render(); pauseDirty=false; }
       return;
@@ -1051,15 +1162,35 @@ async function initApp() {
       // First frame = pipeline warm-up behind the loading screen, for what precompileShaders() can't reach (the shadow
       // map passes): with frustum culling off, every visible material's pipelines compile now instead of stalling the
       // first time the camera turns towards it (one chunk / shadow stand-in per shared pipeline is enough)
-      const culled = [];
+      // (loadfix) Only one object per pipeline is drawn unculled (its materials, kind of mesh, vertex layout and shadow
+      // flags), the others of that pipeline hidden for the frame: drawing the whole town at once, every building, every
+      // terrain and ground tile into every shadow cascade, was a frame long enough on a modest GPU (Windows' 2 s GPU
+      // timeout) to lose the device, which left the game running over a black or frozen frame
+      const culled = [], hidden = [], seen = new Set();
+      const pipelineKey = (o) => {
+        if (!(o.isMesh || o.isLine || o.isPoints || o.isSprite) || o.children.length || !o.geometry) return null;
+        const g = o.geometry, mats = [].concat(o.material || []);
+        return [mats.map((m) => m.uuid).join(','), o.type, !!o.isInstancedMesh, !!o.isSkinnedMesh, !!o.isBatchedMesh,
+          o.castShadow, o.receiveShadow, !!g.index, Object.keys(g.morphAttributes || {}).join(','),
+          Object.entries(g.attributes).map(([k, a]) => `${k}:${a.itemSize}:${a.array?.constructor?.name}:${!!a.isInstancedBufferAttribute}`).sort().join(',')].join('|');
+      };
       scene.traverse((o) => {
         if (o.frustumCulled && !o.userData.sharesPipelineWith) {
+          const key = pipelineKey(o);
+          if (key !== null) {
+            if (seen.has(key)) {
+              if (o.visible) { o.visible = false; hidden.push(o); }
+              return;
+            }
+            seen.add(key);
+          }
           culled.push(o);
           o.frustumCulled = false;
         }
       });
       renderPipeline.render();
       for (const o of culled) o.frustumCulled = true;
+      for (const o of hidden) o.visible = true;
       markInit('warmup');
     }
     renderPipeline.render();
@@ -1089,6 +1220,9 @@ async function initApp() {
       // compiled), i.e. until the city is actually on screen
       const device = renderer.backend.device;
       Promise.resolve(device && device.queue.onSubmittedWorkDone()).catch(() => {}).then(() => {
+        // (loadfix) a device lost on the way (onSubmittedWorkDone resolves on a lost device too) is never "ready": the
+        // card of onDeviceLost stays, not the start screen over no city
+        if (deviceLost || renderer._isDeviceLost) return;
         markInit('gpu');
         console.log(`[init] ${initTimings.join(', ')}`);
         initTimings = null;

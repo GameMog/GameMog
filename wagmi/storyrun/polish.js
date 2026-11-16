@@ -43,6 +43,9 @@ import {
 const DETAIL = new URL('../../assets/people/detail/', import.meta.url).href;
 const DMODE = typeof location === 'undefined' ? '' : (/[?&]detail=([a-z0-9]+)/.exec(location.search) || [])[1] || '';
 const tiles = new Map(), pending = [];
+// (loadfix: the low tier (WebGL 2, a weak GPU, or picked) draws no scanned tiles at all, as ?detail=0: no pore,
+// wrinkle or weave textures to fetch, no extra samplers in the skin's and cloth's shaders)
+const noDetail = () => DMODE === '0' || (typeof window !== 'undefined' && window.NYC?.quality?.tier === 'low');
 const bigTier = () => typeof window === 'undefined' || (window.NYC?.quality?.tier || 'high') === 'high';
 function tile(name, hi, lo, wrap = true) {
   const f = `${name}-${bigTier() ? hi : lo}.jpg`;
@@ -121,7 +124,7 @@ export function polishBody(inner, { msaa = typeof window === 'undefined' || wind
       n = r8 ? r8Skin(m) : skinOf(m, lines.get(m) || null, !!head, ageOf(inner, m)); out.skin++;
     } else if (eyes && !r8 && m.name === 'eyes' && m.map && !m.isMeshPhysicalMaterial) {
       n = wetEyes(m); out.eyes++;
-    } else if (cloth && !r8 && DMODE !== '0' && fabricOf(m) && sizeOf(o.geometry) > 0.06) {
+    } else if (cloth && !r8 && !noDetail() && fabricOf(m) && sizeOf(o.geometry) > 0.06) {
       n = weave(m, o, fabricOf(m)); out.weave = (out.weave || 0) + 1;
     }
     if (n !== m) n.userData = { ...m.userData, ...n.userData, polished: true };
@@ -425,7 +428,7 @@ function skinOf(m, line, banded, age = 0.35) {
   const warm = vec3(...S.warm).sub(1).mul(tt.mul(mid)).add(1);
   n.colorNode = vec4(max(c.mul(gn).sub(Y2).mul(sat).add(Y2), float(0)).mul(warm), materialColor.a);
   const rough0 = m.roughnessMap ? texture(m.roughnessMap).g.mul(m.roughness ?? 1) : float(m.roughness ?? 0.6);
-  if (DMODE === '0') {
+  if (noDetail()) {
     // (the relief: the pores over the geometry's own normal)
     n.normalNode = normalMap(pt.rgb.add(pt2.rgb).mul(0.5), vec2(S.pores.scale, S.pores.scale));
     // (the roughness: the map's, the pores rougher, the T-zone glossier)

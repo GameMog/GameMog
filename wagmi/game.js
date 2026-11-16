@@ -28,6 +28,15 @@ const app = await new Promise((res) => { const t = setInterval(() => { const a =
 const cm = app.controllerManager, person = cm.entities.person, car = cm.entities.car;
 const WAGMI = (window.WAGMI = { app, person, car, world });
 if (PACK) WAGMI.pack = PACK;
+// (a story world's own hour as soon as the city is up: its opening's, storyrun/pack.js storyHour, so a night world's first
+// look at the city is at night, never the city's Golden Hour cut to night once the story has loaded (its modules can take
+// minutes on a slow machine; index.html holds the title over it till then). Not before the city is ready: a change of
+// hour while its shaders are still being compiled left a material's pipeline invalid (an empty WGSL output struct).
+// storyrun/index.js sets the same again under its gate)
+if (PACK?.ok && PACK.hour) {
+  const hour = PACK.hour;
+  (function atReady() { if (!app.ready) { setTimeout(atReady, 100); return; } try { app.selectTime(hour); } catch (err) { console.warn('[storyrun] hour', err); } })();
+}
 // (the drive mode, engine or ALL ELECTRIC, on WAGMI from the start: Q and the speed panel's badge, below, use it)
 installDriveMode(WAGMI);
 
@@ -1323,5 +1332,5 @@ WAGMI.trailerEarly = import('./trailer.js').then((m) => m.createTrailer(WAGMI)).
 // ?start=chase in any city: free roam opened on a chase, wagmi/chase-start.js)
 const ROAM = !PACK && (world.id !== 'ny' || CHASE_START);
 for (const m of PACK ? ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './jack.js', './storyrun/index.js'] : ROAM ? ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './jack.js', './city.js'] : ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './intro.js', './mission/m2.js', './mission/m3.js']) {
-  try { const mod = await import(m); if (mod.install) await mod.install(WAGMI); } catch (err) { console.error('[wagmi]', m, err); }
+  try { const mod = await import(m); if (mod.install) await mod.install(WAGMI); } catch (err) { console.error('[wagmi]', m, err); if (m === './storyrun/index.js') WAGMI.storyFailed = true; }
 }

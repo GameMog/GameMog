@@ -43,6 +43,13 @@ export function windowBox(P) {
   const b = w.box;
   return [b.x0, b.z0, b.x1, b.z1].every(Number.isFinite) && b.x1 > b.x0 && b.z1 > b.z0 ? { x0: b.x0, z0: b.z0, x1: b.x1, z1: b.z1 } : null;
 }
+// a whole town's window box (PKG.window.full true), its play area's edge, or null
+export function townEdge(P) {
+  const w = P && P.window;
+  if (!w || w.full !== true || !w.box) return null;
+  const b = w.box;
+  return [b.x0, b.z0, b.x1, b.z1].every(Number.isFinite) && b.x1 > b.x0 + 2 * BAND && b.z1 > b.z0 + 2 * BAND ? { x0: b.x0, z0: b.z0, x1: b.x1, z1: b.z1 } : null;
+}
 // m inside the box (negative: outside), and the outward normal of the nearest edge
 export function edgeOf(b, x, z) {
   const d = [[x - b.x0, -1, 0], [b.x1 - x, 1, 0], [z - b.z0, 0, -1], [b.z1 - z, 0, 1]];
@@ -175,7 +182,25 @@ export function startGrowing({ town, PKG, fetchFn = globalThis.fetch, href = glo
       state.restored = true;
     })(0);
   }
-  if (!box) return state;
+  if (!box) {
+    // ---- a whole town: its edge held too, by the same soft boundary (no line, no swap). Past the window there is only
+    // the far field, no roads: a deck the window cut off (Cold Harbor's Seaside Freeway, 45 m up at the town's west edge)
+    // ends at a barrier (cities/sf/js/grade-separation.js), and the car is turned back before it gets there
+    const edge = townEdge(PKG);
+    state.edge = edge;
+    if (edge) {
+      let lastT = performance.now();
+      (function frame() {
+        requestAnimationFrame(frame);
+        const t = performance.now(), dt = Math.min(0.1, (t - lastT) / 1000); lastT = t;
+        if (W.WAGMI?.paused || W.WAGMI?.cutscene) return;
+        const cm = app()?.controllerManager, ent = cm?.getActiveEntity?.();
+        if (!ent || !ent.position || cm.activeMode === 'helicopter') return;
+        state.band = softBoundary(edge, ent, cm.activeMode, dt);
+      })();
+    }
+    return state;
+  }
 
   // ---- a district: traffic and people inside the window less CLIP, the line, the boundary, the poll and the swap
   N().townWindow = clipRect(box);

@@ -28,7 +28,7 @@ import { createHud } from './hud.js';
 import { createRunner } from './runner.js';
 import { tell, result as tellResult, log as hostLog } from './host.js';
 import { showTitle, plainTitle, isOwn, ownTitle } from './title.js';
-import { asksDressing, asksApocalypse } from './pack.js';
+import { asksDressing, asksApocalypse, HOURS } from './pack.js';
 import { passCard } from './rules.js';
 import { createDirector } from '../mission/cine.js';
 
@@ -141,7 +141,7 @@ export async function install(W) {
   outBesideCar(W);
   // (a world that says no time at all, in its dressing or its first mission, is in daylight)
   const firstTime = (() => { const first = order[0]?.def; return first?.time || order[0]?.act?.timeline?.[first?.id]?.time || def.dressing?.time || (def.dressing ? 'day' : null); })();
-  { const T = { dusk: 'twilight', night: 'midnight', day: 'midday', morning: 'golden', dawn: 'twilight' }, id = firstTime; try { if (id) W.app.selectTime(T[id] || id); } catch {} }
+  { const T = HOURS, id = firstTime; try { if (id) W.app.selectTime(T[id] || id); } catch {} }
   const gate = Q.has('nogate') ? null : ui.gate({ when: () => W.app.ready, onStart: () => { W.audio?.unlock?.(); sfx.unlock(); }, fine: 'Community entertainment project. Have fun!',
     // (a Hometown town: its map data credited on the title, OSMF's startup screen for a game, cities/pkg/js/pkg-hud.js)
     credit: () => (window.NYC?.PKG ? (window.NYC.PKG_CREDIT ? `Map data ${window.NYC.PKG_CREDIT.short}` : null) : '') });

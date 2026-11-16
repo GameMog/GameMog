@@ -6,10 +6,14 @@
 //   createAction(W, juice, def) -> { on, slam({ kicker, title, sub }), sting(name), stepFx(d) -> undo, chase(ch, d) -> stop,
 //                                    cliff({ kicker, text, sub }, secs), frame(shot, at) -> { A, B, LA, LB, fov } | null }
 //   world.cine:   { action: true | false }   (left out: on in a hometown world, off everywhere else)
+//                 { carCam: true }           (a step's own `cam` applies; left out, Mog City's car view throughout)
 //   a step's own: sting  'siren' | 'screech' | 'roar' | 'boom' | 'hit' | 'whoosh' | 'crash'  (a sound as the step starts)
 //                 shake  0..1      (the camera jolted as it starts)
 //                 slowmo 0.2..2    (real seconds of slow motion as it starts: the moment it all goes wrong)
-//                 cam    'low' | 'hood'  (the follow camera for the step: the low action angle, or the driver's view)
+//                 cam    'low' | 'hood'  (the follow camera for the step: the low action angle, or the driver's view;
+//                                 only in a world whose build asks for step cameras, cine.carCam: true. The owner,
+//                                 15 Nov: "all games should have initial MOG CITY car view unless specified differently
+//                                 in the build": without it every step drives in Mog City's own chase view)
 //   a pursuit's:  name   (who is on him: the alert's title, 'Ruben's divers'; else 'Police' or 'On your tail')
 //   a mission's:  card: 'slam' | false   (the title slammed in with a hit; in an action world every mission's is)
 //   an act end's: cliff: { kicker, text, sub }   (after its card: a hard cut to black on the hook into the next act)
@@ -19,10 +23,11 @@
 export const STINGS = { siren: ['siren'], screech: ['squeal', { dur: 0.9, gain: 0.32 }], roar: ['roar'], boom: ['boom', { gain: 0.45 }], hit: ['hit', { gain: 0.35 }], whoosh: ['whoosh', { gain: 0.3 }], crash: ['boom', { gain: 0.5 }, 'squeal', { dur: 0.5, gain: 0.25 }] };
 export const CAMS = { low: 'action', hood: 'pov' };
 export const FRAMES = ['ots', 'close', 'push', 'react', 'two', 'low', 'wide'];
+export const carCamOn = (def) => !!def && !!def.cine && typeof def.cine === 'object' && def.cine.carCam === true;
 export const actionOn = (def) => !!def && (def.cine && typeof def.cine === 'object' && typeof def.cine.action === 'boolean' ? def.cine.action : def.city === 'hometown');
 
 export function createAction(W, juice, def) {
-  const on = actionOn(def), sfx = W.sfx, app = W.app, car = W.car;
+  const on = actionOn(def), stepCams = on && carCamOn(def), sfx = W.sfx, app = W.app, car = W.car;
   const css = document.createElement('style');
   css.textContent = `
 #sr-slam{position:fixed;inset:0;z-index:61;pointer-events:none;display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:0}
@@ -73,7 +78,7 @@ export function createAction(W, juice, def) {
   if (on) requestAnimationFrame(speedLoop);
 
   const api = {
-    on,
+    on, stepCams,
     // the mission's title slammed in: a white pop, a boom under a whoosh, the camera kicked
     slam(o, secs = 2.6) { show(o, secs, false); pop(0.35); sfx?.play?.('whoosh', { gain: 0.26, dur: 0.45 }); setTimeout(() => sfx?.play?.('boom', { gain: 0.42 }), 140); setTimeout(() => jolt(0.32), 150); },
     sting: play,
@@ -85,7 +90,7 @@ export function createAction(W, juice, def) {
       if (typeof d.slowmo === 'number' && d.slowmo > 0) juice.slow(Math.min(2, d.slowmo), 0.32);
       const preset = typeof d.cam === 'string' && CAMS[d.cam];
       const cs = app?.cameraSystem;
-      if (!preset || !cs?.setCameraPreset) return null;
+      if (!preset || !stepCams || !cs?.setCameraPreset) return null;
       const was = cs.activePresetId; cs.setCameraPreset(preset);
       return () => { try { if (cs.activePresetId === preset) cs.setCameraPreset(was || 'chase'); } catch {} };
     },

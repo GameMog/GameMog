@@ -719,7 +719,11 @@ async function initApp() {
     }
   });
 
-  window.addEventListener('resize', () => {
+  // (Mog City) The renderer took the window's size at the start, before `await renderer.init()`; a resize while that
+  // waited (a game page's Play takes its frame full screen while the city still loads) went to no listener, and the
+  // canvas kept the old, smaller size in a corner of the full screen until the next resize (ESC and back). So the
+  // listener is fitted once now, to whatever size the window has by the time it exists.
+  const fitToWindow = () => {
     cameraSystem.onResize(window.innerWidth, window.innerHeight);
     renderer.setSize(window.innerWidth, window.innerHeight);
     placeModeIndicator();
@@ -727,7 +731,9 @@ async function initApp() {
       mapSystem.resizeFullCanvas();
       mapSystem.renderFullMap();
     }
-  });
+  };
+  window.addEventListener('resize', fitToWindow);
+  fitToWindow();
 
   // Initialize default selection
   selectMode('car');
