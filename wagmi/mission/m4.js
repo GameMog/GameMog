@@ -725,7 +725,7 @@ function createMission(W, { keep = false, quiet = false } = {}) {
     'The Suits caught you.': ['Sprint straight down South St to the ', { helicopter: 'yellow' }, ' at its closed end: the Suits start at the entrance behind you.'],
     'Dan got knocked out.': ["Don't stop to fight: the ", { helicopter: 'yellow' }, ' is the way out.'],
     'You missed the last ferry.': ['Walk the esplanade along the river, the route on the Radar: the ', { 'FERRY landing': 'yellow' }, ' is at Vesey St.'],
-    'You flew off course.': ['Follow the ', { 'yellow rings': 'yellow' }, ' west across downtown to the riverfront: the line on the Radar points the way.'],
+    'You flew off course.': ['Follow the ', { 'yellow rings': 'yellow' }, ' west to Battery Park City, by the Hudson: the line on the Radar points the way.'],
     'You left the pavilion.': ['The three panels are inside the pavilion, on South St.'],
   };
   const RETRY = { bench: "Retry: from Rook's bench", seaport: 'Retry: to the Seaport', recon: "Retry: the artist's mark", grab: 'Retry: the unveiling', run: 'Retry: the run', flight: 'Retry: the flight', ferry: 'Retry: the last ferry' };

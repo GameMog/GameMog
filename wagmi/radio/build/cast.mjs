@@ -25,7 +25,7 @@ export const CAST = {
   Brick: { voice: 'Rocko (English (US))', rate: 198, pbas: 44, who: 'the Suits\' bouncer at Fiona\'s rally: an earpiece cord, a radio', direction: 'Loud, jumpy, a hype man turned bouncer.' },
   Bea: { voice: 'Samantha', rate: 170, who: 'Ms. Bea: a retired Bronx science teacher in her sixties who runs the Occupy camp\'s kitchen and its people\'s mic; JPBank took her house', direction: 'Warm, unhurried, commanding: a teacher who has never needed a microphone.' },
   Camp: { voice: 'Reed (English (US))', rate: 180, who: 'the Occupy JPBank camp in Washington Square: forty-odd people answering the people\'s mic', direction: 'A crowd, eight voices together in the build: ragged, outdoors, cheerful and loud.' },
-  // (not voiced yet: ready for his lines)
+  // (synthesised since 15 Nov, tts/picks.json: this macOS voice is only the fallback where the local renderer is missing)
   Rook: { voice: 'Reed (English (US))', rate: 205, pbas: 56, who: 'a junior on JPBank\'s security team who wants out (Mission 4)', direction: 'Nervous, quick, apologetic.' },
   default: { voice: 'Reed (English (US))', rate: 190, who: '', direction: '' },
 };
@@ -109,6 +109,10 @@ export const TWEAK = {
   'intro-dan-who-is-this': { take: 4 },
   'm2-dan-hi-jane-hi-moon': { take: 4 },
   'm2-dan-rook-the-getting-weird': { take: 4 },
+  // (rook-D's first takes of these drifted 4-5 semitones off his 170 Hz: 226, 224 and 126 Hz)
+  'm4-rook-owns-the-high-artwork': { take: 4 },
+  'm4-rook-you-came-alone': { take: 4 },
+  'm4-rook-i-was-in-that': { take: 4 },
   'm2-dan-mack-moneybags-did-his': { take: 8 },
   // (the story pass of 27 Oct: the first clones that drifted more than about 4 semitones off their voice, each given the
   // take of takes 4, 8 and 12 nearest its voice: .scratch/polish/voices/takes.mjs, check/rawf0.mjs)

@@ -3,8 +3,7 @@
 Every spoken line in the game, for a voice service or actors. Generated from the game's own source by
 `node wagmi/radio/build/voices.mjs` (do not edit by hand: change the words in the game, then rebuild).
 
-**Rook is still a placeholder** made with the macOS speech voices (Apple's licence allows those for
-personal, non-commercial use only), meant to be replaced by recordings or a synthesised voice before going public. Synthesised: Dan (`dan-A`), Jane (`jane-B`), Mr. Big (`mrbig-D`), Knox (`knox-A`), Mack (`mack-B`), Fiona (`fiona-A`), Brick (`brick-A`), Dash (`dash-A`), Gears (`gears-D`), Bea (`bea-A`), Camp (`camp-B`); see below.
+**Every voice in the build is synthesised** with open models (no macOS placeholder is left), until real recordings replace them. Synthesised: Dan (`dan-A`), Jane (`jane-B`), Mr. Big (`mrbig-D`), Knox (`knox-A`), Mack (`mack-B`), Fiona (`fiona-A`), Brick (`brick-A`), Dash (`dash-A`), Gears (`gears-D`), Bea (`bea-A`), Camp (`camp-B`), Rook (`rook-D`); see below.
 
 ## How to deliver
 
@@ -21,12 +20,12 @@ personal, non-commercial use only), meant to be replaced by recordings or a synt
 
 A speaker can be voiced by an open text-to-speech model instead of the macOS placeholders: Qwen3-TTS 12Hz (a voice
 designed from words, then cloned for every line) or Kokoro-82M, both Apache-2.0, run locally. The candidates the
-owner auditioned are in `wagmi/radio/build/tts-voices.mjs`: Dan `dan-A` .. `dan-C`; Jane `jane-A` .. `jane-C`; Mr. Big `mrbig-A` .. `mrbig-E`; Knox `knox-A`, `knox-B`; Mack `mack-A`, `mack-B`; Gears `gears-A` .. `gears-E`; Fiona `fiona-A`, `fiona-B`; Dash `dash-A`, `dash-B`; Brick `brick-A`, `brick-B`; Bea `bea-A`, `bea-B`; Camp `camp-A`, `camp-B`; Cal `cal-A` .. `cal-C`; Nina `nina-A` .. `nina-C`; June `june-A` .. `june-G`; Hollis `hollis-A` .. `hollis-C`; Vale `vale-A` .. `vale-C`; Pike `pike-A` .. `pike-C`; Warden `warden-A` .. `warden-C` (the audition files and the designs nobody
+owner auditioned are in `wagmi/radio/build/tts-voices.mjs`: Dan `dan-A` .. `dan-C`; Jane `jane-A` .. `jane-C`; Mr. Big `mrbig-A` .. `mrbig-E`; Knox `knox-A`, `knox-B`; Mack `mack-A`, `mack-B`; Gears `gears-A` .. `gears-E`; Fiona `fiona-A`, `fiona-B`; Dash `dash-A`, `dash-B`; Brick `brick-A`, `brick-B`; Bea `bea-A`, `bea-B`; Camp `camp-A`, `camp-B`; Rook `rook-A` .. `rook-E`; Cal `cal-A` .. `cal-C`; Nina `nina-A` .. `nina-C`; June `june-A` .. `june-G`; Hollis `hollis-A` .. `hollis-C`; Vale `vale-A` .. `vale-C`; Pike `pike-A` .. `pike-C`; Warden `warden-A` .. `warden-C` (the audition files and the designs nobody
 picked are in `.scratch/voices/`). To give each pick to every line of that
 speaker, in one command (today's picks):
 
 ```sh
-node wagmi/radio/build/voices.mjs --tts dan-A,jane-B,mrbig-D,knox-A,mack-B,fiona-A,brick-A,dash-A,gears-D,bea-A,camp-B     # the picked names
+node wagmi/radio/build/voices.mjs --tts dan-A,jane-B,mrbig-D,knox-A,mack-B,fiona-A,brick-A,dash-A,gears-D,bea-A,camp-B,rook-D     # the picked names
 ```
 
 - It records the pick in `wagmi/radio/build/tts/picks.json` (later builds keep using it: a changed line is synthesised
@@ -69,7 +68,7 @@ node wagmi/radio/build/voices.mjs --tts dan-A,jane-B,mrbig-D,knox-A,mack-B,fiona
 | Camp | the Occupy JPBank camp in Washington Square: forty-odd people answering the people's mic | A crowd, eight voices together in the build: ragged, outdoors, cheerful and loud. | camp-B: a crowd of Kokoro voices (kokoro-crowd-of-8-tight) |
 | Brick | the Suits' bouncer at Fiona's rally: an earpiece cord, a radio | Loud, jumpy, a hype man turned bouncer. | brick-A: Qwen3-TTS (qwen-gravel-bouncer) |
 | Bea | Ms. Bea: a retired Bronx science teacher in her sixties who runs the Occupy camp's kitchen and its people's mic; JPBank took her house | Warm, unhurried, commanding: a teacher who has never needed a microphone. | bea-A: Qwen3-TTS (qwen-teacher-low-alto) |
-| Rook | a junior on JPBank's security team who wants out (Mission 4) | Nervous, quick, apologetic. | Reed (English (US)) (placeholder) |
+| Rook | a junior on JPBank's security team who wants out (Mission 4) | Nervous, quick, apologetic. | rook-D: Qwen3-TTS (qwen-light-tenor-nervous) |
 
 ## Opening cutscene
 

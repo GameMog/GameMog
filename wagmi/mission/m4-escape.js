@@ -18,7 +18,7 @@ import { createHud } from '../storyrun/hud.js';
 import { talk, stand, WHITE, BLUE, ACID } from './m4-scenes.js';
 import { poser, holdPhone, releasePhone } from './m3-scenes.js';
 import { storyHeli } from './m4-heli.js';
-import { TAKEOFF, LAND, GATE, DOCK, ESPLANADE, RUNWAY, FERRY, GANGWAY, buildLanding, buildFerry, buildWake, buildRings } from './m4-ferry.js';
+import { TAKEOFF, LAND, GATE, DOCK, ESPLANADE, RUNWAY, FERRY, GANGWAY, buildLanding, buildFerry, buildWake, buildRings, buildPad } from './m4-ferry.js';
 import { SPOTS, PAV, at as atPav } from './m4-set.js';
 import { S as story } from '../story/index.js';
 
@@ -45,6 +45,12 @@ function landingBeacon() {
 }
 const smooth = (x) => { x = clamp(x); return x * x * (3 - 2 * x); };
 const RUN_SECS = 30, FERRY_SECS = 150, CLIMB = 60;
+// how near the ring's middle a set-down counts (the owner's play, 15 Nov: 14 m out, nothing happened but one line): the
+// ring painted at LAND.r, a set-down anywhere on its lit edge and a little past it taken
+const LAND_OK = LAND.r + 6;
+// the way to a place in words, from him (x east, z south): 'north-east'
+const compass = (dx, dz) => ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'][((Math.round(Math.atan2(dx, -dz) / (PI / 4)) % 8) + 8) % 8];
+const far = (d) => (d >= 1000 ? `${(d / 1000).toFixed(1)} km` : `${Math.round(d / 5) * 5} m`);
 // the way from the pavilion's street out to the helicopter, and the way it faces (west, to the riverfront)
 const HEAD = Math.atan2(LAND.x - TAKEOFF.x, LAND.z - TAKEOFF.z);
 const RUN_CHAT = [['Suits', 'HE TOOK THE THING'], ['Mr. Big', "Nobody calls the police. It's embarrassing."]];
@@ -87,11 +93,12 @@ export function createEscape(W, K) {
   }
 
   /* ------------------------------------------------------------ the sets -- */
-  const E = W._m4esc || (W._m4esc = { landing: null, ferry: null, wake: null, rings: null, hud: null });
+  const E = W._m4esc || (W._m4esc = { landing: null, ferry: null, wake: null, rings: null, hud: null, pad: null });
   function sets() {
     if (!E.landing) E.landing = buildLanding(W);
     if (!E.ferry) { E.ferry = buildFerry(W); E.wake = buildWake(W, E.ferry); }
     if (!E.hud) E.hud = createHud(ui);
+    if (!E.pad) E.pad = buildPad(W, gy(LAND.x, LAND.z));
     return E;
   }
   // the helicopter's sound and its rotors, every frame of the escape (off with it)
@@ -160,26 +167,56 @@ export function createEscape(W, K) {
   }
 
   // the landing ring's marker on screen (a DOM tag over the frame; the HUD's own yellow)
-  let lmEl = null; const _lm = new THREE.Vector3();
-  function landMark(on, dl = 0) {
+  let lmEl = null; const _lm = new THREE.Vector3(), _lc = new THREE.Vector3();
+  // a point in the camera's own space (in front of it is z < 0, on WebGPU's reversed depth and WebGL2's alike)
+  const camSpace = (p, cam) => { cam.updateMatrixWorld(); return _lc.copy(p).applyMatrix4(cam.matrixWorldInverse); };
+  function landMark(on, dl = 0, bc = null) {
     if (!on) { if (lmEl) lmEl.style.display = 'none'; return; }
     if (!lmEl) {
       lmEl = document.createElement('div'); lmEl.className = 'wg-landmark';
       lmEl.style.cssText = 'position:fixed;left:0;top:0;z-index:3;pointer-events:none;display:none;transform:translate(-50%,-50%);text-align:center;font:700 15px/1 "Barlow Condensed",sans-serif;letter-spacing:.08em;color:#FFC93C;text-shadow:0 1px 3px rgba(0,0,0,.9)';
-      lmEl.innerHTML = '<div class="a" style="width:0;height:0;margin:0 auto 4px;border-left:9px solid transparent;border-right:9px solid transparent;border-top:13px solid #FFC93C;filter:drop-shadow(0 1px 2px rgba(0,0,0,.8))"></div><span></span>';
+      lmEl.innerHTML = '<div class="a" style="width:0;height:0;margin:0 auto 4px;border-left:7px solid transparent;border-right:7px solid transparent;border-top:18px solid #FFC93C;filter:drop-shadow(0 1px 2px rgba(0,0,0,.8))"></div><span></span>';
       document.body.appendChild(lmEl);
     }
     // (the look review's round 9: held at the frame's foot it sat on the subtitle; its bottom edge is the subtitles' top)
     const cam = app.cameraSystem.camera, w = innerWidth, h = innerHeight, m = 56, mb = Math.max(m, h * 0.25);
-    _lm.set(LAND.x, gy(LAND.x, LAND.z) + 1, LAND.z).project(cam);
-    let x = (_lm.x + 1) / 2 * w, y = (1 - _lm.y) / 2 * h; const behind = _lm.z > 1;
-    if (behind) { x = w - x; y = h - m; }
-    if (behind) y = h - mb;
+    // (the owner's play, 15 Nov: the tag, on the ring 1 m up, and the beacon, raised over it, sat on each other from
+    // overhead and both on the helicopter near in. The tag now hangs under the beacon, its name and distance a
+    // caption to the ring mark, the arrow only when it is held at the frame's edge)
+    if (bc?.visible) _lm.copy(bc.position); else _lm.set(LAND.x, gy(LAND.x, LAND.z) + 1, LAND.z);
+    // (behind the camera is decided in its own space, before the projection: the WebGPU renderer's reversed depth
+    // gives a point behind it a z near 0, not past 1, and a projected point behind is mirrored through the centre.
+    // Behind, the tag goes to the frame's edge on the side the ring lies, its arrow pointing round toward it)
+    const behind = camSpace(_lm, cam).z > -0.1;
+    let x, y;
+    if (behind) {
+      const x0 = w / 2, y0 = (m + h - mb) / 2; let dx = _lc.x, dy = -_lc.y; const n = Math.hypot(dx, dy);
+      if (n < 1e-6) { dx = 0; dy = 1; } else { dx /= n; dy /= n; }
+      // (out along that way past the frame: the edge clamp below sets the tag, and the arrow points along it)
+      x = x0 + dx * 1e5; y = y0 + dy * 1e5;
+    } else { _lm.project(cam); x = (_lm.x + 1) / 2 * w; y = (1 - _lm.y) / 2 * h; }
     const inside = !behind && x > m && x < w - m && y > m && y < h - mb;
-    const cx = Math.min(w - m, Math.max(m, x)), cy = Math.min(h - mb, Math.max(m, y));
-    lmEl.style.display = 'block'; lmEl.style.left = cx + 'px'; lmEl.style.top = cy + 'px';
-    lmEl.querySelector('span').textContent = `${story.t('LAND')} · ${Math.round(dl)} m`;
-    lmEl.querySelector('.a').style.transform = inside ? 'none' : `rotate(${Math.atan2(y - cy, x - cx) * 180 / PI - 90}deg)`;
+    // (close in, the ring, its lights and the prompt say it: the tag is only for finding it, off the frame's edge)
+    if (inside && dl < 50) { lmEl.style.display = 'none'; return; }
+    // (held to the frame's edge along the line from its centre, so the tag sits on the side the arrow points)
+    let cx = x, cy = y;
+    if (!inside) { const x0 = w / 2, y0 = (m + h - mb) / 2, dx = x - x0, dy = y - y0;
+      const t = Math.min(1, Math.abs(dx) > 1e-6 ? (w / 2 - m) / Math.abs(dx) : 1, Math.abs(dy) > 1e-6 ? ((h - mb - m) / 2) / Math.abs(dy) : 1);
+      cx = x0 + dx * t; cy = y0 + dy * t;
+      // (kept off the frame's lower-left column, the Radar and the objective over it: along the foot it slides right
+      // of the Radar, up the left edge it stops over the objective)
+      const r = document.getElementById('minimap-card')?.getBoundingClientRect();
+      if (r && r.width > 0 && cx < r.right + 70 && cy > r.top - 160) {
+        if (cy >= h - mb - 1) cx = r.right + 70; else cy = r.top - 160;
+      } }
+    // (on the frame, under the beacon's ring: its half-height on screen, a sprite of a fixed size, plus a gap)
+    const half = bc?.visible ? bc.scale.y / Math.tan((cam.fov || 60) * PI / 360) * h / 4 : 0;
+    // (a narrow arrow, longer than wide, so the way it points reads at any angle: the first, wider than long, read as
+    // pointing up when it was turned to point down and left)
+    lmEl.style.display = 'block'; lmEl.style.left = cx + 'px'; lmEl.style.top = (inside ? cy + half + 12 : cy) + 'px';
+    lmEl.querySelector('span').textContent = `${story.t('LAND')} · ${far(dl)}`;
+    const a = lmEl.querySelector('.a'); a.style.display = inside ? 'none' : 'block';
+    a.style.transform = inside ? 'none' : `rotate(${Math.atan2(y - cy, x - cx) * 180 / PI - 90}deg)`;
   }
 
   /* ----------------------------------------------------- the phases -- */
@@ -236,7 +273,9 @@ export function createEscape(W, K) {
     },
     // beat 10b: Dan flies, west across downtown, through the guide rings, down into the landing ring
     async flight(fresh) {
-      await K.sets(); sets(); K.light('midnight');
+      // (the riverfront's traffic held from the take-off on, not from the landing: cars drove past the ring under him as
+      // he came in, the shore highway's lanes 11.5 m from its middle)
+      await K.sets(); sets(); K.light('midnight'); riverQuiet(); E.pad.show(true);
       if (fresh || !flying()) { H.park(TAKEOFF.x, TAKEOFF.z, HEAD, 1); heli.position.y = gy(TAKEOFF.x, TAKEOFF.z) + CLIMB; H.board(); }
       heliOn(true); H.rotorTo(1, 0.5);
       const gps = W.gps;
@@ -250,7 +289,12 @@ export function createEscape(W, K) {
       const bc = landingBeacon(); bc.position.set(LAND.x, gL + 6, LAND.z); app.scene.add(bc);
       const target = () => (ri < path.length ? { x: path[ri].x, z: path[ri].z, name: story.t('The next ring') } : { x: LAND.x, z: LAND.z, name: LAND.name });
       const aim = () => { const t = target(); gps.to(t); gps.blip('dest', { x: t.x, z: t.z, kind: 'dest', edge: true, name: t.name }); };
-      ui.objective(['Fly to the ', { riverfront: 'yellow' }, '. Land in the ring.']); aim();
+      // (the owner's play, 15 Nov: "I think it is supposed to be on a seaport but I couldn't find it". He takes off on
+      // the East River waterfront, so 'the riverfront' named where he already was, and the landing was on no map until
+      // the rings were done. Now the place and the way are in the objective, and the landing is blipped, an H, on the
+      // radar and the map, and tagged on the screen with its distance, from the first frame of the flight)
+      ui.objective(['Fly west to ', { 'Battery Park City': 'yellow' }, ', by the Hudson. Land in the ring.']); aim();
+      gps.blip('land', { x: LAND.x, z: LAND.z, kind: 'letter', letter: 'H', edge: true, label: true, name: LAND.name });
       ui.help(['Fly: [W] [S] nose down and up · [A] [D] turn · [SPACE] climb · [Q] down · [SHIFT] faster. Climb over the roofs.'], 11);
       // Jane, one short call at the controls (the car phone's rule, the owner's: Jane calls while he drives; at the
       // controls of the helicopter counts)
@@ -266,11 +310,17 @@ export function createEscape(W, K) {
           ['Dan', WHITE, 'Define gently.'],
         ]);
         ui.caller(null);
+        if (!out) ui.help(['Land in the ', { 'yellow ring': 'yellow' }, ' at Battery Park City: west, on the Hudson riverfront. Follow the ', { 'LAND': 'yellow' }, ' marker.'], 8);
       }).catch(() => ui.caller(null));
       let out = false, landedIn = 0, toldRing = false, showingPav = !!K.S.pav?.shown, zoomed = false;
-      H.prompt(() => (flying() && H.landed && dist(heli.position, LAND.x, LAND.z) < LAND.r ? [story.t('F  ·  Get out'), () => { out = true; }] : null));
+      // (the wrong way: the nearest he has been, and how long he has been flying away from it since)
+      let nearest = Infinity, away = 0, toldWay = false;
+      H.prompt(() => (flying() && H.landed && dist(heli.position, LAND.x, LAND.z) < LAND_OK ? [story.t('F  ·  Get out'), () => { out = true; }] : null));
+      // (its own frame clock: dtNow is the helicopter's, stepped first each frame by heliOn's hook, so read again here it
+      // gave ~0, and the 5 s set-down, the camera's ease on the approach and the wrong-way timer never ran)
+      let fT = K.now();
       const off = K.hook(() => {
-        const dt = dtNow();
+        const t1 = K.now(), dt = Math.min(0.05, (t1 - fT) / 1000); fT = t1;
         if (showingPav && dist(heli.position, K.PAV.x, K.PAV.z) > 600) { showingPav = false; K.showPav(false); }
         E.rings.spin(K.now() / 1000);
         // a ring passed (or flown past toward the riverfront): the next
@@ -286,20 +336,29 @@ export function createEscape(W, K) {
         // (round 5: from 160 m in, nothing on screen showed where to land, only the minimap: a faint beacon is kept,
         // a third of the column, down to 60 m, gone by 30 m where the ring on the ground reads on its own)
         mk.m.fade(Math.max((dl - 160) / 240, 0.5 * Math.max(0, Math.min(1, (dl - 30) / 30))));
-        { const blink = 0.55 + 0.45 * Math.max(0, Math.sin(K.now() / 1000 * 3.4)) ** 2, near = Math.max(0, Math.min(1, (dl - 25) / 35)); bc.material.opacity = blink * near; bc.visible = near > 0.01;
+        { const blink = 0.55 + 0.45 * Math.max(0, Math.sin(K.now() / 1000 * 3.4)) ** 2, near = Math.max(0, Math.min(1, (dl - 40) / 30)); bc.material.opacity = blink * near; bc.visible = near > 0.01;
           // (round 8's review: 136 m out, high, the ring and its beacon lay under the frame's foot behind the riverfront's
           // roofs. The beacon rides up over the ring with his height while he is still far, so it is in the frame from
           // the approach, and comes down onto the ring as he closes in)
+          // (15 Nov: gone by 40 m, not 25: held over the subtitles it rose onto his own fuselage there; the pad's ring and
+          // its lights read on their own that close)
           bc.position.y = gL + Math.max(6, Math.min(70, (heli.position.y - gL) * 0.55 * Math.max(0, Math.min(1, (dl - 40) / 80))));
           // (the look review's round 9: low in the frame it sat on the subtitle. Kept over the subtitles' band (the frame's
           // lower quarter): raised over the ring until it is, as far as his own height)
           const cam = app.cameraSystem?.camera;
-          if (cam) for (let i = 0; i < 12; i++) { _lm.copy(bc.position).project(cam); if (_lm.z > 1 || _lm.y > -0.5 || bc.position.y > heli.position.y) break; bc.position.y += 8; } }
-        if (dl > 3600) fail('You flew off course.');
+          if (cam) for (let i = 0; i < 12; i++) { if (camSpace(bc.position, cam).z > -0.1) break; _lm.copy(bc.position).project(cam); if (_lm.y > -0.5 || bc.position.y > heli.position.y) break; bc.position.y += 8; } }
+        // (the owner, 16 Nov: forgiving. Over Midtown (5.4 km out) is a wrong way, said in words and on the marker, not a
+        // fail; off course only well past it)
+        if (dl > 7000) fail('You flew off course.');
+        // (flown away from it for 8 s, or 2 km out: once, the way back in words; again only after he has turned back)
+        if (dl < nearest) nearest = dl;
+        if (dl > nearest + 60 || dl > 2000) away += dt; else if (dl < nearest + 20) { away = 0; toldWay = false; }
+        if (!toldWay && away > 8) { toldWay = true; ui.help(['Wrong way. ', { 'Battery Park City': 'yellow' }, ' is west, by the Hudson. Follow the ', { 'LAND': 'yellow' }, ' marker.'], 6); nearest = dl; }
         // (the look review's round 6: in the last 150 m the chase camera looks out level over the river and the ring sits
         // under the frame's foot, the objective naming a ring no frame shows. A marker on the ring through the approach:
         // on it where it is in the frame, held to the frame's edge with an arrow where it is not)
-        landMark(dl < 900 && ri >= path.length, dl);
+        // (15 Nov: from the first frame of the flight, not only past the rings and inside 900 m)
+        landMark(!H.landed || dl > LAND_OK, dl, bc);
         // (the look review's round 8: 136 m out the chase camera looked out level over the dark river and the landing
         // ring sat under the frame's foot, only the HUD saying where. On the last approach the camera rises over him a
         // little, looking down past him to the riverfront, the ring and its beacon in the frame; his own look kept if
@@ -312,18 +371,23 @@ export function createEscape(W, K) {
           const zw = on ? 1 + 0.45 * Math.min(1, Math.max(0, (want - 0.3) / 0.38)) : 1;
           if (cs && (on || zoomed) && Math.abs(cs.zoomMultiplier - zw) > 0.005 && !(cs.userOrbitTimer > 0)) { cs.zoomMultiplier += (zw - cs.zoomMultiplier) * k; zoomed = on; } }
         if (flying() && H.landed) {
-          if (dl < LAND.r) { landedIn += dt; if (landedIn > 5) out = true; }
-          else if (!toldRing) { toldRing = true; ui.help(['Set it down inside the ', { 'yellow ring': 'yellow' }, ' on the riverfront.'], 6); }
+          if (dl < LAND_OK) { landedIn += dt; if (landedIn > 5) out = true; }
+          else if (!toldRing) {
+            toldRing = true;
+            // (where it is from him, near: 'The ring is 40 m north-east'; far, the place)
+            if (dl < 400) ui.help([`The ring is ${far(dl)} ${compass(LAND.x - heli.position.x, LAND.z - heli.position.z)}. `, 'Lift off and set it down inside the ', { 'yellow ring': 'yellow' }, '.'], 7);
+            else ui.help(['Set it down inside the ', { 'yellow ring': 'yellow' }, ' at ', { 'Battery Park City': 'yellow' }, ', west by the Hudson.'], 7);
+          }
         } else { landedIn = 0; if (!H.landed) toldRing = false; }
       });
       try { await K.wait(() => out); }
-      finally { off(); if (zoomed && app.cameraSystem) app.cameraSystem.zoomMultiplier = 1; landMark(false); mk.off(); app.scene.remove(bc); bc.material.map.dispose(); bc.material.dispose(); gps.unblip('dest'); gps.to(null); H.prompt(null); E.rings?.dispose(); E.rings = null; }
+      finally { off(); if (zoomed && app.cameraSystem) app.cameraSystem.zoomMultiplier = 1; landMark(false); mk.off(); app.scene.remove(bc); bc.material.map.dispose(); bc.material.dispose(); gps.unblip('dest'); gps.unblip('land'); gps.to(null); H.prompt(null); E.rings?.dispose(); E.rings = null; }
       heli.speed = 0; heli.verticalSpeed = 0; cm.resetInput?.();
     },
     // beat 10c: out on the riverfront, the rotors winding down; LATER · 11:40 PM, the light to midnight
     async landing() {
       // (started here, ?m4=landing, the light was the city's day: night already, as the flight leaves it)
-      await K.sets(); sets(); K.light('midnight'); riverQuiet();
+      await K.sets(); sets(); K.light('midnight'); riverQuiet(); E.pad.show(true);
       W.cutscene = true; ui.cine(true); cm.resetInput?.();
       ui.caller(null); ui.sub(null);
       // (started here, ?m4=landing, the helicopter is still wherever the city had it: set down in the ring first, so
@@ -335,7 +399,7 @@ export function createEscape(W, K) {
       await K.scene(landingScene(W, { say: K.say, H, from: p, pav: K.S.pav }));
       W.cutscene = true; ui.cine(true);
       await ui.fade(1, 0.6);
-      H.rotorTo(0, 0.01); H.quiet();
+      H.rotorTo(0, 0.01); H.quiet(); E.pad.show(false);
       K.light('midnight');
       K.showPav(false); riverQuiet();
       ui.caption('LATER · 11:40 PM', 'Battery Park City', '#FFC93C', 2.6);
@@ -396,7 +460,8 @@ export function createEscape(W, K) {
   function teardown() {
     app.highwayTraffic?.hold?.([]); farDim(false);
     ferryHook?.(); ferryHook = null; heliOn(false);
-    E.landing?.show(false); E.ferry?.show(false); E.wake?.reset(); E.rings?.dispose(); E.rings = null;
+    app.trafficSystem?.hold?.([]);
+    E.landing?.show(false); E.ferry?.show(false); E.pad?.show(false); E.wake?.reset(); E.rings?.dispose(); E.rings = null;
     // (quit off the ferry: on foot at the landing, not standing in the river)
     if (aboard) { onFerry(false); place(W, { dan: [GATE.x + 2, GATE.z - 2, PI] }); }
     H.give();

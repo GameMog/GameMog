@@ -10,6 +10,7 @@
 // the building faces about 23 m apart, open to the sky, cross streets at the north and south ends.
 import * as THREE from 'three/webgpu';
 import { S as story } from '../story/index.js';
+import { LAND, GATE, DOCK } from './m4-ferry.js';
 
 const PI = Math.PI;
 // the artist (fictional, checked against real names): his mark, hidden three times in everything he makes
@@ -36,9 +37,8 @@ export const SPOTS = {
   crowd: at(0, 7),               // the guests, facing the screen
   takeoff: at(0, 38),            // Mr. Big's helicopter, rotors idling at the closed end
 };
-export const LAND = { x: -680, z: 4950, r: 9, name: 'Battery Park City · the riverfront' };
-export const GATE = { x: -603, z: 5238, name: 'The ferry landing · Vesey St' };
-export const DOCK = { x: -640, z: 5246, h: -PI / 2 + 0.36 };
+// (the escape's places: one copy, m4-ferry.js's; this one had drifted, its ring 9 m to the flight's 10)
+export { LAND, GATE, DOCK };
 
 const tex = (c) => { const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; };
 const canvas = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return [c, c.getContext('2d')]; };

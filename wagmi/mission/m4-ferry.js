@@ -7,8 +7,10 @@
 //                                          the rotor's 6.2 m cylinder clear); the street by the pavilion is about 11 m
 //                                          wide between buildings, no room for it
 //                                 LAND     the landing ring on the Battery Park City riverfront: the open riverside
-//                                          block (paved, 0.22 m), 24 m from the shore highway, 50 m inside the shore,
-//                                          nothing standing within 6.2 m
+//                                          block (paved, 0.22 m), 50 m inside the shore, open to the sky (15 Nov: no
+//                                          collider within 40 m, nothing over 0.6 m in a 361-ray grid over +-27 m);
+//                                          the shore highway's lanes at grade 11.5-22 m west of its middle, between it
+//                                          and the river (held from the flight on: m4-escape.js riverQuiet)
 //                                 GATE     the ferry landing's gate at Vesey St, on the esplanade 7 m inside the shore
 //                                          clamp (he walks to it; the float and the ferry are past the clamp: cutscenes)
 //   ESPLANADE                     the walk from the ring to the gate along the river (300 m), for the route
@@ -22,6 +24,9 @@
 //   buildWake(W, ferry)           the wake: a ribbon of churned water from the stern's recent positions, just over
 //                                 the water (polygon offset), spreading and fading with age, tinted for the night
 //   buildRings(W, pts)            the flight's guide rings: yellow hoops in the air, one lit at a time
+//   buildPad(W, y)                the landing ring on the ground: a painted circle and an H on the paving, and a ring of
+//                                 small warm flush lights round it (a helipad's perimeter lights, emissive paint only),
+//                                 so the place reads at night from the approach
 import * as THREE from 'three/webgpu';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { S as story } from '../story/index.js';
@@ -494,5 +499,34 @@ export function buildRings(W, pts) {
     on(i) { rings.forEach((m, k) => { m.visible = k >= i; m.material.opacity = k === i ? 0.95 : 0.3; }); },
     spin(t) { rings.forEach((m, k) => { m.scale.setScalar(1 + 0.03 * Math.sin(t * 3 + k)); }); },
     dispose() { app.scene.remove(g); geo.dispose(); },
+  };
+}
+
+/* ----------------------------------------------------------------- pad -- */
+// the landing ring on the ground at LAND, its top at y (the paving): the owner's play of 15 Nov, "I missed where exactly
+// to land the helicopter": the yellow ring the marker draws did not read at night from the air. A painted circle and an
+// H, faint (paint under the lamps), and LIGHTS round it, low flush lights a few cm high, warm, which the night's bloom
+// picks out as a dotted circle from far off; nothing over 0.15 m, so nothing to land on or trip over
+export function buildPad(W, y) {
+  const app = W.app, g = new THREE.Group(); g.name = 'm4-landing-pad'; g.visible = false; app.scene.add(g);
+  g.position.set(LAND.x, y, LAND.z);
+  const K = kit();
+  const paint = new THREE.MeshStandardMaterial({ color: '#D9D4C6', roughness: 0.9, metalness: 0, emissive: new THREE.Color('#D9D4C6'), emissiveIntensity: 0.12, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  const can = std('#2A2C30', { roughness: 0.7, metalness: 0.5 }), lamp = glow('#FFC86A', 2.2);
+  // (the circle: a band 0.45 m wide just inside the ring's edge; the H 5 m tall in the middle)
+  const band = new THREE.RingGeometry(LAND.r - 0.55, LAND.r - 0.1, 64); band.rotateX(-PI / 2);
+  K.put(paint, band, 0, 0.012, 0);
+  for (const [w, d, x, z] of [[0.7, 5, -1.6, 0], [0.7, 5, 1.6, 0], [2.5, 0.7, 0, 0]]) { const p = new THREE.PlaneGeometry(w, d); p.rotateX(-PI / 2); K.put(paint, p, x, 0.014, z); }
+  // (16 lights on the ring's edge: a dark can, a lit lens on top)
+  for (let i = 0; i < 16; i++) {
+    const a = i / 16 * PI * 2, x = Math.sin(a) * LAND.r, z = Math.cos(a) * LAND.r;
+    K.cyl(can, 0.17, 0.1, x, 0.05, z, 10);
+    K.cyl(lamp, 0.12, 0.04, x, 0.12, z, 10);
+  }
+  K.into(g, { shadow: false });
+  return {
+    group: g,
+    show(on) { g.visible = !!on; },
+    dispose() { app.scene.remove(g); g.traverse((o) => { if (o.isMesh) o.geometry.dispose(); }); },
   };
 }
