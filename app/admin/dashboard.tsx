@@ -49,7 +49,7 @@ export type TownBuilderAdmin = {
   runs?: { problem?: string; inFlight?: number; maxRuns?: number; byState?: Record<string, number>; plan?: { want: number; ready: number } | null;
     lastError?: { status: number; message: string } | null; holdS?: number } | null;
 };
-export type AdminData = { stats: Record<Range, Stats>; worlds: AdminWorld[]; builds: AdminBuild[]; scores: AdminScore[]; active: number; reports: KartReportRow[]; perf?: Record<Range, PerfAdmin> | null; slots: Capacity; loop: DareLoop; mc: Record<Range, McStats>; storykit?: StoryKitAdmin | null; towns?: TownBuilderAdmin | null; storyTowns?: StoryTownRow[] | null };
+export type AdminData = { stats: Record<Range, Stats>; worlds: AdminWorld[]; builds: AdminBuild[]; scores: AdminScore[]; active: number; reports: KartReportRow[]; perf?: PerfAdmin | null; slots: Capacity; loop: DareLoop; mc: Record<Range, McStats>; storykit?: StoryKitAdmin | null; towns?: TownBuilderAdmin | null; storyTowns?: StoryTownRow[] | null };
 
 export function Dashboard(props: AdminData) {
   return <Toasts><Board {...props} /></Toasts>;
@@ -144,7 +144,7 @@ function Board({ stats, worlds: initialWorlds, builds, scores: initialScores, ac
           {tab === 'names' && <Names scores={scores} setScores={setScores} />}
           {tab === 'traffic' && <Traffic s={s} />}
           {tab === 'mogcity' && <MogCity m={mc[range]} />}
-          {tab === 'perf' && <Machines p={perf ? perf[range] : null} />}
+          {tab === 'perf' && <Machines range={range} initial={perf} />}
           {tab === 'reports' && <Reports reports={reports} />}
         </BlurIn>
       </main>
@@ -700,12 +700,12 @@ function PerfTable({ rows, first }: { rows: PerfGroup[]; first: string }) {
   return (
     <div style={{ overflowX: 'auto' }}>
       <table className="ptab">
-        <thead><tr><th>{first}</th><th>Loads</th><th>Ready in</th><th>Frame p50</th><th>p95</th><th>p99</th><th>Long / min</th><th>WebGL 2</th><th>Stepped down</th><th>Stuck</th><th>Tier</th></tr></thead>
+        <thead><tr><th>{first}</th><th>Loads</th><th>Ready in</th><th>Frame p50</th><th>p95</th><th>p99</th><th>Long / min</th><th title="Seconds of frames over 250 ms">Stalled</th><th>WebGL 2</th><th>Stepped down</th><th>Stuck</th><th>Tier</th></tr></thead>
         <tbody>
           {rows.map((g) => (
             <tr key={g.key}>
               <td>{g.key}</td><td>{g.n}</td><td>{msS(g.readyMs)}</td><td>{msF(g.p50)}</td><td>{msF(g.p95)}</td><td>{msF(g.p99)}</td>
-              <td>{g.longPerMin ?? '-'}</td><td>{g.webgl2}</td><td>{g.downgraded}</td><td>{g.stuck ? <b className="bad">{g.stuck}</b> : 0}</td><td>{g.tier ?? '-'}</td>
+              <td>{g.longPerMin ?? '-'}</td><td>{g.stallSecs ? `${g.stallSecs} s` : 0}</td><td>{g.webgl2}</td><td>{g.downgraded}</td><td>{g.stuck ? <b className="bad">{g.stuck}</b> : 0}</td><td>{g.tier ?? '-'}</td>
             </tr>
           ))}
         </tbody>
@@ -725,7 +725,7 @@ function Machine({ s }: { s: PerfSession }) {
         <span className={bad ? 'chip bad' : 'chip'}>{OUTCOME[s.outcome] ?? s.outcome}</span>
         <span className="chip">{s.tier ?? '?'}{s.backend ? ` · ${s.backend === 'webgpu' ? 'WebGPU' : 'WebGL 2'}` : ''}</span>
         {s.owner && <span className="chip">you</span>}
-        <span className="dim">{ago(s.at)} · {s.game ?? s.town ?? s.engine ?? '?'} · ready {msS(s.readyMs)} · frames p50 {msF(s.p50)} p95 {msF(s.p95)}{s.playSecs ? ` · ${Math.round(s.playSecs / 60)} min played` : ''}</span>
+        <span className="dim">{ago(s.at)} · {s.game ?? s.town ?? s.engine ?? '?'} · ready {msS(s.readyMs)} · frames p50 {msF(s.p50)} p95 {msF(s.p95)}{s.playSecs ? ` · ${Math.round(s.playSecs / 60)} min played` : ''}{s.stallSecs ? ` · ${s.stallSecs} s stalled` : ''}</span>
       </p>
       <p className="build-p">{[s.gpu ?? 'unknown graphics', s.cls ? `(${s.cls})` : '', s.browser, s.os, s.cores ? `${s.cores} cores` : '', s.mem ? `${s.mem} GB` : '', s.screen ? `${s.screen} @${s.dpr ?? 1}x` : ''].filter(Boolean).join(' · ')}</p>
       {open && (
@@ -734,20 +734,42 @@ function Machine({ s }: { s: PerfSession }) {
           {`First byte ${msS(s.ttfb)} · city ready ${msS(s.readyMs)} · story ${msS(s.storyMs)} · start pressed ${msS(s.gateMs)} · errors ${s.errors} · graphics lost ${s.lost}\n`}
           {phases.length ? `Build: ${phases.map(([k, v]) => `${k} ${v} ms`).join(', ')}\n` : ''}
           {s.events.map((e) => `${e.kind} ${e.what ?? ''} ${String(e.from ?? '')} → ${String(e.to ?? '')}${e.live ? ' (live)' : ''} · ${e.why ?? ''}${e.p50 != null ? ` at p50 ${e.p50} ms` : ''}\n`).join('')}
-          {s.windows.map((w) => `${w.scene ?? '?'} · ${w.tier ?? '?'} @${Math.round((w.scale ?? 1) * 100)}% · ${w.secs ?? 0} s · p50 ${w.p50 ?? '?'} p95 ${w.p95 ?? '?'} ms · work p95 ${w.work95 ?? '?'} ms · ${w.long50 ?? 0} long\n`).join('')}
+          {s.windows.map((w) => `${w.scene ?? '?'} · ${w.tier ?? '?'} @${Math.round((w.scale ?? 1) * 100)}% · ${w.secs ?? 0} s · p50 ${w.p50 ?? '?'} p95 ${w.p95 ?? '?'} ms · work p95 ${w.work95 ?? '?'} ms · ${w.long50 ?? 0} long${w.stalls ? ` · ${w.stalls} stalls, ${w.stallSecs ?? 0} s` : ''}\n`).join('')}
         </div>
       )}
     </li>
   );
 }
 
-function Machines({ p }: { p: PerfAdmin | null }) {
+// The range shown, read for that range only: the page's own (its first range, the owner left out) until another range
+// or the owner's own loads are asked for, then GET /api/perf (again when the page's numbers refresh, every minute)
+function Machines({ range, initial }: { range: Range; initial: PerfAdmin | null }) {
   const [q, setQ] = useState('');
-  if (!p) return <p className="none">The machine reports could not be read.</p>;
+  const [noOwner, setNoOwner] = useState(true);
+  const own = !!initial && initial.range === range && initial.ownerExcluded === noOwner;
+  const [fetched, setFetched] = useState<{ key: string; p: PerfAdmin | null } | null>(null);
+  const want = `${range}.${noOwner ? 0 : 1}`;
+  useEffect(() => {
+    if (own) return;
+    let live = true;
+    fetch(`/api/perf?range=${range}&owner=${noOwner ? 0 : 1}`, { credentials: 'same-origin', cache: 'no-store' })
+      .then((r) => (r.ok ? (r.json() as Promise<PerfAdmin>) : null)).catch(() => null)
+      .then((p) => { if (live) setFetched({ key: want, p }); });
+    return () => { live = false; };
+  }, [own, range, noOwner, want, initial]);
+  const p = own ? initial : fetched && fetched.key === want ? fetched.p : undefined;
+  const filter = (
+    <label className="fine" style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+      <input type="checkbox" checked={noOwner} onChange={(e) => setNoOwner(e.target.checked)} /> Leave out my own loads
+    </label>
+  );
+  if (p === undefined) return <>{filter}<p className="none">Reading the machine reports…</p></>;
+  if (!p) return <>{filter}<p className="none">The machine reports could not be read.</p></>;
   const k = p.kpis;
   const list = q.trim() ? p.sessions.filter((s) => s.code.toLowerCase().startsWith(q.trim().toLowerCase())) : p.sessions;
   return (
     <>
+      {filter}
       <section className="kpis">
         <div className="kpi" title="Browser tab sessions that loaded the game"><p className="kpi-l">Sessions</p><p className="kpi-n"><Num value={k.sessions} /></p><p className="kpi-x">{k.loads} load{k.loads === 1 ? '' : 's'} · {k.playMin} min played</p></div>
         <div className="kpi" title="Loads whose city came up"><p className="kpi-l">Ready</p><p className="kpi-n">{k.readyPct == null ? '-' : `${k.readyPct}%`}</p><p className="kpi-x">{k.stuckPct ? `${k.stuckPct}% stuck` : 'none stuck'}</p></div>

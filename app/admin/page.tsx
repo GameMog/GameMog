@@ -29,6 +29,7 @@ export const metadata: Metadata = { title: 'Admin | GameMog', robots: { index: f
  * before it pushes, without the password. Every change also checks the session in actions.ts)
  */
 const OPEN_TO_READ = false;
+const PERF_FIRST_RANGE: Range = '7d';
 export default async function AdminPage() {
   if (!adminEnabled()) notFound();
   if (!OPEN_TO_READ && !(await isAdmin())) return <Login capacity={{ held: slotsHeld(), max: buildSlots(), queue: queueLength() }} />;
@@ -38,9 +39,11 @@ export default async function AdminPage() {
   const all = Object.fromEntries(RANGES.map((r) => [r, stats(r, now)])) as Record<Range, Stats>;
   // Mog City (mc.gamemog.com), counted apart (lib/analytics.ts mcStats)
   const mc = Object.fromEntries(RANGES.map((r) => [r, mcStats(r, now)])) as Record<Range, McStats>;
-  // how each machine runs the game (lib/perf.ts: Mog City's wagmi/perf.js reports), per range
-  let perf: Record<Range, PerfAdmin> | null = null;
-  try { perf = JSON.parse(JSON.stringify(Object.fromEntries(RANGES.map((r) => [r, perfAdmin(r, now)])))) as Record<Range, PerfAdmin>; } catch (e) { console.error('admin: machines', String((e as Error).message).slice(0, 200)); }
+  // how each machine runs the game (lib/perf.ts: Mog City's wagmi/perf.js reports): only the range the screen opens on
+  // (the dashboard's first range, 7 days: its useState in dashboard.tsx), the owner's own loads left out; the Machines
+  // tab asks GET /api/perf for another range or with the owner's loads kept in
+  let perf: PerfAdmin | null = null;
+  try { perf = JSON.parse(JSON.stringify(perfAdmin(PERF_FIRST_RANGE, now, { excludeOwner: true }))) as PerfAdmin; } catch (e) { console.error('admin: machines', String((e as Error).message).slice(0, 200)); }
   // capacity now (lib/build-limits.ts): the slots, the line, and the day's spend against its ceiling (Los Angeles's day)
   const day = spendToday(now);
   const slots = { held: slotsHeld(), max: buildSlots(), queue: queueLength(), queueMax: queueMax(), spent: day.total, inFlight: day.inFlight, perBuild: IN_FLIGHT_USD, ceiling: day.ceiling };

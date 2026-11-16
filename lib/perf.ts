@@ -38,7 +38,7 @@ export const PERF_DDL = `
   CREATE TABLE IF NOT EXISTS perf_frames (
     id INTEGER PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, sid TEXT NOT NULL, n INTEGER NOT NULL, scene TEXT, tier TEXT,
     scale REAL, secs INTEGER, frames INTEGER, hist TEXT NOT NULL, long50 INTEGER, long100 INTEGER, stalls INTEGER,
-    p50 INTEGER, p95 INTEGER, p99 INTEGER, work50 INTEGER, work95 INTEGER
+    p50 INTEGER, p95 INTEGER, p99 INTEGER, work50 INTEGER, work95 INTEGER, stall_secs REAL
   );
   CREATE INDEX IF NOT EXISTS perf_frames_at ON perf_frames(at);
   CREATE INDEX IF NOT EXISTS perf_frames_sid ON perf_frames(sid, n);
@@ -50,6 +50,8 @@ export const PERF_DDL = `
   CREATE INDEX IF NOT EXISTS perf_events_sid ON perf_events(sid, n);
 `;
 db.exec(PERF_DDL);
+// (a copy made before the stalls' seconds were kept gets the column: CREATE ... IF NOT EXISTS leaves a table as it is)
+if (!(db.prepare('PRAGMA table_info(perf_frames)').all() as { name: string }[]).some((c) => c.name === 'stall_secs')) db.exec('ALTER TABLE perf_frames ADD COLUMN stall_secs REAL');
 
 const TIERS = ['low', 'phone', 'medium', 'high'] as const;
 const str = (v: unknown, n: number, re = /[^\w .,:;/()+@#-]/g) => (typeof v === 'string' ? v.replace(re, '').replace(/\s+/g, ' ').trim().slice(0, n) || null : null);
@@ -122,18 +124,19 @@ export function cleanPerf(b: unknown, ua: string): Clean | null {
         marks, phases, renderer, desc: str(g.desc, 120), device: str(g.device, 60), fallback: bool(g.fallback), caveat: bool(r.caveat),
         limits: { maxTexture: num(L.maxTexture, 0, 65536), maxTexture2D: num(L.maxTexture2D, 0, 65536), maxStorage: num(L.maxStorage, 0, 1e12), maxBuffer: num(L.maxBuffer, 0, 1e12) },
         view: dims(r.view), coarse: bool(r.coarse), fine: bool(r.fine), saveData: bool(r.saveData), cpuMs: num(r.cpuMs, 0, 9999, 1), probeMs: num(r.probeMs, 0, 60000),
-        refreshMs: num(r.refreshMs, 0, 1000, 1), pack: bool(r.pack),
+        refreshMs: num(r.refreshMs, 0, 1000, 1), pack: bool(r.pack), stalls: num(r.stalls, 0, 1e6), stallSecs: num(r.stallSecs, 0, 86400, 1),
       },
     };
   }
   if (k === 'frames') {
     if (!Array.isArray(r.hist) || r.hist.length !== BINS) return null;
     const hist = r.hist.map((x) => num(x, 0, 65535) ?? 0);
-    const frames = num(r.frames, 1, 1e6);
-    if (!frames) return null;
+    // (a window of a machine under 4 fps has no frames under 250 ms, only stalls: kept with 5 s of them or more)
+    const frames = num(r.frames, 0, 1e6), stallSecs = num(r.stallSecs, 0, 3600, 1);
+    if (frames == null || (!frames && !(stallSecs != null && stallSecs >= 5))) return null;
     return {
       k, sid, n, game, scene: str(r.scene, 60, /[^\w:-]/g), tier: one(r.tier, TIERS), scale: num(r.scale, 0.1, 2, 2), secs: num(r.secs, 0, 3600), frames, hist,
-      long50: num(r.long50, 0, 1e6), long100: num(r.long100, 0, 1e6), stalls: num(r.stalls, 0, 1e6), p50: num(r.p50, 0, 1000), p95: num(r.p95, 0, 1000), p99: num(r.p99, 0, 1000),
+      long50: num(r.long50, 0, 1e6), long100: num(r.long100, 0, 1e6), stalls: num(r.stalls, 0, 1e6), stallSecs, p50: num(r.p50, 0, 1000), p95: num(r.p95, 0, 1000), p99: num(r.p99, 0, 1000),
       work50: num(r.work50, 0, 1000), work95: num(r.work95, 0, 1000),
     };
   }
@@ -207,10 +210,10 @@ export function storePerf(c: Clean, owner: boolean, now = Date.now()) {
         JSON.stringify(v.data));
   } else if (c.k === 'frames') {
     const v = c as Clean & Record<string, unknown>;
-    db.prepare('INSERT INTO perf_frames (at, sid, n, scene, tier, scale, secs, frames, hist, long50, long100, stalls, p50, p95, p99, work50, work95) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    db.prepare('INSERT INTO perf_frames (at, sid, n, scene, tier, scale, secs, frames, hist, long50, long100, stalls, p50, p95, p99, work50, work95, stall_secs) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
       .run(now, c.sid, c.n, v.scene as string | null, v.tier as string | null, v.scale as number | null, v.secs as number | null, v.frames as number, JSON.stringify(v.hist),
         v.long50 as number | null, v.long100 as number | null, v.stalls as number | null, v.p50 as number | null, v.p95 as number | null, v.p99 as number | null,
-        v.work50 as number | null, v.work95 as number | null);
+        v.work50 as number | null, v.work95 as number | null, v.stallSecs as number | null);
   } else {
     const v = c as Clean & Record<string, unknown>;
     db.prepare('INSERT INTO perf_events (at, sid, n, kind, tier, scene, data) VALUES (?, ?, ?, ?, ?, ?, ?)')
@@ -237,36 +240,49 @@ type LoadRow = {
   screen: string | null; dpr: number | null; tier_auto: string | null; tier_choice: string | null; tier: string | null; override: string | null; why: string | null;
   ttfb: number | null; ready_ms: number | null; gate_ms: number | null; story_ms: number | null; outcome: string | null; errors: number | null; lost: number | null; data: string;
 };
-type FrameRow = { sid: string; n: number; at: number; scene: string | null; tier: string | null; scale: number | null; secs: number | null; frames: number; hist: string; long50: number | null; long100: number | null; stalls: number | null; p50: number | null; p95: number | null; p99: number | null; work95: number | null };
+type FrameRow = { sid: string; n: number; at: number; scene: string | null; tier: string | null; scale: number | null; secs: number | null; frames: number; hist: string; long50: number | null; long100: number | null; stalls: number | null; stall_secs: number | null; p50: number | null; p95: number | null; p99: number | null; work95: number | null };
+/** A frames row with its histogram parsed, once. */
+type Frame = FrameRow & { h: number[] };
 type EventRow = { sid: string; n: number; at: number; kind: string; tier: string | null; scene: string | null; data: string };
 
-export type PerfGroup = { key: string; n: number; readyMs: number | null; p50: number | null; p95: number | null; p99: number | null; webgl2: number; downgraded: number; tier: string | null; longPerMin: number | null; stuck: number };
+export type PerfGroup = { key: string; n: number; readyMs: number | null; p50: number | null; p95: number | null; p99: number | null; webgl2: number; downgraded: number; tier: string | null; longPerMin: number | null; stallSecs: number; stuck: number };
 export type PerfSession = {
   code: string; sid: string; n: number; at: number; owner: boolean; game: string | null; engine: string | null; town: string | null; browser: string; os: string | null; device: string | null;
   gpu: string | null; cls: string | null; backend: string | null; backendWhy: string | null; cores: number | null; mem: number | null; screen: string | null; dpr: number | null;
   tier: string | null; tierAuto: string | null; tierChoice: string | null; override: string | null; why: string | null; outcome: string; readyMs: number | null; ttfb: number | null;
-  gateMs: number | null; storyMs: number | null; errors: number; lost: number; p50: number | null; p95: number | null; p99: number | null; playSecs: number; long50: number; stalls: number;
+  gateMs: number | null; storyMs: number | null; errors: number; lost: number; p50: number | null; p95: number | null; p99: number | null; playSecs: number; long50: number; stalls: number; stallSecs: number;
   phases: Record<string, number>; cpuMs: number | null; refreshMs: number | null;
   events: { at: number; kind: string; what: string | null; from: unknown; to: unknown; why: string | null; live: boolean; p50: number | null }[];
-  windows: { scene: string | null; tier: string | null; scale: number | null; secs: number | null; p50: number | null; p95: number | null; long50: number | null; work95: number | null }[];
+  windows: { scene: string | null; tier: string | null; scale: number | null; secs: number | null; p50: number | null; p95: number | null; long50: number | null; work95: number | null; stalls: number | null; stallSecs: number | null }[];
 };
 export type PerfAdmin = {
   range: Range;
+  /** the owner's own loads left out (the default on the Machines tab) */
+  ownerExcluded: boolean;
   kpis: { sessions: number; loads: number; readyPct: number | null; readyMedian: number | null; readyP90: number | null; stuckPct: number | null; lost: number; downgradedPct: number | null; playMin: number };
   byGame: PerfGroup[]; byMachine: PerfGroup[]; byTier: PerfGroup[]; hist: { label: string; value: number }[]; sessions: PerfSession[];
 };
 
-/** The owner's Machines tab: every load in the range, its frames and its steps, grouped. */
-export function perfAdmin(range: Range, now = Date.now()): PerfAdmin {
+/**
+ * The owner's Machines tab: every load in the range, its frames and its steps, grouped. excludeOwner (the tab's default):
+ * the owner's own loads left out, and the frames and steps of the owner's sessions with them, from the counts and groups.
+ */
+export function perfAdmin(range: Range, now = Date.now(), { excludeOwner = false }: { excludeOwner?: boolean } = {}): PerfAdmin {
   const from = range === 'all' ? 0 : now - SPAN[range];
-  const loads = db.prepare('SELECT * FROM perf_loads WHERE at >= ? ORDER BY at DESC LIMIT 5000').all(from) as unknown as LoadRow[];
-  const frames = db.prepare('SELECT sid, n, at, scene, tier, scale, secs, frames, hist, long50, long100, stalls, p50, p95, p99, work95 FROM perf_frames WHERE at >= ? ORDER BY at DESC LIMIT 50000').all(from).reverse() as unknown as FrameRow[];
-  const events = db.prepare('SELECT sid, n, at, kind, tier, scene, data FROM perf_events WHERE at >= ? ORDER BY at DESC LIMIT 20000').all(from).reverse() as unknown as EventRow[];
+  // (the owner's sessions: by their loads, any of them marked; a session's frames are left out with it)
+  const ownerSids = excludeOwner ? new Set((db.prepare('SELECT DISTINCT sid FROM perf_loads WHERE owner = 1 AND at >= ?').all(from - 864e5) as { sid: string }[]).map((r) => r.sid)) : new Set<string>();
+  const mine = (r: { sid: string; owner?: number }) => excludeOwner && (r.owner === 1 || ownerSids.has(r.sid));
+  const loads = (db.prepare('SELECT * FROM perf_loads WHERE at >= ? ORDER BY at DESC LIMIT 5000').all(from) as unknown as LoadRow[]).filter((l) => !mine(l));
+  // (each row's histogram parsed once, here: the sessions, the groups and the totals all read it)
+  const frames: Frame[] = (db.prepare('SELECT sid, n, at, scene, tier, scale, secs, frames, hist, long50, long100, stalls, stall_secs, p50, p95, p99, work95 FROM perf_frames WHERE at >= ? ORDER BY at DESC LIMIT 50000').all(from).reverse() as unknown as FrameRow[])
+    .filter((f) => !mine(f)).map((f) => { let h: number[] = []; try { const x = JSON.parse(f.hist); if (Array.isArray(x)) h = x as number[]; } catch { /* bad row */ } return { ...f, h }; });
+  const events = (db.prepare('SELECT sid, n, at, kind, tier, scene, data FROM perf_events WHERE at >= ? ORDER BY at DESC LIMIT 20000').all(from).reverse() as unknown as EventRow[]).filter((e) => !mine(e));
   const key = (sid: string, n: number) => `${sid}.${n}`;
-  const fBy = new Map<string, FrameRow[]>(), eBy = new Map<string, EventRow[]>();
+  const fBy = new Map<string, Frame[]>(), eBy = new Map<string, EventRow[]>();
   for (const f of frames) { const k = key(f.sid, f.n); (fBy.get(k) ?? fBy.set(k, []).get(k)!).push(f); }
   for (const e of events) { const k = key(e.sid, e.n); (eBy.get(k) ?? eBy.set(k, []).get(k)!).push(e); }
-  const merge = (fs: FrameRow[]) => { const h = new Array(BINS).fill(0); for (const f of fs) { try { (JSON.parse(f.hist) as number[]).forEach((x, i) => { h[i] += x || 0; }); } catch { /* bad row */ } } return h; };
+  const merge = (fs: Frame[]) => { const h = new Array(BINS).fill(0); for (const f of fs) for (let i = 0; i < BINS; i++) h[i] += Number(f.h[i]) || 0; return h; };
+  const stallSecs = (fs: Frame[]) => Math.round(fs.reduce((a, f) => a + (f.stall_secs ?? 0), 0));
   const downgraded = (es: EventRow[]) => es.some((e) => e.kind === 'downgrade');
 
   const sessions: PerfSession[] = loads.map((l) => {
@@ -279,10 +295,11 @@ export function perfAdmin(range: Range, now = Date.now()): PerfAdmin {
       cores: l.cores, mem: l.mem, screen: l.screen, dpr: l.dpr, tier: l.tier, tierAuto: l.tier_auto, tierChoice: l.tier_choice, override: l.override, why: l.why,
       outcome: l.outcome ?? 'ready', readyMs: l.ready_ms, ttfb: l.ttfb, gateMs: l.gate_ms, storyMs: l.story_ms, errors: l.errors ?? 0, lost: l.lost ?? 0,
       p50: histPct(h, 0.5), p95: histPct(h, 0.95), p99: histPct(h, 0.99), playSecs: fs.reduce((a, f) => a + (f.secs ?? 0), 0),
-      long50: fs.reduce((a, f) => a + (f.long50 ?? 0), 0), stalls: fs.reduce((a, f) => a + (f.stalls ?? 0), 0),
+      long50: fs.reduce((a, f) => a + (f.long50 ?? 0), 0), stalls: Math.max(fs.reduce((a, f) => a + (f.stalls ?? 0), 0), (d.stalls as number) ?? 0),
+      stallSecs: Math.max(stallSecs(fs), Math.round((d.stallSecs as number) ?? 0)),
       phases: (d.phases ?? {}) as Record<string, number>, cpuMs: (d.cpuMs as number) ?? null, refreshMs: (d.refreshMs as number) ?? null,
       events: es.map((e) => { let x: Record<string, unknown> = {}; try { x = JSON.parse(e.data); } catch { /* bad row */ } return { at: e.at, kind: e.kind, what: (x.what as string) ?? null, from: x.from, to: x.to, why: (x.why as string) ?? null, live: !!x.live, p50: (x.p50 as number) ?? null }; }),
-      windows: fs.map((f) => ({ scene: f.scene, tier: f.tier, scale: f.scale, secs: f.secs, p50: f.p50, p95: f.p95, long50: f.long50, work95: f.work95 })),
+      windows: fs.map((f) => ({ scene: f.scene, tier: f.tier, scale: f.scale, secs: f.secs, p50: f.p50, p95: f.p95, long50: f.long50, work95: f.work95, stalls: f.stalls, stallSecs: f.stall_secs })),
     };
   });
 
@@ -296,7 +313,7 @@ export function perfAdmin(range: Range, now = Date.now()): PerfAdmin {
       return {
         key: g, n: ls.length, readyMs: median(ls.map((l) => l.ready_ms ?? NaN)), p50: histPct(h, 0.5), p95: histPct(h, 0.95), p99: histPct(h, 0.99),
         webgl2: ls.filter((l) => l.backend === 'webgl2').length, downgraded: ls.filter((l) => downgraded(eBy.get(key(l.sid, l.n)) ?? [])).length,
-        tier: [...tiers.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null, longPerMin: secs ? Math.round((fs.reduce((a, f) => a + (f.long50 ?? 0), 0) / secs) * 600) / 10 : null,
+        tier: [...tiers.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null, longPerMin: secs ? Math.round((fs.reduce((a, f) => a + (f.long50 ?? 0), 0) / secs) * 600) / 10 : null, stallSecs: stallSecs(fs),
         stuck: ls.filter((l) => l.outcome === 'stuck' || l.outcome === 'late' || l.outcome === 'lost' || l.outcome === 'error').length,
       };
     }).sort((a, b) => b.n - a.n).slice(0, 40);
@@ -313,7 +330,7 @@ export function perfAdmin(range: Range, now = Date.now()): PerfAdmin {
   const total = loads.length;
   const order: Record<string, number> = { stuck: 0, lost: 1, error: 2, late: 3, left: 4, ready: 5 };
   return {
-    range,
+    range, ownerExcluded: excludeOwner,
     kpis: {
       sessions: new Set(loads.map((l) => l.sid)).size, loads: total, readyPct: total ? Math.round((loads.filter((l) => l.outcome === 'ready').length / total) * 100) : null,
       readyMedian: median(ready), readyP90: quant(ready, 0.9), stuckPct: total ? Math.round((loads.filter((l) => l.outcome === 'stuck').length / total) * 100) : null,

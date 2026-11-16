@@ -1794,7 +1794,7 @@ export const PERF_DDL = `
   CREATE TABLE IF NOT EXISTS perf_frames (
     id INTEGER PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, sid TEXT NOT NULL, n INTEGER NOT NULL, scene TEXT, tier TEXT,
     scale REAL, secs INTEGER, frames INTEGER, hist TEXT NOT NULL, long50 INTEGER, long100 INTEGER, stalls INTEGER,
-    p50 INTEGER, p95 INTEGER, p99 INTEGER, work50 INTEGER, work95 INTEGER
+    p50 INTEGER, p95 INTEGER, p99 INTEGER, work50 INTEGER, work95 INTEGER, stall_secs REAL
   );
   CREATE INDEX IF NOT EXISTS perf_frames_at ON perf_frames(at);
   CREATE INDEX IF NOT EXISTS perf_frames_sid ON perf_frames(sid, n);

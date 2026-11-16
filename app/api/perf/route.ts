@@ -54,10 +54,13 @@ export async function POST(req: Request) {
   return none();
 }
 
-/** The last day's machines, as the Machines tab has them, for the owner only (the admin session); to anyone else, nothing is here. */
+/**
+ * A range's machines, as the Machines tab has them (it asks here for each range it shows), for the owner only (the admin
+ * session); to anyone else, nothing is here. ?owner=1 keeps the owner's own loads in; by default they are left out.
+ */
 export async function GET(req: Request) {
   if (!validSession((await cookies()).get(COOKIE)?.value)) return new Response('Not found', { status: 404 });
-  const r = new URL(req.url).searchParams.get('range');
+  const q = new URL(req.url).searchParams, r = q.get('range');
   const range = r === '7d' || r === '30d' || r === 'all' ? r : '24h';
-  return Response.json(perfAdmin(range), { headers: { 'cache-control': 'no-store' } });
+  return Response.json(perfAdmin(range, Date.now(), { excludeOwner: q.get('owner') !== '1' }), { headers: { 'cache-control': 'no-store' } });
 }
