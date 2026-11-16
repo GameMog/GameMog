@@ -17,7 +17,7 @@ API only while there is work, and gone 20 s after the queue is idle. **No town a
 | The worker protocol (claim, heartbeat, objects, complete, fail) | web, `/api/hometown/worker/*`, bearer `HOMETOWN_WORKER_TOKEN` | `lib/hometown-build/server.ts` |
 | Starting runs (never Python) | web: the dispatcher, a pass every 5 s and on every queue change | `lib/hometown-build/dispatch.ts` |
 | Compiling (regions, ctx, tiles, far, frame, bundles) | `gamemog-town-builder` workflow runs | `deploy/town-builder/workflow.py` (the task), `worker.py` (its loop), `workflow-build.sh` (the pinned build) |
-| The compiler | MogCity `tools/hometown` (compiler **0.13.0**), fetched at `MOGCITY_SHA` | github.com/GameMog/GameMog, branch `hometown-compiler` |
+| The compiler | MogCity `tools/hometown` (compiler **0.13.2**), fetched at `MOGCITY_SHA` | github.com/GameMog/GameMog, branch `hometown-compiler` |
 | The store: tiles, ctx, manifests, builds, frames, bundles, far, src, dem | web disk, `data/hometown/` | `lib/hometown-tiles/` (`keys.ts` grammar, `http.ts verifyObject`) |
 | Playing a town | **mc.gamemog.com** (GitHub Pages, branch `mogcity`), reading bundles and tiles from gamemog.com | MogCity `wagmi/world/town-src.js`, `growing.js`, `pkg-far.js` |
 | The owner's view | `/admin`, "Town builder" card; `GET /api/hometown/admin/builder` | `app/admin/dashboard.tsx` |
@@ -264,8 +264,8 @@ nothing and ends; empty or `0` builds). Optional: `HOMETOWN_RUN_CAP_S` (7200), `
 
 Workflows build on the native runtime only (`runtime: python`; no Dockerfile). The buildCommand installs the Render SDK
 (`workflow-requirements.txt`) and runs `workflow-build.sh`, which writes `.town-builder/`:
-- **the compiler at `MOGCITY_SHA`** (THE one line to re-pin; now `9474eba8b911d965b19403467baccd2559b05a8e`, compiler
-  0.13.0), fetched by SHA from github.com/GameMog/GameMog; when a SHA alone cannot be fetched, the branch
+- **the compiler at `MOGCITY_SHA`** (THE one line to re-pin; now `3b81f72abb20da5934a24b6039273646e36fdbd9`, compiler
+  0.13.2), fetched by SHA from github.com/GameMog/GameMog; when a SHA alone cannot be fetched, the branch
   `HOMETOWN_MOGCITY_REF` (default `hometown-compiler`) and then the SHA inside it;
 - its packages from the compiler's own hash lock (`--require-hashes`, wheels only) in their own venv;
 - **the OSM lane table** (`osm-roads-us.parquet`, 19,372,313 bytes, ODbL) checked against
@@ -371,6 +371,25 @@ is first created), and the workflow service is created and built the moment `mai
    owner test pick.
 
 Safe fallback while any step is open: `HOMETOWN_BUILDER=owner` and `NEXT_PUBLIC_HOMETOWN_SEARCH=off`.
+
+## Release (compiler 0.13.2, Cold Harbor round 2)
+
+The compiler moves to **0.13.2** (MogCity `chcomp` `3b81f72abb20da5934a24b6039273646e36fdbd9`, a fast-forward of r13's `9474eba8`), so the
+buildId changes (`htc-0.13.2-hg1-b...`). What changes in a town:
+- **Twin carriageways on one grade:** the two one-way halves of a divided road are graded together, so they no longer
+  stand tens of metres apart over water (Long Beach's Seaside Freeway: 34 m apart before, 0.3 m now). A tie never moves
+  a deck end, never lifts a deck through a deck crossing over it, and is dropped where the twins cross decks on
+  different levels.
+- **Multipolygon buildings:** each large polygon of a multipolygon is its own building, at its own floors or its own
+  area's default height (Long Beach's Convention Center halls).
+- **At-grade tunnels:** a tunnel road at ground level under a building trims its footprint instead of removing it.
+- Unmet clearances: Long Beach 134 to 123, Pittsburgh 201 to 173.
+
+Stored worlds keep their pinned build, so 0.12.0/0.13.0 builds stay served. Order: push MogCity `chcomp` to
+`hometown-compiler` (done), then this commit to `main`; the workflow rebuilds (`deploy/town-builder/**` changed).
+With `HOMETOWN_BUILD` empty the web learns the new build. A published hometown story (Cold Harbor) moves onto the
+new build with the owner's Re-pin on /admin, Story towns, after its town is built whole at 0.13.2 (pick it on Create,
+or the admin prewarm).
 
 ## Release r13 (compiler 0.13.0, stage 0)
 
