@@ -34,7 +34,7 @@ import * as THREE from 'three/webgpu';
 import {
   Fn, If, materialColor, texture, uv, uniform, attribute, vec2, vec3, vec4, float, dot, smoothstep, max, mix,
   normalize, normalView, normalViewGeometry, positionViewDirection, tangentView, normalMap, BRDF_Lambert, diffuseContribution,
-} from 'three/tsl';
+} from 'three/tsl'; import { textureLoad } from '../net.js';
 
 /* ------------------------------------------------- the shared detail -- */
 // (people4) the scanned tiles every finished body shares (assets/people/detail: RG a normal's x and y, OpenGL's y up, B
@@ -51,7 +51,7 @@ function tile(name, hi, lo, wrap = true) {
   const f = `${name}-${bigTier() ? hi : lo}.jpg`;
   if (tiles.has(f)) return tiles.get(f);
   let done0; pending.push(new Promise((r) => (done0 = r)));
-  const t = new THREE.TextureLoader().load(DETAIL + f, () => done0(), undefined, () => done0());
+  const t = textureLoad(new THREE.TextureLoader(), DETAIL + f, () => done0(), () => done0());
   Object.assign(t, { flipY: false, colorSpace: THREE.NoColorSpace, anisotropy: 4, name: 'p4-' + name,
     wrapS: wrap ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping, wrapT: wrap ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping });
   tiles.set(f, t);

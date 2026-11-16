@@ -38,7 +38,7 @@ import { buildGallery, GAL, GSPOTS, STATUE, SW } from './building.js';
 import { SIGILS, SIGIL_NAME, certCanvas } from './art.js';
 import { fillSlots } from './tokens.js';
 import { createDirector, keys } from '../mission/cine.js';
-import { S as story } from '../story/index.js';
+import { S as story } from '../story/index.js'; import { importRetry } from '../net.js';
 
 const PI = Math.PI;
 const Q = new URLSearchParams(location.search);
@@ -309,7 +309,7 @@ export { B_markImage as markImage };
 // ?gallery=walk (Dan up the street from it, the gold through the glass), clue (on the medallion), take (before the
 // High Artwork, the clue found), cert (it taken, OWNER · DAN); &time=midnight (default) | twilight; &sigil=star|moon|eye
 export async function lab(W, mode) {
-  const { createUI } = await import('../mission/ui.js');
+  const { createUI } = await importRetry(() => import('../mission/ui.js'));
   if (!W.ui) W.ui = createUI();
   W.ui.story(true); document.body.classList.add('wg-onfoot');
   for (let i = 0; i < 600 && !W.app.ready; i++) await sleep(100);

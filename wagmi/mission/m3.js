@@ -50,7 +50,7 @@ import { garageScene, nightScene, rallyScene, dumpScene, homeScene, SPOT, ESCAPE
 import { watchStory, markDone } from './m3-save.js';
 import { clamp } from './cine.js';
 import { S as story } from '../story/index.js';
-import { playTurns, beatOf } from '../radio/turns.js';
+import { playTurns, beatOf } from '../radio/turns.js'; import { importRetry } from '../net.js';
 
 const PI = Math.PI;
 const WHITE = '#FFFFFF', BLUE = '#6CB8FF', ACID = '#B6FF3B', PINK = '#FF8AD8', BEA = '#FFB86B', CAMP = '#E8D9B0';
@@ -372,12 +372,12 @@ export function toRook(W, { quick = false } = {}) {
     letter: 'R', at: R_AT, name: 'Rook · Sara D. Roosevelt Park', carR: 9,
     objective: ['Meet ', { Rook: 'blue' }, ' at ', { 'Sara D. Roosevelt Park': 'yellow' }, '.'],
     note: ['Jane', "rook's bench is in sara roosevelt park, the R on your radar. he said come alone."],
-    onArrive: (b) => { b.stop(); import('./m4.js').then((m) => m.start(W, { at: 'bench' })).catch((e) => console.error('[m4]', e)); },
+    onArrive: (b) => { b.stop(); importRetry(() => import('./m4.js')).then((m) => m.start(W, { at: 'bench' })).catch((e) => console.error('[m4]', e)); },
   });
   if (!quick) W.ui?.help(['A new mission is available. Go to the ', { R: 'yellow' }, ' on the Radar.'], 9);
 }
 // (the END OF EPISODE 1 card is Mission 4's now: mission/m4.js endEpisode; kept here for ?m3=end and old callers)
-export async function endEpisode(W, opts = {}) { return (await import('./m4.js')).endEpisode(W, opts); }
+export async function endEpisode(W, opts = {}) { return (await importRetry(() => import('./m4.js'))).endEpisode(W, opts); }
 
 /* ---------------------------------------------------------- the mission -- */
 function createMission(W, { keep = false, quiet = false } = {}) {

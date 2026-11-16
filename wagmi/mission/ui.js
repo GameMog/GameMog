@@ -38,7 +38,7 @@ import { createPause } from './pause.js';
 import { janePortrait } from './jane.js';
 // (the story pack: every string these methods show is S.t of what they are given, a speaker's label S.name of its id;
 // with Mog City's own pack each returns what it is given, wagmi/story/index.js)
-import { S as story } from '../story/index.js';
+import { S as story } from '../story/index.js'; import { importRetry } from '../net.js';
 export const COLORS = { yellow: '#FFC93C', green: '#4ADE80', red: '#EF4444', blue: '#6CB8FF', acid: '#B6FF3B', white: '#FFFFFF' };
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -828,7 +828,7 @@ export function createUI() {
       // (the live city under it drifting, the camera eased in from the opening's first frame once the still is out and
       // back onto it with the start: wagmi/gate-drift.js, fetched now, nothing waiting on it)
       const drift = { d: null, live: false, stopped: false };
-      import('../gate-drift.js').then((m) => { if (drift.stopped) return; drift.d = m.createGateDrift(); if (drift.live) drift.d.live(); }).catch((err) => console.warn('[gate] drift', err));
+      importRetry(() => import('../gate-drift.js')).then((m) => { if (drift.stopped) return; drift.d = m.createGateDrift(); if (drift.live) drift.d.live(); }).catch((err) => console.warn('[gate] drift', err));
       const driftLive = () => { drift.live = true; drift.d?.live(); };
       const isReady = () => { try { return !!when(); } catch { return false; } };
       let shown = false, live = !T;

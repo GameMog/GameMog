@@ -68,7 +68,9 @@ Dan, Gears, Jane, Fiona and Mr. Big (`assets/characters/*.glb`) are original cha
 people) from [MakeHuman](http://www.makehuman.org)'s base body, clothes and hair (CC0 1.0; Jane and Mr. Big from
 GameMog's CC0 MakeHuman people pack; Mr. Big's glasses, cigar and study are made in code, `wagmi/mission/mrbig.js`). Their everyday clips come from the
 [CMU Graphics Lab Motion Capture Database](http://mocap.cs.cmu.edu) (free for all uses; the data itself may not be
-resold; created with funding from NSF EIA-0196217). Dan's freeflow fight moves are Spiderbench's (see below).
+resold; created with funding from NSF EIA-0196217), except Dan's walk, jog, run, sprint and standing stance, Jane's walk,
+Fiona's run and Fiona's and Gears' standing idles, which are Bandai Namco takes (CC BY-NC 4.0, see Motion capture below).
+Dan's freeflow fight moves are Spiderbench's (see below).
 
 ### The story runner's people: skin and cloth detail (`assets/people/detail/`)
 
@@ -133,8 +135,9 @@ parts.
 
 Motion data: [Bandai Namco Research Motion Dataset](https://github.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset),
 © 2022 Bandai Namco Research Inc., [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/). Retargeted to the
-game's rigs, trimmed to loops and played in place (the Suits' standing idle, walks, runs, side-steps and gestures, the
-rally crowd's dances and cheers, Dan's footwork in a fight). Used under CC BY-NC 4.0 and **not** covered by the MIT
+game's rigs, trimmed to loops and played in place (Dan's walk, jog, run, sprint and standing stance, Jane's walk, Fiona's
+run, Fiona's and Gears' standing idles, the rally crowd's dances and cheers, Dan's footwork in a fight, and the Suits'
+standing idle, walks, runs and side-steps, which are retargets of Dan's). Used under CC BY-NC 4.0 and **not** covered by the MIT
 License: non-commercial use only. `NOTICE` lists exactly which files and what was changed;
 `assets/anim/bandai/LICENSE.txt` is the licence.
 
@@ -217,8 +220,8 @@ once from a written description and every line cloned from it, run with [mlx-aud
 (MIT). Mr. Big's are synthesised with [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) by hexgrad (Apache-2.0),
 its stock voice bm_lewis, through kokoro-onnx (MIT), heard as it is. The Camp's crowd is eight Kokoro-82M stock voices
 (am_michael, af_sarah, am_adam, af_bella, am_onyx, af_kore, am_eric and af_jessica) saying each line together, mixed into
-one. The voices are invented. Any character's lines not
-yet voiced are placeholders made with the macOS speech voices; `NOTICE` explains their terms, and `docs/VOICE-LINES.md` explains how to replace them.
+one. The voices are invented. `assets/voice/manifest.json` records each line's source, and `docs/VOICE-LINES.md` explains how to
+add or replace voices.
 
 ## Creatures and sound packs (the library)
 

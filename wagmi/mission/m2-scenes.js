@@ -12,7 +12,7 @@ import * as THREE from 'three/webgpu';
 import { getCast, upright, UPRIGHT_BONES } from '../intro.js';
 import { createDirector, keys, angleKeys, handheld, clamp, lerp, odometer } from './cine.js';
 import { buildJane, buildLaptop } from './jane.js';
-import { S as story } from '../story/index.js';
+import { S as story } from '../story/index.js'; import { importRetry } from '../net.js';
 
 const PI = Math.PI;
 const WHITE = '#FFFFFF', BLUE = '#6CB8FF', ACID = '#B6FF3B';
@@ -372,7 +372,7 @@ export async function burnerMeet(W, { U, say, van, at = J_AT }) {
   // empty chair hides her from the wide and the two-shot; further out she is under the subtitles), short of his mark, facing
   // out toward the avenue and him; her red lead from her collar to the chair's nearest leg, slack on the ground
   const moon = C.moon, MOON = p(-0.46, -0.52, 0), MH = H + 0.3;
-  const lead = (await import('../moon.js')).buildLeash(THREE, { length: 0.85, radius: 0.0055, color: '#D33A3A' });
+  const lead = (await importRetry(() => import('../moon.js'))).buildLeash(THREE, { length: 0.85, radius: 0.0055, color: '#D33A3A' });
   lead.mesh.visible = false; W.app.scene.add(lead.mesh);
   set.updateMatrixWorld(true);
   const tie = [V(-0.19, 0.07, 0.18), V(0.19, 0.07, 0.18), V(-0.19, 0.07, -0.18), V(0.19, 0.07, -0.18)].map((l) => herChair.localToWorld(l)).sort((a, b) => a.distanceTo(V(MOON[0], G, MOON[2])) - b.distanceTo(V(MOON[0], G, MOON[2])))[0];

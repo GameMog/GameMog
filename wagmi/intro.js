@@ -28,7 +28,7 @@ import { createMrBig } from './mission/mrbig.js';
 import { createDirector, keys, angleKeys, spline, travel, rig, odometer, masked, handheld, clamp, smooth, lerp, ease, shotAspect, shotFov } from './mission/cine.js';
 import { createFace } from './face.js';
 import { createTrailer } from './trailer.js';
-import { S as story } from './story/index.js';
+import { S as story } from './story/index.js'; import { importRetry } from './net.js';
 
 const Q = new URLSearchParams(location.search);
 const PI = Math.PI;
@@ -71,7 +71,7 @@ export async function install(W) {
   // story mode from the first frame: the sandbox's toolbar, telemetry and default route put away (not after the blend)
   ui.story(true); document.body.classList.add('wg-onfoot'); W.app.mapSystem.waypoint = null; W.app.mapSystem.onTeleport = null;
   W.set = dressSet(W);
-  const m1 = await import('./mission/m1.js');
+  const m1 = await importRetry(() => import('./mission/m1.js'));
   // (on foot by his door from the start, out of sight: the game's 'F · Get out' prompt has no business over the gate)
   if (!Q.get('m1')) { place(W, { dan: [112, 386.7, 0] }); W.person.mesh.visible = false; }
   if (Q.get('m1')) { await m1.start(W, { at: Q.get('m1') }); return; }
@@ -83,7 +83,7 @@ export async function install(W) {
   // once, while the city still loads: a start made before it is ready waits for it, and the trailer follows by itself
   // (onStart in the tap, or at once for a start the title kept: the mixer's context, made then or handed the one the
   // title's tap woke, index.html, and the opening's)
-  const save = Q.has('nogate') ? null : await import('./mission/m3-save.js').then((m) => (m.readSave() ? m : null)).catch(() => null);
+  const save = Q.has('nogate') ? null : await importRetry(() => import('./mission/m3-save.js')).then((m) => (m.readSave() ? m : null)).catch(() => null);
   // (a first visit's start: 'Starting…' stays on the gate until the cold open can run at once, rather than a black
   // screen while its music still comes down: hold, set below once the opening's cast is under way)
   let roll = null;

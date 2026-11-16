@@ -16,7 +16,7 @@ import { createPlayerCar } from './playercar.js';
 import { createSteps } from './steps.js';
 import { createMotors } from './motors.js';
 import { warmCrunch } from './crunch.js';
-import { world } from '../world/index.js';
+import { world } from '../world/index.js'; import { importRetry } from '../net.js';
 
 const NOOP = { set() { return NOOP; }, stop() {} };
 
@@ -153,10 +153,10 @@ export function install(W) {
   // fetched now so the first beat is heard. Never imported for a car)
   const horse = W.car?.kind === 'horse';
   let hooves = null;
-  if (horse) import('../horse/hooves.js').then((m) => { hooves = m.createHooves(W); if (ensure()) import('../library/sounds.js').then((s) => s.preload(M, m.PACKS)); }).catch((err) => console.warn('[audio] hooves', err));
+  if (horse) importRetry(() => import('../horse/hooves.js')).then((m) => { hooves = m.createHooves(W); if (ensure()) importRetry(() => import('../library/sounds.js')).then((s) => s.preload(M, m.PACKS)); }).catch((err) => console.warn('[audio] hooves', err));
   // (and its voice: wagmi/horse/voice.js, the library's horse pack; W.horse.voice for the creatures' roars and tests)
   let voice = null;
-  if (horse) import('../horse/voice.js').then((m) => { voice = m.createVoice(W); W.horseVoice = voice; if (ensure()) import('../library/sounds.js').then((s) => s.preload(M, [m.PACK])); }).catch((err) => console.warn('[audio] horse voice', err));
+  if (horse) importRetry(() => import('../horse/voice.js')).then((m) => { voice = m.createVoice(W); W.horseVoice = voice; if (ensure()) importRetry(() => import('../library/sounds.js')).then((s) => s.preload(M, [m.PACK])); }).catch((err) => console.warn('[audio] horse voice', err));
   function tick(now) {
     requestAnimationFrame(tick);
     const dt = Math.min(0.1, Math.max(0, (now - last) / 1000)); last = now;

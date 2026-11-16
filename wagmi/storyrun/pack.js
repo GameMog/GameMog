@@ -18,7 +18,7 @@ import { world as cityWorld, CITIES, cityQuery } from '../world/index.js';
 import { townLockMismatch } from '../world/town-src.js';
 import { SITE_KINDS } from '../world/common.js';
 import { isSiteRef, siteRefs, SITE_KEYS } from './places.js';
-import { fleetPickOf } from '../fleet-picks.js';
+import { fleetPickOf } from '../fleet-picks.js'; import { fetchRetry, importRetry } from '../net.js';
 // (a hero's wear: wear.js WEARS, kept here too so the check needs no three.js)
 const WEARS = new Set(['rider']);
 
@@ -41,7 +41,7 @@ async function sha256(buf) {
   try { const d = await crypto.subtle.digest('SHA-256', buf); return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, '0')).join(''); } catch { return null; }
 }
 async function getBytes(url) {
-  const r = await fetch(url, { credentials: 'omit', redirect: 'error', cache: 'no-cache' });
+  const r = await fetchRetry(url, { credentials: 'omit', redirect: 'error', cache: 'no-cache' }, { network: false });
   if (!r.ok) throw new Error(`${r.status}`);
   if (r.url && r.url !== String(url)) throw new Error('redirected');
   const b = await r.arrayBuffer();
@@ -339,7 +339,7 @@ export async function load() {
       const names = new Set(dan.animations.map((c) => c.name));
       g.animations = [...dan.animations, ...g.animations.filter((c) => !names.has(c.name))];
       // (their surfaces finished as the cast's are: polish.js)
-      try { (await import('./polish.js')).polishBody(g.scene); } catch (err) { console.warn('[storyrun] hero polish', err); }
+      try { (await importRetry(() => import('./polish.js'))).polishBody(g.scene); } catch (err) { console.warn('[storyrun] hero polish', err); }
       unhang(g.scene);
       return g;
     } catch (err) { console.warn('[storyrun] hero body', err); return dan; }

@@ -27,7 +27,7 @@ import { createDirector, keys, handheld, clamp, ease } from '../mission/cine.js'
 import { missions as registry } from '../mission/pause.js';
 import { place as putAt, outBesideCar } from '../intro.js';
 import { test, value, flagName } from './cond.js';
-import { createTimers, meterText, deltaText, progress, seen as inSight, band as bandRule, speedRule, MPH } from './rules.js';
+import { createTimers, meterText, deltaText, progress, seen as inSight, band as bandRule, speedRule, MPH, tailStart, tailRule } from './rules.js';
 import { createSets } from './sets.js';
 import { createJuice } from './juice.js';
 import { createGuide, propOf, reword, PROP_RIDES } from './guide.js';
@@ -35,24 +35,24 @@ import { createAction } from './action.js';
 import { armTo } from '../mission/m3-set.js';
 import { world as cityWorld } from '../world/index.js';
 import { createReach, reachReason } from './reach.js';
-import { beatOf, gapAfter, readingTime, playTurns } from '../radio/turns.js';
+import { beatOf, gapAfter, readingTime, playTurns } from '../radio/turns.js'; import { importRetry } from '../net.js';
 
 const PI = Math.PI;
 export const KINDS_STUB = new Set(['patrol', 'wallet']);
 // Mog City's own mission phases a step can play by ref ('m2.tail'): m2.js and m3.js playPart
 const PART_IDS = { m2: ['start', 'go', 'tail', 'yard', 'fight', 'chase', 'crash', 'phone', 'chat'], m3: ['garage', 'square', 'rally', 'rigs', 'dump', 'escape', 'ret', 'home'] };
-const PART_MOD = { m2: () => import('../mission/m2.js'), m3: () => import('../mission/m3.js') };
+const PART_MOD = { m2: () => importRetry(() => import('../mission/m2.js')), m3: () => importRetry(() => import('../mission/m3.js')) };
 export const partOf = (ref) => { const [m, n, x] = String(ref || '').split('.'); return !x && Object.prototype.hasOwnProperty.call(PART_IDS, m) && PART_IDS[m].includes(n) ? [m, n] : null; };
 export const PART_REFS = Object.entries(PART_IDS).flatMap(([m, l]) => l.map((n) => `${m}.${n}`));
 // the authored set pieces a `scene` step can name: Mog City's own code, as the shipped game plays them
 export const SCENES = {
-  opening: (W) => import('../intro.js').then((m) => m.playOpening(W)),
-  'm1.arrival': (W) => import('../mission/m1.js').then((m) => m.playScene(W, 'arrival')),
-  'm1.tracker': (W) => import('../mission/m1.js').then((m) => m.playScene(W, 'tracker')),
+  opening: (W) => importRetry(() => import('../intro.js')).then((m) => m.playOpening(W)),
+  'm1.arrival': (W) => importRetry(() => import('../mission/m1.js')).then((m) => m.playScene(W, 'arrival')),
+  'm1.tracker': (W) => importRetry(() => import('../mission/m1.js')).then((m) => m.playScene(W, 'tracker')),
   // (set dressing, at once: the park as Mission 1 dresses it, the van at its mark, the street there held clear)
-  'm1.park': (W) => import('../mission/m1.js').then((m) => m.playScene(W, 'park')),
+  'm1.park': (W) => importRetry(() => import('../mission/m1.js')).then((m) => m.playScene(W, 'park')),
   // (the Suits' van alone at its mark, as Mission 1's drive puts it there 320 m out: a drive's dressNear)
-  'm1.van': (W) => import('../mission/m1.js').then((m) => m.playScene(W, 'van')),
+  'm1.van': (W) => importRetry(() => import('../mission/m1.js')).then((m) => m.playScene(W, 'van')),
   // Missions 2 and 3's authored scenes, their phases of the same name (the runner plays them as parts: runPart)
   ...Object.fromEntries(['m2.start', 'm2.crash', 'm2.chat', 'm3.garage', 'm3.rally', 'm3.dump', 'm3.home'].map((id) => [id, (W, o) => PART_MOD[id.slice(0, 2)]().then((m) => m.playPart(W, id.slice(3), o))])),
 };
@@ -538,7 +538,7 @@ export function createRunner(ctx) {
   async function propRide(kind, color) {
     const N = cityWorld.assets;
     if (N.BODY_SPECS?.[kind] && N.buildCarGeometry) { const T = await towCar({ car: kind, color }); return { ...T, tail: T.nose }; }
-    const { buildVehicle } = await import('./vehicles/build-vehicle.js');
+    const { buildVehicle } = await importRetry(() => import('./vehicles/build-vehicle.js'));
     const v = buildVehicle(THREE, { v: 1, id: `prop.${kind}`, label: 'Parked', noun: PROP_NOUN[kind] || 'car', family: 'car4', class: kind, condition: 'tired', paint: { base: color, finish: 'satin' }, plate: '' });
     v.group.traverse((o) => { if (o.isMesh) { o.castShadow = !o.material.transparent; o.receiveShadow = true; } });
     return { obj: v.group, rs: v, wr: v.shape.WR, half: v.width / 2, nose: v.shape.ZF, tail: -v.shape.ZR };
@@ -2233,41 +2233,38 @@ export function createRunner(ctx) {
     const route = d.route.map((r) => placeOf(r));
     const pts = [];
     for (let k = 0; k + 1 < route.length; k++) { const seg = gps.plan({ x: route[k].x, z: route[k].z }, { x: route[k + 1].x, z: route[k + 1].z }, route[k].heading) || [[route[k].x, route[k].z], [route[k + 1].x, route[k + 1].z]]; for (const q of seg) if (!pts.length || Math.hypot(q[0] - pts[pts.length - 1][0], q[1] - pts[pts.length - 1][1]) > 3) pts.push(q); }
-    const { createDriver } = await import('../mission/m2-drive.js');
+    const name = d.name || 'the car';
+    // (where it starts, measured from where he is, in his car or on foot (rules.js tailStart): far from the route's first place, he is driven there
+    // first, no lost clock (16 Nov: Cold Harbor CH-2 started 700 m off and failed 'You lost' 8 s in, flat out); near,
+    // `ahead` m on along it, before its first bend, facing away (it started on top of him, his car shoved 3 m))
+    if (dist(me(), route[0].x, route[0].z) > 96) await goTo(route[0], { type: 'tail', id: d.id, radius: 90, stop: false, card: false }, t, { objective: `Get over to **${route[0].name}**. ${name.replace(/^the /, 'The ')} leaves from there.`, needsCar: true });
+    const { createDriver } = await importRetry(() => import('../mission/m2-drive.js'));
     const N = cityWorld.assets, g = new THREE.Group(), spec = N.BODY_SPECS?.[d.car === 'lowered' ? 'sedan' : d.car || 'sedan'];
     if (spec && N.buildCarGeometry) { const m = new THREE.Mesh(N.buildCarGeometry(spec, true), N.createLoftedCarMaterial(spec, new THREE.Color(d.color || '#1b1d22').getHex())); m.castShadow = true; g.add(m); }
     else { const m = new THREE.Mesh(new THREE.BoxGeometry(1.9, 1.4, 4.6), new THREE.MeshStandardMaterial({ color: d.color || '#1b1d22' })); m.position.y = 0.8; g.add(m); }
     app.scene.add(g);
     const D = createDriver(W, { obj: g, path: pts, halfW: 1.0, halfL: 2.4 });
-    D.place(0);
+    const st = tailStart({ at: (s) => D.at(s), length: D.length, car: me(), ahead: clamp(d.ahead ?? 45, 20, 200) });
+    D.place(st.far ? 0 : st.s0);
     // (the followed car, for the test drive's autopilot: autopilot.js jumps a long tail on, as it does a long leg)
     M.tail = D;
-    const name = d.name || 'the car';
     gps.objective(parts(d.objective || `Follow **${name}**. Don't get too close.`, 'red'), { follow: () => D.pos, name });
     gps.blip('tail', { x: D.pos.x, z: D.pos.z, kind: 'enemy', edge: true, name });
-    let close = 0, far = 0, last = now(), opened = false, lastLeft = 0, warnAt = 0;
-    const ring = d.ring || 25, lostDist = d.lostDist || 160, t0 = now();
-    // (a tail that starts where the last leg ended, on top of the car to follow: being close counts only once it has
-    // pulled away to half the ring, or after 6 s; MM, 5 Nov: Mission 2's van "spotted" a player parked at its mark)
+    let last = now(), lastLeft = 0;
+    const S = {};
     try {
       await wait(() => {
         const tt = now(), dt = Math.min(0.05, (tt - last) / 1000); last = tt;
         const dd = dist(me(), D.pos.x, D.pos.z);
-        const want = dd < ring ? (d.speed || 13) * 1.4 : dd > lostDist * 0.6 ? (d.speed || 13) * 0.5 : (d.speed || 13);
-        D.step(dt, want);
+        // (rules.js tailRule: a fair start, it waits for him rolling in a car, or 10 s; then too close / too far)
+        const r = tailRule(S, { dd, held: (D.v || 0) < 3, rolling: inCar() && Math.abs(car.speed) > 2.5, ring: d.ring, lostDist: d.lostDist, speed: d.speed, spotTime: d.spotTime, lostTime: d.lostTime }, dt);
+        D.step(dt, r.want);
         gps.blip('tail', { x: D.pos.x, z: D.pos.z, kind: 'enemy', edge: true, name });
         // (the metres the followed car has left, told to a framing GameMog each second: a long tail is progress, not stuck)
         if (tt - lastLeft > 1000) { lastLeft = tt; host.tell('progress', { mission: M.def.id, step: d.id || null, kind: 'tail', i: M.i, n: M.def.steps.length, left: Math.max(0, Math.round(D.length - D.s)) }); }
-        if (dd >= ring * 0.5 || now() - t0 > 6000) opened = true;
-        // (held up in traffic, the followed car is a car in a queue: one car back at a light is not being made, only on
-        // its bumper is; owner's PT-8 run, 6 Nov: the SUV stopped on W 23rd St and the car queued behind it was "spotted")
-        const held = (D.v || 0) < 3, tooClose = held ? dd < 7 : dd < ring * 0.5;
-        close = tooClose && opened ? close + dt : Math.max(0, close - dt);
-        far = dd > lostDist ? far + dt : 0;
-        // (the warning before the fail: too close, or about to lose it)
-        if (tt - warnAt > 3500 && (close > (d.spotTime || 4) * 0.4 || far > (d.lostTime || 8) * 0.35)) { warnAt = tt; juice.alert(close > 0 ? 'Too close' : 'Losing them', { sub: close > 0 ? 'Back off or they make you.' : `Catch up to ${name}.`, tone: 'yellow', secs: 1.6 }); W.calls?.react?.(close > 0 ? 'tooClose' : 'lost'); }
-        if (close > (d.spotTime || 4)) throw new Fail(`${name.replace(/^the /, 'The ')} spotted you.`, 'lost');
-        if (far > (d.lostTime || 8)) throw new Fail(`You lost ${name}.`, 'lost');
+        if (r.warn) { juice.alert(r.warn === 'close' ? 'Too close' : 'Losing them', { sub: r.warn === 'close' ? 'Back off or they make you.' : `Catch up to ${name}.`, tone: 'yellow', secs: 1.6 }); W.calls?.react?.(r.warn === 'close' ? 'tooClose' : 'lost'); }
+        if (r.verdict === 'spotted') throw new Fail(`${name.replace(/^the /, 'The ')} spotted you.`, 'lost');
+        if (r.verdict === 'lost') throw new Fail(`You lost ${name}.`, 'lost');
         return D.done;
       }, t);
     } finally { app.scene.remove(g); gps.unblip('tail'); gps.clear(); if (M.tail === D) M.tail = null; }
@@ -2449,7 +2446,7 @@ export function createRunner(ctx) {
     const N = cityWorld.assets, ride = d.car && def0.rides?.[d.car];
     if (ride) {
       try {
-        const { buildVehicle } = await import('./vehicles/build-vehicle.js');
+        const { buildVehicle } = await importRetry(() => import('./vehicles/build-vehicle.js'));
         const v = buildVehicle(THREE, ride.sheet || ride);
         v.group.traverse((o) => { if (o.isMesh) { o.castShadow = !o.material.transparent; o.receiveShadow = true; } });
         return { obj: v.group, rs: v, wr: v.shape.WR, zF: v.shape.AXF, zR: v.shape.AXR, half: v.width / 2, nose: v.shape.ZF };
@@ -2637,7 +2634,7 @@ export function createRunner(ctx) {
   // moved on, up to 4 times). rules: { want(D, pd) -> m/s, hit(sp), tick(D, pd, dt) -> true when done }. Far from him
   // (300 m+, out of sight) it goes at twice its pace or more: `secs` is about how long it takes to get there.
   async function driveCar(A, to, d, t, rules = {}) {
-    const { createDriver } = await import('../mission/m2-drive.js');
+    const { createDriver } = await importRetry(() => import('../mission/m2-drive.js'));
     const toPlayer = to === 'player', near = d.near || 14, base = d.speed || 13;
     const plan = () => routeOf([{ x: A.x, z: A.z, heading: A.h }, ...(toPlayer ? [{ x: me().x, z: me().z }] : to)]);
     let D = null, replans = 0, planned = now();
@@ -2735,7 +2732,7 @@ export function createRunner(ctx) {
   // onDetect 'fail' (the default: SPOTTED!, then the fail screen), { set } (it costs, and they look away a moment),
   // { goto } (the story goes on there), { pursuit } (they come after him: a chase to lose).
   STEPS.stealth = async (d, t) => {
-    const [{ createStealth }, { createM2UI }] = await Promise.all([import('../mission/m2-stealth.js'), import('../mission/m2-ui.js')]);
+    const [{ createStealth }, { createM2UI }] = await Promise.all([importRetry(() => import('../mission/m2-stealth.js')), importRetry(() => import('../mission/m2-ui.js'))]);
     const U = W.m2ui || (W.m2ui = createM2UI(ui));
     const posts = d.units.map((u) => {
       // (on the pavement on the kerb side of its lane: the first point that is pavement going out from the lane, 2 to 16 m)
@@ -2838,7 +2835,7 @@ export function createRunner(ctx) {
     const fx = Math.sin(h), fz = Math.cos(h), rx = Math.cos(h), rz = -Math.sin(h);
     const back = d.back ?? 10, c0 = { x: (p.cx ?? p.x) - fx * back, z: (p.cz ?? p.z) - fz * back };
     // (across the whole street: centred on its middle, the corner's line, not the lane's)
-    const { buildChaseCar } = await import('../pursuit/cars.js');
+    const { buildChaseCar } = await importRetry(() => import('../pursuit/cars.js'));
     const TS = app.trafficSystem, police = d.kind === 'police';
     const B = { id: 'rb:' + (++blockSeq), at: c0, r: d.r || 16, cars: [], avoid: { x: c0.x, z: c0.z, r: d.r || 16 }, crew: null, hit: null };
     for (let i = 0; i < n; i++) {
@@ -3017,7 +3014,7 @@ export function createRunner(ctx) {
     { const sheet = (def0.rides && def.vehicle && def0.rides[def.vehicle]) || null;
       // (a car he took in a town, wagmi/jack.js, 'jack-' worn: it stays his unless this mission has a ride of its own)
       const took = String(car.roadster?.__worn?.id || '').startsWith('jack-');
-      if (sheet || (car.roadster?.__worn?.id && !took)) { try { const R = await import('./ride.js'); R.wearRide(THREE, car, sheet); } catch (e) { console.warn('[storyrun] ride', e); } } }
+      if (sheet || (car.roadster?.__worn?.id && !took)) { try { const R = await importRetry(() => import('./ride.js')); R.wearRide(THREE, car, sheet); } catch (e) { console.warn('[storyrun] ride', e); } } }
     if (cp && cp.from) {
       // (a start at a step, Mission select or ?step=: where its `from` puts him)
       const fr = cp.from;

@@ -28,7 +28,10 @@ const BASE = new URL(D.base, ROOT).href;
 const loaded = new Map(); // id -> model
 const loading = new Map(); // id -> Promise
 let glbMod = null;
-const glb = () => glbMod || (glbMod = import(new URL('wagmi/glb.js', ROOT).href));
+// (window.mcNet, js/net-retry.js: the module again when the server was busy, and asked for anew on the next car if it
+// still did not load)
+const glbUrl = new URL('wagmi/glb.js', ROOT).href;
+const glb = () => glbMod || (glbMod = (window.mcNet ? window.mcNet.importRetry(() => import(glbUrl), 'wagmi/glb.js') : import(glbUrl)).catch((e) => { glbMod = null; throw e; }));
 
 function load(id) {
   if (loaded.has(id)) return Promise.resolve(loaded.get(id));
@@ -55,7 +58,9 @@ function textures() {
   const lo = N.quality && N.quality.tier === 'low';
   const L = new THREE.TextureLoader();
   const one = (f, srgb, onLoad) => {
-    const t = L.load(BASE + f + '?v=' + D.v, onLoad);
+    const url = BASE + f + '?v=' + D.v;
+    // (its image again if the server was busy: js/net-retry.js)
+    const t = L.load(url, onLoad, undefined, () => { if (window.mcNet) window.mcNet.textureRetry(t, url, onLoad); });
     t.flipY = false; // (glTF's uv convention: the atlases are laid out top-down like a glTF's own images)
     t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
     t.anisotropy = 8;

@@ -18,7 +18,7 @@
 //   const nav = createNav(c);  nav.want(x, z) (a fight is coming here: build now) · nav.frame(dt, frozen) (before the
 //   Suits' update) · nav.steer(e, p, sp) -> { x, z, vx, vz } | null · nav.resync(e) · nav.path(a, b) -> [{ x, y, z }] | null
 //   nav.ready() · nav.stats · URL ?nav=0 (off: the old steering), ?navdebug (the navmesh drawn, each agent's way ahead)
-import * as THREE from 'three/webgpu'; import { world } from '../world/index.js';
+import * as THREE from 'three/webgpu'; import { world } from '../world/index.js'; import { fetchRetry, importRetry } from '../net.js';
 
 const VENDOR = new URL('../../js/vendor/recast/', import.meta.url).href;
 const QS = new URLSearchParams(location.search);
@@ -48,11 +48,30 @@ export function createNav(c) {
     const t0 = performance.now();
     loading = (async () => {
       try {
-        const [core, wasm] = await Promise.all([import(VENDOR + 'core.mjs'), import(VENDOR + 'recast-navigation.wasm.js')]);
-        await core.init(wasm.default);
+        // (the modules and the .wasm asked for again if the server was busy, a 503 after a release: wagmi/net.js; the
+        // .wasm fetched here and handed to the module as its wasmBinary)
+        const [core, wasm, bin] = await Promise.all([importRetry(() => import(VENDOR + 'core.mjs'), 'recast core.mjs'), importRetry(() => import(VENDOR + 'recast-navigation.wasm.js'), 'recast-navigation.wasm.js'),
+          fetchRetry(VENDOR + 'recast-navigation.wasm.wasm', { credentials: 'same-origin' }).then((r) => { if (!r.ok) throw new Error('recast-navigation.wasm.wasm: HTTP ' + r.status); return r.arrayBuffer(); })]);
+        await core.init(() => wasm.default({ wasmBinary: bin }));
         R = core;
-        try { worker = new Worker(new URL('./nav-worker.js', import.meta.url), { type: 'module' }); worker.onmessage = onBuilt; worker.onerror = (ev) => { console.warn('[nav] worker', ev.message); worker = null; }; }
-        catch (err) { worker = null; }
+        // (a worker whose script did not load (a busy server, a 503 after a release): a new one in a moment, twice at most,
+        // the build sent to it built again; until then, and after, the builds are made here as before)
+        let tries = 0;
+        const startWorker = () => {
+          try {
+            const w = new Worker(new URL('./nav-worker.js', import.meta.url), { type: 'module' });
+            w.onmessage = (ev) => { w.ok = true; onBuilt(ev); };
+            w.onerror = (ev) => {
+              if (worker === w) worker = null;
+              if (building && building.w === w) building = null;
+              if (!w.ok && !failed && tries++ < 2) { console.info('[net] nav worker again', tries); setTimeout(() => { if (!worker) startWorker(); }, 1000 * tries); }
+              else console.warn('[nav] worker', ev.message);
+            };
+            w.postMessage({ wasm: bin });
+            worker = w;
+          } catch (err) { worker = null; }
+        };
+        startWorker();
         N.stats.load = Math.round(performance.now() - t0);
       } catch (err) {
         failed = true; N.stats.error = String(err && err.message || err);
@@ -123,11 +142,11 @@ export function createNav(c) {
   function build(cx, cz) {
     const G = gather(cx, cz), id = ++seq;
     N.stats.gatherMs = Math.round(G.ms); N.stats.tris = G.indices.length / 3; N.stats.walls = G.walls;
-    building = { id, cx, cz, sig: cm.colliders.length, t0: performance.now() };
+    building = { id, cx, cz, sig: cm.colliders.length, t0: performance.now(), w: worker };
     if (worker) worker.postMessage({ id, positions: G.positions, indices: G.indices, cfg: CFG }, [G.positions.buffer, G.indices.buffer]);
     else {
       // (no worker: here, once; it holds the frame for the build)
-      import(VENDOR + 'generators.mjs').then((gen) => {
+      importRetry(() => import(VENDOR + 'generators.mjs'), 'recast generators.mjs').then((gen) => {
         const t0 = performance.now(), r = gen.generateSoloNavMesh(G.positions, G.indices, CFG);
         if (!r.success) return onBuilt({ data: { id, error: String(r.error) } });
         const bin = R.exportNavMesh(r.navMesh); r.navMesh.destroy();

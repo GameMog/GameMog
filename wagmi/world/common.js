@@ -5,7 +5,7 @@
 import { createTileManager } from './tiles.js';
 import { createMemoryTileSource } from './tiles-mem.js';
 import { createFloatingOrigin, floatingOriginWanted } from './origin.js';
-import { laneIndexFor } from './lanes.js';
+import { laneIndexFor } from './lanes.js'; import { importRetry } from '../net.js';
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const query = () => { try { return new URLSearchParams(globalThis.location?.search || ''); } catch { return new URLSearchParams(); } };
 const N = () => globalThis.window?.NYC || {};
@@ -186,7 +186,7 @@ export function createWorld(city) {
   async function navFor() {
     // (made again when the traffic's network is rebuilt: a nav holds that network's corners and arrays)
     const n = net();
-    if (!chaseNav || (n && !chaseNav.fresh(n))) { const { createNav } = await import('../pursuit/nav.js'); chaseNav = createNav(APP()); }
+    if (!chaseNav || (n && !chaseNav.fresh(n))) { const { createNav } = await importRetry(() => import('../pursuit/nav.js')); chaseNav = createNav(APP()); }
     return chaseNav;
   }
   async function route(a, b, mode = 'car') {

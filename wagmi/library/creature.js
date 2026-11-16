@@ -8,7 +8,7 @@
 // The way GameMog's creature takes a person's state: it walks and runs with its stride matched to its speed (its paces
 // measured from its own travelling clips), plays its strike, hit, jump and special clips for the moves the fight names,
 // and falls when it is knocked out. Forward is +z, the feet at y = 0 (scaled by height / its own height).
-import * as THREE from 'three/webgpu';
+import * as THREE from 'three/webgpu'; import { fetchRetry } from '../net.js';
 
 const BASE = new URL('../../assets/library/', import.meta.url).href;
 const KITS = new Map();
@@ -31,7 +31,7 @@ export function loadCreature(id, { low = false } = {}) {
   const key = id + (low ? '|lo' : '');
   if (KITS.has(key)) return KITS.get(key);
   const p = (async () => {
-    const get = async (name) => { const r = await fetch(BASE + id + '/' + name); if (!r.ok) throw new Error(`creature ${id}/${name}: ${r.status}`); return r; };
+    const get = async (name) => { const r = await fetchRetry(BASE + id + '/' + name); if (!r.ok) throw new Error(`creature ${id}/${name}: ${r.status}`); return r; };
     const J = await (await get('asset.json')).json();
     if (J.kind !== 'creature') throw new Error(`${id} is not a creature (${J.kind})`);
     const M = J.material || {};

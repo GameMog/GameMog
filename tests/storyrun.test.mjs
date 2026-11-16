@@ -371,7 +371,7 @@ test("a forged person is finished for the close lens (owner: \"smoother looking 
   // (the cast's forged and hand-built bodies, never a native one; the forged hero's body too)
   assert.match(cast, /if \(!nat\) try \{ polishBody\(inner\); \}/);
   const hero = pack.slice(pack.indexOf('W.heroGLTF = async'), pack.indexOf('};', pack.indexOf('W.heroGLTF = async')));
-  assert.match(hero, /import\('\.\/polish\.js'\)\)\.polishBody\(g\.scene\)/);
+  assert.match(hero, /importRetry\(\(\) => import\('\.\/polish\.js'\)\)\)\.polishBody\(g\.scene\)/);
   // (the hair: its normals turned to the hair's volume and its flow as the tangent (shapeHair), lit as strands (two
   // Kajiya-Kay bands), soft edges by alpha to coverage under MSAA with the shadow still cut, a buzz's shell left as forged)
   assert.match(polish, /function shapeHair\(mesh, head\)/);

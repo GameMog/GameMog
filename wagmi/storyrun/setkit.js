@@ -16,7 +16,7 @@
 // towers beyond and a sky. K.ready() waits for every scan the set asked for (sets.js, before its first frame).
 import * as THREE from 'three/webgpu';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'; import { fetchRetry } from '../net.js';
 
 const PI = Math.PI;
 
@@ -27,7 +27,7 @@ const LIBURL = new URL('../../assets/sets/', import.meta.url).href;
 const LIB = new Map(), IMG = new Map(), LTEX = new Map();
 const inflate = (buf) => new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('deflate'))).arrayBuffer();
 function libImage(path) {
-  if (!IMG.has(path)) IMG.set(path, fetch(LIBURL + path).then((r) => { if (!r.ok) throw new Error('set library: ' + path); return r.blob(); }).then((b) => createImageBitmap(b)));
+  if (!IMG.has(path)) IMG.set(path, fetchRetry(LIBURL + path).then((r) => { if (!r.ok) throw new Error('set library: ' + path); return r.blob(); }).then((b) => createImageBitmap(b)));
   return IMG.get(path);
 }
 function libTex(path, srgb) {
@@ -42,8 +42,8 @@ const TYPES = { Float32Array, Int8Array, Uint16Array, Uint32Array };
 export function libModel(id) {
   if (LIB.has(id)) return LIB.get(id);
   const p = (async () => {
-    const J = await (await fetch(LIBURL + id + '/asset.json')).json();
-    const buf = await inflate(await (await fetch(LIBURL + id + '/' + (J.file || 'model.bin.z'))).arrayBuffer());
+    const J = await (await fetchRetry(LIBURL + id + '/asset.json')).json();
+    const buf = await inflate(await (await fetchRetry(LIBURL + id + '/' + (J.file || 'model.bin.z'))).arrayBuffer());
     const view = (key) => { const L = J.layout[key]; return new TYPES[L.type](buf, L.offset, L.length); };
     const mats = await Promise.all(J.materials.map(async (m) => {
       const [map, nor, arm, alpha] = await Promise.all([m.map && libTex(`${id}/${m.map}`, true), m.normalMap && libTex(`${id}/${m.normalMap}`, false), m.armMap && libTex(`${id}/${m.armMap}`, false), m.alphaMap && libTex(`${id}/${m.alphaMap}`, false)]);

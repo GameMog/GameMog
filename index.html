@@ -98,11 +98,102 @@
   <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <link rel="manifest" href="/site.webmanifest" />
+  <script>
+    // (a script, a module or a stylesheet that did not load, asked for again: for a few minutes after a release GitHub
+    // Pages answers some of a page load's burst of requests with HTTP 503 while its cache fills.
+    // mcScriptRetry(el) -> Promise<boolean>: the same address again after 0.4, 1, 2 and 4 s, unless a HEAD of it says it
+    // is not there (403, 404, 410); a plain script as a new element, a stylesheet as a new <link> in its place, a module
+    // by import() of its address (the browser keeps no failed fetch in its module map, so the module and the ones it
+    // imports are fetched again, never run twice). Every <script src> and <link rel=stylesheet> on the page that fails
+    // is caught here (capture: a load error does not bubble); the city's own scripts call it themselves (data-mc-own) and
+    // wait on mcScriptRetry.idle() first, so a head script tried again still runs before the engine.
+    // mcScriptRetry.importRetry(() => import(u), label?) -> Promise<module>: a dynamic import again while the file that
+    // failed has tries left. An import's error names only the module asked for, not the file deep in its tree that was
+    // busy, and each try gets only as far as the first busy file at each depth, so the tries are counted per FILE, from
+    // the page's resource timing (each module fetch answered busy, its responseStatus): again while the busy file of
+    // this try has been busy fewer than 5 times (a tree whose files are each busy twice still loads), never when the
+    // only file that failed is not there (403, 404, 410), at most 40 tries in all; where the browser gives no status,
+    // 10 tries, a HEAD of the module named stopping them on 403/404/410. js/net-retry.js (mcNet) does the rest of the
+    // files the game fetches, its importRetry is this one)
+    (() => {
+      const D = [400, 1000, 2000, 4000], PER = 5, BLIND = 10, CAP = 40, pending = new Set();
+      const BUSY = new Set([408, 425, 429, 500, 502, 503, 504]), GONE = new Set([403, 404, 410]);
+      const wait = (ms) => new Promise((r) => setTimeout(r, Math.round(ms * (0.8 + 0.4 * Math.random()))));
+      const gone = (u) => fetch(u, { method: 'HEAD', cache: 'no-store' }).then((r) => GONE.has(r.status), () => false);
+      // (every script and module fetch answered busy or not there: its address, status and start)
+      const log = [];
+      try { new PerformanceObserver((l) => { for (const e of l.getEntries()) if (e.initiatorType === 'script' && (BUSY.has(e.responseStatus) || GONE.has(e.responseStatus))) log.push({ u: e.name, s: e.responseStatus, t: e.startTime }); }).observe({ type: 'resource', buffered: true }); } catch (e) {}
+      const fetchFailed = (e) => !!e && e.name === 'TypeError' && /dynamically imported module|importing a module script failed|error loading dynamically imported module/i.test(String(e.message || ''));
+      const specOf = (load) => { const m = /import\(\s*(['"`])([^'"`]+)\1/.exec(String(load)); return m ? m[2] : 'module'; };
+      async function importRetry(load, label, o = {}) {
+        const W = o.wait || wait, G = o.gone || gone, L = o.log || log, now = o.now || (() => performance.now());
+        let blind = 0, why = '';
+        for (let i = 1; ; i++) {
+          const t0 = now();
+          try {
+            const m = await load();
+            if (i > 1) console.info('[net] recovered module', label || specOf(load), 'on try', i + (why ? ` (was ${why})` : ''));
+            return m;
+          } catch (e) {
+            if (!fetchFailed(e) || i >= CAP) throw e;
+            // (the failure's resource timing entries come in a task after it: read after the first part of the wait)
+            await W(D[0] / 2);
+            const busy = L.filter((x) => x.t >= t0 && BUSY.has(x.s)).map((x) => x.u);
+            let n;
+            if (busy.length) {
+              // (the busy file of this try with the fewest failures so far: a file busy PER times is given up on)
+              n = Math.min(...busy.map((u) => L.filter((x) => x.u === u && BUSY.has(x.s)).length));
+              if (n >= PER) throw e;
+              why = 'busy ' + busy[0].replace(location.origin, '');
+            } else {
+              if (L.some((x) => x.t >= t0 && GONE.has(x.s))) throw e;
+              const u = (/(https?:\/\/[^\s'"]+)/.exec(String(e.message || '')) || [])[1];
+              if ((u && (await G(u))) || ++blind >= BLIND) throw e;
+              n = blind; why = 'load error';
+            }
+            await W(D[Math.min(n, D.length) - 1] - D[0] / 2);
+          }
+        }
+      }
+      const once = (el, src) => new Promise((res) => {
+        const css = el.tagName === 'LINK';
+        const s = document.createElement(css ? 'link' : 'script');
+        if (css) { s.rel = 'stylesheet'; s.href = src; if (el.media) s.media = el.media; if (el.crossOrigin != null) s.crossOrigin = el.crossOrigin; } else { s.src = src; s.async = false; }
+        s.dataset.mcOwn = '1';
+        s.onload = () => { if (css) el.remove(); res(true); };
+        s.onerror = () => { if (css) s.remove(); res(false); };
+        if (css && el.parentNode) el.after(s); else (el.parentNode || document.head).appendChild(s);
+      });
+      const retry = (el) => {
+        const src = el.src || el.href, mod = el.type === 'module';
+        const p = mod ? wait(D[0]).then(() => importRetry(() => import(src), src)).then(() => true, (e) => { if (fetchFailed(e)) { console.warn('[net] script did not load', src); return false; } return true; }) : (async () => {
+          for (let i = 0; i < D.length; i++) {
+            await wait(D[i]);
+            if (await gone(src)) break;
+            if (await once(el, src)) { console.info('[net] recovered', el.tagName === 'LINK' ? 'stylesheet' : 'script', src, 'on try', i + 2); return true; }
+          }
+          console.warn('[net] script did not load', src);
+          return false;
+        })();
+        // (not a module's: its import() resolves only once it has run, top-level awaits and all, and the game's own
+        // modules wait for the city; not a stylesheet's)
+        if (!mod && el.tagName === 'SCRIPT') { pending.add(p); p.finally(() => pending.delete(p)); }
+        return p;
+      };
+      window.mcScriptRetry = Object.assign(retry, { idle: () => Promise.all([...pending]), importRetry, failed: log });
+      addEventListener('error', (e) => {
+        const el = e.target;
+        if (!el || !el.tagName || (el.dataset && el.dataset.mcOwn)) return;
+        if ((el.tagName === 'SCRIPT' && el.src) || (el.tagName === 'LINK' && el.href && /(^|\s)stylesheet(\s|$)/i.test(el.rel))) retry(el);
+      }, true);
+    })();
+  </script>
+  <script src="js/net-retry.js?v=20261116-r22" defer></script>
   <script src="wagmi/stats.js" async></script>
   <!-- (how this machine runs the game: the graphics tier it picks, js/gfx-auto.js, and the anonymous report of it, wagmi/perf.js;
        ?v= the engine scripts' own cache stamp, v and assetVersion below: a release changes all four together, tests/gfx-auto.test.mjs) -->
-  <script src="wagmi/perf.js?v=20261116-r21" defer></script>
-  <script src="js/gfx-auto.js?v=20261116-r21" defer></script>
+  <script src="wagmi/perf.js?v=20261116-r22" defer></script>
+  <script src="js/gfx-auto.js?v=20261116-r22" defer></script>
   <meta name="theme-color" content="#0b0b0c" />
   <meta name="description" content="MOG CITY: Unfinished Business, an open-world mission game in the browser. Dan, a first-year banker at JPBank, has been fired and charged with insider trading, and the bank's security just took the laptop that proves he was set up. Get it back. Built on Slop New York (three.js WebGPU + TSL)." />
   <link rel="canonical" href="https://mc.gamemog.com/" />
@@ -138,7 +229,7 @@
       // (San Francisco's own modules from cities/sf/js; the ones both cities share as they are (the people, the touch
       // and pad controls, the cameras with their hill clearance, the culling, the lamps) from js/. Not SF's settings
       // dialog or its robotaxi ride: Mog City's pause menu and Dan's car are the game's)
-      const v = '20261116-r21';
+      const v = '20261116-r22';
       const sf = (f) => `./cities/sf/js/${f}?v=${v}`, shared = (f) => `./js/${f}?v=${v}`;
       // (a Hometown package: its own geodata.js (window.NYC.GEO, PLACE_DATA and PKG, tools/hometown/compile.py) in
       // place of San Francisco's geodata and places, then the same engine)
@@ -192,7 +283,7 @@
         sf('main.js')
       ];
     })() : (() => {
-      const assetVersion = '20261116-r21';
+      const assetVersion = '20261116-r22';
       return [
         './js/nyc-geodata.js',
         // (New York's buildings as mapped: heights, facade and roof colours, pitched roofs; tools/geo-looks.py)
@@ -873,13 +964,22 @@
     // (a Hometown package's data/*.bin.gz from its own folder)
     if (MC_PKG) Object.assign(window.NYC, { BASE: new URL(`./cities/pkg/packages/${MC_PKG}/`, document.baseURI).href });
 
-    const addCityScript = (src) => {
+    // (one after another, each put in once the one before it has run: a script the server was too busy for (a 503 after
+    // a release) is asked for again before the next one runs, so the engine's order holds; they all download at once,
+    // from the preloads above. -> Promise<boolean>, false when it did not load after its retries, head's mcScriptRetry)
+    // (net: a dynamic import again when its fetch failed, js/net-retry.js's or, before it has run (it was busy and is
+    // being asked for again), the head's own)
+    const net = (load, label) => (window.mcNet || window.mcScriptRetry).importRetry(load, label);
+    let cityChain = Promise.resolve();
+    const addCityScript = (src) => (cityChain = cityChain.then(() => window.mcScriptRetry?.idle()).then(() => new Promise((res) => {
       const s = document.createElement('script');
       s.src = src;
       s.async = false;
+      s.dataset.mcOwn = '1';
+      s.onload = () => res(true);
+      s.onerror = () => (window.mcScriptRetry ? window.mcScriptRetry(s).then(res) : res(false));
       document.head.appendChild(s);
-      return s;
-    };
+    })));
     // (a Hometown package: the engine's scripts only once its geodata.js has loaded. An id with no package compiled
     // under cities/pkg/packages/ says so, instead of booting the engine on no data and failing on TypeErrors)
     const pkgAt = MC_PKG ? nycAppScripts.findIndex((src) => src.includes('/cities/pkg/packages/')) : MC_TOWN ? nycAppScripts.indexOf('town:geodata.json') : -1;
@@ -895,13 +995,13 @@
       // (a town from GameMog: its bundle's objects in the globals a package's geodata.js sets, its data folder as the
       // city's BASE, then the same engine; a town that cannot be loaded, or is not the one the address names, says so)
       // (NYC.townReady: a story world set in the town waits on it before its check, wagmi/storyrun/pack.js)
-      window.NYC.townReady = import('./wagmi/world/town-src.js').then(async (T) => {
+      window.NYC.townReady = net(() => import('./wagmi/world/town-src.js')).then(async (T) => {
         const t = T.townFromQuery(MC_Q);
         if (!t) throw new Error('not a town address');
         const b = await T.loadTown(t);
         // (its decks' profiles mended before anything reads them: a bridge's deck pulled down to the water mid-span lifted
         // back onto its span, wagmi/world/deck-repair.js; the build itself as it was stored)
-        try { const R = (await import('./wagmi/world/deck-repair.js')).repairDecks(b.GEO); window.NYC.DECK_REPAIR = R; if (R.lifted.length) console.info('[town] decks mended', R.lifted.length); } catch (e) { console.warn('[town] decks', e); }
+        try { const R = (await net(() => import('./wagmi/world/deck-repair.js'))).repairDecks(b.GEO); window.NYC.DECK_REPAIR = R; if (R.lifted.length) console.info('[town] decks mended', R.lifted.length); } catch (e) { console.warn('[town] decks', e); }
         Object.assign(window.NYC, { GEO: b.GEO, PLACE_DATA: b.PLACE_DATA, PKG: b.PKG, BASE: t.base, TOWN: t });
         // (a growing town, &tv=: its far tiles by store key from GameMog's public store, and the district's edge, the
         // swap to the whole town and the time-to-first-drive beacons, wagmi/world/growing.js; nothing of it without tv)
@@ -909,20 +1009,20 @@
           try { performance.mark('mc:town:bundle'); } catch (e) {}
           window.NYC.FAR_BASE = `${t.host}/api/hometown/`;
           // (before the city's scripts: the traffic and the people are placed inside a district's window from the start)
-          try { (await import('./wagmi/world/growing.js')).startGrowing({ town: t, PKG: b.PKG }); } catch (e) { console.warn('[town] growing', e); }
+          try { (await net(() => import('./wagmi/world/growing.js'))).startGrowing({ town: t, PKG: b.PKG }); } catch (e) { console.warn('[town] growing', e); }
         }
         for (const src of nycAppScripts.slice(pkgAt + 1)) addCityScript(src);
       }).catch((e) => { bootError('This town could not be loaded. Try again.'); console.warn('[town]', MC_TOWN, String(e && e.message || e)); });
     } else if (pkgAt >= 0) {
-      const g = addCityScript(nycAppScripts[pkgAt]);
-      g.onload = () => {
+      addCityScript(nycAppScripts[pkgAt]).then((ok) => {
+        if (!ok) {
+          bootError(`No city package "${MC_PKG}" here. Compile it with tools/hometown/compile.py --id ${MC_PKG}.`);
+          console.warn('[pkg] no package', MC_PKG);
+          return;
+        }
         const go = () => { for (const src of nycAppScripts.slice(pkgAt + 1)) addCityScript(src); };
-        import('./wagmi/world/deck-repair.js').then((R) => { window.NYC.DECK_REPAIR = R.repairDecks(window.NYC.GEO); }).catch((e) => console.warn('[pkg] decks', e)).then(go);
-      };
-      g.onerror = () => {
-        bootError(`No city package "${MC_PKG}" here. Compile it with tools/hometown/compile.py --id ${MC_PKG}.`);
-        console.warn('[pkg] no package', MC_PKG);
-      };
+        net(() => import('./wagmi/world/deck-repair.js')).then((R) => { window.NYC.DECK_REPAIR = R.repairDecks(window.NYC.GEO); }).catch((e) => console.warn('[pkg] decks', e)).then(go);
+      });
     }
   </script>
   <!-- Mog City: Dan, his car, getting in and out (waits for the city app) -->

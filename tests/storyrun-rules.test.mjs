@@ -109,11 +109,76 @@ test("the GPS's held-off streets (a roadblock's circle)", () => {
   assert.equal(R.avoids([], 0, 0), false);
 });
 
+// a route sampled by distance: north (+z) from the origin for `bendAt` m, then east (+x)
+const route = (bendAt = 500, length = 600) => ({ length, at: (s) => (s <= bendAt ? { x: 0, z: s, h: 0 } : { x: s - bendAt, z: bendAt, h: Math.PI / 2 }) });
+
+test("a tail's start: ahead of his car along the route, before its first bend, never on top of him; far: drive there", () => {
+  const r = route();
+  // (on the route's first place: the pack's ahead, 45 by default; 16 Nov: 8 of 11 published tails started on top of him)
+  assert.equal(R.tailStart({ ...r, car: { x: 0, z: 0 } }).s0, 45);
+  assert.equal(R.tailStart({ ...r, car: { x: 0, z: 0 }, ahead: 60 }).s0, 60);
+  // (along it already: from where he is)
+  assert.equal(R.tailStart({ ...r, car: { x: 3, z: 30 } }).s0, 75);
+  // (short of its start: that much less, and never closer than 15 m)
+  assert.equal(R.tailStart({ ...r, car: { x: 0, z: -20 } }).s0, 25);
+  assert.equal(R.tailStart({ ...r, car: { x: 0, z: -40 } }).s0, 15);
+  // (a bend 30 m on: held before it, so it starts in view, facing away; still at least 15 m on)
+  const b = R.tailStart({ ...route(30), car: { x: 0, z: 0 } });
+  assert.ok(b.s0 <= 30 && b.s0 >= 15, `before the bend: ${b.s0}`);
+  assert.equal(R.tailStart({ ...route(12), car: { x: 0, z: 0 } }).s0, 15);
+  // (the route's first metres jogging from the place onto its lane are not a bend (LW-3 started 15 m out for one))
+  const jog = { length: 600, at: (s) => (s < 8 ? { x: s * 0.7, z: s * 0.7, h: Math.PI / 4 } : { x: 5.6, z: 5.6 + (s - 8), h: 0 }) };
+  assert.equal(R.tailStart({ ...jog, car: { x: 0, z: 0 } }).s0, 45);
+  // (and never past its end)
+  assert.equal(R.tailStart({ ...route(500, 30), car: { x: 0, z: 0 } }).s0, 29);
+  // (from his car more than 96 m from the first place: far, he is driven there first (Cold Harbor CH-2, ~700 m))
+  assert.equal(R.tailStart({ ...r, car: { x: 700, z: 0 } }).far, true);
+  assert.equal(R.tailStart({ ...r, car: { x: 90, z: 0 } }).far, false);
+  // (the runner: the far drive is a goTo (no lost clock) before the tail's rule starts; its start from tailStart)
+  const src = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/runner.js'), 'utf8'), tail = src.slice(src.indexOf('STEPS.tail = async'));
+  assert.ok(tail.indexOf('await goTo(route[0]') > 0 && tail.indexOf('await goTo(route[0]') < tail.indexOf('tailRule('), 'drives him to the start first');
+  assert.ok(/D\.place\(st\.far \? 0 : st\.s0\)/.test(tail) && /ahead: clamp\(d\.ahead \?\? 45, 20, 200\)/.test(tail) && /car: me\(\)/.test(tail));
+});
+
+test("a tail's fair start: it waits, no clock running, till he is rolling in a car or 10 s", () => {
+  const s = {}, o = { dd: 900, held: true, rolling: false };
+  for (let k = 0; k < 99; k++) { const r = R.tailRule(s, o, 0.1); assert.equal(r.verdict, 'wait'); assert.equal(r.want, 0); assert.equal(r.warn, null); }
+  assert.equal(R.tailRule(s, o, 0.2).verdict, 'ok'); // (10 s: it goes, rolling or not)
+  const s2 = {};
+  assert.equal(R.tailRule(s2, { dd: 45, rolling: false }, 0.5).verdict, 'wait');
+  const r = R.tailRule(s2, { dd: 45, rolling: true }, 0.5);
+  assert.equal(r.verdict, 'ok'); assert.equal(r.want, 13); assert.equal(s2.goT, 1);
+});
+
+test("a tail's clocks: too close and it makes him, too far and he loses it, a warning first", () => {
+  // (lost: beyond lostDist for lostTime s, warned once at 0.35 of it, again no sooner than 3.5 s later)
+  let s = { }, warns = [], v;
+  R.tailRule(s, { dd: 45, rolling: true }, 0.1);
+  for (let k = 1; k <= 100 && v !== 'lost'; k++) { const r = R.tailRule(s, { dd: 200, rolling: true, held: false }, 0.1); v = r.verdict; if (r.warn) warns.push([+(k * 0.1).toFixed(1), r.warn]); if (v !== 'lost') assert.equal(r.want, 6.5); }
+  assert.equal(v, 'lost'); assert.ok(s.far > 8 && s.far < 8.2);
+  assert.deepEqual(warns.map((w) => w[1]), ['far', 'far']); assert.ok(warns[1][0] - warns[0][0] >= 3.5);
+  // (spotted: inside half the ring once it has pulled away, for spotTime s; backing off drains it)
+  s = {}; R.tailRule(s, { dd: 45, rolling: true }, 0.1);
+  for (let k = 0; k < 30; k++) assert.equal(R.tailRule(s, { dd: 8, rolling: true }, 0.1).verdict, 'ok');
+  for (let k = 0; k < 30; k++) R.tailRule(s, { dd: 30, rolling: true }, 0.1);
+  assert.equal(s.close, 0);
+  let n = 0; while (R.tailRule(s, { dd: 8, rolling: true }, 0.1).verdict !== 'spotted' && n < 100) n++;
+  assert.ok(n >= 39 && n <= 41, `${n}`); // (4 s, give or take a frame)
+  // (held up in traffic it is a car in a queue: only a car's length counts as too close)
+  s = {}; R.tailRule(s, { dd: 45, rolling: true }, 0.1);
+  for (let k = 0; k < 100; k++) assert.equal(R.tailRule(s, { dd: 9, held: true, rolling: true }, 0.1).verdict, 'ok');
+  // (just started and not yet pulled away to half the ring: being close does not count for its first 6 s)
+  s = {}; R.tailRule(s, { dd: 4, rolling: true }, 0.1);
+  for (let k = 0; k < 55; k++) assert.equal(R.tailRule(s, { dd: 4, rolling: true }, 0.1).verdict, 'ok');
+});
+
 test('the engine-check world passes the checks; each new step kind is played (no longer a stub)', () => {
   assert.deepEqual(check(ENG), []);
   for (const k of ['stealth', 'convoy', 'roadblock', 'passenger', 'ally', 'car']) assert.ok(STEP_KINDS.has(k), k);
   const kinds = new Set(ENG.missions.flatMap((m) => m.steps.map((s) => s.type)));
-  for (const k of ['stealth', 'convoy', 'roadblock', 'passenger', 'ally', 'timer', 'car']) assert.ok(kinds.has(k), `the world plays ${k}`);
+  for (const k of ['stealth', 'convoy', 'roadblock', 'passenger', 'ally', 'timer', 'car', 'tail']) assert.ok(kinds.has(k), `the world plays ${k}`);
+  // (EN-8: a tail from where he starts (near) and one from across town (far: driven there first))
+  assert.deepEqual(ENG.missions.find((m) => m.id === 'EN-8').steps.map((s) => s.route[0]), ['@bank', '@office']);
   // (call waiting, a walkie cue, a sub-place)
   const all = ENG.missions.flatMap((m) => m.steps.flatMap((s) => [s, ...(s.during || [])]));
   assert.ok(all.some((s) => s.type === 'call' && s.interrupts) && all.some((s) => s.cue === 'walkie2') && ENG.places.sidedoor.offset.right === 24);

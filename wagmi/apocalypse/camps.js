@@ -5,7 +5,7 @@
 // (js/pedestrians.js: one instanced, skinned draw for every camp), standing and shifting their weight, drawn within
 // PEOPLE_R m; the seated and the huddled are made in code as San Francisco's sidewalk scenes' people are.
 import * as THREE from 'three/webgpu';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'; import { importRetry } from '../net.js';
 
 const SHOW = 520, PEOPLE_R = 170;
 function rng(seed) { let s = seed >>> 0; return () => { s = (s + 0x6D2B79F5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
@@ -196,7 +196,7 @@ export function createCamps(W, fx, { clear = [] } = {}) {
   for (let i = people.length - 1; i >= 0; i--) if (kept(people[i].x, people[i].z, 0.5)) people.splice(i, 1);
   for (let i = scanAt.length - 1; i >= 0; i--) if (kept(scanAt[i][1], scanAt[i][3], 0.6)) scanAt.splice(i, 1);
   // the library's scans by the tents (one instanced draw a kind, every camp's)
-  import('../storyrun/setkit.js').then(async ({ libModel }) => {
+  importRetry(() => import('../storyrun/setkit.js')).then(async ({ libModel }) => {
     const M4 = new THREE.Matrix4(), Q4 = new THREE.Quaternion(), V1 = new THREE.Vector3(1, 1, 1), up = new THREE.Vector3(0, 1, 0);
     for (const id of [...new Set(scanAt.map((s) => s[0]))]) {
       const list = scanAt.filter((s) => s[0] === id);

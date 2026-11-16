@@ -21,7 +21,7 @@ import * as THREE from 'three/webgpu';
 import { createStealth } from './m2-stealth.js';
 import { PAV, at } from './m4-set.js';
 import { L, glyphCanvas } from './m4-pavilion.js';
-import { S as story } from '../story/index.js';
+import { S as story } from '../story/index.js'; import { fetchRetry } from '../net.js';
 
 const PI = Math.PI;
 const wrap = (a) => { a = (a + PI) % (2 * PI); if (a < 0) a += 2 * PI; return a - PI; };
@@ -62,7 +62,7 @@ const HOLDS = {
 export function createGuests(W, pav, { n = 30 } = {}) {
   const N = window.NYC, app = W.app, cm = app.controllerManager;
   if (!N?.PersonCrowd || !N?.PersonRig) return null;
-  if (!CLIPS) { CLIPS = {}; fetch('assets/anim/bandai/rally-crowd-ped.json').then((r) => (r.ok ? r.json() : null)).then((j) => { if (j?.clips) for (const c of j.clips) CLIPS[c.name] = c; }).catch(() => {}); }
+  if (!CLIPS) { CLIPS = {}; fetchRetry('assets/anim/bandai/rally-crowd-ped.json').then((r) => (r.ok ? r.json() : null)).then((j) => { if (j?.clips) for (const c of j.clips) CLIPS[c.name] = c; }).catch(() => {}); }
   // (the look review's round 9: puffers, knits and a hoodie at a night gala. A formal crowd, js/pedestrians.js: tailored
   // evening wear only, dark trousers, and long hair clean-shaven)
   const C = new N.PersonCrowd(n, { farDistance: 36, name: 'GalaCrowd', formal: true });

@@ -29,7 +29,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { rig, clamp } from './cine.js';
 import { faceOn } from '../face.js';
 // (the story pack, wagmi/story: here `story`, S being the screen's own state below)
-import { S as story } from '../story/index.js';
+import { S as story } from '../story/index.js'; import { fetchRetry } from '../net.js';
 
 const PI = Math.PI;
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
@@ -415,7 +415,7 @@ export function buildRally(W) {
   const N = window.NYC;
   // (the motion capture, fetched once with the set: the party crowd's and the camp's)
   const CLIPS = { CL: null };
-  fetch('assets/anim/bandai/rally-crowd-ped.json').then((r) => (r.ok ? r.json() : null)).then((j) => { if (j?.clips) CLIPS.CL = Object.fromEntries(j.clips.map((c) => [c.name, c])); }).catch(() => {});
+  fetchRetry('assets/anim/bandai/rally-crowd-ped.json').then((r) => (r.ok ? r.json() : null)).then((j) => { if (j?.clips) CLIPS.CL = Object.fromEntries(j.clips.map((c) => [c.name, c])); }).catch(() => {});
   const crowd = (() => {
     if (!N?.PersonCrowd || !N?.PersonRig) return null;
     // (27 Oct: the pack's three 'active' cheers stay out of the mix: they bounce on knees never straighter than 18-21

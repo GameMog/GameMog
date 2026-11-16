@@ -12,6 +12,8 @@
 //   speedRule(state, v, dt, o)   a passenger's speed rule: seconds over the limit, a warning, and the fail
 //   passCard(o)                  the MISSION PASSED card's data: what was gained, the meter's progress, what is next
 //   avoids(list, x, z)           a point inside one of the GPS's held-off circles (a roadblock's street)
+//   tailStart(o)                 where a tail's followed car starts: ahead of his car, before the first bend (or far: drive there)
+//   tailRule(state, o, dt)       a tail each frame: a fair start, then too close / lost clocks and their warnings
 export const PI = Math.PI;
 export const angWrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
@@ -110,3 +112,47 @@ export function passCard({ title = '', passLine = '', meters = [], before = {}, 
 
 /* -------------------------------------------------------- the GPS held off -- */
 export const avoids = (list, x, z) => !!list && list.some((c) => Math.hypot(x - c.x, z - c.z) < c.r);
+
+/* ------------------------------------------------------------- a car to tail -- */
+// Where a tail's followed car starts (STEPS.tail): at(s) -> { x, z, h } samples its route by distance, length its
+// metres, car where the hero's car is. More than `far` m from the route's first place: { far: true } (he is driven
+// there first, no lost clock). Otherwise { s0, sHero }: `ahead` m (the pack's, 20..200; 45 by default) on from where
+// he is along the route (or, short of its start, that much less the metres to it), held before its first bend of over
+// `bend` (20 degrees) so it starts in view, and at least `min` (15) m on, so it never starts on top of him.
+export function tailStart({ at, length, car, ahead = 45, far = 96, bend = 20 * PI / 180, min = 15 }) {
+  const p0 = at(0), d0 = Math.hypot(car.x - p0.x, car.z - p0.z);
+  if (d0 > far) return { far: true, d0 };
+  // (where he is along it: the nearest of its first 150 m)
+  let sHero = 0, best = Infinity;
+  for (let s = 0; s <= Math.min(length, 150); s += 1) { const q = at(s), dd = Math.hypot(car.x - q.x, car.z - q.z); if (dd < best) { best = dd; sHero = s; } }
+  let s0 = sHero > 0 ? sHero + ahead : ahead - d0;
+  // (the first bend on from him, against the way it runs 10 m on: its first metres may jog from the place onto its lane)
+  const h0 = at(Math.min(length, sHero + 10)).h;
+  for (let s = sHero + 12; s < Math.min(length, sHero + ahead + 2); s += 2) if (Math.abs(angWrap(at(s).h - h0)) > bend) { s0 = Math.min(s0, s - 2); break; }
+  s0 = clamp(Math.max(s0, sHero + min), 0, Math.max(0, length - 1));
+  return { far: false, s0, sHero, d0 };
+}
+// A tail's rule each frame. state: { t, go, goT, close, far, opened, warnAt } (start it {}); o: { dd (m from him to the
+// followed car), held (it is stopped in traffic, v < 3), rolling (he is in a car above 2.5 m/s), ring, lostDist, speed,
+// spotTime, lostTime }. A fair start (Mission 2's, m2.js): it idles, and no clock runs, till he is rolling in a car or
+// 10 s have passed. Then: too close (inside half the ring, a car's length when it is held up) for spotTime s and it
+// has made him; beyond lostDist for lostTime s and he has lost it; a warning before either, every 3.5 s at most.
+// Returns { want (m/s for it), verdict: 'wait' | 'ok' | 'spotted' | 'lost', warn: 'close' | 'far' | null }
+export function tailRule(state, o, dt) {
+  const ring = o.ring || 25, lostDist = o.lostDist || 160, speed = o.speed || 13, spotTime = o.spotTime || 4, lostTime = o.lostTime || 8;
+  state.t = (state.t || 0) + dt; state.close ??= 0; state.far ??= 0;
+  if (!state.go && (o.rolling || state.t > 10)) { state.go = true; state.goT = state.t; }
+  if (!state.go) return { want: 0, verdict: 'wait', warn: null };
+  const dd = o.dd, want = dd < ring ? speed * 1.4 : dd > lostDist * 0.6 ? speed * 0.5 : speed;
+  // (being close counts once it has pulled away to half the ring, or 6 s after it set off; MM, 5 Nov: Mission 2's van
+  // "spotted" a player parked at its mark. Held up in traffic, one car back at a light is not being made, only on its
+  // bumper is; owner's PT-8 run, 6 Nov)
+  if (dd >= ring * 0.5 || state.t - state.goT > 6) state.opened = true;
+  const tooClose = o.held ? dd < 7 : dd < ring * 0.5;
+  state.close = tooClose && state.opened ? state.close + dt : Math.max(0, state.close - dt);
+  state.far = dd > lostDist ? state.far + dt : 0;
+  let warn = null;
+  if (state.t - (state.warnAt ?? -1e9) > 3.5 && (state.close > spotTime * 0.4 || state.far > lostTime * 0.35)) { state.warnAt = state.t; warn = state.close > 0 ? 'close' : 'far'; }
+  const verdict = state.close > spotTime ? 'spotted' : state.far > lostTime ? 'lost' : 'ok';
+  return { want, verdict, warn };
+}

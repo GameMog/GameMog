@@ -30,7 +30,7 @@ import { tell, result as tellResult, log as hostLog } from './host.js';
 import { showTitle, plainTitle, isOwn, ownTitle } from './title.js';
 import { asksDressing, asksApocalypse, HOURS } from './pack.js';
 import { passCard } from './rules.js';
-import { createDirector } from '../mission/cine.js';
+import { createDirector } from '../mission/cine.js'; import { importRetry } from '../net.js';
 
 const Q = new URLSearchParams(location.search);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -96,7 +96,7 @@ export async function install(W) {
   // a pet that goes with the hero (pets[] "follows": pet.js), only when the world has one
   let pets = null;
   if (Object.values(def.cast || {}).some((c) => c && c.pet && c.pet.follows)) {
-    try { pets = (await import('./pet.js')).createPets(W, world); } catch (e) { console.warn('[storyrun] pets', e); }
+    try { pets = (await importRetry(() => import('./pet.js'))).createPets(W, world); } catch (e) { console.warn('[storyrun] pets', e); }
   }
   // every frame, as Mog City's missions do (m1.js): the GPS route followed, the HUD told whether he is on foot
   let lastT = performance.now();
@@ -125,7 +125,7 @@ export async function install(W) {
   // what the city wears (dressing.js: a blackout, Christmas, snow or rain), only when the world asks for one; before
   // the time of day below, so the world's times keep its look
   if (asksDressing(def.dressing)) {
-    try { const D = await import('./dressing.js'); W.storyrun.dressing = D.createDressing(W, def.dressing); } catch (e) { console.warn('[storyrun] dressing', e); }
+    try { const D = await importRetry(() => import('./dressing.js')); W.storyrun.dressing = D.createDressing(W, def.dressing); } catch (e) { console.warn('[storyrun] dressing', e); }
   }
   // (SF 2040: San Francisco after Erebus, wagmi/apocalypse, when a world for 'sf' asks for it in its dressing (or the
   // address has ?apocalypse); loaded only then. Before the time of day below, which it then keeps in its own look)
@@ -133,10 +133,10 @@ export async function install(W) {
     // (its camps kept clear of the story's lairs: 26 m round every boss fight's arena)
     const clear = [];
     for (const m of def.missions || []) for (const st of m.steps || []) if (st.type === 'fight' && st.boss && st.arena) { try { const p = places.at(st.arena); if (p) clear.push([p.cx ?? p.x, p.cz ?? p.z, 26]); } catch {} }
-    try { const A = await import('../apocalypse/index.js'); await A.createApocalypse(W, { time: typeof def.dressing?.apocalypse === 'string' ? def.dressing.apocalypse : Q.get('apocalypse') || 'dusk', clear }); } catch (e) { console.warn('[storyrun] apocalypse', e); }
+    try { const A = await importRetry(() => import('../apocalypse/index.js')); await A.createApocalypse(W, { time: typeof def.dressing?.apocalypse === 'string' ? def.dressing.apocalypse : Q.get('apocalypse') || 'dusk', clear }); } catch (e) { console.warn('[storyrun] apocalypse', e); }
   }
   // a story's night is a lit city night, readable (nightlit.js: its fill, moon and exposure lifted at night only)
-  try { const NL = await import('./nightlit.js'); W.storyrun.nightLit = NL.createNightLit(W, def.dressing || {}); } catch (e) { console.warn('[storyrun] night', e); }
+  try { const NL = await importRetry(() => import('./nightlit.js')); W.storyrun.nightLit = NL.createNightLit(W, def.dressing || {}); } catch (e) { console.warn('[storyrun] night', e); }
   // the start: on foot by the car while the gate is up, the city at the world's time of day (a night world's gate at night)
   outBesideCar(W);
   // (a world that says no time at all, in its dressing or its first mission, is in daylight)
@@ -153,7 +153,7 @@ export async function install(W) {
 
   let autopilot = null;
   if (flags.autopilot) {
-    const { startAutopilot } = await import('./autopilot.js');
+    const { startAutopilot } = await importRetry(() => import('./autopilot.js'));
     autopilot = startAutopilot(W, runner, {
       missionSecs: +(Q.get('missionsecs') || 240), skipScenes: +(Q.get('skipscenes') || 0), realPace: Q.has('realpace'), fair: Q.has('fair'),
       onTimeout: (m, d, i) => { tell('mission-fail', { id: m.id, why: `The test drive timed out at step ${i + 1} (${d?.type}${d?.id ? ' ' + d.id : ''}).`, step: d?.id || null, kind: d?.type || null, timeout: true }); runner.M?.fail?.({ reason: `The test drive timed out at step ${i + 1} (${d?.type}).` }); },

@@ -10,7 +10,7 @@
 // Layers: heights, mask (512 x 512 1 m cells, cell 1 / k0; class 6 water), buildings, roads (nodes by id, links by
 // node id: the runtime stitches border nodes 'b:...' across tiles), header. has(ix, iz): the descriptor's tile set or
 // else the domain's bounds. Decoding runs on the page's thread (DecompressionStream, async): a worker is the next step.
-import { TILE, TILE_CM, BOUNDS, tileId } from './grid.js';
+import { TILE, TILE_CM, BOUNDS, tileId } from './grid.js'; import { fetchRetry } from '../net.js';
 
 const td = new TextDecoder();
 
@@ -86,7 +86,7 @@ export function placeTile(fr, { header: h, sections: s }) {
 
 // createNetTileSource({ base, buildId, domain, c0, r0, k0, yOffset, waterLevel, tiles?: Set of ids, fetch? })
 export function createNetTileSource(o) {
-  const get = o.fetch || ((u) => fetch(u));
+  const get = o.fetch || ((u) => fetchRetry(u));
   const [bc, br] = BOUNDS[o.domain];
   return {
     id: 'hg1-' + o.domain, version: o.buildId, grid: 'hg1', domain: o.domain, c0: o.c0, r0: o.r0, size: TILE / o.k0,

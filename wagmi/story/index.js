@@ -23,7 +23,7 @@ import { validatePack } from './schema.js';
 import { upgradePack } from './upgrade.js';
 import { dress as dressModel } from './dress.js';
 import { makeStory, KNOBS, html } from './make.js';
-import { allowed, hostOf, GAMEMOG } from './allow.js';
+import { allowed, hostOf, GAMEMOG } from './allow.js'; import { fetchRetry } from '../net.js';
 
 const q = new URLSearchParams(location.search);
 const LOCAL = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
@@ -34,8 +34,9 @@ async function sha256(text) {
     return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, '0')).join('');
   } catch { return null; }
 }
-// (no redirects followed: the address checked is the address read; and the response's own url checked again)
-const getText = async (url) => { const r = await fetch(url, { credentials: 'omit', redirect: 'error' }); if (!r.ok) throw new Error(`${r.status} ${url}`); if (r.url && r.url !== String(url)) throw new Error('redirected'); const t = await r.text(); if (t.length > 400000) throw new Error('too large'); return t; };
+// (no redirects followed: the address checked is the address read; and the response's own url checked again. A busy
+// answer asked again, a network error (the redirect refused, a CORS refusal) not: a bad ?story= falls back at once)
+const getText = async (url) => { const r = await fetchRetry(url, { credentials: 'omit', redirect: 'error' }, { network: false }); if (!r.ok) throw new Error(`${r.status} ${url}`); if (r.url && r.url !== String(url)) throw new Error('redirected'); const t = await r.text(); if (t.length > 400000) throw new Error('too large'); return t; };
 
 // the story calls with no pack: everything as written
 function passThrough(why) {

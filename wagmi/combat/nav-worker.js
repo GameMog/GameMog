@@ -5,8 +5,12 @@ import { init, exportNavMesh } from '../../js/vendor/recast/core.mjs';
 import { generateSoloNavMesh } from '../../js/vendor/recast/generators.mjs';
 import Recast from '../../js/vendor/recast/recast-navigation.wasm.js';
 
-const ready = init(Recast);
+// (the .wasm as the page fetched it, its first message (wagmi/combat/nav.js: asked for again there if the server was
+// busy, a 503 after a release); the module's own fetch of it only if a build comes first)
+let ready = null;
 self.onmessage = async ({ data }) => {
+  if (data && data.wasm) { ready ||= init(() => Recast({ wasmBinary: data.wasm })); return; }
+  ready ||= init(Recast);
   const { id, positions, indices, cfg } = data;
   try {
     await ready;

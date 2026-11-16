@@ -290,6 +290,11 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
       // (a long tail, as a long leg: after 12 s of following, the followed car is put on to its last 240 m and the
       // car 1.4 rings behind it on its way; the city's traffic makes a 2.5 km tail a five-minute drive)
       const T = M.tail;
+      // (back in range: on the followed car's own path, 1.4 rings behind it and facing its way, as the long tail's jump
+      // is; 16 Nov: put back on the GPS's way to it, which can come at it round a block, the autopilot stood 3 m in front
+      // of it (CH-5: it braked for him for 4 minutes) or inside the ring (LW-3, spotted). Before it is out (a far tail's
+      // drive to its start), the GPS's way to the start, as a leg)
+      const backOn = () => { if (!T) { const q = fromEnd(r, ring * 1.4); putCar(q.x, q.z, q.h); return; } const s0 = Math.max(0, T.s - ring * 1.4), a = T.at(s0), b = T.at(s0 + 3); putCar(a.x, a.z, Math.atan2(b.x - a.x, b.z - a.z)); };
       if (!realPace && T && !tailJumped && t - stepT > 12 && T.length - T.s > 420) {
         tailJumped = true; T.place(T.length - 240);
         const a = T.at(Math.max(0, T.s - ring * 1.4)), b = T.at(Math.max(0, T.s - ring * 1.4) + 3);
@@ -301,14 +306,21 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
         const dv = Math.hypot(T.pos.x - x, T.pos.z - z), vt = clamp((T.v || 0) + (dv - ring * 1.6) * 0.3, 0, 20);
         // (too close (it stopped, or a corner brought it back): backed off, in reverse if need be, out past the ring)
         if (dv < ring * 0.9) { release(); if (car.speed > -4) cm.setTouchInput('backward', 1); return; }
-        if (L > lost * 0.85 && t - tailJumpT > 6) { tailJumpT = t; const q = fromEnd(r, ring * 1.4); putCar(q.x, q.z, q.h); note('tail: back in range'); return; }
+        if (L > lost * 0.85 && t - tailJumpT > 6) { tailJumpT = t; backOn(); note('tail: back in range'); return; }
         const tg = along(r, x, z, 9 + Math.abs(car.speed || 0) * 0.6);
         steerTo(tg.x, tg.z, vt); return;
       }
-      if (L < ring * 0.8) { release(); if (L < ring * 0.6 && car.speed > -5) cm.setTouchInput('backward', 0.8); return; }
-      if (L > lost * 0.7 && t - tailJumpT > 6) { tailJumpT = t; const q = fromEnd(r, ring * 1.4); putCar(q.x, q.z, q.h); note('tail: back in range'); return; }
-      const tg = along(r, x, z, 9 + Math.abs(car.speed || 0) * 0.6);
-      steerTo(tg.x, tg.z, L > lost * 0.33 ? 17 : L > ring * 1.6 ? 13 : 9);
+      // (the gap as the tail counts it, straight; and when the GPS's way to it goes round the blocks (16 Nov, LW-3: 40 m
+      // behind it on its own street, the GPS's way 120 m and more), its own path is followed instead, the way it went)
+      const dv = T ? Math.hypot(T.pos.x - x, T.pos.z - z) : L, G = T ? Math.min(L, dv) : L;
+      // (past it, in front of it in a slow queue it noses through: it reads him in its mirrors whichever way he backs off;
+      // 16 Nov, LW-3 was 'spotted' three times so: put back behind it)
+      if (T && dv < ring * 1.2 && (x - T.pos.x) * Math.sin(T.heading) + (z - T.pos.z) * Math.cos(T.heading) > 0 && t - tailJumpT > 3) { tailJumpT = t; backOn(); note('tail: back behind it'); return; }
+      if (G < ring * 0.8) { release(); if (G < ring * 0.6 && car.speed > -5) cm.setTouchInput('backward', 0.8); return; }
+      if (G > lost * 0.7 && t - tailJumpT > 6) { tailJumpT = t; backOn(); note('tail: back in range'); return; }
+      let tg = along(r, x, z, 9 + Math.abs(car.speed || 0) * 0.6);
+      if (T && L > dv * 1.6 + 20) { let sn = T.s, bd = Infinity; for (let s = Math.max(0, T.s - 200); s <= T.s; s += 3) { const q = T.at(s), dd = Math.hypot(q.x - x, q.z - z); if (dd < bd) { bd = dd; sn = s; } } tg = T.at(Math.min(T.s, sn + 9 + Math.abs(car.speed || 0) * 0.6)); }
+      steerTo(tg.x, tg.z, G > lost * 0.33 ? 17 : G > ring * 1.6 ? 13 : 9);
       return;
     }
     // stuck

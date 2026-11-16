@@ -19,7 +19,7 @@ export { createRider } from './rider.js';
 export { createDrive } from './drive.js';
 import { createSaddle } from './saddle.js';
 import { PACKS } from './hooves.js';
-import { CREDITS } from '../credits.js';
+import { CREDITS } from '../credits.js'; import { importRetry } from '../net.js';
 
 // the vehicle's name a world gives it (its car: { model: 'mogcity/horse', label? })
 export const HORSE_MODEL = 'mogcity/horse';
@@ -62,7 +62,7 @@ export function install(W, { THREE, rs, rider, drive, ride }) {
   const saddle = createSaddle(THREE, { W, rs, rider, drive });
   { const sec = CREDITS.find((c) => c.heading === 'Vehicles'); if (sec && !sec.lines.includes(HORSE_CREDIT)) sec.lines.push(HORSE_CREDIT); }
   // (its sounds fetched now, so the first hoofbeat is heard)
-  try { const ctx = W.audio?.ctx; if (ctx) import('../library/sounds.js').then((m) => m.preload({ ctx }, PACKS)).catch(() => {}); } catch { /* (no sound) */ }
+  try { const ctx = W.audio?.ctx; if (ctx) importRetry(() => import('../library/sounds.js')).then((m) => m.preload({ ctx }, PACKS)).catch(() => {}); } catch { /* (no sound) */ }
 
   // Q in the saddle: W walks instead of trotting (and back)
   const typing = (e) => /^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.tagName || '') || e.target?.isContentEditable;

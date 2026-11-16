@@ -32,7 +32,7 @@ export const FADE_MS = 1200;
 export const POSE_TTL_MS = 5 * 60 * 1000;
 export const WORDS = { edge: 'The rest of town is still being built', ready: 'Your whole town is ready' };
 
-import { BUILD_ID, TILE_SET } from './town-src.js';
+import { BUILD_ID, TILE_SET } from './town-src.js'; import { fetchRetry } from '../net.js';
 
 const N = () => globalThis.window?.NYC || {};
 
@@ -207,7 +207,8 @@ const PILL = 'position:fixed;left:50%;transform:translateX(-50%);z-index:60;poin
 const inControl = () => !!pose() && !document.getElementById('loading-overlay')?.offsetParent && !globalThis.window?.WAGMI?.cutscene;
 
 // boot: called by index.html with the town address and its bundle's PKG, for every town (district or full)
-export function startGrowing({ town, PKG, fetchFn = globalThis.fetch, href = globalThis.location?.href }) {
+// (fetchRetry: asked for again on a busy answer, wagmi/net.js)
+export function startGrowing({ town, PKG, fetchFn = fetchRetry, href = globalThis.location?.href }) {
   mark('mc:town:boot');
   const W = globalThis.window, variant = PKG?.variant || (town?.tv || 'full');
   const box = windowBox(PKG);

@@ -18,7 +18,7 @@ import { missions, carry } from './pause.js';
 import { createDirector, keys, angleKeys, spline, travel, handheld, clamp, lerp } from './cine.js';
 import { buildChevron } from './m2-set.js';
 import { S as story } from '../story/index.js';
-import { playTurns, beatOf } from '../radio/turns.js';
+import { playTurns, beatOf } from '../radio/turns.js'; import { importRetry } from '../net.js';
 
 const PI = Math.PI;
 const WHITE = '#FFFFFF', ACID = '#B6FF3B', BLUE = '#6CB8FF';
@@ -534,7 +534,7 @@ function createMission(W, { keep = false, quiet = false } = {}) {
     await sleep(4000);
     // the way on (mission/m2.js): Jane's DM, 'Meet Jane at Bryant Park.', the route to the J and its corona there, the
     // J kept on the radar with a nudge when he wanders; into the corona, Mission 2
-    try { (await import('./m2.js')).handoff(W); } catch (e) { console.error('[m1] hand-off', e); }
+    try { (await importRetry(() => import('./m2.js'))).handoff(W); } catch (e) { console.error('[m1] hand-off', e); }
   }
 
   /* ------------------------------------------------------- the runner -- */

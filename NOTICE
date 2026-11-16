@@ -66,12 +66,17 @@ Motion data: Bandai Namco Research Motion Dataset, (c) 2022 Bandai Namco Researc
 (https://creativecommons.org/licenses/by-nc/4.0/; https://github.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset).
 These files are NOT covered by the MIT License in LICENSE; they remain under CC BY-NC 4.0: they may be used and
 shared for non-commercial purposes only, with this credit. The licence's text is in assets/anim/bandai/LICENSE.txt.
-They were changed: retargeted from the dataset's BVH files to this game's rigs (dan.glb's, fiona.glb's, gears.glb's
-and the city's walkers'), trimmed to loops, their travel taken out (in place) and their feet set on the ground;
+They were changed: retargeted from the dataset's BVH files to this game's rigs (dan.glb's, jane.glb's, fiona.glb's,
+gears.glb's, thug.glb's through the Suits' retargets of Dan's clips, and the city's walkers'), trimmed to loops, their travel taken out (in place) and their feet set on the ground;
 Fiona's and Gears' idles are one standing frame held with breathing added; in the game Dan's steps play on his legs
 alone, under his guard.
-  - (The Suits' clips, assets/anim/suits-dan.glb, are not from this dataset: since 29 Oct 2026 they are Dan's own
-    clips (dan.glb's) retargeted onto thug.glb's rig. The dataset's suits.glb pack was removed that day.)
+  - assets/characters/dan.glb: Dan's walk, jog, run and sprint (the takes walk_normal, run_active, run_masculinity
+    and dash_masculinity) and his standing idle's stance (the dataset's neutral stand), retargeted to his rig
+  - assets/characters/jane.glb: Jane's walk, retargeted to her rig
+  - assets/anim/suits-dan.glb: since 29 Oct 2026 the Suits' clips are Dan's own (dan.glb's) retargeted onto thug.glb's
+    rig, so their standing idle, walk, jog, run, sprint and side-steps are retargets of the Dan takes above (each of
+    their other clips comes from wherever the Dan clip it was made from comes). The dataset's own suits.glb pack was
+    removed that day.
   - assets/anim/bandai/rally-crowd-ped.json: the rally crowd's dances and cheers (dataset-1: dance-long,
     dance-short, normal; dataset-2: wave-both-hands, raise-up-both-hands, wave-right-hand; active, youthful)
   - assets/anim/bandai/dan-footwork.glb: Dan's step forward, back-pedal and side-steps in a fight (dataset-1:
@@ -123,10 +128,12 @@ Characters (assets/characters)
     (http://www.makehuman.org, CC0-1.0; Jane from GameMog's CC0 MakeHuman people pack), then shaped,
     dressed, recoloured and texture-baked for the game. Gears' beard and cap, Fiona's megaphone and
     shades and the Suits' glasses and earpieces are made in code.
-  - Their walk, idle, talk, phone and similar clips come from the CMU Graphics Lab Motion Capture
+  - Their talk, phone and similar everyday clips come from the CMU Graphics Lab Motion Capture
     Database (http://mocap.cs.cmu.edu), which Carnegie Mellon University provides free for all uses:
     it may be included in products, but the data itself may not be resold. The database was created
-    with funding from NSF EIA-0196217.
+    with funding from NSF EIA-0196217. Not these: Dan's walk, jog, run, sprint and standing stance,
+    Jane's walk, Fiona's run and Fiona's and Gears' standing idles are Bandai Namco takes, under
+    CC BY-NC 4.0 (see Bandai Namco Research Motion Dataset above).
   - Dan's freeflow fight moves (the ff* clips) are Spiderbench's, retargeted to his rig (see
     Spiderbench above).
 
@@ -291,9 +298,8 @@ Voices (assets/voice)
   - The Camp (the Occupy camp's crowd): synthesised with Kokoro-82M by hexgrad (Apache-2.0), eight of its
     stock voices (am_michael, af_sarah, am_adam, af_bella, am_onyx, af_kore, am_eric and af_jessica), run with
     kokoro-onnx (MIT), each line said by all eight a little apart and mixed into one crowd.
-  - Any character not yet voiced: placeholders made with the macOS speech voices (the `say` command). They
-    are meant to be replaced by recordings or synthesised voices like the others'. assets/voice/manifest.json records each line's source;
-    docs/VOICE-LINES.md is the line sheet and says how to drop new voices in.
+  - assets/voice/manifest.json records each line's source; docs/VOICE-LINES.md is the line sheet and says how to
+    drop new voices in.
 
 People: skin and cloth detail (assets/people/detail)
 ---------------------------------------------------

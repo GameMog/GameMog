@@ -12,14 +12,14 @@
 // is kept low and steady and the street's life is in tones (engines, horns, sirens, voices) that come and go.
 // Calmer in parks (the traffic falls away, the birds come up); the whole bus is muffled inside the car (core.js).
 import { SOUNDS } from './sounds.js';
-import { motorLoad } from './motors.js';
+import { motorLoad } from './motors.js'; import { fetchRetry } from '../net.js';
 
 // the crowd's walla: real people talking (CC0 recordings, see NOTICE: Crowd sounds), cut into a seamless loop of a street's
 // crowd (assets/sfx/city/crowd-walla.m4a): fetched and decoded once, when the city's sound starts
 const WALLA_URL = new URL('../../assets/sfx/city/crowd-walla.m4a', import.meta.url);
 let walla = null;
 export function loadWalla(ctx) {
-  return (walla ||= fetch(WALLA_URL).then((r) => { if (!r.ok) throw new Error(r.status + ' crowd-walla'); return r.arrayBuffer(); }).then((b) => ctx.decodeAudioData(b)).catch((e) => { walla = null; throw e; }));
+  return (walla ||= fetchRetry(WALLA_URL).then((r) => { if (!r.ok) throw new Error(r.status + ' crowd-walla'); return r.arrayBuffer(); }).then((b) => ctx.decodeAudioData(b)).catch((e) => { walla = null; throw e; }));
 }
 
 export function createCity(M, E) {

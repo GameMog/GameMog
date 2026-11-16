@@ -10,7 +10,7 @@
 //                             next mission (a replayed mission's hand-off can't send him back to an old blip)
 //   W.storyList(), W.replay(id)  the pause menu's Mission select: the story's missions, and replaying one that is passed
 // (a Mog's progress under its own key, never mixed with Mog City's: wagmi/story S.save; index.html reads the same)
-import { S as Story } from '../story/index.js';
+import { S as Story } from '../story/index.js'; import { importRetry } from '../net.js';
 const KEY = Story.save('wagmi.save.v1');
 export const STORY = [
   { id: 'm1', act: 'Act I · Mission 1', title: 'Bagged', unlocks: { fists: true } },
@@ -103,7 +103,7 @@ export async function resume(W, hold) {
   W.supporters = save.supporters ?? save.followers ?? 0;
   if (S.done.includes('m2')) W.progress = { ...(W.progress || {}), m2: true };
   const ui = W.ui, app = W.app, next = nextOf(S.done), sp = SPAWN[next] || SPAWN.m5;
-  const { place } = await import('../intro.js');
+  const { place } = await importRetry(() => import('../intro.js'));
   app.selectTime?.(sp.time);
   place(W, { car: sp.car, dan: sp.dan });
   W.person.mesh.visible = true;
@@ -118,9 +118,9 @@ export async function resume(W, hold) {
 export async function toNext(W, { quick = false } = {}) {
   const next = nextOf(story(W).done);
   if (next === 'm1') return;
-  if (next === 'm2') { (await import('./m2.js')).handoff(W, { quick }); return; }
-  if (next === 'm5') { (await import('./m4.js')).toM5(W, { quick }); return; }
-  const m3 = await import('./m3.js');
+  if (next === 'm2') { (await importRetry(() => import('./m2.js'))).handoff(W, { quick }); return; }
+  if (next === 'm5') { (await importRetry(() => import('./m4.js'))).toM5(W, { quick }); return; }
+  const m3 = await importRetry(() => import('./m3.js'));
   if (next === 'm3') m3.toGarage(W, { quick });
   else m3.toRook(W, { quick });
 }
@@ -155,8 +155,8 @@ async function replay(W, id) {
   W.between?.stop(); W.mission?.stop?.(); W.combat?.clear?.();
   W.ui.ko?.(false); W.ui.objective(null); W.ui.help(null);
   await sleep(50);
-  if (id === 'm1') (await import('./m1.js')).start(W, { at: 'car' }).catch((e) => console.error('[replay]', e));
-  else if (id === 'm2') (await import('./m2.js')).start(W, { at: 'start' }).catch((e) => console.error('[replay]', e));
-  else if (id === 'm3') (await import('./m3.js')).start(W, { at: 'garage' }).catch((e) => console.error('[replay]', e));
-  else if (id === 'm4') (await import('./m4.js')).start(W, { at: 'bench' }).catch((e) => console.error('[replay]', e));
+  if (id === 'm1') (await importRetry(() => import('./m1.js'))).start(W, { at: 'car' }).catch((e) => console.error('[replay]', e));
+  else if (id === 'm2') (await importRetry(() => import('./m2.js'))).start(W, { at: 'start' }).catch((e) => console.error('[replay]', e));
+  else if (id === 'm3') (await importRetry(() => import('./m3.js'))).start(W, { at: 'garage' }).catch((e) => console.error('[replay]', e));
+  else if (id === 'm4') (await importRetry(() => import('./m4.js'))).start(W, { at: 'bench' }).catch((e) => console.error('[replay]', e));
 }

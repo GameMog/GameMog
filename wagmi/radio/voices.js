@@ -13,12 +13,12 @@
 // lines) has no recording: shown, it is spoken by the browser's speechSynthesis in the character's voice from the pack
 // ({ pitch, rate, prefer }, an English voice picked once per speaker), ducking the music as a recording does. It never
 // goes through the phone or video filters (it is not in the Web Audio graph). Mog City's own pack never gets here.
-import { S as story } from '../story/index.js';
+import { S as story } from '../story/index.js'; import { fetchRetry } from '../net.js';
 
 export async function createVoice(W, out) {
   const key = (speaker, text) => `${String(speaker).toLowerCase()}|${String(text).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()}`;
   let man = { lines: [] };
-  try { const r = await fetch('assets/voice/manifest.json', { cache: 'no-cache' }); if (r.ok) man = await r.json(); } catch {}
+  try { const r = await fetchRetry('assets/voice/manifest.json', { cache: 'no-cache' }); if (r.ok) man = await r.json(); } catch {}
   const byKey = new Map(man.lines.map((l) => [key(l.speaker, l.text), l]));
   const fxOf = {}; // a speaker's call sound, set at run time (else the manifest's)
   const bufs = new Map();
@@ -33,7 +33,7 @@ export async function createVoice(W, out) {
   function load(l) {
     if (!bufs.has(l.id)) {
       if (!graph()) return Promise.reject(new Error('no audio'));
-      bufs.set(l.id, fetch(l.file).then((r) => { if (!r.ok) throw new Error(l.file); return r.arrayBuffer(); }).then((b) => ctx.decodeAudioData(b)).catch((e) => { bufs.delete(l.id); throw e; }));
+      bufs.set(l.id, fetchRetry(l.file).then((r) => { if (!r.ok) throw new Error(l.file); return r.arrayBuffer(); }).then((b) => ctx.decodeAudioData(b)).catch((e) => { bufs.delete(l.id); throw e; }));
     }
     return bufs.get(l.id);
   }

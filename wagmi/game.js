@@ -13,14 +13,14 @@ import { drive, installDriveMode } from './audio/drivemode.js';
 import { world } from './world/index.js';
 import { CHASE_START } from './chase-start.js';
 // (the story pack, first: its top-level await holds the game until the pack is in; wagmi/story)
-import { S as story } from './story/index.js';
+import { S as story } from './story/index.js'; import { importRetry } from './net.js';
 // (?pack=: a Story Kit world played on this engine, wagmi/storyrun. Without ?pack= none of it is even imported, and every
 // PACK below is null: the game exactly as it is)
-const PACK = new URLSearchParams(location.search).has('pack') ? await import('./storyrun/pack.js').then((m) => m.load()) : null;
+const PACK = new URLSearchParams(location.search).has('pack') ? await importRetry(() => import('./storyrun/pack.js')).then((m) => m.load()) : null;
 // (the hero's ride a horse, Ranger, in the car's place: a world whose car is { model: 'mogcity/horse' }, or ?horse (with
 // ?nointro: free roam on horseback). wagmi/horse; otherwise none of it is even imported, and HORSE is null)
 const HORSE = (PACK?.ok && PACK.modelCar?.model === 'mogcity/horse') || new URLSearchParams(location.search).has('horse')
-  ? await import('./horse/index.js').catch((err) => { console.warn('[horse]', err); return null; }) : null;
+  ? await importRetry(() => import('./horse/index.js')).catch((err) => { console.warn('[horse]', err); return null; }) : null;
 // (its way over the ground, in place of the car's: made in the car block)
 let HD = null;
 
@@ -60,7 +60,7 @@ installDriveMode(WAGMI);
   const PICK = !horseRs && window.NYC?.CITY === 'pkg' && window.NYC.Fleet && PACK?.ok && PACK.fleetCar && PACK.modelCar?.model !== 'mogcity/horse' ? PACK.fleetCar : null;
   if (PICK) {
     try {
-      const [{ pickedFleetSheet, fleetPickOf }, { MODEL_SHEETS }] = await Promise.all([import('./fleet-picks.js'), import('./jack-sheets.js')]);
+      const [{ pickedFleetSheet, fleetPickOf }, { MODEL_SHEETS }] = await Promise.all([importRetry(() => import('./fleet-picks.js')), importRetry(() => import('./jack-sheets.js'))]);
       const F = window.NYC.Fleet, id = fleetPickOf(PICK);
       const sheet = pickedFleetSheet(PICK, { models: F.data.models, sheets: MODEL_SHEETS, story: PACK.sheetCar, paint: story.paint && !/^#e7e7e3$/i.test(story.paint) ? story.paint : null, label: ['Your', 'car'].join(' ') });
       if (sheet) {
@@ -80,20 +80,20 @@ installDriveMode(WAGMI);
       const PAINTS = ['#B3121A', '#F2C230', '#2F63B8', '#111214', '#E4E4E0', '#F08A1C', '#1C8A8C', '#D8DADE'];
       if (id) {
         await Promise.race([F.load(id), new Promise((res, rej) => setTimeout(() => rej(new Error('slow')), 12000))]);
-        const { MODEL_SHEETS } = await import('./jack-sheets.js');
+        const { MODEL_SHEETS } = await importRetry(() => import('./jack-sheets.js'));
         const { say, ...base } = MODEL_SHEETS[id];
         heroSheet = { v: 1, id: 'fleet-hero-' + id, family: 'car4', ...base, label: ['Your', 'car'].join(' '), fleet: id, paint: { base: story.paint && !/^#e7e7e3$/i.test(story.paint) ? story.paint : PAINTS[(h >>> 7) % PAINTS.length], finish: 'metallic' } };
       }
     } catch (err) { console.warn('[fleet] hero car', err); heroSheet = null; }
   }
   // (a world's own car, from its vehicle sheet: wagmi/storyrun/ride.js; else, and always without ?pack=, Dan's roadster)
-  const RIDE = !horseRs && ((PACK?.ok && PACK.sheetCar) || heroSheet) ? await import('./storyrun/ride.js').catch(() => null) : null;
+  const RIDE = !horseRs && ((PACK?.ok && PACK.sheetCar) || heroSheet) ? await importRetry(() => import('./storyrun/ride.js')).catch(() => null) : null;
   let sheetRs = null; if (RIDE) try { sheetRs = RIDE.buildSheetCar(THREE, heroSheet || PACK.sheetCar); } catch (err) { console.warn('[storyrun] car', err); }
   // (or one of Mog City's own models a world names, wagmi/storyrun/gt.js: the Vantor GT, on the roadster's handling)
-  const MODEL = !horseRs && PACK?.ok && !sheetRs && PACK.modelCar && PACK.modelCar.model !== 'mogcity/horse' ? await import('./storyrun/gt.js').catch(() => null) : null;
+  const MODEL = !horseRs && PACK?.ok && !sheetRs && PACK.modelCar && PACK.modelCar.model !== 'mogcity/horse' ? await importRetry(() => import('./storyrun/gt.js')).catch(() => null) : null;
   // (it wears its downloaded body, wagmi/storyrun/vantor.js, the same interface; gt.js's own with car.body 'built' or if
   // that fails to load)
-  let modelRs = MODEL && PACK.modelCar.body !== 'built' ? await import('./storyrun/vantor.js').then((m) => m.buildVantor(THREE, PACK.modelCar)).catch((err) => { console.warn('[storyrun] car body', err); return null; }) : null;
+  let modelRs = MODEL && PACK.modelCar.body !== 'built' ? await importRetry(() => import('./storyrun/vantor.js')).then((m) => m.buildVantor(THREE, PACK.modelCar)).catch((err) => { console.warn('[storyrun] car body', err); return null; }) : null;
   if (MODEL && !modelRs) try { modelRs = MODEL.buildGT(THREE, PACK.modelCar); } catch (err) { console.warn('[storyrun] car model', err); }
   const rs = horseRs || sheetRs || modelRs || buildRoadster(THREE, story.paint ? { paint: story.paint } : undefined);   // (its own default paint; a Mog's, wagmi/story)
   rs.group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
@@ -1332,14 +1332,14 @@ console.log('[wagmi] Dan and the car are in');
 // the cold open's music (wagmi/trailer.js) asked for from here, alongside the rest of the game, not once the intro is in:
 // on a first visit it is the last thing the trailer waits for. The intro takes it (intro.js: WAGMI.trailerEarly; null
 // where there is no trailer: ?trailer=0, ?nointro, ?nogate, a mission switch)
-WAGMI.trailerEarly = import('./trailer.js').then((m) => m.createTrailer(WAGMI)).catch((err) => { console.warn('[wagmi] trailer', err); return null; });
+WAGMI.trailerEarly = importRetry(() => import('./trailer.js')).then((m) => m.createTrailer(WAGMI)).catch((err) => { console.warn('[wagmi] trailer', err); return null; });
 
-// the rest of the game, a module each (one that fails to load leaves the others running)
+// the rest of the game, a module each (one that fails to load leaves the others running; a busy server's: again, net.js)
 // (with ?pack=, the world's story runner in place of the opening and Mog City's missions: wagmi/storyrun)
 // (another city with no world, ?city=sf or a Hometown package (?city=pkg) alone: free roam there, wagmi/city.js, in place of the opening and the
 // missions, which are set on Manhattan's streets. The city: the world contract's, wagmi/world world.id. And
 // ?start=chase in any city: free roam opened on a chase, wagmi/chase-start.js)
 const ROAM = !PACK && (world.id !== 'ny' || CHASE_START);
 for (const m of PACK ? ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './jack.js', './storyrun/index.js'] : ROAM ? ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './jack.js', './city.js'] : ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './intro.js', './mission/m2.js', './mission/m3.js', './mission/m4.js', './mission/m4-gallery.js']) {
-  try { const mod = await import(m); if (mod.install) await mod.install(WAGMI); } catch (err) { console.error('[wagmi]', m, err); if (m === './storyrun/index.js') WAGMI.storyFailed = true; }
+  try { const mod = await importRetry(() => import(m), m); if (mod.install) await mod.install(WAGMI); } catch (err) { console.error('[wagmi]', m, err); if (m === './storyrun/index.js') WAGMI.storyFailed = true; }
 }

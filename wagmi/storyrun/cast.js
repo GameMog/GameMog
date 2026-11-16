@@ -20,7 +20,7 @@ import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
 import { createFace, dropFace } from '../face.js';
 import { relaxArms } from '../combat/suitarms.js';
 import { unhang } from './pack.js';
-import { polishBody } from './polish.js';
+import { polishBody } from './polish.js'; import { importRetry } from '../net.js';
 
 // (8: a set's cutscene stands up to seven at once, the hero's double besides: sets.js)
 const MAX = 8;
@@ -97,7 +97,7 @@ export function createCast(W, world) {
   async function build(name, c) {
     const nat = c.model ? (SUIT.test(c.model) ? ['glb', 'assets/characters/thug.glb', true] : NATIVE[c.model]) : null;
     if (nat && nat[0] !== 'glb') {
-      const m = nat[0] === 'jane' ? await import('../mission/jane.js').then((x) => x.buildJane(W)) : await import('../mission/m3-set.js').then((x) => (nat[0] === 'gears' ? x.buildGears(W) : x.buildFiona(W)));
+      const m = nat[0] === 'jane' ? await importRetry(() => import('../mission/jane.js')).then((x) => x.buildJane(W)) : await importRetry(() => import('../mission/m3-set.js')).then((x) => (nat[0] === 'gears' ? x.buildGears(W) : x.buildFiona(W)));
       // (a stand-in's face answers to the world's name: Jane's body as Nina moves with Nina's lines, face.js face.speaker)
       if (m.face) m.face.speaker = name;
       return figureOf(name, m.root, m.mixer, m.bones, m.clips ? null : null, m.face, () => { scene.remove(m.root); }, m);
