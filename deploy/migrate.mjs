@@ -1331,6 +1331,14 @@ export const MIGRATIONS = [
     },
   },
   {
+    // 16 Nov, the owner: "yes re-publish Mog City's own story world". 2026-11-05-mog-city-own-story ran once, so the
+    // server's own world still plays the pack it was published with; deploy/migrations/mog-city-story.json now holds
+    // Mog City's dialogue round 3. See refreshMogCityOwnStory below
+    id: '2026-11-16-mog-city-own-story-refresh',
+    async: true,
+    run: (db, path) => refreshMogCityOwnStory(db, path),
+  },
+  {
     // 6 Nov: every listed world's headshot on the light-blue sky (SKY_HEADSHOTS above); replaces the portrait of a game
     // whose code is still the code it was shot from. A world whose old portrait was a square of its car or a scene
     // behind the hero and that has no sky headshot keeps no portrait, so it shows the headshot card on the same sky
@@ -1805,6 +1813,77 @@ export const PERF_DDL = `
   CREATE INDEX IF NOT EXISTS perf_events_at ON perf_events(at);
   CREATE INDEX IF NOT EXISTS perf_events_sid ON perf_events(sid, n);
 `;
+
+/**
+ * Mog City's own story world brought up to deploy/migrations/mog-city-story.json (2026-11-16-mog-city-own-story-refresh),
+ * IN PLACE: the same game (id, slug, hidden, ownOf, its row's lineage), so /g/<slug> and everything that names the game
+ * stay. The record's pack goes into a NEW store draft, sealed and kept with the game as 2026-11-05-mog-city-own-story
+ * writes one (the store's open never passes { own }); the game's module becomes that pack and its meta the record's,
+ * naming the new draft (storykit.pack) and its sealed world (storykit.world). The draft it replaces: a Mog's store draft
+ * names its parent's store draft (drafts.parent: the gate's city lock and the parent's lines when the owner patches or
+ * re-packs that Mog), so while any store draft names it, it stays kept (it holds only its pack and its sealed world,
+ * no files of its own). Named by none, it is released and abandoned (StoryStore.release, .abandon: its sealed world's
+ * blob goes with it). A Mog already published plays its own sealed world, so nothing here changes what it plays.
+ * Without a linked own world it does what 2026-11-05-mog-city-own-story does (and waits as it waits: the Story Kit off
+ * on this server, no /g/mog-city), then refreshes what that found. The stored pack already the record's: "already
+ * current", nothing written.
+ */
+export async function refreshMogCityOwnStory(db, path) {
+  if (!['on', 'owner'].includes(String(process.env.STORYKIT ?? '').trim().toLowerCase())) throw new Error('waiting: the Story Kit is off on this server (STORYKIT)');
+  const rec = file('mog-city-story.json');
+  if (!rec) throw new Error('deploy/migrations/mog-city-story.json is not in this build');
+  const own = JSON.parse(rec.toString('utf8'));
+  if (own.v !== 1 || !own.pack || own.pack.storykit !== 2 || own.meta?.mode !== 'storykit' || own.meta.storykit?.own !== true) throw new Error('mog-city-story.json is not Mog City\'s own story world');
+  const ep = db.prepare("SELECT id, code FROM games WHERE slug = 'mog-city'").get();
+  if (!ep || !/^\s*GameMog\s*\.\s*world\s*\(\s*\{\s*episode\s*:\s*\{/.test(String(ep.code ?? ''))) throw new Error('waiting: /g/mog-city (the episode) is not in this database');
+  const linked = () => db.prepare("SELECT id, slug, hidden, code, meta FROM games WHERE json_extract(meta, '$.mode') = 'storykit' AND json_extract(meta, '$.storykit.own') = 1 AND json_extract(meta, '$.storykit.ownOf') = ? ORDER BY created_at DESC").get(ep.id);
+  let g = linked(), first = '';
+  if (!g) {
+    first = String(await MIGRATIONS.find((m) => m.id === '2026-11-05-mog-city-own-story').run(db, path));
+    g = linked();
+    if (!g) return `no own world to refresh (2026-11-05-mog-city-own-story: ${first})`;
+    first = `${first}; `;
+  }
+  const meta = JSON.parse(g.meta);
+  if (meta.storykit?.packId !== own.pack.id) return `${first}left alone: /g/${g.slug} is not Mog City's own story (pack ${meta.storykit?.packId})`;
+  const { StoryStore } = await storykit();
+  const s = new StoryStore(join(dirname(resolve(path)), 'storykit'));
+  const oldId = meta.storykit.pack;
+  const old = typeof oldId === 'string' ? s.db.prepare("SELECT * FROM drafts WHERE id = ? AND state = 'kept' AND game_id = ?").get(oldId, g.id) : null;
+  if (!old) throw new Error(`/g/${g.slug}'s kept store draft (${oldId}) is not in the store`);
+  const packJson = JSON.stringify(own.pack), code = `GameMog.world({ storykit: ${packJson} });\n`;
+  if (old.pack === packJson && String(g.code ?? '') === code) return `${first}already current: /g/${g.slug} plays the record's pack (store draft ${old.id}, world ${String(old.world).slice(0, 12)})`;
+
+  const storeId = randomUUID(), t = Date.now();
+  s.db.prepare('INSERT INTO drafts (id, token_hash, pack, parent, created_at, touched_at) VALUES (?, ?, ?, NULL, ?, ?)')
+    .run(storeId, createHash('sha256').update(randomBytes(24)).digest('hex'), packJson, t, t);
+  let sealed;
+  try {
+    sealed = s.seal(s.db.prepare('SELECT * FROM drafts WHERE id = ?').get(storeId));
+    if (!sealed.ok) throw new Error(`the store refused the world: ${sealed.error}`);
+    const next = { ...meta, ...own.meta, storykit: { ...meta.storykit, ...own.meta.storykit, pack: storeId, ownOf: ep.id, world: sealed.hash } };
+    const r = db.prepare('UPDATE games SET code = ?, meta = ? WHERE id = ? AND slug = ?').run(code, JSON.stringify(next), g.id, g.slug);
+    if (r.changes !== 1) throw new Error(`/g/${g.slug} could not be updated`);
+    if (!s.keep(storeId, g.id)) throw new Error('the store could not keep the world');
+  } catch (e) {
+    // (the games row is rolled back with the transaction; the new store draft goes with it, the old one is untouched)
+    try { const d = s.db.prepare('SELECT * FROM drafts WHERE id = ?').get(storeId); if (d) { s.release(storeId); s.abandon(d); } } catch { /* swept later */ }
+    throw e;
+  }
+  // the draft it replaces: kept while a Mog's store draft names it as its parent, else released and abandoned
+  const children = s.db.prepare('SELECT COUNT(*) AS n FROM drafts WHERE parent = ?').get(old.id).n;
+  let was;
+  if (children) was = `old store draft ${old.id} kept (${children === 1 ? 'a Mog store draft names' : `${children} Mog store drafts name`} it as its parent)`;
+  else {
+    try {
+      s.release(old.id);
+      const d = s.db.prepare('SELECT * FROM drafts WHERE id = ?').get(old.id);
+      const a = d ? s.abandon(d) : null;
+      was = a?.ok ? `old store draft ${old.id} released and abandoned (${a.freed} bytes freed)` : `old store draft ${old.id} released (swept later)`;
+    } catch { was = `old store draft ${old.id} released (swept later)`; }
+  }
+  return `${first}/g/${g.slug} refreshed in place (game ${g.id}, hidden ${g.hidden}): store draft ${storeId}, world ${sealed.hash.slice(0, 12)} (was ${String(old.world).slice(0, 12)}); ${was}`;
+}
 
 /**
  * SF 2040's world refreshed to world-<n> (deploy/migrations/sf2040-world-<n>.json, scripts/storykit-sf2040.ts --next <n>):
