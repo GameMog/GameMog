@@ -10,6 +10,8 @@ import { storykitMode } from '@/lib/storykit-switch';
 import { storyStore } from '@/lib/storykit-store';
 import { storyTownsAdmin } from '@/lib/storykit-publish';
 import { Dashboard } from './dashboard';
+import { backupsAdmin } from '@/lib/backups';
+import path from 'node:path';
 import { builderMode } from '@/lib/hometown-build/access';
 import { builderDeps, builderStatus } from '@/lib/hometown-build/server';
 import { Login } from './login';
@@ -59,5 +61,8 @@ export default async function AdminPage() {
   // the published hometown story worlds pinned to an older build of their town: what each plays, and why (lib/storykit-upgrade.ts)
   let storyTowns = null;
   if (towns && storykit) { try { storyTowns = JSON.parse(JSON.stringify(storyTownsAdmin())); } catch (e) { console.error('admin: story towns', String((e as Error).message).slice(0, 200)); } }
-  return <Dashboard storyTowns={storyTowns} towns={towns} stats={all} worlds={adminWorlds()} builds={builds} scores={adminScores()} active={activeNow()} reports={kartReports()} perf={perf} slots={slots} loop={dareLoop(now)} mc={mc} storykit={storykit} />;
+  // the newest nightly snapshot and the owner's download of it (lib/backups.ts)
+  let backups = null;
+  try { backups = backupsAdmin(path.join(process.cwd(), 'data')); } catch (e) { console.error('admin: backups', String((e as Error).message).slice(0, 200)); }
+  return <Dashboard backups={backups} storyTowns={storyTowns} towns={towns} stats={all} worlds={adminWorlds()} builds={builds} scores={adminScores()} active={activeNow()} reports={kartReports()} perf={perf} slots={slots} loop={dareLoop(now)} mc={mc} storykit={storykit} />;
 }

@@ -3,23 +3,21 @@
  * the worlds live in the database, so the first boot copies in the snapshot
  * shipped with the code (deploy/seed.db.gz, made by `npm run deploy:snapshot`).
  * After that the disk's own copy is the live one and this leaves it alone.
+ * A catalog missing from a disk that holds other data (the Story Kit store, the
+ * town queue, nightly snapshots) was lost, not new: the newest snapshot is
+ * restored, loudly, never the seed silently (deploy/backups.mjs ensureCatalog).
  */
-import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from 'node:fs';
-import { gunzipSync } from 'node:zlib';
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { migrate } from './migrate.mjs';
 import { interruptBuilds } from './builds.mjs';
+import { ensureCatalog } from './backups.mjs';
 
 const DB = 'data/gamemog.db', SEED = 'deploy/seed.db.gz';
 mkdirSync('data', { recursive: true });
+// (before anything below creates a folder on the disk: an empty disk is told from a lost database by what it holds)
+ensureCatalog('data', SEED);
 // the Hometown tile store (lib/hometown-tiles/store.ts): its own folder on the disk, empty until towns are uploaded
 mkdirSync('data/hometown', { recursive: true });
-if (existsSync(DB)) {
-  console.log(`boot: keeping ${DB} from the disk`);
-} else {
-  writeFileSync(`${DB}.seeding`, gunzipSync(readFileSync(SEED)));
-  renameSync(`${DB}.seeding`, DB);
-  console.log(`boot: seeded ${DB} from ${SEED}`);
-}
 
 // what has changed in the published content since (deploy/migrate.mjs)
 await migrate(DB);

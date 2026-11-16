@@ -39,6 +39,7 @@ import { runHometownTilesChecks } from './hometown-tiles-check.ts';
 import { runBuildChecks } from './hometown-build-check.ts';
 import { runDispatchChecks } from './hometown-dispatch-check.ts';
 import { runPerfChecks } from './perf-check.ts';
+import { runBackupChecks } from './backups-check.ts';
 
 let failures = 0;
 const ok = (name: string, cond: boolean, detail = '') => {
@@ -577,6 +578,8 @@ await runBuildChecks(ok);
 await runDispatchChecks(ok);
 // Machines (16 Nov): how each machine runs the game, its report kept anonymous and bounded (lib/perf.ts)
 await runPerfChecks(ok);
+// Backups (16 Nov): the nightly snapshot, the owner's download, the restore and the boot's catalog step, on throwaway disks
+await runBackupChecks(ok);
 
 console.log(`\n${failures ? `${failures} FAILED` : 'all checks passed'}\n`);
 process.exit(failures ? 1 : 0);

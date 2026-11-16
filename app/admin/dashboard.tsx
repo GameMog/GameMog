@@ -12,6 +12,7 @@ import type { PerfAdmin, PerfGroup, PerfSession } from '@/lib/perf';
 import type { DareLoop, LoopWindow } from '@/lib/funnel';
 import type { StoreUsage } from '@/lib/storykit-store';
 import type { StoryTownRow } from '@/lib/storykit-publish';
+import type { BackupsAdmin } from '@/lib/backups';
 
 /** The Story Kit's store on the owner's screen, only while the switch is on or owner-only (else null: nothing shown). */
 export type StoryKitAdmin = StoreUsage & { mode: 'owner' | 'on' };
@@ -49,7 +50,7 @@ export type TownBuilderAdmin = {
   runs?: { problem?: string; inFlight?: number; maxRuns?: number; byState?: Record<string, number>; plan?: { want: number; ready: number } | null;
     lastError?: { status: number; message: string } | null; holdS?: number } | null;
 };
-export type AdminData = { stats: Record<Range, Stats>; worlds: AdminWorld[]; builds: AdminBuild[]; scores: AdminScore[]; active: number; reports: KartReportRow[]; perf?: PerfAdmin | null; slots: Capacity; loop: DareLoop; mc: Record<Range, McStats>; storykit?: StoryKitAdmin | null; towns?: TownBuilderAdmin | null; storyTowns?: StoryTownRow[] | null };
+export type AdminData = { stats: Record<Range, Stats>; worlds: AdminWorld[]; builds: AdminBuild[]; scores: AdminScore[]; active: number; reports: KartReportRow[]; perf?: PerfAdmin | null; slots: Capacity; loop: DareLoop; mc: Record<Range, McStats>; storykit?: StoryKitAdmin | null; towns?: TownBuilderAdmin | null; storyTowns?: StoryTownRow[] | null; backups?: BackupsAdmin | null };
 
 export function Dashboard(props: AdminData) {
   return <Toasts><Board {...props} /></Toasts>;
@@ -66,7 +67,7 @@ export function ago(at: number) {
   return new Date(at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function Board({ stats, worlds: initialWorlds, builds, scores: initialScores, active, reports, perf = null, slots, loop, mc, storykit = null, towns = null, storyTowns = null }: AdminData) {
+function Board({ stats, worlds: initialWorlds, builds, scores: initialScores, active, reports, perf = null, slots, loop, mc, storykit = null, towns = null, storyTowns = null, backups = null }: AdminData) {
   const router = useRouter();
   const toast = useToast();
   const [tab, setTab] = useState<Tab>('overview');
@@ -137,7 +138,7 @@ function Board({ stats, worlds: initialWorlds, builds, scores: initialScores, ac
 
       <main className="adm-main">
         <BlurIn k={ranged(tab) ? `${tab}-${range}` : tab}>
-          {tab === 'overview' && <Overview s={s} slots={slots} storykit={storykit} towns={towns} storyTowns={storyTowns} />}
+          {tab === 'overview' && <Overview s={s} slots={slots} storykit={storykit} towns={towns} storyTowns={storyTowns} backups={backups} />}
           {tab === 'dares' && <Dares loop={loop} />}
           {tab === 'worlds' && <Worlds worlds={worlds} hidden={hiddenCount} visibility={visibility} />}
           {tab === 'builds' && <Builds builds={builds} titles={new Map(worlds.map((w) => [w.slug, w.title]))} />}
@@ -179,7 +180,7 @@ function Kpi({ label, k, s, format, hint }: { label: string; k: keyof Kpis; s: S
   );
 }
 
-function Overview({ s, slots, storykit, towns, storyTowns }: { s: Stats; slots: AdminData['slots']; storykit: StoryKitAdmin | null; towns: TownBuilderAdmin | null; storyTowns: StoryTownRow[] | null }) {
+function Overview({ s, slots, storykit, towns, storyTowns, backups }: { s: Stats; slots: AdminData['slots']; storykit: StoryKitAdmin | null; towns: TownBuilderAdmin | null; storyTowns: StoryTownRow[] | null; backups: BackupsAdmin | null }) {
   const n = s.now;
   const funnel = [
     { label: 'Visited', value: n.visitors },
@@ -204,6 +205,7 @@ function Overview({ s, slots, storykit, towns, storyTowns }: { s: Stats; slots: 
       {storykit && <StoryKitCard k={storykit} />}
       {towns && <TownBuilderCard t={towns} />}
       {storyTowns && storyTowns.some((r) => r.state !== 'current') && <StoryTownsCard rows={storyTowns} />}
+      <BackupsCard b={backups} />
 
       <section className="card">
         <div className="card-h">
@@ -283,6 +285,24 @@ function StoryKitCard({ k }: { k: StoryKitAdmin }) {
         : `New story worlds stop at ${guardPct}% (${mb(k.guard)}), ${mb(Math.max(0, k.guard - k.used))} from now; drafts already open can finish. STORYKIT_DISK_MB sets the size.`}</p>
       <p className="fine">A published story world with no key art (its test drive never played it): <a href="/storykit/keyart.html">take its key art</a> in this browser.</p>
       <p className="fine">A published story world whose lines have no voice (every hometown story before 14 Nov): <a href="/storykit/revoice.html">record its voices</a> in this browser.</p>
+    </section>
+  );
+}
+
+// the nightly snapshot of the live data (lib/backups.ts, deploy/backups.mjs) and the owner's off-disk copy of it: the
+// catalog, the Story Kit store and the town queue, with every file the published story worlds use
+function BackupsCard({ b }: { b: BackupsAdmin | null }) {
+  return (
+    <section className="card">
+      <div className="card-h"><h2>Backups</h2></div>
+      {b ? (
+        <dl className="facts">
+          <div><dt>Newest snapshot</dt><dd>{b.day}<small> {b.games ?? '?'} games, {mb(b.bytes)} of databases</small></dd></div>
+          <div><dt>Story files</dt><dd>{b.blobs}<small> {mb(b.blobBytes)}, the published story worlds'</small></dd></div>
+          <div><dt>On the disk</dt><dd>{b.count}<small> daily snapshots, the last 7 kept</small></dd></div>
+        </dl>
+      ) : <p className="fine">No snapshot on the disk yet: the nightly job takes the first one (data/backups), or the download below takes one now.</p>}
+      <p className="fine"><a href="/api/admin/backup" download>Download the newest backup</a> (a .tar.gz of the snapshot and the story files) and keep it off this disk. <code>node deploy/restore.mjs</code> puts it back on a new disk. The snapshots share the server&apos;s one disk, so check Render&apos;s own disk snapshots on the dashboard too.{b && !b.nightly ? ' The nightly job is off on this server (GAMEMOG_BACKUPS).' : ''}</p>
     </section>
   );
 }
