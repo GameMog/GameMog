@@ -42,7 +42,7 @@ import { withBrowser } from '../lib/browser.ts';
 const ROOT = new URL('../', import.meta.url).href;
 register('data:text/javascript,' + encodeURIComponent(`
   export async function resolve(s, c, next) {
-    if (s === 'next/server') return next('next/server.js', c);
+    if (s === 'next/server' || s === 'next/headers') return next(s + '.js', c);
     if (!s.startsWith('@/')) return next(s, c);
     for (const ext of ['', '.ts', '.tsx', '/index.ts']) { try { return await next(${JSON.stringify(ROOT)} + s.slice(2) + ext, c); } catch {} }
     return next(s, c);
@@ -91,9 +91,9 @@ const server = createServer((req, res) => {
 type POST = (req: Request) => Promise<Response>;
 type Build = { events: Ev[]; ended: Promise<void>; ctl: AbortController; res: Response; cancel: () => Promise<void>; json?: { error?: string; busy?: boolean; resting?: boolean } };
 /** One request to the route, read as the creator's page reads it; `on` sees each event as it comes. */
-async function build(POST: POST, body: Record<string, unknown>, on?: (e: Ev, b: Build) => unknown): Promise<Build> {
+async function build(POST: POST, body: Record<string, unknown>, on?: (e: Ev, b: Build) => unknown, headers: Record<string, string> = {}): Promise<Build> {
   const ctl = new AbortController();
-  const res = await POST(new Request('http://127.0.0.1:3939/api/generate', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal: ctl.signal }));
+  const res = await POST(new Request('http://127.0.0.1:3939/api/generate', { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(body), signal: ctl.signal }));
   const b: Build = { events: [], ended: Promise.resolve(), ctl, res, cancel: async () => {} };
   if (!(res.headers.get('content-type') ?? '').includes('ndjson')) { b.json = await res.json(); return b; }
   const reader = res.body!.getReader(), dec = new TextDecoder();
@@ -130,7 +130,8 @@ const near = (a: number | null | undefined, b: number) => a != null && Math.abs(
 
 export async function buildLimitsChecks(ok: Ok, base?: string) {
   const tag = `limitscheck-${randomUUID().slice(0, 6)}`;
-  const env = { key: process.env.ANTHROPIC_API_KEY, token: process.env.ANTHROPIC_AUTH_TOKEN, base: process.env.ANTHROPIC_BASE_URL, drive: process.env.GAMEMOG_DRIVE, slots: process.env.BUILD_SLOTS, line: process.env.BUILD_QUEUE_MAX, usd: process.env.BUILD_DAILY_USD };
+  const env = { key: process.env.ANTHROPIC_API_KEY, token: process.env.ANTHROPIC_AUTH_TOKEN, base: process.env.ANTHROPIC_BASE_URL, drive: process.env.GAMEMOG_DRIVE, slots: process.env.BUILD_SLOTS, line: process.env.BUILD_QUEUE_MAX, usd: process.env.BUILD_DAILY_USD, pw: process.env.ADMIN_PASSWORD };
+  const since = Date.now();
   const realFetch = globalThis.fetch;
   const drafts = new Set<string>();
   let parentId: string | null = null;
@@ -143,6 +144,10 @@ export async function buildLimitsChecks(ok: Ok, base?: string) {
     process.env.GAMEMOG_DRIVE = 'browser'; delete process.env.BUILD_SLOTS; delete process.env.BUILD_QUEUE_MAX;
     // the day's ceiling out of the way (this database's own spend today is whatever it is) but where it is checked
     process.env.BUILD_DAILY_USD = '1000000';
+    // the race brief is the owner's only (16 Nov): its asks carry the owner's session (a stand-in password if none is set)
+    if ((process.env.ADMIN_PASSWORD ?? '').length < 12) process.env.ADMIN_PASSWORD = 'build-limits-check-stand-in';
+    const { sessionValue, COOKIE } = await import('../app/admin/session.ts');
+    const asOwner = { cookie: `${COOKIE}=${sessionValue().value}` };
     globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input instanceof Request ? input.url : input);
       if (!url.startsWith('http://127.0.0.1:')) return Promise.reject(new Error(`the build limits check refused a call to ${url}`));
@@ -264,7 +269,9 @@ export async function buildLimitsChecks(ok: Ok, base?: string) {
       ok('and nothing was spent on it: no model call, no build row', api.calls - calls === slots && rows() === before, `${api.calls - calls} calls`);
       // the race brief (kind 'race', which no page sends any more) is the owner's key's too, and never waits in line
       delete process.env.BUILD_QUEUE_MAX;
-      const race = await build(POST, { kind: 'race', prompt: `${tag} s5-race a race brief over the cap` });
+      const anonRace = await build(POST, { kind: 'race', prompt: `${tag} s5-race0 a race brief from anyone` });
+      ok('a race brief without the owner\'s session is not found, no model call', anonRace.res.status === 404 && api.calls - calls === slots, String(anonRace.res.status));
+      const race = await build(POST, { kind: 'race', prompt: `${tag} s5-race a race brief over the cap` }, undefined, asOwner);
       ok('the race brief is held to the same cap: busy at once, no model call', race.res.status === 503 && race.json?.busy === true && race.json.error === BUSY && api.calls - calls === slots && queueLength() === 0, `${race.res.status}: ${race.json?.error}`);
       running[0].ctl.abort(); await ends(running[0]);
       await until(() => slotsHeld() === slots - 1);
@@ -275,7 +282,7 @@ export async function buildLimitsChecks(ok: Ok, base?: string) {
       const fr = rowOf(`${tag} s5-err`);
       ok('the next build gets that slot, and an error frees it again', fails.events.some((e) => e.type === 'error') && fr?.status === 'error' && slotsHeld() === slots - 1, `${fr?.status}, ${slotsHeld()} held`);
       const callsRace = api.calls;
-      const raced = await build(POST, { kind: 'race', prompt: `${tag} s5-race2 a race brief with a slot free` });
+      const raced = await build(POST, { kind: 'race', prompt: `${tag} s5-race2 a race brief with a slot free` }, undefined, asOwner);
       // (it ends before the model today: the SDK refuses its unstreamed 32k-token call before sending it, lib/generate.ts)
       ok('a race brief with a slot free takes it, and gives it back however it ends', raced.res.status === 502 && api.calls - callsRace <= 1 && slotsHeld() === slots - 1, `${raced.res.status}, ${api.calls - callsRace} calls, ${slotsHeld()} held: ${(raced.json as { error?: string } | undefined)?.error}`);
       process.env.BUILD_SLOTS = '2';
@@ -395,13 +402,13 @@ export async function buildLimitsChecks(ok: Ok, base?: string) {
       const run = await build(POST, { prompt: `${tag} c-run a build in flight` });
       await until(() => api.open > open0 && rowOf(`${tag} c-run`)?.status === 'running');
       const s4 = spendToday();
-      ok('a build running now counts at $2 until its passes cost more', s4.running === base0.running + 1 && near(s4.inFlight - base0.inFlight, IN_FLIGHT_USD) && near(s4.total, s4.done + s4.inFlight), JSON.stringify({ before: base0, now: s4 }));
+      ok('a build running now counts at $2 until its passes cost more', s4.running === base0.running + 1 && near(s4.inFlight - base0.inFlight, IN_FLIGHT_USD) && near(s4.total, s4.done + s4.inFlight + s4.calls), JSON.stringify({ before: base0, now: s4 }));
       // at the ceiling: refused at once, nothing spent
       const calls = api.calls;
       process.env.BUILD_DAILY_USD = String(spendToday().total);
       const t0 = Date.now(), no = await build(POST, { prompt: `${tag} c-no one at the ceiling` }), ms = Date.now() - t0;
       ok('at the ceiling a new build is refused at once with the resting words, as JSON: no model call, no build row', no.res.status === 503 && no.json?.resting === true && no.json.error === RESTING && api.calls === calls && !rowOf(`${tag} c-no`) && ms < 1000, `${no.res.status} in ${ms} ms: ${no.json?.error}`);
-      const raceNo = await build(POST, { kind: 'race', prompt: `${tag} c-race a race brief at the ceiling` });
+      const raceNo = await build(POST, { kind: 'race', prompt: `${tag} c-race a race brief at the ceiling` }, undefined, asOwner);
       ok('the race brief is refused the same way', raceNo.res.status === 503 && raceNo.json?.resting === true && api.calls === calls, `${raceNo.res.status}: ${raceNo.json?.error}`);
       ok('and the build already running runs on', rowOf(`${tag} c-run`)?.status === 'running' && !run.events.some((e) => e.type === 'error') && slotsHeld() === 1 && api.open === open0 + 1 && api.cut === cut0, `${rowOf(`${tag} c-run`)?.status}, ${slotsHeld()} held, ${api.open - open0} open, ${api.cut - cut0} cut`);
       // just under it: a build starts, and its $2 counts at once
@@ -481,11 +488,13 @@ export async function buildLimitsChecks(ok: Ok, base?: string) {
     }
   } finally {
     globalThis.fetch = realFetch;
-    for (const [k, v] of [['ANTHROPIC_API_KEY', env.key], ['ANTHROPIC_AUTH_TOKEN', env.token], ['ANTHROPIC_BASE_URL', env.base], ['GAMEMOG_DRIVE', env.drive], ['BUILD_SLOTS', env.slots], ['BUILD_QUEUE_MAX', env.line], ['BUILD_DAILY_USD', env.usd]] as const) {
+    for (const [k, v] of [['ANTHROPIC_API_KEY', env.key], ['ANTHROPIC_AUTH_TOKEN', env.token], ['ANTHROPIC_BASE_URL', env.base], ['GAMEMOG_DRIVE', env.drive], ['BUILD_SLOTS', env.slots], ['BUILD_QUEUE_MAX', env.line], ['BUILD_DAILY_USD', env.usd], ['ADMIN_PASSWORD', env.pw]] as const) {
       if (v === undefined) delete process.env[k]; else process.env[k] = v;
     }
     server.closeAllConnections(); server.close();
     db.prepare('DELETE FROM generations WHERE prompt LIKE ?').run(`%${tag}%`);
+    // (the owner's race briefs' counted spend, lib/build-limits.ts recordPaidCall)
+    db.prepare("DELETE FROM paid_calls WHERE kind = 'race' AND at >= ?").run(since);
     for (const id of drafts) db.prepare('DELETE FROM drafts WHERE id = ?').run(id);
     db.prepare('DELETE FROM drafts WHERE prompt LIKE ?').run(`%${tag}%`);
     if (parentId) db.prepare('DELETE FROM games WHERE id = ?').run(parentId);

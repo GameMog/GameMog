@@ -274,6 +274,14 @@ function mcSchema(d: DatabaseSync) {
 }
 mcSchema(db);
 
+/**
+ * Paid calls outside the build slots (16 Nov, lib/build-limits.ts recordPaidCall): the selfie's single model call and the
+ * owner's race brief, each priced as it ends, so the day's spend (spendToday) and its ceiling count them. No address or
+ * photo is kept: the kind, the dollars and when. Run on every load, as the dare loop's schema.
+ */
+db.exec(`CREATE TABLE IF NOT EXISTS paid_calls (id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, usd REAL NOT NULL, at INTEGER NOT NULL);
+  CREATE INDEX IF NOT EXISTS paid_calls_by_at ON paid_calls(at);`);
+
 /* ------------------------------------------------------------------ rows -- */
 export type GameRow = {
   id: string;

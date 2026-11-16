@@ -4,7 +4,7 @@ import { generateWorld, offlineWorld, readCatalogue, MODEL } from '@/lib/generat
 import { generateGame, GAME_MODEL, STORY_MODEL, type GameEvent } from '@/lib/generate-game';
 import { playtest } from '@/lib/playtest';
 import { logGeneration, recentSpecs, getGameBySlug, getGameBySlugForOwner, startBuild, setBuildUsage, endBuild } from '@/lib/db';
-import { admit, takeSlot, resting, priceBuild, BUSY, RESTING, type Lease, type PassUsage } from '@/lib/build-limits';
+import { admit, takeSlot, resting, priceBuild, recordPaidCall, BUSY, RESTING, IN_FLIGHT_USD, type Lease, type PassUsage } from '@/lib/build-limits';
 
 import { ImageSchema, type Character, type CharacterImage } from '@/lib/character';
 import { readOptions } from '@/lib/world-options';
@@ -282,9 +282,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ spec, report, character, adjustments, offline: true });
   }
 
-  // The race brief: no page sends it since every world became a written one (app/create/page.tsx), but a request
-  // still can, and its calls are the owner's key's too, so it is held to the day's ceiling, and takes one of the same
-  // slots or is told GameMog is busy (it does not wait in line; lib/build-limits.ts), and gives it back however it ends
+  // The race brief: no page sends it since every world became a written one (app/create/page.tsx), so it is the owner's
+  // only (16 Nov): anyone else's is not found, before a slot is taken or anything is spent. Its calls are the owner's
+  // key's too, so it is held to the day's ceiling, and takes one of the same slots or is told GameMog is busy (it does
+  // not wait in line; lib/build-limits.ts), gives it back however it ends, and counts IN_FLIGHT_USD in the day's spend
+  // when it reached the model (its call is not metered)
+  if (!ownerVisit(req)) return NextResponse.json({ error: 'Not found.' }, { status: 404 });
   if (resting()) return NextResponse.json({ error: RESTING, resting: true }, { status: 503 });
   const slot = takeSlot();
   if (!slot) return NextResponse.json({ error: BUSY, busy: true }, { status: 503, headers: { 'retry-after': '60' } });
@@ -294,6 +297,7 @@ export async function POST(req: Request) {
     const catalogue = readCatalogue(recentSpecs(24));
     out = await generateWorld({ prompt: text, image, hintFur, catalogue });
   } finally { slot.release(); }
+  if (out.attempts > 0) recordPaidCall('race', IN_FLIGHT_USD);
   logGeneration({
     gameId: null,
     prompt: text,

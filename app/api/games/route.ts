@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { insertGame, slugify, listGames, getDraft, publishDraft, publishedGame, nameCreator, db } from '@/lib/db';
-import { cleanName } from '@/lib/names';
+import { cleanName, isBlocked } from '@/lib/names';
 import { validPlayer } from '@/lib/dare';
 import { playtest } from '@/lib/playtest';
 import { codeHash, testStatus } from '@/lib/test-drive';
@@ -12,7 +12,7 @@ import { dna } from '@/lib/mog-dna';
 import { publishedSoundtrack, type Soundtrack, type WorldOptions } from '@/lib/world-options';
 import type { WorldSpec } from '@/lib/worldspec';
 import { sealStoryDraft, keepStoryWorld } from '@/lib/storykit-publish';
-import { storykitForRequest } from '@/lib/storykit-http';
+import { storykitForRequest, ownerRequest } from '@/lib/storykit-http';
 import { storykitMode } from '@/lib/storykit-switch';
 import { setWorldHidden } from '@/lib/analytics';
 
@@ -88,6 +88,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ id, slug, creator });
   }
 
+  // A raw world spec (the race brief's, which no page sends any more): the owner's only (16 Nov), so nobody can publish
+  // straight onto the homepage without a build; anyone else's is not found, as every owner route answers.
+  if (!ownerRequest(req)) return NextResponse.json({ error: 'Not found.' }, { status: 404 });
   // Publishing revalidates. A client can send anything; nothing reaches the
   // database until it passes the same gate a generation did.
   const report = playtest(body.spec);
@@ -96,6 +99,9 @@ export async function POST(req: Request) {
   }
 
   const spec = body.spec as WorldSpec;
+  // and the words every list shows go through the name filter (lib/names.ts)
+  const words = [spec.meta.title, spec.meta.tagline, spec.meta.blurb];
+  if (words.some((w) => isBlocked(w))) return NextResponse.json({ error: 'Pick another title.', field: 'title' }, { status: 400 });
   const id = randomUUID();
   const slug = slugify(spec.meta.title);
   insertGame({ id, slug, spec, prompt: body.prompt ?? null });

@@ -19,9 +19,14 @@
  *     (a deploy stops the builds in flight) is 'interrupted' when the server starts again (deploy/boot.mjs);
  *  5. its real cost: the tokens each pass used, summed and priced here, in the one price table.
  * A creator leaves by closing the tab, or within the site (a link, Back): the page lets its build go as it goes
- * (app/create/generation.tsx useGeneration). The race brief, which no page sends any more but a request still can,
- * takes a slot too, or is told BUSY at once (it does not wait in line); the selfie is a short single call, and stays
- * outside the cap.
+ * (app/create/generation.tsx useGeneration). Two paid calls are not builds (16 Nov), and are counted in the day's spend
+ * (paid_calls, recordPaidCall; spendToday's `calls`), refused with RESTING at the ceiling like a build:
+ *  - the selfie (app/api/me/selfie): one short call, outside the slots, held instead to SELFIE_PER_HOUR reads an hour
+ *    per address (4; the address is lib/hometown/client.ts townClientKey's, a header the client cannot write) and
+ *    SELFIE_SITE_HOUR an hour for the whole site (200), in memory (allowSelfie). Not a cap on Create: a person's builds
+ *    are never limited (the owner's choice); this only stops one unmetered paid call being run in a loop;
+ *  - the race brief, which no page sends any more: the owner's only (anyone else's is not found), and it takes a slot
+ *    too, or is told BUSY at once (it does not wait in line). Its call is not metered, so it counts IN_FLIGHT_USD.
  */
 import { db } from './db';
 
@@ -205,10 +210,11 @@ export function laDay(now = Date.now()) {
   return { day: new Date(day).toISOString().slice(0, 10), from: midnight(day), to: midnight(day + 86_400_000) };
 }
 
-export type DaySpend = { day: string; from: number; to: number; done: number; inFlight: number; running: number; total: number; ceiling: number };
+export type DaySpend = { day: string; from: number; to: number; done: number; inFlight: number; calls: number; running: number; total: number; ceiling: number };
 /**
- * The day's spend, site-wide: what its builds cost (by the day each started, its passes priced as they end) and, for
- * each build this server is running now that started today, IN_FLIGHT_USD or what it has cost so far if that is more.
+ * The day's spend, site-wide: what its builds cost (by the day each started, its passes priced as they end), the paid
+ * calls that are not builds (the selfie, the race brief: paid_calls) and, for each build this server is running now that
+ * started today, IN_FLIGHT_USD or what it has cost so far if that is more.
  */
 export function spendToday(now = Date.now()): DaySpend {
   const { day, from, to } = laDay(now);
@@ -219,7 +225,8 @@ export function spendToday(now = Date.now()): DaySpend {
   const sofar = new Map<number, number>();
   for (const r of rows) if (mine.has(r.id)) sofar.set(r.id, r.cost_usd ?? 0); else done += r.cost_usd ?? 0;
   const inFlight = live.reduce((s, x) => s + Math.max(IN_FLIGHT_USD, x.row === null ? 0 : sofar.get(x.row) ?? 0), 0);
-  return { day, from, to, done: +done.toFixed(6), inFlight: +inFlight.toFixed(6), running: live.length, total: +(done + inFlight).toFixed(6), ceiling: dailyCeiling() };
+  const calls = (db.prepare('SELECT COALESCE(SUM(usd), 0) AS n FROM paid_calls WHERE at >= ? AND at < ?').get(from, to) as { n: number }).n;
+  return { day, from, to, done: +done.toFixed(6), inFlight: +inFlight.toFixed(6), calls: +calls.toFixed(6), running: live.length, total: +(done + inFlight + calls).toFixed(6), ceiling: dailyCeiling() };
 }
 /** Whether no new build may start: the day's spend is at or over its ceiling. A spend that cannot be read stops nothing. */
 export function resting(now = Date.now()) {
@@ -279,4 +286,38 @@ export function priceBuild(passes: PassUsage[]): { usage: BuildUsage; usd: numbe
   }
   if (unpriced.size) usage.unpriced = [...unpriced];
   return { usage, usd: +usd.toFixed(6) };
+}
+
+/* ------------------------------------------------ paid calls that are not builds -- */
+/** Selfie reads an hour from one address: SELFIE_PER_HOUR, or 4. */
+export function selfiePerHour() { const n = int(process.env.SELFIE_PER_HOUR); return n >= 1 ? n : 4; }
+/** Selfie reads an hour for the whole site, whatever the addresses: SELFIE_SITE_HOUR, or 200 (about $3 at most). */
+export function selfieSiteHour() { const n = int(process.env.SELFIE_SITE_HOUR); return n >= 1 ? n : 200; }
+/** What a selfie's call is counted at when its usage cannot be read (a call that failed may still have been billed). */
+export const SELFIE_EST_USD = 0.02;
+/** What a selfie past its address's limit is told. */
+export const SELFIE_LATER = 'That is a lot of photos for now. Try again in a while, or pick your look instead.';
+
+const selfies = new Map<string, number[]>();
+let selfieHour: number[] = [];
+/** Whether this address (and the site) may have another selfie read now; counts it if so. In memory only, never stored. */
+export function allowSelfie(who: string, now = Date.now()) {
+  selfieHour = selfieHour.filter((t) => t > now - 3600_000);
+  const mine = (selfies.get(who) ?? []).filter((t) => t > now - 3600_000);
+  if (mine.length >= selfiePerHour() || selfieHour.length >= selfieSiteHour()) { if (selfies.has(who)) selfies.set(who, mine); return false; }
+  mine.push(now); selfieHour.push(now);
+  selfies.delete(who); selfies.set(who, mine);
+  // (bounded: the longest quiet addresses go first; the site's ceiling holds whatever a sender making up addresses sends)
+  if (selfies.size > 20000) for (const k of selfies.keys()) { if (selfies.size <= 18000) break; selfies.delete(k); }
+  return true;
+}
+
+/** One call's usage priced from the one table (the selfie's), in dollars. */
+export function priceCall(model: string, usage: PassUsage['usage']) {
+  return priceBuild([{ attempt: 1, model, usage }]).usd;
+}
+/** A paid call that is not a build, counted in the day's spend from now on. Never throws. */
+export function recordPaidCall(kind: 'selfie' | 'race', usd: number, at = Date.now()) {
+  try { db.prepare('INSERT INTO paid_calls (kind, usd, at) VALUES (?, ?, ?)').run(kind, Number.isFinite(usd) && usd > 0 ? +usd.toFixed(6) : 0, at); }
+  catch (e) { console.error('builds: a paid call could not be recorded', String((e as Error)?.message ?? e).slice(0, 200)); }
 }

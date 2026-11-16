@@ -1,6 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { NextResponse } from 'next/server';
 import { DEFAULT_ME, KITS, SELFIE_SCHEMA, sanitizeMe } from '@/lib/me';
+import { RESTING, SELFIE_EST_USD, SELFIE_LATER, allowSelfie, priceCall, recordPaidCall, resting } from '@/lib/build-limits';
+import { townClientKey } from '@/lib/hometown/client';
 
 export const runtime = 'nodejs';
 
@@ -31,6 +33,10 @@ export async function POST(req: Request) {
   if (!(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN)) {
     return say(503, 'Reading a selfie needs the model, which is not set up here. You can pick your look instead.');
   }
+  // the owner's key (16 Nov, lib/build-limits.ts): no call once the day's spend is at its ceiling, a few reads an hour per
+  // address and a ceiling an hour for the site, and every call's cost counted in the day's spend
+  if (resting()) return NextResponse.json({ error: RESTING, resting: true }, { status: 503 });
+  if (!allowSelfie(townClientKey(req))) return NextResponse.json({ error: SELFIE_LATER }, { status: 429, headers: { 'retry-after': '900' } });
 
   let res: Anthropic.Message;
   try {
@@ -47,8 +53,10 @@ export async function POST(req: Request) {
       }],
     });
   } catch (e) {
+    recordPaidCall('selfie', SELFIE_EST_USD);
     return say(502, `The photo could not be read right now (${(e as Error).message.slice(0, 120)}).`);
   }
+  recordPaidCall('selfie', priceCall(ME_MODEL, res.usage));
   if (res.stop_reason === 'refusal') return say(422, 'That photo could not be used. Try another, or pick your look instead.');
 
   let r: { usable?: boolean; youngChild?: boolean; tone?: string; hair?: string; hairColor?: string; eyes?: string; build?: string; body?: string };

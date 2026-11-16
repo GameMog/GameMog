@@ -40,6 +40,7 @@ import { runBuildChecks } from './hometown-build-check.ts';
 import { runDispatchChecks } from './hometown-dispatch-check.ts';
 import { runPerfChecks } from './perf-check.ts';
 import { runBackupChecks } from './backups-check.ts';
+import { runSpendDoorChecks } from './spend-door-check.ts';
 
 let failures = 0;
 const ok = (name: string, cond: boolean, detail = '') => {
@@ -580,6 +581,8 @@ await runDispatchChecks(ok);
 await runPerfChecks(ok);
 // Backups (16 Nov): the nightly snapshot, the owner's download, the restore and the boot's catalog step, on throwaway disks
 await runBackupChecks(ok);
+// Spend (16 Nov): the selfie's limits and cost in the day's spend, the raw-spec publish and the race brief the owner's only
+await runSpendDoorChecks(ok);
 
 console.log(`\n${failures ? `${failures} FAILED` : 'all checks passed'}\n`);
 process.exit(failures ? 1 : 0);
