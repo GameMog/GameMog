@@ -14,7 +14,7 @@ export default function NotFound() {
         <p className="nf-lede">The link may be mistyped, or the world may have been taken down. Plenty of others are still racing.</p>
         <div className="nf-acts">
           <Link className="btn" href="/">Back to GameMog</Link>
-          <Link className="btn outline" href="/charts/trending">Fan Favorites</Link>
+          <Link className="btn outline" href="/charts/trending">Favorites</Link>
         </div>
       </main>
       <SiteFooter />
