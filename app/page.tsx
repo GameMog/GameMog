@@ -260,8 +260,8 @@ export default async function Home() {
   const worlds = games.filter((g) => g.format !== 'race');
   const hero = worlds.find((g) => g.slug === HERO) ?? worlds.find((g) => g.format === 'world') ?? worlds[0] ?? games[0];
   const charts: { sort: ChartSort; all: GameRow[] }[] = [
-    { sort: 'trending', all: sortGames(worlds, 'trending', stats) },
     { sort: 'up-and-coming', all: sortGames(worlds, 'up-and-coming', stats) },
+    { sort: 'trending', all: sortGames(worlds, 'trending', stats) },
     { sort: 'top-rated', all: sortGames(worlds.filter((g) => (stats[g.id]?.up ?? 0) + (stats[g.id]?.down ?? 0) > 0), 'top-rated', stats) },
     { sort: 'most-mogged', all: sortGames(worlds.filter((g) => (stats[g.id]?.mogs ?? 0) > 0), 'most-mogged', stats) },
     { sort: 'new-mogs', all: sortGames(worlds, 'new-mogs', stats) },

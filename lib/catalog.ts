@@ -3,9 +3,9 @@ import type { GameRow, TileStats } from './db';
 export type ChartSort = 'trending' | 'up-and-coming' | 'top-rated' | 'most-mogged' | 'new-mogs' | 'classic';
 
 export const CHARTS: Record<ChartSort, { title: string; explanation: string; caption?: string }> = {
-  trending: { title: 'Top Trending', explanation: 'Worlds ranked by real plays.' },
-  'up-and-coming': { title: 'Up-and-Coming', explanation: 'The newest worlds gaining an audience.', caption: 'Fresh worlds from GameMog creators.' },
-  'top-rated': { title: 'Top Rated', explanation: 'Worlds ranked by the share of positive player votes.' },
+  trending: { title: 'Fan Favorites', explanation: 'Worlds ranked by real plays.' },
+  'up-and-coming': { title: 'New Releases', explanation: 'The newest worlds on GameMog.', caption: 'Fresh worlds from GameMog creators.' },
+  'top-rated': { title: 'Fun Rides', explanation: 'Worlds ranked by the share of positive player votes.' },
   'most-mogged': { title: 'Most Mogged', explanation: 'Worlds with the most published challenges.' },
   'new-mogs': { title: 'New Mogs', explanation: 'The latest variations challenging another game.', caption: 'New branches in existing game families.' },
   classic: { title: 'Classic', explanation: 'The original three-lap GameMog races.' },

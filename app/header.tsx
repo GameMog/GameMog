@@ -12,9 +12,9 @@ import { SiteMenu } from './menu';
 const NAV = [
   { label: 'Create', href: '/create' },
   { label: 'Open World', href: '/open-world' },
-  { label: 'Top Trending', href: '/charts/trending', key: 'Charts' },
-  { label: 'Up-and-Coming', href: '/charts/up-and-coming' },
-  { label: 'Top Rated', href: '/charts/top-rated' },
+  { label: 'New Releases', href: '/charts/up-and-coming' },
+  { label: 'Fan Favorites', href: '/charts/trending', key: 'Charts' },
+  { label: 'Fun Rides', href: '/charts/top-rated' },
   { label: 'Most Mogged', href: '/charts/most-mogged' },
   { label: 'New Mogs', href: '/charts/new-mogs', key: 'Mogs' },
   { label: 'Classic', href: '/classic' },
@@ -121,8 +121,8 @@ export function SiteFooter() {
         </div>
         <div>
           <h3>Play</h3>
-          <Link href="/charts/trending">Top Trending</Link>
-          <Link href="/charts/up-and-coming">Up-and-Coming</Link>
+          <Link href="/charts/up-and-coming">New Releases</Link>
+          <Link href="/charts/trending">Fan Favorites</Link>
           <Link href="/charts/new-mogs">New Mogs</Link>
           <Link href="/classic">Classic</Link>
         </div>

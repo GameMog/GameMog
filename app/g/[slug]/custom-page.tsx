@@ -139,7 +139,7 @@ export function CustomGamePage({ game, kdiag = null, storyOpen, mogOpen = canMog
         {/* the game is the page: a stage as wide as the screen's height allows,
             then who made it and what you can do with it */}
         <nav className="crumbs" aria-label="Breadcrumb">
-          <Link href="/">Home</Link><span aria-hidden>/</span><Link href="/charts/trending">Top Trending</Link><span aria-hidden>/</span><span>{game.title}</span>
+          <Link href="/">Home</Link><span aria-hidden>/</span><Link href="/charts/trending">Fan Favorites</Link><span aria-hidden>/</span><span>{game.title}</span>
         </nav>
         <div className="gtop">
           <div className="gstage">
