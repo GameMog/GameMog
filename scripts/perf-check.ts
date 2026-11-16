@@ -2,7 +2,9 @@
  * How each machine runs the game (16 Nov, lib/perf.ts, POST /api/perf): what a report keeps and what it drops. The
  * browser's family and major only (never the full user-agent), the graphics card's name cleaned, every field checked, a
  * body of the wrong shape refused; the migration's tables the module's own; a load, its frames and its steps stored and
- * read back as the owner's Machines tab reads them (inside a transaction that is rolled back: nothing is left behind).
+ * read back as the owner's Machines tab reads them (inside a transaction that is rolled back: nothing is left behind),
+ * against empty TEMP copies of the perf tables, which shadow the real ones for this connection: the database's own
+ * reports (the owner playing in the last 24 hours, anyone's sessions) never change what is counted or listed here.
  */
 import { readFileSync } from 'node:fs';
 import { db } from '../lib/db.ts';
@@ -65,8 +67,13 @@ export async function runPerfChecks(ok: Ok) {
   const mig = readFileSync('deploy/migrate.mjs', 'utf8');
   ok("the migration's tables are the module's own", mig.includes('2026-11-16-perf-tables') && mig.includes(PERF_DDL.trim()));
 
+  // (the TEMP tables, without their indexes: same names, so lib/perf.ts's statements read and write them, not the real ones)
+  const shadow = PERF_DDL.replace(/CREATE INDEX[^;]*;/g, '').replace(/CREATE TABLE IF NOT EXISTS/g, 'CREATE TEMP TABLE');
   db.exec('BEGIN');
   try {
+    db.exec(shadow);
+    ok('the checks read empty TEMP copies of the perf tables, never the real reports', perfAdmin('30d').kpis.loads === 0
+      && (db.prepare("SELECT COUNT(*) AS n FROM sqlite_temp_master WHERE type = 'table' AND name LIKE 'perf_%'").get() as { n: number }).n === 3);
     storePerf(load as never, false);
     storePerf({ ...(load as object), data: { ...(load!.data as object) }, story: 9500 } as never, true);
     storePerf(frames!, false);
@@ -77,6 +84,7 @@ export async function runPerfChecks(ok: Ok) {
     storePerf({ ...(load as object), sid: other, data: { ...(load!.data as object) } } as never, false);
     storePerf({ ...frames!, sid: other } as never, false);
     const a = perfAdmin('24h');
+    ok('only the loads stored here are read back', a.kpis.loads === 2 && a.sessions.length === 2, `${a.kpis.loads} ${a.sessions.length}`);
     const mine = a.sessions.find((x) => x.sid === sid);
     ok("the owner's Machines tab reads the load back, once", !!mine && a.sessions.filter((x) => x.sid === sid).length === 1, JSON.stringify(mine?.gpu));
     ok('a later report of the same load fills it in (and marks the owner)', mine?.storyMs === 9500 && mine?.owner === true);
@@ -85,7 +93,11 @@ export async function runPerfChecks(ok: Ok) {
     ok("a session's stalls and their seconds are read back", mine?.stalls === 191 && mine?.stallSecs === 63 && mine?.windows.some((w) => w.stallSecs === 63.4) === true, `${mine?.stalls} ${mine?.stallSecs}`);
     const x = perfAdmin('24h', Date.now(), { excludeOwner: true });
     ok("the owner's own loads are left out on asking, their frames with them", x.ownerExcluded && !x.sessions.some((s) => s.sid === sid) && x.sessions.some((s) => s.sid === other)
-      && x.kpis.loads === a.kpis.loads - 1 && x.byMachine.reduce((n, g) => n + g.n, 0) === a.byMachine.reduce((n, g) => n + g.n, 0) - 1, `${x.kpis.loads} of ${a.kpis.loads}`);
+      && x.kpis.loads === 1 && x.byMachine.reduce((n, g) => n + g.n, 0) === 1, `${x.kpis.loads} of ${a.kpis.loads}`);
     ok('the groups count the stalls', a.byMachine.some((g) => g.stallSecs >= 63));
-  } finally { db.exec('ROLLBACK'); }
+  } finally {
+    db.exec('ROLLBACK');
+    // (a TEMP table made in the transaction goes with the rollback; dropped again in case, never the real ones)
+    for (const t of ['perf_loads', 'perf_frames', 'perf_events']) db.exec(`DROP TABLE IF EXISTS temp.${t}`);
+  }
 }
