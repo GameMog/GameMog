@@ -39,13 +39,20 @@ const { setupSceneCulling, updateSceneCulling } = window.NYC;
 // unset, so each module keeps its own constant), 'phone' a lighter city for phones, 'low' the plainest one, for
 // devices without WebGPU (three's WebGL2 backend). ?gfx=high|phone|low wins, then the saved choice
 // (localStorage 'wagmi.gfx', the pause menu's Graphics row), then auto: phone on a phone (coarse primary pointer and a
-// screen no wider than 500 CSS px either way up), low without WebGPU, high otherwise. Nothing switches live: the
+// screen no wider than 500 CSS px either way up), low on every computer (js/gfx-auto.js). Nothing switches live: the
 // shadows, the reflections and MSAA would recompile every pipeline (a 3 s stall), so a choice applies on the next load.
 // The tiers' knobs are published on window.NYC.quality, which lighting.js, traffic.js, post-processing.js,
 // scene-culling.js and the cameras read as they build.
 const GFX_KEY = 'wagmi.gfx';
 const GFX_TIERS = {
   high: { farScale: 1 },
+  // (perf: high without the reflections, a 2048 shadow tile over a shorter range, three quarters of the traffic; Auto
+  // never picks it on a computer, only the pause menu or ?gfx=medium do: js/gfx-auto.js records what it would earn)
+  medium: {
+    ssr: false, shadowTile: 2048, shadowFarMax: 500,
+    cars: 200, buses: 18, peds: 280, headlights: 64,
+    propScale: 0.8, staticFar: 4000, farScale: 0.85, adaptive: true
+  },
   phone: {
     shadows: true, shadowTile: 1024, shadowFar: 140, shadowFarMax: 300, propShadows: false, nearShadowsOnly: true,
     ssr: false, bloomScale: 0.25, bloomStrength: 1, antialias: true,
@@ -58,7 +65,7 @@ const GFX_TIERS = {
     propScale: 0.5, staticFar: 2500, farScale: 0.6, adaptive: true
   }
 };
-const gfxValid = (v) => v === 'high' || v === 'phone' || v === 'low';
+const gfxValid = (v) => v === 'high' || v === 'medium' || v === 'phone' || v === 'low';
 const gfxStore = {
   get() {
     try { return window.localStorage.getItem(GFX_KEY); } catch (e) { return null; }
@@ -82,31 +89,46 @@ function autoGfxTier() {
   // the phone tier on a phone; High stays one tap away in the pause menu's Graphics row (or ?gfx=high)
   return coarse && (short <= 500 || !fine) ? 'phone' : 'low';
 }
-function createQuality() {
-  let override = null;
-  try { override = new URLSearchParams(window.location.search).get('gfx'); } catch (e) { /* no URL */ }
-  if (!gfxValid(override)) override = null;
-  const saved = gfxStore.get();
-  const choice = gfxValid(saved) ? saved : 'auto';
-  const auto = autoGfxTier();
-  const tier = override || (choice === 'auto' ? auto : choice);
+// (perf) The tier from the machine (js/gfx-auto.js: window.mcGfx.probe, then pick): ?tier= / ?gfx= for this load, the
+// saved choice, else Auto: low on a computer (never above it by itself), the phone tier on a phone. Without gfx-auto.js
+// (an old page in a cache), the rule above
+function createQuality(probe) {
+  const G = window.mcGfx;
+  let pk = null;
+  try { pk = G && probe ? G.pick(probe, ['low', 'phone', 'medium', 'high']) : null; } catch (e) { console.warn('[gfx] pick', e); }
+  if (!pk) {
+    let override = null;
+    try { override = new URLSearchParams(window.location.search).get('gfx'); } catch (e) { /* no URL */ }
+    if (!gfxValid(override)) override = null;
+    const saved = gfxStore.get();
+    const choice = gfxValid(saved) ? saved : 'auto';
+    const auto = autoGfxTier();
+    pk = { tier: override || (choice === 'auto' ? auto : choice), choice, override, auto, why: 'rule' };
+  }
   const q = {
-    tier, // what this load runs
-    choice, // what the player picked: 'auto' | 'high' | 'low' (| 'phone')
-    auto, // what auto picks on this device
-    override, // ?gfx= (wins over the choice, this load only)
-    backend: navigator.gpu ? 'webgpu' : 'webgl2', // settled once the renderer is up
-    next: tier, // what the next load will run
+    tier: pk.tier, // what this load runs
+    choice: pk.choice, // what the player picked: 'auto' | 'high' | 'medium' | 'low' | 'phone'
+    auto: pk.auto, // what auto picks on this device
+    why: pk.why, // why auto picked it (js/gfx-auto.js pick)
+    override: pk.override, // ?tier= / ?gfx= (wins over the choice, this load only)
+    learned: pk.learned || null, // what Auto learned on this machine (a step down after slow frames; no step up on a computer)
+    probe: probe || null,
+    tiers: ['high', 'medium', 'phone', 'low'], // (the pause menu's choices)
+    backend: probe ? (probe.webgpu ? 'webgpu' : 'webgl2') : navigator.gpu ? 'webgpu' : 'webgl2', // settled once the renderer is up
+    next: pk.tier, // what the next load will run
+    scale: 1, // the canvas's resolution now (gfx-auto.js adapt)
     // Saves the choice for the next load (no live switch); returns the tier that load will run
     set(c) {
       const v = c === 'auto' || gfxValid(c) ? c : 'auto';
-      gfxStore.set(v);
+      if (G) G.setChoice(v); else gfxStore.set(v);
       q.choice = v;
       q.next = q.override || (v === 'auto' ? q.auto : v);
       return q.next;
-    }
+    },
+    // Forgets what Auto learned here (the pause menu's Reset): the next load measures again from low
+    resetLearned() { try { G && G.resetLearned(); } catch (e) { /* none */ } q.learned = null; q.learnedSlow = false; }
   };
-  Object.assign(q, GFX_TIERS[tier]);
+  Object.assign(q, GFX_TIERS[q.tier] || {});
   return q;
 }
 // Once the renderer is up: drop to the low tier when the WebGPU device couldn't be had after all (unless a tier was
@@ -116,12 +138,13 @@ function settleQuality(q, isWebGPU) {
   if (isWebGPU) return;
   if (!q.override && q.choice === 'auto' && q.tier !== 'low') {
     q.tier = q.auto = q.next = 'low';
+    q.why = 'webgl2';
     Object.assign(q, GFX_TIERS.low);
   }
   q.peds = 0; // the crowd reads its poses from a storage buffer per instance, which WebGL2 can't do
 }
-const quality = createQuality();
-window.NYC.quality = quality;
+// (set at the start of initApp, once the machine is probed: every module reads it as it builds)
+let quality = null;
 
 // (Mog City) Adaptive resolution, phone and low tiers only: after 3 s of play, a median frame over 22 ms for 2 s
 // steps the 3D canvas down (1.0 -> 0.85 -> 0.7 of a CSS pixel), under 14 ms for 5 s steps it back up. Only the canvas
@@ -183,12 +206,29 @@ async function initApp() {
     loadingStatus.textContent = LOADING_TEXT;
   }
 
+  // (perf) The machine first (js/gfx-auto.js: its graphics card, the processor's quick check, the display's rate), then
+  // the tier from it, before anything is built: MSAA, the shadows and the crowd are build-time
+  let probe = null;
+  try { probe = window.mcGfx ? await window.mcGfx.probe() : null; } catch (e) { console.warn('[gfx] probe', e); }
+  quality = createQuality(probe);
+  window.NYC.quality = quality;
+  // (perf, after the towns' loadfix) The backend: WebGPU only where the browser hands out an adapter and it is not Firefox
+  // (its WebGPU rejects the city's shadow and reflection shaders: no 3D at all), nor a tab whose WebGPU device was lost
+  // (sessionStorage mc.gpu.lost, see onDeviceLost below); ?webgpu=0 forces WebGL 2, ?webgpu=1 WebGPU. Three's WebGL 2
+  // backend everywhere else, on the low tier
+  // (without gfx-auto.js, an old cached page: the same rule from the user agent)
+  const gpuOk = probe ? !!probe.webgpu : !!navigator.gpu && !/\bFirefox\//.test(navigator.userAgent || '');
+  const gpuParam = new URLSearchParams(location.search).get('webgpu');
+  let lostBefore = false;
+  try { lostBefore = sessionStorage.getItem('mc.gpu.lost') === '1'; } catch { /* storage blocked */ }
+
   // 1. Initialize Three.js WebGPURenderer with 32-bit float reversedDepthBuffer
   // (Mog City: the graphics tier's MSAA, shadows and light clusters, see GFX_TIERS)
   const renderer = new THREE.WebGPURenderer({
     antialias: quality.antialias !== false,
     powerPreference: 'high-performance',
-    reversedDepthBuffer: true
+    reversedDepthBuffer: true,
+    forceWebGL: !gpuOk
   });
   renderer.setPixelRatio(1.0);
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -214,6 +254,24 @@ async function initApp() {
   const isWebGPU = !!(renderer.backend && renderer.backend.isWebGPUBackend);
   settleQuality(quality, isWebGPU);
   renderer.shadowMap.enabled = quality.shadows !== false;
+  try { window.mcPerf?.quality(quality, probe); } catch (e) { /* never in the way */ }
+  // (perf, as the towns' loadfix) A lost GPU device or WebGL context: stop drawing, say so (mc:gpu-lost, the report),
+  // and reload once on WebGL 2 (sessionStorage mc.gpu.lost: the story's save brings the player back)
+  let deviceLost = false;
+  renderer.onDeviceLost = (info) => {
+    if (deviceLost) return;
+    deviceLost = true;
+    console.error('[gfx] device lost', info && (info.message || info.reason));
+    try { renderer.setAnimationLoop(null); } catch { /* already stopped */ }
+    window.dispatchEvent(new CustomEvent('mc:gpu-lost', { detail: { backend: isWebGPU ? 'webgpu' : 'webgl2' } }));
+    const first = isWebGPU && !lostBefore && gpuParam !== '1';
+    if (first) {
+      try { sessionStorage.setItem('mc.gpu.lost', '1'); } catch { /* storage blocked */ }
+      if (loadingStatus) loadingStatus.textContent = 'The graphics card reset. Reloading in a lighter mode…';
+      if (loadingOverlay) loadingOverlay.classList.remove('hidden');
+      setTimeout(() => location.reload(), 1500);
+    }
+  };
   if (!isWebGPU) {
     const subtitle = document.querySelector('.brand-subtitle');
     const label = subtitle && subtitle.firstChild;
@@ -866,15 +924,31 @@ async function initApp() {
   let frameCount = 0;
   let fpsTimer = 0;
   let warmedUp = false; // see the first frame below
+  let lastWork = 0; // (perf) the last frame's own work, ms: the loop from its start to the frame handed to the GPU
 
   if (elFps) elFps.textContent = '60';
-  // (Mog City) the phone & low tiers' canvas resolution follows the frame time (see createAdaptiveResolution)
-  const adaptiveResolution = quality.adaptive ? createAdaptiveResolution(renderer) : null;
+  // (perf) Every tier's canvas resolution follows the frame time (js/gfx-auto.js adapt: down fast, up slowly; at the
+  // floor the tier: here the street crowd thins live, and the next load builds the tier below). Without gfx-auto.js the
+  // phone & low tiers' own (createAdaptiveResolution)
+  const setScale = (k) => { renderer.setPixelRatio(k); renderer.setSize(window.innerWidth, window.innerHeight); };
+  const adaptiveResolution = window.mcGfx ? window.mcGfx.adapt({
+    quality, probe, setScale,
+    tierDown(next) {
+      // (New York builds MSAA, shadows and the crowd's people at boot: live, the street crowd halves, once a step; the
+      // tier itself is the next load's)
+      quality.tier = next;
+      const crowd = window.WAGMI?.street?.crowd;
+      if (crowd && crowd.limit > 0) { crowd.limit = Math.floor(crowd.limit / 2); return true; }
+      return false;
+    }
+  }) : quality.adaptive ? createAdaptiveResolution(renderer) : null;
 
   renderer.setAnimationLoop((now) => {
     const rawDt = (now - lastTime) * 0.001;
     lastTime = now;
-    if (adaptiveResolution && warmedUp) adaptiveResolution.update(rawDt);
+    if (adaptiveResolution && warmedUp) adaptiveResolution.update(rawDt, !document.hidden, lastWork);
+    const workStart = performance.now();
+    if (warmedUp) window.mcPerf?.frame(rawDt, lastWork);
     const dt = Math.min(Math.max(rawDt, 0.001), 0.05);
     elapsed += dt;
 
@@ -921,6 +995,7 @@ async function initApp() {
       markInit('warmup');
     }
     renderPipeline.render();
+    lastWork = performance.now() - workStart;
     if (!warmedUp) {
       warmedUp = true;
       markInit('firstFrame');
@@ -930,6 +1005,7 @@ async function initApp() {
       Promise.resolve(device && device.queue.onSubmittedWorkDone()).catch(() => {}).then(() => {
         markInit('gpu');
         console.log(`[init] ${initTimings.join(', ')}`);
+        try { window.mcPerf?.init(initTimings); } catch (e) { /* never in the way */ }
         initTimings = null;
         // (Mog City) the lighter tiers' memory at ready, for the phone checks
         if (quality.tier !== 'high') {

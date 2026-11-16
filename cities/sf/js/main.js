@@ -71,39 +71,49 @@ function chooseQuality(frameTimes) {
   return median > 24 ? 'low' : median > 14 ? 'medium' : 'high';
 }
 const GFX_KEY = 'wagmi.gfx';
-function createQuality() {
-  let override = null, saved = null;
-  try { override = new URLSearchParams(location.search).get('gfx'); } catch (e) { /* no URL */ }
-  try { saved = localStorage.getItem(GFX_KEY); } catch (e) { /* private mode */ }
-  // (New York's phone tier is a low one here)
-  const asTier = (v) => (v === 'high' ? 'high' : v === 'low' || v === 'phone' ? 'low' : null);
-  override = asTier(override);
-  const choice = asTier(saved) || 'auto';
-  // (QA, 15 Nov: high was unplayable on a desktop workstation, low smooth) Auto is the low tier and stays it; High is
-  // the player's choice (the pause menu's Graphics row, or ?gfx=high)
-  const tier = override || (choice === 'auto' ? 'low' : choice);
+// (perf) The tier from the machine (js/gfx-auto.js: window.mcGfx.probe, then pick, at the start of initApp): ?tier= /
+// ?gfx= for this load, the saved choice, else Auto: low, never above it by itself on a computer, and never above low on
+// WebGL 2 (no phone tier here: New York's is a low one). Before the probe (and without gfx-auto.js) the rule as it was
+function createQuality(probe) {
+  const G = window.mcGfx;
+  let pk = null;
+  try { pk = G && probe ? G.pick(probe, ['low', 'medium', 'high']) : null; } catch (e) { console.warn('[gfx] pick', e); }
+  const asTier = (v) => (v === 'high' || v === 'medium' ? v : v === 'low' || v === 'phone' ? 'low' : null);
+  if (!pk) {
+    let override = null, saved = null;
+    try { override = new URLSearchParams(location.search).get('tier') || new URLSearchParams(location.search).get('gfx'); } catch (e) { /* no URL */ }
+    try { saved = localStorage.getItem(GFX_KEY); } catch (e) { /* private mode */ }
+    override = asTier(override);
+    const choice = asTier(saved) || 'auto';
+    // (QA, 15 Nov: high was unplayable on a desktop workstation, low smooth) Auto is the low tier
+    pk = { tier: override || (choice === 'auto' ? 'low' : choice), choice, override, auto: 'low', why: 'rule' };
+  }
   const q = {
-    tier, choice, auto: 'low', override, backend: navigator.gpu ? 'webgpu' : 'webgl2', next: tier,
+    tier: pk.tier, choice: pk.choice, auto: pk.auto, why: pk.why, override: pk.override, learned: pk.learned || null, probe: probe || null,
+    tiers: ['high', 'medium', 'low'],
+    backend: probe ? (probe.webgpu ? 'webgpu' : 'webgl2') : navigator.gpu ? 'webgpu' : 'webgl2', next: pk.tier, scale: 1,
+    // (no measuring from high any more: Auto stays low on a computer, gfx-auto.js only records what it would earn)
     measuring: false,
-    // (loadfix) once the renderer is up: on three's WebGL 2 backend Auto is the low tier, and stays it (no measuring:
-    // its pick could turn the shadows and reflections back on); a chosen tier is kept
+    // (loadfix) once the renderer is up: on three's WebGL 2 backend Auto is the low tier, and stays it; a chosen tier is kept
     settle(isWebGPU) {
       q.backend = isWebGPU ? 'webgpu' : 'webgl2';
       if (isWebGPU) return;
       q.measuring = false;
-      if (!q.override && q.choice === 'auto') q.tier = q.auto = q.next = 'low';
+      if (!q.override && q.choice === 'auto') { q.tier = q.auto = q.next = 'low'; q.why = 'webgl2'; }
     },
     set(c) {
-      const v = c === 'high' || c === 'low' ? c : 'auto';
-      try { if (v === 'auto') localStorage.removeItem(GFX_KEY); else localStorage.setItem(GFX_KEY, v); } catch (e) { /* private mode */ }
+      const v = c === 'auto' ? 'auto' : c === 'phone' ? 'low' : asTier(c) || 'auto';
+      if (G) G.setChoice(v);
+      else { try { if (v === 'auto') localStorage.removeItem(GFX_KEY); else localStorage.setItem(GFX_KEY, v); } catch (e) { /* private mode */ } }
       q.choice = v;
       q.next = q.override || (v === 'auto' ? q.auto : v);
       return q.next;
-    }
+    },
+    resetLearned() { try { G && G.resetLearned(); } catch (e) { /* none */ } q.learned = null; q.learnedSlow = false; }
   };
   return q;
 }
-window.NYC.quality = createQuality();
+window.NYC.quality = createQuality(null);
 
 function samplePath(keys, u) {
   const f = u * (keys.length - 1);
@@ -148,8 +158,17 @@ async function initApp() {
   const isFirefox = /\bFirefox\//.test(navigator.userAgent);
   let lostBefore = false;
   try { lostBefore = sessionStorage.getItem('mc.gpu.lost') === '1'; } catch { /* storage blocked */ }
-  let gpuOk = !!navigator.gpu && gpuParam !== '0' && (gpuParam === '1' || (!isFirefox && !lostBefore));
-  if (gpuOk) { try { gpuOk = !!(await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' })); } catch { gpuOk = false; } }
+  // (perf) the machine probed once (js/gfx-auto.js, the same rule as here, and the one adapter request), and the tier
+  // picked from it before anything is built
+  let probe = null;
+  try { probe = window.mcGfx ? await window.mcGfx.probe() : null; } catch (e) { console.warn('[gfx] probe', e); }
+  let gpuOk;
+  if (probe && !probe.error) gpuOk = !!probe.webgpu;
+  else {
+    gpuOk = !!navigator.gpu && gpuParam !== '0' && (gpuParam === '1' || (!isFirefox && !lostBefore));
+    if (gpuOk) { try { gpuOk = !!(await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' })); } catch { gpuOk = false; } }
+  }
+  if (probe) window.NYC.quality = createQuality(probe);
   const quality0 = window.NYC.quality;
   if (!gpuOk) quality0.backend = 'webgl2';
 
@@ -207,6 +226,7 @@ async function initApp() {
   const isWebGPU = !!(renderer.backend && renderer.backend.isWebGPUBackend);
   window.NYC.quality.settle(isWebGPU);
   renderer.shadowMap.enabled = window.NYC.quality.tier !== 'low';
+  try { window.mcPerf?.quality(window.NYC.quality, probe); } catch (e) { /* never in the way */ }
   if (!isWebGPU) {
     const label = document.querySelector('.brand-subtitle')?.firstChild;
     if (label && label.nodeType === Node.TEXT_NODE) label.textContent = label.textContent.replace('WebGPU', 'WebGL 2');
@@ -862,6 +882,19 @@ async function initApp() {
   if (requestedQuality) quality.tier = requestedQuality;
   if (quality.tier !== 'high') applyQuality(quality.tier);
   const autoFrames = []; let autoSeconds=0, autoDone=Boolean(requestedQuality || !quality.measuring || urlParams.has('bench') || urlParams.has('capture'));
+  // (perf) the resolution follows the frame time on every tier (js/gfx-auto.js adapt: down fast, up slowly; at the floor
+  // the tier steps down live, medium or high to low, and the next load builds lighter). Not on the fixed-size benchmarks
+  const adaptive = window.mcGfx && !benchmarkResolution && !requestedQuality ? window.mcGfx.adapt({
+    quality, probe,
+    setScale: (k) => { renderer.setPixelRatio(k); renderer.setSize(...renderSize()); },
+    tierDown(next) {
+      if (next !== 'low' && next !== 'medium') return false;
+      if (quality.tier === next || !QUALITY_PRESETS[next]) return false;
+      applyQuality(next);
+      quality.tier = next;
+      return true;
+    }
+  }) : null;
 
   // Debug & screenshot harness state (URL: ?cam=x,y,z,yawDeg,pitchDeg  ?freeze=1  ?bench=name):
   // `camera` pins the view to a fixed pose, `freeze` stops traffic, `bench` flies a scripted path (BENCH_PATHS) and logs
@@ -1116,6 +1149,7 @@ async function initApp() {
   }
 
   let gpuTimingPending = false;
+  let lastWork = 0; // (perf) the last frame's own work, ms: the loop from its start to the frame handed to the GPU
   renderer.setAnimationLoop((now) => {
     const rawDt = (now - lastTime) * 0.001;
     lastTime = now;
@@ -1124,6 +1158,8 @@ async function initApp() {
       if (pauseDirty) { region.update(cameraSystem.camera, elapsed); lightingSystem.update(cameraSystem.currentPos, elapsed); renderPipeline.render(); pauseDirty=false; }
       return;
     }
+    if (warmedUp && window.__NYC_APP.ready) { adaptive?.update(rawDt, !document.hidden, lastWork); window.mcPerf?.frame(rawDt, lastWork); }
+    const workStart = performance.now();
     // (Mog City: the city runs on under the full map, as New York's does)
     const dt = Math.min(Math.max(rawDt, 0.001), 0.05);
     elapsed = fogCompare ? 10 : elapsed + dt;
@@ -1195,6 +1231,7 @@ async function initApp() {
       markInit('warmup');
     }
     renderPipeline.render();
+    lastWork = performance.now() - workStart;
     if (warmedUp && window.__NYC_APP.ready && !autoDone) {
       autoSeconds += rawDt; autoFrames.push(rawDt * 1000);
       if (autoSeconds >= 3) {
@@ -1226,6 +1263,7 @@ async function initApp() {
         if (deviceLost || renderer._isDeviceLost) return;
         markInit('gpu');
         console.log(`[init] ${initTimings.join(', ')}`);
+        try { window.mcPerf?.init(initTimings); } catch (e) { /* never in the way */ }
         initTimings = null;
         if (loadingOverlay) loadingOverlay.classList.add('hidden');
         setLoadingProgress(1);

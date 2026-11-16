@@ -18,6 +18,8 @@ export function install(W) {
   if (car?.body) Object.assign(CAR, car.body);
   if (!TS) return;
   const crowd = createCrowd(W), cost = { ms: 0, n: 0 };
+  // (perf) the phone tier's crowd: fewer people on a phone's budget (js/gfx-auto.js thins it live, too, when frames run slow)
+  if (window.NYC?.quality?.tier === 'phone') crowd.limit = 220;
   const listeners = { hit: [] };
   const api = W.street = {
     crowd, hits: 0,
