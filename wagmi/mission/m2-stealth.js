@@ -6,22 +6,24 @@
 // The prompt says so: 'Press E to take him down' (strong) in position, 'Closer: right behind him' (soft, no key) a
 // few steps short of it.
 //   const S = createStealth(W, { posts, U });  await S.spawn();  S.step(dt) -> null | 'seen' | 'hit';  S.alarm();  S.dispose()
+//   (range, close: how far a lookout sees and how near is caught at once; Mission 2's 15 and 3.2, a smaller set's less)
 //   S.lookouts: [{ e, name, sus, quiet, ... }] · S.by (the lookout who saw him, or was hit: his name for the banner) ·
 //   S.down (taken down) · S.quiet (taken down unseen) · S.grace (s: nobody's suspicion fills yet: pulling up behind the
 //   van, he has a moment to stop and get out)
 import * as THREE from 'three/webgpu';
 
 const PI = Math.PI;
-const RANGE = 15, HALF = 0.72, CLOSE = 3.2;
+const RANGE0 = 15, HALF = 0.72, CLOSE0 = 3.2;
 // (who they are, for 'SPOTTED! The side-gate lookout saw you.': by post, m2-set.js's order; a post's own name first)
 // (one string, split: the voice build reads a three-string array as [speaker, colour, words], a line to record)
 const NAMES = 'The gate lookout|The lookout on the west row|The side-gate lookout'.split('|');
 const angWrap = (a) => { a = (a + PI) % (2 * PI); if (a < 0) a += 2 * PI; return a - PI; };
 
-export function createStealth(W, { posts, U, center }) {
+export function createStealth(W, { posts, U, center, range: RANGE = RANGE0, close: CLOSE_ = CLOSE0 }) {
   const app = W.app, cm = app.controllerManager, P = W.person, car = W.car, combat = W.combat, scene = app.scene, cam = app.cameraSystem.camera;
-  // (rate: how fast suspicion fills, 1 Mission 2's own; a story's stealth sets it from its step's detect)
-  const S = { lookouts: [], crew: null, down: 0, quiet: 0, alarmed: false, grace: 0, by: null, rate: 1 };
+  // (rate: how fast suspicion fills, 1 Mission 2's own; a story's stealth sets it from its step's detect. closeCatch:
+  // right up close in his sight he is caught at once; off, the rate fills it as anywhere else: Mission 4's waiter)
+  const S = { lookouts: [], crew: null, down: 0, quiet: 0, alarmed: false, grace: 0, closeCatch: true, by: null, rate: 1 };
   // a wall, a container or a building between two points (the city's colliders, the yard's among them)
   function blocked(ax, ay, az, bx, by, bz) {
     const L = Math.hypot(bx - ax, bz - az), n = Math.ceil(L / 0.6);
@@ -103,6 +105,7 @@ export function createStealth(W, { posts, U, center }) {
   const _v = new THREE.Vector3();
   S.step = (dt) => {
     if (S.alarmed) return null;
+    const CLOSE = S.closeCatch ? CLOSE_ : 0;
     const p = me(), car_ = inCar(), sp = car_ ? Math.abs(car.speed) : P.speed || 0;
     if (S.grace > 0) S.grace -= dt;
     let spotted = null;

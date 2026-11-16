@@ -42,7 +42,7 @@ export const SPOT = {
 export const ESCAPE_CAR = [9.5, 2745.3, PI / 2];
 
 /* ------------------------------------------------------------ helpers -- */
-function poser(W, C) {
+export function poser(W, C) {
   const Q = W.dan, P = W.person, cm = W.app.controllerManager;
   const ub = UPRIGHT_BONES.map((n) => Q.bones[n]).filter(Boolean), ub0 = ub.map((b) => b.quaternion.clone());
   return {
@@ -83,14 +83,15 @@ function armTo(W, side, target, pole, w = 1) {
 // (28 Oct: it floated over an open hand with splayed fingers), the opening's grip (wagmi/intro.js): the wrist reached to
 // where the hand holds the phone there, the hand turned palm to the phone's back and across it, the fingers curled round
 // its far edge, the thumb on the glass by its near edge; the phone then glued to the hand
-function holdPhone(W, phone, h, k) {
+// (at: where it is held from his eyes, { fwd, down, side } m; by default low in front of his chest, read in a seat)
+export function holdPhone(W, phone, h, k, at = null) {
   const B = W.dan.bones; if (!B.head) { phone.visible = false; return; }
   const K = keepHand(B);
   if (k <= 0.001) { phone.visible = false; wroteHand(K); return; }
   W.person.mesh.updateMatrixWorld(true);
   const F = V(Math.sin(h), 0, Math.cos(h)), R = V(-Math.cos(h), 0, Math.sin(h));
   const eye = B.head.getWorldPosition(V()).add(V(0, 0.07, 0)).addScaledVector(F, 0.08);
-  const P = eye.clone().addScaledVector(F, 0.3).add(V(0, -0.27, 0)).addScaledVector(R, 0.05);
+  const A = at || { fwd: 0.3, down: 0.27, side: 0.05 }, P = eye.clone().addScaledVector(F, A.fwd).add(V(0, -A.down, 0)).addScaledVector(R, A.side);
   const z = eye.clone().sub(P).normalize(), y = V(0, 1, 0).addScaledVector(z, -z.y).normalize().applyAxisAngle(z, GRIP.roll), x = V().crossVectors(y, z).normalize();
   const sh = B.upperarm01_R.getWorldPosition(V());
   gripPhone(W, phone, P, x, y, z, sh.clone().add(V(0, -1, 0)).addScaledVector(R, 0.5).addScaledVector(F, -0.3), k);
@@ -118,7 +119,7 @@ function keepHand(B) {
   return K;
 }
 const wroteHand = (K) => { for (const s of K) (s.wrote ||= new THREE.Quaternion()).copy(s.b.quaternion); };
-function releasePhone(W) { const B = W.dan?.bones, K = B && handKeep.get(B); if (!K) return; for (const s of K) { if (s.wrote && s.b.quaternion.equals(s.wrote)) s.b.quaternion.copy(s.clean); s.wrote = null; } }
+export function releasePhone(W) { const B = W.dan?.bones, K = B && handKeep.get(B); if (!K) return; for (const s of K) { if (s.wrote && s.b.quaternion.equals(s.wrote)) s.b.quaternion.copy(s.clean); s.wrote = null; } }
 // two-bone reach for any chain (the thumb), the middle joint toward the world point pole, by weight
 function chainTo(b1, b2, b3, target, pole, w) {
   const q1 = b1.quaternion.clone(), q2 = b2.quaternion.clone();

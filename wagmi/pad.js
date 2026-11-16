@@ -12,6 +12,8 @@
 //   IN THE CAR RT drive   LT brake · reverse   LS steer   RS look   A hop (Space)   X boost   LB · RB dash left · right
 //              (Z · C)   Y get out (F)   B reset car to road (X)   D-pad up electric · engine (Q)   D-pad right · left
 //              radio: next song (R) · song back   D-pad down radio on · off (T)
+//   IN THE AIR (Mission 4's helicopter) LS pitch and turn   RT · LT ascend · descend   X boost   Y get out (F, landed)
+//              RS look
 //   ALWAYS     Start pause (Esc)   View map (M)   R3 the brief (B)
 //   MENUS      the pause menu, the fail screen, the start gate: D-pad or LS choose, A OK, B back (Start resumes play)
 //   CUTSCENES  hold A to skip (as Space held); nothing else gets through
@@ -95,7 +97,7 @@ export function install(W) {
     if (failUp()) return 'fail';
     if (body.contains('wg-gating')) return 'gate';
     if (W.cutscene || W.directed || W.cineSkip || body.contains('wg-cine')) return 'cine';
-    return cm.activeMode === 'car' ? 'car' : 'foot';
+    return cm.activeMode === 'car' ? 'car' : cm.activeMode === 'helicopter' ? 'heli' : 'foot';
   }
 
   /* ------------------------------------------------- the sticks and pedals -- */
@@ -203,6 +205,17 @@ export function install(W) {
       }
       // ---- play: on foot or in the car
       const inCar = at === 'car';
+      // (in the air: the stick flies it, the triggers lift and lower it)
+      if (at === 'heli') {
+        if (E[BTN.Start]) tap('Escape');
+        if (E[BTN.View]) tap('KeyM');
+        if (E[BTN.Y]) tap('KeyF');
+        analog = true;
+        set('forward', Math.max(0, -L.y)); set('backward', Math.max(0, L.y)); set('left', Math.max(0, -L.x)); set('right', Math.max(0, L.x));
+        set('up', s.value(BTN.RT)); set('down', s.value(BTN.LT)); set('boost', s.held[BTN.X] ? 1 : 0);
+        look(s, R, false);
+        return;
+      }
       if (E[BTN.Start]) tap('Escape');
       if (E[BTN.View]) tap('KeyM');
       if (E[BTN.R3]) tap('KeyB');

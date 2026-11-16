@@ -3,7 +3,8 @@
 Every spoken line in the game, for a voice service or actors. Generated from the game's own source by
 `node wagmi/radio/build/voices.mjs` (do not edit by hand: change the words in the game, then rebuild).
 
-**Every voice in the build is synthesised** with open models (no macOS placeholder is left), until real recordings replace them. Synthesised: Dan (`dan-A`), Jane (`jane-B`), Mr. Big (`mrbig-D`), Knox (`knox-A`), Mack (`mack-B`), Fiona (`fiona-A`), Brick (`brick-A`), Dash (`dash-A`), Gears (`gears-D`), Bea (`bea-A`), Camp (`camp-B`); see below.
+**Rook is still a placeholder** made with the macOS speech voices (Apple's licence allows those for
+personal, non-commercial use only), meant to be replaced by recordings or a synthesised voice before going public. Synthesised: Dan (`dan-A`), Jane (`jane-B`), Mr. Big (`mrbig-D`), Knox (`knox-A`), Mack (`mack-B`), Fiona (`fiona-A`), Brick (`brick-A`), Dash (`dash-A`), Gears (`gears-D`), Bea (`bea-A`), Camp (`camp-B`); see below.
 
 ## How to deliver
 
@@ -20,7 +21,7 @@ Every spoken line in the game, for a voice service or actors. Generated from the
 
 A speaker can be voiced by an open text-to-speech model instead of the macOS placeholders: Qwen3-TTS 12Hz (a voice
 designed from words, then cloned for every line) or Kokoro-82M, both Apache-2.0, run locally. The candidates the
-owner auditioned are in `wagmi/radio/build/tts-voices.mjs`: Dan `dan-A` .. `dan-C`; Jane `jane-A` .. `jane-C`; Mr. Big `mrbig-A` .. `mrbig-E`; Knox `knox-A`, `knox-B`; Mack `mack-A`, `mack-B`; Gears `gears-A` .. `gears-E`; Fiona `fiona-A`, `fiona-B`; Dash `dash-A`, `dash-B`; Brick `brick-A`, `brick-B`; Bea `bea-A`, `bea-B`; Camp `camp-A`, `camp-B` (the audition files and the designs nobody
+owner auditioned are in `wagmi/radio/build/tts-voices.mjs`: Dan `dan-A` .. `dan-C`; Jane `jane-A` .. `jane-C`; Mr. Big `mrbig-A` .. `mrbig-E`; Knox `knox-A`, `knox-B`; Mack `mack-A`, `mack-B`; Gears `gears-A` .. `gears-E`; Fiona `fiona-A`, `fiona-B`; Dash `dash-A`, `dash-B`; Brick `brick-A`, `brick-B`; Bea `bea-A`, `bea-B`; Camp `camp-A`, `camp-B`; Cal `cal-A` .. `cal-C`; Nina `nina-A` .. `nina-C`; June `june-A` .. `june-G`; Hollis `hollis-A` .. `hollis-C`; Vale `vale-A` .. `vale-C`; Pike `pike-A` .. `pike-C`; Warden `warden-A` .. `warden-C` (the audition files and the designs nobody
 picked are in `.scratch/voices/`). To give each pick to every line of that
 speaker, in one command (today's picks):
 
@@ -68,6 +69,7 @@ node wagmi/radio/build/voices.mjs --tts dan-A,jane-B,mrbig-D,knox-A,mack-B,fiona
 | Camp | the Occupy JPBank camp in Washington Square: forty-odd people answering the people's mic | A crowd, eight voices together in the build: ragged, outdoors, cheerful and loud. | camp-B: a crowd of Kokoro voices (kokoro-crowd-of-8-tight) |
 | Brick | the Suits' bouncer at Fiona's rally: an earpiece cord, a radio | Loud, jumpy, a hype man turned bouncer. | brick-A: Qwen3-TTS (qwen-gravel-bouncer) |
 | Bea | Ms. Bea: a retired Bronx science teacher in her sixties who runs the Occupy camp's kitchen and its people's mic; JPBank took her house | Warm, unhurried, commanding: a teacher who has never needed a microphone. | bea-A: Qwen3-TTS (qwen-teacher-low-alto) |
+| Rook | a junior on JPBank's security team who wants out (Mission 4) | Nervous, quick, apologetic. | Reed (English (US)) (placeholder) |
 
 ## Opening cutscene
 
@@ -541,26 +543,114 @@ Mission 3 (wagmi/mission/m3*.js). Jane's car calls (wagmi/mission/calls.js, only
 
 ## Mission 4
 
-Mission 4's teaser, on the last drive of Mission 3. Jane's car call (wagmi/mission/calls.js, only while Dan drives): `m4-teaser`.
+Mission 4 (wagmi/mission/m4*.js). Jane's car calls (wagmi/mission/calls.js, only while Dan drives): `m4-handoff`, `m4-seaport`.
 
 | # | id | Speaker | Line | Window | Direction |
 |---|---|---|---|---|---|
-| 1 | `m4-jane-youre-going-to-see` | Jane | You're going to see Rook. |  | Call `m4-teaser`. |
-| 2 | `m4-dan-he-said-come-alone` | Dan | He said come alone. |  | Call `m4-teaser`. |
-| 3 | `m4-jane-he-said-i-didnt` | Jane | He said. I didn't. I'm on the phone. That's alone-ish. |  | Call `m4-teaser`. |
-| 4 | `m4-dan-alone-ish` | Dan | Alone-ish. |  | Call `m4-teaser`. |
-| 5 | `m4-jane-if-anything-feels-off` | Jane | If anything feels off, you drive away. Promise me. |  | Call `m4-teaser`. |
-| 6 | `m4-dan-promise` | Dan | Promise. |  | Call `m4-teaser`. |
-| 7 | `m4-dan-what-do-you-think` | Dan | What do you think Rook wants? |  | Call `m4-teaser`. |
-| 8 | `m4-jane-out-like-he-said` | Jane | Out. Like he said. |  | Call `m4-teaser`. |
-| 9 | `m4-dan-everybody-wants-out-of` | Dan | Everybody wants out of something. |  | Call `m4-teaser`. |
-| 10 | `m4-jane-i-dont-i-like` | Jane | I don't. I like my couch. |  | Call `m4-teaser`. |
-| 11 | `m4-jane-moons-asleep-on-your` | Jane | Moon's asleep on your hoodie again. |  | Call `m4-teaser`. |
-| 12 | `m4-dan-tell-her-im-coming` | Dan | Tell her I'm coming home soon. |  | Call `m4-teaser`. |
-| 13 | `m4-jane-she-knows-shes-keeping` | Jane | She knows. She's keeping it warm. |  | Call `m4-teaser`. |
-| 14 | `m4-jane-no-rook-yet` | Jane | No Rook yet. |  | Call `m4-teaser`. |
-| 15 | `m4-dan-hell-come` | Dan | He'll come. |  | Call `m4-teaser`. |
-| 16 | `m4-jane-then-we-wait-together` | Jane | Then we wait. Together. Ish. |  | Call `m4-teaser`. |
+| 1 | `m4-jane-dan-are-you-in` | Jane | Dan. Are you in a helicopter? |  |  |
+| 2 | `m4-dan-mr-bigs-helicopter` | Dan | Mr. Big's helicopter. |  |  |
+| 3 | `m4-jane-since-when-can-you` | Jane | Since when can you fly? |  |  |
+| 4 | `m4-dan-since-forty-seconds-ago` | Dan | Since forty seconds ago. |  |  |
+| 5 | `m4-jane-head-west-battery-park` | Jane | Head west. Battery Park City, by the river. Nobody's there at night. |  |  |
+| 6 | `m4-jane-land-it-gently-gently` | Jane | Land it gently. Gently, babe. |  |  |
+| 7 | `m4-dan-define-gently` | Dan | Define gently. |  |  |
+| 8 | `m4-knox-hes-going-for-the` | Knox | He's going for the chopper! |  |  |
+| 9 | `m4-dan-okay-up-is-up` | Dan | Okay. Up is up. Probably. |  |  |
+| 10 | `m4-mrbig-that-is-my-helicopter` | Mr. Big | That is my helicopter. |  |  |
+| 11 | `m4-dan-seatbelt` | Dan | Seatbelt. |  |  |
+| 12 | `m4-mrbig-rook-hold-the-truck` | Mr. Big | Rook. Hold the truck. |  |  |
+| 13 | `m4-dan-nobody-lands-in-battery` | Dan | Nobody lands in Battery Park City at night. Perfect. |  |  |
+| 14 | `m4-dan-key-still-here-good` | Dan | Key. Still here. Good. |  |  |
+| 15 | `m4-dan-last-ferry-made-it` | Dan | Last ferry. Made it. |  |  |
+| 16 | `m4-dan-story-of-my-week` | Dan | Story of my week. |  |  |
+| 17 | `m4-dan-you-have-my-laptop` | Dan | You have my laptop. I have your key. |  |  |
+| 18 | `m4-mrbig-daniel-youre-on-a` | Mr. Big | Daniel. You're on a boat. |  |  |
+| 19 | `m4-dan-one-thing-goes-in` | Dan | One thing goes in the shredder at dawn. Wonder which. |  |  |
+| 20 | `m4-mrbig-that-key-signs-everything` | Mr. Big | That key signs everything I own. |  |  |
+| 21 | `m4-dan-then-youd-better-be` | Dan | Then you'd better be nice to it. |  |  |
+| 22 | `m4-mrbig-i-am-always-nice` | Mr. Big | I am always nice. Ask my lawyers. |  |  |
+| 23 | `m4-dan-then-say-please` | Dan | Then say please. |  |  |
+| 24 | `m4-mrbig-i-have-never-said` | Mr. Big | I have never said please in my life. |  |  |
+| 25 | `m4-dan-then-the-truck-turns` | Dan | Then the truck turns around. Now. |  |  |
+| 26 | `m4-mrbig-rook-turn-it-around` | Mr. Big | Rook. Turn it around. |  |  |
+| 27 | `m4-rook-turning-around-sir` | Rook | ...Turning around, sir. |  |  |
+| 28 | `m4-dan-i-heard-that` | Dan | I heard that. |  |  |
+| 29 | `m4-mrbig-well-trade-somewhere-public` | Mr. Big | We'll trade. Somewhere public. |  |  |
+| 30 | `m4-mrbig-enjoy-the-ferry-daniel` | Mr. Big | Enjoy the ferry, Daniel. |  |  |
+| 31 | `m4-dan-its-dan` | Dan | It's Dan. |  |  |
+| 32 | `m4-rook-you-came-alone` | Rook | You came. Alone? |  |  |
+| 33 | `m4-dan-alone-ish` | Dan | Alone-ish. |  |  |
+| 34 | `m4-rook-okay-okay-dont-look` | Rook | Okay. Okay. Don't look at me. Look at the pigeons. |  |  |
+| 35 | `m4-dan-wheres-my-laptop` | Dan | Where's my laptop? |  |  |
+| 36 | `m4-rook-locked-in-the-shredder` | Rook | Locked in the shredder truck. Two Suits ride with it. I can't touch it. |  |  |
+| 37 | `m4-rook-but-tonight-mr-big` | Rook | But tonight Mr. Big unveils his new trophy. The High Artwork. At the Seaport. |  |  |
+| 38 | `m4-dan-he-bought-a-painting` | Dan | He bought a painting? |  |  |
+| 39 | `m4-rook-he-bought-the-high` | Rook | He bought the High Artwork. Marzo Quillfeather. He loves it more than people. |  |  |
+| 40 | `m4-rook-to-sign-it-on` | Rook | To sign it on camera, his signing key unlocks. Ninety seconds. |  |  |
+| 41 | `m4-dan-and-whoever-holds-the` | Dan | And whoever holds the key... |  |  |
+| 42 | `m4-rook-owns-the-high-artwork` | Rook | Owns the High Artwork. Take what he loves. Then trade. |  |  |
+| 43 | `m4-rook-wristband-catering-pass-youre` | Rook | Wristband. Catering pass. You're a waiter tonight. |  |  |
+| 44 | `m4-dan-i-was-a-waiter` | Dan | I was a waiter in college. I was bad at it. |  |  |
+| 45 | `m4-rook-be-bad-at-it` | Rook | Be bad at it quietly. |  |  |
+| 46 | `m4-rook-his-chopper-waits-at` | Rook | His chopper waits at the end of the street to fly the key home. I sent the pilot for coffee. |  |  |
+| 47 | `m4-dan-why-are-you-doing` | Dan | Why are you doing this? |  |  |
+| 48 | `m4-rook-i-was-in-that` | Rook | I was in that crowd today. I'm done. |  |  |
+| 49 | `m4-rook-go-before-somebody-sees` | Rook | Go. Before somebody sees us. |  |  |
+| 50 | `m4-knox-staff-entrance-smile-less` | Knox | Staff entrance. Smile less. |  |  |
+| 51 | `m4-dan-yes-sir` | Dan | Yes, sir. |  |  |
+| 52 | `m4-knox-dont-sir-me-im` | Knox | Don't sir me. I'm on my phone. |  |  |
+| 53 | `m4-dan-he-didnt-even-look` | Dan | He didn't even look up. |  |  |
+| 54 | `m4-fiona-good-evening-seaport-jpbank` | Fiona | Good evening, Seaport! JPBank loves art! And art loves JPBank! |  |  |
+| 55 | `m4-fiona-tonight-our-ceo-unveils` | Fiona | Tonight our CEO unveils his newest treasure. The High Artwork! |  |  |
+| 56 | `m4-fiona-hes-joining-us-live` | Fiona | He's joining us live from his office. Say hi, everybody! |  |  |
+| 57 | `m4-mrbig-good-evening-thank-you` | Mr. Big | Good evening. Thank you all for coming to look at my things. |  |  |
+| 58 | `m4-mrbig-fiona-open-the-case` | Mr. Big | Fiona. Open the case. Let's make it official. |  |  |
+| 59 | `m4-fiona-opening-the-case` | Fiona | Opening the case! |  |  |
+| 60 | `m4-fiona-and-the-certificate-reads` | Fiona | And the certificate reads... owner, Mr... |  |  |
+| 61 | `m4-fiona-dan` | Fiona | ...Dan? |  |  |
+| 62 | `m4-mrbig-that-is-not-my` | Mr. Big | ...that is not my name. |  |  |
+| 63 | `m4-fiona-wait-the-case-is` | Fiona | Wait. The case is... empty? |  |  |
+| 64 | `m4-knox-banker-boy` | Knox | BANKER BOY. |  |  |
+| 65 | `m4-dan-tips-included` | Dan | Tip's included. |  |  |
+| 66 | `m4-fiona-while-the-key-wakes` | Fiona | While the key wakes up, tell us what the High Artwork means to you! |  |  |
+| 67 | `m4-mrbig-it-means-it-is` | Mr. Big | It means it is mine, Fiona. |  |  |
+| 68 | `m4-fiona-wow-chills-everybody` | Fiona | Wow. Chills, everybody. |  |  |
+| 69 | `m4-mrbig-ninety-seconds-then-i` | Mr. Big | Ninety seconds. Then I sign. Nobody touch anything. |  |  |
+| 70 | `m4-jane-youre-going-to-see` | Jane | You're going to see Rook. |  | Call `m4-handoff`. |
+| 71 | `m4-dan-he-said-come-alone` | Dan | He said come alone. |  | Call `m4-handoff`. |
+| 72 | `m4-jane-he-said-i-didnt` | Jane | He said. I didn't. I'm on the phone. That's alone-ish. |  | Call `m4-handoff`. |
+| 73 | `m4-jane-if-anything-feels-off` | Jane | If anything feels off, you drive away. Promise me. |  | Call `m4-handoff`. |
+| 74 | `m4-dan-promise` | Dan | Promise. |  | Call `m4-handoff`. |
+| 75 | `m4-dan-what-do-you-think` | Dan | What do you think Rook wants? |  | Call `m4-handoff`. |
+| 76 | `m4-jane-out-like-he-said` | Jane | Out. Like he said. |  | Call `m4-handoff`. |
+| 77 | `m4-dan-everybody-wants-out-of` | Dan | Everybody wants out of something. |  | Call `m4-handoff`. |
+| 78 | `m4-jane-i-dont-i-like` | Jane | I don't. I like my couch. |  | Call `m4-handoff`. |
+| 79 | `m4-jane-moons-asleep-on-your` | Jane | Moon's asleep on your hoodie again. |  | Call `m4-handoff`. |
+| 80 | `m4-dan-tell-her-im-coming` | Dan | Tell her I'm coming home soon. |  | Call `m4-handoff`. |
+| 81 | `m4-jane-she-knows-shes-keeping` | Jane | She knows. She's keeping it warm. |  | Call `m4-handoff`. |
+| 82 | `m4-dan-theres-a-kid-on` | Dan | There's a kid on the bench in a suit two sizes too big. |  | Call `m4-handoff`. |
+| 83 | `m4-jane-thats-him` | Jane | That's him. |  | Call `m4-handoff`. |
+| 84 | `m4-dan-he-looks-more-scared` | Dan | He looks more scared than me. |  | Call `m4-handoff`. |
+| 85 | `m4-jane-good-scared-people-tell` | Jane | Good. Scared people tell the truth. Go. |  | Call `m4-handoff`. |
+| 86 | `m4-jane-okay-tell-me-exactly` | Jane | Okay. Tell me exactly what he said. |  | Call `m4-seaport`. |
+| 87 | `m4-dan-mr-big-unveils-the` | Dan | Mr. Big unveils the High Artwork tonight. At the Seaport. And his signing key opens for ninety seconds. |  | Call `m4-seaport`. |
+| 88 | `m4-jane-so-whoever-holds-the` | Jane | So whoever holds the key signs the High Artwork over. |  | Call `m4-seaport`. |
+| 89 | `m4-dan-take-what-he-loves` | Dan | "Take what he loves. Then trade." |  | Call `m4-seaport`. |
+| 90 | `m4-jane-then-thats-the-plan` | Jane | Then that's the plan. Down Canal, right on Mott. It's slow, but nobody looks twice at you there. |  | Call `m4-seaport`. |
+| 91 | `m4-jane-youre-a-waiter-tonight` | Jane | You're a waiter tonight. Nobody looks at the waiter. Not even Knox. |  | Call `m4-seaport`. |
+| 92 | `m4-dan-knox-will-be-there` | Dan | Knox will be there? |  | Call `m4-seaport`. |
+| 93 | `m4-jane-on-the-door-head` | Jane | On the door. Head down, tray up, you're furniture. |  | Call `m4-seaport`. |
+| 94 | `m4-jane-mr-big-wont-be` | Jane | Mr. Big won't be. He joins by video, from his office. He hasn't stood in a crowd since the camp. |  | Call `m4-seaport`. |
+| 95 | `m4-dan-afraid-of-people-noted` | Dan | Afraid of people. Noted. |  | Call `m4-seaport`. |
+| 96 | `m4-jane-the-artist-hides-his` | Jane | The artist hides his mark three times in everything he makes. I bet the case wants it, in order. |  | Call `m4-seaport`. |
+| 97 | `m4-dan-three-marks-ninety-seconds` | Dan | Three marks. Ninety seconds. One tray. |  | Call `m4-seaport`. |
+| 98 | `m4-jane-and-a-helicopter-which` | Jane | And a helicopter. Which you have never flown. |  | Call `m4-seaport`. |
+| 99 | `m4-dan-ive-played-a-lot` | Dan | I've played a lot of games. |  | Call `m4-seaport`. |
+| 100 | `m4-jane-thats-not-comforting-babe` | Jane | That's not comforting, babe. |  | Call `m4-seaport`. |
+| 101 | `m4-jane-doyers-streets-the-crooked` | Jane | Doyers Street's the crooked one. They used to call it the bloody angle. |  | Call `m4-seaport`. |
+| 102 | `m4-dan-lets-not-make-that` | Dan | Let's not make that a theme tonight. |  | Call `m4-seaport`. |
+| 103 | `m4-jane-thats-the-pavilion-staff` | Jane | That's the pavilion. Staff entrance is round the side. |  | Call `m4-seaport`. |
+| 104 | `m4-dan-smiling-less-going-in` | Dan | Smiling less. Going in. |  | Call `m4-seaport`. |
 
 ## Every car call
 

@@ -2,7 +2,7 @@
 //   node tools/story/extract.mjs          writes assets/story/default.json (the pack), ids.json (each id's place in the
 //                                         source) and limits.json (each entry's longest text); --check: writes nothing,
 //                                         fails if any of the three would change
-// The lines are the voice build's (wagmi/radio/build/lines.mjs readLines: the 462 recorded lines, by their ids); the
+// The lines are the voice build's (wagmi/radio/build/lines.mjs readLines: the 540 lines, by their ids); the
 // copy is what tools/story/scan.mjs finds reaching the screen through the story's chokepoints. Names and brands become
 // tokens ({jane}, {bank:upper}) where they are whole words, and every entry is checked to render back to its source
 // literal before anything is written. Ids are frozen: an id already in ids.json keeps its place (a line whose words

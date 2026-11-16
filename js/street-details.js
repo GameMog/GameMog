@@ -1035,6 +1035,7 @@ function buildStreetDetails(scene, colliders = []) {
   sidewalkTreePositions = sidewalkTreePositions.filter((t) => treeField.sites.has(t));
   const plantedTrees = treePositions.filter((t) => treeField.sites.has(t));
   console.info(`[streetDetails] ${treeField.stats.trees} trees of ${candidateTrees}, ${treeField.stats.smaller} planted smaller to clear the buildings (${sidewalkTreePositions.length} street trees of ${candidateStreetTrees})`);
+  window.NYC.treeField = treeField; // (Mog City: its hide(), for a story set where trees stand)
   window.NYC.treeStats = { planted: treeField.stats.trees, candidates: candidateTrees, smaller: treeField.stats.smaller, street: sidewalkTreePositions.length, streetCandidates: candidateStreetTrees };
 
   const grateMat = createTreeGrateMaterial();

@@ -3200,6 +3200,8 @@ function createHighwayTraffic(scene, lanes) {
             dv = c.v - pIn.v;
           }
         }
+        // (Mog City: a closed stretch ahead, a hold's: stopped short of it, as at a closure)
+        if (lane.closed) for (const [a] of lane.closed) if (a > c.u) { const g = a - c.u - c.len / 2 - 1; if (g < gap) { gap = g; dv = c.v; } }
         const sStar = D.s0 + Math.max(0, c.v * D.T + (c.v * dv) / brakeTerm);
         c.acc = Math.max(-9, D.a * (1 - (c.v / lane.speed) ** 4 - (sStar / Math.max(gap, 0.1)) ** 2));
       }
@@ -3459,8 +3461,36 @@ function createHighwayTraffic(scene, lanes) {
     return out;
   }
   const knock = (c, dv) => { c.v = Math.max(0, c.v + dv); };
+  // (Mog City) Hold zones, as the town's traffic.hold: rects { minX, maxX, minZ, maxZ } a scene keeps clear of the
+  // shore highway. Each lane's stretches through one are closed: a car comes to a stop short of one (a queue at the
+  // closure, no car pops out of sight), and a car already in one is moved on past it, spaced, at a cruise. hold([])
+  // opens them again
+  function hold(rects = []) {
+    for (const lane of lanes) lane.closed = null;
+    if (!rects.length) return;
+    const inR = (p) => rects.some((r) => p.x > r.minX && p.x < r.maxX && p.z > r.minZ && p.z < r.maxZ);
+    for (const lane of lanes) {
+      const P = lane.pts, segs = [];
+      let s0 = null;
+      for (let i = 0; i < P.length; i++) {
+        const on = inR(P[i]);
+        if (on && s0 == null) s0 = lane.cum[Math.max(0, i - 1)];
+        if (!on && s0 != null) { segs.push([s0, lane.cum[i]]); s0 = null; }
+      }
+      if (s0 != null) segs.push([s0, lane.len]);
+      if (!segs.length) continue;
+      lane.closed = segs;
+      let k = 0;
+      for (const c of lane.cars) {
+        for (const [a, b] of segs) {
+          if (c.u > a - c.len - 2 && c.u < b + c.len) { c.u = Math.min(lane.len - 0.01, b + c.len + 3 + 9 * k++); c.seg = 0; c.v = lane.speed * 0.7; c.acc = 0; }
+        }
+      }
+      lane.cars.sort((p, q) => p.u - q.u);
+    }
+  }
 
-  return { group, update, cars, lanes, place, near, knock };
+  return { group, update, cars, lanes, place, near, knock, hold };
 }
 
 Object.assign(window.NYC, { createTrafficSystem, createHighwayTraffic });

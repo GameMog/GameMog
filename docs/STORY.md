@@ -30,9 +30,9 @@ girlfriend since their college days at SUNY, who loves him and knows he didn't d
 the tracker, the burner the Suits left behind and its twin, a handler's group chat. She is on the phone with him
 **whenever he drives**, and only then: the backstory, the plan, the way through the city, the jokes. Their dog **Moon**
 lives with Jane and comes along when Dan meets her in person. The Suits fight him at every step. In Act II, JPBank aims
-its smear at the Occupy camp, and Dan turns the camp around: it ends Episode 1 chanting "Free Dan." Mr. Big moves the
+its smear at the Occupy camp, and Dan turns the camp around: it ends Mission 3 chanting "Free Dan." Mr. Big moves the
 laptop's shredding up to dawn, and **Rook**, a junior on the security team who was in that crowd, wants out. He is the
-one driving it.
+one driving it, and Episode 1 ends with Dan holding Mr. Big's signing key hostage for the laptop.
 
 Dan is one of the 99% in a suit: $78,000 of student loans at 6.8%, fired three weeks before bonus day, a mom who believes
 him ("eat something, and she believes you, in that order"). The bank offers the city's anger a scapegoat, and the
@@ -49,16 +49,16 @@ it is a real person. The MISSION PASSED card counts **SUPPORTERS**, the people b
 | **Dan** (the player) | Mid-20s, first-year associate at JPBank, fired and charged. | Tall and lean (about 1.88 m, long-limbed, normal shoulders, a flat chest, an easy loping walk; he stands upright, chest open, shoulders back and down, his head over his shoulders): the build only, an **original adult face**: a long jaw, clean-shaven, tired dark eyes, short dark hair a week past a haircut. White shirt open at the collar, sleeves rolled, slim dark trousers, white trainers, a navy overshirt; a black laptop bag across his left shoulder in the opening. | A grown man's dry baritone with a New York edge; quick and deadpan, the jokes are armour; polite until he isn't. |
 | **Jane** | Mid-20s, Dan's girlfriend since SUNY (he printed his JPBank cover letter on her printer card); a data analyst at a public hospital who works from home (three screens, the tracker on the big one) and reads logs for fun; a born New Yorker who knows every one-way and which avenue jams at what hour; she pieces the evidence together, and she is on the phone whenever Dan drives. Adult. | Puerto Rican, athletic build (a runner's shoulders and legs), warm brown skin, dark curly hair tied up, small gold hoops; a fitted dark track jacket over a white tee, joggers, clean trainers; a laptop covered in stickers. Shown with respect, never as a joke or a stereotype. | Quick, warm and wry; a native New Yorker's own voice (no put-on accent); fast because she thinks fast; dry about Dan's choices, fully on his side. |
 | **Moon** | Dan and Jane's dog; lives with Jane. Never taken, not in the opening. | The existing small white fluffy dog (wagmi/moon.js), on a red lead. | Happy noises only (a sneeze, a tail on the pavement). |
-| **Mr. Big** | JPBank's CEO, about sixty: the man who set Dan up, on a video call from his study. An original face, nobody's. | Seated upright in his oxblood wing chair in a walnut-panelled study (bookshelves, a green banker's lamp, a whisky glass, Midtown at night through a tall window): a full head of swept-back silver hair, a full close-trimmed silver beard, heavy dark tortoiseshell rectangular glasses, a husky, heavy-set build (normal shoulders), a navy three-piece suit, white shirt, deep burgundy tie; a cigar in his hand, its tip glowing, thin grey smoke. | Smug, polished, unhurried; his own voice, no voice changer; never shouts, smiles through the threats. |
+| **Mr. Big** | JPBank's CEO, about sixty: the man who set Dan up, on a video call from his study. **Only ever seen on the phone or on video from his office (his study), never in person, for the whole story, the finale included.** An original face, nobody's. | Seated upright in his oxblood wing chair in a walnut-panelled study (bookshelves, a green banker's lamp, a whisky glass, Midtown at night through a tall window): a full head of swept-back silver hair, a full close-trimmed silver beard, heavy dark tortoiseshell rectangular glasses, a husky, heavy-set build (normal shoulders), a navy three-piece suit, white shirt, deep burgundy tie; a cigar in his hand, its tip glowing, thin grey smoke. | Smug, polished, unhurried; his own voice, no voice changer; never shouts, smiles through the threats. |
 | **The Suits** | JPBank's security team, run like a gang of thugs. | Dark suits, white shirts, dark glasses, earpieces (thug.glb's four suit looks). | Street-tough, in HR language. |
-| **Knox** | The crew lead (the opening, Chelsea Park). | Big, black shades; a black leather bag across his back. | Low, cocky, sing-song mockery; enjoys every second. |
+| **Knox** | The crew lead (the opening, Chelsea Park); runs the door at the Seaport pavilion in Mission 4. | Big, black shades; a black leather bag across his back. | Low, cocky, sing-song mockery; enjoys every second. |
 | **Hooks** | The grabber: rips the bag off Dan's shoulder. | Wiry, fast hands; the suit and glasses. | Grunts only. |
 | **Tank** | Found Dan's front door. | The widest of them, shaved head. | Chat messages only. |
 | **Brick** | The bouncer at JPBank's community day: runs the Suits planted in the crowd. | The suit, an earpiece cord, a radio. | Loud, jumpy, a hype man turned bouncer. |
 | **Dash** | Always late, even to fights. | Tie half-knotted, out of breath. | Breathless, whiny, a higher pitch. |
 | **Mack** ("Mack Moneybags") | The Suits' Midtown handler; his phone holds the group chat. | Big; a grey suit, black shirt, dark glasses, a security pass on a navy lanyard; a leased sports sedan, plate MACK 1. | Big, loud, panicky about his money; every sentence a pitch. |
-| **Rook** | A junior on the security team, a first-year like Dan, who wants out (Mission 4). He was in the crowd at Washington Square. | Young adult, anxious, the suit too big for him. | Not voiced yet (DMs only): nervous, quick, apologetic. |
-| **Fiona** | JPBank's Head of Community: she hosts its "JPBank Loves New York" community day next to the Occupy camp. Her business card has glitter on it. Adult. | Unchanged: white puffer, white shades, megaphone. | A hype host on a megaphone; everything is the best thing ever; relentlessly nice. |
+| **Rook** | A junior on the security team, a first-year like Dan, who wants out (Mission 4). He was in the crowd at Washington Square. | Young adult, anxious, the suit two sizes too big for him. His own original model at Mr. Big's realism standard (natural shoulders), signed off by the GameMog team; a Suit's body stands in for him until then. | Not voiced yet (his voice still to pick): nervous, quick, apologetic. |
+| **Fiona** | JPBank's Head of Community: she hosts its "JPBank Loves New York" community day next to the Occupy camp, and the unveiling of the High Artwork at the Seaport (Mission 4). Her business card has glitter on it. Adult. | Unchanged: white puffer, white shades, megaphone. | A hype host on a megaphone; everything is the best thing ever; relentlessly nice. |
 | **Gears** | Dan's mechanic: a big ex-pit-crew man with a tuning garage in West Chelsea. | Unchanged. | Slow, warm, proud of his work; "Mostly." |
 | **Ms. Bea** | A retired Bronx science teacher in her sixties (she taught Jane in seventh grade); runs the Occupy camp's kitchen and leads its people's mic. JPBank took her house. | Heard, not seen yet (off screen in Episode 1). When she is modelled: an original older woman, a knitted cardigan over a camp T-shirt, reading glasses on a cord, a wooden spoon in her apron pocket. | Warm, unhurried, commanding: a teacher who has never needed a microphone. |
 | **The Camp** | OCCUPY JPBANK: forty-odd people of every age in Washington Square, with tents, cardboard signs and a drum circle. | The city's crowd, dressed for a long camp-out. | A crowd: five or six voices together, ragged, cheerful and loud; the people's mic repeats each phrase so the back can hear. |
@@ -107,13 +107,40 @@ FREE HOT DOGS ≠ JUSTICE · DAN DAN THE GREEDY MAN (until Ms. Bea crosses out G
   name, so Mr. Big moves the laptop to the shredder at dawn, and Rook drives. Lose the Suits in the Village. On the drive
   back, Jane tells him the payoff: forty phones of footage, the sign now says DAN DAN THE FALL MAN, and the insiders are
   panicking because an audit would take them down with Mr. Big. SUPPORTERS +11,240, everyone who was watching. Rook's
-  DM: he was in that crowd, he's done; meet tonight at Sara D. Roosevelt Park. **Mission 4 · coming soon.**
+  DM: he was in that crowd, he's done; meet tonight at Sara D. Roosevelt Park. Then his **R** on the radar: Mission 4.
+- **Mission 4 · Shredder.** That evening, at Rook's R on his bench in Sara D. Roosevelt Park ("There's a kid on the
+  bench in a suit two sizes too big." "That's him."): the laptop is locked in the shredder truck with two Suits riding
+  along, so Rook can't take it. But tonight Mr. Big unveils his new trophy, **the High Artwork** by the (fictional)
+  artist Marzo Quillfeather, in an open-sided glass pavilion on South St at the Seaport, and his **signing key** unlocks
+  for about ninety seconds so he can sign it on camera. "Take what he loves. Then trade." A wristband, a catering pass,
+  and the way out: Mr. Big's own helicopter waits at the end of the street to fly the key home ("I sent the pilot for
+  coffee."). **Act II · Insiders / Shredder.** On the drive through Chinatown (Canal, Mott, Doyers) Jane lays out the
+  plan: nobody looks at the waiter; Mr. Big joins by video from his office, because he doesn't stand in crowds; the
+  artist hides his mark three times in everything he makes. In a waiter's jacket and cap, past Knox on the door ("Staff
+  entrance. Smile less."), find the artist's mark 0/3 on the pavilion's panels. Fiona hosts the unveiling, Mr. Big is
+  live on the big screen from his office ("Fiona. Open the case."), the case goes green and the clock starts: open it,
+  enter the three marks in order, take the key, and sign the High Artwork over. The wall certificate glitches from
+  OWNER · MR. BIG to **OWNER · DAN** ("...that is not my name."), every head turns from the screen to the empty case,
+  Knox finally looks up ("BANKER BOY."), and Dan drops the tray ("Tip's included."). Sprint through the crowd to the
+  helicopter as the Suits close in ("That is my helicopter."), fly it west across downtown and land it on the Battery
+  Park City riverfront. LATER · 11:40 PM: walk the esplanade to the ferry landing at Vesey St (a plain FERRY sign: LAST
+  FERRY · 11:45 · HOBOKEN) and make the last ferry ("Cutting it close."). On its stern deck, the lit skyline behind him,
+  Dan calls Mr. Big: "You have my laptop. I have your key." Mr. Big patches Rook in ("Turn it around."), and Dan hears
+  the shredder power down over the phone. "We'll trade. Somewhere public." The laptop goes into the vault truck at the
+  stock exchange. HIGH ARTWORK TAKEN 1/1. Rook's DM: "he doesn't know it was me. yet." Free roam picks up the next
+  morning at Pier 11, the car on South St where Gears left it.
 
-End card: **END OF EPISODE 1**. "Thanks for playing. Dan isn't done yet." / "Rook knows where your laptop is going."
+End card, after Mission 4: **END OF EPISODE 1**. "Thanks for playing. Dan isn't done yet." / **MISSION 5 · COMING SOON**
+"The laptop's still out there."
+
+**The High Artwork.** In the game the stolen work is only ever called the High Artwork: no on-screen text or line calls
+it anything else. It is one fictional work by a fictional artist, shown as placeholder art made in the repo; it has no
+wallet and no value.
 
 ## The car phone
 
-Jane talks with Dan **only while he is at the wheel**, on every drive in Missions 1 to 3 and on the drives between them:
+Jane talks with Dan **only while he is at the wheel**, on every drive in Missions 1 to 4 and on the drives between them (and, in Mission 4, one short call at the helicopter's
+controls: "Since when can you fly?" "Since forty seconds ago."):
 
 - **On foot** the call holds, with one line each way out and back in. In a cutscene it hangs up.
 - **The story first.** The extras (her job at the hospital, their almost-apartment, his loans and his mom, Moon, Ms. Bea,

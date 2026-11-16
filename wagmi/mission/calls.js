@@ -25,13 +25,13 @@
 //                             with fastFrom that rings in the fast register opens there, its 'spotted' exchange first)
 //   W.calls.auto(step, id, opt)   the call for a step of free roam ('free:<letter>', the way to the next mission), wrapped
 //                             up opt.wrapR m (200) from the corona (W.between.at); once per session. Set here: 'free:J'
-//                             m2-handoff and 'free:G' m3-handoff. Mission 3 adds 'free:R' m4-teaser (wrapR 120).
+//                             m2-handoff and 'free:G' m3-handoff. Mission 3 adds 'free:R' m4-handoff (wrapR 120).
 //   W.calls.live              the call ringing, on or on hold (its id), else null · W.calls.talking: a call line is up
 //   W.calls.heard             ids heard to the end of their main lines this session · W.calls.state(): what it is doing
 // Wiring a drive (as m1.js and m2.js do; Mission 3 next): in the phase, once, W.calls?.start('m3-square', { wrapWhen:
 // () => dist(me(), ARCH.x, ARCH.z) < 250 }); from the phase's frame hook, its game-state lines (W.calls?.react('seen'),
 // W.calls?.cue(0)); in the mission's tidy(), W.calls?.stop({ quiet: true, of: 'm3:' }); a drive of free roam:
-// W.calls?.auto('free:R', 'm4-teaser', { wrapR: 120 }). The call's lines and timings stay here, in CALLS.
+// W.calls?.auto('free:R', 'm4-handoff', { wrapR: 120 }). The call's lines and timings stay here, in CALLS.
 // The rules (the writer's calls.json):
 //   - only at the wheel: out of the car 1.5 s, the line playing finishes, then a pause line (they cycle) and the card says
 //     'On hold'; back in, a resume line, then on from the next line. Never a line on foot (but the pause line) or in a
@@ -609,9 +609,9 @@ export const CALLS = {
     pause: PAUSE,
     resume: RESUME,
   },
-  // m4-teaser (m3 · toRook, normal): Optional: a short warm call so the drive to the teaser is not silent. Mission 4
-  // is coming soon, so the wrap says Rook is not there yet. Wrap: Dan within 120 m of R_AT (the bench).
-  'm4-teaser': {
+  // m4-handoff (m3 · toRook, normal): the drive to Rook's bench, the start of Mission 4 (it was the teaser's call:
+  // its first lines kept). Wrap: Dan within 120 m of R_AT (the bench), where Rook is waiting now.
+  'm4-handoff': {
     step: 'free:R', trigger: 'enter-car', delay: 4,
     main: [
       ['Jane', BLUE, "You're going to see Rook."],
@@ -635,9 +635,46 @@ export const CALLS = {
       ],
     ],
     wrap: [
-      ['Jane', BLUE, 'No Rook yet.'],
-      ['Dan', WHITE, "He'll come."],
-      ['Jane', BLUE, 'Then we wait. Together. Ish.'],
+      ['Dan', WHITE, "There's a kid on the bench in a suit two sizes too big."],
+      ['Jane', BLUE, "That's him."],
+      ['Dan', WHITE, 'He looks more scared than me.'],
+      ['Jane', BLUE, 'Good. Scared people tell the truth. Go.'],
+    ],
+    pause: PAUSE,
+    resume: RESUME,
+  },
+  // m4-seaport (m4 · seaport, normal): the drive from Rook's bench through Chinatown to the Seaport, the plan: nobody
+  // looks at the waiter; the key opens for about ninety seconds; Mr. Big joins by video from his office; the artist
+  // hides his mark three times. The stolen work is only ever "the High Artwork". Wrap: 250 m from the pavilion, once
+  // the main lines are said.
+  'm4-seaport': {
+    step: 'm4:seaport', trigger: 'phase-start', delay: 6, wrapAfterMain: true,
+    main: [
+      ['Jane', BLUE, 'Okay. Tell me exactly what he said.'],
+      ['Dan', WHITE, "Mr. Big unveils the High Artwork tonight. At the Seaport. And his signing key opens for ninety seconds."],
+      ['Jane', BLUE, 'So whoever holds the key signs the High Artwork over.'],
+      ['Dan', WHITE, '"Take what he loves. Then trade."'],
+      ['Jane', BLUE, "Then that's the plan. Down Canal, right on Mott. It's slow, but nobody looks twice at you there."],
+      ['Jane', BLUE, "You're a waiter tonight. Nobody looks at the waiter. Not even Knox."],
+      ['Dan', WHITE, 'Knox will be there?'],
+      ['Jane', BLUE, "On the door. Head down, tray up, you're furniture."],
+      ['Jane', BLUE, "Mr. Big won't be. He joins by video, from his office. He hasn't stood in a crowd since the camp."],
+      ['Dan', WHITE, 'Afraid of people. Noted.'],
+      ['Jane', BLUE, 'The artist hides his mark three times in everything he makes. I bet the case wants it, in order.'],
+      ['Dan', WHITE, 'Three marks. Ninety seconds. One tray.'],
+      ['Jane', BLUE, 'And a helicopter. Which you have never flown.'],
+      ['Dan', WHITE, "I've played a lot of games."],
+      ['Jane', BLUE, "That's not comforting, babe."],
+    ],
+    extra: [
+      [
+        ['Jane', BLUE, "Doyers Street's the crooked one. They used to call it the bloody angle."],
+        ['Dan', WHITE, "Let's not make that a theme tonight."],
+      ],
+    ],
+    wrap: [
+      ['Jane', BLUE, "That's the pavilion. Staff entrance is round the side."],
+      ['Dan', WHITE, 'Smiling less. Going in.'],
     ],
     pause: PAUSE,
     resume: RESUME,

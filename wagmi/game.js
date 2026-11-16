@@ -1279,16 +1279,23 @@ Object.assign(hint.style, { position: 'fixed', left: '50%', bottom: '120px', tra
   background: 'rgba(10,12,18,0.72)', color: '#fff', font: '600 15px system-ui, sans-serif', letterSpacing: '0.04em', zIndex: 20, display: 'none', pointerEvents: 'none',
   transition: 'bottom 0.2s', whiteSpace: 'nowrap' });
 document.body.appendChild(hint);
+const COARSE = (() => { try { return matchMedia('(pointer: coarse)').matches; } catch { return false; } })();
 // (never on the mission's objective line or the subtitle under it: over them, 10 px clear, wherever they would meet)
 function placeHint() {
-  const hr = hint.getBoundingClientRect(), H = innerHeight, cx = innerWidth / 2;
+  // (round 8's review: under his feet it sat on his legs, the follow camera's player standing in the frame's bottom
+  // middle. Beside him on a desktop, at his waist, clear of him; a phone's thumbs keep it centred over them)
+  const side = COARSE ? 0 : Math.min(170, innerWidth * 0.12), left = side ? `calc(50% + ${side}px)` : '50%';
+  if (hint.style.left !== left) hint.style.left = left;
+  const hr = hint.getBoundingClientRect(), H = innerHeight, cx = innerWidth / 2 + side;
   const lines = [];
   for (const el of document.querySelectorAll('#wg .wg-obj, #wg .wg-sub')) {
     if (el.classList.contains('hide') || !el.textContent.trim()) continue;
     const r = el.getBoundingClientRect();
     if (r.height && r.right > cx - hr.width / 2 - 8 && r.left < cx + hr.width / 2 + 8) lines.push(r);
   }
-  let bottom = 120;
+  // (Mission 4's look review, round 7: at 120 px up it sat on Dan's waist, the follow camera's player in the middle of the
+  // frame; a phone's thumbs keep the bottom, so there it stays over them)
+  let bottom = COARSE ? 120 : 150;
   for (const r of lines.sort((a, b) => b.bottom - a.bottom)) if (r.top < H - bottom + 10 && r.bottom > H - bottom - hr.height - 10) bottom = H - r.top + 10;
   if (hint.style.bottom !== bottom + 'px') hint.style.bottom = bottom + 'px';
 }
@@ -1309,6 +1316,8 @@ let last = performance.now();
   const rescue = WAGMI.carRescue?.() || '';
   const show = ride.phase || WAGMI.paused || WAGMI.cutscene || WAGMI.directed || (WAGMI.carF && WAGMI.carF()) ? '' : cm.activeMode === 'person' && near() ? (MOUNT ? 'F  ·  Mount' : 'F  ·  Get in')
     : cm.activeMode === 'person' && WAGMI.jackPrompt?.() ? WAGMI.jackPrompt()
+    // (Mission 4's helicopter: in, by it on foot; out, landed: its own F, wagmi/mission/m4-heli.js)
+    : WAGMI.heliPrompt?.() ? WAGMI.heliPrompt()
     : rescue ? RESCUE[rescue] : pinned ? (MOUNT ? 'X  ·  Back to the road' : 'X  ·  Reset car to road') : cm.activeMode === 'car' && Math.abs(car.speed) < (MOUNT ? 2.2 : 4) ? (MOUNT ? 'F  ·  Dismount' : 'F  ·  Get out') : '';
   // (the key in a key cap that reads as plain text, so a game pad's button can stand in for it: wagmi/pad.js; what is
   // offered, WAGMI.prompt, for the pad's Y: the car's door, or else the fight's heavy)
@@ -1331,6 +1340,6 @@ WAGMI.trailerEarly = import('./trailer.js').then((m) => m.createTrailer(WAGMI)).
 // missions, which are set on Manhattan's streets. The city: the world contract's, wagmi/world world.id. And
 // ?start=chase in any city: free roam opened on a chase, wagmi/chase-start.js)
 const ROAM = !PACK && (world.id !== 'ny' || CHASE_START);
-for (const m of PACK ? ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './jack.js', './storyrun/index.js'] : ROAM ? ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './jack.js', './city.js'] : ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './intro.js', './mission/m2.js', './mission/m3.js']) {
+for (const m of PACK ? ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './jack.js', './storyrun/index.js'] : ROAM ? ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './jack.js', './city.js'] : ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './intro.js', './mission/m2.js', './mission/m3.js', './mission/m4.js', './mission/m4-gallery.js']) {
   try { const mod = await import(m); if (mod.install) await mod.install(WAGMI); } catch (err) { console.error('[wagmi]', m, err); if (m === './storyrun/index.js') WAGMI.storyFailed = true; }
 }

@@ -50,11 +50,11 @@ export async function install(W) {
   // (the sandbox's mode keys 1-4 are for the developers: F gets in and out of the car)
   // (not while the stall help is up: its options are on the number keys, and it keeps the city's from them itself)
   addEventListener('keydown', (e) => { if (/^Digit[1-4]$/.test(e.code) && !Q.has('sandbox') && !document.body.classList.contains('wg-offering')) e.stopImmediatePropagation(); }, true);
-  // (?m2= and ?m3= start their missions straight in, as ?nointro: mission/m2.js, m3.js)
-  if (Q.has('nointro') || Q.get('m2') || Q.get('m3')) {
+  // (?m2=, ?m3= and ?m4= start their missions straight in, as ?nointro: mission/m2.js, m3.js, m4.js)
+  if (Q.has('nointro') || Q.get('m2') || Q.get('m3') || Q.get('m4')) {
     document.getElementById('wg-boot')?.remove(); outBesideCar(W);
     // (the city can still pick its own start, in the car, after this: out beside it again once the city is up)
-    if (Q.has('nointro') && !Q.get('m2') && !Q.get('m3')) (async () => { for (let i = 0; i < 600 && !W.app.ready; i++) await new Promise((r) => setTimeout(r, 100)); if (W.app.controllerManager.activeMode !== 'person') outBesideCar(W); })();
+    if (Q.has('nointro') && !Q.get('m2') && !Q.get('m3') && !Q.get('m4')) (async () => { for (let i = 0; i < 600 && !W.app.ready; i++) await new Promise((r) => setTimeout(r, 100)); if (W.app.controllerManager.activeMode !== 'person') outBesideCar(W); })();
     return;
   }
   const ui = (W.ui = createUI()), sfx = (W.sfx = createAudio());

@@ -1,6 +1,7 @@
-// Mog City: a mission marker on the ground, the GTA corona: a 3 m translucent cylinder of light rising off a ring,
+// Mog City: a mission marker on the ground, the corona: a 3 m translucent cylinder of light rising off a ring,
 // its colour fading out upward, breathing slowly.
 //   const m = createMarker(THREE, scene, { color: '#FFC93C', radius: 3 }); m.at(x, y, z); m.hide();
+//   m.fade(k)  the wall alone faded (0..1), the ring on the ground kept: a tall column thinned as it is closed on
 import { uv, uniform, float, vec3, sin, time, pow, mix, smoothstep, abs } from 'three/tsl';
 
 export function createMarker(THREE, scene, { color = '#FFC93C', radius = 3, height = 1.4, alpha = 0.22 } = {}) {
@@ -8,9 +9,9 @@ export function createMarker(THREE, scene, { color = '#FFC93C', radius = 3, heig
   const col = uniform(new THREE.Color(color));
   // the wall: open cylinder, brightest at the ground, gone at the top, a slow pulse
   const wall = new THREE.MeshBasicNodeMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide });
-  const breathe = sin(time.mul(2.2)).mul(0.12).add(0.88);
+  const breathe = sin(time.mul(2.2)).mul(0.12).add(0.88), wallK = uniform(1);
   wall.colorNode = col;
-  wall.opacityNode = pow(float(1).sub(uv().y), float(1.6)).mul(alpha * 1.4).mul(breathe);
+  wall.opacityNode = pow(float(1).sub(uv().y), float(1.6)).mul(alpha * 1.4).mul(breathe).mul(wallK);
   const cyl = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, height, 64, 1, true), wall);
   cyl.position.y = height / 2; cyl.renderOrder = 5; g.add(cyl);
   // the ring on the ground
@@ -25,6 +26,7 @@ export function createMarker(THREE, scene, { color = '#FFC93C', radius = 3, heig
     at(x, y, z) { g.position.set(x, y, z); g.visible = true; },
     hide() { g.visible = false; },
     color(c) { col.value.set(c); },
+    fade(k) { wallK.value = Math.max(0, Math.min(1, k)); cyl.visible = wallK.value > 0.01; },
     get visible() { return g.visible; },
   };
 }

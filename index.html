@@ -77,7 +77,7 @@
       const sf = MC_CITY !== 'ny';
       if (sf) H.dataset.city = MC_CITY;
       // (?start=chase: the chase-first opening, wagmi/chase-start.js, straight in, no gate)
-      if (Q.has('nointro') || Q.has('nogate') || Q.has('fight') || Q.get('m1') || Q.get('m2') || Q.get('m3') || (sf && !Q.has('pack')) || (Q.get('start') === 'chase' && !Q.has('pack'))) return;
+      if (Q.has('nointro') || Q.has('nogate') || Q.has('fight') || Q.get('m1') || Q.get('m2') || Q.get('m3') || Q.get('m4') || (sf && !Q.has('pack')) || (Q.get('start') === 'chase' && !Q.has('pack'))) return;
       H.classList.add('wg-t');
       // (a Mog's own save (wagmi/story S.save: the key with its story's id), Mog City's without ?story=)
       let key = 'wagmi.save.v1';
@@ -134,7 +134,7 @@
       // (San Francisco's own modules from cities/sf/js; the ones both cities share as they are (the people, the touch
       // and pad controls, the cameras with their hill clearance, the culling, the lamps) from js/. Not SF's settings
       // dialog or its robotaxi ride: Mog City's pause menu and Dan's car are the game's)
-      const v = '20261115-r13c';
+      const v = '20261115-r14';
       const sf = (f) => `./cities/sf/js/${f}?v=${v}`, shared = (f) => `./js/${f}?v=${v}`;
       // (a Hometown package: its own geodata.js (window.NYC.GEO, PLACE_DATA and PKG, tools/hometown/compile.py) in
       // place of San Francisco's geodata and places, then the same engine)
@@ -188,7 +188,7 @@
         sf('main.js')
       ];
     })() : (() => {
-      const assetVersion = '20261115-r13c';
+      const assetVersion = '20261115-r14';
       return [
         './js/nyc-geodata.js',
         './js/city-config.js',

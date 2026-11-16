@@ -743,12 +743,13 @@ class ThirdPersonControllerManager {
       new THREE.SphereGeometry(0.036, 8, 8),
       new THREE.MeshBasicNodeMaterial({ color: 0xff2b2b })
     );
-    navRed.position.set(-1.09, 1.54, -4.35);
+    // (the nose is +z, so port, the pilot's left, is +x: red there, green to starboard; they were mirrored)
+    navRed.position.set(1.09, 1.54, -4.35);
     const navGreen = new THREE.Mesh(
       new THREE.SphereGeometry(0.036, 8, 8),
       new THREE.MeshBasicNodeMaterial({ color: 0x22ff66 })
     );
-    navGreen.position.set(1.09, 1.54, -4.35);
+    navGreen.position.set(-1.09, 1.54, -4.35);
     const navTail = new THREE.Mesh(
       new THREE.SphereGeometry(0.042, 8, 8),
       new THREE.MeshBasicNodeMaterial({ color: 0xff3b2b })
@@ -1209,8 +1210,10 @@ class ThirdPersonControllerManager {
 
   update(dt, elapsed) {
     const heli = this.entities.helicopter;
-    heli.mainRotorPivot.rotation.y += dt * 24.0;
-    heli.tailRotorPivot.rotation.x += dt * 32.0;
+    // (Mog City: heli.rotor, 0 still .. 1 full, for a story's spin-up and wind-down; the sandbox's always full)
+    const spin = heli.rotor ?? 1;
+    heli.mainRotorPivot.rotation.y += dt * 24.0 * spin;
+    heli.tailRotorPivot.rotation.x += dt * 32.0 * spin;
 
     if (this.activeMode === 'person') {
       this.updatePerson(dt, elapsed);
@@ -1574,17 +1577,38 @@ class ThirdPersonControllerManager {
     h.position.z += Math.cos(h.heading) * h.speed * dt;
     h.position.y += h.verticalSpeed * dt;
 
-    h.position.y = Math.max(0.25, Math.min(380, h.position.y));
+    h.position.y = Math.max(h.story ? -2 : 0.25, Math.min(380, h.position.y));
+    // (Mog City story, h.story: a mission's helicopter (wagmi/mission/m4-heli.js). Its floor follows the ground under
+    // its skids, the sidewalks, the parks' walks and lawns, as the SF controller's follows its hills (no skid sunk in a
+    // kerb); h.ceil a soft ceiling; set down with no lift asked for, it is landed (h.landed): it sits on its skids, no
+    // slide, no hover bob, level)
+    let landed = false;
+    if (h.story) {
+      const sn = Math.sin(h.heading), cs = Math.cos(h.heading);
+      let floorY = 0;
+      for (const [ax, az] of [[0, 0], [1.1, 1.9], [-1.1, 1.9], [1.1, -1.6], [-1.1, -1.6]]) floorY = Math.max(floorY, this.getGroundHeight(h.position.x + ax * cs + az * sn, h.position.z - ax * sn + az * cs, 'person'));
+      if (h.ceil && h.position.y > h.ceil) { h.position.y += (h.ceil - h.position.y) * Math.min(1, dt * 2); h.verticalSpeed = Math.min(h.verticalSpeed, 0); }
+      if (h.position.y <= floorY + 0.02) {
+        h.position.y = floorY;
+        h.verticalSpeed = Math.max(h.verticalSpeed, 0);
+        landed = vertInput <= 0;
+        if (landed) { h.position.x -= Math.sin(h.heading) * h.speed * dt; h.position.z -= Math.cos(h.heading) * h.speed * dt; h.speed *= Math.max(0, 1 - dt * 8); }
+      }
+      h.floorY = floorY;
+    }
+    h.landed = landed;
     this.resolveHorizontalCollision(h.position, 4.5, h.position.y);
 
-    const targetPitch = (h.speed / maxHorizSpeed) * 0.24;
-    const targetRoll = -yawInput * 0.28;
+    const targetPitch = landed ? 0 : (h.speed / maxHorizSpeed) * 0.24;
+    const targetRoll = landed ? 0 : -yawInput * 0.28;
     h.pitchAngle += (targetPitch - h.pitchAngle) * Math.min(1, dt * 5);
     h.rollAngle += (targetRoll - h.rollAngle) * Math.min(1, dt * 5);
 
     h.tiltPivot.rotation.x = h.pitchAngle;
     h.tiltPivot.rotation.z = h.rollAngle;
-    h.tiltPivot.position.y = Math.sin(elapsed * 2.6) * 0.18;
+    // (the hover's bob eased out as it nears the ground in a story, none landed)
+    const bob = h.story ? Math.min(1, Math.max(0, (h.position.y - (h.floorY || 0)) / 3)) : 1;
+    h.tiltPivot.position.y = Math.sin(elapsed * 2.6) * 0.18 * bob;
   }
 }
 

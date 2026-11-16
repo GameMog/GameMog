@@ -2313,7 +2313,8 @@ function buildCityBlocks(scene) {
 
   const signThemes = [
     { bg: '#161210', border: '#c89d54', text: 'FIFTH AVE BISTRO · EST. 1928', color: '#ffe4a8' },
-    { bg: '#0c2244', border: '#38b6ff', text: 'GRAMERCY · PHARMACY', color: '#ffffff' },
+    // (Mission 4's look review, round 7: a neighbourhood's name on a pharmacy read as a real shop's; the game's own now)
+    { bg: '#0c2244', border: '#38b6ff', text: 'CORNER PHARMACY · OPEN LATE', color: '#ffffff' },
     { bg: '#142b20', border: '#d4af37', text: 'MANHATTAN BOOKS & ESPRESSO', color: '#fff2cc' },
     { bg: '#280a10', border: '#ff5252', text: 'BROADWAY DELI & GRILL · 24HR', color: '#ffd180' },
     { bg: '#101318', border: '#e0e6ed', text: 'EMPIRE WATCHES · NEW YORK', color: '#f5f9ff' }

@@ -16,8 +16,10 @@ export const STORY = [
   { id: 'm1', act: 'Act I · Mission 1', title: 'Bagged', unlocks: { fists: true } },
   { id: 'm2', act: 'Act I · Mission 2', title: 'Burner', unlocks: { cans: true } },
   { id: 'm3', act: 'Act II · Mission 3', title: 'Occupied', unlocks: { bats: true, thrusters: true } },
+  { id: 'm4', act: 'Act II · Mission 4', title: 'Shredder' },
 ];
-const ORDER = ['m1', 'm2', 'm3', 'm4'];
+// (m5: not built yet. After Mission 4 the story waits on its teaser, the next morning at Pier 11: m4.js toM5)
+const ORDER = ['m1', 'm2', 'm3', 'm4', 'm5'];
 const J_AT = { x: -296, z: 84.5 }, G_AT = { x: -1560, z: 1611 };
 const near = (a, b, r = 3) => !!a && Math.hypot(a.x - b.x, a.z - b.z) < r;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -27,7 +29,7 @@ export function readSave() {
 }
 function writeSave(s) { try { localStorage.setItem(KEY, JSON.stringify(s)); return true; } catch { return false; } }
 const story = (W) => W.story || (W.story = { done: [], unlocks: {} });
-export const nextOf = (done) => ORDER.find((id) => !done.includes(id)) || 'm4';
+export const nextOf = (done) => ORDER.find((id) => !done.includes(id)) || 'm5';
 
 // a mission passed: noted, its unlocks applied, the save written
 export function markDone(W, id) {
@@ -64,7 +66,7 @@ export function saveGate(ui, opts = {}) {
   if (!save) return ui.gate(opts).then(() => 'new');
   if (!document.getElementById('m3save-css')) { const st = document.createElement('style'); st.id = 'm3save-css'; st.textContent = CSS; document.head.appendChild(st); }
   const next = nextOf(save.done), M = STORY.find((m) => m.id === next);
-  const what = M ? `Next: ${M.title} · ${M.act}` : 'Next: Mission 4 (coming soon)';
+  const what = M ? `Next: ${M.title} · ${M.act}` : 'Next: Mission 5 (coming soon)';
   let sel = 0, el = null;
   const draw = () => el?.querySelectorAll('.opt').forEach((o, i) => o.classList.toggle('sel', i === sel));
   // (ahead of the gate's own key: the arrows choose, they don't start)
@@ -90,14 +92,17 @@ export function saveGate(ui, opts = {}) {
 const SPAWN = {
   m2: { car: [-303.5, 66, Math.PI], dan: [-300.5, 72, Math.PI * 0.75], time: 'twilight' },
   m3: { car: [-1548, 1603.6, Math.PI / 2], dan: [-1551, 1607.4, -Math.PI / 2], time: 'midday' },
-  m4: { car: [-1548, 1603.6, Math.PI / 2], dan: [-1551, 1607.4, Math.PI], time: 'golden' },
+  // (after Mission 3: dusk by Gears' garage, Rook's R across town; Mission 4's bench is that evening)
+  m4: { car: [-1548, 1603.6, Math.PI / 2], dan: [-1551, 1607.4, Math.PI], time: 'twilight', place: ['West Chelsea', 'Static Garage · New York'] },
+  // (after Mission 4: the next morning, off the morning ferry at Pier 11, the car on South St where Gears left it)
+  m5: { car: [747.4, 5888.5, -0.36], dan: [748.8, 5885.8, -0.36], time: 'golden', place: ['Pier 11 · Wall St', 'Financial District · New York'] },
 };
 export async function resume(W, hold) {
   const save = readSave() || { done: [], unlocks: {} };
   const S = story(W); S.done = [...save.done]; S.unlocks = { ...save.unlocks };
   W.supporters = save.supporters ?? save.followers ?? 0;
   if (S.done.includes('m2')) W.progress = { ...(W.progress || {}), m2: true };
-  const ui = W.ui, app = W.app, next = nextOf(S.done), sp = SPAWN[next] || SPAWN.m4;
+  const ui = W.ui, app = W.app, next = nextOf(S.done), sp = SPAWN[next] || SPAWN.m5;
   const { place } = await import('../intro.js');
   app.selectTime?.(sp.time);
   place(W, { car: sp.car, dan: sp.dan });
@@ -106,13 +111,15 @@ export async function resume(W, hold) {
   ui.cine(false); ui.gameTitle?.(false); ui.story(true);
   applyUnlocks(W);
   await toNext(W, { quick: true });
-  ui.place(next === 'm2' ? 'Bryant Park' : 'West Chelsea', next === 'm2' ? 'Midtown · New York' : 'Static Garage · New York', 3);
+  const [pn, ps] = sp.place || (next === 'm2' ? ['Bryant Park', 'Midtown · New York'] : ['West Chelsea', 'Static Garage · New York']);
+  ui.place(pn, ps, 3);
 }
 // the way on to the next mission (its blip, its route, its corona)
 export async function toNext(W, { quick = false } = {}) {
   const next = nextOf(story(W).done);
   if (next === 'm1') return;
   if (next === 'm2') { (await import('./m2.js')).handoff(W, { quick }); return; }
+  if (next === 'm5') { (await import('./m4.js')).toM5(W, { quick }); return; }
   const m3 = await import('./m3.js');
   if (next === 'm3') m3.toGarage(W, { quick });
   else m3.toRook(W, { quick });
@@ -151,4 +158,5 @@ async function replay(W, id) {
   if (id === 'm1') (await import('./m1.js')).start(W, { at: 'car' }).catch((e) => console.error('[replay]', e));
   else if (id === 'm2') (await import('./m2.js')).start(W, { at: 'start' }).catch((e) => console.error('[replay]', e));
   else if (id === 'm3') (await import('./m3.js')).start(W, { at: 'garage' }).catch((e) => console.error('[replay]', e));
+  else if (id === 'm4') (await import('./m4.js')).start(W, { at: 'bench' }).catch((e) => console.error('[replay]', e));
 }

@@ -1,5 +1,5 @@
 // Mog City's own story pack reproduces the game exactly (tools/story/README.md): the default pack is current with the
-// source, renders every source literal back, holds the voice build's 462 lines by their ids, passes its own schema;
+// source, renders every source literal back, holds the voice build's 540 lines by their ids, passes its own schema;
 // the story calls over it return what they are given; the validator and the address rule refuse what they must.
 //   node --test tests/story-default.test.mjs   (TypeScript's parser from the GameMog checkout's node_modules)
 import test from 'node:test';
@@ -36,9 +36,9 @@ test('the default pack passes its own schema and rules', () => {
   assert.equal(base.pack, 1); assert.equal(base.base, 'mog-city@1');
 });
 
-test('its lines are the voice build\'s: the same ids, speakers and words (462)', () => {
+test('its lines are the voice build\'s: the same ids, speakers and words (550)', () => {
   const L = readLines(ROOT);
-  assert.equal(L.length, 462);
+  assert.equal(L.length, 550);
   assert.equal(Object.keys(base.lines).length, L.length);
   for (const l of L) {
     assert.ok(base.lines[l.id], `line ${l.id} in the pack`);

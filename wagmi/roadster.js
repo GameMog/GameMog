@@ -433,7 +433,7 @@ export function buildRoadster(THREE, o = {}) {
     const sh = new THREE.Shape(); sh.moveTo(...pts[0]); for (const p of pts.slice(1)) sh.lineTo(...p); sh.closePath();
     for (const h of holes) sh.holes.push(h);
     const opt = bevel ? { depth: depth - 2 * bevel, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelOffset: -bevel, bevelSegments: 3, curveSegments: 20 } : { depth, bevelEnabled: false, curveSegments: 20 };
-    const geo = new THREE.ExtrudeGeometry(sh, opt).translate(0, 0, bevel).toNonIndexed();
+    let geo = new THREE.ExtrudeGeometry(sh, opt).translate(0, 0, bevel); if (geo.index) geo = geo.toNonIndexed(); // (an extrusion has no index: no 'already non-indexed' warning per panel)
     const pa = geo.attributes.position; for (let v = 0; v < pa.count; v++) pa.setXYZ(v, ...place(pa.getX(v), pa.getY(v), pa.getZ(v)));
     geo.deleteAttribute('uv'); geo.deleteAttribute('normal'); geo.computeVertexNormals();
     // (placing can mirror the solid inside out: if so, wind it back)

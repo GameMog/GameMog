@@ -920,6 +920,7 @@ function createTreeField(scene, sites, colliders = []) {
   const cellOf = new Array(capacity);
   const tier = new Uint8Array(capacity);
   const lod = new Uint8Array(capacity).fill(255);
+  const hidden = new Uint8Array(capacity); // (Mog City: trees a story set has cleared away for now, hide() below)
 
   // Shared geometry types per species, variant and level.
   const types = [];
@@ -1090,7 +1091,7 @@ function createTreeField(scene, sites, colliders = []) {
         const edge = [LOD_NEAR, LOD_MID, maxD][Math.min(nextL, curL)];
         if (Math.abs(d - edge) < LOD_HYSTERESIS) nextL = curL;
       }
-      const next = nextL === 3 ? 255 : nextL;
+      const next = nextL === 3 || hidden[i] ? 255 : nextL;
       if (next !== lod[i]) {
         lod[i] = next;
         dirtyCells.add(cellOf[i]);
@@ -1137,7 +1138,20 @@ function createTreeField(scene, sites, colliders = []) {
     triangles: geos.map((v) => v.map((l) => l.map((g) => g && g.userData.triangles))),
     cards: geos.map((v) => v.map((l) => l.map((g) => g && g.userData.cards)))
   };
-  return { group, material, atlas, update, meshes: instanced, stats, sites: plantedSites };
+  // (Mog City) hide(test): the trees where test(x, z) is true taken out of every level until hide(null) puts them back
+  // (a story set built where trees stand: wagmi/mission/m4-ferry.js, the ferry landing's gangway)
+  function hide(test) {
+    let changed = false;
+    for (let i = 0; i < N; i++) {
+      const h = test && test(px[i], pz[i]) ? 1 : 0;
+      if (h === hidden[i]) continue;
+      hidden[i] = h; changed = true;
+      if (h && lod[i] !== 255) { lod[i] = 255; dirtyCells.add(cellOf[i]); }
+    }
+    if (changed) { rebuild(); last.set(Infinity, Infinity, Infinity); }
+    return changed;
+  }
+  return { group, material, atlas, update, hide, meshes: instanced, stats, sites: plantedSites };
 }
 
 Object.assign(window.NYC, { createTreeField, createLeafAtlas, buildTreeGeometries, TREE_SPECIES: SPECIES });

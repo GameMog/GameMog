@@ -18,7 +18,7 @@
 // pass had them, cleared at the mouth only where his jaw stretches them across it, with a soft edge along the lips.)
 // It is drawn in place of the city's frame (the full-frame insert) or into a texture (his feed on Dan's phone).
 //   const boss = await createMrBig(W);  boss.pose(t, { lean, tilt, point, puff, stand })  boss.full({ pos, look, fov } | null)
-//   boss.phone(on)  boss.texture (the phone feed)  boss.eye (his eyes in his study: the shots are framed on them)
+//   boss.phone(on)  boss.texture (the phone feed)  boss.screen(on)  boss.screenTexture (a big screen's 16:9 feed)  boss.eye (his eyes in his study: the shots are framed on them)
 //   boss.warm() (compiles it all behind the gate)
 import * as THREE from 'three/webgpu';
 import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
@@ -208,13 +208,15 @@ export async function createMrBig(W) {
   const eyeMid = eyesW.length === 2 ? eyesW[0].clone().add(eyesW[1]).multiplyScalar(0.5) : wp(bones.head).add(V(0, 0.08, 0.1));
   const ipd = eyesW.length === 2 ? Math.abs(eyesW[0].x - eyesW[1].x) : 0.062;
   // (his head measured from the skin itself at the eyes' height: its half width at the temples, the nose's bridge)
+  // (14 Nov: the temples only, 2 to 6 cm behind his eyes: the band reached back into his ears, 87 mm out, and the
+  // arms flared out past his head to meet them)
   let halfW = 0.074, noseZ = eyeMid.z + 0.02;
   {
     const p = V(), pos = skin.geometry.attributes.position; let hw = 0, nz = -9;
     for (let i = 0; i < pos.count; i++) {
       skin.getVertexPosition(i, p); p.applyMatrix4(skin.matrixWorld);
       if (Math.abs(p.y - eyeMid.y) > 0.012) continue;
-      if (p.z > eyeMid.z - 0.1 && p.z < eyeMid.z - 0.035) hw = Math.max(hw, Math.abs(p.x - eyeMid.x));
+      if (p.z > eyeMid.z - 0.062 && p.z < eyeMid.z - 0.02) hw = Math.max(hw, Math.abs(p.x - eyeMid.x));
       if (Math.abs(p.x - eyeMid.x) < 0.006) nz = Math.max(nz, p.z);
     }
     if (hw > 0.05) halfW = hw; if (nz > -9) noseZ = nz;
@@ -234,6 +236,8 @@ export async function createMrBig(W) {
   const frameMat = new THREE.MeshStandardMaterial({ map: tortoise, color: '#B8A396', roughness: 0.28, metalness: 0.05 });
   const lensMat = new THREE.MeshStandardMaterial({ color: '#B8C8D8', roughness: 0.03, metalness: 0.35, transparent: true, opacity: 0.1, depthWrite: false });
   const glasses = new THREE.Group(); glasses.name = 'glasses';
+  // (on his nose: the lenses a little in front of his eyes and the bridge on the nose's bridge, a touch low)
+  const gz = Math.max(eyeMid.z + eyeR + 0.017, noseZ + 0.006);
   {
     const LW = 0.051, LH = 0.034, T = 0.0058, D = 0.006, r = 0.0065;
     const rr = (w, h, rad) => { const s = new THREE.Shape(), x0 = -w / 2, y0 = -h / 2; s.moveTo(x0 + rad, y0); s.lineTo(x0 + w - rad, y0); s.quadraticCurveTo(x0 + w, y0, x0 + w, y0 + rad); s.lineTo(x0 + w, y0 + h - rad); s.quadraticCurveTo(x0 + w, y0 + h, x0 + w - rad, y0 + h); s.lineTo(x0 + rad, y0 + h); s.quadraticCurveTo(x0, y0 + h, x0, y0 + h - rad); s.lineTo(x0, y0 + rad); s.quadraticCurveTo(x0, y0, x0 + rad, y0); return s; };
@@ -244,16 +248,16 @@ export async function createMrBig(W) {
     for (const sx of [-1, 1]) {
       const f = new THREE.Mesh(ringGeo, frameMat); f.position.set(sx * cx, 0, 0); f.rotation.y = -sx * 0.06; glasses.add(f);
       const l = new THREE.Mesh(lensGeo, lensMat); l.position.set(sx * cx, 0, 0.0005); l.rotation.y = -sx * 0.06; l.renderOrder = 2; glasses.add(l);
-      // (the arm: from the frame's outer top corner back over the ear, out to the head's side)
-      const ox = sx * (cx + LW / 2 + T * 0.6), ex = sx * Math.max(halfW + 0.006, cx + LW / 2 + T), z1 = -0.004, z2 = -(eyeMid.z + eyeR + 0.016 - (eyeMid.z - 0.095));
+      // (the arm: from the frame's outer top corner back along the side of his head, 3 mm off the skin at the temple,
+      // into his hair over the ear)
+      const ox = sx * (cx + LW / 2 + T * 0.6), ex = sx * Math.max(halfW + 0.002, cx + LW / 2 + T), z1 = -0.004, z2 = (eyeMid.z - 0.062) - gz;
       const len = Math.hypot(ex - ox, z2 - z1), arm = new THREE.Mesh(new THREE.BoxGeometry(0.0032, 0.0062, len), frameMat);
       arm.position.set((ox + ex) / 2, LH / 2 - 0.004, (z1 + z2) / 2); arm.lookAt(ex, LH / 2 - 0.004, z2); glasses.add(arm);
     }
     // (the bridge: a keyhole bar over his nose)
     const br = new THREE.Mesh(new THREE.CylinderGeometry(0.0034, 0.0034, 2 * cx - LW - 2 * T + 0.004, 10, 1, false), frameMat); br.rotation.z = PI / 2; br.position.set(0, LH * 0.22, 0.0015); glasses.add(br);
   }
-  // (on his nose: the lenses a little in front of his eyes and the bridge on the nose's bridge, a touch low)
-  glasses.position.set(eyeMid.x, eyeMid.y - 0.002, Math.max(eyeMid.z + eyeR + 0.017, noseZ + 0.006));
+  glasses.position.set(eyeMid.x, eyeMid.y - 0.002, gz);
   fix(glasses, bones.head);
   // (his mouth, in his head's own frame: the lips' parting 75 mm under his eyes, 12 mm in front of them: the cigar's cap
   // goes there for a puff)
@@ -414,6 +418,11 @@ export async function createMrBig(W) {
   const phoneCam = new THREE.PerspectiveCamera(42, 0.46, 0.05, 30);
   const rt = new THREE.RenderTarget(236, 512, { samples: 4 });
   rt.texture.colorSpace = THREE.LinearSRGBColorSpace;
+  // (the big screen's feed, a broadcast's 16:9 at its own size: the phone's portrait stretched across a screen read soft
+  // and wide, the owner's review, 14 Nov; made the first time a screen asks for it)
+  const screenCam = new THREE.PerspectiveCamera(30, 16 / 9, 0.05, 30);
+  let srt = null;
+  const screenRT = () => { if (!srt) { srt = new THREE.RenderTarget(1024, 576, { samples: 4 }); srt.texture.colorSpace = THREE.LinearSRGBColorSpace; } return srt; };
 
   /* ----------------------------------------------------------- the pose -- */
   // seated upright in his chair (his model's own rest pose, the legs folded at the hips and knees, the hips set down on
@@ -585,7 +594,7 @@ export async function createMrBig(W) {
   }
   const st = { t: -1, puffT: -9, smokeAcc: 0, tip: V() };
   // (what is drawn: the full-frame insert's camera, the phone's feed, frames left to draw both for the compile)
-  const state = { full: null, phone: false, warm: 0 };
+  const state = { full: null, phone: false, screen: false, warm: 0 };
   // t: the scene clock; lean: toward the lens (0..1); tilt: his head to one side (rad); point: the cigar pointed at the
   // lens (the demand, 0..1); puff: the cigar at his lips (0..1); stand: up out of his chair (for looking at him)
   function pose(t, { lean = 0, tilt = 0, point = 0, puff = 0, stand = false } = {}) {
@@ -631,7 +640,7 @@ export async function createMrBig(W) {
     if (!stand) settleL();
     root.updateMatrixWorld(true);
     // his eyes on the lens (the face runs itself: his mouth with his voice, his blinks)
-    face.look = state.full ? cam.position : phoneCam.position;
+    face.look = state.full ? cam.position : state.phone || !state.screen ? phoneCam.position : screenCam.position;
     // the ember breathing; the smoke off it, thin, curling up and away; after a puff, a slow breath of smoke from his mouth
     st.tip.copy(tipW());
     const glow = cigar.userData.glow.material.color, k = 0.85 + 0.15 * Math.sin(t * 7.3) * Math.sin(t * 2.1) + 0.6 * smooth(puff);
@@ -667,8 +676,11 @@ export async function createMrBig(W) {
   placeCigar();
   const EYE = face.eyes(V()).add(V(0, 0, 0.02));
   phoneCam.position.set(EYE.x + 0.02, EYE.y - 0.02, EYE.z + 1.17); phoneCam.lookAt(EYE.x, EYE.y - 0.13, EYE.z - 0.08);
+  // (the broadcast's shot: his head and shoulders, the cigar hand up beside him, headroom over his hair, a touch off
+  // centre so the window and the shelves show behind him)
+  screenCam.position.set(EYE.x + 0.1, EYE.y + 0.01, EYE.z + 1.48); screenCam.lookAt(EYE.x + 0.02, EYE.y - 0.15, EYE.z - 0.05);
   // (his face shows, and talks, only while his study is on a screen)
-  face.shown = () => !!(state.full || state.phone || state.warm);
+  face.shown = () => !!(state.full || state.phone || state.screen || state.warm);
 
   /* ----------------------------------------------------------- the draw -- */
   // (in front of the city's frame: the full-frame insert replaces it; the phone's feed is drawn before it)
@@ -676,6 +688,7 @@ export async function createMrBig(W) {
   rp.render = function (...a) {
     try {
       if (state.phone || state.warm) { renderer.setRenderTarget(rt); renderer.render(scene, phoneCam); renderer.setRenderTarget(null); }
+      if (state.screen) { renderer.setRenderTarget(screenRT()); renderer.render(scene, screenCam); renderer.setRenderTarget(null); }
       if (state.full || state.warm) {
         const c = state.full || { pos: [EYE.x + 0.2, EYE.y, EYE.z + 1.8], look: [EYE.x, EYE.y - 0.15, EYE.z], fov: 34 };
         cam.position.set(...c.pos); cam.lookAt(c.look[0], c.look[1], c.look[2]); if (c.roll) cam.rotateZ(c.roll);
@@ -684,7 +697,7 @@ export async function createMrBig(W) {
         renderer.setRenderTarget(null); renderer.render(scene, cam);
         if (state.full) return;
       }
-    } catch (e) { console.warn('[mrbig]', e); state.full = null; state.phone = false; }
+    } catch (e) { console.warn('[mrbig]', e); state.full = null; state.phone = false; state.screen = false; }
     if (state.warm) state.warm--;
     return render0(...a);
   };
@@ -693,6 +706,9 @@ export async function createMrBig(W) {
     pose,
     full(c) { state.full = c || null; },
     phone(on) { state.phone = !!on; },
+    // his feed on a big screen (16:9, its own camera): screen(on); screenTexture the texture it draws into
+    screen(on) { state.screen = !!on; if (on) screenRT(); },
+    get screenTexture() { return screenRT().texture; },
     // the pipelines, the frame buffer and the feed built now (behind the gate), not on the insert's first frame
     async warm() { pose(0); try { await renderer.compileAsync(scene, cam); } catch (e) { console.warn('[mrbig] compile', e); } state.warm = 3; },
   };

@@ -8,6 +8,7 @@
 //   FIGHT      (fighting, or a man within 9 m) STRIKE (J) · HEAVY (K, glowing when the takedown or the finisher is up) ·
 //              DODGE/COUNTER (L while a yellow cue is up, else C; it flashes with the cue) · GRAB / PICK UP / THROW (E,
 //              only when there is something to take)
+//   IN THE AIR (Mission 4's helicopter) ASCEND · DESCEND (Space · Q, held) · BOOST, and the EXIT pill (F) once it is landed
 //   IN THE CAR BOOST · HOP (Space, held; a cooldown ring) · DASH ◀ ▶ (Z · C), once the thrusters have them; RESET CAR (X)
 //              when it is stuck; and small pills: EXIT (F: at speed it brakes first), ELECTRIC / ENGINE (Q), RADIO (a tap,
 //              R: next station; held 0.6 s, T: off / on). A fresh push of the stick while he is getting out keeps him
@@ -24,7 +25,7 @@
 // Nothing here runs on a desktop: the buttons and the style are made only once body.touch-enabled is set (the city's
 // TouchControls: a coarse pointer, or the first touch). Portrait and landscape both: the cluster and the pills have a
 // layout for each, and a turn mid-play just lets go and redraws.
-//   window.WAGMI.touch  { root, context() ('off' | 'foot' | 'fight' | 'car'), action() (the action button's job or null) }
+//   window.WAGMI.touch  { root, context() ('off' | 'foot' | 'fight' | 'car' | 'heli'), action() (the action button's job or null) }
 const TAG = '[wagmi] touch';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const hdist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
@@ -78,6 +79,7 @@ function install(W, app) {
     if (body.contains('wg-gating') || body.contains('wg-cine') || W.cutscene || W.directed || W.cineSkip) return 'off';
     if (failUp() || body.contains('wg-ko')) return 'off';
     if (cm.activeMode === 'car') return 'car';
+    if (cm.activeMode === 'helicopter') return 'heli';
     if (cm.activeMode !== 'person') return 'off';
     return nearFight(now) ? 'fight' : 'foot';
   }
@@ -165,7 +167,7 @@ body.wg-tc #touch-controls .touch-actions { display: none !important; }
 #wg-touch .wgt.cue-y, #wg-touch .wgt.cue-r { transition: none; }
 @keyframes wgtCue { to { transform: scale(1.07); } }
 #wg-touch .pills { position: fixed; display: none; gap: 8px; right: max(16px, env(safe-area-inset-right)); top: calc(max(12px, env(safe-area-inset-top)) + 64px); pointer-events: none; }
-#wg-touch[data-c='car'] .pills { display: flex; }
+#wg-touch[data-c='car'] .pills, #wg-touch[data-c='heli'] .pills { display: flex; }
 #wg-touch .pill { display: none; align-items: center; justify-content: center; gap: 6px; min-width: 64px; min-height: 44px; padding: 0 14px; box-sizing: border-box; border-radius: 22px;
   border: 1.5px solid rgba(255,255,255,.3); background: rgba(10,12,18,.62); color: #fff; font: 700 14px/1 'Barlow Condensed', system-ui, sans-serif; letter-spacing: .08em; text-transform: uppercase;
   pointer-events: auto; touch-action: none; cursor: pointer; white-space: nowrap; }
@@ -188,6 +190,9 @@ body.wg-tc #touch-controls .touch-actions { display: none !important; }
 #wg-touch[data-c='car'] [data-b='hop'] { --x: 108px; --y: 12px; --s: 64px; }
 #wg-touch[data-c='car'] [data-b='dashR'] { --x: 26px; --y: 110px; --s: 56px; }
 #wg-touch[data-c='car'] [data-b='dashL'] { --x: 104px; --y: 92px; --s: 56px; }
+#wg-touch[data-c='heli'] [data-b='up'] { --x: 12px; --y: 104px; --s: 76px; }
+#wg-touch[data-c='heli'] [data-b='down'] { --x: 12px; --y: 14px; --s: 76px; }
+#wg-touch[data-c='heli'] [data-b='boost'] { --x: 104px; --y: 40px; --s: 68px; }
 /* portrait: the same buttons a size down, in the bottom-right 200 x 250 (the stick keeps the bottom-left), the pills a
    column on the right edge, below the help card and above the hold ring (58%) */
 @media (orientation: portrait) {
@@ -207,6 +212,9 @@ body.wg-tc #touch-controls .touch-actions { display: none !important; }
   #wg-touch[data-c='car'] [data-b='hop'] { --x: 90px; --y: 10px; --s: 60px; }
   #wg-touch[data-c='car'] [data-b='dashR'] { --x: 18px; --y: 96px; --s: 52px; }
   #wg-touch[data-c='car'] [data-b='dashL'] { --x: 92px; --y: 84px; --s: 52px; }
+  #wg-touch[data-c='heli'] [data-b='up'] { --x: 10px; --y: 96px; --s: 68px; }
+  #wg-touch[data-c='heli'] [data-b='down'] { --x: 10px; --y: 12px; --s: 68px; }
+  #wg-touch[data-c='heli'] [data-b='boost'] { --x: 90px; --y: 40px; --s: 60px; }
 }
 /* (z 25: over the fight's own layer (24), so a man's edge arrow or name tag that lands in the thumb's corner goes
    under the buttons, not over their names) */
@@ -235,6 +243,7 @@ ${T} #wg .m2-prompt kbd::after { content: 'TAKE DOWN'; }`;
     ['jump', 'JUMP', '↑', ''], ['sprint', 'SPRINT', '»', ''],
     ['strike', 'STRIKE', '', 'big'], ['heavy', 'HEAVY', '', ''], ['dodge', 'DODGE', '', ''], ['grab', 'GRAB', '', ''],
     ['boost', 'BOOST', '↟', 'big'], ['hop', 'HOP', '⤒', ''], ['dashL', 'DASH', '◀', ''], ['dashR', 'DASH', '▶', ''],
+    ['up', 'ASCEND', '↑', 'big'], ['down', 'DESCEND', '↓', ''],
   ];
   const PILL = [['exit', 'EXIT', 'exit'], ['drive', 'ENGINE', ''], ['radio', 'RADIO', '']];
   let root = null, els = {};
@@ -271,7 +280,8 @@ ${T} #wg .m2-prompt kbd::after { content: 'TAKE DOWN'; }`;
         if (kind === 'hold') { send('keydown', code); return () => send('keyup', code); }
         tap(code); return null;
       }
-      case 'jump': cm.setTouchInput('up', 1); return () => cm.setTouchInput('up', 0);
+      case 'jump': case 'up': cm.setTouchInput('up', 1); return () => cm.setTouchInput('up', 0);
+      case 'down': cm.setTouchInput('down', 1); return () => cm.setTouchInput('down', 0);
       case 'sprint': case 'boost': cm.setTouchInput('boost', 1); return () => cm.setTouchInput('boost', 0);
       case 'strike': tap('KeyJ'); return null;
       case 'heavy': tap('KeyK'); return null;
@@ -326,6 +336,8 @@ ${T} #wg .m2-prompt kbd::after { content: 'TAKE DOWN'; }`;
     if (kbd.closest('.wg-skip')) return '';
     const inWf = !!kbd.closest('#wf');
     const car = kbd.closest('#wg-thr, #wg-toast, .wr-card, #wg-drive, .wg-reset, .wg-drivemode') ? true : inWf ? false : cm.activeMode === 'car';
+    // (in the air, Mission 4's helicopter: Space and Q are its ASCEND and DESCEND, F its EXIT)
+    if (!inWf && cm.activeMode === 'helicopter') { const a = { F: 'EXIT', SPACE: 'ASCEND', '␣': 'ASCEND', Q: 'DESCEND', C: 'DESCEND', SHIFT: 'BOOST' }[k]; if (a) return a; }
     switch (k) {
       case 'F': if (kbd.closest('.wg-hold')) return holdName(); return car ? 'EXIT' : 'GET IN';
       case 'J': case 'LMB': case 'LEFT CLICK': case 'CLICK': return 'STRIKE';
@@ -394,7 +406,7 @@ ${T} #wg .m2-prompt kbd::after { content: 'TAKE DOWN'; }`;
     if (fingers && body.contains('wg-holding')) { const h = JSON.stringify(holdName()); if (h !== holdWas) { holdWas = h; document.body.style.setProperty('--wgt-hold', h); } }
 
     const c = context(now);
-    if (c !== ctxWas) { releaseAll(); ctxWas = c; root.dataset.c = c; root.hidden = c === 'off'; body.toggle('wg-tc-busy', c === 'car' || c === 'fight'); }
+    if (c !== ctxWas) { releaseAll(); ctxWas = c; root.dataset.c = c; root.hidden = c === 'off'; body.toggle('wg-tc-busy', c === 'car' || c === 'fight' || c === 'heli'); }
     if (c === 'off') { actWas = null; return; }
 
     // the gold button
@@ -440,9 +452,11 @@ ${T} #wg .m2-prompt kbd::after { content: 'TAKE DOWN'; }`;
       const dl = driveLabel(); show('drive', !!dl && !ride);
       if (dl) { label('drive', dl === 'ELECTRIC' ? '⚡ ELECTRIC' : 'ENGINE'); cls('drive', 'ev', dl === 'ELECTRIC'); cls('drive', 'eng', dl !== 'ELECTRIC'); }
       show('radio', !!W.radio && !ride); if (W.radio) cls('radio', 'off', !W.radio.on);
+    } else if (c === 'heli') {
+      show('up', true); show('down', true); show('boost', true); show('exit', /^F/.test(W.prompt || ''));
     }
     // (only this context's buttons)
-    const want = c === 'foot' ? ['act', 'jump', 'sprint'] : c === 'fight' ? ['act', 'strike', 'heavy', 'dodge', 'grab'] : ['act', 'boost', 'hop', 'dashL', 'dashR', 'exit', 'drive', 'radio'];
+    const want = c === 'foot' ? ['act', 'jump', 'sprint'] : c === 'fight' ? ['act', 'strike', 'heavy', 'dodge', 'grab'] : c === 'heli' ? ['up', 'down', 'boost', 'exit'] : ['act', 'boost', 'hop', 'dashL', 'dashR', 'exit', 'drive', 'radio'];
     for (const id in els) if (!want.includes(id)) show(id, false);
     // (a button hidden under a finger lets go)
     for (const [pid, h] of [...held]) if (!h.b.classList.contains('on')) release(pid, true);

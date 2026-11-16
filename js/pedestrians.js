@@ -989,6 +989,11 @@ const LEG_COLORS_F = [0x1c1c22, 0x30496b, 0x22304a, 0x46413b, 0xcbc4b7, 0x4a2a2e
 const IRIS_COLORS = [0x2a1a10, 0x3a2414, 0x4b301c, 0x5c4828, 0x4c5846, 0x4b6074];
 const LIP_COLORS = [0x8a2c36, 0x74374a, 0xa86d62, 0x93483f];
 const TIE_COLORS = [0x22304e, 0x5a1f2a, 0x2c3a2e, 0x4a4a52];
+// (Mog City, Mission 4's gala: a crowd made with { formal: true }) evening wear only: dark tailored jackets (the women's
+// in jewel tones and ivory too), white or pale shirts, dark trousers, no denim, no coats, knits, hoodies or tees
+const FORMAL_COLORS = [0x16171a, 0x1e2638, 0x2e2f33, 0x1b2230, 0x3e1a20, 0x23232a];
+const FORMAL_COLORS_F = [0x151417, 0x1f2840, 0x5a1e2a, 0x4a2a40, 0x1f3a32, 0xd9d2c3, 0x2a2a31];
+const FORMAL_LEGS = [0x17181c, 0x1d2029, 0x22242c, 0x1b1d26];
 
 // Branchless TSL palette selector from an array of hex colors and a [0..1) hash value
 function pickColorFromPalette(hexArray, tNode) {
@@ -1025,7 +1030,8 @@ function personLooks(info) {
   const grey = step(lane(37.0), 0.1);
   const hair = mix(hairBase, color(GREY_HAIR), grey.mul(0.62));
   // what they wear on top: a casual zip coat (half of them puffers), a tailored jacket, a knit, a hoodie or a tee
-  const st = lane(89.0);
+  // (a formal crowd, info.formal: the tailored jacket only)
+  const st = info.formal ? float(0.4) : lane(89.0);
   const zip = step(st, 0.28);
   const tailored = step(0.28, st).mul(step(st, 0.6));
   const knit = step(0.6, st).mul(step(st, 0.8));
@@ -1037,7 +1043,7 @@ function personLooks(info) {
     const w = lane(salt + 0.5).sub(0.5).mul(0.14);
     return c.mul(lane(salt).mul(0.38).add(0.81)).mul(vec3(w.add(1.0), float(1.0), float(1.0).sub(w)));
   };
-  const coat = shade(
+  const coat = info.formal ? shade(mix(pickColorFromPalette(FORMAL_COLORS, lane(29.0)), pickColorFromPalette(FORMAL_COLORS_F, lane(29.0)), female), 101.0) : shade(
     mix(
       mix(pickColorFromPalette(COAT_COLORS, lane(29.0)), pickColorFromPalette(COAT_COLORS_F, lane(29.0)), female),
       pickColorFromPalette(TOP_COLORS, lane(29.0)),
@@ -1047,14 +1053,17 @@ function personLooks(info) {
   );
   const shirt = pickColorFromPalette(SHIRT_COLORS, lane(71.0));
   const legLane = lane(47.0);
-  const legs = shade(mix(pickColorFromPalette(LEG_COLORS, legLane), pickColorFromPalette(LEG_COLORS_F, legLane), female), 103.0);
-  const denim = step(1 / 6, legLane).mul(step(legLane, 0.5));
+  const legs = info.formal ? shade(pickColorFromPalette(FORMAL_LEGS, legLane), 103.0) : shade(mix(pickColorFromPalette(LEG_COLORS, legLane), pickColorFromPalette(LEG_COLORS_F, legLane), female), 103.0);
+  const denim = info.formal ? float(0.0) : step(1 / 6, legLane).mul(step(legLane, 0.5));
   const bald = step(lane(41.0), 0.08).mul(float(1.0).sub(female));
   const puffer = zip.mul(step(lane(53.0), 0.5));
   // (repair) a beard or stubble (men), shared by both levels so a beard does not vanish at farDistance
   const fh = lane(59.0);
-  const beard = step(0.74, fh).mul(float(1.0).sub(female));
-  const stubble = step(0.42, fh).mul(step(fh, 0.74)).mul(float(1.0).sub(female));
+  // (Mission 4's gala review, round 9: a man with long hair and a full beard read as a bearded woman across the room. In
+  // a formal crowd, long hair (info.w over 0.5, where the long hair starts to grow: dressNear hairAmount) is clean-shaven)
+  const shaven = info.formal ? step(info.w, 0.5) : float(1.0);
+  const beard = step(0.74, fh).mul(float(1.0).sub(female)).mul(shaven);
+  const stubble = step(0.42, fh).mul(step(fh, 0.74)).mul(float(1.0).sub(female)).mul(shaven);
   if (PEOPLE_WORN) {
     // (worn: greyed toward a dusty brown, darker, more so for some than others)
     const k = PEOPLE_WORN.mul(lane(131.0).mul(0.45).add(0.55));
@@ -1073,7 +1082,7 @@ function personLooks(info) {
  * shading, stubble & beards, a soft hairline, sideburns), hair strands, fabric (weave, knit, heather, folds, seams,
  * stitching, pockets, buttons, ties, belts), hands (palms, nails) and a per-person jaw & nose.
  */
-function createPersonMaterial(pose, detail = 1) {
+function createPersonMaterial(pose, detail = 1, formal = false) {
   const mat = new THREE.MeshStandardNodeMaterial({ metalness: 0 });
   const base = int(instanceIndex).mul(STRIDE);
   const info = pose.element(base.add(STRIDE - 1)); // seed, female, girth, hair
@@ -1149,6 +1158,8 @@ function createPersonMaterial(pose, detail = 1) {
   })();
 
   const vInfo = varying(info, 'vPersonInfo');
+  // (a JS flag on the node, read by personLooks: a formal crowd's own material)
+  if (formal) vInfo.formal = true;
   if (detail) dressNear(mat, vInfo);
   else dressFar(mat, vInfo);
   return mat;
@@ -1816,14 +1827,14 @@ class PersonCrowd {
    * @param {{ farDistance?: number, castShadow?: boolean, farShadow?: boolean, name?: string }} options - beyond
    *   farDistance (m) people use the far LOD (casting shadows unless farShadow is false); name prefixes the meshes'
    */
-  constructor(maxCount, { farDistance = 34, castShadow = true, farShadow = true, name = 'People' } = {}) {
+  constructor(maxCount, { farDistance = 34, castShadow = true, farShadow = true, name = 'People', formal = false } = {}) {
     this.farDistance = farDistance;
     // (Mog City) Three's WebGL2 backend (no WebGPU: main.js, window.NYC.quality) can't read a person's pose from the
     // storage buffer: a crowd is never drawn there (no layer to be seen on, whatever its visibility)
     const drawable = !(window.NYC.quality && window.NYC.quality.backend === 'webgl2');
     this.lods = [1, 0].map((detail) => {
       const pose = attributeArray(maxCount * STRIDE, 'vec4').toReadOnly();
-      const mesh = new THREE.Mesh(buildPersonGeometry(detail), createPersonMaterial(pose, detail));
+      const mesh = new THREE.Mesh(buildPersonGeometry(detail), createPersonMaterial(pose, detail, formal));
       mesh.name = name + (detail ? 'Near' : 'Far');
       mesh.count = 1; // one (degenerate) person until the first frame, so the pipelines compile up front
       mesh.frustumCulled = false;

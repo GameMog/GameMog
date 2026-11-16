@@ -1254,7 +1254,7 @@ export async function buildFiona(W) {
   const handle = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.12, 0.04), new THREE.MeshStandardMaterial({ color: '#1A1C20' })); handle.position.set(0, -0.07, 0.04); mega.add(handle);
   mega.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.frustumCulled = false; } });
   mega.visible = false; W.app.scene.add(mega);
-  P.mega = mega;
+  P.mega = mega; P.shades = shades;
   // (each frame after the pose: the megaphone up to her mouth by k 0..1, the other fist pumping by pump 0..1)
   P.hype = (h, k = 1, pump = 0, t = 0) => {
     P.root.updateMatrixWorld(true);

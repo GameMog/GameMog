@@ -1,9 +1,9 @@
-// Mog City: the end of Episode 1, after Mission 3 (m3.js passed(): MISSION PASSED, the save, Rook's DM, then this).
-// A card over the live city: the logo, END OF EPISODE 1, a line of thanks, three choices and the teaser for Mission 4.
+// Mog City: the end of Episode 1, after Mission 4 (m4.js passed(): MISSION PASSED, the save, Rook's DM, then this).
+// A card over the live city: the logo, END OF EPISODE 1, a line of thanks, three choices and the teaser for Mission 5.
 //   KEEP EXPLORING     the card away: free roam
 //   REPLAY A MISSION   the card away, the pause menu open on its Mission select
 //   SHARE THE GAME     the browser's share sheet where there is one, else the link copied ('Link copied'); the card stays
-// episodeEnd(W) -> Promise<'explore' | 'replay'>. Keys: arrows (or WASD, Tab) choose, Enter / Space pick, Esc keeps
+// episodeEnd(W, { title, thanks, next, line }) -> Promise<'explore' | 'replay'>. Keys: arrows (or WASD, Tab) choose, Enter / Space pick, Esc keeps
 // exploring. A pad (wagmi/pad.js) sends those keys: it reads the card as a question on screen, as it does the fail
 // screen (#wg .wg-big.on .choices), which also keeps the pause menu and the touch buttons away while it is up. Touch:
 // the buttons are 48 px tall, stacked on a narrow (portrait) screen.
@@ -22,6 +22,9 @@ const CSS = `
   background: radial-gradient(ellipse at 50% 46%, rgba(4,5,8,.58), rgba(4,5,8,.88) 78%); opacity: 0; pointer-events: none; transition: opacity .7s;
   font-family: 'Barlow Condensed', system-ui, sans-serif; color: #fff; text-align: center; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
 body > .wg-ep { z-index: 40; }
+/* (the city's HUD, the F prompt and the story's own HUD out from under the card while it is up: the look review's round
+   2, 15 Nov, saw "F · Get in" and the radar through it) */
+body:has(.wg-ep.on) .hud, body:has(.wg-ep.on) #touch-controls, body:has(.wg-ep.on) #wg-prompt, body:has(.wg-ep.on) #wg > :not(.wg-ep) { visibility: hidden !important; }
 .wg-ep.on { opacity: 1; pointer-events: auto; }
 .wg-ep * { box-sizing: border-box; }
 .wg-ep .ep-in { margin: auto 0; width: 100%; max-width: 760px; display: flex; flex-direction: column; align-items: center; transform: translateY(10px); transition: transform .8s cubic-bezier(.2,.7,.2,1); }
@@ -75,7 +78,9 @@ async function copyLink(text) {
   } catch { return false; }
 }
 
-export function episodeEnd(W = window.WAGMI) {
+// (the card's words, each already through story.t: its heading, its thanks and its next-up line; by default as
+// Mission 4 ends the episode)
+export function episodeEnd(W = window.WAGMI, { title = story.t('END OF EPISODE 1'), thanks = story.t("Thanks for playing. Dan isn't done yet."), next = story.t('MISSION 5 · COMING SOON'), line = story.t("The laptop's still out there.") } = {}) {
   if (W._episodeUp) return W._episodeUp;
   if (!document.getElementById('wg-ep-css')) { const st = document.createElement('style'); st.id = 'wg-ep-css'; st.textContent = CSS; document.head.appendChild(st); }
   const host = document.getElementById('wg') || document.body;
@@ -85,16 +90,16 @@ export function episodeEnd(W = window.WAGMI) {
   el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-labelledby', 'wg-ep-h');
   el.innerHTML = `<div class="ep-in">
     <div class="ep-logo">MOG <b>CITY</b></div>
-    <div class="ep-h" id="wg-ep-h">${H(story.t('END OF EPISODE 1'))}</div>
+    <div class="ep-h" id="wg-ep-h">${H(title)}</div>
     <div class="ep-rule"></div>
-    <div class="ep-ty">${H(story.t("Thanks for playing. Dan isn't done yet."))}</div>
+    <div class="ep-ty">${H(thanks)}</div>
     <div class="choices">
       <button type="button" class="sel" data-a="explore">Keep exploring</button>
       <button type="button" data-a="replay">Replay a mission</button>
       <button type="button" data-a="share">Share the game</button>
     </div>
     <div class="ep-msg" aria-live="polite"></div>
-    <div class="ep-next"><span class="k">${H(story.t('MISSION 4 · COMING SOON'))}</span><span class="s">${H(story.t('Rook knows where your laptop is going.'))}</span></div>
+    <div class="ep-next"><span class="k">${H(next)}</span><span class="s">${H(line)}</span></div>
     <div class="ep-keys"><kbd>←</kbd><kbd>→</kbd> choose · <kbd>Enter</kbd> OK · <kbd>Esc</kbd> keep exploring</div>
   </div>`;
   host.appendChild(el);

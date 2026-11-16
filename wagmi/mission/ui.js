@@ -175,8 +175,11 @@ body.wg-story .wg-help { top: 20px; }
 .wg-obj { font-size: 26px; }
 .wg-sub b { font-weight: 700; letter-spacing: .5px; margin-right: 8px; }
 .wg-obj.hide, .wg-sub.hide { opacity: 0; }
+/* (a cutscene's line on a plate of its own, so it reads over anything the shot puts behind it: a white certificate, the
+   lit screen, a lamp; the glass theme has its own) */
+html:not(.ui-glass) body.wg-cine #wg .wg-sub { display: table; margin: 0 auto; padding: 6px 16px 8px; border-radius: 8px; background: rgba(8,10,14,0.66); font-size: clamp(24px, 1.75vw, 30px); }
 
-.wg-help { position: absolute; left: 20px; top: 92px; max-width: 360px; padding: 12px 16px; background: rgba(8,10,14,0.62); border-radius: 10px; font: 600 17px/1.3 'Barlow Condensed'; opacity: 0; transform: translateY(-6px); transition: opacity .3s, transform .3s; z-index: 4; backdrop-filter: blur(6px); }
+.wg-help { position: absolute; left: 20px; top: 92px; max-width: 360px; padding: 12px 16px; background: rgba(8,10,14,0.84); border-left: 3px solid #FFC93C; border-radius: 10px; font: 600 17px/1.3 'Barlow Condensed'; opacity: 0; transform: translateY(-6px); transition: opacity .3s, transform .3s; z-index: 4; backdrop-filter: blur(6px); }
 .wg-help.on { opacity: 1; transform: none; }
 #wg kbd { display: inline-block; min-width: 22px; padding: 0 6px; margin: 0 2px; border: 1px solid rgba(255,255,255,.55); border-radius: 5px; background: rgba(255,255,255,.12); font: 700 15px/20px 'Barlow Condensed'; text-align: center; }
 
@@ -279,6 +282,9 @@ body.wg-offering #wg .wg-help { opacity: 0 !important; }
 
 .wg-big { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 8; opacity: 0; transition: opacity .5s; }
 .wg-big.on { opacity: 1; }
+/* (the M4 look review's round 6: over a lit scene, the fail title's letters had the string lights inside them. A dark
+   scrim behind the cards, deepest under the words, the scene still there round the edges) */
+.wg-big:not(.wg-ep) { background: radial-gradient(ellipse 62% 58% at 50% 48%, rgba(5,7,11,.78), rgba(5,7,11,.55) 55%, rgba(5,7,11,.3)); }
 .wg-big .h { font: italic 800 84px/1 'Barlow Condensed'; letter-spacing: 1px; text-shadow: 0 4px 24px rgba(0,0,0,.6); transform: scale(1.15); transition: transform .6s cubic-bezier(.2,.7,.2,1); }
 .wg-big.on .h { transform: none; }
 .wg-big .t { font: 700 34px/1.1 'Barlow Condensed'; margin-top: 6px; text-shadow: 0 2px 10px rgba(0,0,0,.6); }
@@ -292,7 +298,7 @@ body.wg-offering #wg .wg-help { opacity: 0 !important; }
 .wg-big button { font: 700 20px/1 'Barlow Condensed'; letter-spacing: 2px; text-transform: uppercase; color: #fff; padding: 12px 26px; border-radius: 10px; border: 1px solid rgba(255,255,255,.25); background: rgba(8,10,14,0.62); cursor: pointer; }
 .wg-big button.sel, .wg-big button:hover { background: #FFC93C; color: #0A0C10; border-color: #FFC93C; }
 /* (the fail screen's tip, and what each choice does, small under its name; not Episode 1's end card, episode.js) */
-.wg-big:not(.wg-ep) .tip { margin-top: 12px; max-width: min(620px, calc(100vw - 32px)); padding: 10px 14px; background: rgba(8,10,14,.62); border-left: 3px solid #FFC93C; border-radius: 10px; font: 600 19px/1.3 'Barlow Condensed'; text-align: left; }
+.wg-big:not(.wg-ep) .tip { margin-top: 12px; max-width: min(620px, calc(100vw - 32px)); padding: 10px 14px; background: rgba(8,10,14,.88); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); border-left: 3px solid #FFC93C; border-radius: 10px; font: 600 19px/1.3 'Barlow Condensed'; text-align: left; }
 .wg-big:not(.wg-ep) .tip b { display: block; font: 700 12px/1 'Barlow Condensed'; letter-spacing: 2.5px; color: #FFC93C; margin-bottom: 5px; }
 .wg-big:not(.wg-ep) .why { text-align: center; padding: 0 16px; }
 .wg-big:not(.wg-ep) .choices { flex-wrap: wrap; justify-content: center; max-width: calc(100vw - 32px); }

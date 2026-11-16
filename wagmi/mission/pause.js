@@ -389,7 +389,7 @@ export function createPause(ui) {
   }
   function toTitle() {
     const q = new URLSearchParams(location.search);
-    for (const k of ['m1', 'm2', 'm3', 'nogate', 'nointro', 'fight']) q.delete(k);
+    for (const k of ['m1', 'm2', 'm3', 'm4', 'nogate', 'nointro', 'fight']) q.delete(k);
     const s = q.toString();
     close(); ui.fade(1, 0.3).then(() => location.assign(location.pathname + (s ? '?' + s : '')));
   }

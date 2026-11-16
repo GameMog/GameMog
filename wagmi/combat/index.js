@@ -101,8 +101,14 @@ export async function install(W) {
     // the glasses (as the opening's first pair: two lenses toed in, a brow bar, the arms back over his ears)
     // (27 Oct: one smooth piece, the size and place of the five boxes it was: each lens a rounded outline a little narrower
     // at the bottom, its top the brow line, bevelled; a bridge between them; rounded arms)
-    const glasses = ((sh, ex) => mergeGeometries([ex(sh(0.056, 0.032, 0.004, 0.0035, 0.009), 0.0075).rotateY(-0.18).translate(-0.034, 0.002, 0), ex(sh(0.056, 0.032, 0.004, 0.0035, 0.009), 0.0075).rotateY(0.18).translate(0.034, 0.002, 0),
-      ex(sh(0.016, 0.005, 0, 0.0022, 0.0022), 0.005).translate(0, 0.012, 0.0005), ...[-1, 1].map((sx) => ex(sh(0.004, 0.006, 0, 0.0018, 0.0018), 0.108).translate(sx * 0.066, 0.01, -0.055))]))(
+    // (14 Nov, the owner's review: fitted to the men's heads, measured at their eyes: 92 to 128 mm wide from 1 to 6 cm
+    // behind the lenses, ears 165 mm. The lenses wrap round a little more (0.24), so their outer edges come back toward
+    // the cheek; the arms run from the lenses' outer edges back along the side of the head, 3 mm off it, flaring out to
+    // the ears: they had run straight back at 66 mm, inside the head, and the lenses hung in front of the face on nothing)
+    const ARM = (sh, ex, sx) => { const x1 = 0.061, z1 = -0.004, x2 = 0.075, z2 = -0.104, L = Math.hypot(x2 - x1, z2 - z1);
+      return ex(sh(0.004, 0.006, 0, 0.0018, 0.0018), L).rotateY(-sx * Math.atan2(x2 - x1, z1 - z2)).translate(sx * (x1 + x2) / 2, 0.01, (z1 + z2) / 2); };
+    const glasses = ((sh, ex) => mergeGeometries([ex(sh(0.056, 0.032, 0.004, 0.0035, 0.009), 0.0075).rotateY(-0.24).translate(-0.034, 0.002, 0), ex(sh(0.056, 0.032, 0.004, 0.0035, 0.009), 0.0075).rotateY(0.24).translate(0.034, 0.002, 0),
+      ex(sh(0.016, 0.005, 0, 0.0022, 0.0022), 0.005).translate(0, 0.012, 0.0005), ARM(sh, ex, -1), ARM(sh, ex, 1)]))(
       (w, h, taper, rt, rb) => { const P = [[-w / 2 + taper, -h / 2, rb], [w / 2 - taper, -h / 2, rb], [w / 2, h / 2, rt], [-w / 2, h / 2, rt]], s = new THREE.Shape();
         P.forEach(([x, y, r], i) => { const [px, py] = P[(i + 3) % 4], [nx, ny] = P[(i + 1) % 4], a = Math.hypot(px - x, py - y), b = Math.hypot(nx - x, ny - y), u = [x + (px - x) * r / a, y + (py - y) * r / a], v = [x + (nx - x) * r / b, y + (ny - y) * r / b]; if (i) s.lineTo(...u); else s.moveTo(...u); s.quadraticCurveTo(x, y, ...v); });
         s.closePath(); return s; },

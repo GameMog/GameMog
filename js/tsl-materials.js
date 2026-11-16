@@ -2994,26 +2994,34 @@ function createWaterMaterial() {
 
     // Nearest Manhattan face entered from outside
     const tIsland = float(1e5).toVar();
+    // (Mog City, Mission 4's look review, round 9: where the reflected ray just misses a box's corner the reflection
+    // switched from the lit island to the far shore in one pixel, a hard vertical seam down the river under Battery Park
+    // City. wIsland: how far the ray runs inside the box it hits, so the island's reflection fades out over its last
+    // 200 m of chord instead of stopping at the corner)
+    const wIsland = float(0.0).toVar();
     for (const [x0, z0, x1, z1] of MANHATTAN_BOXES) {
       const ta = vec2(x0, z0).sub(P).mul(inv);
       const tb = vec2(x1, z1).sub(P).mul(inv);
       const tn = max(min(ta.x, tb.x), min(ta.y, tb.y));
       const tf = min(max(ta.x, tb.x), max(ta.y, tb.y));
-      tIsland.assign(min(tIsland, mix(float(1e5), tn, step(0.0, tn).mul(step(tn, tf)))));
+      const hitB = step(0.0, tn).mul(step(tn, tf));
+      const nearer = hitB.mul(step(tn, tIsland));
+      wIsland.assign(mix(wIsland, smoothstep(0.0, 200.0, tf.sub(tn)), nearer));
+      tIsland.assign(min(tIsland, mix(float(1e5), tn, hitB)));
     }
     // Across the rivers: the New Jersey waterfront to the west, Queens & Brooklyn to the east
     const xWest = shoreAt(westShore, P.y).toVar();
     const xEast = shoreAt(eastShore, P.y).toVar();
     const tShoreRaw = mix(xWest, xEast, step(0.0, dir.x)).sub(P.x).mul(inv.x).toVar();
     const tShore = mix(float(8000.0), clamp(tShoreRaw, 60.0, 8000.0), step(0.0, tShoreRaw)).toVar();
-    const onIsland = step(tIsland, tShore);
+    const onIsland = step(tIsland, tShore).mul(wIsland);
     // Park lakes: the walls of buildings around Central Park's rectangle, seen from inside it
     const ca = vec2(CPB.minX, CPB.minZ).sub(P).mul(inv);
     const cb = vec2(CPB.maxX, CPB.maxZ).sub(P).mul(inv);
     const tPark = clamp(min(max(ca.x, cb.x), max(ca.y, cb.y)), 60.0, 4200.0);
     const lake = step(0.5, pond);
 
-    const tHit = mix(min(tIsland, tShore), tPark, lake).toVar();
+    const tHit = mix(mix(tShore, min(tIsland, tShore), onIsland), tPark, lake).toVar();
     const hit = P.add(dir.mul(tHit)).toVar();
     const hRefl = tHit.mul(tanEl); // height up the facades that this reflection sees
     const u = hit.x.add(hit.y); // runs along whichever face was hit
