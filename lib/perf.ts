@@ -12,10 +12,12 @@ import { RANGES, deviceOf, type Range } from './analytics';
  * and major version (from the request's header, the full user-agent is never kept), the OS family, the graphics card's
  * name, cores, memory, screen. No IP address is stored (the rate limit below counts addresses in memory only), no
  * cookie is set. The owner's own sessions are kept and marked (owner = 1): the owner's test machines are QA data too.
- * Bounded: 4 KB a body, RATE_IP a window an address, RATE_SID an hour a session, GLOBAL an hour the whole site; 30 days
- * kept, and at most KEEP_* rows a table. The tables are made here and by deploy/migrate.mjs ('2026-11-16-perf-tables').
+ * Bounded: 4 KB a body, RATE_IP a window an address, RATE_SID an hour a session (both roomy: friends testing together
+ * share one home or office address, one load plus a minute of play is 2-4 sends, and a tab's session id lasts across
+ * its reloads), GLOBAL an hour the whole site; 30 days kept, and at most KEEP_* rows a table. The tables are made here
+ * and by deploy/migrate.mjs ('2026-11-16-perf-tables').
  */
-export const PERF_MAX_BYTES = 4096, RATE_IP = 40, RATE_WINDOW_MS = 10 * 60_000, RATE_SID = 30, GLOBAL = 5000;
+export const PERF_MAX_BYTES = 4096, RATE_IP = 300, RATE_WINDOW_MS = 10 * 60_000, RATE_SID = 150, GLOBAL = 5000;
 export const KEEP_DAYS = 30, KEEP_LOADS = 50_000, KEEP_FRAMES = 200_000, KEEP_EVENTS = 50_000;
 /** The frame-time histogram's bins: 24, log-spaced from 4 ms to 1 s (wagmi/perf.js BINS, LO). Bin i is about binMs(i). */
 export const BINS = 24;
@@ -146,16 +148,30 @@ export function cleanPerf(b: unknown, ua: string): Clean | null {
 }
 
 const ipSeen = new Map<string, number[]>(), sidSeen = new Map<string, number[]>();
+function prune(m: Map<string, number[]>, max: number, since: number) {
+  if (m.size <= max) return;
+  for (const [k, ts] of m) if (!ts.length || ts[ts.length - 1] <= since) m.delete(k);
+  for (const k of m.keys()) { if (m.size <= max * 0.9) break; m.delete(k); }
+}
 let hour: number[] = [];
 /** Whether this address, this session and the site may send another now; counts it if so. In memory only, never stored. */
 export function allowPerf(who: string, sid: string, now = Date.now()) {
   hour = hour.filter((t) => t > now - 3600_000);
   const ip = (ipSeen.get(who) ?? []).filter((t) => t > now - RATE_WINDOW_MS);
   const s = (sidSeen.get(sid) ?? []).filter((t) => t > now - 3600_000);
-  if (ip.length >= RATE_IP || s.length >= RATE_SID || hour.length >= GLOBAL) { ipSeen.set(who, ip); sidSeen.set(sid, s); return false; }
-  ip.push(now); s.push(now); hour.push(now); ipSeen.set(who, ip); sidSeen.set(sid, s);
-  if (ipSeen.size > 5000) ipSeen.clear();
-  if (sidSeen.size > 20000) sidSeen.clear();
+  if (ip.length >= RATE_IP || s.length >= RATE_SID || hour.length >= GLOBAL) {
+    // (a refused ask is only counted against an address or session already seen: a flood past the global cap adds none)
+    if (ipSeen.has(who)) ipSeen.set(who, ip);
+    if (sidSeen.has(sid)) sidSeen.set(sid, s);
+    return false;
+  }
+  // (re-inserted, so each map runs from the longest quiet to the latest seen: prune() drops the quiet ones first)
+  ip.push(now); s.push(now); hour.push(now);
+  ipSeen.delete(who); ipSeen.set(who, ip); sidSeen.delete(sid); sidSeen.set(sid, s);
+  // (bounded without flushing everyone's counts: the addresses and sessions quiet for a window go first, then the
+  // longest quiet; the global cap holds whatever a sender making up addresses sends)
+  prune(ipSeen, 20000, now - RATE_WINDOW_MS);
+  prune(sidSeen, 20000, now - 3600_000);
   return true;
 }
 
@@ -244,8 +260,8 @@ export type PerfAdmin = {
 export function perfAdmin(range: Range, now = Date.now()): PerfAdmin {
   const from = range === 'all' ? 0 : now - SPAN[range];
   const loads = db.prepare('SELECT * FROM perf_loads WHERE at >= ? ORDER BY at DESC LIMIT 5000').all(from) as unknown as LoadRow[];
-  const frames = db.prepare('SELECT sid, n, at, scene, tier, scale, secs, frames, hist, long50, long100, stalls, p50, p95, p99, work95 FROM perf_frames WHERE at >= ? ORDER BY at LIMIT 50000').all(from) as unknown as FrameRow[];
-  const events = db.prepare('SELECT sid, n, at, kind, tier, scene, data FROM perf_events WHERE at >= ? ORDER BY at LIMIT 20000').all(from) as unknown as EventRow[];
+  const frames = db.prepare('SELECT sid, n, at, scene, tier, scale, secs, frames, hist, long50, long100, stalls, p50, p95, p99, work95 FROM perf_frames WHERE at >= ? ORDER BY at DESC LIMIT 50000').all(from).reverse() as unknown as FrameRow[];
+  const events = db.prepare('SELECT sid, n, at, kind, tier, scene, data FROM perf_events WHERE at >= ? ORDER BY at DESC LIMIT 20000').all(from).reverse() as unknown as EventRow[];
   const key = (sid: string, n: number) => `${sid}.${n}`;
   const fBy = new Map<string, FrameRow[]>(), eBy = new Map<string, EventRow[]>();
   for (const f of frames) { const k = key(f.sid, f.n); (fBy.get(k) ?? fBy.set(k, []).get(k)!).push(f); }

@@ -6,7 +6,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { db } from '../lib/db.ts';
-import { BINS, PERF_DDL, browserOf, cleanPerf, gpuName, histPct, perfAdmin, storePerf } from '../lib/perf.ts';
+import { BINS, PERF_DDL, RATE_IP, RATE_SID, allowPerf, browserOf, cleanPerf, gpuName, histPct, perfAdmin, storePerf } from '../lib/perf.ts';
 
 type Ok = (name: string, cond: boolean, detail?: string) => void;
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0';
@@ -21,6 +21,20 @@ export async function runPerfChecks(ok: Ok) {
     String(gpuName('ANGLE (Apple, ANGLE Metal Renderer: Apple M5, Unspecified Version)')));
 
   const sid = '0f3c6a1e-0000-4000-8000-000000000001';
+  // (friends testing together share one address: six machines, each a load and ten minutes of play, all kept; one tab
+  // reloading with other ?tier= values keeps its reports for many loads)
+  {
+    const t0 = 1e12;
+    let kept = 0;
+    for (let m = 0; m < 6; m++) for (let i = 0; i < 14; i++) kept += allowPerf('198.51.100.7', `rate-check-${m}`, t0 + i) ? 1 : 0;
+    ok('six machines on one address keep their reports', kept === 84, String(kept));
+    let one = 0;
+    for (let i = 0; i < 200; i++) one += allowPerf(`198.51.100.${8 + (i % 200)}`, 'rate-check-reload', t0 + 1000 + i) ? 1 : 0;
+    ok('a session keeps RATE_SID reports an hour', one === RATE_SID && RATE_SID >= 100 && RATE_IP >= 200, String(one));
+    let full = 0;
+    for (let i = 0; i < RATE_IP + 5; i++) full += allowPerf('198.51.100.250', `rate-check-full-${i}`, t0 + 2000 + i) ? 1 : 0;
+    ok('an address stops at RATE_IP a window', full === RATE_IP, `${full}`);
+  }
   const load = cleanPerf({
     v: 1, s: sid, n: 1, game: 'cold-harbor', k: 'load', engine: 'pkg', town: 'us-0643000', ua: 'leaked full user agent', ip: '203.0.113.9',
     marks: { ready: 8123.4, gate: 9000, dcl: 400, 'bad key!': 3 }, phases: { renderer: 120, gpu: 900 }, outcome: 'ready', errors: 0, lost: 0,

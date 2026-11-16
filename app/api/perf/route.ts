@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { isBot } from '@/lib/analytics';
 import { PERF_MAX_BYTES, allowPerf, cleanPerf, perfAdmin, storePerf } from '@/lib/perf';
+import { townClientKey } from '@/lib/hometown/client';
 import { COOKIE, validSession } from '../../admin/session';
 
 export const runtime = 'nodejs';
@@ -45,7 +46,8 @@ export async function POST(req: Request) {
     c = cleanPerf(JSON.parse(text), ua);
   } catch { return none(); }
   if (!c) return none();
-  const who = h.get('x-forwarded-for')?.split(',')[0].trim() ?? h.get('x-real-ip') ?? 'local';
+  // (the address from a header the client cannot write, as the town builder's limit: lib/hometown/client.ts)
+  const who = townClientKey(req);
   if (!allowPerf(who, c.sid)) return none();
   const owner = validSession((await cookies()).get(COOKIE)?.value);
   try { storePerf(c, owner); } catch (e) { console.error('perf: store', String((e as Error).message).slice(0, 200)); }
