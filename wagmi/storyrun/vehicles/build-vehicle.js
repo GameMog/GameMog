@@ -841,7 +841,7 @@ export function buildVehicle(THREE, raw, o = {}) {
   /* ---------------------------------------------------------------- inside -- */
   const cabin = new THREE.Group(); cabin.name = 'cabin'; body.add(cabin);
   const floorY = Math.max(yb + 0.14, WR * 0.6), dx = 0.39 * W / 0.905;
-  const sockets = {};
+  const sockets = {}, seatParts = [];
   let steerWheel = null;
   {
     const zi0 = Math.max(zBack + 0.06, ZR + 0.1), zi1 = zCowl - 0.02;
@@ -883,10 +883,13 @@ export function buildVehicle(THREE, raw, o = {}) {
     sockets.cowl = [-0.3, topY(0.3, zCowl + 0.06) + 0.012, zCowl + 0.06];
     // the front seats
     const seatW = Math.min(0.52, W * 0.56), sz = S.seatZ, hy = S.hipY;
+    // (the driver's, seatParts, go down with him when his head would be through the roof: wagmi/roadster.js, createDriver)
     for (const side of [1, -1]) {
-      cabin.add(rbox(seatW, 0.14, 0.52, 0.06, M.seat, side * dx, hy - 0.07, sz + 0.06));
-      const back = rbox(seatW, 0.58, 0.14, 0.06, M.seat, side * dx, hy + 0.24, sz - 0.28); back.rotation.x = -0.2; cabin.add(back);
-      if (S.yRoof - hy > 0.75) cabin.add(rbox(0.26, 0.17, 0.1, 0.04, M.seat, side * dx, hy + 0.61, sz - 0.38));
+      const parts = [rbox(seatW, 0.14, 0.52, 0.06, M.seat, side * dx, hy - 0.07, sz + 0.06)];
+      const back = rbox(seatW, 0.58, 0.14, 0.06, M.seat, side * dx, hy + 0.24, sz - 0.28); back.rotation.x = -0.2; parts.push(back);
+      if (S.yRoof - hy > 0.75) parts.push(rbox(0.26, 0.17, 0.1, 0.04, M.seat, side * dx, hy + 0.61, sz - 0.38));
+      for (const p of parts) cabin.add(p);
+      if (side === 1) seatParts.push(...parts);
     }
     // the back: a bench (with a passenger-side headrest out for a child seat), or a cab's partition, or a load floor
     const rearSeats = S.doors >= 4 && S.cls !== 'van' || ['coupe', 'muscle', 'sports'].includes(S.cls);
@@ -1227,17 +1230,25 @@ export function buildVehicle(THREE, raw, o = {}) {
     const inv = new THREE.Matrix4().copy(body.matrixWorld).invert();
     const byMat = new Map(), gone = [];
     const keep = new Set([childSeat, booster, roofSign, towLift, liftArm, towG].filter(Boolean));
+    // (the driver's seat merged on its own, below: it moves with him, wagmi/roadster.js createDriver's fitHead; in the
+    // body's merge it stayed put and its headrest was taken for a roof)
+    const own = new Set(seatParts), ownGeos = [];
     body.traverse((m) => {
       if (!m.isMesh || m.material.map || keep.has(m)) return;
       let p = m.parent; while (p && p !== body) { if (keep.has(p)) return; p = p.parent; }
       let geo = m.geometry.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, m.matrixWorld)); if (geo.index) geo = geo.toNonIndexed();
       for (const k of Object.keys(geo.attributes)) if (k !== 'position' && k !== 'normal') geo.deleteAttribute(k);
-      if (!byMat.has(m.material)) byMat.set(m.material, []); byMat.get(m.material).push(geo); gone.push(m);
+      if (own.has(m)) ownGeos.push(geo); else { if (!byMat.has(m.material)) byMat.set(m.material, []); byMat.get(m.material).push(geo); }
+      gone.push(m);
     });
     for (const m of gone) m.parent.remove(m);
     for (const [mat, geos] of byMat) {
       const mm = new THREE.Mesh(mergeGeometries(geos), mat);
       mm.castShadow = !mat.transparent; mm.receiveShadow = true; body.add(mm); merged.push(mm);
+    }
+    if (ownGeos.length) {
+      const mm = new THREE.Mesh(mergeGeometries(ownGeos), M.seat); mm.name = 'driver-seat';
+      mm.castShadow = true; mm.receiveShadow = true; body.add(mm); seatParts.length = 0; seatParts.push(mm);
     }
   }
   // (the tow rig's own: its fixed parts one mesh per material, in its group's frame; the wheel-lift and its arm move)
@@ -1419,7 +1430,7 @@ export function buildVehicle(THREE, raw, o = {}) {
 
   const rs = {
     setPaint: (hex) => { paintBase.value.set(hex); },
-    group: g, body, materials: M, wheels, childSeat, booster, anchor, seat: SEAT, tune, sound, springs,
+    group: g, body, materials: M, wheels, childSeat, booster, anchor, seat: SEAT, seatParts, tune, sound, springs,
     // (the back bench's hip marks, in the anchor's frame: behind the passenger and behind the driver; null: no bench)
     rear: sockets.rearLeft ? { pass: sockets.rearLeft, drv: sockets.rearRight } : null,
     length: dims.length, width: dims.width, height: dims.height,
