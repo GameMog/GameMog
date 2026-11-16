@@ -785,7 +785,8 @@
          },
          "fov": 34,
          "say": "dan",
-         "line": "Been a little busy getting framed."
+         "line": "Busy. Getting framed.",
+         "how": "deadpan"
         },
         {
          "cam": {
@@ -1248,7 +1249,7 @@
          "say": "dan",
          "line": "That's their van.",
          "how": "hushed",
-         "pre": 0.7
+         "post": 0.7
         },
         {
          "cam": {
@@ -2285,7 +2286,7 @@
          },
          "fov": 30,
          "say": "gears",
-         "line": "Cold-gas thrusters. Little puffs of nitrogen. Very safe. Mostly."
+         "line": "Cold-gas thrusters. Very safe. Mostly."
         },
         {
          "cam": {
@@ -2314,7 +2315,7 @@
          },
          "fov": 30,
          "say": "gears",
-         "line": "I tested them on my van. Van's fine. It's on the roof now."
+         "line": "I tested them on my van. It's on the roof now."
         }
        ]
       },
@@ -2326,31 +2327,29 @@
        "lines": [
         {
          "who": "jane",
-         "text": "Dan. Are you watching this? JPBank's throwing a party in Washington Square."
+         "text": "Dan. You watching this?"
         },
         {
          "who": "fiona",
-         "text": "JPBank loves New York! Free hot dogs! Free tote bags!"
+         "text": "JPBank loves New York! Free tote bags!"
         },
         {
          "who": "jane",
-         "text": "Right next to the Occupy camp. Now look at their screens."
-        },
-        {
-         "who": "jane",
-         "text": "It's you. Ten feet tall, three times. 'The bad apple.'"
+         "text": "That's Washington Square, right by the camp. Now look at the screens."
         },
         {
          "who": "dan",
-         "text": "I'm going to go unplug it."
+         "text": "Wow. My good side.",
+         "how": "deadpan",
+         "post": 0.6
         }
        ]
       },
       {
        "type": "say",
        "who": "gears",
-       "text": "Go get your name back, kid.",
-       "secs": 2.4
+       "text": "Thrusters are on the house, kid. Go get your name back.",
+       "secs": 3.6
       },
       {
        "type": "npc",
@@ -2842,25 +2841,25 @@
       {
        "type": "say",
        "who": "bea",
-       "text": "Anybody the bank hates this much...",
+       "text": "Who does the bank hate this much?",
        "secs": 2.4
       },
       {
        "type": "say",
        "who": "camp",
-       "text": "Anybody the bank hates this much!",
+       "text": "Who does the bank hate this much?",
        "secs": 2.4
       },
       {
        "type": "say",
        "who": "bea",
-       "text": "...is somebody we should hear out!",
+       "text": "Him! So we hear him out!",
        "secs": 2.4
       },
       {
        "type": "say",
        "who": "camp",
-       "text": "Free Dan! Free Dan! Free Dan!",
+       "text": "Free Dan! Free Dan!",
        "secs": 2.4
       },
       {
@@ -3392,7 +3391,7 @@
           },
           {
            "who": "jane",
-           "text": "He said. I didn't. I'm on the phone. That's alone-ish."
+           "text": "He said that. I didn't. I'm on the phone, so: alone-ish."
           },
           {
            "who": "dan",

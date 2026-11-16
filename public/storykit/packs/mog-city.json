@@ -815,9 +815,14 @@
         "up": 1.5
        },
        "fov": 34,
+       "say": {
+        "who": "Dan",
+        "text": "Busy. Getting framed.",
+        "how": "deadpan"
+       },
        "sub": [
         "Dan",
-        "Been a little busy getting framed."
+        "Busy. Getting framed."
        ]
       },
       {
@@ -1297,7 +1302,7 @@
         "who": "Dan",
         "text": "That's their van.",
         "how": "hushed",
-        "pre": 0.7
+        "post": 0.7
        },
        "sub": [
         "Dan",
@@ -2320,7 +2325,7 @@
        "fov": 30,
        "sub": [
         "Gears",
-        "Cold-gas thrusters. Little puffs of nitrogen. Very safe. Mostly."
+        "Cold-gas thrusters. Very safe. Mostly."
        ]
       },
       {
@@ -2353,7 +2358,7 @@
        "fov": 30,
        "sub": [
         "Gears",
-        "I tested them on my van. Van's fine. It's on the roof now."
+        "I tested them on my van. It's on the roof now."
        ]
       }
      ]
@@ -2366,31 +2371,29 @@
      "lines": [
       [
        "JANE",
-       "Dan. Are you watching this? JPBank's throwing a party in Washington Square."
+       "Dan. You watching this?"
       ],
       [
        "FIONA",
-       "JPBank loves New York! Free hot dogs! Free tote bags!"
+       "JPBank loves New York! Free tote bags!"
       ],
       [
        "JANE",
-       "Right next to the Occupy camp. Now look at their screens."
+       "That's Washington Square, right by the camp. Now look at the screens."
       ],
-      [
-       "JANE",
-       "It's you. Ten feet tall, three times. 'The bad apple.'"
-      ],
-      [
-       "DAN",
-       "I'm going to go unplug it."
-      ]
+      {
+       "who": "DAN",
+       "text": "Wow. My good side.",
+       "how": "deadpan",
+       "post": 0.6
+      }
      ]
     },
     {
      "type": "say",
      "who": "Gears",
-     "text": "Go get your name back, kid.",
-     "secs": 2.4
+     "text": "Thrusters are on the house, kid. Go get your name back.",
+     "secs": 3.6
     },
     {
      "type": "npc",
@@ -2896,25 +2899,25 @@
     {
      "type": "say",
      "who": "Ms. Bea",
-     "text": "Anybody the bank hates this much...",
+     "text": "Who does the bank hate this much?",
      "secs": 2.4
     },
     {
      "type": "say",
      "who": "The Camp",
-     "text": "Anybody the bank hates this much!",
+     "text": "Who does the bank hate this much?",
      "secs": 2.4
     },
     {
      "type": "say",
      "who": "Ms. Bea",
-     "text": "...is somebody we should hear out!",
+     "text": "Him! So we hear him out!",
      "secs": 2.4
     },
     {
      "type": "say",
      "who": "The Camp",
-     "text": "Free Dan! Free Dan! Free Dan!",
+     "text": "Free Dan! Free Dan!",
      "secs": 2.4
     },
     {
@@ -3459,7 +3462,7 @@
         ],
         [
          "JANE",
-         "He said. I didn't. I'm on the phone. That's alone-ish."
+         "He said that. I didn't. I'm on the phone, so: alone-ish."
         ],
         [
          "DAN",
@@ -4740,12 +4743,13 @@
     "id": "MC-1.s18.c1",
     "who": "Dan",
     "voice": "mogcity-dan",
-    "text": "Been a little busy getting framed.",
-    "hash": "977126ba",
-    "clip": "977126ba-7076f90c",
-    "rec": "cast/mogcity/voice/m1-dan-been-a-little-busy.m4a",
-    "recId": "m1-dan-been-a-little-busy",
-    "secs": 1.65
+    "text": "Busy. Getting framed.",
+    "hash": "fd8feb91",
+    "clip": "fd8feb91-385007a6",
+    "how": "deadpan",
+    "rec": "cast/mogcity/voice/m1-dan-busy-getting-framed.m4a",
+    "recId": "m1-dan-busy-getting-framed",
+    "secs": 1.64
    },
    {
     "id": "MC-1.s18.c2",
@@ -6825,12 +6829,12 @@
     "id": "MC-3.s1.c0",
     "who": "Gears",
     "voice": "mogcity-gears",
-    "text": "Cold-gas thrusters. Little puffs of nitrogen. Very safe. Mostly.",
-    "hash": "2d0765fb",
-    "clip": "2d0765fb-22612a80",
-    "rec": "cast/mogcity/voice/m3-gears-cold-gas-thrusters-little.m4a",
-    "recId": "m3-gears-cold-gas-thrusters-little",
-    "secs": 5.14
+    "text": "Cold-gas thrusters. Very safe. Mostly.",
+    "hash": "4c344074",
+    "clip": "4c344074-22612a80",
+    "rec": "cast/mogcity/voice/m3-gears-cold-gas-thrusters-very.m4a",
+    "recId": "m3-gears-cold-gas-thrusters-very",
+    "secs": 3.12
    },
    {
     "id": "MC-3.s1.c1",
@@ -6847,78 +6851,68 @@
     "id": "MC-3.s1.c2",
     "who": "Gears",
     "voice": "mogcity-gears",
-    "text": "I tested them on my van. Van's fine. It's on the roof now.",
-    "hash": "252c1617",
-    "clip": "252c1617-22612a80",
+    "text": "I tested them on my van. It's on the roof now.",
+    "hash": "fdb26866",
+    "clip": "fdb26866-22612a80",
     "rec": "cast/mogcity/voice/m3-gears-i-tested-them-on.m4a",
     "recId": "m3-gears-i-tested-them-on",
-    "secs": 3.57
+    "secs": 3.02
    },
    {
     "id": "MC-3.s2.l0",
     "who": "Jane",
     "voice": "mogcity-jane",
-    "text": "Dan. Are you watching this? JPBank's throwing a party in Washington Square.",
-    "hash": "11392668",
-    "clip": "11392668-f9c669d3",
-    "rec": "cast/mogcity/voice/m3-jane-dan-are-you-watching.m4a",
-    "recId": "m3-jane-dan-are-you-watching",
-    "secs": 4.83
+    "text": "Dan. You watching this?",
+    "hash": "ebc069c7",
+    "clip": "ebc069c7-f9c669d3",
+    "rec": "cast/mogcity/voice/m3-jane-dan-you-watching-this.m4a",
+    "recId": "m3-jane-dan-you-watching-this",
+    "secs": 1.77
    },
    {
     "id": "MC-3.s2.l1",
     "who": "Fiona",
     "voice": "mogcity-fiona",
-    "text": "JPBank loves New York! Free hot dogs! Free tote bags!",
-    "hash": "a005ebe1",
-    "clip": "a005ebe1-493ed308",
+    "text": "JPBank loves New York! Free tote bags!",
+    "hash": "8696e666",
+    "clip": "8696e666-493ed308",
     "rec": "cast/mogcity/voice/m3-fiona-jpbank-loves-new-york.m4a",
     "recId": "m3-fiona-jpbank-loves-new-york",
-    "secs": 4.46
+    "secs": 3.38
    },
    {
     "id": "MC-3.s2.l2",
     "who": "Jane",
     "voice": "mogcity-jane",
-    "text": "Right next to the Occupy camp. Now look at their screens.",
-    "hash": "9acb3f49",
-    "clip": "9acb3f49-f9c669d3",
-    "rec": "cast/mogcity/voice/m3-jane-right-next-to-the.m4a",
-    "recId": "m3-jane-right-next-to-the",
-    "secs": 3.02
+    "text": "That's Washington Square, right by the camp. Now look at the screens.",
+    "hash": "4cbca40e",
+    "clip": "4cbca40e-f9c669d3",
+    "rec": "cast/mogcity/voice/m3-jane-thats-washington-square-right.m4a",
+    "recId": "m3-jane-thats-washington-square-right",
+    "secs": 3.66
    },
    {
     "id": "MC-3.s2.l3",
-    "who": "Jane",
-    "voice": "mogcity-jane",
-    "text": "It's you. Ten feet tall, three times. 'The bad apple.'",
-    "hash": "848eafc7",
-    "clip": "848eafc7-f9c669d3",
-    "rec": "cast/mogcity/voice/m3-jane-its-you-ten-feet.m4a",
-    "recId": "m3-jane-its-you-ten-feet",
-    "secs": 4.16
-   },
-   {
-    "id": "MC-3.s2.l4",
     "who": "Dan",
     "voice": "mogcity-dan",
-    "text": "I'm going to go unplug it.",
-    "hash": "13c9a623",
-    "clip": "13c9a623-7076f90c",
-    "rec": "cast/mogcity/voice/m3-dan-im-going-to-go.m4a",
-    "recId": "m3-dan-im-going-to-go",
-    "secs": 1.26
+    "text": "Wow. My good side.",
+    "hash": "f31d1cc2",
+    "clip": "f31d1cc2-385007a6",
+    "how": "deadpan",
+    "rec": "cast/mogcity/voice/m3-dan-wow-my-good-side.m4a",
+    "recId": "m3-dan-wow-my-good-side",
+    "secs": 1.87
    },
    {
     "id": "MC-3.s3",
     "who": "Gears",
     "voice": "mogcity-gears",
-    "text": "Go get your name back, kid.",
-    "hash": "e0cf088e",
-    "clip": "e0cf088e-22612a80",
-    "rec": "cast/mogcity/voice/m3-gears-go-get-your-name.m4a",
-    "recId": "m3-gears-go-get-your-name",
-    "secs": 2.06
+    "text": "Thrusters are on the house, kid. Go get your name back.",
+    "hash": "710adc80",
+    "clip": "710adc80-22612a80",
+    "rec": "cast/mogcity/voice/m3-gears-thrusters-are-on-the.m4a",
+    "recId": "m3-gears-thrusters-are-on-the",
+    "secs": 2.99
    },
    {
     "id": "MC-3.s5.d0.l0",
@@ -7661,45 +7655,45 @@
     "id": "MC-3.s20",
     "who": "Ms. Bea",
     "voice": "mogcity-bea",
-    "text": "Anybody the bank hates this much...",
-    "hash": "fac8b3be",
-    "clip": "fac8b3be-7627c905",
-    "rec": "cast/mogcity/voice/m3-bea-anybody-the-bank-hates.m4a",
-    "recId": "m3-bea-anybody-the-bank-hates",
-    "secs": 2.27
+    "text": "Who does the bank hate this much?",
+    "hash": "a5ad538d",
+    "clip": "a5ad538d-7627c905",
+    "rec": "cast/mogcity/voice/m3-bea-who-does-the-bank.m4a",
+    "recId": "m3-bea-who-does-the-bank",
+    "secs": 2.08
    },
    {
     "id": "MC-3.s21",
     "who": "The Camp",
     "voice": "mogcity-camp",
-    "text": "Anybody the bank hates this much!",
-    "hash": "eb00ae9b",
-    "clip": "eb00ae9b-42d5d651",
-    "rec": "cast/mogcity/voice/m3-camp-anybody-the-bank-hates.m4a",
-    "recId": "m3-camp-anybody-the-bank-hates",
-    "secs": 2.09
+    "text": "Who does the bank hate this much?",
+    "hash": "a5ad538d",
+    "clip": "a5ad538d-42d5d651",
+    "rec": "cast/mogcity/voice/m3-camp-who-does-the-bank.m4a",
+    "recId": "m3-camp-who-does-the-bank",
+    "secs": 1.922
    },
    {
     "id": "MC-3.s22",
     "who": "Ms. Bea",
     "voice": "mogcity-bea",
-    "text": "...is somebody we should hear out!",
-    "hash": "f162d13f",
-    "clip": "f162d13f-7627c905",
-    "rec": "cast/mogcity/voice/m3-bea-is-somebody-we-should.m4a",
-    "recId": "m3-bea-is-somebody-we-should",
-    "secs": 1.7
+    "text": "Him! So we hear him out!",
+    "hash": "e911c767",
+    "clip": "e911c767-7627c905",
+    "rec": "cast/mogcity/voice/m3-bea-him-so-we-hear.m4a",
+    "recId": "m3-bea-him-so-we-hear",
+    "secs": 1.65
    },
    {
     "id": "MC-3.s23",
     "who": "The Camp",
     "voice": "mogcity-camp",
-    "text": "Free Dan! Free Dan! Free Dan!",
-    "hash": "0182efc7",
-    "clip": "0182efc7-42d5d651",
+    "text": "Free Dan! Free Dan!",
+    "hash": "cb49e9a7",
+    "clip": "cb49e9a7-42d5d651",
     "rec": "cast/mogcity/voice/m3-camp-free-dan-free-dan.m4a",
     "recId": "m3-camp-free-dan-free-dan",
-    "secs": 1.943
+    "secs": 1.439
    },
    {
     "id": "MC-3.s24",
@@ -8475,12 +8469,12 @@
     "id": "MC-4.s0.d0.l2",
     "who": "Jane",
     "voice": "mogcity-jane",
-    "text": "He said. I didn't. I'm on the phone. That's alone-ish.",
-    "hash": "eba3faa2",
-    "clip": "eba3faa2-f9c669d3",
-    "rec": "cast/mogcity/voice/m4-jane-he-said-i-didnt.m4a",
-    "recId": "m4-jane-he-said-i-didnt",
-    "secs": 4.03
+    "text": "He said that. I didn't. I'm on the phone, so: alone-ish.",
+    "hash": "824b4cb4",
+    "clip": "824b4cb4-f9c669d3",
+    "rec": "cast/mogcity/voice/m4-jane-he-said-that-i.m4a",
+    "recId": "m4-jane-he-said-that-i",
+    "secs": 4.2
    },
    {
     "id": "MC-4.s0.d0.l3",
