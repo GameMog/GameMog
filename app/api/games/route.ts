@@ -11,7 +11,8 @@ import { publishedKartConstants, type KartDriveTrack } from '@/lib/kart-score';
 import { dna } from '@/lib/mog-dna';
 import { publishedSoundtrack, type Soundtrack, type WorldOptions } from '@/lib/world-options';
 import type { WorldSpec } from '@/lib/worldspec';
-import { sealStoryDraft, keepStoryWorld, releaseStoryWorld, storeDraftOf, storeDraftInfo } from '@/lib/storykit-publish';
+import { sealStoryDraft, keepStoryWorld, releaseStoryWorld, storeDraftOf, storeDraftInfo, townHold } from '@/lib/storykit-publish';
+import { storyStore } from '@/lib/storykit-store';
 import { storykitForRequest, ownerRequest } from '@/lib/storykit-http';
 import { storykitMode } from '@/lib/storykit-switch';
 import { setWorldHidden } from '@/lib/analytics';
@@ -88,6 +89,14 @@ export async function POST(req: Request) {
     // leave a listed game whose world the store's sweep takes a day later. Fail closed: a draft the store cannot keep
     // publishes nothing. If the commit then fails, the keep is handed back, but only when this request did it (a draft
     // kept already stays kept). With the switch off a story draft is not published
+    // a hometown story publishes only once the play page would serve every place it names (16 Nov, Colter Land: the
+    // whole town failed, the spawn district was served for good and 8 of its 14 places never appeared): refused, said
+    // why, until the whole town is built (lib/storykit-publish.ts townHold)
+    const storeOf = storeDraftOf(d.meta);
+    if (storeOf && storykitForRequest(req)) {
+      const hold = townHold(d.meta, storyStore().world(storeOf));
+      if (hold) return NextResponse.json({ error: hold.error, places: hold.places, field: 'town' }, { status: 409 });
+    }
     const story = sealStoryDraft(d, storykitForRequest(req));
     if (story && !story.ok) return NextResponse.json({ error: story.error }, { status: story.status });
     if (story) add = { ...add, ...story.meta };

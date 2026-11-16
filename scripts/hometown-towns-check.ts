@@ -26,7 +26,7 @@ import { TileStore, GB } from '../lib/hometown-tiles/store.ts';
 import { bundleKey } from '../lib/hometown-tiles/keys.ts';
 import { StoryStore } from '../lib/storykit-store.ts';
 import { placeById } from '../lib/places/search.ts';
-import { storyUpgradeWith, checkPlaces, worldPlaces, frameMoved, upgradedWorld, sha256, worldBytes, MOVE_M, type UpgradeDeps } from '../lib/storykit-upgrade.ts';
+import { storyUpgradeWith, checkPlaces, worldPlaces, frameMoved, upgradedWorld, sha256, worldBytes, outsideDistrict, MOVE_M, type UpgradeDeps } from '../lib/storykit-upgrade.ts';
 
 type Ok = (name: string, cond: boolean, detail?: string) => void;
 const F = 'storykit/hometown/fixtures/';
@@ -153,6 +153,14 @@ export async function runTownChecks(ok: Ok) {
     ok('a world that is not a hometown world, or not stored: no upgrade', storyUpgradeWith(deps({ world: () => ({ ...world, city: 'ny' }) }), W) === null && storyUpgradeWith(deps(), 'b'.repeat(64)) === null && storyUpgradeWith(deps(), 'nope') === null);
     const homes = checkPlaces(world, OK, { ...NEW, places: NEW.places.map((p) => (p.id === 'bar' ? { ...p, kind: 'house', name: 'a house', tags: ['building=house'] } : p)) });
     ok('a place that is a home on the new map is refused', !homes.ok && homes.why.some((w) => /@hideout \(bar\)/.test(w)), homes.why.join(' | '));
+    // (16 Nov, Colter Land: published on a district whose whole town then failed; lib/storykit-publish.ts townHold)
+    const v3 = (inD: string[]): CityPackage => ({ ...OK, lockVersion: 3, places: OK.places.map((p) => ({ ...p, inDistrict: inD.includes(p.id) })) });
+    const outD = outsideDistrict(world, v3(['hotel', 'pkg_downtown']));
+    ok('a story on a spawn district: every place it names outside the district is listed, by its alias, marks aside',
+      outD.length === 3 && outD.some((x) => x.startsWith('@hideout (bar)')) && outD.some((x) => x.startsWith('@unused (cafe)')) && outD.some((x) => x.startsWith('@gas_station')) && !outD.some((x) => /mark/.test(x)), outD.join(' | '));
+    ok('...none when every place is in the district, and a whole-town package (lock v2) has no district to be outside',
+      outsideDistrict(world, v3(OK.places.map((p) => p.id))).length === 0 && outsideDistrict(world, { ...OK, lockVersion: undefined }).length === 0);
+    ok('...a place the package does not have at all is listed too', outsideDistrict(world, { ...v3(OK.places.map((p) => p.id)), places: v3(OK.places.map((p) => p.id)).places.filter((p) => p.id !== 'bar') }).some((x) => x.startsWith('@hideout (bar)')));
     ok('the play address of an upgrade boots the new build\'s whole town (tc, ts, tv=full) with the re-pinned world',
       storyFrameQuery('hometown', toLock, { variant: 'full', tilesId: NT }) === `city=pkg&town=${lock.place}&tc=${NB}&ts=${NT}&tv=full`);
   }

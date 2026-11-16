@@ -13,7 +13,7 @@ import { bestVariant, servingBuild } from './hometown-build/towns.ts';
 import { bundleKey } from './hometown-tiles/keys.ts';
 import { storyLock } from './hometown/ids.ts';
 import { cityPackageByLock } from './hometown/towns.ts';
-import { storyUpgradeWith, upgradeWords, frameMoved, type StoryUpgrade, type UpgradeDeps } from './storykit-upgrade.ts';
+import { storyUpgradeWith, upgradeWords, frameMoved, outsideDistrict, type StoryUpgrade, type UpgradeDeps } from './storykit-upgrade.ts';
 import { cityTableOf, storyPlan, playerTexts, violentMissions } from '../storykit/hometown/hometown-gate.ts';
 import { safetyProblems } from '../storykit/hometown/safety.ts';
 import { cityBuildOf, townName } from '../storykit/hometown/city-package.ts';
@@ -180,6 +180,31 @@ export function storyPlay(meta: string | null | undefined, game: string, site = 
   }
   return { src: storyFrameSrc(w, game, site, city, town), world: w };
 }
+/**
+ * Is a hometown story's town built far enough to play every place the story names (16 Nov, Colter Land)? A story may be
+ * WRITTEN while only the spawn district is built (mission 1 and the start stay in it: hometown-gate.ts districtProblems),
+ * but it is only PUBLISHED once /g/<slug>/play would serve every place it names: the whole town ('full', or the current
+ * build's whole town it upgrades to), or a district that has them all. Bozeman's whole town failed, the play page served
+ * the district for good (townPlay), and 8 of the 14 places never appeared. The variant judged is townPlay's, the one the
+ * play page and the test drive's frame (app/api/storykit/drafts/[id]/route.ts storyFrameQuery) are both given.
+ * Null when it may publish (not a hometown story, the in-process builder's one bundle, or every place in what is served);
+ * else the creator's words. `world`: the world as it will play (the store draft's, StoryStore.world).
+ */
+export function townHold(meta: string | null | undefined, world: Record<string, unknown> | null): { error: string; places: string[] } | null {
+  if (storyCityOf(meta) !== 'hometown') return null;
+  const town = storyTownOf(meta) ?? ((world?.hometown && typeof world.hometown === 'object' ? world.hometown : null) as HometownLock | null);
+  if (!town || builderMode() === 'off') return null;
+  const where = storyTownName(meta) ?? 'your town';
+  const play = townPlay(town);
+  if (!play) return { error: `${where} is not built yet, so your story cannot be played. Publish it once the town is built.`, places: [] };
+  if (play.variant === 'full') return null;
+  const pkg = cityPackageByLock(town);
+  if (!pkg) return { error: `${where}'s places cannot be read just now. Try again in a minute.`, places: [] };
+  const out = world ? outsideDistrict(world, pkg) : [];
+  if (!out.length) return null;
+  return { error: `${out.length} of your story's places are in the part of ${where} that is not built yet, so players would not find them. Publish it once the whole town is built.`, places: out };
+}
+
 /** A hometown story world's town as people say it ("Okemah, Oklahoma"), from its pinned town's package, or null (not a
  * hometown world, or its package cannot be read). Kept per town (a package is megabytes; its name never changes). */
 const TOWN_NAMES = new Map<string, string | null>();
