@@ -412,10 +412,10 @@ try {
     const { toRunnerPack } = await import('../storykit/pack/gate.ts');
     const gOk = gatePack(nyStory());
     const rp = gOk.ok ? toRunnerPack(gOk.pack) : null, plan = gOk.ok ? voicePlanOf(gOk.pack, '') : null;
-    ok('a good opening passes: its lines are voiced (OPEN.c<shot>), and the runner\'s world carries it with display names (cards, stage, a line under its shot)',
+    ok('a good opening passes: its lines are voiced (OPEN.c<shot>), and the runner\'s world carries it with display names (cards, stage, a line under its shot, its delivery as a say object)',
       gOk.ok && gOk.lines.filter((l: any) => /^OPEN\.c\d+$/.test(l.id)).length === 4 && !!plan && plan.lines.some((l: any) => l.id === 'OPEN.c3' && l.who === 'Vic Lasko')
         && rp.opening?.place === '@bowery' && rp.opening.stage[1].who === 'Vic Lasko' && rp.opening.shots[3].card.who === 'Vic Lasko' && rp.opening.shots[3].look.rel === 'Vic Lasko'
-        && rp.opening.shots[1].sub[0] === 'Dez Amaro' && !('say' in rp.opening.shots[1]) && rp.opening.shots[5].title === true, JSON.stringify(gOk.problems.slice(0, 3)));
+        && rp.opening.shots[1].sub[0] === 'Dez Amaro' && (!('say' in rp.opening.shots[1]) || (rp.opening.shots[1].say.who === 'Dez Amaro' && rp.opening.shots[1].say.text === rp.opening.shots[1].sub[1] && !!rp.opening.shots[1].say.how)) && rp.opening.shots[5].title === true, JSON.stringify(gOk.problems.slice(0, 3)));
     const refusedBy = (name: string, edit: (o: any, p: any) => void, re: RegExp, opts: any = {}) => {
       const p = nyStory(); edit(p.opening, p); const r = gatePack(p, opts);
       ok(`opening refused: ${name}`, !r.ok && r.problems.some((x) => re.test(x)), (r.problems.join(' | ') || 'passed').slice(0, 400));

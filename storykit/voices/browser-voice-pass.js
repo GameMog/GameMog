@@ -30,7 +30,7 @@
 // changes three lines renders three clips.
 
 import { lintVoiceBlock, blendStyle, styleRow, renderSpeed, shape, toPhonemes, langOf, clipKey, wavBytes,
-  SAMPLE_RATE, KOKORO_VOICES, deliveredBlock, splitSentences, joinSentences } from './voice-design.js';
+  SAMPLE_RATE, KOKORO_VOICES, deliveredBlock, howOf, splitSentences, joinSentences } from './voice-design.js';
 
 const MODEL_FILES = { fp32: ['onnx/model.onnx', 326e6], fp16: ['onnx/model_fp16.onnx', 163e6], q8: ['onnx/model_quantized.onnx', 92e6] };
 const VOICE_BYTES = 522240;                                  // one 510 x 256 float32 table
@@ -145,9 +145,10 @@ export function createVoicePass(opts = {}) {
   }
 
   // One line -> Float32Array at 24 kHz, shaped (pitch, trim, level). phonemes: Kokoro IPA made elsewhere (optional).
-  // how: the line's delivery (its pace and pitch on the character's block, its level after). A line of two or more
-  // sentences is said sentence by sentence with a beat between (0.3 to 0.45 s, voice-design.js sentenceGap): Kokoro
-  // run over the whole line rushes its full stops, which is much of what made the cutscenes sound read off a card
+  // how: the line's delivery (its pace and pitch on the character's block, its level after). A line with a how, of two
+  // or more sentences, is said sentence by sentence with a beat between (0.25 to 0.45 s, voice-design.js sentenceGap):
+  // Kokoro run over the whole line rushes its full stops. Only a line with a how: its clip key is new (clipKey takes
+  // the how), so no key that was rendered whole before now names a split render; a line without how renders as before
   async function render(text, block0, phonemes, how = null) {
     const block = deliveredBlock(block0, how);
     const once = async (t, ph0) => {
@@ -157,7 +158,7 @@ export function createVoicePass(opts = {}) {
       const { waveform } = await model({ input_ids, style, speed: new T.Tensor('float32', [renderSpeed(block)], [1]) });
       return Float32Array.from(waveform.data);
     };
-    const parts = phonemes ? [text] : splitSentences(text);
+    const parts = phonemes || !howOf(how) ? [text] : splitSentences(text);
     if (parts.length < 2) return shape(await once(text, phonemes), block, how);
     const raws = []; for (const p of parts) raws.push(await once(p));
     return shape(joinSentences(raws, parts), block, how, true);

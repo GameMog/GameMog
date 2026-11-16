@@ -830,19 +830,26 @@ export function toRunnerPack(pack: PackV2, opts: { cast?: Record<string, string>
   const personOf = (p: Json) => { const o: Json = { ...p, who: ref(p.who) }; if (typeof p.face === 'string') o.face = ref(p.face); if (p.look && p.look !== 'lens' && p.look !== 'prop') o.look = ref(p.look); if (p.hug) o.hug = ref(p.hug); if (p.hold) o.hold = { ...p.hold, who: ref(p.hold.who) }; return o; };
   const setOf = (d: Json) => (d ? { ...d, people: (d.people || []).map(personOf) } : d);
   const shots = (list: Json[]) => list.map((sh: Json) => { const c: Json = { ...sh }; for (const k of ['cam', 'look', 'to', 'lookTo']) if (c[k]) c[k] = camRef(c[k]); if (c.act) c.act = c.act.map(personOf); if (c.frame) { for (const k of ['on', 'at']) if (typeof c[k] === 'string') c[k] = ref(c[k]); } return c; });
-  // an exchange in one shot (lines): one shot per line, the first the shot as written, each next one `cont` (the same
-  // shot going on: no cut) holding where the first one's lens ends, the shot's time shared by the lines' length. An
-  // engine that knows `cont` plays them as one shot; one that doesn't cuts between the same framing, every line said
-  const exchange = (sh: Json): Json[] => {
-    if (!Array.isArray(sh.lines) || !sh.lines.length) return [sh];
-    const { lines, ...base } = sh, total = lines.reduce((n: number, l: Json) => n + Math.max(1, String(l.text).length / 15), 0);
-    const dur = Math.max(base.dur ?? 0, total);
-    return lines.map((l: Json, k: number) => {
-      const c: Json = k === 0 ? { ...base } : { ...base, cont: true, ...(base.to ? { cam: base.to } : {}), ...(base.lookTo ? { look: base.lookTo } : {}) };
-      if (k > 0) { delete c.to; delete c.lookTo; delete c.caption; delete c.act; }
-      for (const f of ['how', 'pre', 'post', 'overlap']) delete c[f];
-      return { ...c, ...delivery(l), say: l.who, line: l.text, dur: +(dur * Math.max(1, String(l.text).length / 15) / total).toFixed(2) };
-    });
+  // a cutscene's or the opening's shot as the runner reads it (Mog City wagmi/storyrun/runner.js shotLines()): an
+  // exchange in one shot goes as `lines` [{ who, text, how?, pre?, post?, overlap? }] (said in turn in the one shot, its
+  // lens moving through them), one line with a delivery as `say` { who, text, how?, ... }, and every spoken shot also
+  // keeps `sub` [who, text] (its first line): an engine before shotLines() reads only sub and says that line
+  const cutShot = (sh: Json): Json => {
+    const c: Json = { ...sh };
+    for (const f of ['how', 'pre', 'post', 'overlap']) delete c[f];
+    if (Array.isArray(sh.lines) && sh.lines.length) {
+      c.lines = sh.lines.map((l: Json) => ({ who: name(l.who), text: l.text, ...delivery(l) }));
+      c.sub = tuple(sh.lines[0].who, sh.lines[0].text);
+      // (the shot is long enough to read its lines when they have no voice: about 15 characters a second)
+      if (c.dur == null) c.dur = +sh.lines.reduce((n: number, l: Json) => n + Math.max(1, String(l.text).length / 15), 0).toFixed(2);
+    } else if (sh.say) {
+      c.sub = tuple(sh.say, sh.line);
+      const d = delivery(sh);
+      if (Object.keys(d).length) c.say = { who: name(sh.say), text: sh.line, ...d };
+    } else if (typeof sh.sub === 'string') c.sub = ['', sh.sub];
+    if (!c.say || typeof c.say !== 'object') delete c.say;
+    delete c.line;
+    return c;
   };
   const choiceOf = (s: Json): Json => {
     const o: Json = { ...s, who: s.who ? name(s.who) : s.who };
@@ -876,7 +883,7 @@ export function toRunnerPack(pack: PackV2, opts: { cast?: Record<string, string>
     if (s.type === 'call' && s.choice) o.choice = choiceOf(s.choice);
     // a cutscene's line: [speaker, text] under the shot; a bare sub has no speaker
     if (s.type === 'cutscene' && s.set) o.set = setOf(s.set);
-    if (s.type === 'cutscene') o.shots = shots(s.shots).flatMap(exchange).map((sh: Json) => { const c = { ...sh }; if (c.say) c.sub = tuple(c.say, c.line); else if (typeof c.sub === 'string') c.sub = ['', c.sub]; delete c.say; delete c.line; return c; });
+    if (s.type === 'cutscene') o.shots = shots(s.shots).map(cutShot);
     if (s.type === 'beat' && o.shot) o.shot = shots([o.shot])[0];
     if (s.type === 'fight') o.enemies = s.enemies.map(name);
     if (s.type === 'actEnd' && o.quote?.by) o.quote = { ...o.quote, by: name(o.quote.by) };
@@ -917,7 +924,7 @@ export function toRunnerPack(pack: PackV2, opts: { cast?: Record<string, string>
       place: pack.opening.place, ...(pack.opening.time ? { time: pack.opening.time } : {}),
       stage: (pack.opening.stage || []).map((s: Json) => ({ ...s, who: name(s.who) })),
       ...(pack.opening.sets ? { sets: Object.fromEntries(Object.entries(pack.opening.sets).map(([k, d]) => [k, setOf(d)])) } : {}),
-      shots: shots(pack.opening.shots).map((sh: Json) => { const c = { ...sh }; if (c.say) c.sub = tuple(c.say, c.line); else if (typeof c.sub === 'string') c.sub = ['', c.sub]; delete c.say; delete c.line; if (c.card) c.card = { ...c.card, who: name(c.card.who) }; return c; }),
+      shots: shots(pack.opening.shots).map((sh: Json) => { const c = cutShot(sh); if (c.card) c.card = { ...c.card, who: name(c.card.who) }; return c; }),
     } } : {}),
     acts: pack.acts.map((a: Json) => ({ id: a.id, name: a.name, order: a.missions.map((m: Json) => m.id), timeline: a.timeline, ...(a.end ? { end: end(a.end) } : {}) })),
     missions,

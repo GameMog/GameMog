@@ -6,7 +6,8 @@
  *
  *   dialogueScenes(pack)   every cutscene, the opening and every call, as its lines in order (a v2 pack, or the runner's
  *                          format a stored world plays: speakers then are display names, cutscene lines are `sub` tuples)
- *   dialogueNotes(pack)    the soft checks (GM3): repair notes the build sends back on a Create's first pass, never a fail
+ *   dialogueNotes(pack)    the soft checks (GM3): repair notes for a Create's first pass, never a fail
+ *   dialogueSendsBack(n)   whether the notes alone are worth a second writing pass (DIALOGUE_SEND_BACK or more)
  *   dialogueStats(lines)   the numbers the spec's thresholds are written in (W1): median words, short lines, questions
  *
  * The soft checks, each a pattern the spec bans or a rhythm it asks for:
@@ -88,6 +89,17 @@ export function dialogueStats(lines: SceneLine[]) {
   return { lines: n, medianWords: n ? w[n >> 1] : 0, shortPct: pct(lines.filter((l) => words(l.text) <= 4).length),
     questionPct: pct(lines.filter((l) => /\?/.test(l.text)).length), multiSentencePct: pct(lines.filter((l) => sentences(l.text) >= 2).length) };
 }
+
+/**
+ * The notes that send a Create back for a second writing pass on their own (a second pass is a second model call, the
+ * dearest part of a build). Under this, a first pass whose dialogue reads a little stiff ships, its notes in the trail;
+ * a first pass sent back anyway (the gate, pacing) carries its dialogue notes with it at no extra cost. Measured 16 Nov
+ * on the model-written replies in the repo (storykit/hometown/fixtures/*.reply.json): each has 2 notes (one long line,
+ * no voice sheets), so at 1 every Create took a second pass for dialogue alone and at 4 none of them does; the old-way
+ * scene in scripts/storykit-dialogue-check.ts (a logline to camera, a monologue, the objective said) has 7 and goes back.
+ */
+export const DIALOGUE_SEND_BACK = 4;
+export const dialogueSendsBack = (notes: string[]) => notes.length >= DIALOGUE_SEND_BACK;
 
 const clip = (t: string, n = 60) => (t.length > n ? `${t.slice(0, n - 3)}...` : t);
 /**

@@ -12,14 +12,14 @@
  *     passes, and the worked example passes
  *   - the schema: how, pre, post, overlap on any line, an exchange in one shot (lines), react pools and a register on a
  *     call, a voice sheet on a cast member; every one optional, so a pack without them gates as before; the runner pack
- *     carries them (an exchange as one shot going on, `cont`)
+ *     carries them (an exchange as one shot's `lines`, a delivered line as a `say` object)
  *   - the voice step: a line's how in its clip name, a line without one named exactly as before (no world re-voiced),
  *     a shout at least 3 dB above a hushed line from the same render, sentences split with a beat between
  */
 import { readFileSync } from 'node:fs';
 import { storykitSystem, exampleWorld } from '../lib/storykit-build.ts';
 import { gatePack, toRunnerPack } from '../storykit/pack/gate.ts';
-import { dialogueNotes, dialogueScenes, dialogueStats, sentences, objectiveShare } from '../storykit/pack/dialogue.ts';
+import { dialogueNotes, dialogueSendsBack, DIALOGUE_SEND_BACK, dialogueScenes, dialogueStats, sentences, objectiveShare } from '../storykit/pack/dialogue.ts';
 import { voicePlanOf } from '../storykit/pack/runner.ts';
 import { clipBase, clipKey, voiceKey, lineHash, shape, finish, deliveredBlock, splitSentences, joinSentences, HOW, lintVoiceBlock, SAMPLE_RATE, resample, pitchRatio } from '../storykit/voices/voice-design.js';
 
@@ -105,6 +105,10 @@ export function runDialogueChecks(ok: Ok) {
   const b = st(BEFORE), a = st(AFTER);
   ok(`the rewrite moves the numbers toward the bar: questions ${b.questionPct}% -> ${a.questionPct}%, lines of 4 words or fewer ${b.shortPct}% -> ${a.shortPct}%, median words ${b.medianWords} -> ${a.medianWords}`,
     a.questionPct > b.questionPct && a.shortPct >= b.shortPct && a.medianWords < b.medianWords);
+  const replies = ['okemah', 'okemah-us-4054200', 'sf'].map((f) => dialogueNotes(JSON.parse(readFileSync(new URL(`../storykit/hometown/fixtures/${f}.reply.json`, import.meta.url), 'utf8')).pack, { max: 8 }));
+  ok(`the notes alone send a Create back only when its talk clearly fails (${DIALOGUE_SEND_BACK} notes or more): the old-way scene goes back, none of the model-written replies (${replies.map((r) => r.length).join(', ')} notes) does`,
+    dialogueSendsBack(before) && !dialogueSendsBack(after) && replies.every((r) => r.length > 0 && !dialogueSendsBack(r)));
+  ok("the build sends the notes back on their own only past the threshold, and with a pass sent back anyway", /if \(attempt === 1 && \(problems\.length \|\| dialogueSendsBack\(talk\)\)\) problems\.push\(\.\.\.talk\)/.test(readFileSync(new URL('../lib/storykit-build.ts', import.meta.url), 'utf8')));
   ok('"...Okay." and "Take Ninth." are beats, not sentences (the bar\'s lines are 3 or fewer)', sentences("...Okay. I'm on the tracker. They're cutting west. Who were they?") === 3 && sentences('Sixth goes uptown, babe. Take Ninth. It moves at six.') === 2);
   ok('a line that says the objective is found; a reaction is not', objectiveShare('Elena has the crates. I need Elena.', "Load **Elena's crates** into the {ride}'s trunk.") >= 2 / 3 && objectiveShare('Rain on the windshield. Good.', "Load **Elena's crates** into the {ride}'s trunk.") === 0);
   ok('a runner-format world reads the same (speakers by name, lines as sub tuples)', dialogueNotes({ opening: { shots: BEFORE.opening.shots.map((s) => ({ sub: [s.say, s.line] })) }, missions: [] }).some((n) => /the opening has 3 lines and no question/.test(n)));
@@ -135,8 +139,15 @@ export function runDialogueChecks(ok: Ok) {
   ok('a how outside the list is refused by the schema', !gatePack(badHow).ok);
   const r = toRunnerPack(g.pack);
   const rcut = r.missions[0].steps[cutAt], rcall = r.missions[0].steps[callAt].during.find((d: any) => d.type === 'call');
-  const ex1 = rcut.shots.filter((s: any) => s.sub && /fares\?|Only the ones/.test(s.sub[1]));
-  ok('the runner pack plays the exchange as one shot going on (each line its own sub, the next one cont, held where the lens ends)', ex1.length === 2 && !ex1[0].cont && ex1[1].cont === true && JSON.stringify(ex1[1].cam) === JSON.stringify(ex1[0].to) && !ex1[1].to && ex1[1].how === 'tease' && ex1[1].overlap === true && !('lines' in ex1[0]));
+  const ex1 = rcut.shots.filter((s: any) => Array.isArray(s.lines) && s.lines.length === 2);
+  const [l0, l1] = ex1[0]?.lines || [];
+  ok('the runner pack plays the exchange as one shot (lines by name, each with its delivery; sub its first line for an older engine)', ex1.length === 1 && !rcut.shots.some((s: any) => s.cont)
+    && l0?.who === ex1[0].sub[0] && /fares\?/.test(l0?.text) && !('how' in l0) && /Only the ones/.test(l1?.text) && l1?.how === 'tease' && l1?.overlap === true && typeof l1?.who === 'string' && l1.who !== 'dez' && ex1[0].dur === 4 && JSON.stringify(ex1[0].to) === JSON.stringify({ rel: rcut.shots.at(-2).to.rel, fwd: 1.6, right: 0.4 }));
+  const one = clone(p), oneCut = one.acts[0].missions[0].steps[cutAt].shots.find((s: any) => s.say && s.line);
+  Object.assign(oneCut, { how: 'hushed', pre: 0.4, post: 0.6 });
+  const rOne = toRunnerPack(gatePack(one).pack).missions[0].steps[cutAt].shots.find((s: any) => s.say && typeof s.say === 'object' && !Array.isArray(s.say));
+  ok('a cutscene line with a delivery goes to the runner as say { who, text, how, pre, post } (and its sub tuple)', rOne?.say.how === 'hushed' && rOne.say.pre === 0.4 && rOne.say.post === 0.6 && rOne.say.text === oneCut.line && Array.isArray(rOne.sub) && rOne.sub[1] === oneCut.line && !('how' in rOne));
+  ok('a cutscene line without one stays a sub tuple (no say)', rcut.shots.filter((s: any) => s.sub && !s.lines).every((s: any) => Array.isArray(s.sub) && !('say' in s)));
   ok('the react shot plays with no line', rcut.shots.some((s: any) => s.frame === 'react' && !s.sub));
   ok('a call line with a delivery goes to the runner as an object (its tuple otherwise)', rcall.lines[1]?.how === 'urgent' && rcall.lines[1]?.pre === 0.3 && typeof rcall.lines[1]?.text === 'string' && Array.isArray(rcall.lines[0]) && rcall.register === 'fast' && Array.isArray(rcall.react?.tooClose?.[0]) && rcall.react.hit[0].how === 'scared');
   ok('a say step keeps its how and post for the runner', r.missions[0].steps[sayAt].how === 'hushed' && r.missions[0].steps[sayAt].post === 0.8);
@@ -166,6 +177,8 @@ export function runDialogueChecks(ok: Ok) {
   ok(`a line is said sentence by sentence (${parts.length}: ${parts.map((x) => JSON.stringify(x)).join(' ')})`, parts.length === 3 && splitSentences('Mr. Big called you? Himself?').length === 2 && splitSentences('...Okay. Go.')[0] === '...Okay.');
   const joined = joinSentences(parts.map(() => new Float32Array(SAMPLE_RATE / 2).fill(0.1)), parts);
   ok(`with a beat of 0.25 to 0.45 s between them (${((joined.length - 1.5 * SAMPLE_RATE) / SAMPLE_RATE).toFixed(2)} s in all)`, Math.abs(joined.length - (1.5 + 0.35 * 2) * SAMPLE_RATE) < 2);
+  const pass = readFileSync(new URL('../storykit/voices/browser-voice-pass.js', import.meta.url), 'utf8');
+  ok('the browser pass splits sentences only for a line with a how (a key rendered whole before keeps a whole render)', /const parts = phonemes \|\| !howOf\(how\) \? \[text\] : splitSentences\(text\)/.test(pass));
   const kNone = clipKey(text, block), kHow = clipKey(text, block, undefined, 'warm');
   return Promise.all([kNone, kHow, clipKey(text, block)]).then(([x, y, z]) => ok('the browser cache key: the same without how, another with one', x === z && x !== y));
 }

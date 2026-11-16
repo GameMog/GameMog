@@ -12,6 +12,7 @@ import { gatePack, toRunnerPack, lineHash, type GateResult } from '../storykit/p
 import { PLACES, CAM_POINTS } from '../storykit/pack/cities.ts';
 import { SCHEMA, SHOWCASE, SHOWCASE_PACKS, MOGCITY_STUBS, HERO_CARS, HERO_CAR_IDS } from '../storykit/pack/schema.mjs';
 import { voiceStatus, saveVoiceClip, readManifest } from '../storykit/pack/voice-store.mjs';
+import { clipBase } from '../storykit/voices/voice-design.js';
 
 type Ok = (name: string, cond: boolean, detail?: string) => void;
 const R = (p: string) => readFileSync(p, 'utf8');
@@ -301,7 +302,7 @@ export function runStoryPackChecks(ok: Ok) {
     // its voices: each spoken line's clip is named by its line hash and its speaker's voice key; the clips the
     // creator's browser stored (packs/<id>/voice/manifest.json) are on disk and match their names
     const vp = v1.voice, man = readManifest('.', id), vs = vp ? voiceStatus('.', id, vp.lines) : null;
-    ok(`${id}: every spoken line has a clip name (line hash + voice key); prompts are shown, not voiced`, !!vp && vp.lines.length > 0 && vp.lines.every((l: any) => l.clip === `${lineHash(l.text)}-${vp.cast[l.who]?.key}`) && !vp.lines.some((l: any) => /\.p$/.test(l.id)));
+    ok(`${id}: every spoken line has a clip name (line hash + voice key, + its how when it has one); prompts are shown, not voiced`, !!vp && vp.lines.length > 0 && vp.lines.every((l: any) => l.clip === (l.how ? clipBase(l.text, vp.cast[l.who]?.block, l.how) : `${lineHash(l.text)}-${vp.cast[l.who]?.key}`)) && !vp.lines.some((l: any) => /\.p$/.test(l.id)));
     ok(`${id}: its voice manifest's clips are on disk under their own names (${vs?.ready.length ?? 0} of ${vp?.lines.length ?? 0} voiced, ${vs?.stale.length ?? 0} stale)`,
       Object.entries(man.clips as Record<string, any>).every(([k, c]) => c.file.startsWith(k + '.') && k.startsWith(c.hash) && existsSync(`public/storykit/packs/${id}/voice/${c.file}`)));
     { const ogg = new Uint8Array(80); ogg.set([0x4f, 0x67, 0x67, 0x53]); const r1 = saveVoiceClip('.', id, '00000000-00000000.ogg', ogg), r2 = saveVoiceClip('.', id, '../x.ogg', ogg), r3 = saveVoiceClip('.', id, `${vp.lines[0].clip}.ogg`, new Uint8Array(80));

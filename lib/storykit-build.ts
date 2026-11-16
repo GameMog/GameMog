@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { db, insertDraft, type GameRow } from './db';
 import { gatePack, personName, mogBase, MOGCITY, LIKENESS_TEXT, type PackV2 } from '../storykit/pack/gate.ts';
-import { dialogueNotes } from '../storykit/pack/dialogue.ts';
+import { dialogueNotes, dialogueSendsBack } from '../storykit/pack/dialogue.ts';
 import { isBlocked } from './names';
 import { STORY_HERO_MAX, STORY_HERO_MODELS } from './storykit-site';
 import { MODELS, seeds as castSeeds, recordedClip, recordedLines } from '../storykit/pack/registry.ts';
@@ -775,11 +775,13 @@ export async function generateStorykit(
     const pace = !sk.mog && raw && typeof raw === 'object' && !Array.isArray(raw) ? pacingProblems(raw) : [];
     account.pacing = pace.map((p) => p.slice(0, 200));
     if (attempt === 1) problems.push(...pace);
-    // (how people talk, a Create's: the dialogue read-back (storykit/pack/dialogue.ts), sent back on the first pass only
-    // like pacing, never a fail; its notes go in the trail)
+    // (how people talk, a Create's: the dialogue read-back (storykit/pack/dialogue.ts), on the first pass only, never a
+    // fail; its notes go in the trail. They ride along with a pass sent back anyway, and send one back on their own only
+    // when the dialogue clearly fails (dialogueSendsBack: DIALOGUE_SEND_BACK notes or more), so a second model call is
+    // not spent on a Create whose talk is nearly there)
     const talk = !sk.mog && raw && typeof raw === 'object' && !Array.isArray(raw) ? dialogueNotes(raw, { max: 8 }) : [];
     account.dialogue = talk.map((p) => p.slice(0, 200));
-    if (attempt === 1) problems.push(...talk);
+    if (attempt === 1 && (problems.length || dialogueSendsBack(talk))) problems.push(...talk);
     if (raw && typeof raw === 'object' && !Array.isArray(raw) && gated) {
       if (!problems.length && meta && gated.pack) {
         const checked = fake ? { people: [], brands: [] } : await checkNames(client, input.model, namesBatches(gated.pack, meta, parent), gated.pack, attempt, input);
