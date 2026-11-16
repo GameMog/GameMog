@@ -370,10 +370,14 @@ function grab(W) {
     const rp = W.app.renderPipeline, canvas = W.app.renderer?.domElement;
     if (!rp || !canvas) return resolve(null);
     const render = rp.render, own = Object.prototype.hasOwnProperty.call(rp, 'render');
-    let t = 0;
-    const done = (v) => { if (own) rp.render = render; else delete rp.render; clearTimeout(t); resolve(v); };
+    let t = 0, shot = false, over = false;
+    // (once: the frames drawn while the first one is encoded are not taken, and a later grab's hook is never undone by
+    // this one's: the key art's square is a grab of its own, right after the wide)
+    const done = (v) => { if (over) return; over = true; if (own) rp.render = render; else delete rp.render; clearTimeout(t); resolve(v); };
     rp.render = function (...a) {
       const r = render.apply(this, a);
+      if (shot) return r;
+      shot = true;
       try {
         const out = (w, h) => {
           const c = document.createElement('canvas'); c.width = w; c.height = h;
@@ -388,13 +392,22 @@ function grab(W) {
     t = setTimeout(() => done(null), 4000);
   });
 }
-// The key art (GameMog, 5 Nov: story thumbnails "need to pop like the rest"): a hero shot, not the chase camera's view of
-// the car's boot. A few seconds into the first drive the director takes the lens to a low three-quarter front of the hero
-// car (KEY_SHOT: 8 m ahead, 2.6 m to the side, 0.8 m off the road, looking back at the car on a long 30 degree lens), kept
-// on it frame by frame as it drives, the HUD hidden; the side whose line to the car is clear of the street's things is
-// used (cs.segClear), and with neither clear, the chase camera's own view as before. GameMog letters the title over it
-// (lib/story-art.ts). The lens is handed straight back after (a cut): the drive goes on as it was.
+// The key art (GameMog, 5 Nov: story thumbnails "need to pop like the rest"; 16 Nov, the owner: the hero standing next to
+// the ride, as Pickup Time's cast stands by its car). A few seconds into the first drive the car is stopped where it
+// is, the test drive let go of, and the hero stood beside it on foot (the engine's own body and look, idle, as he is
+// out of the car in play), by its front wheel on whichever side is clear (STAND: the road's side first), turned to the
+// lens, the traffic and the pavement's people held off the spot; the director frames both from a low three-quarter
+// front on his side (STAND), the HUD hidden, the warm key light between them. The square is its own shot, the same lens
+// opened out so both are in the middle square. With no clear side, or anything not as it should be, the moving car's
+// hero shot as before (KEY_SHOT: 8 m ahead, 2.6 m to the side, a long 30 degree lens, kept on the car as it drives; its
+// side clear of the street's things, cs.segClear), and with neither, the chase camera's own view. Key art never fails:
+// a frame is always taken. GameMog letters the title over the head of it (lib/story-art.ts). The game after it is not
+// played on (the frame is thrown away), but nothing here throws.
 const KEY_SHOT = { fwd: 8, side: 2.6, up: 0.8, fov: 30, lookUp: 0.85, lookFwd: 0.4, lamp: 9 };
+// (the stand: him `out` m off the car's flank, `fwd` of its length ahead of its middle; the lens `dist` m from the point
+// between them at `ang` off the car's nose toward his side, `up` m high, looking at `lookUp`; the square's lens `sqFov`,
+// on the point between him and the car's nose, so both sit in the middle square)
+const STAND = { out: 0.8, fwd: 0.5, ang: 0.62, dist: 7.6, up: 1.0, lookUp: 1.5, fov: 32, sqFov: 50, lamp: 10 };
 async function keyArt(W, runner) {
   const TRAVEL = new Set(['drive', 'stops', 'pursuit', 'tail', 'tow']);
   for (let i = 0; i < 1800; i++) {
@@ -405,16 +418,111 @@ async function keyArt(W, runner) {
   await sleep(3500);
   const st = document.createElement('style'); st.textContent = '#wg, #wg-tick, #wg-prompt, .hud, #touch-controls, .hud-bottom-left, .hud-top-right { visibility: hidden !important; }';
   document.head.appendChild(st);
-  let D = null;
+  let D = null, S = null;
+  const frames = (n = 2) => new Promise((r) => { const f = () => (--n <= 0 ? r() : requestAnimationFrame(f)); requestAnimationFrame(f); });
   try {
+    S = await standShot(W, runner).catch((e) => { console.warn('[storyrun] key stand', e); return null; });
+    if (S) {
+      D = S.D;
+      await frames(); await sleep(450);
+      const wide = await grab(W);
+      if (wide) {
+        S.square(); await frames(); await sleep(250);
+        const sq = await grab(W);
+        return { wide: wide.wide, square: sq ? sq.square : wide.square };
+      }
+    }
     D = heroShot(W, runner);
-    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await frames();
     if (D) await sleep(450);
     return await grab(W);
+  } catch (e) {
+    console.warn('[storyrun] key art', e);
+    try { return await grab(W); } catch { return null; }
   } finally {
     st.remove();
+    try { S?.done(); } catch {}
     if (D) { runner.lamp?.(null); D.release(0).catch?.(() => {}); }
   }
+}
+/**
+ * The hero stood by his stopped car and the director on the two of them: { D, square(), done() }, or null with nothing
+ * changed but the car stopped (no car, a horse, not in it, a scene on, no side clear for him and the lens).
+ */
+async function standShot(W, runner) {
+  const app = W.app, cs = app.cameraSystem, cm = app.controllerManager, car = W.car, P = W.person;
+  if (!car || !P?.mesh || cm.activeMode !== 'car' || W.cutscene || W.directed || car.kind === 'horse' || car.wet) return null;
+  const B = car.body || { hx: 1.0, z0: -2.3, z1: 2.4 }, S = STAND;
+  // (the car's own frame: x across it, +x its left, the driver's side; z along it, +z its nose)
+  const toW = (lx, lz) => { const c = Math.cos(car.heading), s = Math.sin(car.heading); return { x: car.position.x + lx * c + lz * s, z: car.position.z - lx * s + lz * c }; };
+  const V = (p, y) => new THREE.Vector3(p.x, y, p.z);
+  const ground = (p) => cm.getGroundHeight(p.x, p.z, 'person');
+  // (somewhere a person stands: no building over it (the way game.js's ride finds a wall), no post or bin, about the car's
+  // own ground: not a ledge, not a hole)
+  const standable = (p) => {
+    const g = ground(p); if (!Number.isFinite(g) || Math.abs(g - car.position.y) > 0.6) return false;
+    const v = new THREE.Vector3(p.x, g, p.z); cm.resolveHorizontalCollision(v, 0.4, g + 1.0); if (Math.hypot(v.x - p.x, v.z - p.z) > 0.02) return false;
+    for (const b of W.crash?.props?.around?.(p.x, p.z, 2) || []) if (!b.taken && Math.hypot(b.x - p.x, b.z - p.z) < (b.w ? Math.max(b.w, b.d) / 2 : b.r || 0.3) + 0.45) return false;
+    return true;
+  };
+  const shot = (side) => {
+    const hero = toW(side * (B.hx + S.out), B.z1 * S.fwd);
+    const mid = toW(side * B.hx * 0.55, B.z1 * 0.3);
+    const a = car.heading + side * S.ang, cam = { x: mid.x + Math.sin(a) * S.dist, z: mid.z + Math.cos(a) * S.dist };
+    return { hero, mid, cam };
+  };
+  // stopped where it is: the test drive let go of the wheel, the car still, its wheels straight
+  W.storyrun?.autopilot?.stop?.();
+  for (const k of ['forward', 'backward', 'left', 'right', 'boost']) try { cm.setTouchInput(k, 0); } catch {}
+  const still = () => Object.assign(car, { speed: 0, vx: 0, vz: 0, angularVel: 0, steerAngle: 0, steerK: 0, halt: 0 });
+  for (let t0 = performance.now(); performance.now() - t0 < 900;) { still(); await new Promise((r) => requestAnimationFrame(r)); }
+  if (cm.activeMode !== 'car' || W.cutscene || W.directed) return null;
+  // (his side: the road's (the driver's) first; his spot and a little round it stood on, the lens's spot open, and the
+  // lens's lines to him and to the car's face clear of the street's things)
+  let side = 0, pick = null;
+  for (const s of [1, -1]) {
+    const c = shot(s), y = car.position.y;
+    if (!standable(c.hero) || !standable(toW(s * (B.hx + S.out + 0.5), B.z1 * S.fwd))) continue;
+    if (!cs.segClear) { side = s; pick = c; break; }
+    const eye = V(c.cam, y + S.up);
+    if (cs.segClear(V(c.hero, y + 1.2), eye, car) > 0.97 && cs.segClear(V(toW(0, B.z1 * 0.8), y + 0.8), eye, car) > 0.97 && cs.segClear(V(c.mid, y + 1.0), eye, car) > 0.97) { side = s; pick = c; break; }
+  }
+  if (!side) return null;
+  // (the traffic and the pavement's people kept off the car, him and the lens: hold zones, as a cutscene's)
+  const xs = [pick.hero.x, pick.cam.x, car.position.x], zs = [pick.hero.z, pick.cam.z, car.position.z], m = 5;
+  const rect = { minX: Math.min(...xs) - m, maxX: Math.max(...xs) + m, minZ: Math.min(...zs) - m, maxZ: Math.max(...zs) + m };
+  try { app.trafficSystem?.hold?.([rect]); } catch {}
+  try { W.street?.crowd?.hold?.([rect]); } catch {}
+  // him out of the car, on his feet beside it (the engine's own on-foot body, as getting out puts him), turned to the lens
+  const face = () => Math.atan2(pick.cam.x - P.position.x, pick.cam.z - P.position.z) - side * 0.18;
+  still();
+  P.position.set(pick.hero.x, ground(pick.hero), pick.hero.z);
+  P.speed = 0; P.verticalVel = 0; P.inVehicle = false; P.mesh.visible = true;
+  app.selectMode('person');
+  P.heading = face(); P.mesh.position.copy(P.position); P.mesh.rotation.y = P.heading;
+  const D = createDirector(W);
+  let fov = S.fov, look = pick.mid;
+  const nose = toW(side * B.hx * 0.6, B.z1), nt = Math.min(1, Math.max(0, +(W.storyrun?.nightLit?.night?.() || 0)));
+  const frame = () => {
+    still();
+    if (cm.activeMode === 'person') { P.speed = 0; P.heading = face(); if (P.mesh) P.mesh.rotation.y = P.heading; }
+    const y = car.position.y, a = car.heading + side * S.ang;
+    D.camera = { pos: [pick.cam.x, y + S.up, pick.cam.z], look: [look.x, y + S.lookUp, look.z], fov, roll: 0, shake: null, band: false };
+    // (the warm key between the lens and the two of them, out in front of him and the car's nose: his face and the
+    // car's lit; stronger and a little lower on a night street (nightlit.js), so all of him reads, not his face alone)
+    const k = { x: (pick.hero.x + nose.x) / 2 + Math.sin(a) * 2.8, z: (pick.hero.z + nose.z) / 2 + Math.cos(a) * 2.8 };
+    runner.lamp?.([k.x, y + 2.2 - 0.5 * nt, k.z], S.lamp * (1 + 2.2 * nt), 9.5 + 3 * nt);
+  };
+  // (a beat on his feet first: the idle running, the driver's seat let go of, the people held off)
+  for (let t0 = performance.now(); performance.now() - t0 < 1200;) { frame(); await new Promise((r) => requestAnimationFrame(r)); }
+  if (cm.activeMode !== 'person' || !P.mesh.visible || W.cutscene) { try { app.trafficSystem?.hold?.([]); W.street?.crowd?.hold?.([]); } catch {} return null; }
+  frame(); D.onFrame = frame; D.take();
+  W.storyrun && (W.storyrun.keyShot = { side, stand: true });
+  return {
+    D,
+    square() { fov = S.sqFov; look = { x: (pick.hero.x + nose.x) / 2, z: (pick.hero.z + nose.z) / 2 }; frame(); },
+    done() { try { app.trafficSystem?.hold?.([]); } catch {} try { W.street?.crowd?.hold?.([]); } catch {} },
+  };
 }
 /** The director on the hero shot, or null (no car, or no clear side): the chase camera's view is shot instead. */
 function heroShot(W, runner) {
