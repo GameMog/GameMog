@@ -11,12 +11,20 @@ import { publishedKartConstants, type KartDriveTrack } from '@/lib/kart-score';
 import { dna } from '@/lib/mog-dna';
 import { publishedSoundtrack, type Soundtrack, type WorldOptions } from '@/lib/world-options';
 import type { WorldSpec } from '@/lib/worldspec';
-import { sealStoryDraft, keepStoryWorld } from '@/lib/storykit-publish';
+import { sealStoryDraft, keepStoryWorld, releaseStoryWorld, storeDraftOf, storeDraftInfo } from '@/lib/storykit-publish';
 import { storykitForRequest, ownerRequest } from '@/lib/storykit-http';
 import { storykitMode } from '@/lib/storykit-switch';
 import { setWorldHidden } from '@/lib/analytics';
 
 export const runtime = 'nodejs';
+
+/** A published story game's store draft kept with it (a retry of a publish cut short before the keep). Never throws. */
+function healStoryKeep(meta: string, gameId: string) {
+  const storeId = storeDraftOf(meta);
+  if (!storeId) return;
+  try { if (storeDraftInfo(storeId)?.state !== 'kept' && keepStoryWorld(storeId, gameId)) console.log(`games: story draft ${storeId} kept with ${gameId} on a retry`); }
+  catch (e) { console.error('games: a story draft could not be kept on a retry', String((e as Error)?.message ?? e).slice(0, 200)); }
+}
 
 export async function GET() {
   // (a consent record is served as its names only: lib/episode.ts publicMeta)
@@ -41,6 +49,8 @@ export async function POST(req: Request) {
     const done = publishedGame(d.id);
     if (done) {
       if (creator && !done.creator && nameCreator(done.id, creator, player)) done.creator = creator;
+      // (a story world's retry keeps its store draft with the game: a publish cut short before the keep heals here)
+      healStoryKeep(d.meta, done.id);
       return NextResponse.json({ id: done.id, slug: done.slug, creator: done.creator, again: true });
     }
     const report = JSON.parse(d.report) as { ok?: boolean; ran?: boolean; status?: string; codeHash?: string; coverHash?: string; kart?: KartDriveTrack; soundtrack?: unknown };
@@ -70,18 +80,32 @@ export async function POST(req: Request) {
       add = { ...add, ...(s.options ? { options: s.options } : {}), soundtrack: s.soundtrack ?? undefined };
     }
     // a Story Kit world (STORYKIT=on, lib/storykit-publish.ts): its store draft sealed as the world the game plays, and
-    // kept with the game once it exists (never swept); with the switch off a story draft is not published
+    // KEPT with the game's id BEFORE the catalog commit (16 Nov): a publish cut short after the commit can no longer
+    // leave a listed game whose world the store's sweep takes a day later. Fail closed: a draft the store cannot keep
+    // publishes nothing. If the commit then fails, the keep is handed back, but only when this request did it (a draft
+    // kept already stays kept). With the switch off a story draft is not published
     const story = sealStoryDraft(d, storykitForRequest(req));
     if (story && !story.ok) return NextResponse.json({ error: story.error }, { status: story.status });
     if (story) add = { ...add, ...story.meta };
     const id = randomUUID();
     const slug = slugify(dm.title);
-    if (!publishDraft(d.id, slug, id, test, add, { creator, player })) {
+    const before = story ? storeDraftInfo(story.storeId) : null;
+    if (story && !keepStoryWorld(story.storeId, id)) return NextResponse.json({ error: 'This story world could not be kept just now. Try again.' }, { status: 503 });
+    let published = false;
+    try {
+      published = publishDraft(d.id, slug, id, test, add, { creator, player });
+    } finally {
+      // (nothing published: a keep this request made is released; one kept already goes back to the game it had)
+      if (story && !published) {
+        try { if (before?.state === 'kept') { if (before.gameId) keepStoryWorld(story.storeId, before.gameId); } else releaseStoryWorld(story.storeId); }
+        catch (e) { console.error('games: a story keep could not be handed back', String((e as Error)?.message ?? e).slice(0, 200)); }
+      }
+    }
+    if (!published) {
       const first = publishedGame(d.id);
-      if (first) return NextResponse.json({ id: first.id, slug: first.slug, creator: first.creator, again: true });
+      if (first) { healStoryKeep(d.meta, first.id); return NextResponse.json({ id: first.id, slug: first.slug, creator: first.creator, again: true }); }
       return NextResponse.json({ error: 'That draft no longer exists.' }, { status: 404 });
     }
-    if (story) keepStoryWorld(story.storeId, id);
     // (STORYKIT=owner: the owner's test world goes in hidden, so nobody else sees it in any list; the owner's session
     // opens it at /g/<slug>, lib/storykit-switch.ts. Set it live from /admin only once the switch is on for everyone)
     if (story && storykitMode() === 'owner') setWorldHidden(id, true);

@@ -41,6 +41,7 @@ import { runDispatchChecks } from './hometown-dispatch-check.ts';
 import { runPerfChecks } from './perf-check.ts';
 import { runBackupChecks } from './backups-check.ts';
 import { runSpendDoorChecks } from './spend-door-check.ts';
+import { runPublishGapChecks } from './storykit-publish-gap-check.ts';
 
 let failures = 0;
 const ok = (name: string, cond: boolean, detail = '') => {
@@ -583,6 +584,8 @@ await runPerfChecks(ok);
 await runBackupChecks(ok);
 // Spend (16 Nov): the selfie's limits and cost in the day's spend, the raw-spec publish and the race brief the owner's only
 await runSpendDoorChecks(ok);
+// Story Kit (16 Nov): a story world's publish cut short anywhere never leaves a listed game with an unkept world
+await runPublishGapChecks(ok);
 
 console.log(`\n${failures ? `${failures} FAILED` : 'all checks passed'}\n`);
 process.exit(failures ? 1 : 0);

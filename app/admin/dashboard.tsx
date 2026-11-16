@@ -11,7 +11,7 @@ import type { KartReportRow } from '@/lib/kart-report';
 import type { PerfAdmin, PerfGroup, PerfSession } from '@/lib/perf';
 import type { DareLoop, LoopWindow } from '@/lib/funnel';
 import type { StoreUsage } from '@/lib/storykit-store';
-import type { StoryTownRow } from '@/lib/storykit-publish';
+import type { StoryReconcileRow, StoryTownRow } from '@/lib/storykit-publish';
 import type { BackupsAdmin } from '@/lib/backups';
 
 /** The Story Kit's store on the owner's screen, only while the switch is on or owner-only (else null: nothing shown). */
@@ -50,7 +50,7 @@ export type TownBuilderAdmin = {
   runs?: { problem?: string; inFlight?: number; maxRuns?: number; byState?: Record<string, number>; plan?: { want: number; ready: number } | null;
     lastError?: { status: number; message: string } | null; holdS?: number } | null;
 };
-export type AdminData = { stats: Record<Range, Stats>; worlds: AdminWorld[]; builds: AdminBuild[]; scores: AdminScore[]; active: number; reports: KartReportRow[]; perf?: PerfAdmin | null; slots: Capacity; loop: DareLoop; mc: Record<Range, McStats>; storykit?: StoryKitAdmin | null; towns?: TownBuilderAdmin | null; storyTowns?: StoryTownRow[] | null; backups?: BackupsAdmin | null };
+export type AdminData = { stats: Record<Range, Stats>; worlds: AdminWorld[]; builds: AdminBuild[]; scores: AdminScore[]; active: number; reports: KartReportRow[]; perf?: PerfAdmin | null; slots: Capacity; loop: DareLoop; mc: Record<Range, McStats>; storykit?: StoryKitAdmin | null; towns?: TownBuilderAdmin | null; storyTowns?: StoryTownRow[] | null; backups?: BackupsAdmin | null; reconcile?: StoryReconcileRow[] | null };
 
 export function Dashboard(props: AdminData) {
   return <Toasts><Board {...props} /></Toasts>;
@@ -67,7 +67,7 @@ export function ago(at: number) {
   return new Date(at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function Board({ stats, worlds: initialWorlds, builds, scores: initialScores, active, reports, perf = null, slots, loop, mc, storykit = null, towns = null, storyTowns = null, backups = null }: AdminData) {
+function Board({ stats, worlds: initialWorlds, builds, scores: initialScores, active, reports, perf = null, slots, loop, mc, storykit = null, towns = null, storyTowns = null, backups = null, reconcile = null }: AdminData) {
   const router = useRouter();
   const toast = useToast();
   const [tab, setTab] = useState<Tab>('overview');
@@ -138,7 +138,7 @@ function Board({ stats, worlds: initialWorlds, builds, scores: initialScores, ac
 
       <main className="adm-main">
         <BlurIn k={ranged(tab) ? `${tab}-${range}` : tab}>
-          {tab === 'overview' && <Overview s={s} slots={slots} storykit={storykit} towns={towns} storyTowns={storyTowns} backups={backups} />}
+          {tab === 'overview' && <Overview s={s} slots={slots} storykit={storykit} towns={towns} storyTowns={storyTowns} backups={backups} reconcile={reconcile} />}
           {tab === 'dares' && <Dares loop={loop} />}
           {tab === 'worlds' && <Worlds worlds={worlds} hidden={hiddenCount} visibility={visibility} />}
           {tab === 'builds' && <Builds builds={builds} titles={new Map(worlds.map((w) => [w.slug, w.title]))} />}
@@ -180,7 +180,7 @@ function Kpi({ label, k, s, format, hint }: { label: string; k: keyof Kpis; s: S
   );
 }
 
-function Overview({ s, slots, storykit, towns, storyTowns, backups }: { s: Stats; slots: AdminData['slots']; storykit: StoryKitAdmin | null; towns: TownBuilderAdmin | null; storyTowns: StoryTownRow[] | null; backups: BackupsAdmin | null }) {
+function Overview({ s, slots, storykit, towns, storyTowns, backups, reconcile }: { s: Stats; slots: AdminData['slots']; storykit: StoryKitAdmin | null; towns: TownBuilderAdmin | null; storyTowns: StoryTownRow[] | null; backups: BackupsAdmin | null; reconcile: StoryReconcileRow[] | null }) {
   const n = s.now;
   const funnel = [
     { label: 'Visited', value: n.visitors },
@@ -203,6 +203,7 @@ function Overview({ s, slots, storykit, towns, storyTowns, backups }: { s: Stats
 
       <CapacityCard c={slots} />
       {storykit && <StoryKitCard k={storykit} />}
+      {reconcile && <StoryReconcileCard rows={reconcile} />}
       {towns && <TownBuilderCard t={towns} />}
       {storyTowns && storyTowns.some((r) => r.state !== 'current') && <StoryTownsCard rows={storyTowns} />}
       <BackupsCard b={backups} />
@@ -285,6 +286,26 @@ function StoryKitCard({ k }: { k: StoryKitAdmin }) {
         : `New story worlds stop at ${guardPct}% (${mb(k.guard)}), ${mb(Math.max(0, k.guard - k.used))} from now; drafts already open can finish. STORYKIT_DISK_MB sets the size.`}</p>
       <p className="fine">A published story world with no key art (its test drive never played it): <a href="/storykit/keyart.html">take its key art</a> in this browser.</p>
       <p className="fine">A published story world whose lines have no voice (every hometown story before 14 Nov): <a href="/storykit/revoice.html">record its voices</a> in this browser.</p>
+    </section>
+  );
+}
+
+// the story reconcile (lib/storykit-publish.ts storyReconcile): a listed story game the store does not hold whole and
+// kept, and a kept world no game plays
+const RECONCILE_KIND: Record<StoryReconcileRow['kind'], string> = { missing: 'Draft missing', unkept: 'Not kept', 'no-world': 'World file missing', orphan: 'Kept, no game' };
+function StoryReconcileCard({ rows }: { rows: StoryReconcileRow[] }) {
+  return (
+    <section className="card">
+      <div className="card-h"><h2>Story reconcile</h2></div>
+      {rows.length === 0
+        ? <p className="fine">Every published story world is kept in the store with the world file it plays, and every kept world has its game.</p>
+        : (
+          <ul className="fine">
+            {rows.map((r) => (
+              <li key={`${r.kind}-${r.storeId}-${r.gameId}`}><b>{RECONCILE_KIND[r.kind]}</b>{' '}{r.slug ? <a href={`/g/${r.slug}`}>{r.title ?? r.slug}</a> : <code>{r.storeId}</code>}{r.hidden ? ' (hidden)' : ''}: {r.words}</li>
+            ))}
+          </ul>
+        )}
     </section>
   );
 }

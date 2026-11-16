@@ -148,6 +148,8 @@ function checkMagic(ext: string, b: Uint8Array): string | null {
 const num = (x: unknown, lo: number, hi: number) => (x != null && x !== '' && Number.isFinite(+x!) && +x! >= lo && +x! <= hi ? +x! : null);
 const word = (x: unknown, re: RegExp) => (typeof x === 'string' && re.test(x) ? x : null);
 
+class KeptMeanwhile extends Error {}
+
 export class StoryStore {
   readonly root: string;
   readonly db: DatabaseSync;
@@ -288,9 +290,12 @@ export class StoryStore {
    * key>.ogg|wav, a current line in its speaker's current voice), key art or a headshot (art: key-wide, key-square,
    * avatar (the world's round headshot) or head-<cast id>, .jpg|.webp|.png). Replaces the draft's earlier file of that name.
    */
-  put(d: DraftRow, kind: string, name: string, bytes: Uint8Array, meta: Record<string, unknown> = {}): { ok: true; file: { kind: Kind; name: string; hash: string; url: string; bytes: number; meta: unknown } } | Fail {
+  put(given: DraftRow, kind: string, name: string, bytes: Uint8Array, meta: Record<string, unknown> = {}): { ok: true; file: { kind: Kind; name: string; hash: string; url: string; bytes: number; meta: unknown } } | Fail {
     this.sweep();
-    if (!this.draft(d.id)) return fail(404, 'That draft no longer exists.');
+    // the draft as it is NOW, not as the caller read it: the upload route reads the row before it awaits the body, and a
+    // publish may keep the draft meanwhile (16 Nov: a stale row let an upload in flight demote a kept world)
+    const d = this.draft(given.id);
+    if (!d) return fail(404, 'That draft no longer exists.');
     if (d.state === 'kept') return fail(409, 'A published world is not changed. Mog it instead.');
     const pack = JSON.parse(d.pack), L = this.limitsOf(d.id);
     let ext: string, max: number, total: number, count = Infinity, m: RegExpExecArray | null, keep: unknown = null;
@@ -345,9 +350,14 @@ export class StoryStore {
       this.db.prepare("DELETE FROM files WHERE draft_id = ? AND kind = 'pack'").run(d.id);
       this.db.prepare('INSERT OR REPLACE INTO files (draft_id, kind, name, hash, ext, bytes, meta, inherited, at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)')
         .run(d.id, kind, name, hash, ext, bytes.length, keep == null ? null : JSON.stringify(keep), t);
-      this.db.prepare("UPDATE drafts SET touched_at = ?, state = 'draft', world = NULL WHERE id = ?").run(t, d.id);
+      // (and never a kept one, whatever happened since the row was read)
+      if (this.db.prepare("UPDATE drafts SET touched_at = ?, state = 'draft', world = NULL WHERE id = ? AND state != 'kept'").run(t, d.id).changes !== 1) throw new KeptMeanwhile();
       this.db.exec('COMMIT');
-    } catch (e) { this.db.exec('ROLLBACK'); throw e; }
+    } catch (e) {
+      this.db.exec('ROLLBACK');
+      if (e instanceof KeptMeanwhile) { if (!known) rmSync(this.blobPath(hash, ext), { force: true }); return fail(409, 'A published world is not changed. Mog it instead.'); }
+      throw e;
+    }
     this.collect(replaced.filter((h) => h !== hash));
     return { ok: true, file: { kind: kind as Kind, name, hash, url: blobUrl(hash, ext), bytes: bytes.length, meta: keep } };
   }

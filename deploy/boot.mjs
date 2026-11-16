@@ -11,6 +11,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 
 import { migrate } from './migrate.mjs';
 import { interruptBuilds } from './builds.mjs';
 import { ensureCatalog } from './backups.mjs';
+import { keepPublishedStoryDrafts } from './reconcile.mjs';
 
 const DB = 'data/gamemog.db', SEED = 'deploy/seed.db.gz';
 mkdirSync('data', { recursive: true });
@@ -25,6 +26,10 @@ await migrate(DB);
 // the builds the last server was running when it stopped are 'interrupted' (deploy/builds.mjs)
 const interrupted = interruptBuilds(DB);
 if (interrupted) console.log(`boot: ${interrupted} build${interrupted === 1 ? '' : 's'} the last server was running marked interrupted`);
+
+// a published story game whose store draft is not kept (a publish cut short before 16 Nov's keep-first order): kept
+// now, so the store's sweep never takes the world a listed game plays (deploy/reconcile.mjs; /admin lists the rest)
+try { keepPublishedStoryDrafts('data'); } catch (e) { console.error(`boot: the story reconcile failed: ${String(e?.message ?? e).slice(0, 300)}`); }
 
 // The production town builder's queue (lib/hometown-build/queue.ts): created here so its tables exist before the first
 // request. Its jobs are NOT marked interrupted on a restart: leases cover that (a job whose worker lost the web just

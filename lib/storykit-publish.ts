@@ -238,6 +238,33 @@ export function storyUpgrade(world: string, opts: { derive?: boolean; fresh?: bo
   } catch (e) { console.error('storykit: upgrade', String((e as Error)?.message ?? e).slice(0, 300)); return null; }
 }
 
+/**
+ * The story reconcile (16 Nov, the owner's screen: app/admin): what would leave a listed story game unplayable, or a kept
+ * world no game plays. missing: the game names a store draft the store does not have; unkept: its draft is not kept, so
+ * the sweep would take it (deploy/reconcile.mjs keeps these at boot); no-world: the sealed world file the game plays is
+ * not in the store; orphan: a kept draft whose game is not in the catalog (a catalog restored from an older snapshot, or a
+ * game deleted by hand). Empty when everything is whole.
+ */
+export type StoryReconcileRow = { kind: 'missing' | 'unkept' | 'no-world' | 'orphan'; storeId: string; gameId: string | null; slug: string | null; title: string | null; hidden: boolean; words: string };
+export function storyReconcile(): StoryReconcileRow[] {
+  const s = storyStore(), out: StoryReconcileRow[] = [];
+  const games = db.prepare("SELECT id, slug, title, hidden, meta FROM games WHERE meta LIKE '%storykit%'").all() as { id: string; slug: string; title: string; hidden: number | null; meta: string | null }[];
+  for (const g of games) {
+    const storeId = storeDraftOf(g.meta); if (!storeId) continue;
+    const row = { storeId, gameId: g.id, slug: g.slug, title: g.title, hidden: !!g.hidden };
+    const d = s.db.prepare('SELECT state, game_id FROM drafts WHERE id = ?').get(storeId) as { state: string; game_id: string | null } | undefined;
+    if (!d) out.push({ ...row, kind: 'missing', words: 'its store draft is gone: the game cannot play' });
+    else if (d.state !== 'kept') out.push({ ...row, kind: 'unkept', words: `its store draft is ${d.state}, not kept: the sweep would take it (the next boot keeps it)` });
+    const world = sealedWorldOf(g.meta);
+    if (d && world && !s.stat(`${world}.json`)) out.push({ ...row, kind: 'no-world', words: `the world it plays (${world.slice(0, 12)}) is not in the store: patch or publish it again` });
+  }
+  const ids = new Set((db.prepare('SELECT id FROM games').all() as { id: string }[]).map((r) => r.id));
+  for (const k of s.db.prepare("SELECT id, game_id FROM drafts WHERE state = 'kept'").all() as { id: string; game_id: string | null }[]) {
+    if (!k.game_id || !ids.has(k.game_id)) out.push({ kind: 'orphan', storeId: k.id, gameId: k.game_id, slug: null, title: null, hidden: false, words: `kept for ${k.game_id ? `game ${k.game_id}, which is not in the catalog` : 'no game'}` });
+  }
+  return out;
+}
+
 /** The published hometown story worlds and what each plays now (the owner's screen: app/admin). */
 export type StoryTownRow = { slug: string; title: string; hidden: boolean; place: string; pinned: string; state: StoryUpgrade['state'] | 'unknown'; build: string | null; words: string; why: string[]; notes: string[] };
 export function storyTownsAdmin(): StoryTownRow[] {
@@ -410,6 +437,13 @@ export function sealStoryDraft(d: { meta: string }, open = storykitPublic()): { 
   return { ok: true, storeId, world: sealed.hash, meta: { storykit: { ...m.storykit, world: sealed.hash } } };
 }
 export const keepStoryWorld = (storeId: string, gameId: string) => storyStore().keep(storeId, gameId);
+/** A kept world handed back to the sweep (a publish whose catalog commit failed after its keep, app/api/games/route.ts). */
+export const releaseStoryWorld = (storeId: string) => storyStore().release(storeId);
+/** A store draft's state and the game it is kept with, or null when the store has no such draft. */
+export function storeDraftInfo(storeId: string): { state: 'draft' | 'sealed' | 'kept'; gameId: string | null; world: string | null } | null {
+  const r = storyStore().db.prepare('SELECT state, game_id, world FROM drafts WHERE id = ?').get(storeId) as { state: 'draft' | 'sealed' | 'kept'; game_id: string | null; world: string | null } | undefined;
+  return r ? { state: r.state, gameId: r.game_id, world: r.world } : null;
+}
 
 /**
  * The owner's patch of a published story world (app/api/storykit/admin/patch/route.ts): the game by its slug (hidden or

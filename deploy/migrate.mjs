@@ -1822,8 +1822,9 @@ export const PERF_DDL = `
  * naming the new draft (storykit.pack) and its sealed world (storykit.world). The draft it replaces: a Mog's store draft
  * names its parent's store draft (drafts.parent: the gate's city lock and the parent's lines when the owner patches or
  * re-packs that Mog), so while any store draft names it, it stays kept (it holds only its pack and its sealed world,
- * no files of its own). Named by none, it is released and abandoned (StoryStore.release, .abandon: its sealed world's
- * blob goes with it). A Mog already published plays its own sealed world, so nothing here changes what it plays.
+ * no files of its own). Named by none, it stays kept too (16 Nov: the store commits on its own, so releasing it here
+ * could leave the game naming a deleted draft if the games transaction rolled back; about 160 KB). A Mog already
+ * published plays its own sealed world, so nothing here changes what it plays.
  * Without a linked own world it does what 2026-11-05-mog-city-own-story does (and waits as it waits: the Story Kit off
  * on this server, no /g/mog-city), then refreshes what that found. The stored pack already the record's: "already
  * current", nothing written.
