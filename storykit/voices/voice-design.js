@@ -119,8 +119,59 @@ export function resample(x, ratio) {
   return y;
 }
 
+// ── delivery (DIALOGUE AND SCENE FLOW SPEC v1, D2/GM4) ──
+// A line's `how` (storykit/pack/schema.mjs DELIVERY) varies how the character's voice says it: Kokoro's pace (within 8%),
+// the pitch (within 1 semitone) and the level (-4 to +4 dB), on top of the character's own block. The character stays
+// the same person; the line gets a reading. Left out (or unknown), the line is said exactly as before.
+export const HOW = {
+  warm:     { speed: 0.97, pitch: -0.3, gain: 0 },
+  tease:    { speed: 1.04, pitch: 0.5,  gain: 0 },
+  deadpan:  { speed: 0.96, pitch: -0.6, gain: -1 },
+  urgent:   { speed: 1.08, pitch: 0.6,  gain: 2 },
+  angry:    { speed: 1.05, pitch: -0.4, gain: 3 },
+  shout:    { speed: 1.06, pitch: 1.0,  gain: 4 },
+  scared:   { speed: 1.07, pitch: 0.8,  gain: -1 },
+  hushed:   { speed: 0.94, pitch: -0.3, gain: -4 },
+  hesitant: { speed: 0.93, pitch: 0,    gain: -2 },
+  sad:      { speed: 0.92, pitch: -0.8, gain: -2 },
+  smug:     { speed: 0.97, pitch: -0.2, gain: 0 },
+};
+/** The delivery of a `how` ({ speed, pitch, gain }), or null (said as the block says it). */
+/** @param {string | null | undefined} how */
+export const howOf = (how) => (how && Object.prototype.hasOwnProperty.call(HOW, how) ? HOW[how] : null);
+/** The block a line is rendered with: the character's, its speed and pitch moved by the line's `how` (unchanged without one). */
+/** @param {any} block @param {string | null | undefined} how */
+export function deliveredBlock(block, how) {
+  const d = howOf(how);
+  return d ? { ...block, speed: clamp(block.speed * d.speed, 0.7, 1.3), pitch: clamp(block.pitch + d.pitch, -3.5, 3.5) } : block;
+}
+/** A line split at its sentence ends ("Mr." and a trailing "..." kept whole), for the beat between sentences. */
+export function splitSentences(text) {
+  const all = String(text).trim(), lead = (all.match(/^(?:\.\.\.|…)\s*/) || [''])[0], t = all.slice(lead.length), out = [];
+  const re = /[^.?!…]+(?:\.\.\.|…|[.?!]+)?["')\]]*\s*/g;
+  let m, buf = lead;
+  while ((m = re.exec(t)) && m[0]) {
+    buf += m[0];
+    if (/\b(?:Mr|Mrs|Ms|Dr|St)\.\s*$/.test(buf) || !/[.?!…]["')\]]*\s*$/.test(buf)) continue;
+    out.push(buf.trim()); buf = '';
+  }
+  if (buf.trim()) out.push(buf.trim());
+  return out.filter((x) => /[a-z0-9]/i.test(x));
+}
+/** The beat after a sentence, seconds (0.25 to 0.45): longer after a question or a trail-off, short after a clipped beat. */
+export const sentenceGap = (sentence) => (/(\?|\.\.\.|…)["')\]]*$/.test(sentence) ? 0.45 : String(sentence).split(/\s+/).length <= 2 ? 0.25 : /!["')\]]*$/.test(sentence) ? 0.3 : 0.35);
+/** Raw renders of a line's sentences, joined with their beats (silence) between them, at the render's sample rate. */
+export function joinSentences(parts, sentencesOf, sr = SAMPLE_RATE) {
+  const gaps = parts.slice(0, -1).map((_, i) => Math.round(sr * sentenceGap(sentencesOf[i])));
+  const y = new Float32Array(parts.reduce((n, p) => n + p.length, 0) + gaps.reduce((n, g) => n + g, 0));
+  let at = 0; parts.forEach((p, i) => { y.set(p, at); at += p.length + (gaps[i] || 0); });
+  return y;
+}
+
 // Trim leading/trailing silence (keep 60 ms), even the level (RMS target about -20 dBFS), keep peaks under -1 dBFS.
-export function finish(x, { targetDb = -20, padMs = 60 } = {}) {
+// Every character is evened to the same level, then a line's `how` moves it (gainDb: shout +4, hushed -4), so a shout is
+// louder than a whisper. Silence inside the clip (the beat between its sentences) is kept: only its edges are trimmed.
+export function finish(x, { targetDb = -20, padMs = 60, gainDb = 0, voiced = false } = {}) {
   const win = 240, thr = 0.01;
   let a = 0, b = x.length;
   const loud = (i) => { let m = 0; for (let j = i; j < Math.min(x.length, i + win); j++) m = Math.max(m, Math.abs(x[j])); return m > thr; };
@@ -130,15 +181,20 @@ export function finish(x, { targetDb = -20, padMs = 60 } = {}) {
   const y = x.slice(Math.max(0, a - pad), Math.min(x.length, b + pad));
   let ss = 0; for (let i = 0; i < y.length; i++) ss += y[i] * y[i];
   const rms = Math.sqrt(ss / Math.max(1, y.length)) || 1e-9;
-  let g = Math.pow(10, targetDb / 20) / rms, peak = 0;
+  // (voiced: the level of the voiced part only, so the beats put between a line's sentences don't make it louder)
+  let level = rms;
+  if (voiced) { let vs = 0, vn = 0; for (let i = 0; i < y.length; i += win) { let e = 0; const b = Math.min(y.length, i + win); for (let j = i; j < b; j++) e += y[j] * y[j]; if (e / Math.max(1, b - i) > thr * thr) { vs += e; vn += b - i; } } level = Math.sqrt(vs / Math.max(1, vn)) || rms; }
+  let g = Math.pow(10, (targetDb + gainDb) / 20) / level, peak = 0;
   for (let i = 0; i < y.length; i++) peak = Math.max(peak, Math.abs(y[i]));
   g = Math.min(g, 0.89 / (peak || 1));
   for (let i = 0; i < y.length; i++) y[i] *= g;
   return y;
 }
 
-// Post-processing of one raw Kokoro render (rendered at renderSpeed(block))
-export const shape = (raw, block) => finish(resample(raw, pitchRatio(block.pitch)));
+// Post-processing of one raw Kokoro render (rendered at renderSpeed(block)); `how`: the line's delivery level
+// (voiced: it was rendered sentence by sentence with beats between, levelled on its voice: browser-voice-pass.js render)
+/** @param {Float32Array} raw @param {any} block @param {string | null | undefined} [how] @param {boolean} [voiced] */
+export const shape = (raw, block, how = null, voiced = false) => finish(resample(raw, pitchRatio(block.pitch)), { gainDb: howOf(how)?.gain || 0, voiced });
 
 // Median F0 (Hz) by autocorrelation over voiced 40 ms frames: used to keep a world's voices apart.
 export function medianF0(x, sr = SAMPLE_RATE) {
@@ -201,8 +257,10 @@ export async function toPhonemes(text, lang, g2p) {
 }
 
 // A stable key for a clip: the same line in the same voice is never rendered twice (a Mog re-voices only changes).
-export async function clipKey(text, block, model = 'kokoro-82m-v1.0') {
-  const s = JSON.stringify([model, text, block.blend, block.speed, block.pitch]);
+// A line's `how` is part of it (the same words said another way are another clip); without one the key is as before.
+/** @param {string} text @param {any} block @param {string} [model] @param {string | null | undefined} [how] */
+export async function clipKey(text, block, model = 'kokoro-82m-v1.0', how = null) {
+  const s = JSON.stringify(howOf(how) ? [model, text, block.blend, block.speed, block.pitch, how] : [model, text, block.blend, block.speed, block.pitch]);
   if (globalThis.crypto?.subtle) {
     const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
     return [...new Uint8Array(h)].slice(0, 12).map((v) => v.toString(16).padStart(2, '0')).join('');
@@ -233,8 +291,11 @@ export const VOICE_MODEL = 'kokoro-82m-v1.0';
 // The same hash of what makes a voice sound as it does (a linted block's blend, speed and pitch, and the model): a
 // clip is for one text in one voice, so a changed voice block re-renders its person's lines and nobody else's.
 export const voiceKey = (block, model = VOICE_MODEL) => lineHash(JSON.stringify([model, Object.entries(block.blend).sort(([a], [b]) => (a < b ? -1 : 1)), block.speed, block.pitch]));
-// A clip's file name in the pack's voice folder (packs/<id>/voice/): <line hash>-<voice key>.<ogg | wav>
-export const clipBase = (text, block) => `${lineHash(text)}-${voiceKey(block)}`;
+// A clip's file name in the pack's voice folder (packs/<id>/voice/): <line hash>-<voice key>.<ogg | wav>. A line with a
+// `how` keys its voice and delivery together (still 8 hex), so the same words said another way are another clip and a
+// line without one keeps exactly the name it always had (no world is re-voiced by this)
+/** @param {string} text @param {any} block @param {string | null | undefined} [how] */
+export const clipBase = (text, block, how = null) => `${lineHash(text)}-${howOf(how) ? lineHash(JSON.stringify([voiceKey(block), how])) : voiceKey(block)}`;
 export const CLIP_FILE = /^[0-9a-f]{8}-[0-9a-f]{8}\.(ogg|wav)$/;
 
 // A clip's loudness for the jaw: RMS in frames of 1/fps s, scaled so the loud syllables reach 1 (the 90th percentile

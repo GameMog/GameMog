@@ -84,7 +84,7 @@ import { TOW_CLASSES } from '../vehicles/sheet.js';
 
 type Json = any;
 export type PackV2 = Json;
-export type Line = { id: string; who: string; text: string; hash: string; status: 'ready' | 'pending'; clip: string | null };
+export type Line = { id: string; who: string; text: string; hash: string; status: 'ready' | 'pending'; clip: string | null; how?: string };
 export type GateResult = { ok: boolean; problems: string[]; warnings: string[]; clamped: string[]; pack: PackV2 | null; lines: Line[] };
 
 export const PACK_ID = (SCHEMA as Schema).$id as string;
@@ -190,10 +190,14 @@ const TOKENS = new Set(['n', 'of', 'name', 'ride', 'ride.name', 'ride.board', 'r
 export const lineHash = (text: string): string => vdLineHash(text);
 
 const SPEECH_KEYS = new Set(['reply', 'silenceReply', 'line']);
+/** A call's react pools and their line-id tags (schema.mjs REACT_POOLS). */
+const REACT_IDS: [string, string][] = [['tooClose', 'rclose'], ['hit', 'rhit'], ['lost', 'rlost'], ['spotted', 'rspot']];
 const FREE_KEYS = new Set(['title', 'kicker', 'tagline', 'name', 'stakes', 'passLine', 'note', 'timerLine', 'label', 'objective', 'why', 'role',
   'alert', 'peelText', 'text', 'prompt', 'defaultText', 'sub', 'caption', 'heading', 'lateLabel', 'silenceLabel', 'reply', 'silenceReply',
   'line', 'missing', 'signed', 'skip', 'date', 'due', 'hint', 'logline', 'presentation', 'gestures', 'wants', 'speech', 'traits', 'story',
-  'description', 'nickname', 'oneLine', 'unitLabel', 'zero', 'street', 'note', 'fail', 'value']);
+  'description', 'nickname', 'oneLine', 'unitLabel', 'zero', 'street', 'note', 'fail', 'value',
+  // (a cast member's voice sheet, cast[].speech)
+  'rhythm', 'habit', 'jokes', 'never', 'motifs']);
 
 type Text = { at: string; text: string; speech: boolean; mission?: string };
 
@@ -498,7 +502,8 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
     const set = (s: Json, at: string) => {
       for (const one of [s].flat().filter(Boolean)) for (const k of Object.keys(one.meters || {})) if (!meters.has(k)) refuse(`${at}: the meter "${k}" is not one of the story's meters (${[...meters].join(', ') || 'none'}).`);
     };
-    const line = (id: string, speaker: string, text: string) => { if (speaker && text) lines.push({ id, who: speaker, text, hash: lineHash(text), status: 'pending', clip: null }); };
+    // (d: the line's own object, for its delivery: `how` names the clip (voice-design.js clipBase), never the line's id)
+    const line = (id: string, speaker: string, text: string, d?: Json) => { if (speaker && text) lines.push({ id, who: speaker, text, hash: lineHash(text), status: 'pending', clip: null, ...(d?.how ? { how: d.how } : {}) }); };
     // a choice: a step, or the one at the end of an answered call (call.choice)
     const choice = (s: Json, at: string, lid: string) => {
       who(s.who, `${at}.who`);
@@ -561,26 +566,31 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
         case 'stealth': need.set(s.mode === 'car' ? 'drive' : 'sneak', at); s.units.forEach((u: Json, j: number) => place(u, `${at}.units[${j}]`, 'any')); if (s.to) place(s.to, `${at}.to`, 'any'); if (s.onDetect?.goto && !ids.has(s.onDetect.goto)) refuse(`${at}.onDetect.goto: no step is "${s.onDetect.goto}".`); if (s.onDetect?.set) set(s.onDetect.set, `${at}.onDetect.set`); break;
         case 'patrol': if (s.near) place(s.near, `${at}.near`, 'any'); break;
         case 'roadblock': place(s.at, `${at}.at`, 'drive'); if (s.to) { place(s.to, `${at}.to`, 'drive'); need.set('drive', at); } if (!mc) refuse(`${at}: a roadblock plays on Mog City's engine (base.engine "mogcity-1").`); break;
-        case 'trigger': if (s.area) place(s.area, `${at}.area`, 'any'); if (s.say) { who(s.say.who, `${at}.say.who`); line(`${lid}.say`, s.say.who, s.say.text); } break;
-        case 'beat': for (const k of ['cam', 'look', 'to', 'lookTo']) cam(s.shot[k], `${at}.shot.${k}`); if (s.say) { who(s.say.who, `${at}.say.who`); line(`${lid}.say`, s.say.who, s.say.text); } break;
+        case 'trigger': if (s.area) place(s.area, `${at}.area`, 'any'); if (s.say) { who(s.say.who, `${at}.say.who`); line(`${lid}.say`, s.say.who, s.say.text, s.say); } break;
+        case 'beat': for (const k of ['cam', 'look', 'to', 'lookTo']) cam(s.shot[k], `${at}.shot.${k}`); if (s.say) { who(s.say.who, `${at}.say.who`); line(`${lid}.say`, s.say.who, s.say.text, s.say); } break;
         case 'place': place(s.at, `${at}.at`, 'start'); break;
         case 'transition': if (s.place) place(s.place, `${at}.place`, 'start'); break;
-        case 'cutscene': if (s.place) place(s.place, `${at}.place`, 'any'); if (s.set) { for (const p of setProblems(s.set, `${at}.set`, cast, pack.hero)) refuse(p); s.shots.forEach((sh: Json, j: number) => { for (const p of setShotProblems(s.set, sh, `${at}.shots[${j}]`, pack.hero)) refuse(p); }); } s.shots.forEach((sh: Json, j: number) => { for (const k of ['cam', 'look', 'to', 'lookTo']) cam(sh[k], `${at}.shots[${j}].${k}`); if (sh.line && !sh.say) refuse(`${at}.shots[${j}]: a line needs a speaker (say).`); if (sh.say) { who(sh.say, `${at}.shots[${j}].say`); line(`${lid}.c${j}`, sh.say, sh.line); }
+        case 'cutscene': if (s.place) place(s.place, `${at}.place`, 'any'); if (s.set) { for (const p of setProblems(s.set, `${at}.set`, cast, pack.hero)) refuse(p); s.shots.forEach((sh: Json, j: number) => { for (const p of setShotProblems(s.set, sh, `${at}.shots[${j}]`, pack.hero)) refuse(p); }); } s.shots.forEach((sh: Json, j: number) => { for (const k of ['cam', 'look', 'to', 'lookTo']) cam(sh[k], `${at}.shots[${j}].${k}`); if (sh.line && !sh.say) refuse(`${at}.shots[${j}]: a line needs a speaker (say).`); if (sh.say) { who(sh.say, `${at}.shots[${j}].say`); line(`${lid}.c${j}`, sh.say, sh.line, sh); }
+            // (an exchange in one shot: lines, in place of say + line; DIALOGUE AND SCENE FLOW SPEC v1, S4)
+            if (sh.lines) { if (sh.say || sh.line) refuse(`${at}.shots[${j}]: a shot says one line (say + line) or an exchange (lines), not both.`); sh.lines.forEach((l: Json, k: number) => { who(l.who, `${at}.shots[${j}].lines[${k}].who`); line(`${lid}.c${j}.l${k}`, l.who, l.text, l); }); }
             // (a shot is a lens (cam) or a shot by its grammar (frame, on, at: the people it is on stand on the street))
             if (!sh.cam && !sh.frame) refuse(`${at}.shots[${j}]: a shot has a camera (cam) or a frame (frame, on, at).`);
             if (sh.frame && !sh.cam && s.set) refuse(`${at}.shots[${j}]: a shot in a set writes its camera (cam); frame is for the street.`);
             if (sh.frame) { if (sh.on && sh.on !== 'player') who(sh.on, `${at}.shots[${j}].on`, true); if (sh.at && sh.at !== 'player') who(sh.at, `${at}.shots[${j}].at`, true); if (sh.frame === 'ots' && !sh.at) refuse(`${at}.shots[${j}]: an over-the-shoulder shot looks at someone (at).`); }
             else if (sh.on || sh.at) refuse(`${at}.shots[${j}]: on and at belong to a frame.`); }); break;
         case 'vignette': if (s.place) place(s.place, `${at}.place`, 'any'); s.shots.forEach((sh: Json, j: number) => { for (const k of ['cam', 'look', 'to', 'lookTo']) cam(sh[k], `${at}.shots[${j}].${k}`); if (sh.line && !sh.say) refuse(`${at}.shots[${j}]: a line needs a speaker (say).`); if (sh.say) { who(sh.say, `${at}.shots[${j}].say`); line(`${lid}.v${j}`, sh.say, sh.line); } }); break;
-        case 'say': who(s.who, `${at}.who`); line(lid, s.who, s.text); break;
+        case 'say': who(s.who, `${at}.who`); line(lid, s.who, s.text, s); break;
         case 'voicemail': case 'voicenote': who(s.who, `${at}.who`); line(lid, s.who, s.text); break;
         case 'call':
           who(s.who, `${at}.who`); set(s.answer, `${at}.answer`); set(s.decline, `${at}.decline`);
-          (s.lines || []).forEach((l: Json, j: number) => { who(l.who, `${at}.lines[${j}].who`); line(`${lid}.l${j}`, l.who, l.text); });
+          (s.lines || []).forEach((l: Json, j: number) => { who(l.who, `${at}.lines[${j}].who`); line(`${lid}.l${j}`, l.who, l.text, l); });
           // the car phone's extra blocks, wrap and hold lines (Mog City's calls)
-          (s.extra || []).forEach((b: Json[], k: number) => b.forEach((l: Json, j: number) => { who(l.who, `${at}.extra[${k}][${j}].who`); line(`${lid}.e${k}.l${j}`, l.who, l.text); }));
-          (s.wrap || []).forEach((l: Json, j: number) => { who(l.who, `${at}.wrap[${j}].who`); line(`${lid}.w.l${j}`, l.who, l.text); });
-          for (const k of ['pause', 'resume'] as const) (s.hold?.[k] || []).forEach((l: Json, j: number) => { who(l.who, `${at}.hold.${k}[${j}].who`); line(`${lid}.h${k[0]}.l${j}`, l.who, l.text); });
+          (s.extra || []).forEach((b: Json[], k: number) => b.forEach((l: Json, j: number) => { who(l.who, `${at}.extra[${k}][${j}].who`); line(`${lid}.e${k}.l${j}`, l.who, l.text, l); }));
+          (s.wrap || []).forEach((l: Json, j: number) => { who(l.who, `${at}.wrap[${j}].who`); line(`${lid}.w.l${j}`, l.who, l.text, l); });
+          for (const k of ['pause', 'resume'] as const) (s.hold?.[k] || []).forEach((l: Json, j: number) => { who(l.who, `${at}.hold.${k}[${j}].who`); line(`${lid}.h${k[0]}.l${j}`, l.who, l.text, l); });
+          // its react pools (W11): voiced like its other lines (ids <step>.rclose, .rhit, .rlost, .rspot)
+          for (const [k, tag] of REACT_IDS) (s.react?.[k] || []).forEach((l: Json, j: number) => { who(l.who, `${at}.react.${k}[${j}].who`); line(`${lid}.${tag}.l${j}`, l.who, l.text, l); });
+          if (s.react && !s.inCar && !s.auto) warnings.push(`${at}: react pools play on a car-phone call (auto or inCar), while the player drives.`);
           if (s.hold && !s.inCar) warnings.push(`${at}: hold lines only play on a call with inCar: true.`);
           if (s.interrupts && !side) warnings.push(`${at}: interrupts (call waiting) only waits on a live car-phone call; as a step of its own it is an ordinary call unless one is on.`);
           if (s.auto && (s.decline || s.voicemail || s.outgoing)) refuse(`${at}: an auto call answers itself; it has no decline, voicemail or dialling.`);
@@ -656,7 +666,7 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
   if (pack.opening) {
     for (const p of openingProblems(pack, { cast, pets, placeOf, camPoints, cityName, keys: [...Object.keys(cityPlaces), ...Object.keys(aliases)], secs: show ? SHOWCASE.openingSecs : undefined })) refuse(p);
     collect(pack.opening, 'opening', texts);
-    pack.opening.shots.forEach((sh: Json, j: number) => { if (sh.say && sh.line && cast.has(sh.say)) lines.push({ id: `OPEN.c${j}`, who: sh.say, text: sh.line, hash: lineHash(sh.line), status: 'pending', clip: null }); });
+    pack.opening.shots.forEach((sh: Json, j: number) => { if (sh.say && sh.line && cast.has(sh.say)) lines.push({ id: `OPEN.c${j}`, who: sh.say, text: sh.line, hash: lineHash(sh.line), status: 'pending', clip: null, ...(sh.how ? { how: sh.how } : {}) }); });
   } else if (opts.parent?.opening) refuse(`opening: the original has an opening (its place card, its people's name cards, its premise). A Mog keeps it: copy the original's "opening" exactly, or, when the idea changes the story or its people, write the Mog's own, by the same rules.`);
 
   // 5, 6, 7: every text
@@ -820,6 +830,20 @@ export function toRunnerPack(pack: PackV2, opts: { cast?: Record<string, string>
   const personOf = (p: Json) => { const o: Json = { ...p, who: ref(p.who) }; if (typeof p.face === 'string') o.face = ref(p.face); if (p.look && p.look !== 'lens' && p.look !== 'prop') o.look = ref(p.look); if (p.hug) o.hug = ref(p.hug); if (p.hold) o.hold = { ...p.hold, who: ref(p.hold.who) }; return o; };
   const setOf = (d: Json) => (d ? { ...d, people: (d.people || []).map(personOf) } : d);
   const shots = (list: Json[]) => list.map((sh: Json) => { const c: Json = { ...sh }; for (const k of ['cam', 'look', 'to', 'lookTo']) if (c[k]) c[k] = camRef(c[k]); if (c.act) c.act = c.act.map(personOf); if (c.frame) { for (const k of ['on', 'at']) if (typeof c[k] === 'string') c[k] = ref(c[k]); } return c; });
+  // an exchange in one shot (lines): one shot per line, the first the shot as written, each next one `cont` (the same
+  // shot going on: no cut) holding where the first one's lens ends, the shot's time shared by the lines' length. An
+  // engine that knows `cont` plays them as one shot; one that doesn't cuts between the same framing, every line said
+  const exchange = (sh: Json): Json[] => {
+    if (!Array.isArray(sh.lines) || !sh.lines.length) return [sh];
+    const { lines, ...base } = sh, total = lines.reduce((n: number, l: Json) => n + Math.max(1, String(l.text).length / 15), 0);
+    const dur = Math.max(base.dur ?? 0, total);
+    return lines.map((l: Json, k: number) => {
+      const c: Json = k === 0 ? { ...base } : { ...base, cont: true, ...(base.to ? { cam: base.to } : {}), ...(base.lookTo ? { look: base.lookTo } : {}) };
+      if (k > 0) { delete c.to; delete c.lookTo; delete c.caption; delete c.act; }
+      for (const f of ['how', 'pre', 'post', 'overlap']) delete c[f];
+      return { ...c, ...delivery(l), say: l.who, line: l.text, dur: +(dur * Math.max(1, String(l.text).length / 15) / total).toFixed(2) };
+    });
+  };
   const choiceOf = (s: Json): Json => {
     const o: Json = { ...s, who: s.who ? name(s.who) : s.who };
     o.options = s.options.map((op: Json) => (op.reply ? { ...op, reply: tuple(s.who, op.reply) } : op));
@@ -828,16 +852,21 @@ export function toRunnerPack(pack: PackV2, opts: { cast?: Record<string, string>
   };
   // v2 writes speakers as cast ids and lines as objects; the runner wants display names and [who, text, secs] tuples
   const tuple = (who: string, text: string, secs?: number) => (secs == null ? [name(who), text] : [name(who), text, secs]);
+  // (a line with a delivery (how, pre, post, overlap) goes as an object, which the runner reads as it reads a tuple
+  // (runner.js tuple(): an array is [who, text, secs], an object is used as it is); without one, the tuple as before)
+  const delivery = (l: Json) => Object.fromEntries(['how', 'pre', 'post', 'overlap'].filter((k) => l?.[k] != null).map((k) => [k, l[k]]));
   const step = (s: Json): Json => {
     const o: Json = { ...s };
     if (o.during) o.during = o.during.map(step);
     if (o.do) o.do = o.do.map(step);
     if (typeof o.who === 'string') o.who = name(o.who);
-    const callLines = (ls: Json[]) => ls.map((l: Json) => tuple(l.who, l.text, l.secs).map((x, i) => (i === 0 ? String(x).toUpperCase() : x)));
+    const callLines = (ls: Json[]) => ls.map((l: Json) => { const t = tuple(l.who, l.text, l.secs).map((x, i) => (i === 0 ? String(x).toUpperCase() : x)), d = delivery(l);
+      return Object.keys(d).length ? { who: t[0], text: t[1], ...(l.secs != null ? { secs: l.secs } : {}), ...d } : t; });
     if (s.type === 'call' && o.lines) o.lines = callLines(o.lines);
     if (s.type === 'call' && o.extra) o.extra = o.extra.map(callLines);
     if (s.type === 'call' && o.wrap) o.wrap = callLines(o.wrap);
     if (s.type === 'call' && o.hold) o.hold = { pause: callLines(o.hold.pause || []), resume: callLines(o.hold.resume || []) };
+    if (s.type === 'call' && o.react) o.react = Object.fromEntries(Object.entries(o.react as Record<string, Json[]>).map(([k, ls]) => [k, callLines(ls)]));
     if (s.type === 'dm') { o.from = s.from ? name(s.from) : s.name; delete o.name; }
     if (s.type === 'comfort' && o.lines) o.lines = o.lines.map((l: Json) => ({ ...l, who: name(l.who) }));
     if (s.type === 'passenger' && o.comfort?.lines) o.comfort = { ...o.comfort, lines: o.comfort.lines.map((l: Json) => ({ ...l, who: name(l.who) })) };
@@ -847,7 +876,7 @@ export function toRunnerPack(pack: PackV2, opts: { cast?: Record<string, string>
     if (s.type === 'call' && s.choice) o.choice = choiceOf(s.choice);
     // a cutscene's line: [speaker, text] under the shot; a bare sub has no speaker
     if (s.type === 'cutscene' && s.set) o.set = setOf(s.set);
-    if (s.type === 'cutscene') o.shots = shots(s.shots).map((sh: Json) => { const c = { ...sh }; if (c.say) c.sub = tuple(c.say, c.line); else if (typeof c.sub === 'string') c.sub = ['', c.sub]; delete c.say; delete c.line; return c; });
+    if (s.type === 'cutscene') o.shots = shots(s.shots).flatMap(exchange).map((sh: Json) => { const c = { ...sh }; if (c.say) c.sub = tuple(c.say, c.line); else if (typeof c.sub === 'string') c.sub = ['', c.sub]; delete c.say; delete c.line; return c; });
     if (s.type === 'beat' && o.shot) o.shot = shots([o.shot])[0];
     if (s.type === 'fight') o.enemies = s.enemies.map(name);
     if (s.type === 'actEnd' && o.quote?.by) o.quote = { ...o.quote, by: name(o.quote.by) };

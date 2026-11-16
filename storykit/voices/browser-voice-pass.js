@@ -5,7 +5,8 @@
 //   import { createVoicePass } from '/storykit/voices/browser-voice-pass.js';
 //   const pass = createVoicePass({ onProgress: (p) => console.log(p) });   // model from Hugging Face, see below
 //   const plan = await pass.plan();                       // what would run here, and how big the download is
-//   const out = await pass.run({ lines: [{ id, speaker, text }], voices: { [speaker]: voiceBlock } }, { signal });
+//   const out = await pass.run({ lines: [{ id, speaker, text, how? }], voices: { [speaker]: voiceBlock } }, { signal });
+//   (how: the line's delivery, voice-design.js HOW: its pace, pitch and level move, and it is part of the clip's key)
 //   out.mode  -> 'kokoro' | 'speech'; out.clips -> Map(lineId -> { blob (audio/wav), seconds, key, cached })
 //
 // Where the files come from. GameMog serves none of the model or its runtime (no CDN or bucket of ours):
@@ -29,7 +30,7 @@
 // changes three lines renders three clips.
 
 import { lintVoiceBlock, blendStyle, styleRow, renderSpeed, shape, toPhonemes, langOf, clipKey, wavBytes,
-  SAMPLE_RATE, KOKORO_VOICES } from './voice-design.js';
+  SAMPLE_RATE, KOKORO_VOICES, deliveredBlock, splitSentences, joinSentences } from './voice-design.js';
 
 const MODEL_FILES = { fp32: ['onnx/model.onnx', 326e6], fp16: ['onnx/model_fp16.onnx', 163e6], q8: ['onnx/model_quantized.onnx', 92e6] };
 const VOICE_BYTES = 522240;                                  // one 510 x 256 float32 table
@@ -143,13 +144,23 @@ export function createVoicePass(opts = {}) {
     return g2p;
   }
 
-  // One line -> Float32Array at 24 kHz, shaped (pitch, trim, level). phonemes: Kokoro IPA made elsewhere (optional)
-  async function render(text, block, phonemes) {
-    const ph = phonemes || (await toPhonemes(text, langOf(block), await getG2p()));
-    const { input_ids } = tok(ph, { truncation: true });
-    const style = new T.Tensor('float32', styleRow(await styleFor(block), input_ids.dims.at(-1)), [1, 256]);
-    const { waveform } = await model({ input_ids, style, speed: new T.Tensor('float32', [renderSpeed(block)], [1]) });
-    return shape(waveform.data, block);
+  // One line -> Float32Array at 24 kHz, shaped (pitch, trim, level). phonemes: Kokoro IPA made elsewhere (optional).
+  // how: the line's delivery (its pace and pitch on the character's block, its level after). A line of two or more
+  // sentences is said sentence by sentence with a beat between (0.3 to 0.45 s, voice-design.js sentenceGap): Kokoro
+  // run over the whole line rushes its full stops, which is much of what made the cutscenes sound read off a card
+  async function render(text, block0, phonemes, how = null) {
+    const block = deliveredBlock(block0, how);
+    const once = async (t, ph0) => {
+      const ph = ph0 || (await toPhonemes(t, langOf(block), await getG2p()));
+      const { input_ids } = tok(ph, { truncation: true });
+      const style = new T.Tensor('float32', styleRow(await styleFor(block), input_ids.dims.at(-1)), [1, 256]);
+      const { waveform } = await model({ input_ids, style, speed: new T.Tensor('float32', [renderSpeed(block)], [1]) });
+      return Float32Array.from(waveform.data);
+    };
+    const parts = phonemes ? [text] : splitSentences(text);
+    if (parts.length < 2) return shape(await once(text, phonemes), block, how);
+    const raws = []; for (const p of parts) raws.push(await once(p));
+    return shape(joinSentences(raws, parts), block, how, true);
   }
 
   // The whole pass. lines: [{ id, speaker, text, phonemes? }]; voices: { speaker: block }
@@ -163,7 +174,7 @@ export function createVoicePass(opts = {}) {
     // 1. clips already made (this pack before, or the Mog's parent)
     const todo = [];
     for (const l of lines) {
-      const key = await clipKey(l.text, blockOf(l));
+      const key = await clipKey(l.text, blockOf(l), undefined, l.how);
       const hit = cache && (await safe(() => cache.match(keyUrl(key)), null));
       if (hit) {
         const blob = await hit.blob(), secs = +hit.headers.get('x-seconds');
@@ -182,7 +193,7 @@ export function createVoicePass(opts = {}) {
       const { l, key } = todo[i];
       try {
         const r0 = performance.now();
-        const y = await render(l.text, blockOf(l), l.phonemes), renderMs = performance.now() - r0;
+        const y = await render(l.text, blockOf(l), l.phonemes, l.how), renderMs = performance.now() - r0;
         const enc = o.encode ? await o.encode(y) : { bytes: wavBytes(y), ext: 'wav', type: 'audio/wav', codec: 'pcm16' };
         const blob = new Blob([enc.bytes], { type: enc.type });
         const clip = { blob, seconds: y.length / SAMPLE_RATE, key, cached: false, ext: enc.ext, codec: enc.codec, renderMs, encodeMs: performance.now() - r0 - renderMs };
@@ -205,7 +216,7 @@ export function createVoicePass(opts = {}) {
     return { mode: 'speech', reason, clips, failed: [], problems: {} };
   }
 
-  return { plan, run, render: async (text, block) => { const p = await plan(); if (p.mode !== 'kokoro') throw new Error(p.reason); await load(p); return render(text, lintVoiceBlock(block).block); }, speak, get device() { return device; } };
+  return { plan, run, render: async (text, block, how = null) => { const p = await plan(); if (p.mode !== 'kokoro') throw new Error(p.reason); await load(p); return render(text, lintVoiceBlock(block).block, null, how); }, speak, get device() { return device; } };
 }
 
 // Fallback: speak a line with the browser's own voice and show it as a subtitle. Placeholder quality only: it sounds

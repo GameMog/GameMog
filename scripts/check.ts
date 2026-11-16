@@ -31,6 +31,7 @@ import { runForgeBrowserChecks } from './storykit-forge-browser-check.ts';
 import { runHometownChecks } from './storykit-hometown-check.ts';
 import { runReachChecks } from './storykit-reach-check.ts';
 import { runWardrobeChecks } from './storykit-wardrobe-check.ts';
+import { runDialogueChecks } from './storykit-dialogue-check.ts';
 import { runTownChecks } from './hometown-towns-check.ts';
 import { runPlacesChecks } from './places-check.ts';
 import { runHometownTilesChecks } from './hometown-tiles-check.ts';
@@ -560,6 +561,8 @@ runHometownChecks(ok);
 await runReachChecks(ok);
 // Story Kit (13 Nov): a forged person's clothes follow their work (a mechanic is never forged in a business suit)
 runWardrobeChecks(ok);
+// Story Kit (16 Nov): how people talk: the builder's rules, the dialogue read-back, delivery tags, the voice step
+await runDialogueChecks(ok);
 await runTownChecks(ok);
 // Story Kit (B6): the Character Forge in a creator's browser: its sharp, and every anchor forged in Chrome under the store's cap
 await runForgeBrowserChecks(ok);

@@ -35,7 +35,8 @@ export function voicePlanOf(pack: any, dir = `packs/${pack.id}/voice/`, city: Ci
     cast: Object.fromEntries(pack.cast.map((c: any) => { const b: any = blocks.get(c.id); return [name(c.id), { id: c.id, voice: b.id, key: voiceKey(b), block: b }]; })),
     lines: lines.map((l) => {
       const b: any = blocks.get(l.who), rec = recordedClip(pack.cast.find((c: any) => c.id === l.who)?.voice, l.text);
-      return { id: l.id, who: name(l.who), voice: b.id, text: l.text, hash: l.hash, clip: clipBase(l.text, b), ...(rec ? { rec: rec.url, recId: rec.id, secs: rec.secs } : {}) };
+      // (a line's how (its delivery) names its clip with the voice, and the voice pass reads it: voice-design.js clipBase)
+      return { id: l.id, who: name(l.who), voice: b.id, text: l.text, hash: l.hash, clip: clipBase(l.text, b, l.how), ...(l.how ? { how: l.how } : {}), ...(rec ? { rec: rec.url, recId: rec.id, secs: rec.secs } : {}) };
     })
   };
 }

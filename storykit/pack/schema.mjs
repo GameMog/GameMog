@@ -83,6 +83,13 @@ export const STINGS = ['siren', 'screech', 'roar', 'boom', 'hit', 'whoosh', 'cra
 export const STEP_CAMS = ['low', 'hood'];
 export const FRAMES = ['ots', 'close', 'push', 'react', 'two', 'low', 'wide'];
 export const OPENING = { secs: [30, 75], lines: [2, 4], allies: 3, shots: 16, wide: 8 };
+// how a line is said (DIALOGUE AND SCENE FLOW SPEC v1, D2): the voice pass varies the delivery by it (speed, pitch and
+// level, voice-design.js HOW) and it enters the clip's key; the line's id stays its speaker and text. pre and post are
+// authored beats in seconds before and after the line; overlap lets a short reply start just before the last line ends
+export const DELIVERY = ['warm', 'tease', 'deadpan', 'urgent', 'angry', 'shout', 'scared', 'hushed', 'hesitant', 'sad', 'smug'];
+// a car-phone call's react pools (W11): what the caller says when the player does one of these while it talks
+export const REACT_POOLS = ['tooClose', 'hit', 'lost', 'spotted'];
+export const CALL_REGISTERS = ['normal', 'whisper', 'fast'];
 export const LIMITS = { bytes: 160_000, acts: 3, missions: 9, steps: 60, cast: 12, pets: 3, vehicles: 6, lines: 600 };
 // A first-party showcase world (gate.ts gatePack(pack, { showcase: true })): hand-authored by GameMog and shipped from the
 // repo (storykit/packs/<id>.json, listed in SHOWCASE_PACKS), like Mog City's own story ({ own: true }); never the
@@ -101,6 +108,13 @@ const R = (name) => ({ $ref: `#/$defs/${name}` });
 const O = (properties, required = [], extra = {}) => ({ type: 'object', additionalProperties: false, required, properties, ...extra });
 const A = (items, maxItems, minItems = 0, extra = {}) => ({ type: 'array', items, minItems, maxItems, ...extra });
 const ONE = (...oneOf) => ({ oneOf });
+// a spoken line's delivery (DELIVERY): every field optional, so a line without them plays and voices as before
+const DLV = {
+  how: E(DELIVERY, { description: 'how it is said: warm, tease, deadpan, urgent, angry, shout, scared, hushed, hesitant, sad, smug' }),
+  pre: N(0, 1.2, { description: 'an authored beat before the line, seconds (the sincere pivot after a joke: 0.6 to 0.8)' }),
+  post: N(0, 1.2, { description: 'an authored beat after the line, seconds (after a reveal: 0.8 to 1.2)' }),
+  overlap: { ...B, description: 'a reply of 2 words or fewer that may start just before the last line ends (a cut-in)' }
+};
 
 // fields every step can carry (missions/README.md "Fields every step can carry"), the during list added per step
 const COMMON = {
@@ -131,7 +145,8 @@ const setDef = O({ room: E(SET_ROOMS), light: E(['day', 'golden', 'night']), sig
 const setAct = A(O(setPersonProps, ['who']), 7, 0, { description: "a shot's changes to its set's people as it starts: where they stand, whom they face, their pose, a walk, a hug" });
 // a cutscene shot: `say` + `line` is a cast member's spoken line under the shot (a subtitle until its clip is ready)
 // (or, with no cam, a shot by its grammar: frame, on whom, at whom; the engine works the lens out from where they stand)
-const shot = O({ cam: camRef, to: camRef, look: camRef, lookTo: camRef, dur: N(0.5, 12), fov: N(20, 90), sub: R('line'), say: R('castRef'), line: R('speech'), caption: R('label'), act: setAct,
+const shot = O({ cam: camRef, to: camRef, look: camRef, lookTo: camRef, dur: N(0.5, 12), fov: N(20, 90), sub: R('line'), say: R('castRef'), line: R('speech'), caption: R('label'), act: setAct, ...DLV,
+  lines: A(R('spoken'), 4, 2, { description: 'an exchange played in this one shot, in place of say + line: 2 to 4 lines, the speakers alternating (a two-shot or an over-the-shoulder)' }),
   frame: E(FRAMES, { description: "the shot by its grammar, in place of cam: ots (over on's shoulder onto at), close (on's face), push (pushing in on on's face), react (a quick close-up of on's reaction), two (on and at together), low (a low hero angle on on), wide (high and wide over on)" }),
   on: { ...R('slug'), description: "a frame's subject: a cast id with a body on the street, or 'player'" }, at: { ...R('slug'), description: "a frame's other person (ots: whom we look at over on's shoulder; two: who is with on)" } }, []);
 // a choice's fields: a choice step, or the choice at the end of an answered call (call.choice)
@@ -175,6 +190,8 @@ const STEPS = fx(['drive', 'stops', 'pursuit', 'tail', 'tow', 'timer', 'fight', 
     extra: A(A(R('spoken'), 12, 1), 8, 0, { description: 'more talk, block by block, after the lines and while the step it rides on still runs (a long drive)' }),
     wrap: A(R('spoken'), 6, 0, { description: 'when the step it rides on ends (he arrived), the line being said finishes, then these, then the call ends' }),
     hold: O({ pause: A(R('spoken'), 2), resume: A(R('spoken'), 2) }, [], { description: 'inCar: what is said when he gets out, and when he is back at the wheel' }),
+    react: O(Object.fromEntries(REACT_POOLS.map((k) => [k, A(R('spoken'), 3, 2)])), [], { description: 'what the caller says when the player does this while the call talks (tooClose: on the bumper of who he tails; hit: a crash; lost: off the route or the target lost; spotted: seen): 2 or 3 variants each, one at a time, never twice in 7 s' }),
+    register: E(CALL_REGISTERS, { description: 'how the call is said: normal, whisper (they are hiding), fast (a chase: tight gaps)' }),
     voicemail: O({ text: R('speech'), secs: N(0.5, 20), from: R('castRef'), flag: R('flag'), set: R('set') }, ['text']),
     outgoing: B, pickup: B, tag: R('slug'), duck: B, carry: B,
     interrupts: { ...B, description: "call waiting: ringing while a car-phone call is on, it comes up as a second card (CALL WAITING); answered, the live call holds (its hold.pause line), this one is said, then the live one resumes (its hold.resume line) where it was; declined, its voicemail" },
@@ -186,7 +203,7 @@ const STEPS = fx(['drive', 'stops', 'pursuit', 'tail', 'tow', 'timer', 'fight', 
   cutscene: step('cutscene', { shots: A(shot, 12, 1), place: R('placeRef'), set: setDef }, ['shots']),
   place: step('place', { at: R('placeRef'), time: E(TIMES), bonus: N(0, 600) }, ['at']),
   set: step('set', { set: R('set') }, ['set']),
-  say: step('say', { who: R('castRef'), text: R('speech'), secs: N(0.5, 12), wait: B }, ['who', 'text']),
+  say: step('say', { who: R('castRef'), text: R('speech'), secs: N(0.5, 12), wait: B, ...DLV }, ['who', 'text']),
   wait: step('wait', { secs: N(0, 30), call: { ...B, description: 'ends early once no call is live (a car phone wrapping up), secs at most' } }, ['secs']),
   goto: step('goto', { to: R('stepId') }, ['to']),
   end: step('end', { fail: R('line') }),
@@ -303,7 +320,7 @@ const STEPS = fx(['drive', 'stops', 'pursuit', 'tail', 'tow', 'timer', 'fight', 
 
 // the opening's shots: a cutscene's (camera, a spoken line), plus the place card, a name card and the title
 const openingShot = O({
-  cam: camRef, to: camRef, look: camRef, lookTo: camRef, dur: N(0.5, 12), fov: N(20, 90), say: R('castRef'), line: R('speech'), sub: R('line'),
+  cam: camRef, to: camRef, look: camRef, lookTo: camRef, dur: N(0.5, 12), fov: N(20, 90), say: R('castRef'), line: R('speech'), sub: R('line'), ...DLV,
   where: O({ name: R('label'), sub: R('label') }, ['name'], { description: "the place card (Mog City's 'Murray Hill' / 'E 37th St · Midtown · 5:45 PM'): the name of where we are, and under it the street, the part of town and the time" }),
   card: O({
     who: R('castRef'), role: S(60, { description: 'one line under the name: who they are to this story ("the fall guy", "the fixer running the auction")' }),
@@ -384,7 +401,14 @@ export const SCHEMA = {
       id: R('slug'), anchor: E(ANCHORS), color: R('colour'), voiceOnly: { ...B, description: 'heard, never seen (a dispatcher on the phone): no sheet, no body' },
       model: E(CAST_MODELS, { description: 'a shipped person from the cast registry (public/storykit/cast/registry.json), as they are: their own body, clips, face and recorded lines. No sheet. anchor and voice default to the registry\'s' }),
       name: S(40, { description: 'a model person\'s name (a sheet carries its own): a rename keeps the body' }), role: S(60, { description: 'a model person\'s role' }),
-      sheet: { $ref: FORGE_SHEET }, voice
+      sheet: { $ref: FORGE_SHEET }, voice,
+      speech: O({
+        rhythm: S(60, { description: 'fast or slow, long or short lines ("quick, clipped, finishes your sentences")' }),
+        habit: S(60, { description: 'one verbal habit or pet name ("babe"; answers a question with a question)' }),
+        jokes: S(80, { description: 'their joke style ("deadpan understatement")' }),
+        never: S(80, { description: 'one thing they would never say' }),
+        motifs: A(S(40), 4, 0, { description: 'their personal details the lines come back to (a dog, a printer card, mustard)' })
+      }, [], { description: "the voice sheet: how this person talks, so no two people's lines could be swapped (every speaking person, voice-only included)" })
     }, ['id', 'color']), LIMITS.cast, 1),
     pets: A(O({ id: R('slug'), name: S(40), species: E(['dog'], { description: 'the rigged animals the engine has' }), breed: E(['mixed', 'terrier', 'shepherd', 'retriever', 'bulldog', 'husky', 'poodle', 'spaniel']), coat: R('colour'), size: E(['small', 'medium', 'large']), owner: R('castRef'),
       model: E(PET_MODELS, { description: 'a shipped pet from the cast registry (mogcity/moon: Moon, a small white fluffy dog); without one a dog is built the same way in its coat and size' }),
@@ -426,8 +450,8 @@ export const SCHEMA = {
     objective: S(120, { description: 'the HUD objective; **bold**, {n} {of} {name} and ride tokens ({ride}, {ride.name}, {ride.board}, {ride.go}, {ride.park})' }),
     line: S(160),
     speech: S(200, { description: 'a spoken line (voiced; a subtitle until its clip is ready)' }),
-    spoken: O({ who: R('castRef'), text: R('speech'), secs: N(0.5, 20) }, ['who', 'text']),
-    sayLine: O({ who: R('castRef'), text: R('speech') }, ['who', 'text']),
+    spoken: O({ who: R('castRef'), text: R('speech'), secs: N(0.5, 20), ...DLV }, ['who', 'text']),
+    sayLine: O({ who: R('castRef'), text: R('speech'), ...DLV }, ['who', 'text']),
     cond: ONE(S(120), O({ all: A({ $ref: '#/$defs/cond' }, 6, 1) }, ['all']), O({ any: A({ $ref: '#/$defs/cond' }, 6, 1) }, ['any']), O({ not: { $ref: '#/$defs/cond' } }, ['not'])),
     value: ONE(N(0, 3600), O({ base: N(0, 3600), add: A(O({ if: R('cond'), n: N(-3600, 3600) }, ['if', 'n']), 6), min: N(0, 3600), max: N(0, 3600) }, ['base'])),
     amount: ONE(N(-1e6, 1e6), O({ add: N(-1e6, 1e6) }, ['add']), O({ to: N(-1e6, 1e6) }, ['to'])),

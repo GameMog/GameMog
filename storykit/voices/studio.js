@@ -129,7 +129,7 @@ function fail(msg) { S.state = 'error'; S.error = msg; $('#st').innerHTML = `<b>
     for (const l of list) show(l, 'rendering');
     const voices = Object.fromEntries(Object.entries(plan.cast).map(([, c]) => [c.voice, c.block]));
     const t0 = performance.now();
-    const out = await pass.run({ lines: list.map((l) => ({ id: l.id, speaker: l.voice, text: l.text })), voices });
+    const out = await pass.run({ lines: list.map((l) => ({ id: l.id, speaker: l.voice, text: l.text, ...(l.how ? { how: l.how } : {}) })), voices });
     S.seconds = (performance.now() - t0) / 1000; S.audioSeconds = out.audioSeconds; S.mode = out.mode; S.failed = out.failed;
     S.phonemizerFetched = performance.getEntriesByType('resource').some((e) => /gpl\/phonemizer\.js/.test(e.name));
     for (const f of out.failed) { const l = plan.lines.find((x) => x.id === f.id); if (l) show(l, 'failed', f.error); }

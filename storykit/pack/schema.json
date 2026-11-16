@@ -605,6 +605,38 @@
        "sub": {
         "$ref": "#/$defs/line"
        },
+       "how": {
+        "enum": [
+         "warm",
+         "tease",
+         "deadpan",
+         "urgent",
+         "angry",
+         "shout",
+         "scared",
+         "hushed",
+         "hesitant",
+         "sad",
+         "smug"
+        ],
+        "description": "how it is said: warm, tease, deadpan, urgent, angry, shout, scared, hushed, hesitant, sad, smug"
+       },
+       "pre": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1.2,
+        "description": "an authored beat before the line, seconds (the sincere pivot after a joke: 0.6 to 0.8)"
+       },
+       "post": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1.2,
+        "description": "an authored beat after the line, seconds (after a reveal: 0.8 to 1.2)"
+       },
+       "overlap": {
+        "type": "boolean",
+        "description": "a reply of 2 words or fewer that may start just before the last line ends (a cut-in)"
+       },
        "where": {
         "type": "object",
         "additionalProperties": false,
@@ -1281,6 +1313,44 @@
         ]
        }
       ]
+     },
+     "speech": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+       "rhythm": {
+        "type": "string",
+        "maxLength": 60,
+        "description": "fast or slow, long or short lines (\"quick, clipped, finishes your sentences\")"
+       },
+       "habit": {
+        "type": "string",
+        "maxLength": 60,
+        "description": "one verbal habit or pet name (\"babe\"; answers a question with a question)"
+       },
+       "jokes": {
+        "type": "string",
+        "maxLength": 80,
+        "description": "their joke style (\"deadpan understatement\")"
+       },
+       "never": {
+        "type": "string",
+        "maxLength": 80,
+        "description": "one thing they would never say"
+       },
+       "motifs": {
+        "type": "array",
+        "items": {
+         "type": "string",
+         "maxLength": 40
+        },
+        "minItems": 0,
+        "maxItems": 4,
+        "description": "their personal details the lines come back to (a dog, a printer card, mustard)"
+       }
+      },
+      "description": "the voice sheet: how this person talks, so no two people's lines could be swapped (every speaking person, voice-only included)"
      }
     }
    },
@@ -1850,6 +1920,38 @@
      "type": "number",
      "minimum": 0.5,
      "maximum": 20
+    },
+    "how": {
+     "enum": [
+      "warm",
+      "tease",
+      "deadpan",
+      "urgent",
+      "angry",
+      "shout",
+      "scared",
+      "hushed",
+      "hesitant",
+      "sad",
+      "smug"
+     ],
+     "description": "how it is said: warm, tease, deadpan, urgent, angry, shout, scared, hushed, hesitant, sad, smug"
+    },
+    "pre": {
+     "type": "number",
+     "minimum": 0,
+     "maximum": 1.2,
+     "description": "an authored beat before the line, seconds (the sincere pivot after a joke: 0.6 to 0.8)"
+    },
+    "post": {
+     "type": "number",
+     "minimum": 0,
+     "maximum": 1.2,
+     "description": "an authored beat after the line, seconds (after a reveal: 0.8 to 1.2)"
+    },
+    "overlap": {
+     "type": "boolean",
+     "description": "a reply of 2 words or fewer that may start just before the last line ends (a cut-in)"
     }
    }
   },
@@ -1866,6 +1968,38 @@
     },
     "text": {
      "$ref": "#/$defs/speech"
+    },
+    "how": {
+     "enum": [
+      "warm",
+      "tease",
+      "deadpan",
+      "urgent",
+      "angry",
+      "shout",
+      "scared",
+      "hushed",
+      "hesitant",
+      "sad",
+      "smug"
+     ],
+     "description": "how it is said: warm, tease, deadpan, urgent, angry, shout, scared, hushed, hesitant, sad, smug"
+    },
+    "pre": {
+     "type": "number",
+     "minimum": 0,
+     "maximum": 1.2,
+     "description": "an authored beat before the line, seconds (the sincere pivot after a joke: 0.6 to 0.8)"
+    },
+    "post": {
+     "type": "number",
+     "minimum": 0,
+     "maximum": 1.2,
+     "description": "an authored beat after the line, seconds (after a reveal: 0.8 to 1.2)"
+    },
+    "overlap": {
+     "type": "boolean",
+     "description": "a reply of 2 words or fewer that may start just before the last line ends (a cut-in)"
     }
    }
   },
@@ -3036,6 +3170,54 @@
        },
        "description": "inCar: what is said when he gets out, and when he is back at the wheel"
       },
+      "react": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "tooClose": {
+         "type": "array",
+         "items": {
+          "$ref": "#/$defs/spoken"
+         },
+         "minItems": 2,
+         "maxItems": 3
+        },
+        "hit": {
+         "type": "array",
+         "items": {
+          "$ref": "#/$defs/spoken"
+         },
+         "minItems": 2,
+         "maxItems": 3
+        },
+        "lost": {
+         "type": "array",
+         "items": {
+          "$ref": "#/$defs/spoken"
+         },
+         "minItems": 2,
+         "maxItems": 3
+        },
+        "spotted": {
+         "type": "array",
+         "items": {
+          "$ref": "#/$defs/spoken"
+         },
+         "minItems": 2,
+         "maxItems": 3
+        }
+       },
+       "description": "what the caller says when the player does this while the call talks (tooClose: on the bumper of who he tails; hit: a crash; lost: off the route or the target lost; spotted: seen): 2 or 3 variants each, one at a time, never twice in 7 s"
+      },
+      "register": {
+       "enum": [
+        "normal",
+        "whisper",
+        "fast"
+       ],
+       "description": "how the call is said: normal, whisper (they are hiding), fast (a chase: tight gaps)"
+      },
       "voicemail": {
        "type": "object",
        "additionalProperties": false,
@@ -3840,6 +4022,47 @@
           "maxItems": 7,
           "description": "a shot's changes to its set's people as it starts: where they stand, whom they face, their pose, a walk, a hug"
          },
+         "how": {
+          "enum": [
+           "warm",
+           "tease",
+           "deadpan",
+           "urgent",
+           "angry",
+           "shout",
+           "scared",
+           "hushed",
+           "hesitant",
+           "sad",
+           "smug"
+          ],
+          "description": "how it is said: warm, tease, deadpan, urgent, angry, shout, scared, hushed, hesitant, sad, smug"
+         },
+         "pre": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1.2,
+          "description": "an authored beat before the line, seconds (the sincere pivot after a joke: 0.6 to 0.8)"
+         },
+         "post": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1.2,
+          "description": "an authored beat after the line, seconds (after a reveal: 0.8 to 1.2)"
+         },
+         "overlap": {
+          "type": "boolean",
+          "description": "a reply of 2 words or fewer that may start just before the last line ends (a cut-in)"
+         },
+         "lines": {
+          "type": "array",
+          "items": {
+           "$ref": "#/$defs/spoken"
+          },
+          "minItems": 2,
+          "maxItems": 4,
+          "description": "an exchange played in this one shot, in place of say + line: 2 to 4 lines, the speakers alternating (a two-shot or an over-the-shoulder)"
+         },
          "frame": {
           "enum": [
            "ots",
@@ -4364,6 +4587,38 @@
       },
       "wait": {
        "type": "boolean"
+      },
+      "how": {
+       "enum": [
+        "warm",
+        "tease",
+        "deadpan",
+        "urgent",
+        "angry",
+        "shout",
+        "scared",
+        "hushed",
+        "hesitant",
+        "sad",
+        "smug"
+       ],
+       "description": "how it is said: warm, tease, deadpan, urgent, angry, shout, scared, hushed, hesitant, sad, smug"
+      },
+      "pre": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 1.2,
+       "description": "an authored beat before the line, seconds (the sincere pivot after a joke: 0.6 to 0.8)"
+      },
+      "post": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 1.2,
+       "description": "an authored beat after the line, seconds (after a reveal: 0.8 to 1.2)"
+      },
+      "overlap": {
+       "type": "boolean",
+       "description": "a reply of 2 words or fewer that may start just before the last line ends (a cut-in)"
       },
       "sting": {
        "$ref": "#/$defs/sting"

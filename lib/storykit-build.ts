@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { db, insertDraft, type GameRow } from './db';
 import { gatePack, personName, mogBase, MOGCITY, LIKENESS_TEXT, type PackV2 } from '../storykit/pack/gate.ts';
+import { dialogueNotes } from '../storykit/pack/dialogue.ts';
 import { isBlocked } from './names';
 import { STORY_HERO_MAX, STORY_HERO_MODELS } from './storykit-site';
 import { MODELS, seeds as castSeeds, recordedClip, recordedLines } from '../storykit/pack/registry.ts';
@@ -232,23 +233,35 @@ export function exampleWorld(): PackV2 {
   if (ray && !p.cast.some((c: PackV2) => c.id === 'vic')) {
     const vic = JSON.parse(JSON.stringify(ray));
     vic.id = 'vic'; vic.anchor = 'fixer'; vic.color = '#9B2D3A';
-    vic.voice = { id: 'vic-v1', kokoro: 'bm_lewis', speed: 0.92, pitch: -0.8, description: 'a man in his fifties, low and unhurried, never raises his voice' };
+    vic.voice = { id: 'vic-v1', kokoro: 'bm_lewis', speed: 1.0, pitch: -0.8, description: 'a man in his fifties, low and dry, amused, quick when he wants something' };
     Object.assign(vic.sheet, { id: 'vic', name: 'Vic Lasko', role: 'the loan shark in the grey car', logline: 'Fifty-two, lends to the shops on Orchard Street and wants the only record of it burned.' });
     vic.sheet.identity = { ...vic.sheet.identity, age: 52 };
     vic.sheet.voice = { ...vic.sheet.voice, id: 'vic-v1' };
     p.cast.push(vic);
   }
+  // (How people talk, 16 Nov: the premise lands in an exchange, the hero and his fare trading turns, never a logline
+  // into the lens; the villain shows what he wants in what he asks for; the hook is a question)
   p.opening = {
     place: '@bowery', time: 'midnight',
     stage: [{ who: 'kwon', at: '@kwon-corner' }, { who: 'vic', at: '@foley' }],
     shots: [
       { cam: { rel: 'player', right: -8, up: 34, fwd: -55 }, to: { rel: 'player', right: -11, up: 13, fwd: -25 }, look: 'player', dur: 7.5, where: { name: 'The Bowery', sub: 'E Houston St · Lower East Side · 12:30 AM' } },
-      { cam: { rel: 'player', right: 0.7, up: 0.05, fwd: 2.3 }, look: { rel: 'player' }, dur: 6.5, card: { who: 'dez', is: 'hero', role: 'night-shift cab driver' }, say: 'dez', line: 'Five years of nights in this cab. One more fare, then home before the snow shuts the city.' },
-      { cam: { rel: 'kwon', right: 1, up: 0.25, fwd: 3.2 }, look: { rel: 'kwon' }, dur: 6, card: { who: 'kwon', is: 'ally', role: 'the last fare of the night' }, say: 'kwon', line: 'Fifty years of the shop\'s books, and only one bag to carry them in.' },
-      { cam: { rel: 'vic', right: -1.2, up: 0.2, fwd: 3 }, look: { rel: 'vic' }, dur: 6.5, card: { who: 'vic', is: 'antagonist', role: 'the loan shark in the grey car' }, say: 'vic', line: 'Every name in that bag owes me. Find the old woman before the snow stops.' },
+      { cam: { rel: 'player', right: 0.7, up: 0.05, fwd: 2.3 }, look: { rel: 'player' }, dur: 6, card: { who: 'dez', is: 'hero', role: 'night-shift cab driver' }, say: 'dez', line: 'Last fare before the snow shuts the city. Where to?', how: 'tease' },
+      { cam: { rel: 'kwon', right: 1, up: 0.25, fwd: 3.2 }, look: { rel: 'kwon' }, dur: 5.5, card: { who: 'kwon', is: 'ally', role: 'the last fare of the night' }, say: 'kwon', line: 'Foley Square. And don\'t look at the bag.', how: 'deadpan' },
+      { cam: { rel: 'vic', right: -1.2, up: 0.2, fwd: 3 }, look: { rel: 'vic' }, dur: 6, card: { who: 'vic', is: 'antagonist', role: 'the loan shark in the grey car' }, say: 'vic', line: 'Follow the cab. Gently. She\'s old, and the bag isn\'t.', how: 'smug' },
+      { cam: { rel: 'player', right: 0.6, up: 0.1, fwd: 2 }, look: { rel: 'player' }, dur: 5, say: 'dez', line: 'Ma\'am? Why does that grey car stop when we stop?', how: 'hesitant', pre: 0.3 },
       { cam: { rel: 'player', right: -9, up: 10, fwd: -18 }, look: 'player', dur: 6, title: true },
     ],
   };
+  // (each speaking person's voice sheet, How people talk rule 9; Ray's last line cut to two sentences, rule 1)
+  const sheets: Record<string, PackV2> = {
+    dez: { rhythm: 'easy, quick, short', habit: "calls every fare ma'am or sir", jokes: 'dry, about the cab and the weather', never: 'a threat', motifs: ['the snow', 'the meter', 'five years of nights'] },
+    kwon: { rhythm: 'clipped and polite, then very direct', habit: 'answers a question with an order', jokes: 'deadpan, about her age', never: 'please twice', motifs: ['the bag', "the shop's books", 'her granddaughter'] },
+    ray: { rhythm: 'flat, dry, short sentences', habit: 'says your name first', jokes: 'none out loud; worry as advice', never: 'that he is worried', motifs: ['locked doors', 'the crews below Houston'] },
+    vic: { rhythm: 'unhurried, then quick when he wants something', habit: 'gives orders as kindnesses', jokes: 'amused understatement', never: 'a raised voice', motifs: ['the bag', 'the grey car', 'who owes him'] },
+  };
+  for (const c of p.cast) if (sheets[c.id]) c.speech = sheets[c.id];
+  for (const a of p.acts) for (const m of a.missions) for (const x of m.steps) if (x.type === 'cutscene') for (const sh of x.shots) if (sh.say === 'ray' && /Go home, Dez\. I've got her\./.test(sh.line || '')) sh.line = "Told you to lock your doors. I've got her, Dez.";
   return p;
 }
 
@@ -538,7 +551,7 @@ export function payoffProblem(m: PackV2): string | null {
   if (i < 0) return 'it never asks the player to do anything: it must end on a payoff they play (reach the place and act there, tow the car, win the fight, lose the chase), then show what it won.';
   const last = steps[i];
   if (!PLAYED.has(last?.type) || last?.end || last?.goto) return `it ends on a '${last?.type}' step; end Mission 1 on a payoff the player plays (in a wrecker: a tow of the ambulance to the depot; a drive or walk to the goal, then a search there (hold F: "search the van"); a fight won or a chase lost), then at most the lines and the cutscene of what it won.`;
-  if (!steps.slice(i + 1).some((x) => ['say', 'cutscene', 'beat', 'scene', 'dm', 'call'].includes(x?.type)) && !m.passLine) return 'its payoff is played but never shown: follow it with a line or a short cutscene of what it won, or give it a passLine.';
+  if (!steps.slice(i + 1).some((x) => ['say', 'cutscene', 'beat', 'scene', 'dm', 'call'].includes(x?.type)) && !m.passLine) return 'its payoff is played but never shown: follow it with a reaction to what it won (a line or a short cutscene: a joke, relief, a look; not a description of it), or give it a passLine.';
   return null;
 }
 
@@ -570,10 +583,10 @@ function blockOf(c: PackV2) {
   return lintVoiceBlock({ id: c.voice.id, base, blend: blend || { [base]: 1 }, speed: c.voice.speed, pitch: c.voice.pitch, description: c.voice.description }).block;
 }
 /** Every spoken line's clip name (<line hash>-<voice key>), as the voice pass names it; a choice's prompt is not spoken. */
-function clipsOf(pack: PackV2, lines: { id: string; who: string; text: string }[]) {
+function clipsOf(pack: PackV2, lines: { id: string; who: string; text: string; how?: string }[]) {
   const blocks = new Map(pack.cast.map((c: PackV2) => [c.id, blockOf(c)]));
   // (a line with a shipped recording, the cast registry's, is never rendered: storykit/pack/registry.ts)
-  return lines.filter((l) => !/\.p$/.test(l.id) && blocks.has(l.who)).map((l) => ({ id: l.id, who: l.who, clip: clipBase(l.text, blocks.get(l.who)) as string, rec: !!recordedClip(pack.cast.find((c: PackV2) => c.id === l.who)?.voice, l.text) }));
+  return lines.filter((l) => !/\.p$/.test(l.id) && blocks.has(l.who)).map((l) => ({ id: l.id, who: l.who, clip: clipBase(l.text, blocks.get(l.who), l.how) as string, rec: !!recordedClip(pack.cast.find((c: PackV2) => c.id === l.who)?.voice, l.text) }));
 }
 export type Inheritance = {
   parent: string | null;
@@ -704,7 +717,7 @@ export async function generateStorykit(
   const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: 'user', content: first }];
   const draftId = randomUUID(), packId = `sk-${draftId.slice(0, 8)}`;
   let lastProblems: string[] = [];
-  const passes: { attempt: number; stop: string | null; replyChars: number; sentBack: string[]; pacing?: string[] }[] = [];
+  const passes: { attempt: number; stop: string | null; replyChars: number; sentBack: string[]; pacing?: string[]; dialogue?: string[] }[] = [];
   for (let attempt = 1; attempt <= STORYKIT_MAX_ATTEMPTS; attempt++) {
     if (stopped()) return;
     emit({ type: 'stage', stage: attempt === 1 ? 'thinking' : 'repairing', attempt });
@@ -740,7 +753,7 @@ export async function generateStorykit(
     const text = final.content.filter((b) => b.type === 'text').map((b) => (b as Anthropic.Beta.BetaTextBlock).text).join('\n');
     emit({ type: 'stage', stage: 'checking', attempt });
     const { meta, pack: raw, problems } = parseStorykitReply(text);
-    const account = { attempt, stop: final.stop_reason ?? null, replyChars: text.length, sentBack: [] as string[], pacing: [] as string[] };
+    const account = { attempt, stop: final.stop_reason ?? null, replyChars: text.length, sentBack: [] as string[], pacing: [] as string[], dialogue: [] as string[] };
     passes.push(account);
     if (final.stop_reason === 'max_tokens') problems.push('The reply was cut off at the length limit. Reply again with both blocks, the pack as compact JSON (no indentation), and shorter texts where you can.');
     let gated: ReturnType<typeof gatePack> | null = null;
@@ -762,6 +775,11 @@ export async function generateStorykit(
     const pace = !sk.mog && raw && typeof raw === 'object' && !Array.isArray(raw) ? pacingProblems(raw) : [];
     account.pacing = pace.map((p) => p.slice(0, 200));
     if (attempt === 1) problems.push(...pace);
+    // (how people talk, a Create's: the dialogue read-back (storykit/pack/dialogue.ts), sent back on the first pass only
+    // like pacing, never a fail; its notes go in the trail)
+    const talk = !sk.mog && raw && typeof raw === 'object' && !Array.isArray(raw) ? dialogueNotes(raw, { max: 8 }) : [];
+    account.dialogue = talk.map((p) => p.slice(0, 200));
+    if (attempt === 1) problems.push(...talk);
     if (raw && typeof raw === 'object' && !Array.isArray(raw) && gated) {
       if (!problems.length && meta && gated.pack) {
         const checked = fake ? { people: [], brands: [] } : await checkNames(client, input.model, namesBatches(gated.pack, meta, parent), gated.pack, attempt, input);

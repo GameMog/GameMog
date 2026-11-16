@@ -413,9 +413,9 @@ try {
     const gOk = gatePack(nyStory());
     const rp = gOk.ok ? toRunnerPack(gOk.pack) : null, plan = gOk.ok ? voicePlanOf(gOk.pack, '') : null;
     ok('a good opening passes: its lines are voiced (OPEN.c<shot>), and the runner\'s world carries it with display names (cards, stage, a line under its shot)',
-      gOk.ok && gOk.lines.filter((l: any) => /^OPEN\.c\d+$/.test(l.id)).length === 3 && !!plan && plan.lines.some((l: any) => l.id === 'OPEN.c3' && l.who === 'Vic Lasko')
+      gOk.ok && gOk.lines.filter((l: any) => /^OPEN\.c\d+$/.test(l.id)).length === 4 && !!plan && plan.lines.some((l: any) => l.id === 'OPEN.c3' && l.who === 'Vic Lasko')
         && rp.opening?.place === '@bowery' && rp.opening.stage[1].who === 'Vic Lasko' && rp.opening.shots[3].card.who === 'Vic Lasko' && rp.opening.shots[3].look.rel === 'Vic Lasko'
-        && rp.opening.shots[1].sub[0] === 'Dez Amaro' && !('say' in rp.opening.shots[1]) && rp.opening.shots[4].title === true, JSON.stringify(gOk.problems.slice(0, 3)));
+        && rp.opening.shots[1].sub[0] === 'Dez Amaro' && !('say' in rp.opening.shots[1]) && rp.opening.shots[5].title === true, JSON.stringify(gOk.problems.slice(0, 3)));
     const refusedBy = (name: string, edit: (o: any, p: any) => void, re: RegExp, opts: any = {}) => {
       const p = nyStory(); edit(p.opening, p); const r = gatePack(p, opts);
       ok(`opening refused: ${name}`, !r.ok && r.problems.some((x) => re.test(x)), (r.problems.join(' | ') || 'passed').slice(0, 400));
@@ -430,7 +430,7 @@ try {
     refusedBy('a voice-only person in it', (o, p) => { p.cast.push({ id: 'desk', anchor: 'none', color: '#999999', voiceOnly: true, voice: { id: 'desk-v1', kokoro: 'bf_emma', description: 'a night desk' } }); o.stage.push({ who: 'desk', at: '@ludlow' }); }, /"desk" is voiceOnly/);
     refusedBy('one spoken line (the premise is 2 to 4)', (o) => { for (const sh of o.shots.slice(2)) { delete sh.say; delete sh.line; } }, /1 spoken line; the premise is said in 2 to 4/);
     refusedBy('five spoken lines', (o) => { o.shots[0].say = 'dez'; o.shots[0].line = 'Snow on the Bowery.'; o.shots[4].say = 'dez'; o.shots[4].line = 'Last fare.'; }, /5 spoken lines/);
-    refusedBy('no title', (o) => { delete o.shots[4].title; }, /the world's title is shown once/);
+    refusedBy('no title', (o) => { delete o.shots[5].title; }, /the world's title is shown once/);
     refusedBy('too short (under 30 s)', (o) => { for (const sh of o.shots) sh.dur = 3; }, /an opening is 30 to 75 s/);
     refusedBy('too long (over 75 s)', (o) => { for (const sh of o.shots) sh.dur = 12; o.shots.push({ cam: 'player', look: 'player', dur: 12 }, { cam: 'player', look: 'player', dur: 12 }); }, /an opening is 30 to 75 s/);
     refusedBy('a place the city does not have', (o) => { o.stage[1].at = '@brooklyn-bridge'; }, /"@brooklyn-bridge" is not a place in New York/);

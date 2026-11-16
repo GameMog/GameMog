@@ -70,18 +70,24 @@ people and places.
   A `timer` step shows a countdown chip there, its last ten seconds red, pulsing and ticking (LATE in red when a soft
   one runs out). Meters stay up between missions.
 - **Lines.** A `say` is a subtitle with the speaker's name in their `color`, voiced (their clip, or a recording of a
-  shipped person), and their face moves. Keep each line short: one or two sentences, said in 2 to 5 seconds.
+  shipped person), and their face moves. Keep each line short: one or two sentences, said in 2 to 5 seconds. Any
+  spoken line may say how it is said (`how`: `warm`, `tease`, `deadpan`, `urgent`, `angry`, `shout`, `scared`, `hushed`,
+  `hesitant`, `sad`, `smug`) and carry an authored beat before or after it (`pre`, `post`, seconds); see How people talk.
 - **Calls.** The phone is Mog City's caller card: the caller's name, their headshot and their voice through the phone.
   - A ringing call (`call`, not `auto`): the hero answers or declines; `answer`/`decline` set flags, `voicemail` is
     what plays when it is declined, `choice` is a timed choice after the lines.
   - The car phone (`"auto": true, "inCar": true` on a call in a drive's `during`): it answers itself and talks while
     the hero drives; `extra` blocks keep it going on a long drive, `wrap` closes it when the drive arrives, `hold`
     lines play when he gets out and back in. This is how a mission briefs the player on the move: the drive is the
-    action, the call is the story.
+    action, the call is the story. A car-phone call in a chase or a tail also gets `react` pools: 2 or 3 short lines
+    each for what the player does while it talks (`tooClose`, `hit`, `lost`, `spotted`: "Back off, he'll see you.",
+    "Was that you or a dumpster?"), and a `register` (`whisper` when they hide, `fast` in a chase).
   - `dm` is a text message on the phone, read, never voiced.
 - **Cutscenes.** A `cutscene` plays on Mog City's director: black bars, the HUD away, hold Space to skip. Each shot is
   a camera at a person (`{ "rel": "<cast id>", "fwd", "right", "up" }`, a close-up from their eyes) or a place, with
-  one line under it. Short: 2 to 4 shots, 3 to 5 s each. A `beat` is one quick shot while the player keeps control.
+  one line under it, or an exchange of 2 to 4 `lines` in one shot (a two-shot or an over-the-shoulder). Short: 4 to 8
+  lines in all, the speakers alternating (or a lineless `react` shot between them), 30 s at most. A `beat` is one quick
+  shot while the player keeps control.
   `transition` is a black card for a time skip ("LATER", "3:10 AM").
 - **Mog City's own set pieces.** A `scene` step plays one of Mog City's authored cutscenes by name (the table after
   this chapter): Mog City's own code, cast, camera and lines. Write one only in a story whose hero is Dan
@@ -210,9 +216,12 @@ voicemail was a dead man or a ghost. The opening answers the questions a player 
   saved for a voicemail in Mission 2. Then at most three others the story rests on (`"is": "ally"`). A card's shot looks
   at its person (`look: { "rel": "<id>" }`; the hero may be `"player"`); stand everyone but the hero in `stage`. The
   role is a few plain words a stranger understands ("Lena's estranged brother", not "the brother").
-- **Say the premise** in 2 to 4 spoken lines (`say` + `line`, voiced like any line): what happened, what the hero wants
-  tonight, what the one in their way wants, and the hook that starts Mission 1. Each line is said by someone we can
-  see or have just met. Never leave the premise for a later call or voicemail: those add to it, they don't explain it.
+- **Let the premise land in an exchange** of 2 to 4 spoken lines (`say` + `line`, voiced like any line): two people
+  talking to each other, not each one saying a logline into the lens. What happened, what the hero wants tonight,
+  what the one in their way wants and the hook that starts Mission 1 come out in what they ask, dodge and refuse
+  ("Where to?" / "Foley Square. Don't look at the bag."). Each line is said by someone we can see or have just met,
+  and at least one is a question. Never leave the premise for a later call or voicemail: those add to it, they don't
+  explain it.
 - **End on the title** (`"title": true` on one shot, usually the last, a wide or a hero shot): the world's title in
   its own lockup, then Mission 1 begins.
 - **30 to 75 seconds in all** (each shot its `dur`, or its line's reading time when that is longer): 5 to 10 shots
@@ -271,13 +280,15 @@ they drive through: every mission a set piece, the pressure rising, the talk hap
 12 words, people cutting each other off ("Left. LEFT." / "I see it!"). Never more than two standing `say` steps in a
 row: a third belongs in a cutscene shot or in the next drive.
 
-**Cutscenes are short and shot like a film**: 2 to 4 shots, about 3 s each, the shot grammar instead of hand-placed
-lenses: `{ "frame": "ots", "on": "mara", "at": "vale" }` (over Mara's shoulder onto her father: a confrontation),
+**Cutscenes are short and shot like a film**: 4 to 8 lines in 30 s at most, 2 to 5 shots, the shot grammar instead of
+hand-placed lenses, an exchange in one shot (`lines`) where two people trade turns: `{ "frame": "ots", "on": "mara", "at": "vale" }` (over Mara's shoulder onto her father: a confrontation),
 `"push"` (pushing in on a face: the reveal), `"react"` (the reaction after the twist), `"low"` (the hero deciding),
 `"two"` (two people together), `"wide"` (where we are), `"close"`. A frame needs the people standing there (`npc`
-steps or the hero). Cut on the line, not after it.
+steps or the hero). Cut on the line, not after it. A cutscene is for a turn, a reveal, a first meeting or a payoff the
+player must see; a briefing is a call on the drive.
 
-**People with wants and conflict.** Every speaking person wants something that cuts against the hero, and says it.
+**People with wants and conflict.** Every speaking person wants something that cuts against the hero, and shows it in
+what they ask for and refuse.
 The antagonist calls during the chases to taunt; the ally argues with the hero's choices. No one only explains.
 
 **The town's landmarks are the stages.** Stage the biggest set pieces at the town's most recognisable places on its
@@ -293,6 +304,85 @@ transition step; `cam` (`low`, `hood`) on the car steps (drive, stops, pursuit, 
 
 **Before you reply, read each mission back**: does it start with pressure, turn halfway, and end on something the
 player did with the wheel or their fists? Is any mission only drive, hold F, talk? Rewrite that one.
+
+**Then read the dialogue back, scene by scene and call by call**, out loud in your head: is there a question in every
+scene of 3 lines or more? Does any line say the objective (the HUD says it)? Does each person sound like their voice
+sheet, so no two people's lines could be swapped? Is there one plain sincere beat? Does it end on a button, not an
+instruction? Rewrite every scene that fails.
+
+## How people talk
+
+The owner's verdict on the platform's dialogue: stiff and robotic, everywhere but one place. The bar is Mog City's own
+car phone: Jane talking to Dan while he drives. It works because the turns are short and go both ways, the talk is
+specific and personal, and every fact comes with a joke or a feeling. Write every call, cutscene and line to it.
+
+The rhythm to match (Mog City, Mission 1, the car phone). Never reuse these people or lines in a new story: they are
+the bar for how it sounds, not words to copy (a Mog of Mog City keeps its own lines as they are).
+
+```text
+JANE  Dan. Why is your laptop doing forty down Fifth Avenue?
+DAN   Because some guys in a van took it.
+DAN   I'll take Sixth Avenue.
+JANE  Sixth goes uptown, babe. Take Ninth. It moves at six.
+DAN   Love you. Getting it in before prison.
+JANE  (a 0.6 s beat) Love you too. You didn't do this. So we prove it.
+JANE  What's on fifty-one?
+DAN   Mr. Big. And his bathroom. It's a very big bathroom.
+JANE  Except the laptop.
+DAN   Except the laptop.
+```
+
+**The rules** (the gate's read-back sends a scene that misses the first ones back to you):
+
+1. **Turn rhythm.** Most lines are 5 to 8 words, and at least one line in four is 4 words or fewer. At least one line
+   in seven is a question, and every cutscene of 3 lines or more has one. One person says at most 2 lines in a row in a
+   cutscene, 3 on a call. A line is at most 2 sentences in a cutscene, 3 on a call.
+2. **Both people know something.** In every scene each speaker gives a fact the other doesn't have. A line that only
+   prompts the other ("He bought a painting?", "Why are you doing this?") is at most one in four of a person's lines.
+3. **A beat after a fact.** A plot fact is followed within 2 lines by a joke, a personal detail or a reaction ("What's
+   on fifty-one?" / "Mr. Big. And his bathroom."). Never 3 lines in a row of plot.
+4. **Specific.** At least one concrete detail every 4 lines: a number, a street, a named thing, a smell ("Take Ninth.
+   It moves at six."). Never "the asset", "the target", "the package", unless that is the joke.
+5. **Callbacks.** Every scene after the first reuses something from an earlier one (a pet, an object, a running gag),
+   and every story sets something up in one act that pays off in a later one.
+6. **One sincere beat per scene**: 10 words or fewer, plain, straight after a joke, with an authored pause before it
+   (`"pre": 0.6` to `0.8`), then a light turn. Authored pauses are rare: at most one in 8 lines.
+7. **End on a button**: a 2 to 4 line setup and punch, or an echo ("Except the laptop." / "Except the laptop."). Never
+   end a scene or a call on an instruction or an objective.
+8. **Subtext.** People say less than they mean. They dodge a question with a question, joke under pressure, and show
+   love through what they know ("I know. I was right there."), never by declaring it. What they want shows in what
+   they ask for and refuse.
+9. **A voice sheet for every speaking person**, voice-only people too (`cast[].speech`): their `rhythm`, one `habit`
+   or pet name, their `jokes`, one thing they would `never` say, their `motifs`. Write every line to the sheet. If two
+   people's lines could be swapped and nobody would notice, the scene fails.
+10. **Length contrast.** Each scene has one long, rambling line next to a one- or two-word answer ("For real." / "For
+    real, I'm tired of being blamed. I'd like to be tired of something else.").
+11. **Gameplay in the fiction.** A call in a chase or a tail has `react` pools for at least two things the player does
+    (`tooClose`, `hit`, `lost`, `spotted`), 2 or 3 short variants each; its `hold` lines notice the hero getting out of
+    the car and back in.
+
+**Delivery.** Give a line its `how` when it is not said plainly: `warm`, `tease`, `deadpan`, `urgent`, `angry`,
+`shout`, `scared`, `hushed`, `hesitant`, `sad`, `smug`. The voice changes its pace, pitch and level for it. `pre` and
+`post` are authored beats in seconds (the sincere beat: 0.6 to 0.8 before; after a reveal: 0.8 to 1.2 after); a reply
+of 2 words or fewer can be `"overlap": true`, cutting in just before the last line ends (at most one in 6 lines). In
+dialogue, `...` is a trail-off or a cut-off ("Don't you...", "...Okay."); still no em dashes.
+
+**Where talk goes.** Exposition, briefings and logistics are calls and radio while the player drives or walks. A
+cutscene is only for a turn, a reveal, a first meeting or a payoff the player must see: 30 s and 8 lines at most, and
+it starts on a line or an action already under way and ends on its button, straight back to the wheel. A debrief
+after a mission and a brief before one are a call on the drive, not a stop.
+
+**Never write these** (each one is from a real build):
+
+- **A logline to camera**: "I build cars for floods and bad men. Tonight a storm brought me both." Land the premise in
+  an exchange instead.
+- **The villain stating his plan**: "Six crates on the water by first light. Anyone in the way goes in with them." Aim
+  the threat at the listener's own detail, or make it a question.
+- **Narrating what is on screen**: "Cash. Banded in red wax. Hale's seal on every brick." React to it instead.
+- **Saying the objective**: "Elena has the crates. I need Elena." The HUD already says it.
+- **A henchman relaying orders**: "Hale says break the hands that build the cars."
+- **A monologue briefing**: 7 or more plot lines from one speaker. Split it across the speakers, or make it a call.
+- **A face explaining the twist**: "Hale's cash, Hale's manifest. And the police find the man holding nothing."
 
 ## Places: names, never coordinates
 
@@ -430,7 +520,8 @@ and speak but never stands in a scene: never an `npc`, an enemy or a close-up.
   `idle` and `walk` clips), personality and a short voice note. The sheet's `id` equals the cast `id`, and its
   `voice.id` equals the voice block's `id`.
 - **Make every person specific**, as a casting director would: an age, a build, a face, clothes worn for this story's
-  season and job, a way of standing and walking, wants and a way of speaking. Two people in one story never share a
+  season and job, a way of standing and walking, wants and a way of speaking: their voice sheet (`speech`, How people
+  talk, rule 9), on every speaking cast entry, voice-only people too. Two people in one story never share a
   silhouette. A winter night means coats; a summer noon means shirt sleeves.
 - **Invented people only.** No real person, living or dead, famous or not, by name, likeness or voice: no "looks
   like", "sounds like", "played by", "in the style of", "a younger version of". There is no field for a likeness, a
@@ -464,12 +555,19 @@ A voice block is one English stock voice (`kokoro`) or a `blend` of up to 3 voic
 voice is the base; other languages at most 0.35 of the blend), plus `speed` (0.8 to 1.2), `pitch` (-2.5 to 2.5
 semitones) and a `description`. The voice table (id, sex, accent, grade, median pitch in Hz) follows this chapter.
 
-- **Design each voice for the person**: their age, size, warmth and pace. Prefer voices graded A to C for leads.
+- **Design each voice for the person**: their age, size, warmth and pace. A lead's base voice is graded A to B-
+  (`af_heart`, `af_bella`, `af_nicole`, `bf_emma`); for a male lead, the best of the C voices, never a D voice
+  (`am_onyx`) as the base. The shipped cast keep their own voices (Mr. Big's is his).
+- **Pitch stays near the voice**: a new voice block's `pitch` is within 1 semitone either way (more sounds processed);
+  make people different by the base voice, the blend and the speed. Lines vary their delivery with `how`.
+- **Speed is the person's pace, not a mood**: about 0.95 to 1.1. A slow, even voice reads as a machine; a menacing man
+  is quick and amused, not slow.
 - **Keep voices apart**: no two people in one story share the same base voice at nearly the same pitch and speed.
   Aim for clear spacing in median pitch (Night Shift: 92, 115 and 169 Hz).
 - The description says what the voice is ("an older woman, bright alto with a little rasp, quick"), never who it
   sounds like. Invented voices only: never a real person's voice.
-- Spoken lines are short and sayable: under 200 characters, one or two sentences, the way this person talks.
+- Spoken lines are short and sayable: under 200 characters, one or two sentences, the way this person talks (How
+  people talk).
 
 ## Rides
 
@@ -544,7 +642,8 @@ their fields are in the schema (`$defs.step`); speakers (`who`, `say`, `by`, `fr
 
 ## Words
 
-- Every text has a length limit (in the schema). No markup, no HTML, no invisible characters, no em dashes.
+- Every text has a length limit (in the schema). No markup, no HTML, no invisible characters, no em dashes. In
+  dialogue, use `...` for a trail-off or a cut-off.
 - No real people, no real companies, brands or products, anywhere: names, lines, signs, liveries, plates.
 - The platform's blocked words and the names GameMog never mentions are refused.
 - Write like a show's writers' room: specific, spoken, in each person's own voice. Stakes are concrete (a fare, a
