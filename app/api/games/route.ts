@@ -15,6 +15,7 @@ import { sealStoryDraft, keepStoryWorld, releaseStoryWorld, storeDraftOf, storeD
 import { storykitForRequest, ownerRequest } from '@/lib/storykit-http';
 import { storykitMode } from '@/lib/storykit-switch';
 import { setWorldHidden } from '@/lib/analytics';
+import { crossOriginRefusal } from '@/lib/same-origin';
 
 export const runtime = 'nodejs';
 
@@ -32,6 +33,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  // (publishing reads the owner's session in owner mode: only from the site's own pages, lib/same-origin.ts)
+  const cross = crossOriginRefusal(req);
+  if (cross) return cross;
   const body = (await req.json()) as { spec?: unknown; prompt?: string; draftId?: string; creator?: unknown; player?: unknown };
 
   // A written game publishes from its draft: exactly the code that passed the

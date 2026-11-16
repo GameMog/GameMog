@@ -1,4 +1,5 @@
 import { ownerVisit } from '@/lib/dare';
+import { crossOrigin } from '@/lib/same-origin';
 import { requestTown as legacyRequest, TOWN_WORDS } from '@/lib/hometown/towns';
 import { townClientKey } from '@/lib/hometown/client';
 import { townsAccess, builderMode } from '@/lib/hometown-build/access';
@@ -19,7 +20,8 @@ export const runtime = 'nodejs';
  * HOMETOWN_BUILDER=off: the in-process builder behind HOMETOWN_TOWNS=on (local), as before; else not found.
  */
 export async function POST(req: Request) {
-  const access = townsAccess(req, process.env, ownerVisit);
+  // (HOMETOWN_BUILDER=owner: the owner's session counts only from the site itself, lib/same-origin.ts)
+  const access = townsAccess(req, process.env, (r) => ownerVisit(r) && !crossOrigin(r));
   if (!access) return new Response('Not found', { status: 404 });
   let body: { placeId?: unknown };
   try { body = await req.json(); } catch { return Response.json({ error: 'Malformed request.' }, { status: 400, headers: { 'cache-control': 'no-store' } }); }

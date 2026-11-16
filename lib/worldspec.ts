@@ -18,6 +18,8 @@ import { RigSchema, DEFAULT_RIG } from './rig';
 
 const Hex = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'expected #RRGGBB');
 const Rgba = z.string().regex(/^rgba?\([\d\s.,]+\)$/, 'expected rgba(...)');
+/** The world's own words reach the race engine's HUD as text: no markup, ever (the engine escapes too). */
+const Words = (min: number, max: number) => z.string().min(min).max(max).regex(/^[^<>]*$/, 'no < or > in text');
 
 export const DIFFICULTIES = ['gentle', 'standard', 'brutal'] as const;
 export type Difficulty = (typeof DIFFICULTIES)[number];
@@ -26,10 +28,10 @@ export const WorldSpecSchema = z.object({
   schemaVersion: z.literal(1),
 
   meta: z.object({
-    title: z.string().min(2).max(40),
-    tagline: z.string().min(4).max(140),
+    title: Words(2, 40),
+    tagline: Words(4, 140),
     /** One or two sentences of world flavour, shown on the game page. */
-    blurb: z.string().min(10).max(400),
+    blurb: Words(10, 400),
   }),
 
   format: z.literal('race'),
@@ -47,7 +49,7 @@ export const WorldSpecSchema = z.object({
   racers: z
     .array(
       z.object({
-        name: z.string().min(1).max(14),
+        name: Words(1, 14),
         fur: Hex,
         you: z.boolean(),
         /** Index into track.lanes. */
@@ -108,8 +110,8 @@ export const WorldSpecSchema = z.object({
 
   copy: z.object({
     /** Six lines, best place first. Shorter than the field is fine — padded. */
-    placeTitles: z.array(z.string().min(2).max(40)).length(6),
-    placeLines: z.array(z.string().min(6).max(180)).length(6),
+    placeTitles: z.array(Words(2, 40)).length(6),
+    placeLines: z.array(Words(6, 180)).length(6),
   }),
 });
 

@@ -42,6 +42,8 @@ import { runPerfChecks } from './perf-check.ts';
 import { runBackupChecks } from './backups-check.ts';
 import { runSpendDoorChecks } from './spend-door-check.ts';
 import { runPublishGapChecks } from './storykit-publish-gap-check.ts';
+import { runClientKeyChecks } from './client-key-check.ts';
+import { runSameOriginChecks } from './same-origin-check.ts';
 
 let failures = 0;
 const ok = (name: string, cond: boolean, detail = '') => {
@@ -630,6 +632,20 @@ await runBackupChecks(ok);
 await runSpendDoorChecks(ok);
 // Story Kit (16 Nov): a story world's publish cut short anywhere never leaves a listed game with an unkept world
 await runPublishGapChecks(ok);
+// Limits (16 Nov): every per-address limit keys on the trusted hop, and the sign-in lockout across all addresses
+await runClientKeyChecks(ok);
+// Owner writes (16 Nov): never from another origin, and the site's own headers
+await runSameOriginChecks(ok);
+// Story Kit (16 Nov): who may open a store draft, and the store's caps asked at the build route's door. Its own process:
+// it runs in a throwaway folder (its own data/) and drives the real routes, so nothing here sees its databases
+{
+  console.log('\nStory Kit: the store\'s door (scripts/storykit-door-check.ts, its own process)');
+  const { spawnSync } = await import('node:child_process');
+  const r = spawnSync(process.execPath, ['--import', './scripts/ts-resolve.mjs', 'scripts/storykit-door-check.ts'], { encoding: 'utf8', timeout: 120_000 });
+  const lines = `${r.stdout ?? ''}`.split('\n').filter((l) => /^\s+(ok|FAIL)\s/.test(l));
+  for (const l of lines) ok(l.replace(/^\s+(ok|FAIL)\s+/, ''), /^\s+ok\s/.test(l));
+  ok('the door check ran to the end', r.status === 0 && lines.length > 0, `${r.status} ${(r.stderr ?? '').slice(-400)}`);
+}
 
 console.log(`\n${failures ? `${failures} FAILED` : 'all checks passed'}\n`);
 process.exit(failures ? 1 : 0);

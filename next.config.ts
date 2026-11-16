@@ -14,6 +14,17 @@ const STUDIO_CSP = [
   "frame-ancestors 'self'",
 ].join('; ');
 
+const SITE_HEADERS = [
+  { key: 'x-content-type-options', value: 'nosniff' },
+  { key: 'strict-transport-security', value: 'max-age=31536000; includeSubDomains' },
+];
+// (a rule here wins over a route's own header of the same name, so these two skip the play documents, which send
+// their own: no-referrer and a whole policy with frame-ancestors 'self' and a sandbox)
+const PAGE_HEADERS = [
+  { key: 'referrer-policy', value: 'strict-origin-when-cross-origin' },
+  { key: 'content-security-policy', value: "frame-ancestors 'self'" },
+];
+
 const config: NextConfig = {
   // node:sqlite is a built-in; keep it out of the bundler's way
   serverExternalPackages: ['node:sqlite'],
@@ -48,6 +59,13 @@ const config: NextConfig = {
   // headers still give browsers long caching, and forbid transforms if it returns.
   async headers() {
     return [
+      // Site-wide (16 Nov), first so a later rule's own value for a key wins (the voice studio's CSP below): no sniffing,
+      // HTTPS only (mc.gamemog.com, on GitHub Pages, and www.gamemog.com answer only HTTPS too, so includeSubDomains;
+      // no preload)
+      { source: '/:path*', headers: SITE_HEADERS },
+      // and on every page but the play documents (/g/<slug>/play, /d/<id>/play, framed by /g and Create, which set their
+      // own: app/g/[slug]/play/route.ts): the referrer cut to the origin across origins, and no other origin may frame it
+      { source: '/((?!g/[^/]+/play|d/[^/]+/play).*)', headers: PAGE_HEADERS },
       {
         source: '/assets/:path*',
         headers: [

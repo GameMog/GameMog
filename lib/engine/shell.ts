@@ -30,6 +30,13 @@ function engine() {
 const safeJson = (v: unknown) =>
   JSON.stringify(v).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/\u2028|\u2029/g, '');
 
+/**
+ * The frame already sandboxes a race (play-frame.tsx: allow-scripts only), but
+ * the document has its own address and can be opened as a page; the sandbox
+ * directive makes it an opaque origin there too, so even a race that drew a
+ * world's words as markup could never reach the site's cookies or API. The
+ * engine keeps no storage and needs no same-origin feature (as CUSTOM_CSP).
+ */
 export const GAME_CSP = [
   "default-src 'none'",
   "script-src 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
@@ -40,6 +47,7 @@ export const GAME_CSP = [
   "frame-ancestors 'self'",
   "base-uri 'none'",
   "form-action 'none'",
+  'sandbox allow-scripts allow-pointer-lock',
 ].join('; ');
 
 /**

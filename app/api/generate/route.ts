@@ -12,6 +12,7 @@ import { isOpenWorld, worldMode, canMog, MOG_SOON } from '@/lib/custom-game';
 import { isEpisodeParent, readConsent } from '@/lib/episode';
 import { isStoryParent, storyParentPack, readCity, readStoryHero, readStoryCar, STORY_CLOSED, type StoryHero, type StoryCar } from '@/lib/storykit-build';
 import { storykitForRequest } from '@/lib/storykit-http';
+import { crossOriginRefusal } from '@/lib/same-origin';
 import { isMogCityEpisode, mogCityStoryParent } from '@/lib/storykit-mogcity';
 import { storykitMode } from '@/lib/storykit-switch';
 import { storyStore, storeGuard } from '@/lib/storykit-store';
@@ -31,6 +32,9 @@ export const maxDuration = 1800;
 const MAX_IMAGE_BYTES = 2_200_000;
 
 export async function POST(req: Request) {
+  // a build is started from the site's own pages only (16 Nov): the owner's session opens owner-only builds here (the Story
+  // Kit and the towns in owner mode, hidden parents), and no other origin's page may spend it (lib/same-origin.ts)
+  const cross = crossOriginRefusal(req); if (cross) return cross;
   let body: { prompt?: string; image?: unknown; hintFur?: string; characterName?: string; kind?: 'game' | 'race'; mogOf?: string; options?: unknown; consent?: unknown; storykit?: unknown; story?: unknown };
   try {
     body = await req.json();
@@ -67,6 +71,10 @@ export async function POST(req: Request) {
     // (the store's size guard, lib/storykit-store.ts storeGuard: refused here too, before a slot is taken or anything is spent)
     const full = storeGuard(storyStore());
     if (full) return NextResponse.json({ error: full }, { status: 507 });
+    // (and its draft caps, lib/storykit-store.ts room(): a story build opens its draft only after the writer's paid pass,
+    // so a store at LIMITS.open open drafts or LIMITS.perDay today refuses the build here, at the door)
+    const busy = storyStore().room();
+    if (busy) return NextResponse.json({ error: busy.error }, { status: busy.status });
     if (storyMog) { if (!storyParentPack(from!)) return NextResponse.json({ error: 'The story world you are mogging could not be read.' }, { status: 409 }); }
     else {
       // a hometown (HOMETOWN_TOWNS=on): the picked town, built already (lib/hometown/towns.ts; POST /api/towns builds it),

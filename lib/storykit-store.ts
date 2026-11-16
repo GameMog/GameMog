@@ -120,6 +120,9 @@ export type StoreUsage = { used: number; disk: number; guard: number; share: num
 export const STORE_FULL = 'The Story Kit\'s store is nearly full, so new story worlds are paused for now. Published story worlds still play.';
 /** The size guard for a new story world (the build route asks before anything is spent): its message, or null. */
 export const storeGuard = (s: { used(): number }) => (s.used() >= LIMITS.guard ? STORE_FULL : null);
+/** What a new story world hears while LIMITS.open drafts are open, or LIMITS.perDay opened in the last 24 hours. */
+export const STORE_BUSY = 'Too many worlds are being made right now. Try again later.';
+export const STORE_DAY = 'The Story Kit has made all the worlds it can today.';
 const fail = (status: number, error: string): Fail => ({ ok: false, status, error });
 type DraftRow = { id: string; token_hash: string; pack: string; parent: string | null; state: 'draft' | 'sealed' | 'kept'; game_id: string | null; world: string | null; created_at: number; touched_at: number };
 type FileRow = { draft_id: string; kind: Kind; name: string; hash: string; ext: string; bytes: number; meta: string | null; inherited: number; at: number };
@@ -194,6 +197,18 @@ export class StoryStore {
   blobPath(hash: string, ext: string) { return path.join(this.root, 'blobs', hash.slice(0, 2), `${hash}.${ext}`); }
   /** every stored blob's bytes */
   used(): number { return (this.db.prepare('SELECT COALESCE(SUM(bytes), 0) AS n FROM blobs').get() as { n: number }).n; }
+  /**
+   * Would open() take a new draft now? Read-only, for the build route to ask at the door, before any model call is
+   * paid for (a story build opens its draft only after the writer's pass, lib/storykit-build.ts). Drafts past their
+   * TTL are not counted: open() sweeps them before it counts. null when there is room, else the refusal open() gives.
+   */
+  room(): Fail | null {
+    const t = this.now(), n = (q: string, ...a: number[]) => (this.db.prepare(q).get(...a) as { n: number }).n;
+    if (this.used() >= LIMITS.guard) return fail(507, STORE_FULL);
+    if (n("SELECT COUNT(*) AS n FROM drafts WHERE state != 'kept' AND touched_at >= ?", t - LIMITS.ttlMs) >= LIMITS.open) return fail(429, STORE_BUSY);
+    if (n('SELECT COUNT(*) AS n FROM opened WHERE at > ?', t - 86400_000) >= LIMITS.perDay) return fail(429, STORE_DAY);
+    return null;
+  }
   /** What the owner's /admin shows: the bytes stored against the disk and the guard, and the drafts by state. */
   usage(): StoreUsage {
     const used = this.used(), n = (q: string, ...a: number[]) => (this.db.prepare(q).get(...a) as { n: number }).n;
@@ -252,9 +267,9 @@ export class StoryStore {
     const t = this.now();
     if (this.used() >= LIMITS.guard) return fail(507, STORE_FULL);
     const open = (this.db.prepare("SELECT COUNT(*) AS n FROM drafts WHERE state != 'kept'").get() as { n: number }).n;
-    if (open >= LIMITS.open) return fail(429, 'Too many worlds are being made right now. Try again later.');
+    if (open >= LIMITS.open) return fail(429, STORE_BUSY);
     const today = (this.db.prepare('SELECT COUNT(*) AS n FROM opened WHERE at > ?').get(t - 86400_000) as { n: number }).n;
-    if (today >= LIMITS.perDay) return fail(429, 'The Story Kit has made all the worlds it can today.');
+    if (today >= LIMITS.perDay) return fail(429, STORE_DAY);
     let parent: DraftRow | undefined;
     if (opts.parent) { parent = this.draft(opts.parent); if (!parent || parent.state !== 'kept') return fail(404, 'No published world to remix.'); }
     const parentPack = parent ? JSON.parse(parent.pack) : null;
