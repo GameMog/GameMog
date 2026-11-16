@@ -3,8 +3,9 @@
  * refreshMogCityOwnStory). Part of `npm run check`. On a fresh copy of deploy/seed.db.gz in a temporary folder (its
  * Story Kit store beside it), with the own world published by 2026-11-05-mog-city-own-story and then set back to an
  * older pack (as the server's still is): the refresh keeps the game (id, slug, hidden, ownOf), its module and meta become
- * the record's pack, a new store draft is sealed and kept with it, the old one is released and abandoned, or kept while a
- * Mog's store draft names it as its parent; run again it is "already current". It waits as the original waits. Nothing
+ * the record's pack, a new store draft is sealed and kept with it, the old one stays kept (a rolled-back refresh must not
+ * leave the game naming a deleted draft); run again it is "already current"; a refresh rolled back after the store
+ * committed converges on the next run. It waits as the original waits. Nothing
  * touches data/.
  */
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -58,15 +59,24 @@ export async function runOwnRefreshChecks(ok: Ok) {
       ok('it refreshes the own world in place: same id, slug, hidden and ownOf; module the record\'s pack; meta names a new kept store draft and its sealed world',
         h.id === g.id && h.slug === g.slug && h.hidden === 1 && hm.storykit.ownOf === m.storykit.ownOf && h.code === modOf(packJson) && hm.storykit.pack !== m.storykit.pack
           && !!nd && nd.state === 'kept' && nd.game_id === g.id && nd.pack === packJson && nd.world === hm.storykit.world && !!store.read(`${nd.world}.json`), note);
-      ok('... the old store draft, named by no Mog, is released and abandoned', !draft(m.storykit.pack) && /released and abandoned/.test(note), note);
+      ok('... the old store draft stays kept, its sealed world served', !!draft(m.storykit.pack) && draft(m.storykit.pack).state === 'kept' && !!store.read(`${draft(m.storykit.pack).world}.json`) && /old store draft .* kept/.test(note), note);
+      const nBefore = (store.db.prepare("SELECT COUNT(*) AS n FROM drafts WHERE game_id = ?").get(g.id) as any).n;
       const again = await run(REF, db);
-      ok('run again it is already current, nothing written', /^already current/.test(again) && (store.db.prepare("SELECT COUNT(*) AS n FROM drafts WHERE game_id = ?").get(g.id) as any).n === 1, again); }
+      ok('run again it is already current, nothing written', /^already current/.test(again) && (store.db.prepare("SELECT COUNT(*) AS n FROM drafts WHERE game_id = ?").get(g.id) as any).n === nBefore, again); }
+
+    { // a refresh whose games transaction rolls back after the store committed: the next run still refreshes
+      const { g } = setOld();
+      db.exec('BEGIN'); try { await REF.run(db, p); } finally { db.exec('ROLLBACK'); }
+      const [r] = own(), rm = JSON.parse(r.meta);
+      const note = await run(REF, db), [h] = own();
+      ok('a refresh rolled back after the store committed converges on the next run (the draft the game names is still there)',
+        r.id === g.id && !!draft(rm.storykit.pack) && /refreshed in place/.test(note) && h.code === modOf(packJson), note); }
 
     { const { g, m } = setOld();
       store.db.prepare("INSERT INTO drafts (id, token_hash, pack, parent, state, game_id, world, created_at, touched_at) VALUES ('00000000-0000-4000-8000-00000000c0de', 'x', '{}', ?, 'kept', 'a-mog', NULL, 1, 1)").run(m.storykit.pack);
       const note = await run(REF, db), [h] = own(), od = draft(m.storykit.pack);
       ok('an old store draft a Mog\'s store draft names as its parent stays kept (and its sealed world served)',
-        h.id === g.id && h.code === modOf(packJson) && !!od && od.state === 'kept' && !!store.read(`${od.world}.json`) && /kept \(a Mog store draft names it/.test(note), note); }
+        h.id === g.id && h.code === modOf(packJson) && !!od && od.state === 'kept' && !!store.read(`${od.world}.json`) && /old store draft .* kept/.test(note), note); }
     db.close(); store.db.close();
   } finally {
     console.log = log; console.error = err;

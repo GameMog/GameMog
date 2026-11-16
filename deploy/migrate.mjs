@@ -1850,9 +1850,10 @@ export async function refreshMogCityOwnStory(db, path) {
   const s = new StoryStore(join(dirname(resolve(path)), 'storykit'));
   const oldId = meta.storykit.pack;
   const old = typeof oldId === 'string' ? s.db.prepare("SELECT * FROM drafts WHERE id = ? AND state = 'kept' AND game_id = ?").get(oldId, g.id) : null;
-  if (!old) throw new Error(`/g/${g.slug}'s kept store draft (${oldId}) is not in the store`);
+  // (no throw when the old draft is missing or no longer kept: a refresh that failed after the store committed must
+  // still converge on the next boot, so it refreshes anyway)
   const packJson = JSON.stringify(own.pack), code = `GameMog.world({ storykit: ${packJson} });\n`;
-  if (old.pack === packJson && String(g.code ?? '') === code) return `${first}already current: /g/${g.slug} plays the record's pack (store draft ${old.id}, world ${String(old.world).slice(0, 12)})`;
+  if (old && old.pack === packJson && String(g.code ?? '') === code) return `${first}already current: /g/${g.slug} plays the record's pack (store draft ${old.id}, world ${String(old.world).slice(0, 12)})`;
 
   const storeId = randomUUID(), t = Date.now();
   s.db.prepare('INSERT INTO drafts (id, token_hash, pack, parent, created_at, touched_at) VALUES (?, ?, ?, NULL, ?, ?)')
@@ -1870,19 +1871,10 @@ export async function refreshMogCityOwnStory(db, path) {
     try { const d = s.db.prepare('SELECT * FROM drafts WHERE id = ?').get(storeId); if (d) { s.release(storeId); s.abandon(d); } } catch { /* swept later */ }
     throw e;
   }
-  // the draft it replaces: kept while a Mog's store draft names it as its parent, else released and abandoned
-  const children = s.db.prepare('SELECT COUNT(*) AS n FROM drafts WHERE parent = ?').get(old.id).n;
-  let was;
-  if (children) was = `old store draft ${old.id} kept (${children === 1 ? 'a Mog store draft names' : `${children} Mog store drafts name`} it as its parent)`;
-  else {
-    try {
-      s.release(old.id);
-      const d = s.db.prepare('SELECT * FROM drafts WHERE id = ?').get(old.id);
-      const a = d ? s.abandon(d) : null;
-      was = a?.ok ? `old store draft ${old.id} released and abandoned (${a.freed} bytes freed)` : `old store draft ${old.id} released (swept later)`;
-    } catch { was = `old store draft ${old.id} released (swept later)`; }
-  }
-  return `${first}/g/${g.slug} refreshed in place (game ${g.id}, hidden ${g.hidden}): store draft ${storeId}, world ${sealed.hash.slice(0, 12)} (was ${String(old.world).slice(0, 12)}); ${was}`;
+  // the draft it replaces stays kept (about 160 KB): the store commits on its own, so releasing it here could leave the
+  // game naming a deleted draft if this migration's transaction rolls back; and a Mog's store draft may name it as parent
+  const was = old ? `old store draft ${old.id} kept` : `the old store draft (${oldId}) was not in the store`;
+  return `${first}/g/${g.slug} refreshed in place (game ${g.id}, hidden ${g.hidden}): store draft ${storeId}, world ${sealed.hash.slice(0, 12)} (was ${old ? String(old.world).slice(0, 12) : 'none'}); ${was}`;
 }
 
 /**
