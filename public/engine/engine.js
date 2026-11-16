@@ -7,6 +7,7 @@
 (function(){
 const __W = window.__WORLD__;
 if (!__W) { document.body.innerHTML = '<p style="font:16px sans-serif;padding:40px">No world supplied.</p>'; return; }
+const __esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 /* ============================================================================
    MUSE SPRINT — a single-file 3D rhythm footrace through the Hollow.
@@ -1417,7 +1418,7 @@ const pips = [];
   racers.forEach(r => {
     const row = document.createElement('div');
     row.className = 'row' + (r.cfg.you ? ' me' : '');
-    row.innerHTML = `<span class="pos"></span><span class="dot" style="background:#${r.cfg.fur.toString(16).padStart(6,'0')}"></span><span class="nm">${r.cfg.name}</span><span class="gap"></span>`;
+    row.innerHTML = `<span class="pos"></span><span class="dot" style="background:#${r.cfg.fur.toString(16).padStart(6,'0')}"></span><span class="nm">${__esc(r.cfg.name)}</span><span class="gap"></span>`;
     boardRows.appendChild(row);
     r.row = row;
   });
@@ -1437,7 +1438,7 @@ function applyTempo(instant){
   el('beat').style.left = (T.ideal / DIAL_MAX * 100) + '%';
   if (instant){ void zone.offsetWidth; zone.style.transition = ''; }
 
-  el('tempov').innerHTML = T.n + `<small>${T.name}</small>`;
+  el('tempov').innerHTML = T.n + `<small>${__esc(T.name)}</small>`;
   el('tempochip').style.boxShadow = `0 0 0 2px ${T.col}66, var(--shadow)`;
   document.documentElement.style.setProperty('--tempo-col', T.col);
   document.documentElement.style.setProperty('--tint', T.tint);
@@ -2099,7 +2100,7 @@ function showResults(){
     `<div class="rrow ${r.cfg.you ? 'me' : ''}">
        <span class="medal">${medals[i]}</span>
        <span class="dot" style="background:#${r.cfg.fur.toString(16).padStart(6,'0')}"></span>
-       <span class="nm">${r.cfg.name}${r.cfg.you ? ' <small style="opacity:.55">(you)</small>' : ''}</span>
+       <span class="nm">${__esc(r.cfg.name)}${r.cfg.you ? ' <small style="opacity:.55">(you)</small>' : ''}</span>
        <span class="tm">${r.finished ? r.finishTime.toFixed(2) + 's' : '—'}</span>
      </div>`).join('');
 
@@ -2107,7 +2108,7 @@ function showResults(){
   const titles = __W.copy.placeTitles;
     const subs = __W.copy.placeLines;
   el('finishtitle').textContent = titles[place - 1];
-  el('finishsub').innerHTML = subs[place - 1] +
+  el('finishsub').innerHTML = __esc(subs[place - 1]) +
     `<br><b>${(you.finished ? you.finishTime : raceTime).toFixed(2)}s</b>` +
     ` · reached <b style="color:${T.col}">${T.name}</b>` +
     ` · ${locks} lock${locks === 1 ? '' : 's'} · best run ${bestStreak} in the band`;
