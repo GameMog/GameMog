@@ -112,11 +112,18 @@ export function buildTack(THREE, horse) {
   }
   // a flat strap along a path (points), lying on the surface whose outward normal at each point is normals[i]
   function strap(points, normals, width, thick = 0.006) {
-    const pos = [], idx = [], n = points.length, T = V(), S = V(), N = V();
+    const pos = [], uv = [], idx = [], n = points.length, T = V(), S = V(), N = V();
+    // (uv for the leather's grain map, at the saddle's density: one 0..1 span per 0.6 m, along the strap and across it)
+    const UV_M = 0.6;
+    let along = 0;
     for (let i = 0; i < n; i++) {
       const a = points[Math.max(0, i - 1)], b = points[Math.min(n - 1, i + 1)];
+      if (i > 0) along += points[i].distanceTo(points[i - 1]);
       T.subVectors(b, a).normalize(); N.copy(normals[i]).addScaledVector(T, -normals[i].dot(T)).normalize(); S.crossVectors(T, N).normalize();
-      for (const [sw, sn] of [[-1, 1], [1, 1], [1, -1], [-1, -1]]) pos.push(...points[i].clone().addScaledVector(S, sw * width / 2).addScaledVector(N, sn * thick / 2).toArray());
+      for (const [sw, sn] of [[-1, 1], [1, 1], [1, -1], [-1, -1]]) {
+        pos.push(...points[i].clone().addScaledVector(S, sw * width / 2).addScaledVector(N, sn * thick / 2).toArray());
+        uv.push(along / UV_M, (sw + 1) / 2 * width / UV_M);
+      }
     }
     for (let i = 0; i < n - 1; i++) for (let k = 0; k < 4; k++) {
       const a = i * 4 + k, b = i * 4 + ((k + 1) % 4), c = a + 4, d = b + 4;
@@ -124,7 +131,7 @@ export function buildTack(THREE, horse) {
     }
     // (the ends capped)
     idx.push(0, 1, 2, 0, 2, 3); const e = (n - 1) * 4; idx.push(e, e + 2, e + 1, e, e + 3, e + 2);
-    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
     return keep(g);
   }
   // a loop of strap round an ellipse (centre c, its two half axes as vectors a and b), n points
@@ -168,10 +175,10 @@ export function buildTack(THREE, horse) {
   mesh(drape({ z0: ST.z0, z1: ST.z1, th: 0.6, off: seatOff, thick: 0.018, nu: 22, nv: 24, thAt: (v) => 0.6 - 0.22 * Math.max(0, (v - 0.75) / 0.25) - 0.12 * Math.max(0, (0.15 - v) / 0.15) }), M.seat, back);
   // the cantle's back: a curved board closing the back of the seat (one face, drawn both sides)
   {
-    const z = ST.z0 + 0.01, top = topAt(z) + 0.205, pos = [], idx = [];
-    for (let i = 0; i <= 16; i++) { const t = (i / 16 * 2 - 1) * 0.55, s = section(z, t, 0.05); pos.push(s[0], Math.min(top, s[1] + 0.15 * Math.cos(t * 2.2)), z, s[0] * 0.9, topAt(z) + 0.03, z + 0.02); }
+    const z = ST.z0 + 0.01, top = topAt(z) + 0.205, pos = [], uv = [], idx = [];
+    for (let i = 0; i <= 16; i++) { const t = (i / 16 * 2 - 1) * 0.55, s = section(z, t, 0.05); pos.push(s[0], Math.min(top, s[1] + 0.15 * Math.cos(t * 2.2)), z, s[0] * 0.9, topAt(z) + 0.03, z + 0.02); uv.push(i / 16, 1, i / 16, 0); }
     for (let i = 0; i < 16; i++) { const a = i * 2, b = a + 1, c = a + 2, d = a + 3; idx.push(a, c, b, c, d, b); }
-    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals(); keep(g);
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals(); keep(g);
     mesh(g, M.seat, back);
   }
   // the horn on the fork: a post and its cap
@@ -190,13 +197,13 @@ export function buildTack(THREE, horse) {
     const zc = -0.12, s0 = section(zc, sd * 1.05, 0.03);
     const topP = V(s0[0], s0[1], zc + 0.01), botP = V(sd * (STIR.x - 0.02), STIR.y + 0.2, STIR.z + 0.01);
     // (a flap: wider at the top, its outer face along the line from the seat to the stirrup)
-    const pos = [], idx = [], H = 7;
+    const pos = [], uv = [], idx = [], H = 7;
     for (let i = 0; i <= H; i++) {
       const t = i / H, p = topP.clone().lerp(botP, t), w = 0.2 - 0.07 * t, bulge = Math.sin(t * Math.PI) * 0.03 * sd;
-      for (const [k, off] of [[-1, 0.0], [1, 0.0], [1, 0.012], [-1, 0.012]]) pos.push(p.x + bulge + sd * off, p.y, p.z + k * w / 2);
+      for (const [k, off] of [[-1, 0.0], [1, 0.0], [1, 0.012], [-1, 0.012]]) { pos.push(p.x + bulge + sd * off, p.y, p.z + k * w / 2); uv.push((k + 1) / 2, t); }
     }
     for (let i = 0; i < H; i++) for (let k = 0; k < 4; k++) { const a = i * 4 + k, b = i * 4 + ((k + 1) % 4), c = a + 4, d = b + 4; idx.push(a, b, c, b, d, c); }
-    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals(); keep(g);
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals(); keep(g);
     mesh(g, M.saddle, back);
     // the stirrup leather from the fender's foot down to the stirrup
     mesh(strap([botP.clone(), V(sd * STIR.x, STIR.y + 0.13, STIR.z)], [V(sd, 0, 0), V(sd, 0, 0)], 0.045, 0.006), M.strap, back);
@@ -273,7 +280,10 @@ export function buildTack(THREE, horse) {
     const base = r * (SEG + 1) * 4, a = base + i * 4 + k, b = base + i * 4 + ((k + 1) % 4), c = a + 4, d = b + 4;
     reinIdx.push(a, c, b, b, c, d);
   }
-  reinGeo.setAttribute('position', new THREE.BufferAttribute(reinPos, 3)); reinGeo.setIndex(reinIdx); keep(reinGeo);
+  // (static uv for the leather's grain map: along each rein, and round its four edges)
+  const reinUv = new Float32Array(2 * (SEG + 1) * 4 * 2);
+  for (let r = 0; r < 2; r++) for (let i = 0; i <= SEG; i++) for (let k = 0; k < 4; k++) { const o = ((r * (SEG + 1) + i) * 4 + k) * 2; reinUv[o] = i / SEG * 2; reinUv[o + 1] = k / 4 * 0.05; }
+  reinGeo.setAttribute('position', new THREE.BufferAttribute(reinPos, 3)); reinGeo.setAttribute('uv', new THREE.BufferAttribute(reinUv, 2)); reinGeo.setIndex(reinIdx); keep(reinGeo);
   const reins = new THREE.Mesh(reinGeo, M.strap); reins.castShadow = true; reins.frustumCulled = false; reins.name = 'tack-reins';
   root.add(reins);
   // (where they lie on the neck: in neck1's and neck2's frames at rest, and where they rest with nobody holding them)
