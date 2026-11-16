@@ -320,6 +320,7 @@ export function createRunner(ctx) {
     app.cameraSystem.resetForTeleport?.();
   }
   const TIME_IDS = { dusk: 'twilight', night: 'midnight', day: 'midday', morning: 'golden', dawn: 'twilight' };
+  const HOUR_FADE = [0.45, 0.9]; // s: down to black and back up when a mission starts at another hour
   const setTime = (id) => { try { if (id) app.selectTime(TIME_IDS[id] || id); } catch {} };
   // a mission's own time of day (its `time`, or its act's timeline's) is pinned: held through its cutscenes and Mog City's
   // set pieces (which set their own: twilight, golden), put back the moment anything else changes it; a step's own time
@@ -2967,7 +2968,20 @@ export function createRunner(ctx) {
     }
     // (the mission's time of day: its own, pinned (holdPin), else the world's; a world that says none is in daylight)
     const own = def.time || act?.timeline?.[def.id]?.time || null;
+    // (a new hour over a city already showing another, Cold Harbor's CH-6 at midnight to CH-7 at dawn: a short fade
+    // through black over the change, not a cut; the first mission's hour is already the city's (game.js), no fade)
+    const nextHour = cp?.pin || own || (def0.dressing ? (def0.dressing.time || 'day') : null);
+    const curHour = app.lightingSystem?.activePresetId, toHour = nextHour ? (TIME_IDS[nextHour] || nextHour) : null;
+    const hourFade = !!(toHour && curHour && toHour !== curHour && ui?.fade);
+    if (hourFade) {
+      try { await ui.fade(1, HOUR_FADE[0]); } catch {}
+      // (the fade is a CSS transition, started when the page next lays out: on a busy frame (a mission's start, the gate
+      // handing over) it is still mostly clear when its time is up. The hour changes only once it is dark, 1.5 s at most)
+      const fe = document.querySelector('.wg-fade'), t1 = performance.now();
+      while (fe && +getComputedStyle(fe).opacity < 0.9 && performance.now() - t1 < 1500) await new Promise((r) => requestAnimationFrame(r));
+    }
     if (cp?.pin) pinTo(cp.pin); else if (own) pinTo(own); else setTime(def0.dressing ? (def0.dressing.time || 'day') : null);
+    if (hourFade) { await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))); try { await ui.fade(0, HOUR_FADE[1]); } catch {} }
     M.live = true;
     // (the title card, unless the mission's first scene draws its own: Mog City's opening ends on ACT I · BAGGED)
     if (def.card !== false && !(cp && cp.from)) {

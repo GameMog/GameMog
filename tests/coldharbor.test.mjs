@@ -24,7 +24,7 @@ test('a step\'s own camera only in a world whose build asks for it (cine.carCam)
   assert.match(a, /if \(!preset \|\| !stepCams \|\| !cs\?\.setCameraPreset\) return null;/);
 });
 
-test('every car the player drives is framed as Dan\'s car (5.58 m back, 2.05 m up, a 58 degree lens) unless its sheet names its own', async () => {
+test('every car the player drives is framed as Dan\'s car (5.58 m back, 2.05 m up, a 58 degree lens)', async () => {
   // (ride.js imports three.js-free modules only through build-vehicle; its framing helper is a plain function)
   const r = src('wagmi/storyrun/ride.js');
   const body = r.slice(r.indexOf('export const MOG_FRAMING'), r.indexOf('export function fitSheet'));
@@ -40,9 +40,10 @@ test('every car the player drives is framed as Dan\'s car (5.58 m back, 2.05 m u
   // (a tall van: a little higher and further back)
   const v = mogFraming(tune, null, 2.2);
   assert.ok(v.chaseHeight > 2.05 && v.chaseHeight <= 3.25 && v.chaseDistance > 5.58 && v.chaseDistance <= 6.48);
-  // (the build's own framing)
+  // (a vehicle sheet has no camera in the Story Kit's schema: a stray one changes nothing)
   const own = mogFraming(tune, { camera: { distance: 8, height: 3, fov: 50 } }, 1.35);
-  assert.deepEqual([own.chaseDistance, own.chaseHeight, own.chase.fov], [8, 3, 50]);
+  assert.deepEqual([own.chaseDistance, own.chaseHeight, own.chase.fov], [5.58, 2.05, 58]);
+  assert.doesNotMatch(r, /sheet\.camera/);
   // (fitSheet and wearRide no longer copy the tune's framing)
   assert.doesNotMatch(r.slice(r.indexOf('export function fitSheet'), r.indexOf('// a mission\'s own ride')), /'chaseDistance', 'chaseHeight', 'chase'/);
   assert.match(r, /Object\.assign\(car, mogFraming\(T, sheet, bodyHeight\(T, w\)\)\);/);
@@ -112,4 +113,84 @@ test('a whole town\'s edge is held by the soft boundary; a deck the edge cut off
   assert.match(gs, /collider\(cx, cz, seg\.dx, seg\.dz, 1\.2, w, y - 1, y \+ 3\);/);
   assert.match(gs, /atGradeTunnels\(\);/);
   assert.match(src('index.html'), /repairDecks\(b\.GEO\)/);
+});
+
+// round 2 (15 Nov): the soft edge never steers a car into the water; traffic never drives to a road-closed barrier;
+// a column goes down to the water or ground the mesh shows; weather in every city; the hour's change faded
+const CH_BOX = { window: { full: true, box: { x0: -5639.3, x1: 2050.7, z0: -3076, z1: 4614 } } };
+function drive(G, car, wet, secs = 12, dt = 1 / 30) {
+  const edge = G.townEdge(CH_BOX), mem = {}, path = [];
+  for (let t = 0; t < secs; t += dt) {
+    G.softBoundary(edge, car, 'car', dt, wet, mem);
+    car.position.x += Math.sin(car.heading) * car.speed * dt; car.position.z += Math.cos(car.heading) * car.speed * dt;
+    G.softBoundary(edge, car, 'car', 0, wet, mem); // (the clamp past the edge, as the next frame would)
+    path.push([car.position.x, car.position.z]);
+  }
+  return path;
+}
+test('the soft town edge never turns a car into the water: west, east, north and south, and along the shore', async () => {
+  const G = await import('../wagmi/world/growing.js');
+  const b = CH_BOX.window.box;
+  // (Cold Harbor's west edge: the harbour north of z 1335 at x -5639..-5520; the car out along x -5629, nosing north-west)
+  const harbour = (x, z) => z > 1335;
+  const car = { position: { x: -5629, z: 1290 }, heading: -Math.PI / 2 + 0.8, speed: 15 };
+  const path = drive(G, car, harbour);
+  assert.ok(path.every(([, z]) => z <= 1335), `into the harbour at ${JSON.stringify(path.find(([, z]) => z > 1335))}`);
+  assert.ok(path.every(([x]) => x >= b.x0 - 0.01), 'held at the edge');
+  // (without the water check the old turn went north, into it: the test drives the case that failed)
+  const old = { position: { x: -5629, z: 1290 }, heading: -Math.PI / 2 + 0.8, speed: 15 };
+  assert.ok(drive(G, old, null).some(([, z]) => z > 1335), 'the dry rule alone turns it into the water');
+  // (every edge, water on the side the turn would take: east (+x) with water to the south, north (+z) with water to the
+  // east, south (-z) with water to the west)
+  const cases = [
+    { at: { x: b.x1 - 10, z: 200 }, h: Math.PI / 2 - 0.3, wet: (x, z) => z < 150, ok: ([, z]) => z >= 150 },
+    { at: { x: 0, z: b.z1 - 10 }, h: 0.3, wet: (x) => x > 50, ok: ([x]) => x <= 50 },
+    { at: { x: 0, z: b.z0 + 10 }, h: Math.PI + 0.3, wet: (x) => x < -50, ok: ([x]) => x >= -50 },
+  ];
+  for (const c of cases) {
+    const v = { position: { ...c.at }, heading: c.h, speed: 15 };
+    const p = drive(G, v, c.wet);
+    assert.ok(p.every(c.ok), `edge ${JSON.stringify(c.at)}: into the water at ${JSON.stringify(p.find((q) => !c.ok(q)))}`);
+    assert.ok(p.every(([x, z]) => x >= b.x0 - 0.01 && x <= b.x1 + 0.01 && z >= b.z0 - 0.01 && z <= b.z1 + 0.01));
+  }
+  // (water both ways, a cove at the edge: no turn into it, the car slowed)
+  const cove = { position: { x: -5629, z: 1290 }, heading: -Math.PI / 2, speed: 15 };
+  G.softBoundary(G.townEdge(CH_BOX), cove, 'car', 0.1, (x, z) => Math.abs(z - 1290) > 4 || x < -5634, {});
+  assert.equal(cove.heading, -Math.PI / 2); assert.ok(cove.speed < 15);
+  // (past the edge where the edge itself is water: back to its last dry place, not onto the water)
+  const mem = { dry: { x: -5630, z: 1300 } }, out = { position: { x: -5642, z: 1340 }, heading: 0, speed: 5 };
+  G.softBoundary(G.townEdge(CH_BOX), out, 'car', 0.016, (x, z) => z > 1335, mem);
+  assert.deepEqual([out.position.x, out.position.z], [-5630, 1300]);
+  assert.match(src('wagmi/world/growing.js'), /softBoundary\(edge, ent, cm\.activeMode, dt, wet, mem\)/);
+  // (Cold Harbor's north edge: a 20 m spit running out to it, water both sides; the throttle held, nosing north-east.
+  // The look ahead past the edge is looked at on the edge, where the car is held, and down the way it slides)
+  const spit = (x) => x < -2004 || x > -1980;
+  for (const h of [0.8, -0.8, 0.3, -0.3]) {
+    const v = { position: { x: -1989.3, z: 4589 }, heading: h, speed: 15 }, m = {}, edge = G.townEdge(CH_BOX), dt = 1 / 60;
+    for (let t = 0; t < 12; t += dt) {
+      v.speed = Math.min(15, v.speed + 6 * dt); // (the throttle)
+      G.softBoundary(edge, v, 'car', dt, spit, m);
+      v.position.x += Math.sin(v.heading) * v.speed * dt; v.position.z += Math.cos(v.heading) * v.speed * dt;
+      G.softBoundary(edge, v, 'car', 0, spit, m);
+      assert.ok(!spit(v.position.x), `heading ${h}: into the water off the spit at ${v.position.x.toFixed(1)}, ${v.position.z.toFixed(1)}`);
+    }
+  }
+});
+
+test('traffic never drives to a deck the town cut off; columns reach the water; weather beyond New York; the hour faded', () => {
+  const rn = src('cities/sf/js/road-network.js');
+  assert.match(rn, /function cutOffDeck\(e, n, atEnd\)/);
+  assert.match(rn, /if \(starts\.has\(e\.to\) \|\| !rim\(e\.to\) \|\| closed\(e, true\)\) continue;/);
+  assert.match(rn, /const deadEnd = e\.to\.out\.every\(\(f\) => f\.to === e\.from\) && !cutOffDeck\(e, e\.to, true\);/);
+  const gs = src('cities/sf/js/grade-separation.js');
+  assert.match(gs, /const bottomAt = \(x, z\) => Math\.min\(.*meshLow\(x, z\)\);/);
+  const d = src('wagmi/storyrun/dressing.js');
+  assert.match(d, /if \(!NY && !\['snow', 'rain', 'storm'\]\.includes\(dressing\.weather\)\)/);
+  assert.match(d, /blackout: NY && BLACKOUTS/);
+  assert.match(d, /\(lowTier \? 0\.5 : 1\)/);
+  const r = src('wagmi/storyrun/runner.js');
+  assert.match(r, /const HOUR_FADE = \[0\.45, 0\.9\];/);
+  assert.match(r, /if \(hourFade\) \{\n\s+try \{ await ui\.fade\(1, HOUR_FADE\[0\]\); \} catch \{\}/);
+  assert.match(r, /while \(fe && \+getComputedStyle\(fe\)\.opacity < 0\.9 && performance\.now\(\) - t1 < 1500\)/);
+  assert.match(src('index.html'), /waits for its gate, 10 minutes at most\)/);
 });

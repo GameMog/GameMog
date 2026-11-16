@@ -172,6 +172,26 @@ function buildGradeSeparation(scene, network) {
     };
     const CAP_CLEAR = 4.6, CAP_T = 1.0, W = 1.6;
     const clear = (seg, x, z, top) => !onStreet(x, z, PAD) && floorUnder(seg, x, z, top) === null;
+    // (the lowest the terrain MESH comes within MESH_REACH cells of (x, z), terrain-mesh.js surfaceY: its vertices are
+    // the grid's own heights, a cell on the water dropped under it, its triangles spanning up to a far LOD's 8 cells.
+    // On a bank the bilinear ground stands metres above the water the mesh shows there: Cold Harbor's Seaside Freeway,
+    // PCH and Queensway had columns standing on the bank's height in mid-air over the water. A column goes down to the
+    // lowest of it (under the water's surface where that is water); the rest of it stands hidden in the ground)
+    const MESH_REACH = 4, wl = Terrain.waterLevel;
+    const meshLow = (x, z) => {
+      const T = Terrain, H = T.heights, c = T.cell;
+      if (!H || !(c > 0)) return Infinity;
+      const fi = Math.round((x - T.originX) / c), fj = Math.round((z - T.originZ) / c);
+      if (fi < 0 || fj < 0 || fi >= T.w || fj >= T.h) return Infinity;
+      let lo = Infinity;
+      for (let j = Math.max(0, fj - MESH_REACH); j <= Math.min(T.h - 1, fj + MESH_REACH); j++) {
+        for (let i = Math.max(0, fi - MESH_REACH); i <= Math.min(T.w - 1, fi + MESH_REACH); i++) {
+          const h = H[j * T.w + i];
+          lo = Math.min(lo, h > wl + 0.05 ? h : wl - 2);
+        }
+      }
+      return lo;
+    };
     const column = (seg, px, pz, bottom, top) => {
       box(geo.concrete, px, pz, seg.dx, seg.dz, W, W, bottom - 0.5, top);
       collider(px, pz, seg.dx, seg.dz, W, W, bottom - 1, top);
@@ -187,7 +207,7 @@ function buildGradeSeparation(scene, network) {
         box(geo.concrete, cx, cz, seg.dx, seg.dz, W, seg.R - seg.L - 1, Terrain.waterLevel - 2, top);
         continue;
       }
-      const bottomAt = (x, z) => (Terrain.heightAt(x, z) <= Terrain.waterLevel + 0.05 ? Terrain.waterLevel - 2 : ground(x, z));
+      const bottomAt = (x, z) => Math.min(Terrain.heightAt(x, z) <= Terrain.waterLevel + 0.05 ? Terrain.waterLevel - 2 : ground(x, z), meshLow(x, z));
       // one column: across the deck, then a few metres along it
       let spot = null;
       for (const dt of [0, -3, 3, -6, 6, -9, 9]) {

@@ -54,17 +54,14 @@ export function setClass(car, vclass) {
 // framing of Dan's car: 5.58 m back, 2.05 m up, a 58 degree lens). The owner, 15 Nov: "all games should have initial MOG
 // CITY car view unless specified differently in the build". A sheet's tune keeps its own feel of speed (the lens kick,
 // its top, the shake); only a tall body (a van, a truck: over 1.6 m) sits the lens a little higher and further back by
-// as much as it stands taller, so its roof doesn't fill the frame. A sheet that names its own framing, camera:
-// { distance, height, fov } (the build's choice; the Story Kit never writes it by itself), has that.
+// as much as it stands taller, so its roof doesn't fill the frame. (A vehicle sheet has no camera of its own in the Story
+// Kit's schema; a build that wants its own car camera says so with cine.carCam, action.js)
 export const MOG_FRAMING = Object.freeze({ distance: 5.58, height: 2.05, fov: 58, pull: 0.002 });
 export function mogFraming(T = {}, sheet = null, h = 0) {
-  const own = sheet && sheet.camera && typeof sheet.camera === 'object' ? sheet.camera : null;
-  const num = (v, lo, hi) => (typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi ? v : null);
   const tall = Math.max(0, (h || 0) - 1.6);
-  const distance = num(own?.distance, 2, 20) ?? +(MOG_FRAMING.distance + Math.min(1.2 * tall, 0.9)).toFixed(2);
-  const height = num(own?.height, 0.5, 10) ?? +(MOG_FRAMING.height + Math.min(0.86 * tall, 1.2)).toFixed(2);
-  const fov = num(own?.fov, 30, 100) ?? MOG_FRAMING.fov;
-  return { chaseDistance: distance, chaseHeight: height, chase: { ...(T.chase || {}), fov, pull: MOG_FRAMING.pull } };
+  const distance = +(MOG_FRAMING.distance + Math.min(1.2 * tall, 0.9)).toFixed(2);
+  const height = +(MOG_FRAMING.height + Math.min(0.86 * tall, 1.2)).toFixed(2);
+  return { chaseDistance: distance, chaseHeight: height, chase: { ...(T.chase || {}), fov: MOG_FRAMING.fov, pull: MOG_FRAMING.pull } };
 }
 const bodyHeight = (T, rs) => (T && T.body && typeof T.body.top === 'number' ? T.body.top : rs && typeof rs.height === 'number' ? rs.height : 0);
 
