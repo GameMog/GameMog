@@ -40,6 +40,7 @@ import { runBuildChecks } from './hometown-build-check.ts';
 import { runDispatchChecks } from './hometown-dispatch-check.ts';
 import { runPerfChecks } from './perf-check.ts';
 import { runClientKeyChecks } from './client-key-check.ts';
+import { runSameOriginChecks } from './same-origin-check.ts';
 
 let failures = 0;
 const ok = (name: string, cond: boolean, detail = '') => {
@@ -580,6 +581,8 @@ await runDispatchChecks(ok);
 await runPerfChecks(ok);
 // Limits (16 Nov): every per-address limit keys on the trusted hop, and the sign-in lockout across all addresses
 await runClientKeyChecks(ok);
+// Owner writes (16 Nov): never from another origin, and the site's own headers
+await runSameOriginChecks(ok);
 // Story Kit (16 Nov): who may open a store draft, and the store's caps asked at the build route's door. Its own process:
 // it runs in a throwaway folder (its own data/) and drives the real routes, so nothing here sees its databases
 {

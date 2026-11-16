@@ -3,6 +3,7 @@ import { hometownDeps } from '@/lib/hometown-tiles/server';
 import { BUILDER_ADMIN, builderAdminResponse, builderDeps } from '@/lib/hometown-build/server';
 import { onBundleStored } from '@/lib/hometown-build/towns';
 import { ownerVisit } from '@/lib/dare';
+import { crossOrigin } from '@/lib/same-origin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,7 +17,8 @@ export const dynamic = 'force-dynamic';
 type Ctx = { params: Promise<{ path: string[] }> };
 const handle = async (req: Request, ctx: Ctx) => {
   const parts = (await ctx.params).path ?? [];
-  if (BUILDER_ADMIN.has(parts[0])) return builderAdminResponse(req, parts, builderDeps(), ownerVisit(req));
+  // (the owner's session counts for a write only from the site itself, lib/same-origin.ts; the bearer token is unchanged)
+  if (BUILDER_ADMIN.has(parts[0])) return builderAdminResponse(req, parts, builderDeps(), ownerVisit(req) && (req.method === 'GET' || !crossOrigin(req)));
   const d = hometownDeps();
   return adminResponse(req, parts, { ...d, afterPut: (k) => { if (d.cfg.builder !== 'off') onBundleStored(builderDeps(d.cfg), k); } });
 };

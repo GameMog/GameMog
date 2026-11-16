@@ -1,5 +1,6 @@
 import { storyStore, LIMITS, SHOWCASE_LIMITS } from '@/lib/storykit-store';
 import { storykitOff, ownerRequest, json } from '@/lib/storykit-http';
+import { crossOriginRefusal } from '@/lib/same-origin';
 
 export const runtime = 'nodejs';
 
@@ -16,6 +17,7 @@ export const runtime = 'nodejs';
 export async function POST(req: Request) {
   const off = storykitOff(req); if (off) return off;
   if (!ownerRequest(req)) return json({ error: 'Not found.' }, 404);
+  const cross = crossOriginRefusal(req); if (cross) return cross;   // (the owner's cookie, from another origin: lib/same-origin.ts)
   if (process.env.NEXT_PUBLIC_BUILDS === 'off') return json({ error: 'Building worlds is coming soon.' }, 503);
   // (the largest pack any world may have, a Mog of a showcase's: the gate holds each pack to its own limit)
   if (Number(req.headers.get('content-length') || 0) > SHOWCASE_LIMITS.pack + 4096) return json({ error: `A story pack is at most ${SHOWCASE_LIMITS.pack} bytes.` }, 413);

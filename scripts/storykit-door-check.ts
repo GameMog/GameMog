@@ -73,6 +73,8 @@ try {
   const owner = `${COOKIE}=${sessionValue().value}`;
   const mine = await OPEN(post(owner));
   ok('with the owner\'s session a passing pack opens a draft (201)', mine.status === 201 && opened() === 1, `${mine.status} ${await mine.clone().text()}`);
+  const sameSite = await OPEN(post(owner, 'same-site')), crossSite = await OPEN(post(owner, 'cross-site'));
+  ok('the owner\'s session from another origin (same-site, as mc.gamemog.com is, or cross-site) is refused (403) and opens nothing', sameSite.status === 403 && crossSite.status === 403 && opened() === 1, `${sameSite.status} ${crossSite.status}`);
 
   console.log('\nStory Kit: the store\'s caps, asked before anything is spent (StoryStore.room)');
   let now = Date.UTC(2026, 10, 16, 12);

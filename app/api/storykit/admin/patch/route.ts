@@ -1,6 +1,7 @@
 import { readCapped, LIMITS } from '@/lib/storykit-store';
 import { patchStoryWorld } from '@/lib/storykit-publish';
 import { storykitOff, ownerRequest, json } from '@/lib/storykit-http';
+import { crossOriginRefusal } from '@/lib/same-origin';
 
 export const runtime = 'nodejs';
 
@@ -21,6 +22,7 @@ const MAX = LIMITS.sealed + Math.ceil((LIMITS.world * 4) / 3) + 64 * 1024;   // 
 export async function POST(req: Request) {
   const off = storykitOff(req); if (off) return off;
   if (!ownerRequest(req)) return json({ error: 'Not found.' }, 404);
+  const cross = crossOriginRefusal(req); if (cross) return cross;   // (the owner's cookie, from another origin: lib/same-origin.ts)
   const raw = await readCapped(req, MAX);
   if (!raw) return json({ error: `A patch is at most ${Math.floor(MAX / (1 << 20))} MB.` }, 413);
   let body: { slug?: unknown; world?: unknown; files?: unknown; opening?: unknown };

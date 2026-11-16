@@ -2,6 +2,7 @@ import { readCapped } from '@/lib/storykit-store';
 import { saveStoryKeyArt, storyKeyArtSrc, storySite, storyWorldsWithoutArt } from '@/lib/storykit-publish';
 import { publicOrigin } from '@/lib/custom-game';
 import { storykitOff, ownerRequest, json } from '@/lib/storykit-http';
+import { crossOriginRefusal } from '@/lib/same-origin';
 
 export const runtime = 'nodejs';
 
@@ -28,6 +29,7 @@ const MAX = 12 * 1024 * 1024;
 export async function POST(req: Request) {
   const off = storykitOff(req); if (off) return off;
   if (!ownerRequest(req)) return json({ error: 'Not found.' }, 404);
+  const cross = crossOriginRefusal(req); if (cross) return cross;   // (the owner's cookie, from another origin: lib/same-origin.ts)
   const raw = await readCapped(req, MAX);
   if (!raw) return json({ error: 'At most 12 MB.' }, 413);
   let body: { slug?: unknown; wide?: unknown; square?: unknown };
