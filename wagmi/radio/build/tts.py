@@ -15,6 +15,10 @@ qwen    Qwen3-TTS 12Hz through mlx-audio. A voice with no reference clip yet is 
         seeded by the voice's seed and the line's id, so a rebuild repeats it. A take longer than `fit` x 1.15 (what
         the build may still stretch) or a bad one (silent, or far longer or shorter than its words need) is taken again, up to
         TAKES times (twice that while every take is bad), and the shortest good one kept; "bad": true when none was.
+        A scene line ("scene": true, the dialogue spec's D1): sampled warmer (its "temperature", 1.0), every one of its
+        TAKES taken, a take whose pitch drifted more than DRIFT semitones off the voice's reference clip counted bad, and
+        the good take nearest its target length kept (the room it has, "fit"; none: the first good take), never simply
+        the shortest: the shortest is the flattest, its pauses gone.
 kokoro  Kokoro-82M through kokoro-onnx: the voice (a blend {id: weight}) at its speed; a line longer than `fit` x 1.15 is
         said up to 12 % quicker. Deterministic.
 crowd   a crowd saying the line together (the Camp answering the people's mic): each of `crowd` ({voice, speed, delay s,
@@ -38,6 +42,28 @@ import soundfile as sf
 SR = 24000
 STRETCH = 1.15  # the build may still stretch a line this much (voices.mjs MAXK_TTS)
 TAKES = 4
+DRIFT = 3.0  # semitones a scene take may sit off its voice's reference pitch
+
+
+def f0_of(x, sr=SR):
+    """the median pitch (Hz) of the voiced 40 ms frames of x (autocorrelation, 70-400 Hz), 0 when none is voiced"""
+    x = np.asarray(x, dtype=np.float32).reshape(-1)
+    if len(x) < sr // 10:
+        return 0.0
+    n, hop, out = int(0.04 * sr), int(0.02 * sr), []
+    pk = float(np.max(np.abs(x))) or 1.0
+    lo, hi = int(sr / 400), int(sr / 70)
+    for i in range(0, len(x) - n, hop):
+        f = x[i:i + n] - np.mean(x[i:i + n])
+        if np.max(np.abs(f)) < pk * 0.12:
+            continue
+        ac = np.correlate(f, f, "full")[n - 1:]
+        if ac[0] <= 0:
+            continue
+        k = lo + int(np.argmax(ac[lo:hi]))
+        if ac[k] / ac[0] > 0.45:
+            out.append(sr / k)
+    return float(np.median(out)) if len(out) >= 3 else 0.0
 
 
 def trimmed_len(x, sr=SR):
@@ -77,7 +103,7 @@ def write(path, x):
 
 class Qwen:
     def __init__(self, models):
-        self.models, self.design_model, self.base_model = models, None, None
+        self.models, self.design_model, self.base_model, self.ref_f0 = models, None, None, {}
 
     def _audio(self, results):
         import mlx.core as mx
@@ -110,26 +136,45 @@ class Qwen:
         if self.base_model is None:
             self.base_model = load_model(self.models["qwenBase"])
         fit, best, takes, t0 = L.get("fit"), None, [], int(L.get("take0") or 0)
+        scene, temp = bool(L.get("scene")), float(L.get("temperature") or 0.9)
+        if scene and self.ref_f0.get(ref_path) is None:
+            self.ref_f0[ref_path] = f0_of(sf.read(ref_path, dtype="float32")[0]) if os.path.exists(ref_path) else 0.0
+        f0r, good = self.ref_f0.get(ref_path) or 0.0, []
         # (TAKES tries; when every one of them was bad, as many again: a clone can come back empty. take0: a line's
         # first take, to hear other takes of it: cast.mjs TWEAK take)
         for take in range(t0, t0 + TAKES * 2):
-            if take >= t0 + TAKES and best is not None:
+            if take >= t0 + TAKES and (best is not None or good):
                 break
             s = seed_of(v["seed"], f"{L['id']}#{take}")
             mx.random.seed(s)
-            x = self._audio(self.base_model.generate(text=L["text"], ref_audio=ref_path, ref_text=v["refText"], lang_code="english"))
+            x = self._audio(self.base_model.generate(text=L["text"], ref_audio=ref_path, ref_text=v["refText"], lang_code="english", temperature=temp))
             d = trimmed_len(x)
             takes.append((x, d, s, take))
             bad = runaway(x, L["text"])
+            if scene:
+                f = f0_of(x)
+                if not bad and f0r and f and abs(12 * np.log2(f / f0r)) > DRIFT:
+                    bad = True
+                if not bad:
+                    good.append((x, d, s, take, f))
+                if not bad and not fit:
+                    break
+                continue
             if not bad and (best is None or d < best[1]):
                 best = (x, d, s, take)
             if not bad and (not fit or d <= fit * STRETCH):
                 break
+        if scene and good:
+            # (the take nearest the room it has, else the first good one)
+            # (its target: a breath short of its room, "target", so the next speaker never lands on its last word)
+            tgt = float(L.get("target") or fit or 0)
+            g = min(good, key=lambda t: abs(t[1] - tgt)) if fit else good[0]
+            best = g[:4]
         bad = best is None
         if bad:  # every take ran away: keep the shortest that has sound in it (the build flags it)
             heard = [t for t in takes if len(t[0]) and float(np.max(np.abs(t[0]))) >= 0.02 and t[1] > 0.1]
             best = min(heard or takes, key=lambda t: t[1])
-        return best[0], {"seed": best[2], "take": best[3], "takes": [round(t[1], 3) for t in takes], **({"bad": True} if bad else {})}
+        return best[0], {"seed": best[2], "take": best[3], "takes": [round(t[1], 3) for t in takes], **({"bad": True} if bad else {}), **({"f0": round(f0_of(best[0]), 1), "f0ref": round(f0r, 1)} if scene else {})}
 
 
 class Kokoro:
@@ -161,7 +206,9 @@ class Kokoro:
 
     def line(self, v, L):
         style = sum(float(w) * self.k.get_voice_style(name) for name, w in v["voice"].items())
-        speed, fit, tries = float(v["speed"]), L.get("fit"), []
+        # (a line's delivery, `how`: its speed nudged by the build's factor, "speedK", at most 8 % either way)
+        k = min(1.08, max(0.92, float(L.get("speedK") or 1.0)))
+        speed, fit, tries = float(v["speed"]) * k, L.get("fit"), []
         for _ in range(4):
             x, sr = self.k.create(L["text"], voice=style, speed=speed, lang="en-us")
             assert sr == SR, sr
@@ -208,7 +255,7 @@ def main(job_path):
         res = {"id": L["id"], "voice": L["voice"], "out": L["out"], "dur": round(trimmed_len(x), 3), **info}
         # (what made it, beside it: the build's cache, kept even if a later line fails)
         with open(L["out"][:-4] + ".json", "w") as f:
-            json.dump({"text": L["text"], "fit": L.get("fit"), "vkey": L.get("vkey"), "take0": int(L.get("take0") or 0), **res}, f, indent=1)
+            json.dump({"text": L["text"], "fit": L.get("fit"), "target": L.get("target"), "vkey": L.get("vkey"), "take0": int(L.get("take0") or 0), **res}, f, indent=1)
         print(json.dumps(res), flush=True)
 
 

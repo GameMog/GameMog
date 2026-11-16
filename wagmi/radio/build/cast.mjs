@@ -145,3 +145,26 @@ export const TWEAK = {
   'm2-jane-he-picked-it-he': { redo: true },
   'm2-jane-hang-back-if-they': { redo: true },
 };
+
+// a line's delivery (the dialogue spec's D2 `how`): the line's own (its beat in the source, { how: 'urgent' }), else
+// read off its direction note above, else none. HOW_FX: what each does to a scene line in the build (D5/D9): its pitch
+// (st, semitones, at most 1 either way), a Kokoro voice's speed (at most 8 % either way; a Qwen take is never
+// stretched) and its level against the speaker's own (db: a shout 3 up, a hushed line 4 down)
+export const HOW_FX = {
+  warm: { st: -0.3, speed: 0.97, db: -0.5 }, tease: { st: 0.5, speed: 1.03, db: 0 }, deadpan: { st: -0.6, speed: 0.97, db: -1 },
+  urgent: { st: 0.6, speed: 1.07, db: 1 }, angry: { st: -0.3, speed: 1.04, db: 2 }, shout: { st: 1, speed: 1.05, db: 3 },
+  scared: { st: 0.8, speed: 1.06, db: -0.5 }, hushed: { st: -0.4, speed: 0.95, db: -4 }, hesitant: { st: -0.2, speed: 0.93, db: -1.5 },
+  sad: { st: -0.8, speed: 0.93, db: -2 }, smug: { st: -0.5, speed: 0.96, db: 0 },
+};
+const FROM_NOTE = [
+  [/\bshout|full voice|yell/i, 'shout'], [/\bangry|furious|cold on\b/i, 'angry'], [/\bscared|worried|nervous|panick/i, 'scared'],
+  [/\burgent|out of breath|all business|fast\b|quick\b/i, 'urgent'], [/\bsmug|savour|polished|mock-friendly/i, 'smug'],
+  [/\bteas|taunt|sarcastic|grin/i, 'tease'], [/\bdeadpan|\bdry\b|\bflat\b/i, 'deadpan'], [/\bwarm|fond|tender|sincere/i, 'warm'],
+  [/\bquiet|\blow\b|hush/i, 'hushed'], [/\bdisbelief|hesitan|unsure/i, 'hesitant'], [/\bgrim|\bsad\b|tired/i, 'sad'],
+];
+export function howOf(L) {
+  if (L.how && HOW_FX[L.how]) return L.how;
+  const note = DIRECTION[L.id]; if (!note) return null;
+  for (const [re, how] of FROM_NOTE) if (re.test(note)) return how;
+  return null;
+}

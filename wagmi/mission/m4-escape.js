@@ -305,7 +305,7 @@ export function createEscape(W, K) {
           ['Dan', WHITE, "Mr. Big's helicopter."],
           ['Jane', BLUE, 'Since when can you fly?'],
           ['Dan', WHITE, 'Since forty seconds ago.'],
-          ['Jane', BLUE, "Head west. Battery Park City, by the river. Nobody's there at night."],
+          ['Jane', BLUE, "Head west to Battery Park City. Nobody's there at night."],
           ['Jane', BLUE, 'Land it gently. Gently, babe.'],
           ['Dan', WHITE, 'Define gently.'],
         ]);
@@ -487,7 +487,7 @@ function takeoffScene(W, { say, H, knox, sfx, ui, pav = null }) {
   const heli = H.entity, cm = W.app.controllerManager, T = TAKEOFF, y0 = cm.getGroundHeight(T.x, T.z, 'person');
   const LINES = [
     ['Knox', ACID, "He's going for the chopper!"],
-    ['Dan', WHITE, 'Okay. Up is up. Probably.'],
+    ['Dan', WHITE, 'Okay. Which way is up?'],
     ['Mr. Big', ACID, 'That is my helicopter.'],
     ['Dan', WHITE, 'Seatbelt.'],
     ['Mr. Big', ACID, 'Rook. Hold the truck.'],
@@ -662,7 +662,7 @@ function callScene(W, { say, ferry, danOnDeck, C, hud, ui, sfx, stats, pav = nul
   const boss = C.boss, zr = (dx, dy, dz) => (boss ? [boss.eye.x + dx, boss.eye.y + dy, boss.eye.z + dz] : [0, 0, 0]);
   const OPEN = [
     ['Dan', WHITE, 'You have my laptop. I have your key.'],
-    ['Mr. Big', ACID, "Daniel. You're on a boat."],
+    ['Mr. Big', ACID, 'A boat, Daniel?'],
     ['Dan', WHITE, 'One thing goes in the shredder at dawn. Wonder which.'],
     ['Mr. Big', ACID, 'That key signs everything I own.'],
   ];

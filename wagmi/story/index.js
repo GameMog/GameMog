@@ -20,6 +20,7 @@
 //   S.result(mission, secs)  a mission passed, told to a framing GameMog (below)
 //   S.id · S.hash · S.isDefault · S.ok · S.pack
 import { validatePack } from './schema.js';
+import { upgradePack } from './upgrade.js';
 import { dress as dressModel } from './dress.js';
 import { makeStory, KNOBS, html } from './make.js';
 import { allowed, hostOf, GAMEMOG } from './allow.js';
@@ -58,7 +59,8 @@ async function loadStory() {
     else {
       try {
         const [t, lim] = await Promise.all([getText(url), getText(new URL('../../assets/story/limits.json', import.meta.url)).then(JSON.parse)]);
-        const p = JSON.parse(t), v = validatePack(p, base, lim);
+        // (a pack made on an older default: its retired ids brought up to this one first, upgrade.js)
+        const p = upgradePack(JSON.parse(t), base, lim), v = validatePack(p, base, lim);
         if (v.ok) { pack = p; text = t; id = new URL(url).pathname.replace(/^\/|\/story\.json$/g, '').replace(/^tools\/story\/test-packs\//, 'test/').replace(/\.json$/, ''); }
         else { ok = false; why = 'invalid: ' + v.errors.slice(0, 3).join('; '); }
       } catch (err) { ok = false; why = err.message; }

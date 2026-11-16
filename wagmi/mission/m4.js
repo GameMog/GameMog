@@ -53,9 +53,10 @@ import { episodeEnd, openMissionSelect } from './episode.js';
 import { buildPavilion, PAV, SPOTS, GLYPHS, at } from './m4-set.js';
 import { createGuests, createRecon, createTray, createPad } from './m4-heist.js';
 import { createM2UI } from './m2-ui.js';
-import { benchScene, arrivalScene, unveilScene, flipScene, takeoffScene, landingScene, boardingScene, callScene, CLIMB, R_AT, WHITE, BLUE, ACID, PINK, fionaTalk } from './m4-scenes.js';
+import { benchScene, arrivalScene, unveilScene, flipScene, R_AT, WHITE, BLUE, ACID, PINK, fionaTalk } from './m4-scenes.js';
 import { createEscape, pilot } from './m4-escape.js';
 import { S as story } from '../story/index.js';
+import { playTurns, beatOf } from '../radio/turns.js';
 
 const PI = Math.PI;
 const Q = new URLSearchParams(location.search);
@@ -270,20 +271,17 @@ function createMission(W, { keep = false, quiet = false } = {}) {
   // the lines: subtitles (their recorded voices play from them), held for their reading time or their voice, a murmur
   // where there is no voice yet (every new Mission 4 line, until the voice build has them); onLine(who, i) as each starts
   const VOICE = { Dan: 120, Jane: 205, Fiona: 236, Knox: 98, 'Mr. Big': 104, Rook: 150 };
+  // (each held as long as its voice, or its reading time with none, and handed over as the beat says: radio/turns.js)
+  function mumble(who, text, secs) {
+    if (!VOICE[who] || W.voice?.speaks?.(who, text)) return;
+    const parts = text.match(/[^.?!]+[.?!']*/g) || [text]; let a = 0;
+    for (const ph of parts) { const n = ph.trim().length; if (n) setTimeout(() => sfx?.play('mumble', { f0: VOICE[who] * (0.96 + Math.random() * 0.08), dur: Math.min(0.5, Math.max(0.2, 0.1 + n * 0.02)), gain: 0.24, q: /\?/.test(ph) }), a * 1000 + 30); a += ph.length / text.length * secs; }
+  }
   async function say(lines, t = tok, onLine = null) {
-    for (let i = 0; i < lines.length; i++) {
-      const [who, color, words, pause = 0.25] = lines[i];
-      if (t.dead) break;
-      const text = story.line(who, words);
-      const secs = Math.max(1.4, text.length / 15, (W.voice?.dur?.(who, text) || 0) + 0.15);
-      ui.sub(who, text, color); onLine?.(who, i);
-      if (VOICE[who] && !W.voice?.speaks?.(who, text)) {
-        const parts = text.match(/[^.?!]+[.?!']*/g) || [text]; let a = 0;
-        for (const ph of parts) { const n = ph.trim().length; if (n) setTimeout(() => sfx?.play('mumble', { f0: VOICE[who] * (0.96 + Math.random() * 0.08), dur: Math.min(0.5, Math.max(0.2, 0.1 + n * 0.02)), gain: 0.24, q: /\?/.test(ph) }), a * 1000 + 30); a += ph.length / text.length * secs; }
-      }
-      await gsleep(secs * 1000);
-      ui.sub(null); await gsleep(pause * 1000);
-    }
+    await playTurns(W, lines.map(([who, color, words, b]) => ({ who, color, text: story.line(who, words), ...beatOf(b) })), {
+      dead: () => t.dead, sleep: gsleep, hide: () => ui.sub(null),
+      show: ({ who, text, color }, i, secs) => { ui.sub(who, text, color); onLine?.(who, i); mumble(who, text, secs); },
+    });
   }
   const objective = (parts, target = null) => {
     if (gps.objective) gps.objective(parts, target, { blip: !!target && !target.follow });
@@ -581,8 +579,19 @@ function createMission(W, { keep = false, quiet = false } = {}) {
       W.calls?.start('m4-seaport', { wrapWhen: () => dist(me(), dest.x, dest.z) < 250, hurryWhen: () => dist(me(), dest.x, dest.z) < 450 });
       let up = false;
       const off = hook(() => { drive.step(); if (!up && dist(me(), PAV.x, PAV.z) < 700) { up = true; showPav(true); knoxOnDoor(true); } });
-      try { await wait(() => { const d = dist(me(), dest.x, dest.z); return cm.activeMode === 'car' ? d < 10 && Math.abs(car.speed) < 6 : d < 4; }); }
-      finally { off(); drive.stop(); }
+      // (the review, round 3: at the curb with Jane's main lines still to say, the scene waits for them, the wheel still
+      // his: "Jane's still talking." once. Out of the car the call is on hold and the scene goes on; 40 s at most)
+      const there = () => { const d = dist(me(), dest.x, dest.z); return cm.activeMode === 'car' ? d < 10 && Math.abs(car.speed) < 6 : d < 4; };
+      let heldAt = null;
+      try {
+        await wait(() => {
+          if (!there()) return false;
+          if (cm.activeMode !== 'car' || W.calls?.owes?.('m4-seaport') !== 'main') return true;
+          if (heldAt == null) { heldAt = now(); ui.help("Jane's still talking.", 4); }
+          return now() - heldAt > 40000;
+        });
+      }
+      finally { off(); drive.stop(); if (heldAt != null) ui.help(null); }
       if (cm.activeMode === 'car') { car.speed = 0; car.vx = car.vz = 0; car.angularVel = 0; }
       endCall('m4-seaport');
       showPav(true);
@@ -678,10 +687,10 @@ function createMission(W, { keep = false, quiet = false } = {}) {
       else ui.dm?.('Jane', 'I, II, III. the order of the nocturnes, not the order you found them.', 9);
       // (Fiona keeps them looking at the screen)
       delay(4).then(() => say([
-        ['Fiona', PINK, 'While the key wakes up, tell us what the High Artwork means to you!'],
+        ['Fiona', PINK, 'While the key wakes up: what does the High Artwork mean to you?'],
         ['Mr. Big', ACID, 'It means it is mine, Fiona.'],
         ['Fiona', PINK, 'Wow. Chills, everybody.'],
-        ['Mr. Big', ACID, 'Ninety seconds. Then I sign. Nobody touch anything.'],
+        ['Mr. Big', ACID, 'Ninety seconds, then I sign. Nobody touch anything.'],
       ])).catch(() => {});
       let opened = false;
       const act = ui.holdAct({ label: 'open the case', verb: 'Walk up to', noun: 'the case', secs: 1.0, show: 7, reach: 1.8 });

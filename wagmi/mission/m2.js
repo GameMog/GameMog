@@ -52,6 +52,7 @@ import * as SCENES from './m2-scenes.js';
 import { runScene, burnerScene, crashScene, phoneScene, J_AT, CRASH } from './m2-scenes.js';
 import { clamp } from './cine.js';
 import { S as story } from '../story/index.js';
+import { playTurns, beatOf } from '../radio/turns.js';
 
 const PI = Math.PI;
 const WHITE = '#FFFFFF', BLUE = '#6CB8FF', ACID = '#B6FF3B';
@@ -212,23 +213,22 @@ function createMission(W, { keep = false, quiet = false } = {}) {
   // the lines: subtitles (their recorded voices play from them, wagmi/radio), held for their reading time or their
   // voice, a mumble where there is no voice; onLine(who) as each starts
   const VOICE = { Dan: 120, Jane: 205, Mack: 98, Knox: 104 };
+  // (each held as long as its voice, or its reading time with none, and handed over as the beat says: radio/turns.js)
+  function mumble(who, text, secs) {
+    if (!VOICE[who] || W.voice?.speaks?.(who, text)) return;
+    const parts = text.match(/[^.?!]+[.?!']*/g) || [text]; let a = 0;
+    for (const ph of parts) { const n = ph.trim().length; if (n) setTimeout(() => sfx?.play('mumble', { f0: VOICE[who] * (0.96 + Math.random() * 0.08), dur: Math.min(0.5, Math.max(0.2, 0.1 + n * 0.02)), gain: 0.24, q: /\?/.test(ph) }), a * 1000 + 30); a += ph.length / text.length * secs; }
+  }
   async function say(lines, t = tok, onLine = null) {
-    for (let i = 0; i < lines.length; i++) {
-      const [who, color, words, pause = 0.25] = lines[i];
-      if (t.dead) break;
-      // (the words as the story has them: wagmi/story)
-      const text = story.line(who, words);
-      const secs = Math.max(1.4, text.length / 15, (W.voice?.dur?.(who, text) || 0) + 0.15);
-      ui.sub(who, text, color); onLine?.(who, i);
-      if (VOICE[who] && !W.voice?.speaks?.(who, text)) {
-        const parts = text.match(/[^.?!]+[.?!']*/g) || [text]; let a = 0;
-        for (const ph of parts) { const n = ph.trim().length; if (n) setTimeout(() => sfx?.play('mumble', { f0: VOICE[who] * (0.96 + Math.random() * 0.08), dur: Math.min(0.5, Math.max(0.2, 0.1 + n * 0.02)), gain: 0.24, q: /\?/.test(ph) }), a * 1000 + 30); a += ph.length / text.length * secs; }
-      }
-      // (Jane talking: her wave and her mouth on the call)
-      const talk = setInterval(() => { if (who === 'Jane' && U.call.on) U.call.talk(0.5 + Math.random() * 0.5); }, 90);
-      await gsleep(secs * 1000); clearInterval(talk); if (who === 'Jane' && U.call.on) U.call.talk(0);
-      ui.sub(null); await gsleep(pause * 1000);
-    }
+    await playTurns(W, lines.map(([who, color, words, b]) => ({ who, color, text: story.line(who, words), ...beatOf(b) })), {
+      dead: () => t.dead, sleep: gsleep, hide: () => ui.sub(null),
+      show: ({ who, text, color }, i, secs) => {
+        ui.sub(who, text, color); onLine?.(who, i); mumble(who, text, secs);
+        // (Jane talking: her wave and her mouth on the call)
+        const talk = setInterval(() => { if (who === 'Jane' && U.call.on) U.call.talk(0.5 + Math.random() * 0.5); }, 90);
+        return () => { clearInterval(talk); if (who === 'Jane' && U.call.on) U.call.talk(0); };
+      },
+    });
   }
   // (o.blip false: the target has a blip of its own, its kind's)
   const objective = (parts, target = null, o = {}) => {

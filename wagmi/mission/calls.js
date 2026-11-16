@@ -616,7 +616,7 @@ export const CALLS = {
     main: [
       ['Jane', BLUE, "You're going to see Rook."],
       ['Dan', WHITE, 'He said come alone.'],
-      ['Jane', BLUE, "He said. I didn't. I'm on the phone. That's alone-ish."],
+      ['Jane', BLUE, "He said that. I didn't. I'm on the phone, so: alone-ish."],
       ['Dan', WHITE, 'Alone-ish.'],
       ['Jane', BLUE, 'If anything feels off, you drive away. Promise me.'],
       ['Dan', WHITE, 'Promise.'],
@@ -643,26 +643,36 @@ export const CALLS = {
     pause: PAUSE,
     resume: RESUME,
   },
-  // m4-seaport (m4 · seaport, normal): the drive from Rook's bench through Chinatown to the Seaport, the plan: nobody
-  // looks at the waiter; the key opens for about ninety seconds; Mr. Big joins by video from his office; the artist
-  // hides his mark three times. The stolen work is only ever "the High Artwork". Wrap: 250 m from the pavilion, once
-  // the main lines are said.
+  // m4-seaport (m4 · seaport, normal): the drive from Rook's bench through Chinatown to the Seaport, the plan, told by
+  // Dan as Rook told it on the bench and in the pass he gave him (the bench is a first meeting now, its logistics here:
+  // the dialogue pass, round 2): the laptop in the shredder truck, two Suits on it; the unveiling of the High Artwork
+  // tonight and the key's ninety seconds; the catering pass, a waiter nobody looks at, Knox on the door; Mr. Big on
+  // video from his office; the artist's three marks; the helicopter, its pilot sent for coffee. The stolen work is only
+  // ever "the High Artwork". Wrap: 250 m from the pavilion, once the main lines are said.
   'm4-seaport': {
     step: 'm4:seaport', trigger: 'phase-start', delay: 6, wrapAfterMain: true,
     main: [
       ['Jane', BLUE, 'Okay. Tell me exactly what he said.'],
+      ['Dan', WHITE, "He said don't look at him. Look at the pigeons."],
+      ['Jane', BLUE, 'Did you?'],
+      ['Dan', WHITE, 'They looked guilty.', { how: 'deadpan' }],
+      ['Jane', BLUE, 'Babe. The laptop.'],
+      ['Dan', WHITE, 'Shredder truck. Two Suits ride with it.'],
+      ['Jane', BLUE, 'Then we leave the truck alone. What else?'],
       ['Dan', WHITE, "Mr. Big unveils the High Artwork tonight. At the Seaport. And his signing key opens for ninety seconds."],
       ['Jane', BLUE, 'So whoever holds the key signs the High Artwork over.'],
       ['Dan', WHITE, '"Take what he loves. Then trade."'],
       ['Jane', BLUE, "Then that's the plan. Down Canal, right on Mott. It's slow, but nobody looks twice at you there."],
-      ['Jane', BLUE, "You're a waiter tonight. Nobody looks at the waiter. Not even Knox."],
-      ['Dan', WHITE, 'Knox will be there?'],
-      ['Jane', BLUE, "On the door. Head down, tray up, you're furniture."],
-      ['Jane', BLUE, "Mr. Big won't be. He joins by video, from his office. He hasn't stood in a crowd since the camp."],
+      ['Dan', WHITE, "Rook got me a catering pass. I'm a waiter tonight."],
+      ['Jane', BLUE, 'You spilled soup on a dean.'],
+      ['Dan', WHITE, 'One dean.'],
+      ['Jane', BLUE, "Nobody looks at the waiter. Not even Knox. He's on the door: head down, tray up."],
+      ['Jane', BLUE, "Mr. Big won't be there. He joins by video, from his office. He hasn't stood in a crowd since the camp."],
       ['Dan', WHITE, 'Afraid of people. Noted.'],
       ['Jane', BLUE, 'The artist hides his mark three times in everything he makes. I bet the case wants it, in order.'],
       ['Dan', WHITE, 'Three marks. Ninety seconds. One tray.'],
       ['Jane', BLUE, 'And a helicopter. Which you have never flown.'],
+      ['Dan', WHITE, 'Rook sent the pilot for coffee.'],
       ['Dan', WHITE, "I've played a lot of games."],
       ['Jane', BLUE, "That's not comforting, babe."],
     ],

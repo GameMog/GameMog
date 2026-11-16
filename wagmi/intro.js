@@ -42,6 +42,13 @@ export const MARK = {
 };
 // the speakers' colours
 const WHITE = '#FFFFFF', ACID = '#B6FF3B', BLUE = '#6CB8FF', YELLOW = '#FFC93C';
+// (the owner, 15 Nov: the cutscenes "robotic, stiff". Two stretches of the opening run a little slower than its keyed
+// clock, [from, to, k] in keyed seconds: the Suit's hello, whose first line had been sped up 15 % to fit, and Mr. Big's
+// call, his lines end to end with no room for the beat before "You ran errands". Everything in them, the picture, the
+// people and the subtitles, keeps its keyed times; only the clock under them is slower, the voices not, so each line
+// has k times its room. 3.0 s longer in all. The voice build fits the lines to the same real clock: radio/build/voices.mjs)
+const SLOW = [[25.6, 31.5, 1.18], [50.0, 69.3, 1.1]];
+const slowAt = (t) => { for (const [a, b, k] of SLOW) if (t >= a && t < b) return k; return 1; };
 
 export async function install(W) {
   // Dan's face (wagmi/face.js, 23 Oct round 3): his mouth with his own lines, blinks, his eyes on whom he talks to
@@ -1209,7 +1216,7 @@ function buildScript(ctx) {
   const duck = keys([[35.95, 1], [36.05, 0.3], [36.95, 0.3], [37.6, 1]]);
   function frame(dt) {
     const seek = Math.abs(t - lastT) > 0.5 || lastT < 0;
-    const sdt = seek ? 0 : dt * rate;
+    const sdt = seek ? 0 : dt * rate / slowAt(t);
     if (seek) eyeS = null;
     // the van
     const vp = vanAt(t);
@@ -1401,8 +1408,8 @@ function buildScript(ctx) {
     W._holdCam?.release(0); W._holdCam = null;
     // (no frame once it has finished: one more would pose him again, phone grip and all, and wake the scene's clips
     // under the game's own)
-    W.directed = (dt) => { if (playing) { t = Math.min(END, t + dt * rate); if (t >= END) return finish(); } D.framed = true; frame(dt); };
-    D.onFrame = (dt) => { if (playing) { t = Math.min(END, t + dt * rate); if (t >= END) return finish(); } frame(dt); };
+    W.directed = (dt) => { if (playing) { t = Math.min(END, t + dt * rate / slowAt(t)); if (t >= END) return finish(); } D.framed = true; frame(dt); };
+    D.onFrame = (dt) => { if (playing) { t = Math.min(END, t + dt * rate / slowAt(t)); if (t >= END) return finish(); } frame(dt); };
     D.take();
     ui.cine(true);
     document.body.classList.add('wg-hidehint');

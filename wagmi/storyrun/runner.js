@@ -35,6 +35,7 @@ import { createAction } from './action.js';
 import { armTo } from '../mission/m3-set.js';
 import { world as cityWorld } from '../world/index.js';
 import { createReach, reachReason } from './reach.js';
+import { beatOf, gapAfter, readingTime, playTurns } from '../radio/turns.js';
 
 const PI = Math.PI;
 export const KINDS_STUB = new Set(['patrol', 'wallet']);
@@ -151,22 +152,45 @@ export function createRunner(ctx) {
     let at = 0;
     for (const p of ph) { const n = p.trim().length; if (!n) continue; setTimeout(() => sfx.play('mumble', { f0: f0 * (0.96 + Math.random() * 0.08), dur: Math.min(0.5, Math.max(0.2, 0.1 + n * 0.02)), gain: 0.26, q: /\?/.test(p) }), at * 1000 + 30); at += p.length / text.length * secs; }
   }
-  // a line: its subtitle (its recording or clip plays from it: radio/voices.js), held for its reading time or its voice
-  async function say(who, text, t, { secs = null, phone = false, radio = null } = {}) {
+  // a line: its subtitle (its recording or clip plays from it: radio/voices.js), held as long as its voice (its
+  // recording's length, or a world clip's or the browser voice's followed to its end), else its reading time or the
+  // line's own secs. Handed over from the line said just before as the beat says (radio/turns.js: a quick reply 0.12 s,
+  // else 0.3 s, a written pause / pre / post as written); its subtitle stays up into that gap, until the next one.
+  //   beat: { how, pre, post, pause, overlap } (a story line's own optional fields; anything else ignored)
+  let lastSaid = null, lastEnd = -1e9, subGen = 0;
+  async function say(who, text, t, { secs = null, phone = false, radio = null, ...beat } = {}) {
     text = tokens(text);
     // (a recorded line still playing, a car-phone call's or the last step's, is heard out first, up to 6 s)
     if (W.voice?.left?.() > 0.08) { const t0 = now(); await wait(() => !(W.voice.left() > 0.08) || now() - t0 > 6000, t); }
-    const rec = W.voice?.dur?.(who, text) || 0;
-    const hold = Math.max(1.4, text.length / 15, rec + 0.15, secs || 0);
+    const L = { who, text, ...beatOf(beat) };
+    { const since = (now() - lastEnd) / 1000, g = lastSaid && since < 1.5 ? gapAfter(lastSaid, { ...L, overlap: false }) - since : L.pre || 0; if (g > 0.02) await delay(g, t); }
+    const rec = W.voice?.dur?.(who, text) || 0, voiced = VOICED(who, text);
+    const read = Math.max(readingTime(text), secs || 0), hold = rec > 0 ? rec : read;
     if (phone) W.voice?.fx?.(who, 'phone');
-    ui.sub(who || null, text, colorOf(who), radio ?? (phone || onAir(who)));
+    W.voice?.cue?.({ cut: !!lastSaid && (now() - lastEnd) / 1000 < 0.5 && /\.\.\.['"’]?\s*$/.test(lastSaid.text), how: L.how || null });
+    subGen++; ui.sub(who || null, text, colorOf(who), radio ?? (phone || onAir(who)));
     mumble(who, text, hold);
     M?.log.push(['say', who, text]);
     saying++;
-    try { await delay(hold, t); } finally { saying--; ui.sub(null); if (phone) W.voice?.fx?.(who); }
-    await delay(0.25, t);
+    try {
+      if (rec > 0 || !voiced) await delay(hold, t);
+      else {
+        // (a world's clip, its length known once decoded, or the browser's voice: followed to its end, never cut)
+        const t0 = now(), on = () => W.voice?.left?.() > 0.03 || !!W.voice?.synthOn;
+        await wait(() => on() || now() - t0 > 900, t);
+        if (on()) await wait(() => !on() || now() - t0 > (read + 6) * 1000, t); else { const rest = read - (now() - t0) / 1000; if (rest > 0) await delay(rest, t); }
+      }
+    } finally {
+      saying--; if (phone) W.voice?.fx?.(who);
+      lastSaid = L; lastEnd = now();
+      // (the subtitle up through the hand-over: cleared only if no line follows it)
+      const g = subGen; setTimeout(() => { if (g === subGen && !saying) ui.sub(null); }, 450);
+    }
+    if (L.post) await delay(L.post, t);
   }
+  // (a story line: [who, text, secs] or { who, text, secs, how, pre, post, pause, overlap })
   const tuple = (l) => (Array.isArray(l) ? { who: l[0], text: l[1], secs: l[2] } : l);
+  const beatIn = (l) => (l && typeof l === 'object' && !Array.isArray(l) ? { how: l.how, pre: l.pre, post: l.post, pause: l.pause, overlap: l.overlap } : {});
   // (a voice only ever heard over the air: its lines are radio lines on screen too)
   // (one heard only over the air, except in the missions where he is there in person: his cast entry's `present`,
   // mission ids: Deacon Vale in M6, the last wave's boss)
@@ -944,6 +968,16 @@ export function createRunner(ctx) {
       if (hug === null && !walking) fig.post = null;
     }
   }
+  // a shot's spoken lines: lines [[who, text] | { who, text, how, pre, post, pause, overlap }] (2-4, S4: several lines in
+  // one shot), else its say [who, text] | { who, text, ... }, else its sub [who, text]; tokens and cast names resolved
+  function shotLines(s) {
+    const one = (l) => { const o = Array.isArray(l) ? { who: l[0], text: l[1] } : l && typeof l === 'object' ? l : null; if (!o || o.text == null || o.text === '') return null; return { ...beatOf(o), who: castName(o.who) || null, text: tokens(o.text) }; };
+    if (Array.isArray(s.lines) && s.lines.length) return s.lines.slice(0, 6).map(one).filter(Boolean);
+    if (s.say && (Array.isArray(s.say) || typeof s.say === 'object')) { const o = one(s.say); return o ? [o] : []; }
+    const sub = s.sub && (Array.isArray(s.sub) ? s.sub : ['', s.sub]);
+    if (sub && sub[1]) { const o = one([sub[0] || null, sub[1]]); return o ? [o] : []; }
+    return [];
+  }
   async function shotList(shots, t, { skippable = true, beat = false, opening = false, set = null } = {}) {
     const D = createDirector(W);
     const ssr0 = ssrOf()?.intensity.value ?? 0;
@@ -960,9 +994,12 @@ export function createRunner(ctx) {
     let lastFrame = now();
     const stepSkip = () => { const tt = now(); D.skipStep(Math.min(0.05, (tt - lastFrame) / 1000), ui); lastFrame = tt; };
     try {
-      for (const s of shots) {
+      const live = shots.filter((s) => !(s.if && !cond(s.if)));
+      for (let si = 0; si < live.length; si++) {
+        let s = live[si];
         if (skip) break;
-        if (s.if && !cond(s.if)) continue;
+        // (S5: 'single' is the grammar's close-up)
+        if (s.frame === 'single') s = { ...s, frame: 'close' };
         // (the shot's set: its own, else the cutscene's; false or none, the street)
         if (setRun) { const id = s.set === false ? null : (s.set || set); setRun.use(id && setRun.has(id) ? id : null); if (s.act) setRun.act(s.act); }
         // (on the street: the shot's changes to the people in it, a run to someone and a hug: streetAct)
@@ -973,20 +1010,32 @@ export function createRunner(ctx) {
         if (fr) for (const q of [fr.A, fr.B]) q[1] = Math.max(q[1], cm.getGroundHeight(q[0], q[2], 'person') + 0.35);
         const sc = fr ? null : (s.cam || (s.frame ? { rel: s.on && s.on !== 'player' && cast.get(castName(s.on)) ? s.on : 'player', fwd: 1.6, right: 0.4, up: 0.05 } : s.cam));
         const scL = s.look || (!fr && s.frame ? { rel: sc.rel } : s.look);
-        const dur = s.dur || 3, A = fr ? fr.A : camPt(sc), B = fr ? fr.B : s.to ? camPt(s.to) : A, LA = fr ? fr.LA : camPt(scL, 1.4), LB = fr ? fr.LB : s.lookTo ? camPt(s.lookTo, 1.4) : LA;
+        // (a lineless reaction shot, react: true or frame 'react' with no line: 0.6-1.2 s, after a reveal)
+        const said = shotLines(s), reactOnly = !said.length && (s.react === true || s.frame === 'react') && !s.text && !s.caption && !s.card && !s.title;
+        const dur = reactOnly ? Math.max(0.6, Math.min(1.2, s.dur || 0.9)) : s.dur || 3, A = fr ? fr.A : camPt(sc), B = fr ? fr.B : s.to ? camPt(s.to) : A, LA = fr ? fr.LA : camPt(scL, 1.4), LB = fr ? fr.LB : s.lookTo ? camPt(s.lookTo, 1.4) : LA;
         // (an opening's name card: the lens settles on its person through the first part of the shot, then the frame
         // freezes on them, their body held mid-move, as their name and role come up: openCard())
         const card = opening && s.card && s.card.who ? s.card : null, hold = card ? Math.min(dur * 0.42, 1.6) : dur;
         const pos = keys([[0, A], [hold, B]]), look = keys([[0, LA], [hold, LB]]);
         const t0 = now();
-        const sub = s.sub && (Array.isArray(s.sub) ? s.sub : ['', s.sub]);
         if (s.caption) ui.caption(s.caption, '', '#FFC93C', Math.min(dur, 3));
         let frozen = null;
         if (opening) openBeat(s, dur);
-        if (s.say && Array.isArray(s.say)) { const [w, x] = s.say; ui.sub(castName(w), tokens(x), colorOf(castName(w)), onAir(castName(w))); mumble(castName(w), x, dur); }
-        else if (sub && sub[1]) { const w = castName(sub[0]); ui.sub(w || null, tokens(sub[1]), colorOf(w), onAir(w)); if (w) mumble(w, sub[1], dur); M?.log.push(['say', w, sub[1]]); }
+        // the shot's lines (one, or several in one shot: lines [...]), said in turn (radio/turns.js) while the lens moves.
+        // A voiced line holds the shot for its voice and the beat after it, no longer: the shot's dur is the most a
+        // recorded line waits in it (the old 1.4 s and reading-time floors are for lines with no voice); an unvoiced
+        // line, a name card, a title or a caption keep the shot's whole dur as before
+        let linesDone = !said.length, linesEnd = 0, lastL = null;
+        if (said.length) playTurns(W, said, {
+          dead: () => skip || local.dead, sleep: (ms) => delay(ms / 1000, local).catch(() => {}),
+          show: (L, i, secs) => { ui.sub(L.who || null, L.text, colorOf(L.who), onAir(L.who)); if (L.who) mumble(L.who, L.text, secs); M?.log.push(['say', L.who, L.text]); lastL = L; },
+          hide: () => {},
+        }).finally(() => { linesDone = true; linesEnd = now(); });
         else if (s.text) ui.sub(null, tokens(s.text));
-        const len = Math.max(dur, sub && sub[1] ? Math.max(1.4, sub[1].length / 15, (W.voice?.dur?.(castName(sub[0]), tokens(sub[1])) || 0) + 0.15) : 0);
+        const voicedAll = said.length && said.every((L) => (W.voice?.dur?.(L.who, L.text) || 0) > 0);
+        const nextL = shotLines(live[si + 1] || {})[0] || null;
+        const keepDur = !said.length || !voicedAll || !!(s.card || s.title || s.caption || s.where || opening);
+        const len = keepDur ? Math.max(dur, said.length && !voicedAll ? said.reduce((a, L) => a + readingTime(L.text), 0) : 0) : Math.min(dur, 0.6);
         try {
           await wait(() => {
             const k = Math.min(dur, (now() - t0) / 1000), still = card && k >= hold, hh = handheld(k + t0 / 1000, still ? 0 : 0.4);
@@ -996,11 +1045,15 @@ export function createRunner(ctx) {
             if (setRun?.active) setRun.frame({ pos: D.camera.pos, look: l, fov: s.fov || 40 });
             { const n = keyLight(p, l, !!s.warm), ssr = ssrOf(); if (ssr) ssr.intensity.value = n < CLOSE ? 0 : ssr0; }
             if (!beat) stepSkip();
-            return (now() - t0) / 1000 >= len;
+            // (its lines said, and the beat before the next shot's first line: a reply lands as the line ends)
+            // (the last line's own pause and post were waited out in playTurns already: not again here)
+            const after = lastL ? Math.max(0, gapAfter(lastL, nextL || { text: '' }) - (lastL.pause || 0) - (lastL.post || 0) - (nextL ? 0 : 0.1)) : 0;
+            return (now() - t0) / 1000 >= len && linesDone && (!linesEnd || (now() - linesEnd) / 1000 >= (keepDur ? 0 : after));
           }, local);
         } catch (e) { if (!(e instanceof Stop) || !skip) throw e; }
         finally { frozen?.(); if (opening && s.title) ui.gameTitle(false); }
-        ui.sub(null);
+        // (the subtitle stays up into the cut when the next shot opens on a line: it replaces it)
+        if (!nextL) ui.sub(null);
       }
     } finally {
       ui.sub(null); ui.caption(null); ui.skip(null); keyL.intensity = 0; if (ssrOf()) ssrOf().intensity.value = ssr0;
@@ -1190,6 +1243,19 @@ export function createRunner(ctx) {
     return o.goto ? { goto: o.goto } : {};
   }
   STEPS.choice = async (d, t) => choose(d, t);
+  // a world call's react pools and register for calls.js define(): { react: { tooClose: [[who, colour, text]...] },
+  // cool: 7, mode } (pools of 1-4 lines, the four kinds only; a register only one of the three)
+  const REACTS = ['tooClose', 'hit', 'lost', 'spotted'], REGISTERS = ['normal', 'whisper', 'fast'];
+  function callReacts(d, toTup) {
+    const out = {}, r = d.react && typeof d.react === 'object' && !Array.isArray(d.react) ? d.react : null;
+    if (r) {
+      const pools = {};
+      for (const k of REACTS) if (Array.isArray(r[k]) && r[k].length) pools[k] = r[k].slice(0, 4).map(tuple).filter((l) => l && l.who && l.text).map(toTup);
+      if (Object.keys(pools).length) { out.react = pools; out.cool = 7; }
+    }
+    if (REGISTERS.includes(d.register)) out.mode = d.register;
+    return out;
+  }
 
   // a call: the car phone (auto / inCar: calls.js, its rules: only at the wheel, on hold on foot, wraps when its leg
   // ends) or a phone that rings (E or Y answers, X or N declines; the caller card, Mog City's), then its choice
@@ -1229,7 +1295,9 @@ export function createRunner(ctx) {
     if ((d.inCar || (d.auto && (ride || inCar()))) && W.calls?.define) {
       const id = `pack:${M.def.id}:${M.i}:${ride ? 'd' : 's'}:${who}`;
       const f0 = {}; for (const n of new Set([who, ...lines.map((l) => castName(l.who))])) f0[n] = cast.f0(n);
-      W.calls.define(id, { who, color, f0, step: ui.stepId, main: lines.map(toTup), extra: (d.extra || []).map((b) => b.map(tuple).map(toTup)), wrap: (d.wrap || []).map(tuple).map(toTup),
+      // (GM5: a world's action call has Jane's tools: react pools for what he does (too close, hit, lost, spotted: 2-3
+      // lines each, 7 s apart) and a register (normal, whisper, fast); a world without them is as before)
+      W.calls.define(id, { ...callReacts(d, toTup), who, color, f0, step: ui.stepId, main: lines.map(toTup), extra: (d.extra || []).map((b) => b.map(tuple).map(toTup)), wrap: (d.wrap || []).map(tuple).map(toTup),
         pause: (d.hold?.pause || []).map(tuple).map(toTup), resume: (d.hold?.resume || []).map(tuple).map(toTup), trigger: d.inCar || d.auto ? 'enter-car' : 'phase-start', delay: 2, wrapAfterMain: !ride, finish: !!ride });
       const hostDone = { v: false };
       W.calls.start(id, { step: ui.stepId, wrapWhen: () => hostDone.v });
@@ -1264,7 +1332,7 @@ export function createRunner(ctx) {
     ui.caller(who, color, d.role || 'On call');
     M.log.push(['call', who]);
     try {
-      for (const l of lines) await say(castName(l.who), l.text, t, { secs: l.secs, phone: castName(l.who) !== heroName });
+      for (const l of lines) await say(castName(l.who), l.text, t, { secs: l.secs, phone: castName(l.who) !== heroName, ...beatIn(l) });
       if (d.choice) return await choose(d.choice, t);
     } finally { ui.caller(null); sfx.play('hangup', { gain: 0.12 }); }
   };
@@ -1295,7 +1363,7 @@ export function createRunner(ctx) {
     await delay(0.3, t);
     applySet(d.answer); show(d.role || 'On call');
     try {
-      for (const l of lines) { show(d.role || 'On call'); await say(castName(l.who), l.text, t, { secs: l.secs, phone: castName(l.who) !== heroName }); }
+      for (const l of lines) { show(d.role || 'On call'); await say(castName(l.who), l.text, t, { secs: l.secs, phone: castName(l.who) !== heroName, ...beatIn(l) }); }
       if (d.choice) return await choose(d.choice, t);
     } finally { sfx.play('hangup', { gain: 0.1 }); ui.caller(null); W.calls.hold?.(false); }
   }
@@ -2197,7 +2265,7 @@ export function createRunner(ctx) {
         close = tooClose && opened ? close + dt : Math.max(0, close - dt);
         far = dd > lostDist ? far + dt : 0;
         // (the warning before the fail: too close, or about to lose it)
-        if (tt - warnAt > 3500 && (close > (d.spotTime || 4) * 0.4 || far > (d.lostTime || 8) * 0.35)) { warnAt = tt; juice.alert(close > 0 ? 'Too close' : 'Losing them', { sub: close > 0 ? 'Back off or they make you.' : `Catch up to ${name}.`, tone: 'yellow', secs: 1.6 }); }
+        if (tt - warnAt > 3500 && (close > (d.spotTime || 4) * 0.4 || far > (d.lostTime || 8) * 0.35)) { warnAt = tt; juice.alert(close > 0 ? 'Too close' : 'Losing them', { sub: close > 0 ? 'Back off or they make you.' : `Catch up to ${name}.`, tone: 'yellow', secs: 1.6 }); W.calls?.react?.(close > 0 ? 'tooClose' : 'lost'); }
         if (close > (d.spotTime || 4)) throw new Fail(`${name.replace(/^the /, 'The ')} spotted you.`, 'lost');
         if (far > (d.lostTime || 8)) throw new Fail(`You lost ${name}.`, 'lost');
         return D.done;

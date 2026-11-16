@@ -83,8 +83,18 @@ with a dev `?host=`, the story routes on that host are accepted too (Phase C's d
 - `pack` is the schema version. A change to the schema is `pack: 2`, with a note in
   `MogCity/.scratch/moggable/SCHEMA-FROZEN.md`.
 - `base` names the default pack whose ids a pack uses. Ids are frozen in `assets/story/ids.json`: re-running the
-  extractor keeps an id for the same speaker and words (a line) or the same literal (copy). When a release adds or
-  removes lines or copy, `base` becomes `mog-city@2`, and the game fills a `@1` pack's missing ids from the default.
+  extractor keeps an id for the same speaker and words (a line) or the same literal (copy); a line whose first words stay
+  keeps its id with new words. When a release retires ids (a rewritten scene), `assets/story/retired.json` (kept by
+  hand) lists each one with its successor (`to`, or `null`), its old words and the release it was last in, and each id
+  kept for new words under `reworded` with its old words. `extract.mjs` refuses to run while an id that left `ids.json`
+  is missing from it, checks every successor, and carries the table into `limits.json` as `retired`.
+  `wagmi/story/upgrade.js` `upgradePack(pack, base, limits)` brings a pack made on an older base up to this one before
+  `validatePack`: each retired id dropped (its Mog-written words carried to a successor of the same speaker, within the
+  successor's limit; copy is never carried), a reworded line still in its old default words given the new ones, and the
+  ids the pack lacks filled from the default. A pack holding no retired id is returned as it is, so a current pack is
+  validated exactly as before; `base` stays `mog-city@1` (the schema is unchanged). `tests/story-default.test.mjs`
+  upgrades r16's own default (`tools/story/test-packs/base-r16.json`) and validates it. GameMog copies `upgrade.js`
+  beside its copy of `schema.js` (it imports `render` from it).
 
 ## Tests
 

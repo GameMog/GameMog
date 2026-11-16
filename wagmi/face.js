@@ -556,7 +556,7 @@ export function createFace(W, { speaker, inner, bones, head = false, open = 0.5,
     shown() { let o = inner; while (o) { if (!o.visible) return false; if (o.isScene) return true; o = o.parent; } return false; },
     // the frame's work when nobody else does it (a scene calling live() has it for as long as it does): their mouth with
     // their voice (syllables while their subtitle is up with no voice to follow), their eyes on face.look or else the
-    // nearest face in front of them within 8 m (the one talking, if it is one of them)
+    // nearest face in front of or beside them within 8 m (the one talking, if it is one of them)
     tick(dt) {
       if (face.hold || performance.now() - L.manual < 150 || W.paused) return;
       if (!face.shown()) { if (L.jaw) face.jaw(0); return; }
@@ -568,7 +568,9 @@ export function createFace(W, { speaker, inner, bones, head = false, open = 0.5,
         for (const f of W.faces || []) {
           if (f === face || !f.shown()) continue;
           const p = f.eyes(V()), dv = p.clone().sub(me), dist = dv.length();
-          if (dist < 0.2 || dv.normalize().dot(fwd) < 0.3) continue;
+          // (S1: the partner beside them counts, not only one in front: sat side by side on a bench, their eyes go to
+          // each other, never to the lens; behind them, nobody)
+          if (dist < 0.2 || dv.normalize().dot(fwd) < -0.1) continue;
           // (whoever is talking first: a metre's grace)
           const score = dist - (sub && sub.who.toLowerCase() === String(f.speaker).toLowerCase() ? 1 : 0);
           if (score < bd) { bd = score; best = p; }

@@ -10,6 +10,7 @@ import { readLines } from '../wagmi/radio/build/lines.mjs';
 import { SCHEMA, CAST, render, validatePack, voiceKey } from '../wagmi/story/schema.js';
 import { makeStory } from '../wagmi/story/make.js';
 import { allowed, hostOf } from '../wagmi/story/allow.js';
+import { upgradePack } from '../wagmi/story/upgrade.js';
 import { outputs } from '../tools/story/extract.mjs';
 import { ROOT, literals } from '../tools/story/scan.mjs';
 
@@ -129,6 +130,47 @@ test('the validator refuses what it must', () => {
   assert.deepEqual(validatePack(renamed, base, limits).errors, []);
   const ok = clone(base); ok.consent = { names: ['A Person'], basis: 'self' }; ok.cast.jane.name = 'Ann'; ok.lines[first][1] = 'Hi.';
   assert.deepEqual(validatePack(ok, base, limits).errors, []);
+});
+
+test('a pack made on the r16 base (its retired ids, its old words) is brought up to this one and validates', () => {
+  // (r16's own default pack, as a Mog made on it: Dan renamed, a retired line rewritten, a kept one rewritten)
+  const old = read('tools/story/test-packs/base-r16.json');
+  old.cast.dan.name = 'Eli';
+  old.lines['m4-rook-locked-in-the-shredder'][1] = 'The truck. Two Suits. Forget it.';
+  old.lines['m2-dan-follow-the-van-got'][1] = 'Tail the van. Sure.';
+  old.lines['m4-rook-you-came-alone'][1] = 'You came. Just you?';
+  assert.equal(validatePack(old, base, limits).ok, false, 'as it is, the key sets differ');
+  const R = limits.retired;
+  assert.ok(Object.keys(R.lines).length >= 11 && Object.keys(R.copy).length >= 5);
+  const up = upgradePack(old, base, limits);
+  assert.deepEqual(validatePack(up, base, limits).errors, []);
+  assert.deepEqual(Object.keys(up.lines).sort(), Object.keys(base.lines).sort());
+  assert.deepEqual(Object.keys(up.copy).sort(), Object.keys(base.copy).sort());
+  // (its own words kept wherever the id is still the base's; a retired line it rewrote carried to the successor when the
+  // speaker is the same, and a line it left as the old default given the new default's words)
+  for (const [id, v] of Object.entries(old.lines)) if (Object.hasOwn(base.lines, id) && !(R.reworded.lines[id] || []).includes(v[1])) assert.deepEqual(up.lines[id], v, id);
+  for (const [id, r] of Object.entries(R.lines)) {
+    if (!Object.hasOwn(old.lines, id) || !r.to) continue;
+    const mine = old.lines[id][1] !== r.text && old.lines[id][0] === base.lines[r.to][0];
+    if (!Object.hasOwn(old.lines, r.to)) assert.equal(up.lines[r.to][1], mine ? old.lines[id][1] : base.lines[r.to][1], `${id} -> ${r.to}`);
+  }
+  for (const [id, was] of Object.entries(R.reworded.lines)) if (was.includes(old.lines[id]?.[1])) assert.equal(up.lines[id][1], base.lines[id][1], id);
+  assert.equal(up.lines['m4-rook-shredder-truck-tonight-he'][1], 'The truck. Two Suits. Forget it.');
+  assert.equal(up.lines['m2-dan-thats-their-van-dont'][1], 'Tail the van. Sure.');
+  assert.equal(up.lines['m4-rook-you-came-alone'][1], 'You came. Just you?');
+  assert.equal(up.lines['m4-dan-okay-im-in-tell'][1], base.lines['m4-dan-okay-im-in-tell'][1], 'a new line: the default words');
+  assert.equal(up.cast.dan.name, 'Eli');
+  // (a current pack is left as it is: the same object)
+  assert.equal(upgradePack(base, base, limits), base);
+  const cur = clone(base); delete cur.lines[Object.keys(cur.lines)[0]];
+  assert.equal(upgradePack(cur, base, limits), cur, 'a current pack missing an entry is not filled: validatePack says so');
+});
+
+test('every retired id is gone, every successor and reworded id is in the pack', () => {
+  const R = read('assets/story/retired.json');
+  for (const [id, r] of Object.entries(R.lines)) { assert.ok(!Object.hasOwn(base.lines, id), id); if (r.to) { assert.ok(Object.hasOwn(base.lines, r.to), r.to); assert.equal(base.lines[r.to][0], r.speaker, r.to); } }
+  for (const [id, r] of Object.entries(R.copy)) { assert.ok(!Object.hasOwn(base.copy, id), id); if (r.to) assert.ok(Object.hasOwn(base.copy, r.to), r.to); }
+  for (const id of Object.keys(R.reworded.lines)) assert.ok(Object.hasOwn(base.lines, id), id);
 });
 
 test('?story= is read only from gamemog.com story routes (and local test addresses on a local server)', () => {

@@ -1,7 +1,9 @@
 // Mog City: the default story pack, made from the game's own source (Node, run by hand; its output is committed).
 //   node tools/story/extract.mjs          writes assets/story/default.json (the pack), ids.json (each id's place in the
 //                                         source) and limits.json (each entry's longest text); --check: writes nothing,
-//                                         fails if any of the three would change
+//                                         fails if any of the three would change. assets/story/retired.json (by hand):
+//                                         each id a release retired, its successor and old words, carried into
+//                                         limits.json for wagmi/story/upgrade.js
 // The lines are the voice build's (wagmi/radio/build/lines.mjs readLines: the 540 lines, by their ids); the
 // copy is what tools/story/scan.mjs finds reaching the screen through the story's chokepoints. Names and brands become
 // tokens ({jane}, {bank:upper}) where they are whole words, and every entry is checked to render back to its source
@@ -117,7 +119,29 @@ export function extract(root = ROOT) {
   for (const [id, [, t]] of Object.entries(lines)) if (render(t, pack) !== lineIds[id].text) problems.push(`line ${id}: renders ${JSON.stringify(render(t, pack))}`);
   for (const [id, t] of Object.entries(copy)) if (render(t, pack) !== copyIds[id].text) problems.push(`copy ${id}: renders ${JSON.stringify(render(t, pack))}`);
   if (MEN.some((m) => pack.cast[m].body !== m)) problems.push('a Suit plays another man');
-  const limits = { lines: lineLimits, copy: copyLimits };
+  // the retired ids (assets/story/retired.json, kept by hand): each one gone from the pack, its successor in it, and every
+  // id the last ids.json had and this pack lacks listed there, so a pack made on an older base is brought up to this one
+  // (wagmi/story/upgrade.js); carried into limits.json, which the game fetches with a pack
+  const retired = (() => { try { return JSON.parse(fs.readFileSync(path.join(root, 'assets/story/retired.json'), 'utf8')); } catch { return { lines: {}, copy: {} }; } })();
+  const R = { lines: {}, copy: {} };
+  for (const sec of ['lines', 'copy']) {
+    const now = sec === 'lines' ? lines : copy;
+    for (const [id, r] of Object.entries(retired[sec] || {})) {
+      if (Object.hasOwn(now, id)) { problems.push(`retired.json ${sec} ${id}: still in the pack`); continue; }
+      if (r.to != null && !Object.hasOwn(now, r.to)) problems.push(`retired.json ${sec} ${id}: its successor ${r.to} is not in the pack`);
+      if (sec === 'lines' && r.to != null && now[r.to] && r.speaker && now[r.to][0] !== r.speaker) problems.push(`retired.json lines ${id}: ${r.speaker}'s, its successor ${r.to} is ${now[r.to][0]}'s`);
+      R[sec][id] = sec === 'lines' ? { to: r.to ?? null, speaker: r.speaker, text: r.text } : { to: r.to ?? null, text: r.text };
+    }
+    for (const id of Object.keys(old[sec] || {})) if (!Object.hasOwn(now, id) && !R[sec][id]) problems.push(`${sec} ${id} is retired: list it in assets/story/retired.json (its successor, or to: null)`);
+  }
+  // (an id kept for new words: its old words, so a pack still holding them gets the new ones)
+  R.reworded = { lines: {} };
+  for (const [id, was] of Object.entries(retired.reworded?.lines || {})) {
+    if (!Object.hasOwn(lines, id)) { problems.push(`retired.json reworded ${id}: not in the pack`); continue; }
+    const olds = (Array.isArray(was) ? was : [was]).filter((t) => typeof t === 'string' && t !== lines[id][1]);
+    if (olds.length) R.reworded.lines[id] = olds;
+  }
+  const limits = { lines: lineLimits, copy: copyLimits, retired: R };
   const v1 = validatePack(pack, pack, limits);
   if (!v1.ok) problems.push(...v1.errors.map((e) => `schema ${e}`));
   return { pack, ids: { lines: lineIds, copy: copyIds }, limits, problems };

@@ -3,10 +3,11 @@
 // camera work, the poses and the beauty pass come after the owner's review of the slice. Mr. Big is only ever seen
 // on the phone or on video from his office: here his feed on the pavilion's screen, and the caller card on the phone.
 // The stolen work is only ever "the High Artwork".
-//   benchScene · arrivalScene · unveilScene · flipScene · takeoffScene · landingScene · boardingScene · callScene
+//   benchScene · arrivalScene · unveilScene · flipScene (the escape's scenes, from the take-off to the ferry's call, are
+//   m4-escape.js's own)
 // Each returns a runScene def; say is the mission's (subtitles, their voices, a murmur where a line isn't voiced).
 import * as THREE from 'three/webgpu';
-import { SPOTS, PAV, at, LAND, GATE, FERRY, SY } from './m4-set.js';
+import { SPOTS, PAV, at, SY } from './m4-set.js';
 import { rig } from './cine.js';
 import { S as story } from '../story/index.js';
 
@@ -16,15 +17,35 @@ export const R_AT = { x: 933, z: 3561 };            // Rook's bench, Sara D. Roo
 const gy = (W, x, z) => W.app.controllerManager.getGroundHeight(x, z, 'person');
 
 // a scene of held shots over its lines: shots [{ line, pos, look, fov }] (the first from the start, each next as its
-// line starts); cues [[t, fn]] besides the lines; pose(t, dt, C) each frame; END a beat after the last line
-export function talk(W, { say, lines, shots, cues = [], pose = null, setup = null, cleanup = null, onLine = null, lead = 0.5, tail = 1.0, minEnd = 2.5 }) {
-  const S = shots.map((s, i) => ({ line: s.line ?? i, t: i === 0 ? 0 : Infinity, cam: typeof s.cam === 'function' ? s.cam : () => ({ pos: s.pos, look: s.look, fov: s.fov ?? 38, shake: s.shake ?? 0.3 }) }));
+// line starts); cues [[t, fn]] besides the lines; pose(t, dt, C) each frame; END a beat after the last line.
+// singles { Dan: shot, Rook: shot }: each speaker's single (S2/S4: a line over LISTEN s with no shot of its own cuts to
+// the listener's single partway through it, his reaction, and a later line of the first speaker comes back to his own;
+// a written shot always wins). room: the place its voices are heard in (radio/voices.js).
+const LISTEN = 2.5;
+export function talk(W, { say, lines, shots, cues = [], pose = null, setup = null, cleanup = null, onLine = null, lead = 0.5, tail = 1.0, minEnd = 2.5, singles = null, room = null }) {
+  const cam = (s) => (typeof s.cam === 'function' ? s.cam : () => ({ pos: s.pos, look: s.look, fov: s.fov ?? 38, shake: s.shake ?? 0.3 }));
+  const S = shots.map((s, i) => ({ line: s.line ?? i, t: i === 0 ? 0 : Infinity, cam: cam(s) }));
+  const own = new Set(S.map((s) => s.line));
+  const who0 = (i) => lines[i]?.[0];
+  let on = null; // (whose single the cutaway is on)
   const def = {
-    END: Infinity, hero: false, shots: S,
+    END: Infinity, hero: false, shots: S, room,
     cues: [...cues, [lead, (st) => {
       const done = () => { const now = W.sceneClock?.t; if (now != null) def.END = Math.max(now + tail, minEnd); };
       if (!lines.length) return done();
-      say(lines, st, (who, i) => { const now = W.sceneClock?.t ?? 0; for (const sh of S) if (sh.line === i && sh.t === Infinity) sh.t = now; onLine?.(who, i, now); }).finally(done);
+      say(lines, st, (who, i) => {
+        const now = W.sceneClock?.t ?? 0;
+        for (const sh of S) if (sh.line === i && sh.t === Infinity) sh.t = now;
+        if (singles && !own.has(i)) {
+          // (back to the speaker after a cutaway to the other man)
+          if (on && on !== who && singles[who]) { S.push({ line: -1, t: now, cam: cam(singles[who]) }); on = who; }
+          // (a long line: the listener's single partway through, unless the next line is his and cuts there anyway)
+          const text = story.line(who, lines[i][2]), secs = W.voice?.dur?.(who, text) || text.length / 15;
+          const other = Object.keys(singles).find((k) => k !== who);
+          if (secs > LISTEN && other && who0(i + 1) !== other) { const at = now + Math.min(secs * 0.55, secs - 1.0); S.push({ line: -1, t: at, cam: cam(singles[other]) }); on = other; }
+        } else if (singles && own.has(i)) on = null;
+        onLine?.(who, i, now);
+      }).finally(done);
     }]],
     pose(t, dt, C) { pose?.(t, dt, C); },
     setup() { setup?.(); }, cleanup(st) { cleanup?.(st); },
@@ -121,25 +142,19 @@ export function benchScene(W, { say, rook, pav = null }) {
   const H = 0, BX = R_AT.x, BZ = R_AT.z;
   // (round 7's review: Rook perched on the seat's front edge: sat back into it now, a hand's width deeper)
   const D = { x: BX + 0.45, z: BZ + 0.04 }, K = { x: BX - 0.47, z: BZ - 0.05 };
+  // (the dialogue pass, 16 Nov, round 2: a first meeting and a turn, not a briefing. Eight lines, about 22 s: the
+  // pigeons, where the laptop is, the one-line plan, why Rook is doing it (his beat, 0.7 s after it) and Dan's answer on
+  // the pigeons. The logistics (the unveiling, the key's ninety seconds, the waiter's pass, the chopper and its pilot)
+  // are Dan's to tell Jane on the drive to the Seaport: calls.js 'm4-seaport')
   const LINES = [
     ['Rook', BLUE, 'You came. Alone?'],
     ['Dan', WHITE, 'Alone-ish.'],
     ['Rook', BLUE, "Okay. Okay. Don't look at me. Look at the pigeons."],
-    ['Dan', WHITE, "Where's my laptop?"],
-    ['Rook', BLUE, "Locked in the shredder truck. Two Suits ride with it. I can't touch it."],
-    ['Rook', BLUE, 'But tonight Mr. Big unveils his new trophy. The High Artwork. At the Seaport.'],
-    ['Dan', WHITE, 'He bought a painting?'],
-    ['Rook', BLUE, 'He bought the High Artwork. Marzo Quillfeather. He loves it more than people.'],
-    ['Rook', BLUE, 'To sign it on camera, his signing key unlocks. Ninety seconds.'],
-    ['Dan', WHITE, 'And whoever holds the key...'],
-    ['Rook', BLUE, 'Owns the High Artwork. Take what he loves. Then trade.'],
-    ['Rook', BLUE, "Wristband. Catering pass. You're a waiter tonight."],
-    ['Dan', WHITE, 'I was a waiter in college. I was bad at it.'],
-    ['Rook', BLUE, 'Be bad at it quietly.'],
-    ['Rook', BLUE, 'His chopper waits at the end of the street to fly the key home. I sent the pilot for coffee.'],
+    ['Dan', WHITE, 'The pigeons have my laptop?', { how: 'deadpan' }],
+    ['Rook', BLUE, 'Shredder truck. Tonight he shows off the thing he loves: take it, then trade.'],
     ['Dan', WHITE, 'Why are you doing this?'],
-    ['Rook', BLUE, "I was in that crowd today. I'm done."],
-    ['Rook', BLUE, 'Go. Before somebody sees us.'],
+    ['Rook', BLUE, "I was in that crowd today. I'm done.", { pause: 0.7 }],
+    ['Dan', WHITE, "Okay. I'm in. Tell the pigeons.", { how: 'warm' }],
   ];
   let bench = null, seat = 0, dr = null, ls0 = null, lens0 = null, segs = [[0, 'sit']], poseT = -1;
   const y0 = gy(W, BX, BZ), eyeY = y0 + 1.22;
@@ -153,16 +168,17 @@ export function benchScene(W, { say, rook, pav = null }) {
   const onD = { pos: [K.x + 0.1, eyeY + 0.2, BZ + 1.75], look: [D.x, eyeY - 0.08, D.z], fov: 30 };
   const onK = { pos: [D.x - 0.1, eyeY + 0.2, BZ + 1.75], look: [K.x, eyeY - 0.08, K.z], fov: 30 };
   const def = talk(W, {
-    say, lines: LINES,
+    say, lines: LINES, room: 'park',
+    // (S2: on a long line the cut goes to whoever listens, partway through it)
+    singles: { Dan: onD, Rook: onK },
     shots: [
       { line: 0, ...wide(-1) },
       { line: 2, ...onK },
       { line: 3, ...onD },
-      { line: 5, ...onK, fov: 27 },
-      { line: 9, ...onD, fov: 28 },
-      { line: 10, ...wide(0.9, 0.1) },
-      { line: 14, ...onK, fov: 27 },
-      { line: 16, ...wide(-0.85, 0.15) },
+      { line: 4, ...onK, fov: 27 },
+      { line: 5, ...wide(0.9, 0.1) },
+      { line: 6, ...onK, fov: 26 },
+      { line: 7, ...wide(-0.85, 0.15) },
     ],
     cues: [[0.2, () => W.ui.place('Sara D. Roosevelt Park', 'Lower East Side · New York', 3)]],
     // (Dan's hands with his words, sat; still between them)
@@ -243,10 +259,12 @@ export function arrivalScene(W, { say, knox }) {
 export function unveilScene(W, { say, fiona, pav, guests = null }) {
   const F = SPOTS.riser, S = SPOTS.screen, C = SPOTS.case, y = pav.y;
   const LINES = [
-    ['Fiona', PINK, 'Good evening, Seaport! JPBank loves art! And art loves JPBank!'],
+    // (the dialogue pass, round 2: his feed cuts in on her build-up, so she is never three lines alone, and she answers
+    // it with the wave; a question to open, the guests' cheer on it)
+    ['Fiona', PINK, 'Good evening, Seaport! Who loves art?'],
     ['Fiona', PINK, 'Tonight our CEO unveils his newest treasure. The High Artwork!'],
-    ['Fiona', PINK, "He's joining us live from his office. Say hi, everybody!"],
     ['Mr. Big', ACID, 'Good evening. Thank you all for coming to look at my things.'],
+    ['Fiona', PINK, 'Say hi, everybody!'],
     ['Mr. Big', ACID, "Fiona. Open the case. Let's make it official."],
     ['Fiona', PINK, 'Opening the case!'],
   ];
@@ -272,8 +290,9 @@ export function unveilScene(W, { say, fiona, pav, guests = null }) {
       // (round 8: the poster behind her cut by the frame's edge: a little wider, his feed and the poster both whole, the
       // evening's title on the flat under his feed)
       { line: 1, pos: [fi.x, y + 1.73, fi.z], look: [fl.x, y + 2.2, fl.z], fov: 56 },
-      { line: 2, pos: [side.x, y + 2.7, side.z], look: [at(-1.4, 8.5).x, y + 1.3, at(-1.4, 8.5).z], fov: 50 },
-      { line: 3, pos: [sc.x, y + 2.0, sc.z], look: [S.x, y + SY, S.z], fov: 34 },
+      // (round 2 of the dialogue: his feed on line 2, the guests' wave for it on line 3)
+      { line: 2, pos: [sc.x, y + 2.0, sc.z], look: [S.x, y + SY, S.z], fov: 34 },
+      { line: 3, pos: [side.x, y + 2.7, side.z], look: [at(-1.4, 8.5).x, y + 1.3, at(-1.4, 8.5).z], fov: 50 },
       // (round 7's review: no frame showed her whole, the floor-length skirt and the patent shoes. Her hero shot as he
       // speaks to her: head to toe on her riser, the pavilion's bulbs over her)
       // (round 8's review: his feed cut off at the top, him from the chest down on his own line. From lower and a step
@@ -286,12 +305,12 @@ export function unveilScene(W, { say, fiona, pav, guests = null }) {
       // (a wave for his feed, then talking again)
       // (round 3: her arms hung stiff while she stood to present it; she talks with her hands through it now)
       if (i === 1) present = W.sceneClock?.t ?? 0; else if (i === 2) present = -1;
-      if (fiona?.clips?.includes('idle')) { if (i === 2 && fiona.clips.includes('wave')) fiona.rig.set([[0, 'wave']]); else if (i === 5 || i === 3) fiona.rig.set([[0, fionaTalk(fiona)]]); }
+      if (fiona?.clips?.includes('idle')) { if (i === 3 && fiona.clips.includes('wave')) fiona.rig.set([[0, 'wave']]); else if (i === 5 || i === 4) fiona.rig.set([[0, fionaTalk(fiona)]]); }
       // (round 8's review: her hands floating stiff at her chest in her hero shot; the open presenting gesture again, to
       // his feed, as he speaks to her)
       if (i === 4) present = W.sceneClock?.t ?? 0; else if (i === 5) present = -1;
-      if (i === 1 || i === 3) for (let k = 0; k < 5; k++) setTimeout(() => W.sfx?.play('mumble', { f0: 150 + Math.random() * 90, dur: 0.35, gain: 0.12, p: Math.random() * 2 - 1 }), k * 90);
-      if (i === 2) { guests?.cheer(3.4); for (let k = 0; k < 7; k++) setTimeout(() => W.sfx?.play('shout', { f0: 180 + Math.random() * 120, vowel: 'a', dur: 0.3, gain: 0.08, p: Math.random() * 2 - 1 }), 700 + k * 110); }
+      if (i === 1 || i === 2) for (let k = 0; k < 5; k++) setTimeout(() => W.sfx?.play('mumble', { f0: 150 + Math.random() * 90, dur: 0.35, gain: 0.12, p: Math.random() * 2 - 1 }), k * 90);
+      if (i === 0 || i === 3) { guests?.cheer(i === 0 ? 1.8 : 3.4); for (let k = 0; k < 7; k++) setTimeout(() => W.sfx?.play('shout', { f0: 180 + Math.random() * 120, vowel: 'a', dur: 0.3, gain: 0.08, p: Math.random() * 2 - 1 }), 700 + k * 110); }
     },
     // (turned a little toward the art wall's end, between the guests and her close-up's camera)
     // (round 7's review: her face flat beside his lit one on the feed. A warm key on her, high and in front, one of the
@@ -363,103 +382,5 @@ export function flipScene(W, { say, fiona, knox, pav, guests = null, tray = null
     },
     cleanup() { pav.caseState('alarm'); },
     pose(t) { fiona?.rig.pose(t); knox?.rig.pose(t); },
-  });
-}
-
-/* ------------------------------------------------------------ take-off -- */
-// beat 10a: into the helicopter at the closed end of South St, the skids up as Knox reaches the roadblock; Mr. Big on
-// the phone from his office. Control is handed over in the air (about 50 m), never from the narrow street
-export const CLIMB = 50;
-export function takeoffScene(W, { say, heli, knox, y0 }) {
-  const T = SPOTS.takeoff, hd = Math.atan2(LAND.x - T.x, LAND.z - T.z);
-  const LINES = [
-    ['Knox', ACID, "He's going for the chopper!"],
-    ['Mr. Big', ACID, 'That is my helicopter.'],
-    ['Dan', WHITE, 'Seatbelt.'],
-    ['Mr. Big', ACID, 'Rook. Hold the truck.'],
-  ];
-  const lift = (t) => Math.max(0, Math.min(1, (t - 1.2) / 6.5));
-  const heliY = (t) => y0 + 0.7 + (CLIMB - 0.7) * (lift(t) * lift(t) * (3 - 2 * lift(t)));
-  const side = at(9, 30);
-  return talk(W, {
-    say, lines: LINES, minEnd: 8.4,
-    shots: [
-      { line: 0, cam: (t) => ({ pos: [side.x, y0 + 2.2, side.z], look: [T.x, heliY(t) + 1.5, T.z], fov: 48, shake: 0.6 }) },
-      { line: 2, cam: (t) => ({ pos: [T.x + 6, heliY(t) + 4, T.z - 10], look: [T.x, heliY(t) + 1, T.z], fov: 46, shake: 0.4 }) },
-    ],
-    setup() {
-      const P = W.person; P.mesh.visible = false;
-      heli.position.set(T.x, y0 + 0.7, T.z); heli.heading = hd; heli.speed = 0; heli.verticalSpeed = 0;
-      heli.mesh.position.copy(heli.position); heli.mesh.rotation.y = hd;
-      if (knox) stand(W, knox, at(1.5, 27).x, at(1.5, 27).z, PAV.h, W.cast?.SUITS?.run?.[0]);
-    },
-    pose(t) {
-      heli.position.y = heliY(t); heli.mesh.position.copy(heli.position);
-      knox?.rig.pose(t);
-    },
-  });
-}
-
-/* ------------------------------------------------------------- landing -- */
-// beat 10c: down on the riverfront, out of the helicopter in the waiter's jacket, a pat of the pocket with the key
-export function landingScene(W, { say, heli }) {
-  const L = LAND, y = gy(W, L.x, L.z), D = { x: L.x + 4.5, z: L.z + 3 };
-  const LINES = [['Dan', WHITE, 'Nobody lands in Battery Park City at night. Perfect.']];
-  return talk(W, {
-    say, lines: LINES,
-    shots: [{ line: 0, pos: [L.x + 12, y + 2.4, L.z + 10], look: [L.x, y + 1.6, L.z], fov: 42 }],
-    setup() {
-      const P = W.person; P.position.set(D.x, gy(W, D.x, D.z), D.z); P.heading = face(D, GATE); P.mesh.position.copy(P.position); P.mesh.rotation.y = P.heading; P.mesh.visible = true;
-      heli.position.y = Math.max(heli.position.y, y + 0.3); heli.speed = 0; heli.verticalSpeed = 0;
-    },
-  });
-}
-
-/* ------------------------------------------------------------ boarding -- */
-// beat 10e: down the gangway, a hop across the widening gap; the ferry pulls away (its motion: m4.js). (The deckhand's
-// "Cutting it close." waits on a cast entry for him in the story pack, wagmi/story/schema.js)
-export function boardingScene(W, { say, ferry, onDeck }) {
-  const LINES = [
-    ['Dan', WHITE, 'Last ferry. Made it.'],
-    ['Dan', WHITE, 'Story of my week.'],
-  ];
-  return talk(W, {
-    say, lines: LINES, minEnd: 6,
-    shots: [{ line: 0, cam: () => { const p = ferry.world(6, 3, -26), l = ferry.world(0, 1.2, -12); return { pos: [p.x, p.y, p.z], look: [l.x, l.y, l.z], fov: 46, shake: 0.4 }; } }],
-    pose(t) { onDeck(t); },
-  });
-}
-
-/* ---------------------------------------------------------------- call -- */
-// beat 11, midnight on the open stern deck, the lit skyline behind him: Mr. Big on the phone from his office, as
-// always (the caller card, never in person); Rook patched in; the shredder winds down over the phone. (The tone pick,
-// two lines that end the same, is still to come.)
-export function callScene(W, { say, ferry, onDeck, shred }) {
-  const LINES = [
-    ['Dan', WHITE, 'You have my laptop. I have your key.'],
-    ['Mr. Big', ACID, "Daniel. You're on a boat."],
-    ['Dan', WHITE, 'One thing goes in the shredder at dawn. Wonder which.'],
-    ['Mr. Big', ACID, 'That key signs everything I own.'],
-    ['Dan', WHITE, "Then you'd better be nice to it."],
-    ['Mr. Big', ACID, 'Rook. Turn it around.'],
-    ['Rook', BLUE, '...Turning around, sir.'],
-    ['Dan', WHITE, 'I heard that.'],
-    ['Mr. Big', ACID, "We'll trade. Somewhere public."],
-    ['Mr. Big', ACID, 'Enjoy the ferry, Daniel.'],
-    ['Dan', WHITE, "It's Dan."],
-  ];
-  // (from up the deck toward the stern: Dan at the rail facing us, the skyline and the wake behind him)
-  const camAt = (lx, ly, lz, tx = 0, ty = 1.55, tz = FERRY.stern + 0.6, fov = 34) => () => { const p = ferry.world(lx, ly, lz), l = ferry.world(tx, ty, tz); return { pos: [p.x, p.y, p.z], look: [l.x, l.y, l.z], fov, shake: 0.35 }; };
-  return talk(W, {
-    say, lines: LINES, tail: 1.5,
-    shots: [
-      { line: 0, cam: camAt(1.2, 1.65, FERRY.stern + 4.2) },
-      { line: 2, cam: camAt(-1.0, 1.7, FERRY.stern + 2.6, 0, 1.6, FERRY.stern + 0.6, 30) },
-      { line: 5, cam: camAt(2.8, 2.6, FERRY.stern + 6.5, 0, 1.4, FERRY.stern - 4, 44) },
-      { line: 7, cam: camAt(1.2, 1.65, FERRY.stern + 3.4, 0, 1.6, FERRY.stern + 0.6, 28) },
-    ],
-    pose(t) { onDeck(t); },
-    // (the shredder's grind under Mr. Big's order, and its power-down as Rook answers)
-    onLine(who, i) { if (i === 5) shred?.('grind'); if (i === 6) shred?.('down'); },
   });
 }

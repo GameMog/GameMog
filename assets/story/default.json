@@ -192,32 +192,38 @@
   "m1-dash-wait-did-i-miss": ["dash", "Wait! Did I miss the brief?"],
   "m1-knox-you-always-miss-the": ["knox", "You always miss the brief!"],
   "m1-knox-told-you-to-check": ["knox", "Told you to check your DMs. You didn't check your DMs."],
-  "m1-dan-been-a-little-busy": ["dan", "Been a little busy getting framed."],
+  "m1-dan-busy-getting-framed": ["dan", "Busy. Getting framed."],
   "m1-knox-nothing-personal-kid-its": ["knox", "Nothing personal, kid. It's just extremely personal."],
   "m1-dan-my-tracker-cut-right": ["dan", "My tracker. Cut right out."],
   "m1-dan-hes-got-my-laptop": ["dan", "He's got my laptop. And my number."],
   "m1-dan-cool-cool-cool-cool": ["dan", "Cool. Cool cool cool."],
   "m2-jane-dont-look-around-im": ["jane", "Don't look around. I'm not there."],
   "m2-dan-you-said-bryant-park": ["dan", "You said Bryant Park."],
-  "m2-jane-i-said-bring-it": ["jane", "I said bring it to Bryant Park. I'm on the library's wifi. It's free and it has a lion."],
-  "m2-jane-hold-the-burner-up": ["jane", "Hold the burner up. Okay. It has a twin. Same batch, same buyer."],
-  "m2-jane-your-face-is-on": [
+  "m2-jane-im-on-the-librarys": ["jane", "I'm on the library's wifi. It's free and it has a lion."],
+  "m2-dan-moon-with-you": [
+   "dan",
+   "{moon} with you?"
+  ],
+  "m2-jane-guarding-a-pretzel-hold": ["jane", "Guarding a pretzel. Hold the burner up."],
+  "m2-jane-okay-its-twin-just": ["jane", "Okay. Its twin just pinged. Seventh and Forty-Seventh."],
+  "m2-dan-thats-their-van-dont": ["dan", "That's their van. Don't tell me to follow it."],
+  "m2-jane-moon-says-dont-run": [
    "jane",
-   "Your face is on four front pages today. {moon}'s jealous."
+   "{moon} says don't run up to it."
   ],
-  "m2-dan-moon-can-have-them": [
-   "dan",
-   "{moon} can have them. All four."
-  ],
-  "m2-jane-the-twin-pinged-twenty": ["jane", "The twin pinged twenty minutes ago. A van, idling in Times Square. Seventh and Forty-Seventh."],
-  "m2-jane-dont-run-up-to": ["jane", "Don't run up to it. Follow it. It'll take us to the rest of them."],
-  "m2-dan-follow-the-van-got": ["dan", "Follow the van. Got it."],
   "m2-jane-youre-late-sit-burner": ["jane", "You're late. Sit. Burner, please."],
-  "m2-dan-hi-jane-hi-moon": [
+  "m2-dan-hi-moon-is-that": [
    "dan",
-   "Hi, {jane}. Hi, {moon}. Great to see you too."
+   "Hi, {moon}. Is that my pretzel?"
   ],
-  "m2-jane-plugging-it-in-look": ["jane", "Plugging it in. Look: two SIMs, one sale, switched on the same minute. Yours, and its twin."],
+  "m2-jane-was-plugging-it-in": ["jane", "Was. Plugging it in."],
+  "m2-jane-there-the-twin-pinged": ["jane", "There. The twin pinged twenty minutes ago. Seventh and Forty-Seventh."],
+  "m2-dan-thats-their-van": ["dan", "That's their van."],
+  "m2-jane-then-dont-run-up": ["jane", "Then don't run up to it, okay? Follow it home."],
+  "m2-dan-moon-would-run-up": [
+   "dan",
+   "{moon} would run up to it."
+  ],
   "m2-mack-my-car-my-beautiful": ["mack", "My car! My beautiful leveraged car!"],
   "m2-mack-keep-the-phone-call": ["mack", "Keep the phone! Call it severance!"],
   "m2-dan-that-is-my-door": ["dan", "That is my door."],
@@ -236,24 +242,20 @@
   "m2-mack-im-too-leveraged-to": ["mack", "I'm too leveraged to fight! Somebody hit him!"],
   "m2-mack-shareholder-value-hit-him": ["mack", "Shareholder value! Hit him harder!"],
   "m2-mack-do-you-know-what": ["mack", "Do you know what my bonus is riding on?"],
-  "m3-gears-cold-gas-thrusters-little": ["gears", "Cold-gas thrusters. Little puffs of nitrogen. Very safe. Mostly."],
+  "m3-gears-cold-gas-thrusters-very": ["gears", "Cold-gas thrusters. Very safe. Mostly."],
   "m3-dan-define-mostly": ["dan", "Define mostly."],
-  "m3-gears-i-tested-them-on": ["gears", "I tested them on my van. Van's fine. It's on the roof now."],
-  "m3-jane-dan-are-you-watching": [
+  "m3-gears-i-tested-them-on": ["gears", "I tested them on my van. It's on the roof now."],
+  "m3-jane-dan-you-watching-this": [
    "jane",
-   "{dan}. Are you watching this? {bank}'s throwing a party in Washington Square."
+   "{dan}. You watching this?"
   ],
   "m3-fiona-jpbank-loves-new-york": [
    "fiona",
-   "{bank} loves New York! Free hot dogs! Free tote bags!"
+   "{bank} loves New York! Free tote bags!"
   ],
-  "m3-jane-right-next-to-the": [
-   "jane",
-   "Right next to the {occupy} camp. Now look at their screens."
-  ],
-  "m3-jane-its-you-ten-feet": ["jane", "It's you. Ten feet tall, three times. 'The bad apple.'"],
-  "m3-dan-im-going-to-go": ["dan", "I'm going to go unplug it."],
-  "m3-gears-go-get-your-name": ["gears", "Go get your name back, kid."],
+  "m3-jane-thats-washington-square-right": ["jane", "That's Washington Square, right by the camp. Now look at the screens."],
+  "m3-dan-wow-my-good-side": ["dan", "Wow. My good side."],
+  "m3-gears-thrusters-are-on-the": ["gears", "Thrusters are on the house, kid. Go get your name back."],
   "m3-fiona-hiii-new-york-jpbank": [
    "fiona",
    "Hiii, New York! {bank} loves you!"
@@ -269,12 +271,12 @@
   "m3-dan-take-your-time": ["dan", "Take your time."],
   "m3-bea-mic-check": ["bea", "Mic check!"],
   "m3-camp-mic-check": ["camp", "Mic check!"],
-  "m3-bea-anybody-the-bank-hates": ["bea", "Anybody the bank hates this much..."],
-  "m3-camp-anybody-the-bank-hates": ["camp", "Anybody the bank hates this much!"],
-  "m3-bea-is-somebody-we-should": ["bea", "...is somebody we should hear out!"],
+  "m3-bea-who-does-the-bank": ["bea", "Who does the bank hate this much?"],
+  "m3-camp-who-does-the-bank": ["camp", "Who does the bank hate this much?"],
+  "m3-bea-him-so-we-hear": ["bea", "Him! So we hear him out!"],
   "m3-camp-free-dan-free-dan": [
    "camp",
-   "Free {dan}! Free {dan}! Free {dan}!"
+   "Free {dan}! Free {dan}!"
   ],
   "m3-dan-rook-the-guy-who": [
    "dan",
@@ -316,11 +318,11 @@
   ],
   "m4-jane-since-when-can-you": ["jane", "Since when can you fly?"],
   "m4-dan-since-forty-seconds-ago": ["dan", "Since forty seconds ago."],
-  "m4-jane-head-west-battery-park": ["jane", "Head west. Battery Park City, by the river. Nobody's there at night."],
+  "m4-jane-head-west-to-battery": ["jane", "Head west to Battery Park City. Nobody's there at night."],
   "m4-jane-land-it-gently-gently": ["jane", "Land it gently. Gently, babe."],
   "m4-dan-define-gently": ["dan", "Define gently."],
   "m4-knox-hes-going-for-the": ["knox", "He's going for the chopper!"],
-  "m4-dan-okay-up-is-up": ["dan", "Okay. Up is up. Probably."],
+  "m4-dan-okay-which-way-is": ["dan", "Okay. Which way is up?"],
   "m4-mrbig-that-is-my-helicopter": ["mrbig", "That is my helicopter."],
   "m4-dan-seatbelt": ["dan", "Seatbelt."],
   "m4-mrbig-rook-hold-the-truck": [
@@ -332,7 +334,7 @@
   "m4-dan-last-ferry-made-it": ["dan", "Last ferry. Made it."],
   "m4-dan-story-of-my-week": ["dan", "Story of my week."],
   "m4-dan-you-have-my-laptop": ["dan", "You have my laptop. I have your key."],
-  "m4-mrbig-daniel-youre-on-a": ["mrbig", "Daniel. You're on a boat."],
+  "m4-mrbig-a-boat-daniel": ["mrbig", "A boat, Daniel?"],
   "m4-dan-one-thing-goes-in": ["dan", "One thing goes in the shredder at dawn. Wonder which."],
   "m4-mrbig-that-key-signs-everything": ["mrbig", "That key signs everything I own."],
   "m4-dan-then-youd-better-be": ["dan", "Then you'd better be nice to it."],
@@ -355,38 +357,19 @@
   "m4-rook-you-came-alone": ["rook", "You came. Alone?"],
   "m4-dan-alone-ish": ["dan", "Alone-ish."],
   "m4-rook-okay-okay-dont-look": ["rook", "Okay. Okay. Don't look at me. Look at the pigeons."],
-  "m4-dan-wheres-my-laptop": ["dan", "Where's my laptop?"],
-  "m4-rook-locked-in-the-shredder": [
-   "rook",
-   "Locked in the shredder truck. Two {suits} ride with it. I can't touch it."
-  ],
-  "m4-rook-but-tonight-mr-big": [
-   "rook",
-   "But tonight {mrbig} unveils his new trophy. The High Artwork. At the Seaport."
-  ],
-  "m4-dan-he-bought-a-painting": ["dan", "He bought a painting?"],
-  "m4-rook-he-bought-the-high": ["rook", "He bought the High Artwork. Marzo Quillfeather. He loves it more than people."],
-  "m4-rook-to-sign-it-on": ["rook", "To sign it on camera, his signing key unlocks. Ninety seconds."],
-  "m4-dan-and-whoever-holds-the": ["dan", "And whoever holds the key..."],
-  "m4-rook-owns-the-high-artwork": ["rook", "Owns the High Artwork. Take what he loves. Then trade."],
-  "m4-rook-wristband-catering-pass-youre": ["rook", "Wristband. Catering pass. You're a waiter tonight."],
-  "m4-dan-i-was-a-waiter": ["dan", "I was a waiter in college. I was bad at it."],
-  "m4-rook-be-bad-at-it": ["rook", "Be bad at it quietly."],
-  "m4-rook-his-chopper-waits-at": ["rook", "His chopper waits at the end of the street to fly the key home. I sent the pilot for coffee."],
+  "m4-dan-the-pigeons-have-my": ["dan", "The pigeons have my laptop?"],
+  "m4-rook-shredder-truck-tonight-he": ["rook", "Shredder truck. Tonight he shows off the thing he loves: take it, then trade."],
   "m4-dan-why-are-you-doing": ["dan", "Why are you doing this?"],
   "m4-rook-i-was-in-that": ["rook", "I was in that crowd today. I'm done."],
-  "m4-rook-go-before-somebody-sees": ["rook", "Go. Before somebody sees us."],
+  "m4-dan-okay-im-in-tell": ["dan", "Okay. I'm in. Tell the pigeons."],
   "m4-knox-staff-entrance-smile-less": ["knox", "Staff entrance. Smile less."],
   "m4-dan-yes-sir": ["dan", "Yes, sir."],
   "m4-knox-dont-sir-me-im": ["knox", "Don't sir me. I'm on my phone."],
   "m4-dan-he-didnt-even-look": ["dan", "He didn't even look up."],
-  "m4-fiona-good-evening-seaport-jpbank": [
-   "fiona",
-   "Good evening, Seaport! {bank} loves art! And art loves {bank}!"
-  ],
+  "m4-fiona-good-evening-seaport-who": ["fiona", "Good evening, Seaport! Who loves art?"],
   "m4-fiona-tonight-our-ceo-unveils": ["fiona", "Tonight our CEO unveils his newest treasure. The High Artwork!"],
-  "m4-fiona-hes-joining-us-live": ["fiona", "He's joining us live from his office. Say hi, everybody!"],
   "m4-mrbig-good-evening-thank-you": ["mrbig", "Good evening. Thank you all for coming to look at my things."],
+  "m4-fiona-say-hi-everybody": ["fiona", "Say hi, everybody!"],
   "m4-mrbig-fiona-open-the-case": [
    "mrbig",
    "{fiona}. Open the case. Let's make it official."
@@ -401,13 +384,13 @@
   "m4-fiona-wait-the-case-is": ["fiona", "Wait. The case is... empty?"],
   "m4-knox-banker-boy": ["knox", "BANKER BOY."],
   "m4-dan-tips-included": ["dan", "Tip's included."],
-  "m4-fiona-while-the-key-wakes": ["fiona", "While the key wakes up, tell us what the High Artwork means to you!"],
+  "m4-fiona-while-the-key-wakes": ["fiona", "While the key wakes up: what does the High Artwork mean to you?"],
   "m4-mrbig-it-means-it-is": [
    "mrbig",
    "It means it is mine, {fiona}."
   ],
   "m4-fiona-wow-chills-everybody": ["fiona", "Wow. Chills, everybody."],
-  "m4-mrbig-ninety-seconds-then-i": ["mrbig", "Ninety seconds. Then I sign. Nobody touch anything."],
+  "m4-mrbig-ninety-seconds-then-i": ["mrbig", "Ninety seconds, then I sign. Nobody touch anything."],
   "calls-dan-hang-on-getting-out": ["dan", "Hang on. Getting out."],
   "calls-jane-you-got-out-ill": ["jane", "You got out. I'll hold."],
   "calls-jane-there-you-are-where": ["jane", "There you are. Where was I?"],
@@ -969,7 +952,7 @@
    "You're going to see {rook}."
   ],
   "m4-dan-he-said-come-alone": ["dan", "He said come alone."],
-  "m4-jane-he-said-i-didnt": ["jane", "He said. I didn't. I'm on the phone. That's alone-ish."],
+  "m4-jane-he-said-that-i": ["jane", "He said that. I didn't. I'm on the phone, so: alone-ish."],
   "m4-jane-if-anything-feels-off": ["jane", "If anything feels off, you drive away. Promise me."],
   "m4-dan-promise": ["dan", "Promise."],
   "m4-dan-what-do-you-think": [
@@ -990,6 +973,15 @@
   "m4-dan-he-looks-more-scared": ["dan", "He looks more scared than me."],
   "m4-jane-good-scared-people-tell": ["jane", "Good. Scared people tell the truth. Go."],
   "m4-jane-okay-tell-me-exactly": ["jane", "Okay. Tell me exactly what he said."],
+  "m4-dan-he-said-dont-look": ["dan", "He said don't look at him. Look at the pigeons."],
+  "m4-jane-did-you": ["jane", "Did you?"],
+  "m4-dan-they-looked-guilty": ["dan", "They looked guilty."],
+  "m4-jane-babe-the-laptop": ["jane", "Babe. The laptop."],
+  "m4-dan-shredder-truck-two-suits": [
+   "dan",
+   "Shredder truck. Two {suits} ride with it."
+  ],
+  "m4-jane-then-we-leave-the": ["jane", "Then we leave the truck alone. What else?"],
   "m4-dan-mr-big-unveils-the": [
    "dan",
    "{mrbig} unveils the High Artwork tonight. At the Seaport. And his signing key opens for ninety seconds."
@@ -997,23 +989,28 @@
   "m4-jane-so-whoever-holds-the": ["jane", "So whoever holds the key signs the High Artwork over."],
   "m4-dan-take-what-he-loves": ["dan", "\"Take what he loves. Then trade.\""],
   "m4-jane-then-thats-the-plan": ["jane", "Then that's the plan. Down Canal, right on Mott. It's slow, but nobody looks twice at you there."],
-  "m4-jane-youre-a-waiter-tonight": [
-   "jane",
-   "You're a waiter tonight. Nobody looks at the waiter. Not even {knox}."
-  ],
-  "m4-dan-knox-will-be-there": [
+  "m4-dan-rook-got-me-a": [
    "dan",
-   "{knox} will be there?"
+   "{rook} got me a catering pass. I'm a waiter tonight."
   ],
-  "m4-jane-on-the-door-head": ["jane", "On the door. Head down, tray up, you're furniture."],
+  "m4-jane-you-spilled-soup-on": ["jane", "You spilled soup on a dean."],
+  "m4-dan-one-dean": ["dan", "One dean."],
+  "m4-jane-nobody-looks-at-the": [
+   "jane",
+   "Nobody looks at the waiter. Not even {knox}. He's on the door: head down, tray up."
+  ],
   "m4-jane-mr-big-wont-be": [
    "jane",
-   "{mrbig} won't be. He joins by video, from his office. He hasn't stood in a crowd since the camp."
+   "{mrbig} won't be there. He joins by video, from his office. He hasn't stood in a crowd since the camp."
   ],
   "m4-dan-afraid-of-people-noted": ["dan", "Afraid of people. Noted."],
   "m4-jane-the-artist-hides-his": ["jane", "The artist hides his mark three times in everything he makes. I bet the case wants it, in order."],
   "m4-dan-three-marks-ninety-seconds": ["dan", "Three marks. Ninety seconds. One tray."],
   "m4-jane-and-a-helicopter-which": ["jane", "And a helicopter. Which you have never flown."],
+  "m4-dan-rook-sent-the-pilot": [
+   "dan",
+   "{rook} sent the pilot for coffee."
+  ],
   "m4-dan-ive-played-a-lot": ["dan", "I've played a lot of games."],
   "m4-jane-thats-not-comforting-babe": ["jane", "That's not comforting, babe."],
   "m4-jane-doyers-streets-the-crooked": ["jane", "Doyers Street's the crooked one. They used to call it the bloody angle."],
@@ -1472,6 +1469,7 @@
   "m4.title.shredder": "Shredder",
   "m4.objective.go-to-the": "Go to the ",
   "m4.objective.seaport": "Seaport",
+  "m4.help.jane-s-still-talking": "{jane}'s still talking.",
   "m4.objective.artist-s-mark": "artist's mark",
   "m4.counter.mark": "MARK",
   "m4.dm.his-mark-is-hidden": "his mark is hidden once in each harbor nocturne. grab a tray from the bar first. nobody looks at a waiter.",
