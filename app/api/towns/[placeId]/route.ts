@@ -14,7 +14,8 @@ export const runtime = 'nodejs';
 /**
  * GET /api/towns/{placeId}: a town's build as POST /api/towns answers it, never starting one (polled every 2 s).
  * GET /api/towns/{placeId}?build=<buildId>: Mog City's engine poll (SPEC 4.4, every 10 s): the best playable variant of
- * the town at that build, { variant: 'full' | 'district-c-r', tilesId, url }, or 404. Public (the bytes it points at
+ * the town at that build, { variant: 'full' | 'district-c-r', tilesId, url }, or 404; `stalled: true` beside a district
+ * whose whole-town build has failed for good (lib/hometown-build/towns.ts bestVariant: the engine puts its edge haze down). Public (the bytes it points at
  * are), CORS for Mog City's origin, whenever the production builder is not off. &world=<sha256> (the story world the
  * page plays): `upgrade` { build, tilesId, variant: 'full', url, pack } as well, when that world may play the town's current
  * whole town instead (lib/storykit-upgrade.ts).

@@ -448,6 +448,20 @@ async function g4to6(ok: Ok, dir: string) {
   ok('the story may pin it, and the package is read back from the store by its lock', storyReadyLock(dB, 'us-4054200')?.tiles === L.tiles && !!cityPackageFromStore(dB.store, storyLock(L)!));
   ok('a town built in full logs its wait estimate\'s error (the status page\'s ETA error)', dB.queue.recentEvents(20).some((e) => e.kind === 'eta' && typeof e.errPct === 'number'));
   ok('the engine\'s poll answers the best variant and its URL, with state full / full: true (growing.js fullReady)', bestVariant(dB, 'us-4054200', BL)?.url === `/towns/us-4054200/${BL}/${L.tiles}/full/` && bestVariant(dB, 'us-4054200', BL)?.state === 'full' && bestVariant(dB, 'us-4054200', BL)?.full === true);
+  // (Colter Land's Bozeman, 16 Nov: a town whose whole-town build failed for good is served its district with stalled: true,
+  // growing.js buildStalled, so the engine puts the edge haze down; never refused. The same town at a second build here)
+  {
+    const BS = BL === 'htc-0.9.0-hg1-b0000057a' ? 'htc-0.9.0-hg1-b0000057b' : 'htc-0.9.0-hg1-b0000057a', dv = 'district-5806-4290', dt = 'd'.repeat(64);
+    const row = dB.queue.db.prepare('SELECT * FROM towns WHERE place = ? AND build = ?').get('us-4054200', BL) as { box: string; source: string };
+    dB.queue.db.prepare('INSERT INTO towns (place, build, box, state, first_asked, tiles_total, tiles_done, asks, source, meta) VALUES (?, ?, ?, ?, ?, 1, 1, 1, ?, ?)')
+      .run('us-4054200', BS, row.box, 'growing', t.now, row.source, JSON.stringify({ district: { variant: dv, tilesId: dt } }));
+    dB.store.put(bundleKey(BS, 'us-4054200', dt, dv, 'bundle.json'), Buffer.from('{}'));
+    const growing = bestVariant(dB, 'us-4054200', BS);
+    dB.queue.db.prepare("UPDATE towns SET state = 'failed' WHERE place = ? AND build = ?").run('us-4054200', BS);
+    const stopped = bestVariant(dB, 'us-4054200', BS);
+    ok('a district still growing is served without stalled; once the whole town failed, the district still, with stalled: true (growing.js buildStalled); a full town never stalled',
+      growing?.variant === dv && growing.stalled === undefined && stopped?.variant === dv && stopped.state === 'district' && stopped.stalled === true && bestVariant(dB, 'us-4054200', BL)?.stalled === undefined, JSON.stringify([growing, stopped]));
+  }
 
   // ---- compiler 0.8.0: a capped town's frame pins its downtown-centred box; the town is re-tiled to the frame
   {

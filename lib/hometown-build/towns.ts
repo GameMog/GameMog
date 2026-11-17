@@ -985,14 +985,23 @@ export function onBundleStored(d: BuilderDeps, key: string) {
 
 /** The best playable variant of a town at a build (the engine's poll, /api/towns/{place}?build=). */
 /** (the engine's growing.js reads `state: 'full'` or `full: true` as "the whole town is ready": both are sent) */
-export function bestVariant(d: BuilderDeps, placeId: string, build: string): { variant: string; tilesId: string; url: string; state: 'full' | 'district'; full: boolean } | null {
+/** (`stalled: true` beside a district when the whole town's build has stopped: the town failed for good (state 'failed', or
+ * a job it waits on failed for good, fatalFailures) and nothing more is coming until the town is asked again. Mog City's
+ * growing.js (buildStalled) then puts the district's edge haze down and says "This is the edge of town" (Colter Land's
+ * Bozeman, 16 Nov: the haze stood for good as a white wall across the hills). A signal only: the district is served as
+ * ever, never refused; read without writing (refresh marks the row failed on the status poll)) */
+export function bestVariant(d: BuilderDeps, placeId: string, build: string): { variant: string; tilesId: string; url: string; state: 'full' | 'district'; full: boolean; stalled?: true } | null {
   const r = rowOf(d.queue, placeId, build), m = metaOf(r);
   // (the whole town's once built, else the spawn district's; a variant whose bundle is not stored is passed over)
   const pick = [m.full ? { variant: 'full', tilesId: m.full.tilesId } : null, m.district ? { variant: m.district.variant, tilesId: m.district.tilesId } : null]
     .find((v) => v && d.store.has(bundleKey(build, placeId, v.tilesId, v.variant, 'bundle.json'))) ?? null;
   if (!pick) return null;
   const full = pick.variant === 'full';
-  return { ...pick, url: `/towns/${placeId}/${build}/${pick.tilesId}/${pick.variant}/`, state: full ? 'full' : 'district', full };
+  let stalled = false;
+  if (!full && r) {
+    try { stalled = r.state === 'failed' || fatalFailures(d, m, d.queue.jobsOf(placeId).filter((j) => j.build === build || j.build === ANY_BUILD)).length > 0; } catch { stalled = false; }
+  }
+  return { ...pick, url: `/towns/${placeId}/${build}/${pick.tilesId}/${pick.variant}/`, state: full ? 'full' : 'district', full, ...(stalled ? { stalled: true as const } : {}) };
 }
 
 /** Pre-warm (SPEC 7): the towns of a list enqueued at P5 (district first inside each town, then rings). */
