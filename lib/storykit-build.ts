@@ -455,18 +455,19 @@ export const ACTION_KINDS = ['pursuit', 'tail', 'fight', 'roadblock', 'tow'];
  *   - Mission 1 at least LEG.m1Secs s of play (drives at the wheel, walks, fights, chases and holds, by the PLAY table).
  * Sent back with the pacing on a first pass only, never failing a build (generateStorykit).
  */
-export const LEG = { first: [400, 900] as const, opener: 1200, m1Secs: 120 };
-const ROAD_FACTOR = 1.3, DRIVE_MS = 14, WALK_MS = 4;
+export const LEG = { first: [400, 900] as const, opener: 1200, m1Secs: 120, ride: [250, 1800] as const };
+// (a ride on the story's horse: a trot and a gallop, about 9 m/s along the streets; BUILDER.md Horses)
+const ROAD_FACTOR = 1.3, DRIVE_MS = 14, WALK_MS = 4, RIDE_MS = 9;
 const PLAY: Record<string, number> = { fight: 40, pursuit: 60, roadblock: 20 };
-type Leg = { from: string; to: string; m: number; foot: boolean; lead: boolean };
+type Leg = { from: string; to: string; m: number; foot: boolean; lead: boolean; horse?: boolean };
 /** A mission's legs, in order: from its start (or the last goal) to each place the hero must reach. `lead`: no set
  * piece (ACTION_KINDS) began before or during it, so it is the mission's opening haul (a drive after a fight is not). */
 export function missionLegs(m: PackV2, at: (r: unknown) => { key: string; x: number; z: number } | null): Leg[] {
   const out: Leg[] = [];
   let here = at(m?.start), acted = false;
-  const go = (r: unknown, foot = false) => {
+  const go = (r: unknown, foot = false, horse = false) => {
     const p = at(r); if (!p) return;
-    if (here && p.key !== here.key) out.push({ from: here.key, to: p.key, m: Math.hypot(p.x - here.x, p.z - here.z), foot, lead: !acted });
+    if (here && p.key !== here.key) out.push({ from: here.key, to: p.key, m: Math.hypot(p.x - here.x, p.z - here.z), foot, lead: !acted, ...(horse ? { horse } : {}) });
     here = p;
   };
   for (const x of (Array.isArray(m?.steps) ? m.steps : []) as PackV2[]) {
@@ -476,6 +477,9 @@ export function missionLegs(m: PackV2, at: (r: unknown) => { key: string; x: num
     if (x.type === 'drive') for (const r of [x.to].flat()) go(r);
     else if (x.type === 'stops') for (const r of [x.stops ?? []].flat()) go(r);
     else if (x.type === 'walk') go(x.to, true);
+    // (the story's horse: driven to where he stands, then ridden)
+    else if (x.type === 'mount' && x.at) go(x.at);
+    else if (x.type === 'ride') for (const r of [x.to].flat()) go(r, false, true);
     else if (x.type === 'tail') for (const r of [x.route ?? []].flat()) go(r);
     else if (x.type === 'tow') { go(x.target); acted = true; go(x.to); }
     else if (x.type === 'pursuit' && x.to) go(x.to);
@@ -487,7 +491,7 @@ export function missionLegs(m: PackV2, at: (r: unknown) => { key: string; x: num
 /** Roughly how long a mission plays, in seconds: its legs at the wheel or on foot, its fights, chases and holds. */
 export function missionPlaySecs(m: PackV2, legs: Leg[]): number {
   const flat = (steps: unknown = []): PackV2[] => (Array.isArray(steps) ? steps : []).flatMap((x) => [x, ...flat(x?.during)]);
-  let s = legs.reduce((n, l) => n + (l.m * ROAD_FACTOR) / (l.foot ? WALK_MS : DRIVE_MS), 0);
+  let s = legs.reduce((n, l) => n + (l.m * ROAD_FACTOR) / (l.foot ? WALK_MS : l.horse ? RIDE_MS : DRIVE_MS), 0);
   for (const x of flat(m?.steps)) s += PLAY[x?.type] ?? (x?.type === 'search' ? Number(x.secs) || 2 : 0);
   return Math.round(s);
 }
@@ -505,10 +509,15 @@ export function legProblems(pack: PackV2, town: Pick<CityPackage, 'places'>): st
   const out: string[] = [], km = (m: number) => (m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m / 10) * 10} m`);
   const secs = (m: number) => Math.round((m * ROAD_FACTOR) / DRIVE_MS);
   all.forEach((m, i) => {
-    const legs = missionLegs(m, at), first = legs.find((l) => !l.foot);
+    const legs = missionLegs(m, at), first = legs.find((l) => !l.foot && !l.horse);
+    // (a ride on the horse: long enough to feel him under you, short enough not to be a commute)
+    for (const l of legs.filter((x) => x.horse)) {
+      if (l.m < LEG.ride[0]) out.push(`Pacing: ${m.id} rides ${km(l.m)} (@${l.from} to @${l.to}): too short to feel the horse. Make a ride ${LEG.ride[0]} to ${LEG.ride[1]} m as the crow flies.`);
+      else if (l.m > LEG.ride[1]) out.push(`Pacing: ${m.id} rides ${km(l.m)} (@${l.from} to @${l.to}, about ${Math.round((l.m * ROAD_FACTOR) / RIDE_MS)} s in the saddle); keep a ride under ${km(LEG.ride[1])}, or break it with a stop, a call or a fight on the way.`);
+    }
     if (i === 0 && first && first.m < LEG.first[0]) out.push(`Pacing: Mission 1 (${m.id}) opens with a ${km(first.m)} drive (@${first.from} to @${first.to}, about ${secs(first.m)} s at the wheel): too short to learn the car. Make its first drive ${LEG.first[0]} to ${LEG.first[1]} m as the crow flies (a farther place, or a stop on the way).`);
     else if (i === 0 && first && first.m > LEG.first[1]) out.push(`Pacing: Mission 1 (${m.id}) opens with a ${km(first.m)} drive (@${first.from} to @${first.to}); keep its first drive ${LEG.first[0]} to ${LEG.first[1]} m, so the action comes soon.`);
-    else if (i > 0 && legs[0]?.lead && legs[0].m > LEG.opener) out.push(`Pacing: ${m.id} opens with a ${km(legs[0].m)} ${legs[0].foot ? 'walk' : 'drive'} (@${legs[0].from} to @${legs[0].to}, about ${secs(legs[0].m)} s); no mission opens with more than ${km(LEG.opener)}. Start it nearer (its "start"), or break the haul with a stop, a call or a chase on the way.`);
+    else if (i > 0 && legs[0]?.lead && legs[0].m > LEG.opener) out.push(`Pacing: ${m.id} opens with a ${km(legs[0].m)} ${legs[0].foot ? 'walk' : legs[0].horse ? 'ride' : 'drive'} (@${legs[0].from} to @${legs[0].to}, about ${secs(legs[0].m)} s); no mission opens with more than ${km(LEG.opener)}. Start it nearer (its "start"), or break the haul with a stop, a call or a chase on the way.`);
     if (i === 0) { const t = missionPlaySecs(m, legs); if (t < LEG.m1Secs) out.push(`Pacing: Mission 1 (${m.id}) plays about ${t} s; give it at least ${LEG.m1Secs} s of play (${Math.round(LEG.m1Secs / 60)} minutes): a longer first drive, a second stop, a short chase or a fight on the way.`); }
   });
   return out;
@@ -558,7 +567,7 @@ export function builderProblems(pack: PackV2, input: StorykitInput, meta?: Story
   for (const m of all) {
     const steps = kinds(m?.steps);
     const goals = new Set(steps.flatMap((x: PackV2) => [
-      ...(x?.type === 'drive' ? [x.to].flat() : []), ...(x?.type === 'stops' ? x.stops ?? [] : []), ...(['walk', 'pursuit', 'tow'].includes(x?.type) ? [x.to] : []),
+      ...(x?.type === 'drive' || x?.type === 'ride' ? [x.to].flat() : []), ...(x?.type === 'mount' ? [x.at] : []), ...(x?.type === 'stops' ? x.stops ?? [] : []), ...(['walk', 'pursuit', 'tow'].includes(x?.type) ? [x.to] : []),
       ...(x?.type === 'tow' ? [x.target] : []), ...(x?.type === 'search' ? [x.at] : []), ...(x?.type === 'tail' ? (x.route ?? []).slice(-1) : [])].map(key).filter(Boolean)));
     for (const x of steps) if (x?.type === 'roadblock' && key(x.at) && (goals.has(key(x.at)) || key(x.at) === key(x.to))) {
       out.push(`${m.id}: the roadblock at "@${key(x.at)}" stands where the mission goes; a roadblock goes on the way (a corner they pass), never at a place they drive, walk, chase or search to.`); break;
@@ -608,7 +617,7 @@ export function builderProblems(pack: PackV2, input: StorykitInput, meta?: Story
 }
 
 /** What a player does with their hands (the kinds a payoff can be); what may follow it (words, pictures, the score). */
-const PLAYED = new Set(['drive', 'stops', 'walk', 'search', 'tow', 'fight', 'pursuit', 'tail']);
+const PLAYED = new Set(['drive', 'stops', 'walk', 'search', 'tow', 'fight', 'pursuit', 'tail', 'ride', 'mount']);
 const AFTER = new Set(['say', 'cutscene', 'beat', 'scene', 'set', 'dm', 'wait', 'label', 'npc', 'call', 'voicemail', 'voicenote', 'transition', 'actEnd']);
 /**
  * Mission 1's payoff (the owner, 4 Nov: it ends in a clear playable payoff, e.g. reaching and towing the ambulance): its

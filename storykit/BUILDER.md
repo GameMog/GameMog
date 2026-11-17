@@ -424,6 +424,9 @@ This is the rule the gate holds hardest, because breaking it is what made a Mog 
   on foot or in a car that fits and say so in the blurb in the story's own words; never dress a car as a bike.
 - **A person is a person, an animal is a pet.** A dog is in `pets` (`species: "dog"`, the only animal the engine has),
   never a cast member whose name or role is "the dog". A pet can appear as an npc; it never speaks lines.
+- **A horse is the story's horse, never a vehicle.** In a hometown story in horse country the hero may have a horse
+  (`horse`, ridden with `mount`, `ride` and `dismount` steps: Horses, below); a vehicle sheet is never a horse or
+  named one, and a person is never renamed into one.
 - **A verb is what the ride can do.** Each mission lists its `verbs`, and the gate adds the ones its steps imply
   (a `drive` is drive, a `pursuit` to lose is escape) and the ones its words say ("ram", "hop", "pedal"). Every one
   must be possible on the mission's ride, or the pack is refused:
@@ -601,6 +604,37 @@ no car picked, leave `heroCar` out and choose the car the story needs.
 Copy says what the ride is with tokens, so a Mog that swaps the car keeps its lines: `{ride}` (the noun: cab, van),
 `{ride.name}` (its label), `{ride.board}` (get in), `{ride.go}` (drive), `{ride.park}` (park). In objectives also `{n}`,
 `{of}`, `{name}` (stops). Any other `{token}` is refused.
+
+## Horses (a hometown story in horse country)
+
+The hero may own a horse, saddled and standing by alongside the car, **only in a hometown story** (`base.city`
+`"hometown"`) **set in horse country**: a ranch or a farm family, a rodeo town, a mountain or prairie town, a trail
+outfitter, a county fair. Never in one of Mog City's own big-city worlds (a pack whose `base.city` is not
+`"hometown"`), never for a city or a suburban story, and never because the idea is merely "western" in a downtown. Name him once at the top: `"horse": { "name": "Dusty" }` (a plain name,
+capitalised, at most 24 characters; it is on the speed panel and in the words). Mog City builds him (a saddled bay)
+and keeps the car too: the hero drives up, gets out, climbs into the saddle, rides, gets down and drives on, and the
+player can swap between them on foot at any time (F beside either).
+
+| want | write |
+|---|---|
+| get up on him (he waits saddled there) | `{ "type": "mount", "at": "@ranch-gate", "objective": "Saddle up on **Dusty**." }` |
+| ride somewhere (a drive on the horse) | `{ "type": "ride", "to": "@north-pasture", "objective": "Ride **Dusty** to **the north pasture**." }` |
+| get down | `{ "type": "dismount", "objective": "Get down from **Dusty**." }` |
+
+- **In order, in one mission:** a `mount`, then one or more `ride`s (talk, a call, a fight from the saddle between
+  them), then a `dismount` **before any car step** (`drive`, `stops`, `tail`, `pursuit`, `tow`). A `ride` or a
+  `dismount` with nobody up is refused, and so is a `mount` when he is already up. Never as a side step (`during`).
+- **Where he stands:** `mount.at` is a place he can be walked up to: a park, a fairground, a trailhead, the edge of town,
+  a ranch's gate (an alias of a real place: never a private home). The hero arrives in the car, gets out and walks to
+  him. Without `at` he is wherever the hero left him (or comes at his whistle).
+- **Where he goes:** a `ride` goes where a man on foot could walk: the streets (either way down a one-way), parks,
+  plazas. **250 to 1,800 m** as the crow flies (a trot and a gallop, about a minute or two in the saddle). Never a
+  highway, never a chase, a tail or a tow on horseback: those are the car's.
+- **What it is for:** the ranch's own work and its pride: riding out to check a fence, to a neighbour's, to bring
+  someone home the old way, a ride the town turns to look at. One or two missions with a ride make the story feel like
+  horse country; every mission on horseback makes it a commute. The car stays the story's main ride.
+- **His words:** he is "Dusty" or "the horse", never "the car" or "the truck"; saddle words ("saddle up", "the
+  reins") belong to his missions. A fight can happen with him close by: the hero fights from the saddle or gets down.
 
 ## Dressing
 
