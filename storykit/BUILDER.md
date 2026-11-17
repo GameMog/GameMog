@@ -598,8 +598,8 @@ Crossover, Compact Pickup, Four by Four; the SUV and the Pickup are full-size). 
 of car (its class as the turn names it, no `hop` or `dash`, `boost` only on a sports car), so every mission in the
 hero's own car is one that car can do. In a hometown Mog City draws it as the town's realistic model of that name. With
 no car picked, leave `heroCar` out and choose the car the story needs. In a hometown any `pickup` or `suv` sheet (the
-hero's or a mission's ride) is drawn as the town's full-size realistic pickup or SUV, keeping its own name, paint,
-sound, handling and abilities.
+hero's or a mission's ride) is drawn as the town's full-size realistic pickup or SUV, keeping its own name, paint
+(the whole body, any colour), sound, handling and abilities.
 
 Copy says what the ride is with tokens, so a Mog that swaps the car keeps its lines: `{ride}` (the noun: cab, van),
 `{ride.name}` (its label), `{ride.board}` (get in), `{ride.go}` (drive), `{ride.park}` (park). In objectives also `{n}`,
