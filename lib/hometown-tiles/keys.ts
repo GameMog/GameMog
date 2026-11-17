@@ -110,9 +110,15 @@ export const PUBLIC: Family[] = ['tiles', 'manifests', 'builds', 'frames', 'bund
 /** What a worker's token may PUT (never anything the GC or the owner's tools decide). */
 export const WORKER_PUT: Family[] = ['tiles', 'ctx', 'manifests', 'builds', 'frames', 'bundles', 'far', 'src', 'dem'];
 export const contentType = (f: Family, key = '') => (f === 'manifests' || f === 'builds' || f === 'frames' || key.endsWith('.json') ? 'application/json' : 'application/octet-stream');
-/** Upload size limits by family (SPEC 3.1): src layers up to 64 MB, a DEM piece 2 MB, everything else 16 MB. */
+/**
+ * Upload size limits by family (SPEC 3.1): src layers and bundle files up to 64 MB, a DEM piece 2 MB, everything else
+ * 16 MB. A bundle file is one whole window of the town: the full bundle's data/terrain.bin.gz is every 2 m post of up to
+ * 16 x 16 tiles (33.6 MB raw, 4097^2 int16), and hilly ground barely compresses: Bozeman, MT's 15 x 15 is 29.5 MB raw,
+ * 17.9 MB gzipped (Oakland's 12.7 MB). At 16 MB every attempt of such a town's full bundle compiled, then had its
+ * terrain refused (413) and failed, three times over.
+ */
 export const MAX_UPLOAD = 16 * 1024 * 1024;
-export const maxUploadOf = (f: Family) => (f === 'src' ? 64 * 1024 * 1024 : f === 'dem' ? 2 * 1024 * 1024 : MAX_UPLOAD);
+export const maxUploadOf = (f: Family) => (f === 'src' || f === 'bundles' ? 64 * 1024 * 1024 : f === 'dem' ? 2 * 1024 * 1024 : MAX_UPLOAD);
 /** The build a key counts towards (GC, access journal), or null for the shared sources (src, dem). */
 export const buildOfKey = (key: string): string | null => {
   const [f, b] = key.split('/');
