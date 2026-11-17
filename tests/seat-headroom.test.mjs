@@ -130,3 +130,25 @@ test('where the usual remedies leave him through, the last ones: further recline
   const a4 = seatFit(crown, roofAt, HIP, { minHip: -Infinity, minHipAt: (s) => (s < -0.05 ? 0.4 : 0.536), maxSlide: 0, minSlide: -0.12, pivot });
   assert.ok(a4.slide < -0.05 && a4.drop > 0 && a4.left < 0.01, JSON.stringify(a4));
 });
+
+test('the game path fits him as the standalone build does: his crown read again at a new size, the neck turned once', () => {
+  // (a hero scaled after he first sat in the car (the worn ride keeps the same driver) is fitted by his new crown)
+  assert.match(SRC, /size !== crownSize\) \{[^}]*crown = readCrown\(\); crownSize = size; fitKey = null;/);
+  // (the reclined driver's neck: a still clip (three's mixer leaves an unchanged bone alone) isn't bent again each call)
+  assert.match(SRC, /mixer\.update\(dt\); keepHands\(\); if \(B\.neck01\) keepNeck\(\);/);
+  assert.match(SRC, /keepNeck = \(\) => \{ if \(NK\.wrote && B\.neck01\.quaternion\.equals\(NK\.wrote\)\) B\.neck01\.quaternion\.copy\(NK\.pre\);/);
+  // (slid forward on a model's pan, the crease's cushion doesn't hold his hips up: minHip0 with minHipAt(slide))
+  assert.match(SRC, /minHip: fleet \? minHip0 : minHip, minHipAt,/);
+});
+
+test('the very last resort: a size that leaves part of his crown out from under the roof as read, to the skin only', () => {
+  // (a roof that ends over the back of his crown: shrinking moves those points off it)
+  const roofAt = (x, z) => (z < 0.2 - 0.235 ? [] : [0.536 + 0.8, 0.536 + 0.75]);
+  const o = { minHip: 0.536, maxSlide: 0, maxRecline: 0, minShrink: 1, settle: true, last: { maxRecline: 0, minShrink: 0.85, minSlide: 0 } };
+  const g = seatFit(crown, roofAt, HIP, o);
+  const f = seatFit(crown, roofAt, HIP, { ...o, guard: false, gap: -1, skin: 0.03 });
+  assert.ok(f.shrink < 1 && f.shrink >= 0.85 - 1e-9, JSON.stringify(f));
+  // (against the skin only: no smaller than takes the crown 3 cm under it)
+  assert.ok(0.8 * f.shrink + 0.03 <= 0.8 + 0.011, JSON.stringify(f));
+  assert.ok(g.shrink < 1, JSON.stringify(g));
+});
