@@ -86,6 +86,14 @@ export function runWardrobeChecks(ok: Ok) {
     hatted(hand, null, 'a ranch hand in a peaked cap gets a cowboy hat');
     const stet = person('the drifter', 'Rides in under a black Stetson.', W('tee', 'jeans', 'boots'));
     hatted(stet, null, 'a Stetson in the logline gets a cowboy hat (no job named)');
+    const owner = person('owner of the Colter Ranch', 'Fifty years on the same land.', W('long-sleeve', 'jeans', 'boots')); (owner.wardrobe as any).headwear = { item: 'peaked-cap', color: '#C9A05A' };
+    hatted(owner, null, 'the owner of a ranch (a role naming no job, no look) in a peaked cap gets a cowboy hat');
+    const pi = person('a 1947 private detective', 'Rain on his grey felt hat.', W('suit-jacket', 'suit-trousers', 'dress')); (pi.wardrobe as any).headwear = { item: 'none' };
+    ok('a detective in a felt hat gets no cowboy hat', !fitWardrobe(pi).some((c: string) => c.startsWith('headwear')) && (pi.wardrobe as any).headwear.item === 'none');
+    const never = person('the drifter', 'He never wore a cowboy hat in his life.', W('tee', 'jeans', 'boots'));
+    ok('"never wore a cowboy hat" gets no cowboy hat', !fitWardrobe(never).some((c: string) => c.startsWith('headwear')) && (never.wardrobe as any).headwear?.item !== 'cowboy-hat');
+    const blunt = person('the drifter', 'A no-nonsense man, a cowboy hat pulled low.', W('tee', 'jeans', 'boots'));
+    hatted(blunt, null, '"no-nonsense" before the hat is not a no');
     const kid = person('the college student', 'Home for the summer.', W('hoodie', 'jeans', 'sneakers')); (kid.wardrobe as any).headwear = { item: 'ball-cap' };
     ok('a student in a ball cap keeps it (no western hat in his words)', !fitWardrobe(kid).length && (kid.wardrobe as any).headwear.item === 'ball-cap');
   }

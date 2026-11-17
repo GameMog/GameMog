@@ -257,6 +257,11 @@ export function runHometownChecks(ok: Ok) {
     ok('a Mission 1 whose first drive is a couple of hundred metres is sent back (400 to 900 m)', pacingProblems(near.pack, OK).some((p) => /^Pacing: Mission 1 \(M1\) opens with a \d+ m drive .*too short to learn the car/.test(p)), `${by.p.id} ${Math.round(by.d)} m`);
     const far = clone(flat), fm = far.pack.acts[0].missions; fm[3].start = { '@': 'water-tower' };
     ok('an opener started near its goal is not sent back', !pacingProblems(far.pack, OK).some((p) => /^Pacing: M4 opens/.test(p)));
+    const junk = clone(flat), bm = junk.pack.acts[0].missions;
+    bm[0].steps = [...bm[0].steps, { type: 'stops', stops: { a: 1 } }, { type: 'tail', route: 5 }, { type: 'fight', during: 7 }]; bm[1].steps = { a: 1 };
+    let threw = '';
+    try { pacingProblems(junk.pack, OK); } catch (e) { threw = String(e); }
+    ok('malformed stops, route, during or steps in a reply never throw out of pacing', !threw, threw);
     if (cp.pack) {
       const w = toRunnerPack(cp.pack, { townName: 'Okemah, Oklahoma' }) as PackV2;
       const shot = w.missions[0].steps.find((x: PackV2) => x.type === 'cutscene').shots[1];

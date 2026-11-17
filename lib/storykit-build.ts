@@ -468,12 +468,12 @@ export function missionLegs(m: PackV2, at: (r: unknown) => { key: string; x: num
     if (here && p.key !== here.key) out.push({ from: here.key, to: p.key, m: Math.hypot(p.x - here.x, p.z - here.z), foot });
     here = p;
   };
-  for (const x of (m?.steps ?? []) as PackV2[]) {
+  for (const x of (Array.isArray(m?.steps) ? m.steps : []) as PackV2[]) {
     if (!x || typeof x !== 'object') continue;
     if (x.type === 'drive') for (const r of [x.to].flat()) go(r);
-    else if (x.type === 'stops') for (const r of x.stops ?? []) go(r);
+    else if (x.type === 'stops') for (const r of [x.stops ?? []].flat()) go(r);
     else if (x.type === 'walk') go(x.to, true);
-    else if (x.type === 'tail') for (const r of x.route ?? []) go(r);
+    else if (x.type === 'tail') for (const r of [x.route ?? []].flat()) go(r);
     else if (x.type === 'tow') { go(x.target); go(x.to); }
     else if (x.type === 'pursuit' && x.to) go(x.to);
     else if (x.type === 'search' && x.at && !x.on) go(x.at);
@@ -483,7 +483,7 @@ export function missionLegs(m: PackV2, at: (r: unknown) => { key: string; x: num
 }
 /** Roughly how long a mission plays, in seconds: its legs at the wheel or on foot, its fights, chases and holds. */
 export function missionPlaySecs(m: PackV2, legs: Leg[]): number {
-  const flat = (steps: PackV2[] = []): PackV2[] => steps.flatMap((x) => [x, ...flat(x?.during)]);
+  const flat = (steps: unknown = []): PackV2[] => (Array.isArray(steps) ? steps : []).flatMap((x) => [x, ...flat(x?.during)]);
   let s = legs.reduce((n, l) => n + (l.m * ROAD_FACTOR) / (l.foot ? WALK_MS : DRIVE_MS), 0);
   for (const x of flat(m?.steps)) s += PLAY[x?.type] ?? (x?.type === 'search' ? Number(x.secs) || 2 : 0);
   return Math.round(s);
@@ -498,7 +498,7 @@ export function legProblems(pack: PackV2, town: Pick<CityPackage, 'places'>): st
     const p = by.get(aliases[k]?.['@'] ?? k);
     return p && Number.isFinite(p.x) && Number.isFinite(p.z) ? { key: k, x: p.cx ?? p.x, z: p.cz ?? p.z } : null;
   };
-  const all: PackV2[] = (pack?.acts ?? []).flatMap((a: PackV2) => a?.missions ?? []).filter((m: PackV2) => m && Array.isArray(m.steps));
+  const all: PackV2[] = (Array.isArray(pack?.acts) ? pack.acts : []).flatMap((a: PackV2) => (Array.isArray(a?.missions) ? a.missions : [])).filter((m: PackV2) => m && Array.isArray(m.steps));
   const out: string[] = [], km = (m: number) => (m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m / 10) * 10} m`);
   const secs = (m: number) => Math.round((m * ROAD_FACTOR) / DRIVE_MS);
   all.forEach((m, i) => {
@@ -517,7 +517,7 @@ export function pacingProblems(pack: PackV2, town?: Pick<CityPackage, 'places'> 
   const acts: PackV2[] = (pack.acts ?? []).filter((a: PackV2) => a && Array.isArray(a.missions));
   const all: PackV2[] = acts.flatMap((a) => a.missions).filter((m: PackV2) => m && Array.isArray(m.steps));
   if (!all.length) return out;
-  const flat = (steps: PackV2[] = []): PackV2[] => steps.flatMap((x) => [x, ...flat(x?.during)]);
+  const flat = (steps: unknown = []): PackV2[] => (Array.isArray(steps) ? steps : []).flatMap((x) => [x, ...flat(x?.during)]);
   const pieces = (m: PackV2) => flat(m.steps).filter(isAction);
   const calm = all.filter((m) => !pieces(m).length);
   const want = Math.ceil(all.length * 2 / 3);

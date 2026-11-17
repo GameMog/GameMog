@@ -113,14 +113,21 @@ export function workOf(words: string): Job | null {
 
 // a western hat in the person's own words (Colter Land, 16 Nov: "a cowboy hat" had only a peaked cap to be, and read as
 // a pith helmet): the forge's cowboy-hat (scripts/forge/core.mjs, style 'cowboy'), its colour kept when it has one
-const WESTERN_HAT = /\b(cowboy hats?|stetsons?|western hats?|ten[- ]gallon hats?|cattleman(?:'s)? hats?|ranch hats?|felt hats?|straw cowboy)\b/i;
+const WESTERN_HAT = /\b(cowboy hats?|stetsons?|western hats?|ten[- ]gallon hats?|cattleman(?:'s)? hats?|ranch hats?|straw cowboy)\b/gi;
+// (a plain felt hat is a detective's fedora too, and "never wore a cowboy hat" asks for none: no/never/without within
+// three words before the hat, in the same clause, says no)
+const NO_HAT = /\b(?:never|no|without)\s(?:\s*[\w'’]+){0,3}\s*$/i;   // ("no-nonsense" or a comma between is not a no)
+const westernHat = (words: string) => [...String(words || '').matchAll(WESTERN_HAT)].some((m) => !NO_HAT.test(words.slice(0, m.index!)));
+const RANCH = /\branch(?:es)?\b/i;
 const HAT_FELT = '#7A5A3C', HAT_BAND = '#2A2018';
 /** the headwear the person's own words or job call for: a cowboy hat for a western hat in the words, or in place of a
- * uniform's peaked cap on a ranch hand (the only stiff cap the forge had) */
+ * uniform's peaked cap on a ranch hand, or on anyone whose role or logline is a ranch ("owner of the Colter Ranch" names
+ * no job), the peaked cap being the only stiff cap the forge had */
 function fitHeadwear(sheet: Sheet, words: string, job: Job | null): string[] {
   const w = sheet.wardrobe!, now = w.headwear?.item || 'none';
   if (now === 'cowboy-hat') return [];
-  if (!(WESTERN_HAT.test(words) || (job === 'ranch' && now === 'peaked-cap'))) return [];
+  const ranch = job === 'ranch' || RANCH.test([sheet.role, sheet.logline].filter(Boolean).join(' . '));
+  if (!(westernHat(words) || (ranch && now === 'peaked-cap'))) return [];
   w.headwear = { item: 'cowboy-hat', color: w.headwear?.color && now !== 'hood-up' ? w.headwear.color : HAT_FELT, accent: HAT_BAND };
   return [`headwear ${now} -> cowboy-hat`];
 }
