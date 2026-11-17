@@ -181,28 +181,27 @@ export function storyPlay(meta: string | null | undefined, game: string, site = 
   return { src: storyFrameSrc(w, game, site, city, town), world: w };
 }
 /**
- * Is a hometown story's town built far enough to play every place the story names (16 Nov, Colter Land)? A story may be
- * WRITTEN while only the spawn district is built (mission 1 and the start stay in it: hometown-gate.ts districtProblems),
- * but it is only PUBLISHED once /g/<slug>/play would serve every place it names: the whole town ('full', or the current
- * build's whole town it upgrades to), or a district that has them all. Bozeman's whole town failed, the play page served
- * the district for good (townPlay), and 8 of the 14 places never appeared. The variant judged is townPlay's, the one the
- * play page and the test drive's frame (app/api/storykit/drafts/[id]/route.ts storyFrameQuery) are both given.
- * Null when it may publish (not a hometown story, the in-process builder's one bundle, or every place in what is served);
- * else the creator's words. `world`: the world as it will play (the store draft's, StoryStore.world).
+ * Which of a hometown story's places the play page does not serve (16 Nov, Colter Land): a SIGNAL for the owner, never a
+ * publish gate (owner, 16 Nov: "publishes incomplete and I fix while delisting"). A story may be written and published
+ * while only the spawn district is built; /g/<slug>/play serves what townPlay picks (the same variant the test drive's
+ * frame gets, app/api/storykit/drafts/[id]/route.ts storyFrameQuery) and moves to the whole town once it is built. Bozeman's
+ * whole town failed, the district was served for good, and 8 of the 14 places never appeared: /admin's Story towns card
+ * lists such a story ("district only, N places missing") so the owner can delist and fix. Null when nothing is missing
+ * (not a hometown story, the in-process builder's one bundle, the whole town served, or a district with every place);
+ * else what is missing, in the owner's words. `world`: the world as it plays (the store draft's, StoryStore.world).
  */
-export function townHold(meta: string | null | undefined, world: Record<string, unknown> | null): { error: string; places: string[] } | null {
+export function townGap(meta: string | null | undefined, world: Record<string, unknown> | null): { words: string; places: string[] } | null {
   if (storyCityOf(meta) !== 'hometown') return null;
   const town = storyTownOf(meta) ?? ((world?.hometown && typeof world.hometown === 'object' ? world.hometown : null) as HometownLock | null);
   if (!town || builderMode() === 'off') return null;
-  const where = storyTownName(meta) ?? 'your town';
   const play = townPlay(town);
-  if (!play) return { error: `${where} is not built yet, so your story cannot be played. Publish it once the town is built.`, places: [] };
+  if (!play) return { words: 'its town is not built, so it does not play', places: [] };
   if (play.variant === 'full') return null;
   const pkg = cityPackageByLock(town);
-  if (!pkg) return { error: `${where}'s places cannot be read just now. Try again in a minute.`, places: [] };
+  if (!pkg) return { words: 'district only; its places cannot be read just now', places: [] };
   const out = world ? outsideDistrict(world, pkg) : [];
   if (!out.length) return null;
-  return { error: `${out.length} of your story's places are in the part of ${where} that is not built yet, so players would not find them. Publish it once the whole town is built.`, places: out };
+  return { words: `district only, ${out.length} place${out.length === 1 ? '' : 's'} missing`, places: out };
 }
 
 /** A hometown story world's town as people say it ("Okemah, Oklahoma"), from its pinned town's package, or null (not a
@@ -291,13 +290,16 @@ export function storyReconcile(): StoryReconcileRow[] {
 }
 
 /** The published hometown story worlds and what each plays now (the owner's screen: app/admin). */
-export type StoryTownRow = { slug: string; title: string; hidden: boolean; place: string; pinned: string; state: StoryUpgrade['state'] | 'unknown'; build: string | null; words: string; why: string[]; notes: string[] };
+export type StoryTownRow = { slug: string; title: string; hidden: boolean; place: string; pinned: string; state: StoryUpgrade['state'] | 'unknown'; build: string | null; words: string; why: string[]; notes: string[]; gap: { words: string; places: string[] } | null };
 export function storyTownsAdmin(): StoryTownRow[] {
   if (builderMode() === 'off' || storykitMode() === 'off') return [];
   const rows = db.prepare("SELECT slug, title, hidden, meta FROM games WHERE json_extract(meta, '$.mode') = 'storykit' AND json_extract(meta, '$.storykit.city') = 'hometown' ORDER BY created_at DESC LIMIT 200").all() as { slug: string; title: string; hidden: number; meta: string }[];
   return rows.map((g) => {
     const town = storyTownOf(g.meta), w = sealedWorldOf(g.meta), u = w ? storyUpgrade(w) : null;
-    return { slug: g.slug, title: g.title, hidden: !!g.hidden, place: town?.place ?? '', pinned: town?.compiler ?? '', state: u?.state ?? 'unknown', build: u && 'build' in u ? u.build : null,
+    // (what the served town lacks: townGap; a story whose world cannot be read is judged on its meta alone)
+    let gap: StoryTownRow['gap'] = null;
+    try { const id = storeDraftOf(g.meta); gap = townGap(g.meta, id ? storyStore().world(id) : null); } catch (e) { console.error('admin: story town gap', String((e as Error)?.message ?? e).slice(0, 200)); }
+    return { gap, slug: g.slug, title: g.title, hidden: !!g.hidden, place: town?.place ?? '', pinned: town?.compiler ?? '', state: u?.state ?? 'unknown', build: u && 'build' in u ? u.build : null,
       words: upgradeWords(u), why: u?.state === 'held' ? u.why : [], notes: u && (u.state === 'held' || u.state === 'upgrade') ? u.notes : [] };
   });
 }

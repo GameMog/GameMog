@@ -153,7 +153,7 @@ export async function runTownChecks(ok: Ok) {
     ok('a world that is not a hometown world, or not stored: no upgrade', storyUpgradeWith(deps({ world: () => ({ ...world, city: 'ny' }) }), W) === null && storyUpgradeWith(deps(), 'b'.repeat(64)) === null && storyUpgradeWith(deps(), 'nope') === null);
     const homes = checkPlaces(world, OK, { ...NEW, places: NEW.places.map((p) => (p.id === 'bar' ? { ...p, kind: 'house', name: 'a house', tags: ['building=house'] } : p)) });
     ok('a place that is a home on the new map is refused', !homes.ok && homes.why.some((w) => /@hideout \(bar\)/.test(w)), homes.why.join(' | '));
-    // (16 Nov, Colter Land: published on a district whose whole town then failed; lib/storykit-publish.ts townHold)
+    // (16 Nov, Colter Land: published on a district whose whole town then failed; lib/storykit-publish.ts townGap, an admin flag, never a gate)
     const v3 = (inD: string[]): CityPackage => ({ ...OK, lockVersion: 3, places: OK.places.map((p) => ({ ...p, inDistrict: inD.includes(p.id) })) });
     const outD = outsideDistrict(world, v3(['hotel', 'pkg_downtown']));
     ok('a story on a spawn district: every place it names outside the district is listed, by its alias, marks aside',

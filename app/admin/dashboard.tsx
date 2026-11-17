@@ -205,7 +205,7 @@ function Overview({ s, slots, storykit, towns, storyTowns, backups, reconcile }:
       {storykit && <StoryKitCard k={storykit} />}
       {reconcile && <StoryReconcileCard rows={reconcile} />}
       {towns && <TownBuilderCard t={towns} />}
-      {storyTowns && storyTowns.some((r) => r.state !== 'current') && <StoryTownsCard rows={storyTowns} />}
+      {storyTowns && storyTowns.some((r) => r.state !== 'current' || r.gap) && <StoryTownsCard rows={storyTowns} />}
       <BackupsCard b={backups} />
 
       <section className="card">
@@ -347,7 +347,7 @@ function StoryTownsCard({ rows: initial }: { rows: StoryTownRow[] }) {
     } catch (e) { setSaid((m) => ({ ...m, [r.slug]: `Not re-pinned: ${String((e as Error)?.message ?? e)}` })); }
     finally { setBusy(null); }
   };
-  const shown = rows.filter((r) => r.state !== 'current');
+  const shown = rows.filter((r) => r.state !== 'current' || r.gap);
   return (
     <section className="card">
       <div className="card-h"><h2>Story towns</h2></div>
@@ -358,13 +358,13 @@ function StoryTownsCard({ rows: initial }: { rows: StoryTownRow[] }) {
             <tr key={r.slug}>
               <td><a href={`/g/${r.slug}`}>{r.title}</a>{r.hidden ? <small> hidden</small> : null}</td>
               <td><small>{r.pinned}</small></td>
-              <td>{STORY_STATE[r.state]}<small> {r.state === 'held' ? r.why.join('; ') : r.state === 'upgrade' ? `the whole town at ${r.build}${r.notes.length ? `; ${r.notes.join('; ')}` : ''}` : r.state === 'waiting' ? `${r.build}: its whole town is not built yet` : ''}</small>{said[r.slug] ? <p className="fine">{said[r.slug]}</p> : null}</td>
+              <td>{STORY_STATE[r.state]}<small> {r.state === 'held' ? r.why.join('; ') : r.state === 'upgrade' ? `the whole town at ${r.build}${r.notes.length ? `; ${r.notes.join('; ')}` : ''}` : r.state === 'waiting' ? `${r.build}: its whole town is not built yet` : ''}</small>{r.gap ? <p className="fine"><strong>{r.gap.words}</strong>{r.gap.places.length ? `: ${r.gap.places.join(', ')}` : ''}</p> : null}{said[r.slug] ? <p className="fine">{said[r.slug]}</p> : null}</td>
               <td>{(r.state === 'held' || r.state === 'upgrade') && <button type="button" className="adm-out" disabled={busy === r.slug} onClick={() => repin(r)}>{busy === r.slug ? 'Checking' : `Re-pin to ${r.build}`}</button>}</td>
             </tr>
           ))}
         </tbody>
       </table>
-      <p className="fine">A story pinned to an older build plays its town&apos;s current whole town by itself when every place it uses is the same place there (same kind, within 30 m). Kept on its build: a place moved or became another place. Re-pin checks the story against the new build&apos;s map and the place rules first; nothing changes unless it passes, and the old world is kept.</p>
+      <p className="fine">A story pinned to an older build plays its town&apos;s current whole town by itself when every place it uses is the same place there (same kind, within 30 m). Kept on its build: a place moved or became another place. Re-pin checks the story against the new build&apos;s map and the place rules first; nothing changes unless it passes, and the old world is kept. District only: a story published while its town&apos;s whole town was not built (or failed) plays the spawn district, and the places listed are not on its map until the whole town is built; delist it from Worlds to fix.</p>
     </section>
   );
 }
