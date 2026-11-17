@@ -239,7 +239,15 @@ After it come at most the lines and a short cutscene of what it won. Never end M
 timer or a line that only says the job is done ("Good, it's towed"): the gate sends that back. Mission 1 also
 teaches: one drive with a call, one thing to do at the goal, one short scene. **It opens cold, in motion**: its first
 or second step is already pressure (a `timer`, a short `pursuit` at `level` 1, a `"rules": "lesson"` fight), never a
-standing cutscene that explains. Keep it short and forgiving; save the hard fight and the long chase for later missions.
+standing cutscene that explains. Keep it forgiving, but give it two to three minutes of play, never a fifteen-second
+hop; save the hard fight and the long chase for later missions.
+
+**Distances (a hometown: its places are real, so their distances are too).** Mission 1's first drive is 400 to 900 m
+as the crow flies (a street route runs about a third longer): long enough to learn the car, short enough that the
+action comes soon. No mission opens with a drive or a walk of more than 1.2 km: set its `start` nearer, or break a
+long haul with a stop, a call and a chase on the way. Mission 1 plays at least two minutes (about 14 m/s at the wheel,
+a fight about 40 s, a chase about a minute). The build measures every leg from the town's own map and sends a pack
+that breaks these back.
 
 ## Set pieces: make it cinematic and adrenaline-filled
 
@@ -522,7 +530,10 @@ and speak but never stands in a scene: never an `npc`, an enemy or a close-up.
 - **Make every person specific**, as a casting director would: an age, a build, a face, clothes worn for this story's
   season and job, a way of standing and walking, wants and a way of speaking: their voice sheet (`speech`, How people
   talk, rule 9), on every speaking cast entry, voice-only people too. Two people in one story never share a
-  silhouette. A winter night means coats; a summer noon means shirt sleeves.
+  silhouette. A winter night means coats; a summer noon means shirt sleeves. Dress them for the place too: in ranch
+  or mountain country, ranch people and the hired men alike wear work shirts, jeans, boots and a western hat
+  (headwear `cowboy-hat`, its `accent` the hatband); a `peaked-cap` is a doorman's or a cop's, and hoodies and ball
+  caps are a city kid's. A creator's "cowboy hat" or "Stetson" is always a `cowboy-hat`.
 - **Invented people only.** No real person, living or dead, famous or not, by name, likeness or voice: no "looks
   like", "sounds like", "played by", "in the style of", "a younger version of". There is no field for a likeness, a
   photo or a reference, and a pack with one is refused. If the creator names a real person, write an original

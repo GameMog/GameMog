@@ -22,7 +22,8 @@
  * garage in the county", "the mechanic's boss", "married to a cop"), or after "former"/"retired", is someone else's or
  * past. Words that ask for a look (the creator's look for the hero, or clothes named in the role or logline: "in his one
  * good suit") keep the clothes as written. Cast whose words name no job are untouched. Pure: the same sheet gives the
- * same clothes, and fitting twice changes nothing. No logos: plain colours only.
+ * same clothes, and fitting twice changes nothing. No logos: plain colours only. A western hat in the person's own words
+ * (a cowboy hat, a Stetson), or a peaked cap on a ranch hand, becomes the forge's cowboy-hat whatever else the words ask.
  *   workOf(words)                -> the job the words name for this person (null: none)
  *   fitWardrobe(sheet, look?)    -> the changes made ([] when the clothes already fit), the sheet changed in place
  *   fitCastWardrobes(pack, look?) -> { [castId]: changes } for every sheet changed (look: the hero's, from the creator)
@@ -110,13 +111,35 @@ export function workOf(words: string): Job | null {
   return best?.job ?? null;
 }
 
+// a western hat in the person's own words (Colter Land, 16 Nov: "a cowboy hat" had only a peaked cap to be, and read as
+// a pith helmet): the forge's cowboy-hat (scripts/forge/core.mjs, style 'cowboy'), its colour kept when it has one
+const WESTERN_HAT = /\b(cowboy hats?|stetsons?|western hats?|ten[- ]gallon hats?|cattleman(?:'s)? hats?|ranch hats?|straw cowboy)\b/gi;
+// (a plain felt hat is a detective's fedora too, and "never wore a cowboy hat" asks for none: no/never/without within
+// three words before the hat, in the same clause, says no)
+const NO_HAT = /\b(?:never|no|without)\s(?:\s*[\w'’]+){0,3}\s*$/i;   // ("no-nonsense" or a comma between is not a no)
+const westernHat = (words: string) => [...String(words || '').matchAll(WESTERN_HAT)].some((m) => !NO_HAT.test(words.slice(0, m.index!)));
+const RANCH = /\branch(?:es)?\b/i;
+const HAT_FELT = '#7A5A3C', HAT_BAND = '#2A2018';
+/** the headwear the person's own words or job call for: a cowboy hat for a western hat in the words, or in place of a
+ * uniform's peaked cap on a ranch hand, or on anyone whose role or logline is a ranch ("owner of the Colter Ranch" names
+ * no job), the peaked cap being the only stiff cap the forge had */
+function fitHeadwear(sheet: Sheet, words: string, job: Job | null): string[] {
+  const w = sheet.wardrobe!, now = w.headwear?.item || 'none';
+  if (now === 'cowboy-hat') return [];
+  const ranch = job === 'ranch' || RANCH.test([sheet.role, sheet.logline].filter(Boolean).join(' . '));
+  if (!(westernHat(words) || (ranch && now === 'peaked-cap'))) return [];
+  w.headwear = { item: 'cowboy-hat', color: w.headwear?.color && now !== 'hood-up' ? w.headwear.color : HAT_FELT, accent: HAT_BAND };
+  return [`headwear ${now} -> cowboy-hat`];
+}
+
 export function fitWardrobe(sheet: Sheet | null | undefined, look?: string | null): string[] {
   const w = sheet?.wardrobe;
   if (!sheet || !w || !w.top || !w.bottom || !w.shoes) return [];
   // (the role first: "the mechanic who came home" is a mechanic whatever the logline says of the farms round him)
   const job = workOf(sheet.role || '') || workOf([sheet.logline, look].filter(Boolean).join(' . '));
-  if (!job || [look, sheet.role, sheet.logline].some((s) => s && LOOK.test(s))) return [];
-  const fit = FITS[job], fem = sheet.identity?.body === 'female', out: string[] = [];
+  const hat = fitHeadwear(sheet, [look, sheet.role, sheet.logline].filter(Boolean).join(' . '), job);
+  if (!job || [look, sheet.role, sheet.logline].some((s) => s && LOOK.test(s))) return hat;
+  const fit = FITS[job], fem = sheet.identity?.body === 'female', out: string[] = [...hat];
   const set = (k: 'top' | 'bottom' | 'shoes', g: Garment) => { out.push(`${k} ${w[k]!.item} -> ${g.item}`); w[k] = { ...g }; };
   const legs = fem && fit.bottomF ? fit.bottomF : fit.bottom;
   if (fit.clash.includes(w.top.item)) {

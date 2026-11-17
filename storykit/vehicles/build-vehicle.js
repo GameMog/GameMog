@@ -983,9 +983,9 @@ export function buildVehicle(THREE, raw, o = {}) {
   for (const p of sheet.props) PROPS[p]?.();
 
   /* ------------------------------------------- the tow rig (tow: a wrecker's) -- */
-  // On a bed (a wrecker, a pickup) with the tow ability: a tower behind the cab, a boom up and back over the tail on a
-  // ram, its cable and hook, chains; under the tail a wheel-lift (an arm out, a crossbar, two wheel cradles) that moves
-  // (rs.tow.set(out, lift): 0 stowed, 1 out and down / raised); an amber light bar on the cab's roof (rs.setBeacon).
+  // On a bed with the tow ability (a wrecker; a pickup gets the wheel-lift alone): a tower behind the cab, a boom up and
+  // back over the tail on a ram, its cable and hook, chains; under the tail a wheel-lift (an arm out, a crossbar, two
+  // wheel cradles) that moves (rs.tow.set(out, lift): 0 stowed, 1 out and down / raised); an amber light bar on the cab's roof (rs.setBeacon).
   // No lettering: the safety stripes on the crossbar are plain bands.
   const towRig = sheet.abilities.includes('tow') && isBed;
   let towLift = null, liftArm = null, liftBar = null, beacons = null;
@@ -1009,54 +1009,58 @@ export function buildVehicle(THREE, raw, o = {}) {
       m.position.set((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2); m.quaternion.setFromUnitVectors(_up, dir.normalize()); parent.add(m); return m;
     };
     const z0 = ZR + 0.07, z1 = zBack - 0.05, yf = Math.max(yb + 0.22, WR + 0.12), yt = YS((z0 + z1) / 2), bw = W - 0.08;
-    // the headboard (a guard behind the cab's back glass) and the tower
-    const tz = z1 - 0.2, th = 1.0;
-    body.add(rbox(2 * bw - 0.1, 0.56, 0.05, 0.01, M.rig, 0, yt + 0.24, z1 - 0.02));
-    for (let k = 0; k < 5; k++) body.add(rbox(2 * bw - 0.2, 0.02, 0.03, 0.006, M.black, 0, yt + 0.04 + k * 0.1, z1 - 0.05));
-    for (const s of [1, -1]) {
-      bar(V3(s * 0.46, yf, tz), V3(s * 0.4, yt + th, tz), 0.14, 0.16, M.rig);
-      // (a brace down to the bed's front corner)
-      bar(V3(s * 0.44, yt + th * 0.55, tz), V3(s * (bw - 0.1), yf + 0.05, z1 - 0.06), 0.06, 0.06, M.rig);
-      // a toolbox along each side of the bed
-      body.add(rbox(0.36, 0.42, Math.min(1.4, (z1 - z0) * 0.5), 0.02, M.chrome, s * (bw - 0.2), yt - 0.02, z1 - 0.38 - Math.min(1.4, (z1 - z0) * 0.5) / 2));
-      // work lamps on the tower, aimed back
-      body.add(rbox(0.14, 0.1, 0.08, 0.02, M.black, s * 0.36, yt + th + 0.02, tz - 0.12));
-      const wl = new THREE.Mesh(new THREE.PlaneGeometry(0.11, 0.07), M.work); wl.rotation.y = Math.PI; wl.position.set(s * 0.36, yt + th + 0.02, tz - 0.165); body.add(wl);
-    }
-    body.add(rbox(0.98, 0.14, 0.2, 0.02, M.rig, 0, yt + th, tz));
-    // the boom: from its pin on the tower up and back past the tail, on a ram from the bed's floor
-    const pin = V3(0, yt + th - 0.18, tz - 0.12), tip = V3(0, yt + th + 0.42, ZR - 0.32);
-    bar(pin, tip, 0.2, 0.17, M.boom);
-    bar(pin.clone().add(V3(0, 0.03, -0.25)), tip.clone().lerp(pin, 0.2), 0.14, 0.12, M.boom);
-    for (const s of [1, -1]) {
-      const ramA = V3(s * 0.12, yf + 0.04, lerp(z0, z1, 0.55)), ramB = pin.clone().lerp(tip, 0.55).add(V3(s * 0.12, -0.08, 0));
-      rod(ramA, ramA.clone().lerp(ramB, 0.55), 0.055, M.rig); rod(ramA.clone().lerp(ramB, 0.5), ramB, 0.035, M.chrome);
-    }
-    // the sheave at the tip, the cable down to the hook, the hook; chains looped over the boom
-    const sheave = cyl(0.13, 0.13, 0.09, 18, M.rig); sheave.rotation.z = Math.PI / 2; sheave.position.copy(tip).add(V3(0, -0.04, -0.06)); body.add(sheave);
-    const hookAt = V3(0, Math.max(yb + 0.35, yt - 0.25), tip.z - 0.12);
-    rod(V3(0, tip.y - 0.15, tip.z - 0.12), hookAt.clone().add(V3(0, 0.1, 0)), 0.009, M.black);
-    body.add(rbox(0.07, 0.12, 0.05, 0.015, M.rig, 0, hookAt.y + 0.08, hookAt.z));
-    const hk = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.019, 8, 18, Math.PI * 1.45), M.chain); hk.position.copy(hookAt).add(V3(0, -0.04, 0)); hk.rotation.set(0, Math.PI / 2, -Math.PI * 0.72); body.add(hk);
-    // (a chain hung in a loop from two points under the boom: links along a sag, each turned a quarter from the last)
-    for (const s of [1, -1]) {
-      const A = pin.clone().lerp(tip, 0.62).add(V3(s * 0.12, -0.09, 0)), B = pin.clone().lerp(tip, 0.86).add(V3(s * 0.12, -0.09, 0)), n = 16;
-      for (let k = 0; k <= n; k++) {
-        const u = k / n, p = A.clone().lerp(B, u); p.y -= 0.34 * Math.sin(u * Math.PI);
-        const q = A.clone().lerp(B, Math.min(1, u + 0.02)); q.y -= 0.34 * Math.sin(Math.min(1, u + 0.02) * Math.PI);
-        const ln = new THREE.Mesh(new THREE.TorusGeometry(0.026, 0.007, 5, 10), M.chain); ln.scale.set(1, 1.5, 1);
-        ln.position.copy(p); ln.quaternion.setFromUnitVectors(_up, q.sub(p).normalize()); if (k % 2) ln.rotateY(Math.PI / 2); body.add(ln);
+    // (the tower, boom, toolboxes and light bar are a wrecker's alone: a pickup with the tow ability (a farm truck that
+    // hauls a car home) carries only the wheel-lift under its tail, so it still reads as a pickup, never a tow truck)
+    if (sheet.class === 'wrecker') {
+      // the headboard (a guard behind the cab's back glass) and the tower
+      const tz = z1 - 0.2, th = 1.0;
+      body.add(rbox(2 * bw - 0.1, 0.56, 0.05, 0.01, M.rig, 0, yt + 0.24, z1 - 0.02));
+      for (let k = 0; k < 5; k++) body.add(rbox(2 * bw - 0.2, 0.02, 0.03, 0.006, M.black, 0, yt + 0.04 + k * 0.1, z1 - 0.05));
+      for (const s of [1, -1]) {
+        bar(V3(s * 0.46, yf, tz), V3(s * 0.4, yt + th, tz), 0.14, 0.16, M.rig);
+        // (a brace down to the bed's front corner)
+        bar(V3(s * 0.44, yt + th * 0.55, tz), V3(s * (bw - 0.1), yf + 0.05, z1 - 0.06), 0.06, 0.06, M.rig);
+        // a toolbox along each side of the bed
+        body.add(rbox(0.36, 0.42, Math.min(1.4, (z1 - z0) * 0.5), 0.02, M.chrome, s * (bw - 0.2), yt - 0.02, z1 - 0.38 - Math.min(1.4, (z1 - z0) * 0.5) / 2));
+        // work lamps on the tower, aimed back
+        body.add(rbox(0.14, 0.1, 0.08, 0.02, M.black, s * 0.36, yt + th + 0.02, tz - 0.12));
+        const wl = new THREE.Mesh(new THREE.PlaneGeometry(0.11, 0.07), M.work); wl.rotation.y = Math.PI; wl.position.set(s * 0.36, yt + th + 0.02, tz - 0.165); body.add(wl);
       }
-    }
-    // amber marker lamps on the boom's tip
-    for (const s of [1, -1]) body.add(rbox(0.05, 0.035, 0.05, 0.01, M.beaconB, s * 0.12, tip.y + 0.06, tip.z + 0.05));
-    // the light bar on the cab's roof: a black base, six lenses flashing in two banks (rs.setBeacon)
-    {
-      const ry = roofY(roofMid) + 0.02, rz = Math.min(zRoofF - 0.25, roofMid + 0.15), lw = Math.min(1.3, 2 * S.wRoof - 0.1);
-      body.add(rbox(lw, 0.05, 0.26, 0.02, M.black, 0, ry + 0.025, rz));
-      for (const s of [1, -1]) body.add(rbox(0.05, 0.05, 0.05, 0.01, M.black, s * (lw / 2 - 0.12), ry, rz));
-      for (let k = 0; k < 6; k++) { const x = lerp(-lw / 2 + 0.1, lw / 2 - 0.1, k / 5); body.add(rbox(lw / 6 - 0.025, 0.085, 0.22, 0.025, k < 3 ? M.beaconA : M.beaconB, x, ry + 0.09, rz)); }
-      beacons = { on: false, t: 0 };
+      body.add(rbox(0.98, 0.14, 0.2, 0.02, M.rig, 0, yt + th, tz));
+      // the boom: from its pin on the tower up and back past the tail, on a ram from the bed's floor
+      const pin = V3(0, yt + th - 0.18, tz - 0.12), tip = V3(0, yt + th + 0.42, ZR - 0.32);
+      bar(pin, tip, 0.2, 0.17, M.boom);
+      bar(pin.clone().add(V3(0, 0.03, -0.25)), tip.clone().lerp(pin, 0.2), 0.14, 0.12, M.boom);
+      for (const s of [1, -1]) {
+        const ramA = V3(s * 0.12, yf + 0.04, lerp(z0, z1, 0.55)), ramB = pin.clone().lerp(tip, 0.55).add(V3(s * 0.12, -0.08, 0));
+        rod(ramA, ramA.clone().lerp(ramB, 0.55), 0.055, M.rig); rod(ramA.clone().lerp(ramB, 0.5), ramB, 0.035, M.chrome);
+      }
+      // the sheave at the tip, the cable down to the hook, the hook; chains looped over the boom
+      const sheave = cyl(0.13, 0.13, 0.09, 18, M.rig); sheave.rotation.z = Math.PI / 2; sheave.position.copy(tip).add(V3(0, -0.04, -0.06)); body.add(sheave);
+      const hookAt = V3(0, Math.max(yb + 0.35, yt - 0.25), tip.z - 0.12);
+      rod(V3(0, tip.y - 0.15, tip.z - 0.12), hookAt.clone().add(V3(0, 0.1, 0)), 0.009, M.black);
+      body.add(rbox(0.07, 0.12, 0.05, 0.015, M.rig, 0, hookAt.y + 0.08, hookAt.z));
+      const hk = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.019, 8, 18, Math.PI * 1.45), M.chain); hk.position.copy(hookAt).add(V3(0, -0.04, 0)); hk.rotation.set(0, Math.PI / 2, -Math.PI * 0.72); body.add(hk);
+      // (a chain hung in a loop from two points under the boom: links along a sag, each turned a quarter from the last)
+      for (const s of [1, -1]) {
+        const A = pin.clone().lerp(tip, 0.62).add(V3(s * 0.12, -0.09, 0)), B = pin.clone().lerp(tip, 0.86).add(V3(s * 0.12, -0.09, 0)), n = 16;
+        for (let k = 0; k <= n; k++) {
+          const u = k / n, p = A.clone().lerp(B, u); p.y -= 0.34 * Math.sin(u * Math.PI);
+          const q = A.clone().lerp(B, Math.min(1, u + 0.02)); q.y -= 0.34 * Math.sin(Math.min(1, u + 0.02) * Math.PI);
+          const ln = new THREE.Mesh(new THREE.TorusGeometry(0.026, 0.007, 5, 10), M.chain); ln.scale.set(1, 1.5, 1);
+          ln.position.copy(p); ln.quaternion.setFromUnitVectors(_up, q.sub(p).normalize()); if (k % 2) ln.rotateY(Math.PI / 2); body.add(ln);
+        }
+      }
+      // amber marker lamps on the boom's tip
+      for (const s of [1, -1]) body.add(rbox(0.05, 0.035, 0.05, 0.01, M.beaconB, s * 0.12, tip.y + 0.06, tip.z + 0.05));
+      // the light bar on the cab's roof: a black base, six lenses flashing in two banks (rs.setBeacon)
+      {
+        const ry = roofY(roofMid) + 0.02, rz = Math.min(zRoofF - 0.25, roofMid + 0.15), lw = Math.min(1.3, 2 * S.wRoof - 0.1);
+        body.add(rbox(lw, 0.05, 0.26, 0.02, M.black, 0, ry + 0.025, rz));
+        for (const s of [1, -1]) body.add(rbox(0.05, 0.05, 0.05, 0.01, M.black, s * (lw / 2 - 0.12), ry, rz));
+        for (let k = 0; k < 6; k++) { const x = lerp(-lw / 2 + 0.1, lw / 2 - 0.1, k / 5); body.add(rbox(lw / 6 - 0.025, 0.085, 0.22, 0.025, k < 3 ? M.beaconA : M.beaconB, x, ry + 0.09, rz)); }
+        beacons = { on: false, t: 0 };
+      }
     }
     // the wheel-lift, under the tail: an arm out of the bed's frame, a crossbar, two wheel cradles (forks)
     towLift = new THREE.Group(); towLift.name = 'wheel-lift'; body.add(towLift);

@@ -477,6 +477,8 @@ export function compile(S) {
   if (hw === 'knit-beanie') C.cap = { make: true, style: 'beanie', color: c3(W.headwear, [180, 30, 36]).map((x) => +(lin(x)).toFixed(3)), front: 0.032, back: -0.02, side: 0.0, off: 0.008, slouch: 0.016, cuff: 0.048, ribs: 72, pom: W.headwear.pattern === 'stripe' ? 0.03 : 0, knit: true };
   else if (hw === 'peaked-cap') C.cap = { make: true, style: 'peaked', color: c3(W.headwear, [92, 18, 32]).map((x) => +(lin(x)).toFixed(3)), band: hex(W.headwear.accent, [176, 136, 52]).map((x) => +(lin(x) * 0.8).toFixed(3)), front: 0.042, back: 0.014, side: 0.012, off: 0.007, crown: 0.05, flare: 0.016, bandH: 0.02, brimLen: 0.036, brimSpan: 0.86, pitch: 0.55, rough: 0.72 };
   else if (hw === 'ball-cap') C.cap = { make: true, style: 'ball', color: c3(W.headwear, [20, 26, 48]).map((x) => +(lin(x)).toFixed(3)) };
+  // (a western felt hat (core.mjs, style 'cowboy'): its band a little lower in front than a cap's, level behind; accent = the hatband)
+  else if (hw === 'cowboy-hat') C.cap = { make: true, style: 'cowboy', color: c3(W.headwear, [120, 84, 52]).map((x) => +(lin(x)).toFixed(3)), band: hex(W.headwear.accent, [38, 28, 22]).map((x) => +(lin(x)).toFixed(3)), front: 0.036, back: 0.006, side: 0.014, off: 0.008, rough: 0.9 };
   // (forge v2.3, SH: work boots and sneakers are the library's rigid shoes (shoes.mjs: a last round the foot, a sole, laces,
   // on the foot bone alone); FORGE_PACK_SHOES=1 the pack's. A man's dress shoes (the oxford) are built but opt in with
   // FORGE_LIB_DRESS=1: under a suit's long trousers they fail the cloth gate (the hem over the laces), so not anchor-ready)

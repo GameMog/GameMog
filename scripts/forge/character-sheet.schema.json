@@ -574,7 +574,7 @@
     },
     "headwear": {
      "$ref": "#/$defs/garment",
-     "description": "item: none | knit-beanie (pattern plain | stripe) | ball-cap | peaked-cap | hood-up (a hoodie's hood worn up; the hair goes under it)"
+     "description": "item: none | knit-beanie (pattern plain | stripe) | ball-cap | peaked-cap (a stiff uniform cap with a short peak: a doorman's, a chauffeur's, a cop's) | cowboy-hat (a western felt hat: tall creased crown, wide brim curled up at the sides; accent = the hatband) | hood-up (a hoodie's hood worn up; the hair goes under it)"
     },
     "shoes": {
      "$ref": "#/$defs/garment",

@@ -440,19 +440,87 @@ export function packTexts(pack: PackV2): { at: string; text: string }[] {
  *   - variety: at least three kinds of set piece across the story;
  *   - a cold open: Mission 1 is under pressure by its third step;
  *   - talk while the wheels turn: never three standing lines (say, dm, voicemail steps) in a row;
- *   - a cliffhanger on every act but the last (end.cliff).
+ *   - a cliffhanger on every act but the last (end.cliff);
+ *   - in a hometown (its places have x and z), the leg lengths (LEG, legProblems).
  * The build loop sends these back on a Create's first pass only, never failing a build over them (lib/storykit-build.ts
  * generateStorykit): a second pass that still misses one ships, with the misses noted in its trail.
  */
 export const ACTION_KINDS = ['pursuit', 'tail', 'fight', 'roadblock', 'tow'];
+/**
+ * Leg lengths in a hometown (Colter Land, 16 Nov: Mission 1 was a 250 m drive, about 15 seconds, and Mission 2 opened
+ * with a 1.9 km one): the town's places have x and z, so a Create's drives are measured as the crow flies (a street
+ * route runs about ROAD_FACTOR longer) and held to
+ *   - Mission 1's first leg LEG.first[0] to LEG.first[1] m: long enough to learn the car, short enough to reach the action;
+ *   - no mission's opening leg over LEG.opener m (a long haul goes later in a mission, broken up by a call or a chase);
+ *   - Mission 1 at least LEG.m1Secs s of play (drives at the wheel, walks, fights, chases and holds, by the PLAY table).
+ * Sent back with the pacing on a first pass only, never failing a build (generateStorykit).
+ */
+export const LEG = { first: [400, 900] as const, opener: 1200, m1Secs: 120 };
+const ROAD_FACTOR = 1.3, DRIVE_MS = 14, WALK_MS = 4;
+const PLAY: Record<string, number> = { fight: 40, pursuit: 60, roadblock: 20 };
+type Leg = { from: string; to: string; m: number; foot: boolean; lead: boolean };
+/** A mission's legs, in order: from its start (or the last goal) to each place the hero must reach. `lead`: no set
+ * piece (ACTION_KINDS) began before or during it, so it is the mission's opening haul (a drive after a fight is not). */
+export function missionLegs(m: PackV2, at: (r: unknown) => { key: string; x: number; z: number } | null): Leg[] {
+  const out: Leg[] = [];
+  let here = at(m?.start), acted = false;
+  const go = (r: unknown, foot = false) => {
+    const p = at(r); if (!p) return;
+    if (here && p.key !== here.key) out.push({ from: here.key, to: p.key, m: Math.hypot(p.x - here.x, p.z - here.z), foot, lead: !acted });
+    here = p;
+  };
+  for (const x of (Array.isArray(m?.steps) ? m.steps : []) as PackV2[]) {
+    if (!x || typeof x !== 'object') continue;
+    // (a tow's haul to its target is still the opener; anything after the hook-up, or in a chase, a tail or a fight, is not)
+    if (ACTION_KINDS.includes(x.type) && x.type !== 'tow') acted = true;
+    if (x.type === 'drive') for (const r of [x.to].flat()) go(r);
+    else if (x.type === 'stops') for (const r of [x.stops ?? []].flat()) go(r);
+    else if (x.type === 'walk') go(x.to, true);
+    else if (x.type === 'tail') for (const r of [x.route ?? []].flat()) go(r);
+    else if (x.type === 'tow') { go(x.target); acted = true; go(x.to); }
+    else if (x.type === 'pursuit' && x.to) go(x.to);
+    else if (x.type === 'search' && x.at && !x.on) go(x.at);
+    else if (x.type === 'transition' && x.place) here = at(x.place) ?? here;
+  }
+  return out;
+}
+/** Roughly how long a mission plays, in seconds: its legs at the wheel or on foot, its fights, chases and holds. */
+export function missionPlaySecs(m: PackV2, legs: Leg[]): number {
+  const flat = (steps: unknown = []): PackV2[] => (Array.isArray(steps) ? steps : []).flatMap((x) => [x, ...flat(x?.during)]);
+  let s = legs.reduce((n, l) => n + (l.m * ROAD_FACTOR) / (l.foot ? WALK_MS : DRIVE_MS), 0);
+  for (const x of flat(m?.steps)) s += PLAY[x?.type] ?? (x?.type === 'search' ? Number(x.secs) || 2 : 0);
+  return Math.round(s);
+}
+/** The leg rules (LEG) for a pack in a town: what to send back. */
+export function legProblems(pack: PackV2, town: Pick<CityPackage, 'places'>): string[] {
+  const by = new Map(town.places.map((p) => [p.id, p]));
+  const aliases = (pack?.places ?? {}) as Record<string, { '@'?: string }>;
+  const at = (r: unknown) => {
+    const k = typeof r === 'string' ? r.replace(/^@/, '') : r && typeof r === 'object' && typeof (r as PackV2)['@'] === 'string' ? (r as PackV2)['@'] : null;
+    if (!k) return null;
+    const p = by.get(aliases[k]?.['@'] ?? k);
+    return p && Number.isFinite(p.x) && Number.isFinite(p.z) ? { key: k, x: p.cx ?? p.x, z: p.cz ?? p.z } : null;
+  };
+  const all: PackV2[] = (Array.isArray(pack?.acts) ? pack.acts : []).flatMap((a: PackV2) => (Array.isArray(a?.missions) ? a.missions : [])).filter((m: PackV2) => m && Array.isArray(m.steps));
+  const out: string[] = [], km = (m: number) => (m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m / 10) * 10} m`);
+  const secs = (m: number) => Math.round((m * ROAD_FACTOR) / DRIVE_MS);
+  all.forEach((m, i) => {
+    const legs = missionLegs(m, at), first = legs.find((l) => !l.foot);
+    if (i === 0 && first && first.m < LEG.first[0]) out.push(`Pacing: Mission 1 (${m.id}) opens with a ${km(first.m)} drive (@${first.from} to @${first.to}, about ${secs(first.m)} s at the wheel): too short to learn the car. Make its first drive ${LEG.first[0]} to ${LEG.first[1]} m as the crow flies (a farther place, or a stop on the way).`);
+    else if (i === 0 && first && first.m > LEG.first[1]) out.push(`Pacing: Mission 1 (${m.id}) opens with a ${km(first.m)} drive (@${first.from} to @${first.to}); keep its first drive ${LEG.first[0]} to ${LEG.first[1]} m, so the action comes soon.`);
+    else if (i > 0 && legs[0]?.lead && legs[0].m > LEG.opener) out.push(`Pacing: ${m.id} opens with a ${km(legs[0].m)} ${legs[0].foot ? 'walk' : 'drive'} (@${legs[0].from} to @${legs[0].to}, about ${secs(legs[0].m)} s); no mission opens with more than ${km(LEG.opener)}. Start it nearer (its "start"), or break the haul with a stop, a call or a chase on the way.`);
+    if (i === 0) { const t = missionPlaySecs(m, legs); if (t < LEG.m1Secs) out.push(`Pacing: Mission 1 (${m.id}) plays about ${t} s; give it at least ${LEG.m1Secs} s of play (${Math.round(LEG.m1Secs / 60)} minutes): a longer first drive, a second stop, a short chase or a fight on the way.`); }
+  });
+  return out;
+}
 const isAction = (x: PackV2) => !!x && (ACTION_KINDS.includes(x.type) || (x.type === 'timer' && !x.stop && x.add == null && x.fail === 'hard'));
 const STANDING = new Set(['say', 'dm', 'voicemail', 'voicenote']);
-export function pacingProblems(pack: PackV2): string[] {
-  const out: string[] = [];
-  const acts: PackV2[] = (pack.acts ?? []).filter((a: PackV2) => a && Array.isArray(a.missions));
+export function pacingProblems(pack: PackV2, town?: Pick<CityPackage, 'places'> | null): string[] {
+  const out: string[] = town ? legProblems(pack, town) : [];
+  const acts: PackV2[] = (Array.isArray(pack?.acts) ? pack.acts : []).filter((a: PackV2) => a && Array.isArray(a.missions));
   const all: PackV2[] = acts.flatMap((a) => a.missions).filter((m: PackV2) => m && Array.isArray(m.steps));
   if (!all.length) return out;
-  const flat = (steps: PackV2[] = []): PackV2[] => steps.flatMap((x) => [x, ...flat(x?.during)]);
+  const flat = (steps: unknown = []): PackV2[] => (Array.isArray(steps) ? steps : []).flatMap((x) => [x, ...flat(x?.during)]);
   const pieces = (m: PackV2) => flat(m.steps).filter(isAction);
   const calm = all.filter((m) => !pieces(m).length);
   const want = Math.ceil(all.length * 2 / 3);
@@ -777,7 +845,7 @@ export async function generateStorykit(
       problems.push(...builderProblems(raw, sk, meta));
     } else if (raw) problems.push('The story pack is not a JSON object.');
     // (pacing, a Create's: sent back on the first pass only, so it never fails a build; later misses go in the trail)
-    const pace = !sk.mog && raw && typeof raw === 'object' && !Array.isArray(raw) ? pacingProblems(raw) : [];
+    const pace = !sk.mog && raw && typeof raw === 'object' && !Array.isArray(raw) ? pacingProblems(raw, town) : [];
     account.pacing = pace.map((p) => p.slice(0, 200));
     if (attempt === 1) problems.push(...pace);
     // (how people talk, a Create's: the dialogue read-back (storykit/pack/dialogue.ts), on the first pass only, never a
