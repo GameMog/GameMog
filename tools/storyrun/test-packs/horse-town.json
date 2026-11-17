@@ -1,0 +1,217 @@
+{
+ "storykit": 1,
+ "id": "test-horse-town",
+ "title": "Ride Out",
+ "kicker": "HOMETOWN",
+ "tagline": "A horse alongside the car: drive, mount, ride, dismount, drive",
+ "city": "hometown",
+ "hometown": {
+  "place": "us-3008950",
+  "compiler": "htc-0.13.2-hg1-bbd2ead29",
+  "tiles": "7135aadfcf8292c7dc0613d867fda0e81aa054600046fb3bda4ab23db8a62e06",
+  "formatVersion": 3,
+  "grid": "hg1",
+  "domain": "conus",
+  "origin": {
+   "c0": 3576,
+   "r0": 6177
+  },
+  "k0": 1.001373969,
+  "gamma0": -9.492595,
+  "yOffset": 1432,
+  "waterLevel": -10
+ },
+ "car": {
+  "sheet": {
+   "v": 1,
+   "id": "rides.ranch-truck",
+   "label": "The Ranch Truck",
+   "noun": "suv",
+   "family": "car4",
+   "class": "suv",
+   "era": 2015,
+   "condition": "showroom",
+   "proportions": {
+    "length": 0.2,
+    "height": 0.1,
+    "rideHeight": 0.2,
+    "wheelSize": 0.2
+   },
+   "body": {
+    "rear": "wagon",
+    "doors": 5,
+    "roof": "fixed",
+    "crease": "single",
+    "hood": "flat",
+    "roofRails": true,
+    "trim": "chrome"
+   },
+   "face": {
+    "lamps": "projector-pair",
+    "grille": "horizontal-bars",
+    "grilleSize": 0.5,
+    "bumper": "bull-bar",
+    "fog": true
+   },
+   "tail": {
+    "lamps": "vertical",
+    "exhaust": "twin",
+    "plate": "center"
+   },
+   "paint": {
+    "base": "#111214",
+    "finish": "gloss"
+   },
+   "wheels": {
+    "style": "multi-spoke",
+    "finish": "chrome",
+    "tyre": "all-terrain"
+   },
+   "interior": {
+    "seat": "#5A3A22",
+    "material": "leather",
+    "dash": "analog",
+    "wheel": "four-spoke"
+   },
+   "props": [
+    "air-freshener",
+    "clipboard"
+   ],
+   "sound": {
+    "engine": "v8",
+    "character": 0.2,
+    "gears": 6,
+    "horn": "twin"
+   },
+   "handling": {
+    "pace": -0.1,
+    "grip": 0.1,
+    "weight": 0.5,
+    "turnIn": -0.3,
+    "character": "planted"
+   },
+   "abilities": [
+    "ram"
+   ],
+   "story": {
+    "owner": "wade",
+    "nickname": "The Ranch Truck",
+    "oneLine": "A dark ranch SUV with a steel bull bar."
+   },
+   "plate": "RANCH 1"
+  }
+ },
+ "horse": {
+  "name": "Dusty"
+ },
+ "dressing": {
+  "time": "golden",
+  "season": "autumn",
+  "weather": "clear",
+  "holiday": []
+ },
+ "cast": {
+  "Wade": {
+   "color": "#FFFFFF",
+   "role": "a ranch hand",
+   "model": "mogcity/dan"
+  }
+ },
+ "hero": "Wade",
+ "places": {
+  "bogert": {
+   "@": "park21",
+   "name": "Bogert Park"
+  },
+  "rouse": {
+   "@": "park33",
+   "name": "Soroptomist Park"
+  },
+  "main-west": {
+   "@": "hotel23",
+   "name": "the west end of Main Street"
+  },
+  "lindley": {
+   "@": "park32",
+   "name": "Lindley Park"
+  }
+ },
+ "acts": [
+  {
+   "id": "a1",
+   "name": "TEST",
+   "order": [
+    "HR-1"
+   ]
+  }
+ ],
+ "missions": [
+  {
+   "id": "HR-1",
+   "title": "Ride Out",
+   "vehicle": "rides.ranch-truck",
+   "start": {
+    "@": "pkg_downtown"
+   },
+   "time": "golden",
+   "steps": [
+    {
+     "type": "say",
+     "who": "Wade",
+     "text": "Dusty's tied up at Bogert Park.",
+     "secs": 2
+    },
+    {
+     "type": "drive",
+     "id": "to-horse",
+     "to": "@bogert",
+     "radius": 12,
+     "objective": "Drive to **Bogert Park**."
+    },
+    {
+     "type": "mount",
+     "id": "up",
+     "at": "@bogert",
+     "objective": "Saddle up on **Dusty**{blue}.",
+     "checkpoint": true
+    },
+    {
+     "type": "ride",
+     "id": "down-rouse",
+     "to": "@rouse",
+     "objective": "Ride **Dusty**{blue} to **Soroptomist Park**."
+    },
+    {
+     "type": "ride",
+     "id": "main-st",
+     "to": "@main-west",
+     "objective": "Ride **Dusty**{blue} down **Main Street**.",
+     "checkpoint": true
+    },
+    {
+     "type": "say",
+     "who": "Wade",
+     "text": "Whole town turned to look. Back to the truck.",
+     "secs": 2
+    },
+    {
+     "type": "dismount",
+     "id": "down"
+    },
+    {
+     "type": "drive",
+     "id": "back",
+     "to": "@lindley",
+     "radius": 12,
+     "objective": "Drive to **Lindley Park**."
+    },
+    {
+     "type": "say",
+     "who": "Wade",
+     "text": "Done.",
+     "secs": 1.5
+    }
+   ]
+  }
+ ]
+}

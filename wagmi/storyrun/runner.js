@@ -26,6 +26,7 @@ import { createMarker } from '../mission/marker.js';
 import { createDirector, keys, handheld, clamp, ease } from '../mission/cine.js';
 import { missions as registry } from '../mission/pause.js';
 import { place as putAt, outBesideCar } from '../intro.js';
+import { rideWanted, yours } from './rides.js';
 import { test, value, flagName } from './cond.js';
 import { createTimers, meterText, deltaText, progress, seen as inSight, band as bandRule, speedRule, MPH, tailStart, tailRule } from './rules.js';
 import { createSets } from './sets.js';
@@ -440,12 +441,12 @@ export function createRunner(ctx) {
   };
 
   // drive: the corona, the GPS ('get there' the Mog City way: gps.drive), there inside the radius and slowed down
-  async function goTo(p, d, t, { name = p.name, objective = null, onFoot = 250, needsCar = false } = {}) {
+  async function goTo(p, d, t, { name = p.name, objective = null, onFoot = 250, needsCar = false, back = null } = {}) {
     const radius = d.radius || 8, stopV = d.stopSpeed ?? 4;
     mustReach(p.x, p.z, inCar() || needsCar || M.def.vehicle ? rideRule() : 'person', d, p);
     marker.at(p.x, groundY(p.x, p.z), p.z); M.dest = p;
     const dest = { x: p.x, z: p.z, name };
-    const nav = gps.drive({ dest, objective: objective ? parts(objective) : ['Go to ', { [name]: 'yellow' }, '.'], onFoot, needsCar });
+    const nav = gps.drive({ dest, objective: objective ? parts(objective) : ['Go to ', { [name]: 'yellow' }, '.'], onFoot, needsCar, ...(back ? { back } : {}) });
     M.nav = nav;
     // (the metres left along the route, told to a framing GameMog each second as a tail's are: a long leg or a long chase
     // to a place is progress, not stuck. 7 Nov: PT-11's pursuit to Bryant Park ran 137 s, past the test drive's 90 s,
@@ -500,6 +501,20 @@ export function createRunner(ctx) {
       if (typeof s === 'object') { applySet(s.set); M.timer.add(s.bonus || 0); }
     }
     ui.counter('STOPS', `${n}/${n}`); await delay(1, t); ui.counter(null);
+  };
+  // ride: a drive on the horse (a world with a horse alongside its car, wagmi/game.js the two rides: rideFor has him in
+  // the saddle first). Its leg, its GPS (a horse's: the streets, either way down a one-way, as a man walks them) and its
+  // arrival a drive's; off the horse, 'Get back on <name>.' A world with no horse plays it as a drive
+  STEPS.ride = async (d, t) => {
+    const list = [].concat(d.to).map((r) => placeOf(r));
+    const p = list.length > 1 ? list.reduce((a, b) => (dist(me(), b.x, b.z) < dist(me(), a.x, a.z) ? b : a)) : list[0];
+    const horse = car.kind === 'horse', name = car.label || (horse ? 'your horse' : 'your car');
+    await goTo(p, { ...d, radius: d.radius || (horse ? 9 : 8), stopSpeed: d.stopSpeed ?? (horse ? 2.6 : 4) }, t, {
+      objective: d.objective || `${rideWord('go', 'Drive')} to **${p.name}**.`, needsCar: true, onFoot: 120,
+      back: horse ? ['Get back on ', { [name]: 'blue' }, '.'] : ['Get back in your ', { car: 'blue' }, '.'] });
+    M.timer.add(d.bonus || 0);
+    if (d.stopTimer) M.timer.stop(d.stopTimer === true ? null : d.stopTimer);
+    if (d.flag) M.state.flags[flagName(d.flag)] = true;
   };
   STEPS.walk = async (d, t) => {
     const p = d.enterCar && !d.to ? null : placeOf(d.to);
@@ -1876,14 +1891,76 @@ export function createRunner(ctx) {
     steerHerd(d, h);
   };
 
+  /* ------------------------------------------------------ the two rides -- */
+  // A world with a horse alongside its car (wagmi/game.js W.rides): the ride a step wants. A mount or a ride wants the
+  // horse; a drive, its stops, a tail, a chase, a tow, a convoy or a passenger the car; anything else either. In the
+  // other one he gets out or down first (the test drive at once); on foot the two are swapped where they stand, so the
+  // car entity is the ride the step wants and every leg, its GPS, the prompts and the test drive work as they always
+  // have. One left far behind (over 150 m) is brought: the horse trots up beside him at his whistle, the car is stood at
+  // the kerb nearest him. W.rides.lock is the wanted ride while the step runs (F at the other does nothing)
+  // (which ride a step wants, and a ride's name to start a line with: ./rides.js)
+  async function rideFor(d, t) {
+    const R = W.rides; if (!R?.dual) return;
+    const want = rideWanted(d);
+    R.lock = want;
+    if (!want || d.type === 'mount') return;
+    if (inCar() && R.active() === want) return;
+    if (inCar()) await offRide(t);
+    if (R.active() !== want) R.swap(want);
+    const at = R.at(want);
+    if (at && dist(P.position, at.x, at.z) > 150) bring(want);
+  }
+  // out of the ride he is in (the test drive: stopped, then out at once)
+  async function offRide(t) {
+    const horse = car.kind === 'horse';
+    gps.objective(horse ? ['Get down from ', { [car.label || 'your horse']: 'blue' }, '.'] : ['Get out of your ', { car: 'blue' }, '.'], null);
+    ui.help(horse ? 'Press [F] to dismount.' : 'Press [F] to get out.', 8);
+    try {
+      if (M.auto) { await wait(() => Math.abs(car.speed || 0) < 1.5, t); if (!W.ride?.phase && inCar()) W.ride?.getOut?.(true); }
+      await wait(() => !inCar() && !W.ride?.phase, t);
+    } finally { ui.help(null); gps.objective(null, null); }
+  }
+  // the ride he left far behind, brought to him (on foot, the car entity that ride already)
+  function bring(kind) {
+    if (inCar()) return;
+    if (kind === 'horse') { if (W.horse?.give?.()) { ui.help([...yours(car.label || 'horse'), ' trots up at your whistle.'], 4); } return; }
+    const keep = { x: car.position.x, y: car.position.y, z: car.position.z };
+    car.position.set(P.position.x, car.position.y, P.position.z);
+    let ok = false; try { ok = !!W.recoverCar?.(); } catch (e) { console.warn('[storyrun] bring', e); }
+    if (ok) ui.help([...yours(car.label || 'car'), ' is parked nearby.'], 4); else car.position.set(keep.x, keep.y, keep.z);
+  }
+  // where a horse stands at a place: its approach (where he walks up to it), off the walls by the horse's own girth
+  function horseSpot(p) {
+    const q = footAt(p, 'mount'), v = new THREE.Vector3(q.x, 0, q.z);
+    try { cm.resolveHorizontalCollision(v, 1.0, cm.getGroundHeight(v.x, v.z, 'person') + 1.9); } catch {}
+    return { x: v.x, z: v.z, heading: p.heading ?? 0 };
+  }
+
   // mount / dismount: on to the world's horse (its car { model: 'mogcity/horse' }: wagmi/horse), or off it. A mount with
   // `at` stands the horse there first (W.horse.give); else it is where he left it (blipped, the route to it)
   STEPS.mount = async (d, t) => {
-    const H = W.horse;
+    const H = W.horse, R = W.rides?.dual ? W.rides : null;
+    // (a horse alongside the car: stood at `at` now, where he can walk up to him (the place's approach, clear of its
+    // walls); in the car, driven up to him first if he is over 60 m off, then out of it; on foot the car entity is the
+    // horse from here (swapped where they stand). Already up on him: the step is done)
+    if (R) {
+      if (inCar() && R.active() === 'horse') { if (d.arm && H?.arm) try { H.arm(d.arm); } catch {} return; }
+      const p = d.at ? placeOf(d.at) : null;
+      // (stood there already, the mission's start put him there: left as he stands)
+      if (p) { const sp = horseSpot(p), h = R.at('horse'); if (!h || Math.hypot(h.x - sp.x, h.z - sp.z) > 4) R.put('horse', sp); }
+      const hn = H?.name || 'your horse';
+      if (inCar()) {
+        // (the place's own street front, a car's spot there: the horse stands on its approach, a few metres in)
+        if (p && dist(car.position, p.x, p.z) > 60) await goTo(p, { radius: 14, card: false, type: 'mount' }, t, { objective: `${rideWord('go', 'Drive')} to **${p.name}**.` });
+        await offRide(t);
+      }
+      if (R.active() !== 'horse') R.swap('horse');
+      { const h = R.at('horse'); if (h && dist(P.position, h.x, h.z) > 150) bring('horse'); }
+    }
     // (quick: put up into the saddle at once, for a scene that wants him up there whether he fought on foot or not)
     if (d.quick && H && !inCar()) { H.mount(true); await wait(() => inCar() && !W.ride?.phase, t); if (d.arm && H.arm) try { H.arm(d.arm); } catch {} return; }
     if (inCar()) { if (d.arm && H?.arm) try { H.arm(d.arm); } catch {} return; }
-    if (H && d.at) { const p = placeOf(d.at); H.give({ x: p.cx ?? p.x, z: p.cz ?? p.z, heading: p.heading ?? 0 }); }
+    if (H && d.at && !R) { const p = placeOf(d.at); H.give({ x: p.cx ?? p.x, z: p.cz ?? p.z, heading: p.heading ?? 0 }); }
     const name = car.label || 'your horse';
     gps.objective(d.objective ? parts(d.objective, 'blue') : [`${rideWord('board', 'Get in')} `, { [name]: 'blue' }, '.'], { follow: () => car.position, name });
     gps.blip('car', { x: car.position.x, z: car.position.z, kind: 'car', edge: true, name });
@@ -1894,6 +1971,8 @@ export function createRunner(ctx) {
   };
   STEPS.dismount = async (d, t) => {
     if (!inCar()) return;
+    // (a horse alongside the car, and he is in the car: off the horse already)
+    if (W.rides?.dual && car.kind !== 'horse') return;
     gps.objective(d.objective ? parts(d.objective, 'blue') : [W.horse ? 'Get down.' : 'Get out.'], null);
     ui.help(`Press [F] to ${W.horse ? 'dismount' : 'get out'}.`, 8);
     if (d.quick || M.auto) { await wait(() => Math.abs(car.speed || 0) < 1.5, t); W.ride?.getOut?.(true); }
@@ -2960,7 +3039,7 @@ export function createRunner(ctx) {
   // s (the step's, the mission's, the world's; 25) with no 4 m covered and nothing said, the step's `nudge` line
   // ([who, text], else the mission's or the world's `nudge`, its {objective} the step's objective in plain words) said
   // over the radio, the objective flashed again with its help; then again every 40 s, at most three times a step.
-  const IDLE_STEPS = new Set(['drive', 'walk', 'collect', 'search', 'mount', 'sneak', 'drove', 'track', 'stops']);
+  const IDLE_STEPS = new Set(['drive', 'walk', 'collect', 'search', 'mount', 'sneak', 'drove', 'track', 'stops', 'ride']);
   const plain = (o) => tokens(String(o || '')).replace(/\*\*(.+?)\*\*(\{\w+\})?/g, '$1');
   function idleNudge(d, t) {
     const line = d.nudge || M.def.nudge || def0.nudge;
@@ -2984,7 +3063,7 @@ export function createRunner(ctx) {
   /* --------------------------------------------------------- a mission -- */
   function snapshot(i) {
     const e = cm.getActiveEntity();
-    return { i, stats: { ...M.stats }, state: JSON.parse(JSON.stringify(M.state)), timers: M.timer.timers.snapshot(), pin: M.pin, at: { x: e.position.x, z: e.position.z, heading: e.heading, mode: inCar() ? 'car' : 'walk' } };
+    return { i, stats: { ...M.stats }, state: JSON.parse(JSON.stringify(M.state)), timers: M.timer.timers.snapshot(), pin: M.pin, at: { x: e.position.x, z: e.position.z, heading: e.heading, mode: inCar() ? 'car' : 'walk', ...(W.rides?.dual ? { ride: W.rides.active() } : {}) } };
   }
   function tidy() {
     for (const s of M.sides) kill(s.tok, new Stop());
@@ -3015,6 +3094,7 @@ export function createRunner(ctx) {
     M.partMods.clear();
     app.trafficSystem.hold?.([]);
     if (W.cutscene) W.cutscene = false;
+    if (W.rides) W.rides.lock = null;
   }
 
   async function attempt(def, cp, act) {
@@ -3046,6 +3126,15 @@ export function createRunner(ctx) {
       }
       catch (e) { if (e instanceof Fail) M.fail(e); }
     })();
+    // (a horse alongside the car, the two rides: a mission starts with the car the ride (a checkpoint with the ride it
+    // was taken on), whichever he was on when the last one ended; the horse stands where he left him)
+    if (W.rides?.dual) {
+      W.rides.lock = null; const want = cp?.at?.ride === 'horse' ? 'horse' : 'car';
+      if (W.rides.active() !== want) try { W.rides.swap(want, { hard: true }); } catch (e) { console.warn('[storyrun] ride swap', e); }
+      // (the horse waiting where the mission's first mount is, saddled, before he gets there: seen as he drives up)
+      const mt = want === 'car' && steps.slice(cp ? cp.i : 0).find((s) => s && s.type === 'mount' && s.at);
+      if (mt) try { W.rides.put('horse', horseSpot(placeOf(mt.at))); } catch (e) { console.warn('[storyrun] horse stood', e); }
+    }
     // (the mission's own ride: a world's rides sheet its vehicle names is worn by the hero's car for it (ride.js
     // wearRide); every other mission puts the hero car's own body back)
     { const sheet = (def0.rides && def.vehicle && def0.rides[def.vehicle]) || null;
@@ -3115,7 +3204,9 @@ export function createRunner(ctx) {
       let r;
       // (the step's own moment as it starts, action.js: its sting, shake, slow motion, and its camera while it runs)
       let undoFx = null; try { undoFx = action.stepFx(d); } catch (e) { console.warn('[storyrun] action', e); }
-      const run = d.ref && partOf(d.ref) && d.type !== 'call' ? runPart(d.ref, d, st) : STEPS[d.type](d, st);
+      // (a horse alongside the car: in the ride the step wants first, rideFor)
+      const run = W.rides?.dual ? (async () => { await rideFor(d, st); return d.ref && partOf(d.ref) && d.type !== 'call' ? runPart(d.ref, d, st) : STEPS[d.type](d, st); })()
+        : d.ref && partOf(d.ref) && d.type !== 'call' ? runPart(d.ref, d, st) : STEPS[d.type](d, st);
       try { r = (await Promise.race([run, wait(() => M.gotoNow || M.endNow, st).then(() => ({}))])) || {}; }
       finally {
         try { undoFx?.(); } catch {}

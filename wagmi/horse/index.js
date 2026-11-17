@@ -54,9 +54,13 @@ export function fitHorse(car, rs, o = {}) {
   return car;
 }
 
-export function install(W, { THREE, rs, rider, drive, ride }) {
+// (dual: the horse alongside a car (wagmi/game.js, the two rides): the car entity is a horse only while he rides him,
+// car.kind 'horse', so the keys, the HUD and the radio's silence are the saddle's then only, and wg-horse on the page's
+// body with them: W.horse.setActive, called on each swap)
+export function install(W, { THREE, rs, rider, drive, ride, dual = false }) {
   const app = W.app, cm = app.controllerManager, car = W.car;
-  document.body.classList.add('wg-horse');
+  const isHorse = () => car.kind === 'horse';
+  if (!dual) document.body.classList.add('wg-horse');
   // (no engine or electric badge in the speed panel on a horse, and no car radio's station card)
   { const css = document.createElement('style'); css.textContent = 'body.wg-horse #wg-drive, body.wg-horse .wr-card { display: none !important; }'; document.head.appendChild(css); }
   const saddle = createSaddle(THREE, { W, rs, rider, drive });
@@ -66,15 +70,15 @@ export function install(W, { THREE, rs, rider, drive, ride }) {
 
   // Q in the saddle: W walks instead of trotting (and back)
   const typing = (e) => /^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.tagName || '') || e.target?.isContentEditable;
-  const riding = () => cm.activeMode === 'car' && !W.cutscene && !W.directed && !W.paused && !app.mapSystem?.isFullMapOpen;
+  const riding = () => cm.activeMode === 'car' && isHorse() && !W.cutscene && !W.directed && !W.paused && !app.mapSystem?.isFullMapOpen;
   addEventListener('keydown', (e) => {
     if (e.repeat || typing(e) || e.ctrlKey || e.metaKey || e.altKey || !riding()) return;
     if (e.code === 'KeyQ') { drive.S.walk = !drive.S.walk; flash(drive.S.walk ? 'Walk' : 'Trot'); }
   });
   // no car radio on a horse: off, and its keys (R, T) do nothing in the saddle
   const radioOff = () => { if (W.radio && W.radio.on) { W.radio.on = false; } };
-  radioOff(); const radioT = setInterval(() => { if (W.radio) { radioOff(); clearInterval(radioT); } }, 500);
-  addEventListener('keydown', (e) => { if ((e.code === 'KeyR' || e.code === 'KeyT') && cm.activeMode === 'car') e.stopImmediatePropagation(); }, true);
+  if (!dual) { radioOff(); const radioT = setInterval(() => { if (W.radio) { radioOff(); clearInterval(radioT); } }, 500); }
+  addEventListener('keydown', (e) => { if ((e.code === 'KeyR' || e.code === 'KeyT') && cm.activeMode === 'car' && isHorse()) e.stopImmediatePropagation(); }, true);
 
   // a short word by the speed panel (the walk toggle)
   let flashEl = null, flashT = 0;
@@ -91,7 +95,7 @@ export function install(W, { THREE, rs, rider, drive, ride }) {
   // the speed panel: his real mph (a horse's dial: full at 30), not the car's; the controls bar: a rider's keys
   const speedEl = document.getElementById('hud-speed'), meterEl = document.getElementById('hud-speed-meter');
   const fixSpeed = () => {
-    if (cm.activeMode !== 'car' || !speedEl) return;
+    if (cm.activeMode !== 'car' || !isHorse() || !speedEl) return;
     const mph = String(Math.round(Math.abs(car.speed || 0) * 2.237));
     if (speedEl.textContent !== mph) speedEl.textContent = mph;
     if (meterEl) { const t = `scaleX(${Math.min(1, +mph / 30)})`; if (meterEl.style.transform !== t) meterEl.style.transform = t; }
@@ -102,7 +106,7 @@ export function install(W, { THREE, rs, rider, drive, ride }) {
   const KEYS = [[['W', 'S'], 'Ride / Halt'], [['A', 'D'], 'Steer'], [['Shift'], 'Gallop'], [['Q'], 'Walk'], [['Space'], 'Jump'], [['J'], 'Swing / Buck'], [['F'], 'Dismount'], [['Drag'], 'Orbit']];
   const PAD = [[['RT', 'LT'], 'Ride / Halt'], [['LS'], 'Steer'], [['X'], 'Gallop'], [['A'], 'Jump'], [['Y'], 'Dismount'], [['RS'], 'Look']];
   const fixHints = () => {
-    if (!bar || cm.activeMode !== 'car' || bar.querySelector('.wg-horse-hint')) return;
+    if (!bar || cm.activeMode !== 'car' || !isHorse() || bar.querySelector('.wg-horse-hint')) return;
     const pad = !!bar.querySelector('kbd[data-pad]');
     const items = (pad ? PAD : KEYS).map(([keys, label]) => {
       const item = document.createElement('span'); item.className = 'hint wg-horse-hint';
@@ -118,15 +122,12 @@ export function install(W, { THREE, rs, rider, drive, ride }) {
   /* ------------------------------------------------------------- the API -- */
   const P = W.person;
   function give(at = null) {
+    // (alongside a car, the horse stood by while the car is the ride: moved there, the car entity left as it is)
+    if (dual && !isHorse()) { const R = W.rides; if (!R) return false; if (at && Number.isFinite(at.x) && Number.isFinite(at.z)) return R.put('horse', { x: at.x, z: at.z, heading: Number.isFinite(at.heading) ? at.heading : P.heading }); return R.put('horse', besideHim()); }
     if (cm.activeMode === 'car') return false;
     let x, z, h;
     if (at && Number.isFinite(at.x) && Number.isFinite(at.z)) { x = at.x; z = at.z; h = Number.isFinite(at.heading) ? at.heading : P.heading; }
-    else {
-      // (beside him, on his right, facing the way he does, clear of the buildings)
-      h = P.heading; const rx = -Math.cos(h), rz = Math.sin(h);
-      x = P.position.x + rx * 2.4 + Math.sin(h) * 0.8; z = P.position.z + rz * 2.4 + Math.cos(h) * 0.8;
-      const v = new THREE.Vector3(x, 0, z); cm.resolveHorizontalCollision(v, 0.9, cm.getGroundHeight(x, z, 'person') + 1.9); x = v.x; z = v.z;
-    }
+    else ({ x, z, heading: h } = besideHim());
     car.position.set(x, cm.getGroundHeight(x, z, 'person'), z);
     Object.assign(car, { heading: h, speed: 0, vx: 0, vz: 0, angularVel: 0, steerK: 0, halt: 0 });
     drive.S.ground = null; drive.S.air = false; drive.S.jumpY = 0;
@@ -135,15 +136,33 @@ export function install(W, { THREE, rs, rider, drive, ride }) {
     W.horseVoice?.greet?.(); // (brought to him: its nicker, wagmi/horse/voice.js)
     return true;
   }
+  // (beside him, on his right, facing the way he does, clear of the buildings)
+  function besideHim() {
+    const h = P.heading, rx = -Math.cos(h), rz = Math.sin(h);
+    const v = new THREE.Vector3(P.position.x + rx * 2.4 + Math.sin(h) * 0.8, 0, P.position.z + rz * 2.4 + Math.cos(h) * 0.8);
+    cm.resolveHorizontalCollision(v, 0.9, cm.getGroundHeight(v.x, v.z, 'person') + 1.9);
+    return { x: v.x, z: v.z, heading: h };
+  }
   const api = W.horse = {
     id: HORSE_MODEL, name: rs.label, rs, rider, drive, saddle,
-    get mounted() { return cm.activeMode === 'car' && rider.attached && !W.ride?.phase; },
+    get mounted() { return cm.activeMode === 'car' && isHorse() && rider.attached && !W.ride?.phase; },
+    dual,
+    // (alongside a car: the horse is the ride now, or not; wagmi/game.js's swap)
+    setActive(on) {
+      document.body.classList.toggle('wg-horse', !!on);
+      if (on) { radioOff(); fixHints(); fixSpeed(); }
+    },
     get gait() { return rs.gait; },
     get speed() { return car.speed || 0; },
     get walking() { return drive.S.walk; },
     give,
-    mount(quick = false) { if (cm.activeMode === 'car') return false; if (Math.hypot(P.position.x - car.position.x, P.position.z - car.position.z) > 3) give(); ride.getIn(quick); return true; },
-    dismount(quick = false) { if (cm.activeMode !== 'car') return false; ride.getOut(quick); return true; },
+    mount(quick = false) {
+      if (cm.activeMode === 'car') return false;
+      if (dual && !isHorse() && !W.rides?.swap('horse')) return false;
+      if (Math.hypot(P.position.x - car.position.x, P.position.z - car.position.z) > 3) give();
+      ride.getIn(quick); return true;
+    },
+    dismount(quick = false) { if (cm.activeMode !== 'car' || !isHorse()) return false; ride.getOut(quick); return true; },
     arm(kind = 'bat') {
       if (rider.attached && cm.activeMode === 'car') return !!saddle.arm(kind);
       const g = W.combat?.debug?.give; return g ? !!g(kind) : false;

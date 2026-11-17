@@ -19,7 +19,11 @@ import { S as story } from './story/index.js'; import { importRetry } from './ne
 const PACK = new URLSearchParams(location.search).has('pack') ? await importRetry(() => import('./storyrun/pack.js')).then((m) => m.load()) : null;
 // (the hero's ride a horse, Ranger, in the car's place: a world whose car is { model: 'mogcity/horse' }, or ?horse (with
 // ?nointro: free roam on horseback). wagmi/horse; otherwise none of it is even imported, and HORSE is null)
-const HORSE = (PACK?.ok && PACK.modelCar?.model === 'mogcity/horse') || new URLSearchParams(location.search).has('horse')
+// (or a horse alongside the car: a story world that rides one as well as driving (its mount and ride steps, or its
+// `horse`, wagmi/storyrun/pack.js PACK.horseAlong), Ranger saddled and standing by while the car is the hero's ride, and
+// the two swapped as he goes from one to the other: 'the two rides', below. Without it none of that is even built)
+const ALONG = !!(PACK?.ok && PACK.horseAlong && PACK.modelCar?.model !== 'mogcity/horse');
+const HORSE = (PACK?.ok && PACK.modelCar?.model === 'mogcity/horse') || ALONG || new URLSearchParams(location.search).has('horse')
   ? await importRetry(() => import('./horse/index.js')).catch((err) => { console.warn('[horse]', err); return null; }) : null;
 // (its way over the ground, in place of the car's: made in the car block)
 let HD = null;
@@ -47,7 +51,10 @@ installDriveMode(WAGMI);
   for (const w of car.wheels) w.tire.visible = false;
   // (the horse, Ranger: wagmi/horse/ranger.js, the same interface; a world's sheet car or model car is then not built)
   let horseRs = null;
-  if (HORSE) try { horseRs = await HORSE.buildRanger(THREE, { label: PACK?.modelCar?.label }); } catch (err) { console.warn('[horse] Ranger', err); }
+  if (HORSE && !ALONG) try { horseRs = await HORSE.buildRanger(THREE, { label: PACK?.modelCar?.label }); } catch (err) { console.warn('[horse] Ranger', err); }
+  // (the horse alongside the car: built now, standing by off the car entity till a story gives him (the two rides);
+  // a horse that fails to build leaves the world a car's, its horse steps then played in the car)
+  if (HORSE && ALONG) try { WAGMI.stableRs = await HORSE.buildRanger(THREE, { label: PACK.horseAlong.label, name: PACK.horseAlong.label }); } catch (err) { console.warn('[horse] Ranger alongside', err); }
   // (a Hometown town whose story names no car of its own (no sheet, model or stock car), or a town with no story: one
   // of the town fleet's ready-made sports cars (the owner, 14 Nov: "mainly sports cars"; cities/sf/js/fleet-models.js),
   // the same for the same town, in the story's paint or a bold one; wagmi/fleet-car.js wears it on a sports sheet. If
@@ -142,15 +149,16 @@ installDriveMode(WAGMI);
   if (modelRs) { const B = modelRs.body; Object.assign(car, { body: { hx: B.hx * S, z0: B.z0 * S, z1: B.z1 * S, top: B.top * S }, axle: modelRs.axle * S, label: PACK.modelCar.label || 'Vantor GT' }); }
   // (the horse: its box, framing, paces, handling and name; its own way over the ground in place of the car's physics,
   // js/controllers.js updateCar, while the car entity is a horse)
-  if (horseRs) {
-    HORSE.fitHorse(car, rs, { label: PACK?.modelCar?.label });
+  if (horseRs) HORSE.fitHorse(car, rs, { label: PACK?.modelCar?.label });
+  // (the horse's way over the ground while the car entity is a horse: his own world's, or the one alongside the car)
+  if (horseRs || WAGMI.stableRs) {
     HD = HORSE.createDrive(THREE, { cm, car, W: WAGMI });
     const updateCar = cm.updateCar.bind(cm);
     cm.updateCar = function (dt, el) { return car.kind === 'horse' ? HD.step(dt) : updateCar(dt, el); };
   }
   // (the speed panel's name for it, when the city started in the car before this ran)
   if (cm.activeMode === 'car') { const lab = document.getElementById('hud-active-mode'); if (lab) lab.textContent = car.label; }
-  car.onUpdate = (dt, keys, throttle, steer) => {
+  const carOnUpdate = (dt, keys, throttle, steer) => {
     // (stopping for him to get out: car.halt m/s² of brakes, whatever is pressed)
     if (car.halt) { car.speed -= Math.sign(car.speed) * Math.min(Math.abs(car.speed), car.halt * dt); throttle = 0; steer = 0; car.steerAngle *= 0.8; }
     // (a car with no boost, a world's van or truck (wagmi/storyrun/ride.js setClass): no push, no flame)
@@ -164,8 +172,10 @@ installDriveMode(WAGMI);
     stuckClock(dt, throttle);
     if (TOWN) rescue(dt, throttle);
   };
-  // (on the horse: its gaits for its speed, turn and yaw; no boost flame, no wall nosing, no curb, no wriggle)
-  if (horseRs) car.onUpdate = (dt, keys, throttle) => { rs.update(dt, car.speed, car.steerK || 0, HD.S.yawRate); stuckClock(dt, throttle); };
+  // (on the horse: its gaits for its speed, turn and yaw; no boost flame, no wall nosing, no curb, no wriggle. The car
+  // entity is a horse in a horse's world, or while he rides the one alongside the car: car.kind, the two rides)
+  const horseOnUpdate = (dt, keys, throttle) => { car.roadster.update(dt, car.speed, car.steerK || 0, HD.S.yawRate); stuckClock(dt, throttle); };
+  car.onUpdate = (dt, keys, throttle, steer) => (car.kind === 'horse' && HD ? horseOnUpdate(dt, keys, throttle) : carOnUpdate(dt, keys, throttle, steer));
   // pinned (a tree ahead and one behind, a wreck against a wall): the throttle or reverse held PIN s with the car hardly
   // moving, it wriggles free, slid over to the nearest spot round it where its box is clear of the buildings and the
   // street's things (a beat, at 3 m/s; again after another PIN s if that wasn't enough)
@@ -559,20 +569,26 @@ installDriveMode(WAGMI);
     return wrong.t >= WRONG ? wrong.t : 0;
   };
   // (parked, it still settles its thrust; rolling on with nobody in it, its wheels still turn)
-  WAGMI.carIdle = (dt) => { if (cm.activeMode !== 'car') { rs.setThrust(0, 0); rs.update(dt, car.speed || 0, 0); } };
+  // (the ride's body: the car entity's, a horse's when he rides one; the other of the two rides stood by, its idle)
+  WAGMI.carIdle = (dt) => { const r = car.roadster; if (cm.activeMode !== 'car') { r.setThrust(0, 0); r.update(dt, car.speed || 0, 0); } WAGMI.rides?.idle?.(dt); };
   // parked, it is solid to Dan on foot (the city's collision only knows the buildings): its body a box in its own frame
-  // (car.body: x across it, z along it, measured off the model), r m round it; he is put out at its nearest side
-  const BODY = car.body;
-  person.collide = (pos, r) => {
-    if (cm.activeMode === 'car' || !car.mesh.visible || pos.y > car.position.y + BODY.top) return false;
-    const cs = Math.cos(car.heading), sn = Math.sin(car.heading), dx = pos.x - car.position.x, dz = pos.z - car.position.z;
+  // (car.body: x across it, z along it, measured off the model), r m round it; he is put out at its nearest side. (The
+  // body as it is now: the car's, or the horse's while the car entity is one; and the other of the two rides, stood by)
+  const outOfBox = (pos, r, x, z, h, B) => {
+    const cs = Math.cos(h), sn = Math.sin(h), dx = pos.x - x, dz = pos.z - z;
     const lx = dx * cs - dz * sn, lz = dx * sn + dz * cs;
-    const side = BODY.hx + r - Math.abs(lx), back = lz - (BODY.z0 - r), front = BODY.z1 + r - lz;
+    const side = B.hx + r - Math.abs(lx), back = lz - (B.z0 - r), front = B.z1 + r - lz;
     if (side <= 0 || back <= 0 || front <= 0) return false;
     let nx = lx, nz = lz;
-    if (side < Math.min(back, front)) nx = Math.sign(lx || 1) * (BODY.hx + r); else nz = back < front ? BODY.z0 - r : BODY.z1 + r;
-    pos.x = car.position.x + nx * cs + nz * sn; pos.z = car.position.z - nx * sn + nz * cs;
+    if (side < Math.min(back, front)) nx = Math.sign(lx || 1) * (B.hx + r); else nz = back < front ? B.z0 - r : B.z1 + r;
+    pos.x = x + nx * cs + nz * sn; pos.z = z - nx * sn + nz * cs;
     return true;
+  };
+  person.collide = (pos, r) => {
+    const by = WAGMI.rides?.parked?.(), B = car.body;
+    const hitBy = !!(by && by.shown && pos.y <= by.y + by.body.top && outOfBox(pos, r, by.x, by.z, by.h, by.body));
+    if (cm.activeMode === 'car' || !car.mesh.visible || pos.y > car.position.y + B.top) return hitBy;
+    return outOfBox(pos, r, car.position.x, car.position.z, car.heading, B) || hitBy;
   };
 }
 
@@ -847,15 +863,20 @@ installDriveMode(WAGMI);
 // WAGMI.ride: phase (null, 'walk', 'in', 'stop', 'out' or 'bail'), getIn(quick), getOut(quick), skip(), door() (0..1),
 // driver (createDriver's)
 const BAIL = 10, T_IN = 1.15, T_OUT = 1.05, MOVE = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']);
-const rs = car.roadster, Q = WAGMI.dan, cs = app.cameraSystem, cam = cs.camera;
+// (rs, drv and MOUNT are the ride's as it is now: the car's, or the horse's while he rides the one alongside the car,
+// the two rides, below; a world with one ride keeps its own all through)
+let rs = car.roadster; const Q = WAGMI.dan, cs = app.cameraSystem, cam = cs.camera;
 // (on a horse: no doors and no engine; he climbs up into the saddle from its left side (wagmi/horse/rider.js, the
 // driver's API), and getting down at a gallop is the same dive and roll)
-const MOUNT = rs.kind === 'horse' && !!HORSE, T_MOUNT = 1.5, T_DISMOUNT = 1.25;
-const drv = MOUNT ? HORSE.createRider(THREE, rs, Q) : createDriver(THREE, rs, Q);
+let MOUNT = rs.kind === 'horse' && !!HORSE; const T_MOUNT = 1.5, T_DISMOUNT = 1.25;
+let drv = MOUNT ? HORSE.createRider(THREE, rs, Q) : createDriver(THREE, rs, Q);
 const tackSound = (name, vol = 0.5, rate = 1) => { const p = car.position; WAGMI.audio?.play?.(name, { pos: [p.x, p.y + 1.6, p.z], vol, rate }); };
 // (into the seat from his clip's own legs, not the standing correction: the seat's way in measures his idle hips once)
-{ const attach = drv.attach; drv.attach = (ease) => { Q.unstand(); attach(ease); }; }
+const seated = (d) => { const attach = d.attach; d.attach = (ease) => { Q.unstand(); attach(ease); }; return d; };
+seated(drv);
 const ride = (WAGMI.ride = { phase: null, mode: null, k: 1, t: 0 });
+// (the two rides, a horse alongside the car: WAGMI.rides, made below; null in a world with one ride)
+let rides = null;
 const smooth = (x) => { x = Math.min(1, Math.max(0, x)); return x * x * (3 - 2 * x); };
 const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 const hdist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
@@ -952,6 +973,8 @@ function blocked(p) {
 const IN_MAX = 1.5;
 function getIn(quick = false) {
   if (ride.phase) return;
+  // (the ride a story step wants, the two rides' lock: swapped to first, on foot, where it stands)
+  if (rides?.lock && rides.active() !== rides.lock && cm.activeMode === 'person') rides.swap(rides.lock);
   doorSide('L');
   if (quick || walled(toWorld(drv.door[0], drv.door[1]))) return inQuick();
   jobs = [];
@@ -1178,10 +1201,12 @@ addEventListener('keydown', (e) => {
   // (a world's step holding F at the wheel, a tow's hook-up: wagmi/storyrun/runner.js; never set without ?pack=)
   if (WAGMI.carF && WAGMI.carF()) return;
   // (the game's own F: the old way, at once; a game pad's (wagmi/pad.js, e.wgPad) is the player's, as a real key)
-  if (!e.isTrusted && !e.wgPad) { if (cm.activeMode === 'person' && near()) inQuick(); else if (cm.activeMode === 'car' && Math.abs(car.speed) < 4) outQuick(); return; }
+  if (!e.isTrusted && !e.wgPad) { if (cm.activeMode === 'person' && rides?.nearBy() != null && !(near() && rides.nearBy() > rides.nearActive())) { if (rides.swap(rides.parked().kind)) inQuick(); } else if (cm.activeMode === 'person' && near()) inQuick(); else if (cm.activeMode === 'car' && Math.abs(car.speed) < 4) outQuick(); return; }
   if (WAGMI.cutscene || WAGMI.directed) return;
   if (ride.phase) return skip();
-  if (cm.activeMode === 'person' && near()) getIn(!!WAGMI.combat?.fighting);
+  // (the other of the two rides stood by, nearer than this one: swapped over, then in or up)
+  if (cm.activeMode === 'person' && rides?.nearBy() != null && !(near() && rides.nearBy() > rides.nearActive())) { if (rides.swap(rides.parked().kind)) getIn(!!WAGMI.combat?.fighting); }
+  else if (cm.activeMode === 'person' && near()) getIn(!!WAGMI.combat?.fighting);
   // (a town's car on the street, taken: wagmi/jack.js)
   else if (cm.activeMode === 'person' && WAGMI.jack?.()) return;
   else if (cm.activeMode === 'car') getOut();
@@ -1196,6 +1221,138 @@ addEventListener('keydown', (e) => {
 Object.assign(ride, { getIn, getOut, skip, door: () => door.p, driver: drv });
 // (the horse's own: its API (WAGMI.horse), the saddle's fight, its keys and its HUD: wagmi/horse/index.js)
 if (MOUNT) try { HORSE.install(WAGMI, { THREE, rs, rider: drv, drive: HD, ride }); } catch (err) { console.error('[horse]', err); }
+
+/* ------------------------------------------------------- the two rides -- */
+// A story world that rides a horse as well as driving (ALONG: its mount and ride steps, wagmi/storyrun/pack.js): Ranger
+// stands saddled by while the car is the hero's ride. One of the two is the city's car entity at a time, the one he is
+// in or last got out of: every story step, the GPS, the chase camera, the test drive and the fight read the car entity,
+// as they do SF 2040's horse (car.kind 'horse'). The other stands by where he left it, as it was: its body taken off the
+// car entity and stood in the street, solid to him (person.collide) and to the traffic as the mission's parked cars are
+// ('wagmi-parked', wagmi/crash), a horse stood by still breathing and shifting on its feet (its idle). F beside the one
+// stood by swaps them over (on foot, at once: neither moves) and he gets in or up; a story step that wants the other
+// ride swaps them the same way (wagmi/storyrun/runner.js rideFor). The car's own numbers (its box, framing, paces,
+// handling, name, lamps) are kept while he rides and put back as they were, a mission's worn ride's included.
+//   WAGMI.rides: dual, active() 'car' | 'horse', parked() the one stood by { kind, x, z, y, h, body, shown } or null,
+//     swap(kind, { hard })   the car entity becomes that ride where it stands (hard: from the saddle or the seat too, at
+//                            once, him left on foot beside it); false when it can't
+//     put(kind, { x, z, heading })   that ride stood there (the one stood by moved; the car entity only with him on foot)
+//     near(kind) / nearBy() / nearActive()   how far he is (m) from it, or null out of reach
+//     lock   'car' | 'horse' | null: the ride the step wants (F at the other does nothing; getIn swaps to it first)
+//     idle(dt)   (game.js's tick: the horse stood by)
+if (ALONG && HORSE && WAGMI.stableRs && HD && !MOUNT) {
+  const carRs = rs, horseRs = WAGMI.stableRs, drvCar = drv, drvHorse = seated(HORSE.createRider(THREE, horseRs, Q));
+  const CAR_KEYS = ['kind', 'vclass', 'label', 'body', 'axle', 'mass', 'chaseDistance', 'chaseHeight', 'chase', 'topSpeed', 'boostSpeed', 'accel', 'boostAccel', 'rolling', 'drag', 'coast', 'brake', 'boostBrake', 'noBoost', 'handling', 'words', 'stopV', 'headY', 'dial'];
+  let keep = null;
+  const activeKind = () => (car.kind === 'horse' ? 'horse' : 'car');
+  // (a ride's body: the car's with every mission ride it has worn (wagmi/storyrun/ride.js wearRide, on the chassis beside it))
+  const groupsOf = (k) => (k === 'horse' ? [horseRs.group] : [carRs.group, ...Object.values(carRs.__worn?.rigs || {}).map((w) => w.group)]);
+  // (the one stood by: a group in the street holding its body as it stood on the car entity, chassis tilt and all)
+  function holderAt(x, y, z, quat, pivot) {
+    const g = new THREE.Group(); g.name = 'wagmi-parked';
+    g.position.set(x, y, z); if (quat) g.quaternion.copy(quat);
+    const inner = new THREE.Group(); inner.name = 'wagmi-parked-body';
+    if (pivot) { inner.position.copy(pivot.position); inner.quaternion.copy(pivot.quaternion); }
+    g.add(inner); app.scene.add(g);
+    return { g, inner };
+  }
+  // (the horse, before a story gives him: built, stood by nowhere, unseen)
+  let by;
+  { const { g, inner } = holderAt(0, -500, 0, null, null); g.visible = false; for (const o of groupsOf('horse')) inner.add(o);
+    by = { kind: 'horse', holder: g, inner, shown: false, x: 0, z: 0, y: -500, h: 0, body: { ...horseRs.body } }; }
+  function standBy(kind) {
+    car.mesh.updateMatrixWorld(true);
+    const { g, inner } = holderAt(car.mesh.position.x, car.mesh.position.y, car.mesh.position.z, car.mesh.quaternion, car.chassisPivot);
+    for (const o of groupsOf(kind)) inner.add(o);
+    const shown = car.mesh.visible !== false; g.visible = shown;
+    return { kind, holder: g, inner, shown, x: car.position.x, z: car.position.z, y: car.position.y, h: car.heading, body: { ...car.body } };
+  }
+  function fitTo(kind) {
+    if (kind === 'horse') {
+      keep = { car: Object.fromEntries(CAR_KEYS.map((k) => [k, car[k]])), look: car.cameraTargetOffset.y, lights: (car.headLights || []).map((l) => [l, l.visible, l.target ? l.target.visible : null]) };
+      HORSE.fitHorse(car, horseRs, { label: horseRs.label });
+      Object.assign(HD.S, { ground: null, air: false, jumpY: 0, jumpV: 0, rammed: 0, busy: null });
+    } else if (keep) {
+      for (const k of CAR_KEYS) { if (keep.car[k] === undefined) delete car[k]; else car[k] = keep.car[k]; }
+      car.cameraTargetOffset.y = keep.look;
+      for (const [l, v, tv] of keep.lights) { l.visible = v; if (l.target && tv != null) l.target.visible = tv; }
+      keep = null;
+    }
+  }
+  // (beside him, on his right, facing his way, clear of the buildings: a horse a story hasn't stood anywhere yet)
+  function beside() {
+    const h = person.heading, rx = -Math.cos(h), rz = Math.sin(h);
+    const v = new THREE.Vector3(person.position.x + rx * 2.4 + Math.sin(h) * 0.8, 0, person.position.z + rz * 2.4 + Math.cos(h) * 0.8);
+    cm.resolveHorizontalCollision(v, 0.9, cm.getGroundHeight(v.x, v.z, 'person') + 1.9);
+    return { x: v.x, z: v.z, heading: h };
+  }
+  function put(kind, at) {
+    if (!at || !Number.isFinite(at.x) || !Number.isFinite(at.z)) return false;
+    const h = Number.isFinite(at.heading) ? at.heading : 0;
+    if (activeKind() === kind) {
+      if (cm.activeMode === 'car' || ride.phase) return false;
+      if (kind === 'horse') return !!WAGMI.horse?.give?.({ x: at.x, z: at.z, heading: h });
+      WAGMI.placeCar?.(at.x, at.z, h, true); car.mesh.visible = true; return true;
+    }
+    if (!by || by.kind !== kind) return false;
+    const y = cm.getGroundHeight(at.x, at.z, kind === 'horse' ? 'person' : 'car');
+    by.holder.position.set(at.x, y, at.z); by.holder.quaternion.identity(); by.holder.rotation.y = h;
+    by.inner.position.set(0, 0, 0); by.inner.quaternion.identity();
+    Object.assign(by, { x: at.x, z: at.z, y, h, shown: true }); by.holder.visible = true;
+    if (kind === 'horse') WAGMI.horseVoice?.greet?.();
+    return true;
+  }
+  function swap(kind, { hard = false } = {}) {
+    if (kind !== 'car' && kind !== 'horse') return false;
+    if (activeKind() === kind) return true;
+    if (!by || by.kind !== kind) return false;
+    if (cm.activeMode === 'car' || ride.phase) {
+      if (!hard) return false;
+      // (from the seat or the saddle at once: on his feet beside it, nothing played)
+      jobs = []; ride.phase = null; ride.k = 1; car.halt = 0; Q.reach('R', null, 0);
+      if (drv.attached) drv.detach(person.mesh);
+      const h = car.heading, side = MOUNT ? 1.25 : 1.75;
+      person.position.set(car.position.x + Math.cos(h) * side, car.position.y, car.position.z - Math.sin(h) * side);
+      person.position.y = ground(person.position); person.heading = h; person.inVehicle = false; person.mesh.visible = true; person.verticalVel = 0;
+      app.selectMode('person');
+    }
+    // (a horse no story has stood anywhere yet comes to him)
+    if (!by.shown) put(by.kind, beside());
+    rs.setDoor?.(door.side, 0); Object.assign(door, { side: 'L', p: 0, want: 0 });
+    const was = by;
+    by = standBy(activeKind());
+    // (the one stood by onto the car entity, where it stood: its body back on the chassis, the entity put there)
+    for (const o of groupsOf(was.kind)) car.chassisPivot.add(o);
+    app.scene.remove(was.holder);
+    car.mesh.visible = true;
+    WAGMI.placeCar?.(was.x, was.z, was.h, true);
+    fitTo(kind);
+    rs = car.roadster = kind === 'horse' ? horseRs : carRs;
+    MOUNT = kind === 'horse';
+    drv = kind === 'horse' ? drvHorse : drvCar; ride.driver = drv;
+    if (kind === 'horse' && WAGMI.radio?.on) WAGMI.radio.on = false;
+    try { WAGMI.horse?.setActive?.(kind === 'horse'); } catch (err) { console.warn('[horse] active', err); }
+    const lab = document.getElementById('hud-active-mode'); if (lab && cm.activeMode === 'car') lab.textContent = car.label;
+    dispatchEvent(new CustomEvent('wagmi:ride', { detail: { kind } }));
+    return true;
+  }
+  const reachOf = (kind) => (kind === 'horse' ? 3.0 : 4.2 * (carRs.scale || 1));
+  const dist = (x, z) => Math.hypot(person.position.x - x, person.position.z - z);
+  rides = WAGMI.rides = {
+    dual: true, lock: null,
+    active: activeKind,
+    parked: () => by,
+    swap, put,
+    // (where a ride is: the car entity's or the one stood by's)
+    at: (kind) => (activeKind() === kind ? { x: car.position.x, z: car.position.z, heading: car.heading } : by && by.kind === kind && by.shown ? { x: by.x, z: by.z, heading: by.h } : null),
+    near(kind) { const p = rides.at(kind); if (!p) return null; const d = dist(p.x, p.z); return d < reachOf(kind) ? d : null; },
+    nearBy() { if (!by || !by.shown || (rides.lock && rides.lock !== by.kind)) return null; const d = dist(by.x, by.z); return d < reachOf(by.kind) ? d : null; },
+    nearActive: () => dist(car.position.x, car.position.z),
+    idle(dt) { if (by && by.kind === 'horse' && by.shown) try { horseRs.update(dt, 0, 0, 0); } catch {} },
+    // (for tests: how it stands)
+    state: () => ({ active: activeKind(), lock: rides.lock, by: by ? { kind: by.kind, shown: by.shown, at: [+by.x.toFixed(1), +by.z.toFixed(1)] } : null, car: [+car.position.x.toFixed(1), +car.position.z.toFixed(1)], mode: cm.activeMode }),
+  };
+  try { HORSE.install(WAGMI, { THREE, rs: horseRs, rider: drvHorse, drive: HD, ride, dual: true }); } catch (err) { console.error('[horse]', err); }
+}
 // X in the car: the reset (WAGMI.recoverCar), not while a scene, the pause or the map has the keys
 addEventListener('keydown', (e) => {
   if (e.code !== WAGMI.recoverCar.key || e.repeat || e.ctrlKey || e.metaKey || e.altKey || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.tagName || '')) return;
@@ -1314,7 +1471,8 @@ let last = performance.now();
   const pinned = cm.activeMode === 'car' && ((WAGMI.carStuck?.() || 0) > 1.2 || wrongWay);
   // (a town's car in the water, or stuck off the road: wagmi/game.js rescue)
   const rescue = WAGMI.carRescue?.() || '';
-  const show = ride.phase || WAGMI.paused || WAGMI.cutscene || WAGMI.directed || (WAGMI.carF && WAGMI.carF()) ? '' : cm.activeMode === 'person' && near() ? (MOUNT ? 'F  ·  Mount' : 'F  ·  Get in')
+  const show = ride.phase || WAGMI.paused || WAGMI.cutscene || WAGMI.directed || (WAGMI.carF && WAGMI.carF()) ? '' : cm.activeMode === 'person' && rides?.nearBy() != null && !(near() && rides.nearBy() > rides.nearActive()) ? (rides.parked().kind === 'horse' ? 'F  ·  Mount' : 'F  ·  Get in')
+    : cm.activeMode === 'person' && near() ? (MOUNT ? 'F  ·  Mount' : 'F  ·  Get in')
     : cm.activeMode === 'person' && WAGMI.jackPrompt?.() ? WAGMI.jackPrompt()
     // (Mission 4's helicopter: in, by it on foot; out, landed: its own F, wagmi/mission/m4-heli.js)
     : WAGMI.heliPrompt?.() ? WAGMI.heliPrompt()

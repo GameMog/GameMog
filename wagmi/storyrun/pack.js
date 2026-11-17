@@ -25,7 +25,19 @@ const WEARS = new Set(['rider']);
 export const STEP_KINDS = new Set(['drive', 'stops', 'walk', 'pursuit', 'timer', 'call', 'voicemail', 'voicenote', 'choice', 'cutscene',
   'place', 'set', 'say', 'wait', 'goto', 'end', 'label', 'transition', 'vignette', 'wallet', 'actEnd', 'comfort', 'tail',
   'stealth', 'patrol', 'convoy', 'trigger', 'beat', 'roadblock', 'passenger', 'npc', 'fight', 'dm', 'search', 'scene', 'tow', 'ally', 'car',
-  'collect', 'mount', 'dismount', 'herd', 'sneak', 'flee', 'drove', 'track', 'ambush']);
+  'collect', 'mount', 'dismount', 'herd', 'sneak', 'flee', 'drove', 'track', 'ambush', 'ride']);
+// the steps that ride the horse (a world whose car is a car rides one alongside it: wagmi/game.js the two rides)
+export const HORSE_STEPS = new Set(['mount', 'ride']);
+/** A world's horse alongside its car: { label } (its `horse`, else Ranger), or null (no step rides one, or its car is the horse). */
+export function horseAlongOf(def) {
+  if (!def || typeof def !== 'object') return null;
+  if (def.car && typeof def.car === 'object' && def.car.model === 'mogcity/horse') return null;
+  const any = (list) => (list || []).some((s) => s && (HORSE_STEPS.has(s.type) || any(s.during) || any(s.do)));
+  const named = def.horse && typeof def.horse === 'object' && !Array.isArray(def.horse);
+  if (!named && !(def.missions || []).some((m) => any(m && m.steps))) return null;
+  const label = named && typeof def.horse.name === 'string' && /^[A-Za-z][A-Za-z' .-]{0,23}$/.test(def.horse.name.trim()) ? def.horse.name.trim() : 'Ranger';
+  return { label };
+}
 const STOCK = new Set(['roadster', 'trailhand', 'vandal']);
 // the hero cars Mog City builds in code besides Dan's roadster, by the name a world's `car.model` gives (wagmi/storyrun/gt.js)
 export const MODEL_CARS = new Set(['mogcity/gt', 'mogcity/horse']);
@@ -179,6 +191,8 @@ export function creatureStep(s, city) {
     if (s.color != null && !COLOUR.test(s.color)) errs.push('colour');
   }
   if (s.type === 'mount' && s.at != null && !isPlaceRef(s.at)) errs.push('at');
+  // (a ride: a drive on the horse, to a place or the nearest of a few)
+  if (s.type === 'ride' && !(isPlaceRef(s.to) || (Array.isArray(s.to) && s.to.length >= 1 && s.to.length <= 6 && s.to.every(isPlaceRef)))) errs.push('to');
   if (s.type === 'herd' && !s.remove && !(s.id && s.at == null && (s.hold || s.walkTo || s.scatter))) {
     if (city !== 'sf') errs.push('wildlife in San Francisco only');
     if (s.creature != null && !['creature-horse', ...CREATURES].includes(s.creature)) errs.push(`no creature ${s.creature}`);
@@ -250,6 +264,8 @@ export function check(w) {
   if (!Array.isArray(w.acts) || !w.acts.length) bad('acts');
   // (the world's UI theme, wagmi/storyrun/theme.js: { theme: 'glass' }; none, Mog City's own look)
   if (w.ui != null && (typeof w.ui !== 'object' || Array.isArray(w.ui) || (w.ui.theme != null && !THEMES.includes(w.ui.theme)))) bad(`ui.theme: one of ${THEMES.join(', ')}`);
+  // (the horse a world rides alongside its car: { name }, wagmi/game.js the two rides)
+  if (w.horse != null && (typeof w.horse !== 'object' || Array.isArray(w.horse) || (w.horse.name != null && (typeof w.horse.name !== 'string' || w.horse.name.length > 24)))) bad('horse: { name } (24 characters at most)');
   for (const mt of w.hud?.meters || []) if (mt && mt.goal != null && !(typeof mt.goal === 'number' && mt.goal > 0)) bad(`hud meter ${mt.id}: goal`);
   // (the opening, before Mission 1: its shots are a cutscene's, plus a place card, a name card and the title)
   if (w.opening != null) {
@@ -353,5 +369,7 @@ export async function load() {
   // (the car the creator picked on GameMog's Create, by its generic name: wagmi/fleet-picks.js; in a town wagmi/game.js
   // builds the hero's car as the fleet's realistic model of that name. An unknown name is no pick: today's car)
   W.fleetCar = fleetPickOf(def.fleetCar) ? def.fleetCar : null;
+  // (a horse alongside the car: a world that rides one as well as driving, its mount and ride steps; wagmi/game.js)
+  W.horseAlong = horseAlongOf(def);
   return W;
 }

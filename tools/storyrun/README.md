@@ -53,6 +53,36 @@ presentation. It is loaded only with `?pack=`; without it the game is exactly mc
 - `sf-steps.json`: the SF 2040 steps close together by the Ferry Building (a test drive of about a minute): collect in
   the saddle, dismount, collect on foot, mount, a herd, two knights and a held scorpion boss.
 
+- `horse-town.json`: **Ride Out** (a hometown, Bozeman's district: `?city=pkg&town=us-3008950&tc=...&ts=...&tv=district-3578-6179`
+  with a local `&host=`, the address GameMog's play page gives it), a horse alongside the car: Wade drives the ranch
+  truck to Bogert Park, gets out and mounts Dusty (`horse: { name: "Dusty" }`), rides to Soroptomist Park and on down
+  Main Street, gets down, and drives on (the truck brought to the kerb near him: he left it 1 km back). Under the test
+  drive (`&autopilot=1&autocard=1&flowfast=1&mission=HR-1`) it plays through in about 40 s; with `&realpace=1` a
+  player's pace. Mog City's own Dan rides (no forged people, no clips).
+
+### A horse alongside the car (any world; `node --test tests/storyrun-horse.test.mjs`)
+
+A world whose car is a car and whose story mounts or rides a horse (`mount` / `ride` steps, or a `horse: { name }`;
+`pack.js horseAlongOf`) gets Ranger (by the world's name for him) saddled alongside the car: **the two rides**
+(`wagmi/game.js`, `WAGMI.rides`). One of them is the city's car entity at a time, the one he is in or last left, so
+every step, the GPS, the camera, the fight and the test drive read it as they read SF 2040's horse (`car.kind
+'horse'`); the other stands by where he left it (its body in the street, `wagmi-parked`: solid to him and to the
+traffic; a horse stood by keeps his idle). F beside the one stood by swaps them over and gets him in or up, so the
+player can go from the horse to the car and back at any time on foot. The car's own numbers (box, framing, paces,
+handling, name, lamps, a mission's worn ride) are kept while he rides and put back after.
+- `ride` (`to`, `radius`, `stop`, `objective`, `bonus`, `flag`, `stopTimer`): a drive on the horse; off him, 'Get back
+  on Dusty.' A world with no horse plays it as a drive.
+- `mount` (`at`): the horse is stood at the place's approach (where he can be walked up to, clear of its walls) as the
+  mission starts; in the car, the hero drives to the place's front if over 60 m off, gets out, and climbs up.
+- `dismount`: as before; in the car (not on the horse) it is done at once.
+- Each step's ride (`runner.js rideFor`, `rides.js rideWanted`): a mount or a ride wants the horse; a drive, its
+  stops, a tail, a chase, a tow, a convoy or a passenger the car. In the other one he gets out or down first (the test
+  drive at once); on foot the two are swapped where they stand; one left over 150 m off is brought to him (the horse
+  at his whistle, the car to the nearest kerb). `W.rides.lock` is the wanted ride while the step runs: F at the other
+  does nothing, `W.ride.getIn` swaps to it first (so the test drive's quick get-in mounts the horse for a ride).
+- Each mission starts with the car the ride (a checkpoint with the ride it was taken on); no town car is taken
+  (`wagmi/jack.js`) while he is on the horse or a step wants him.
+
 ### The SF 2040 steps (San Francisco; `node --test tests/storyrun-sf2040.test.mjs`)
 
 - `fight` with `foes` and/or `boss`: the library's creatures (`creature-knight`, `-ogre`, `-centaur`, `-ape`, `-mech`,

@@ -151,7 +151,9 @@ export function install(W) {
   const cam = { x: 0, z: 0, init: false };
   // (the ride a horse, wagmi/horse: no engine and no cabin; its hoofbeats and its tack from the library's sound packs,
   // fetched now so the first beat is heard. Never imported for a car)
-  const horse = W.car?.kind === 'horse';
+  // (a horse alongside the car, wagmi/game.js the two rides: fetched too; the car entity is a horse only while he rides)
+  const horse = W.car?.kind === 'horse' || !!W.rides?.dual;
+  const onHorse = () => W.car?.kind === 'horse';
   let hooves = null;
   if (horse) importRetry(() => import('../horse/hooves.js')).then((m) => { hooves = m.createHooves(W); if (ensure()) importRetry(() => import('../library/sounds.js')).then((s) => s.preload(M, m.PACKS)); }).catch((err) => console.warn('[audio] hooves', err));
   // (and its voice: wagmi/horse/voice.js, the library's horse pack; W.horse.voice for the creatures' roars and tests)
@@ -176,7 +178,7 @@ export function install(W) {
       placeT -= dt; if (placeT <= 0) { place(); placeT = 0.25; }
       const P = W.person, c = W.car, inCar = cm.activeMode === 'car';
       // (in a cabin: the street muffled; not on a horse)
-      const cabin = inCar && !horse;
+      const cabin = inCar && !onHorse();
       if (+cabin !== inside) { M.inside(+cabin); inside = +cabin; }
       city.update(dt, where);
       const tr = app.trafficSystem, pe = inCar ? c : P;
@@ -192,11 +194,11 @@ export function install(W) {
       const fy = (b) => (b ? b.matrixWorld.elements[13] - P.position.y : null);
       steps.update(dt, { on: onFoot && !!B, feet: [fy(B?.foot_L), fy(B?.foot_R)], speed: W.directed ? 1.5 : Math.abs(P.speed || 0) || (W.dan?.loco?.speed ?? 0), surface, inAir: Math.abs(P.verticalVel || 0) > 0.5 });
       // the horse's hooves (their heights over its ground), ridden or not
-      if (hooves && c.roadster?.hooves && c.mesh.visible !== false) {
+      if (hooves && onHorse() && c.roadster?.hooves && c.mesh.visible !== false) {
         const S = W.horse?.drive?.S;
         hooves.update(dt, { on: true, hooves: c.roadster.hooves(), base: c.position.y - (S?.jumpY || 0), speed: c.speed || 0, gait: c.roadster.gait, surface: parkAt(c.position.x, c.position.z) ? 'grass' : 'hard', air: !!S?.air, at: c.position });
       }
-      if (voice && c.roadster && c.mesh.visible !== false) {
+      if (voice && onHorse() && c.roadster && c.mesh.visible !== false) {
         const H = W.horse, rs = c.roadster;
         if (H && !H.voice) H.voice = voice;
         voice.update(dt, { mounted: !!H?.mounted, phase: W.ride?.phase || null, gait: rs.gait, speed: c.speed || 0, air: !!H?.drive?.S?.air, one: rs.oneShot?.name || null, rs,

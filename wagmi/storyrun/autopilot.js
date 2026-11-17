@@ -210,7 +210,9 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
     }
     // (a flee: the hero kept on his feet in a test drive, a fair one excepted)
     if (type === 'flee' && !fair && W.combat?.player) W.combat.player.hp = W.combat.player.maxHp;
-    if (!['drive', 'stops', 'walk', 'search', 'pursuit', 'tail', 'place', 'tow', 'passenger', 'roadblock', 'stealth', 'collect', 'mount', 'sneak', 'flee', 'track', 'drove'].includes(type)) { release(); return; }
+    // (a ride: a drive on the horse alongside the car, wagmi/storyrun/runner.js STEPS.ride; into the saddle as into the car,
+    // W.ride.getIn swapping to the horse first: the two rides' lock)
+    if (!['drive', 'stops', 'walk', 'search', 'pursuit', 'tail', 'place', 'tow', 'passenger', 'roadblock', 'stealth', 'collect', 'mount', 'sneak', 'flee', 'track', 'drove', 'ride'].includes(type)) { release(); return; }
     // (on foot inside a building's outline for over a second, on his way somewhere: no player gets there; the step is
     // unreachable, whatever put him there)
     if (reach && !inCar() && !W.ride?.phase) {

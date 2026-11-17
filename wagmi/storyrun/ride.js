@@ -86,7 +86,8 @@ export function fitSheet(car, rs) {
 //   wearRide(THREE, car, sheet | null)
 const WORN_KEYS = ['body', 'axle', 'mass', 'chaseDistance', 'chaseHeight', 'chase', 'topSpeed', 'boostSpeed', 'accel', 'boostAccel', 'rolling', 'drag', 'coast', 'brake', 'boostBrake', 'label', 'vclass', 'noBoost'];
 export function wearRide(THREE, car, sheet) {
-  const rs = car.roadster; if (!rs) return false;
+  // (never on a horse: a horse alongside the car is ridden as it is, wagmi/game.js the two rides; the car wears it)
+  const rs = car.roadster; if (!rs || rs.kind === 'horse') return false;
   const st = rs.__worn || (rs.__worn = { id: null, base: null, rigs: {} });
   const id = sheet ? sheet.id : null;
   if (st.id === id) return false;
