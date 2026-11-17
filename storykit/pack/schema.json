@@ -928,7 +928,10 @@
     "suv",
     "minivan",
     "pickup",
-    "van"
+    "van",
+    "crossover",
+    "compact-pickup",
+    "four-by-four"
    ],
    "description": "the player's car as the creator picked it on Create (left out: the story's own). The hero's ride (ride, or the first vehicle) is then a vehicle sheet of that kind of car (gate.ts), and in a hometown Mog City draws it as the town fleet's realistic model of that name"
   },

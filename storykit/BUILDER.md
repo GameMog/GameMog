@@ -592,11 +592,14 @@ starts `rides.` by convention. No maker's or model's real name anywhere (label, 
 The hero's free-roam car is `ride`.
 
 **The creator's car (`heroCar`).** A Create may come with the hero's car picked (the Car dropdown: GT Coupe, Muscle
-Car, Roadster, Sports Car, Sports Coupe, Supercar, Sedan, Old Sedan, Hatchback, City Car, SUV, Minivan, Pickup, Van).
-The first turn then says so: write `"heroCar"` exactly as it says, and make the hero's `ride` a car4 sheet of that kind
+Car, Roadster, Sports Car, Sports Coupe, Supercar, Sedan, Old Sedan, Hatchback, City Car, SUV, Minivan, Pickup, Van,
+Crossover, Compact Pickup, Four by Four; the SUV and the Pickup are full-size). The first turn then says so: write
+`"heroCar"` exactly as it says, and make the hero's `ride` a car4 sheet of that kind
 of car (its class as the turn names it, no `hop` or `dash`, `boost` only on a sports car), so every mission in the
 hero's own car is one that car can do. In a hometown Mog City draws it as the town's realistic model of that name. With
-no car picked, leave `heroCar` out and choose the car the story needs.
+no car picked, leave `heroCar` out and choose the car the story needs. In a hometown any `pickup` or `suv` sheet (the
+hero's or a mission's ride) is drawn as the town's full-size realistic pickup or SUV, keeping its own name, paint,
+sound, handling and abilities.
 
 Copy says what the ride is with tokens, so a Mog that swaps the car keeps its lines: `{ride}` (the noun: cab, van),
 `{ride.name}` (its label), `{ride.board}` (get in), `{ride.go}` (drive), `{ride.park}` (park). In objectives also `{n}`,

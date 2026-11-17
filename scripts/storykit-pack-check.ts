@@ -337,7 +337,7 @@ export function runStoryPackChecks(ok: Ok) {
   {
     const enumOf = (SCHEMA as any).properties.heroCar?.enum;
     // (generic words only, never a maker's or a model's name)
-    const GENERIC_CAR_WORDS = new Set(['GT', 'Coupe', 'Muscle', 'Car', 'Roadster', 'Sports', 'Supercar', 'Sedan', 'Old', 'Hatchback', 'City', 'SUV', 'Minivan', 'Pickup', 'Van']);
+    const GENERIC_CAR_WORDS = new Set(['GT', 'Coupe', 'Muscle', 'Car', 'Roadster', 'Sports', 'Supercar', 'Sedan', 'Old', 'Hatchback', 'City', 'SUV', 'Minivan', 'Pickup', 'Van', 'Crossover', 'Compact', 'Four', 'by']);
     ok('heroCar is an optional enum of the cars a creator can pick (sports cars first), not required',
       JSON.stringify(enumOf) === JSON.stringify(HERO_CAR_IDS) && !(SCHEMA as any).required.includes('heroCar') && HERO_CARS.findIndex((c: any) => c.group !== 'sports') === HERO_CARS.filter((c: any) => c.group === 'sports').length
         && HERO_CARS.every((c: any) => c.classes.length && String(c.label).split(' ').every((w: string) => GENERIC_CAR_WORDS.has(w))));
