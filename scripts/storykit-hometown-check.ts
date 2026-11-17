@@ -249,7 +249,10 @@ export function runHometownChecks(ok: Ok) {
     ok('and pacing has nothing to send back', pacingProblems(cine.pack).length === 0, pacingProblems(cine.pack).join(' | '));
     // (leg lengths in the town, Colter Land 16 Nov: a 250 m Mission 1 drive, a 1.9 km Mission 2 opener; LEG)
     const legs = pacingProblems(flat.pack, OK);
-    ok('in the town, pacing sends back a Mission 1 under two minutes of play and an opener over 1.2 km', legs.some((p) => /^Pacing: Mission 1 \(M1\) plays about \d+ s/.test(p)) && legs.some((p) => /^Pacing: M4 opens with a 1\.9 km drive/.test(p)), legs.join(' | ').slice(0, 400));
+    const haul = clone(flat); haul.pack.acts[0].missions[3].steps = haul.pack.acts[0].missions[3].steps.filter((x: PackV2) => x.type !== 'pursuit');
+    const hl = pacingProblems(haul.pack, OK);
+    ok('in the town, pacing sends back a Mission 1 under two minutes of play and an opener over 1.2 km', legs.some((p) => /^Pacing: Mission 1 \(M1\) plays about \d+ s/.test(p)) && hl.some((p) => /^Pacing: M4 opens with a 1\.9 km drive/.test(p)), hl.join(' | ').slice(0, 400));
+    ok('a long drive after a chase is not the mission\'s opener (M4: a pursuit, then 1.9 km)', !legs.some((p) => /^Pacing: M4 opens/.test(p)), legs.join(' | ').slice(0, 400));
     const near = clone(flat), nm = near.pack.acts[0].missions, goal = (nm[0].steps.find((x: PackV2) => x.type === 'drive')?.to as string).replace(/^@/, '');
     const gp = OK.places.find((p) => p.id === (near.pack.places?.[goal]?.['@'] ?? goal))!;
     const by = OK.places.filter((p) => p.id !== gp.id && displayName(p) !== null).map((p) => ({ p, d: Math.hypot(p.x - gp.x, p.z - gp.z) })).filter((x) => x.d > 60 && x.d < 300).sort((a, b) => a.d - b.d)[0];
@@ -260,8 +263,8 @@ export function runHometownChecks(ok: Ok) {
     const junk = clone(flat), bm = junk.pack.acts[0].missions;
     bm[0].steps = [...bm[0].steps, { type: 'stops', stops: { a: 1 } }, { type: 'tail', route: 5 }, { type: 'fight', during: 7 }]; bm[1].steps = { a: 1 };
     let threw = '';
-    try { pacingProblems(junk.pack, OK); } catch (e) { threw = String(e); }
-    ok('malformed stops, route, during or steps in a reply never throw out of pacing', !threw, threw);
+    try { pacingProblems(junk.pack, OK); pacingProblems({ ...junk.pack, acts: {} }, OK); pacingProblems({ ...junk.pack, acts: 5 }); } catch (e) { threw = String(e); }
+    ok('malformed stops, route, during, steps or acts in a reply never throw out of pacing', !threw, threw);
     if (cp.pack) {
       const w = toRunnerPack(cp.pack, { townName: 'Okemah, Oklahoma' }) as PackV2;
       const shot = w.missions[0].steps.find((x: PackV2) => x.type === 'cutscene').shots[1];

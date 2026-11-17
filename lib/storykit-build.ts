@@ -458,23 +458,26 @@ export const ACTION_KINDS = ['pursuit', 'tail', 'fight', 'roadblock', 'tow'];
 export const LEG = { first: [400, 900] as const, opener: 1200, m1Secs: 120 };
 const ROAD_FACTOR = 1.3, DRIVE_MS = 14, WALK_MS = 4;
 const PLAY: Record<string, number> = { fight: 40, pursuit: 60, roadblock: 20 };
-type Leg = { from: string; to: string; m: number; foot: boolean };
-/** A mission's legs, in order: from its start (or the last goal) to each place the hero must reach. */
+type Leg = { from: string; to: string; m: number; foot: boolean; lead: boolean };
+/** A mission's legs, in order: from its start (or the last goal) to each place the hero must reach. `lead`: no set
+ * piece (ACTION_KINDS) began before or during it, so it is the mission's opening haul (a drive after a fight is not). */
 export function missionLegs(m: PackV2, at: (r: unknown) => { key: string; x: number; z: number } | null): Leg[] {
   const out: Leg[] = [];
-  let here = at(m?.start);
+  let here = at(m?.start), acted = false;
   const go = (r: unknown, foot = false) => {
     const p = at(r); if (!p) return;
-    if (here && p.key !== here.key) out.push({ from: here.key, to: p.key, m: Math.hypot(p.x - here.x, p.z - here.z), foot });
+    if (here && p.key !== here.key) out.push({ from: here.key, to: p.key, m: Math.hypot(p.x - here.x, p.z - here.z), foot, lead: !acted });
     here = p;
   };
   for (const x of (Array.isArray(m?.steps) ? m.steps : []) as PackV2[]) {
     if (!x || typeof x !== 'object') continue;
+    // (a tow's haul to its target is still the opener; anything after the hook-up, or in a chase, a tail or a fight, is not)
+    if (ACTION_KINDS.includes(x.type) && x.type !== 'tow') acted = true;
     if (x.type === 'drive') for (const r of [x.to].flat()) go(r);
     else if (x.type === 'stops') for (const r of [x.stops ?? []].flat()) go(r);
     else if (x.type === 'walk') go(x.to, true);
     else if (x.type === 'tail') for (const r of [x.route ?? []].flat()) go(r);
-    else if (x.type === 'tow') { go(x.target); go(x.to); }
+    else if (x.type === 'tow') { go(x.target); acted = true; go(x.to); }
     else if (x.type === 'pursuit' && x.to) go(x.to);
     else if (x.type === 'search' && x.at && !x.on) go(x.at);
     else if (x.type === 'transition' && x.place) here = at(x.place) ?? here;
@@ -505,7 +508,7 @@ export function legProblems(pack: PackV2, town: Pick<CityPackage, 'places'>): st
     const legs = missionLegs(m, at), first = legs.find((l) => !l.foot);
     if (i === 0 && first && first.m < LEG.first[0]) out.push(`Pacing: Mission 1 (${m.id}) opens with a ${km(first.m)} drive (@${first.from} to @${first.to}, about ${secs(first.m)} s at the wheel): too short to learn the car. Make its first drive ${LEG.first[0]} to ${LEG.first[1]} m as the crow flies (a farther place, or a stop on the way).`);
     else if (i === 0 && first && first.m > LEG.first[1]) out.push(`Pacing: Mission 1 (${m.id}) opens with a ${km(first.m)} drive (@${first.from} to @${first.to}); keep its first drive ${LEG.first[0]} to ${LEG.first[1]} m, so the action comes soon.`);
-    else if (i > 0 && legs[0] && legs[0].m > LEG.opener) out.push(`Pacing: ${m.id} opens with a ${km(legs[0].m)} ${legs[0].foot ? 'walk' : 'drive'} (@${legs[0].from} to @${legs[0].to}, about ${secs(legs[0].m)} s); no mission opens with more than ${km(LEG.opener)}. Start it nearer (its "start"), or break the haul with a stop, a call or a chase on the way.`);
+    else if (i > 0 && legs[0]?.lead && legs[0].m > LEG.opener) out.push(`Pacing: ${m.id} opens with a ${km(legs[0].m)} ${legs[0].foot ? 'walk' : 'drive'} (@${legs[0].from} to @${legs[0].to}, about ${secs(legs[0].m)} s); no mission opens with more than ${km(LEG.opener)}. Start it nearer (its "start"), or break the haul with a stop, a call or a chase on the way.`);
     if (i === 0) { const t = missionPlaySecs(m, legs); if (t < LEG.m1Secs) out.push(`Pacing: Mission 1 (${m.id}) plays about ${t} s; give it at least ${LEG.m1Secs} s of play (${Math.round(LEG.m1Secs / 60)} minutes): a longer first drive, a second stop, a short chase or a fight on the way.`); }
   });
   return out;
@@ -514,7 +517,7 @@ const isAction = (x: PackV2) => !!x && (ACTION_KINDS.includes(x.type) || (x.type
 const STANDING = new Set(['say', 'dm', 'voicemail', 'voicenote']);
 export function pacingProblems(pack: PackV2, town?: Pick<CityPackage, 'places'> | null): string[] {
   const out: string[] = town ? legProblems(pack, town) : [];
-  const acts: PackV2[] = (pack.acts ?? []).filter((a: PackV2) => a && Array.isArray(a.missions));
+  const acts: PackV2[] = (Array.isArray(pack?.acts) ? pack.acts : []).filter((a: PackV2) => a && Array.isArray(a.missions));
   const all: PackV2[] = acts.flatMap((a) => a.missions).filter((m: PackV2) => m && Array.isArray(m.steps));
   if (!all.length) return out;
   const flat = (steps: unknown = []): PackV2[] => (Array.isArray(steps) ? steps : []).flatMap((x) => [x, ...flat(x?.during)]);
