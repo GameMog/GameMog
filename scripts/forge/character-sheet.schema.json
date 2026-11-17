@@ -570,7 +570,7 @@
      "items": {
       "$ref": "#/$defs/garment"
      },
-     "description": "item: apron (pattern plain | check; tied at the back) | overcoat | puffer-coat | scarf (knit, wound at the neck, ends down the front; accent = stripes) | western-belt (tooled leather, an engraved oval buckle; accent = the buckle's metal; only over a western-shirt, which it tucks in) | vest (a western vest; pattern leather | quilted) | ranch-jacket (hip length; pattern denim | canvas; accent = its sherpa collar) | duster (a long canvas coat to mid-calf with a shoulder cape) | bandana (a neckerchief knotted behind the neck, its point down the front; accent = its print)"
+     "description": "item: apron (pattern plain | check; tied at the back) | overcoat | puffer-coat | scarf (knit, wound at the neck, ends down the front; accent = stripes) | western-belt (tooled leather, an engraved oval buckle; accent = the buckle's metal; only over a western-shirt, which it tucks in) | bandana (a neckerchief knotted behind the neck, its point down the front; accent = its print)"
     },
     "headwear": {
      "$ref": "#/$defs/garment",

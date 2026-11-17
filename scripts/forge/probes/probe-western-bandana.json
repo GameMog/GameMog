@@ -1,8 +1,8 @@
 {
- "id": "probe-western-vest",
+ "id": "probe-western-bandana",
  "name": "Probe Ranch Daughter",
- "role": "probe: a rancher in a vest",
- "logline": "A plaid pearl-snap shirt tucked under a western belt, a leather vest, a bandana, cowboy boots.",
+ "role": "probe: a rancher's daughter in a bandana",
+ "logline": "A plaid pearl-snap shirt tucked under a western belt, a bandana, cowboy boots.",
  "identity": {
   "age": 36,
   "body": "female",
@@ -98,11 +98,6 @@
    {
     "item": "western-belt",
     "color": "#5A3A24"
-   },
-   {
-    "item": "vest",
-    "color": "#5C3E2A",
-    "pattern": "leather"
    },
    {
     "item": "bandana",

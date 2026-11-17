@@ -1,104 +1,98 @@
 {
  "$comment": "npm run storykit:forge-browser-check (B6): every anchor forged in headless Chrome with this forge.js (key: sha256 of forge.js, the kit and the anchors' sheets); bytes under the store's 6291456 a person",
- "key": "acc9737f936ecd7214ac5b3cbe8f7b6355f1f63091e2ada43c3efb3d5fea9a54",
- "at": "2026-11-17T02:54:11.904Z",
+ "key": "8977c4fa1713077f6eebcb80d6d31bf54934aa8bb16b5310404b96db4e320463",
+ "at": "2026-11-17T05:35:54.719Z",
  "chrome": "Chrome/157.0.0.0",
  "runs": [
   {
    "id": "old-boss",
    "bytes": 2595948,
-   "ms": 12829,
+   "ms": 17809,
    "uncoveredCm2": 9.1
   },
   {
    "id": "young-hero",
    "bytes": 2635108,
-   "ms": 18391,
+   "ms": 20918,
    "uncoveredCm2": 4.2
   },
   {
    "id": "grandmother",
    "bytes": 2402856,
-   "ms": 12851,
+   "ms": 13109,
    "uncoveredCm2": 1.9
   },
   {
    "id": "cop",
    "bytes": 2737564,
-   "ms": 17868,
+   "ms": 18291,
    "uncoveredCm2": 12.5
   },
   {
    "id": "teen",
    "bytes": 2718696,
-   "ms": 11203,
+   "ms": 12821,
    "uncoveredCm2": 5.1
   },
   {
    "id": "young-mother",
    "bytes": 2873064,
-   "ms": 24470,
+   "ms": 23884,
    "uncoveredCm2": 2.2
   },
   {
    "id": "office-worker",
    "bytes": 2628188,
-   "ms": 23274,
+   "ms": 22752,
    "uncoveredCm2": 1
   },
   {
    "id": "chef",
    "bytes": 2839756,
-   "ms": 30213,
+   "ms": 26882,
    "uncoveredCm2": 2.6
   },
   {
    "id": "club-promoter",
    "bytes": 2619144,
-   "ms": 23185,
+   "ms": 19983,
    "uncoveredCm2": 13.6
   },
   {
    "id": "nurse",
    "bytes": 2760072,
-   "ms": 11320,
+   "ms": 9323,
    "uncoveredCm2": 1.6
   },
   {
    "id": "mechanic",
    "bytes": 2891320,
-   "ms": 20478,
+   "ms": 17086,
    "uncoveredCm2": 11.5
   },
   {
    "id": "veteran",
    "bytes": 2964176,
-   "ms": 19342,
+   "ms": 17461,
    "uncoveredCm2": 5.6
   },
   {
    "id": "probe-bib",
    "bytes": 2957600,
-   "ms": 11721,
+   "ms": 12056,
    "uncoveredCm2": 1.4
   },
   {
-   "id": "probe-western-duster",
-   "bytes": 2792536,
-   "ms": 21469,
-   "uncoveredCm2": 0.2
+   "id": "probe-western-bandana",
+   "bytes": 2961704,
+   "ms": 25876,
+   "uncoveredCm2": 0.5
   },
   {
    "id": "probe-western-hand",
-   "bytes": 2954480,
-   "ms": 18963,
-   "uncoveredCm2": 1.1
-  },
-  {
-   "id": "probe-western-vest",
-   "bytes": 2911348,
-   "ms": 30964,
-   "uncoveredCm2": 0.6
+   "bytes": 2708364,
+   "ms": 14232,
+   "uncoveredCm2": 1.3
   }
  ]
 }

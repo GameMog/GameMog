@@ -2,7 +2,7 @@
  "id": "probe-western-hand",
  "name": "Probe Ranch Hand",
  "role": "probe: a ranch hand in western wear",
- "logline": "A plain western shirt, a denim ranch jacket with a sherpa collar, a belt (left off under the jacket), cowboy boots, a cowboy hat.",
+ "logline": "A plain pearl-snap western shirt tucked under a tooled belt, jeans, cowboy boots, a cowboy hat.",
  "identity": {
   "age": 58,
   "body": "male",
@@ -97,12 +97,6 @@
    {
     "item": "western-belt",
     "color": "#3A2618"
-   },
-   {
-    "item": "ranch-jacket",
-    "color": "#3C5272",
-    "accent": "#E2D8C4",
-    "pattern": "denim"
    }
   ],
   "headwear": {

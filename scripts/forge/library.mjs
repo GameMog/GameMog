@@ -1388,7 +1388,11 @@ const UV0 = (m, i) => m.UV[i * 2 + 1];
 function bandana(ctx, o) {
   const col = hexRGB(o.color, [142, 28, 32]), acc = hexRGB(o.accent, [234, 228, 214]), nz = ctx.jpos('neck01')[2], y0 = ctx.NECKY - 0.012;
   const pts = [...(ctx.inner || [])]; for (let v = 0; v < ctx.nBody; v++) if (ctx.cls[v] === 0 || ctx.cls[v] === 5 || ctx.cls[v] === 1) pts.push([ctx.bPos[v * 3], ctx.bPos[v * 3 + 1], ctx.bPos[v * 3 + 2]]);
-  const NB = 64, rN = new Float32Array(NB); for (const q of pts) { if (Math.abs(q[1] - y0) > 0.016) continue; const a = Math.atan2(q[0], q[2] - nz), r = Math.hypot(q[0], q[2] - nz); if (r > 0.1) continue; const b = ((Math.floor(((a + Math.PI) / (2 * Math.PI)) * NB) % NB) + NB) % NB; rN[b] = Math.max(rN[b], r); }
+  // (WW2: the roll rides up the nape to its knot, as a tied neckerchief does (2.2 cm over its sides' height behind): laid
+  // level round the neck's base it sat on the trapezius 6 cm out and stood through long hair; the radius is read at the
+  // roll's own height for each angle)
+  const rollY = (a) => y0 + 0.022 * Math.pow(Math.max(0, -Math.cos(a)), 1.5) - 0.026 * Math.pow(Math.max(0, Math.cos(a)), 2);
+  const NB = 64, rN = new Float32Array(NB); for (const q of pts) { const a = Math.atan2(q[0], q[2] - nz); if (Math.abs(q[1] - rollY(a)) > 0.016) continue; const r = Math.hypot(q[0], q[2] - nz); if (r > 0.1) continue; const b = ((Math.floor(((a + Math.PI) / (2 * Math.PI)) * NB) % NB) + NB) % NB; rN[b] = Math.max(rN[b], r); }
   for (let i = 0; i < NB; i++) if (!rN[i]) rN[i] = 0.06;
   for (let it = 0; it < 6; it++) { const c0 = Float32Array.from(rN); for (let i = 0; i < NB; i++) rN[i] = Math.max(c0[i], (c0[(i + NB - 1) % NB] + 2 * c0[i] + c0[(i + 1) % NB]) / 4); }
   const rAt = (a) => { const f = ((a + Math.PI) / (2 * Math.PI)) * NB - 0.5, i0 = ((Math.floor(f) % NB) + NB) % NB, t = f - Math.floor(f); return rN[i0] * (1 - t) + rN[(i0 + 1) % NB] * t; };
@@ -1397,21 +1401,29 @@ function bandana(ctx, o) {
   const wq = (q) => (q >= 0 ? [0, 1, 2, 3].map((k) => [ctx.si[q * 4 + k], ctx.sw[q * 4 + k] / 255]) : [[0, 1], [0, 0], [0, 0], [0, 0]]);
   const P = [], UV = [], JI = [], WT = [], idx = [];
   const put = (p, uv, w) => { P.push(...p); UV.push(...uv); for (const [j, x] of w) { JI.push(j); WT.push(x); } return P.length / 3 - 1; };
-  const NA = 80, NS = 10, rollY = (a) => y0 - 0.026 * Math.pow(Math.max(0, Math.cos(a)), 2);
-  for (let i = 0; i <= NA; i++) { const a = -Math.PI + (2 * Math.PI * i) / NA, dpt = 0.0045, hh = 0.009, rc = rAt(a) + dpt + 0.004, yy = rollY(a), w = wornNearest(ctx, [Math.sin(a) * rAt(a), yy, nz + Math.cos(a) * rAt(a)], 0.05) || wq(nearestNeck(ctx, [Math.sin(a) * (rAt(a) - 0.01), yy, nz + Math.cos(a) * (rAt(a) - 0.01)]));
+  const NA = 80, NS = 10;
+  // (WW2: under long hair (o.longHair) the roll's back third and its knot are under the hair, left out: hair hangs
+  // within 6-7 cm of the nape, and any roll or knot there stood through it (a red band across a woman's long hair). The
+  // roll runs round the front and sides and its ends taper flat into the neck under the hair)
+  const flat = !!o.longHair, A0 = flat ? 0.64 * Math.PI : Math.PI;
+  for (let i = 0; i <= NA; i++) { const a = -A0 + (2 * A0 * i) / NA, e = flat ? sm(0, 0.18, 1 - Math.abs(a) / A0) : 1, dpt = 0.0045 * (0.25 + 0.75 * e), hh = 0.009 * (0.4 + 0.6 * e), rc = rAt(a) + dpt + 0.004 * e, yy = rollY(a), w = wornNearest(ctx, [Math.sin(a) * rAt(a), yy, nz + Math.cos(a) * rAt(a)], 0.05) || wq(nearestNeck(ctx, [Math.sin(a) * (rAt(a) - 0.01), yy, nz + Math.cos(a) * (rAt(a) - 0.01)]));
     for (let j = 0; j <= NS; j++) { const b = (j / NS) * 2 * Math.PI; put([Math.sin(a) * (rc + Math.cos(b) * dpt), yy + Math.sin(b) * hh, nz + Math.cos(a) * (rc + Math.cos(b) * dpt)], [i / NA, (j / NS) * 0.2], w); } }
   for (let i = 0; i < NA; i++) for (let j = 0; j < NS; j++) { const a = i * (NS + 1) + j, b = a + NS + 1; idx.push(a, a + 1, b, a + 1, b + 1, b); }
   // (the knot at the back: a small lump, and two short ends hanging from it)
-  { const kz = nz - rAt(Math.PI) - 0.012, ky = rollY(Math.PI), w = wornNearest(ctx, [0, ky, nz - rAt(Math.PI)], 0.05) || wq(nearestNeck(ctx, [0, ky, nz - rAt(Math.PI) + 0.01])), base = P.length / 3, NU = 12, NV = 8;
+  if (!flat) { const kz = nz - rAt(Math.PI) - 0.012, ky = rollY(Math.PI), w = wornNearest(ctx, [0, ky, nz - rAt(Math.PI)], 0.05) || wq(nearestNeck(ctx, [0, ky, nz - rAt(Math.PI) + 0.01])), base = P.length / 3, NU = 12, NV = 8;
     for (let j = 0; j <= NV; j++) for (let i = 0; i <= NU; i++) { const th = (j / NV) * Math.PI, ph = (i / NU) * 2 * Math.PI; put([0.014 * Math.sin(th) * Math.cos(ph), ky + 0.01 * Math.cos(th), kz + 0.008 * Math.sin(th) * Math.sin(ph)], [0.5, 0.21 + 0.04 * j / NV], w); }
     for (let j = 0; j < NV; j++) for (let i = 0; i < NU; i++) { const a = base + j * (NU + 1) + i, b = a + 1, c = a + NU + 1, d = c + 1; idx.push(a, c, b, b, c, d); }
     for (const sx of [1, -1]) { const e0 = P.length / 3; for (let j = 0; j <= 6; j++) { const t = j / 6, x = sx * (0.006 + 0.014 * t), y = ky - 0.006 - 0.05 * t, z = kz - 0.002 - 0.004 * t, hw2 = 0.009 * (1 - 0.7 * t); put([x - hw2, y, z], [0.4, 0.26], w); put([x + hw2, y, z], [0.6, 0.26], w); }
       for (let j = 0; j < 6; j++) { const a = e0 + j * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3, a, a + 1, a + 2, a + 1, a + 3, a + 2); } } }
   // (the triangle: rows down from under the roll's front, laid 6 mm off the layer under it, both faces)
   const NL = 18, NW = 12, TH = 0.002, top = rollY(0) - 0.004, rows = [];
-  for (let i = 0; i <= NL; i++) { const t = i / NL, y = top - 0.12 * t, w = 0.15 * (1 - t) + 0.006, row = [];
+  // (WW2: each row's standoff found first, then eased row to row (never brought in under a row's own): read straight off
+  // the 12 mm grid it stepped, and the triangle's sides came out sawtoothed down the shirt's front)
+  const ZB = []; for (let i = 0; i <= NL; i++) { const t = i / NL, y = top - 0.12 * t, w = 0.15 * (1 - t) + 0.006;
     let zb = -9; for (let j = 0; j <= NW; j++) zb = Math.max(zb, zAt((j / NW - 0.5) * w, y)); if (zb < -1) zb = nz + 0.09; zb += 0.006;
-    zb = Math.max(zb, (nz + rAt(0) + 0.002) * (1 - sm(0, 0.15, t)) - 9 * sm(0, 0.15, t));
+    ZB.push(Math.max(zb, (nz + rAt(0) + 0.002) * (1 - sm(0, 0.15, t)) - 9 * sm(0, 0.15, t))); }
+  for (let it = 0; it < 6; it++) { const z0 = ZB.slice(); for (let i = 1; i < NL; i++) ZB[i] = Math.max(z0[i], (z0[i - 1] + 2 * z0[i] + z0[i + 1]) / 4); }
+  for (let i = 0; i <= NL; i++) { const t = i / NL, y = top - 0.12 * t, w = 0.15 * (1 - t) + 0.006, row = [], zb = ZB[i];
     for (let j = 0; j <= NW; j++) { const x = (j / NW - 0.5) * w, cup = 0.003 * Math.cos((j / NW - 0.5) * Math.PI) * (1 - t), wb = wornNearest(ctx, [x, y, zb - 0.01], 0.03) || wq(nearestBody(ctx, [x, y, zb - 0.03]));
       row.push([put([x, y, zb + cup], [j / NW, 0.32 + 0.66 * t], wb), put([x, y, zb + cup + TH], [j / NW, 0.32 + 0.66 * t], wb)]); }
     rows.push(row); }
@@ -1419,7 +1431,7 @@ function bandana(ctx, o) {
     idx.push(A[1], C[1], Bq[1], Bq[1], C[1], D[1]); idx.push(A[0], Bq[0], C[0], Bq[0], D[0], C[0]); }
   for (let i = 0; i < NL; i++) for (const j of [0, NW]) { const A = rows[i][j], C = rows[i + 1][j]; idx.push(A[0], A[1], C[0], A[1], C[1], C[0]); }
   const mesh = { P: Float32Array.from(P), UV: Float32Array.from(UV), JI: Int32Array.from(JI), WT: Float32Array.from(WT), idx: Uint32Array.from(idx) };
-  ctx.log?.(`bandana: roll at ${y0.toFixed(3)}, ${P.length / 3} points`);
+  ctx.log?.(`bandana: roll at ${y0.toFixed(3)} r back ${rAt(Math.PI).toFixed(3)} front ${rAt(0).toFixed(3)} side ${rAt(Math.PI / 2).toFixed(3)}, ${P.length / 3} points`);
   const print = (x, y) => { const cs = 0.016, ix = Math.floor(x / cs), iy = Math.floor(y / cs), fx = x / cs - ix - 0.5, fy = y / cs - iy - 0.5, h = hash3(ix + 50, iy + 70, 9);
     const ang = h * 6.28, cx = Math.cos(ang), sx = Math.sin(ang), u = fx * cx + fy * sx, v = -fx * sx + fy * cx;
     if (h > 0.45) { const r = Math.hypot(u + 0.08, v * 1.5), tail = u > 0 && Math.abs(v) < 0.12 * (1 - u / 0.38) && u < 0.38; return r < 0.2 || tail ? (r < 0.08 ? 0 : 1) : 0; }
