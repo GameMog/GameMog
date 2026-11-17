@@ -403,7 +403,7 @@ export const SCHEMA = {
       ranch: E(RANCH_MARKS, { description: "a place at a ranch (ranches[]): its `@` the same town place as the ranch's own; the player is sent to that mark of the ranch (its gate on the road for a car)" }) }, ['@']),
       description: 'the pack\'s own names for city places: { key: { "@": cityKey, name } }. Never a coordinate.' },
     ranches: A(O({
-      place: { ...R('placeKey'), description: "the pack's own place (a key of places) the ranch is dressed at: Mog City finds open land fronting a road near it, at the edge of the town, and builds the ranch there; the place is then the ranch's yard (its gate for a car)" },
+      place: { ...R('placeKey'), description: "the pack's own place (a key of places) the ranch is dressed at: Mog City finds the open land at the edge of the town nearest it (up to about 4 km out), fronting a road, and builds the ranch there; the place is then the ranch's yard (its gate for a car)" },
       sign: S(RANCH_LIMITS.sign, { description: "the name over the gate, as the sign reads (\"Colter Ranch\"); an original name, never a real ranch's or brand's" }),
       brand: S(1, { pattern: '^[A-Z]$', description: 'the letter of the ranch\'s brand, burned into the sign beside the name (default: the name\'s first letter)' }),
       cattle: I(0, RANCH_LIMITS.cattle, { description: 'cattle grazing in the pasture (default 12)' }),

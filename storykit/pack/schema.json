@@ -1113,7 +1113,7 @@
     "properties": {
      "place": {
       "$ref": "#/$defs/placeKey",
-      "description": "the pack's own place (a key of places) the ranch is dressed at: Mog City finds open land fronting a road near it, at the edge of the town, and builds the ranch there; the place is then the ranch's yard (its gate for a car)"
+      "description": "the pack's own place (a key of places) the ranch is dressed at: Mog City finds the open land at the edge of the town nearest it (up to about 4 km out), fronting a road, and builds the ranch there; the place is then the ranch's yard (its gate for a car)"
      },
      "sign": {
       "type": "string",
