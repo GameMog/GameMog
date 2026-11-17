@@ -8,6 +8,9 @@
 //                BAND m, no wall, no damage), the line "The rest of town is still being built" near it, traffic and
 //                people placed only inside the window less CLIP m (window.NYC.townWindow: js/traffic.js,
 //                wagmi/street/crowd.js), places and arrivals outside it held back (wagmi/world/pkg.js)
+//   stalled      the poll answers stalled: true or { state: 'error' } (the whole town's build stopped): the edge's haze put down (the far
+//                hills behind it seen) and the line 'This is the edge of town'; polled every 6 x POLL_MS, back as it was
+//                if the build goes on
 //   the swap     GET {host}/api/towns/{place}?build={buildId} (no-store) every POLL_MS; once it answers the whole town
 //                ({ state: 'full' } or { full: true }), the toast "Your whole town is ready", then at the next checkpoint,
 //                mission end or pause (at once inside the boundary band), a FADE_MS fade and the same address with
@@ -30,7 +33,11 @@ export const CLIP = 150;         // m: traffic and people stay this far inside t
 export const POLL_MS = 10000;
 export const FADE_MS = 1200;
 export const POSE_TTL_MS = 5 * 60 * 1000;
-export const WORDS = { edge: 'The rest of town is still being built', ready: 'Your whole town is ready' };
+export const WORDS = { edge: 'The rest of town is still being built', ready: 'Your whole town is ready', stalled: 'This is the edge of town' };
+// (the status answer -> the whole town's build has stopped: nothing is coming, so the district is all there is for now.
+// GameMog's answer for the build says so with `stalled: true` beside the district it serves (its queue row in error),
+// or the town's own answer's { state: 'error' })
+export const buildStalled = (body) => !!body && (body.stalled === true || body.state === 'error');
 
 import { BUILD_ID, TILE_SET } from './town-src.js'; import { fetchRetry } from '../net.js';
 
@@ -288,7 +295,21 @@ export function startGrowing({ town, PKG, fetchFn = fetchRetry, href = globalThi
       if (r.ok) {
         const b = await r.json();
         state.last = b && b.state || null;
+        // (a whole town whose build stopped, Colter Land's Bozeman, 16 Nov: the warm haze over the edge (pkg-far.js) stood
+        // for good as a white wall with a hard top across the hills at Blue Hour, and the line said the rest of town was
+        // coming. Stalled: the haze down, the far hills seen, the line plain; asked again a minute on, all back if the
+        // build starts again)
+        const stalled = buildStalled(b);
+        if (stalled !== !!state.stalled) {
+          state.stalled = stalled;
+          line.textContent = stalled ? WORDS.stalled : WORDS.edge;
+          try { const hz = app()?.scene?.getObjectByName?.('PkgGrowingHaze'); if (hz) hz.visible = !stalled; } catch {}
+        }
+        // (stalled: the haze put down on every poll, not only on the change: it can be made after the first answer)
+        if (stalled) { try { const hz = app()?.scene?.getObjectByName?.('PkgGrowingHaze'); if (hz) hz.visible = false; } catch {} }
+        // (a stalled district that names an upgrade to a newer build's whole town still takes it: the stall is this build's)
         const up = world ? upgradeOf(b) : null;
+        if (stalled && !up) { setTimeout(poll, POLL_MS * 6)?.unref?.(); return; } // (unref: a node test is never held open by it)
         if (up || fullReady(b)) {
           state.armed = true; state.upgrade = up;
           toast.style.opacity = '1';

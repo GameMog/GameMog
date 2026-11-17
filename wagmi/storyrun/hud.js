@@ -111,6 +111,31 @@ body.touch-enabled #wg .sr-meters > div.goal { min-width: 0; padding: 5px 10px 6
 body.touch-enabled #wg .sr-meters > div.goal .v { font-size: 20px; }
 body.touch-enabled #wg .sr-meters .l { font-size: 11px; letter-spacing: 2px; }
 body.touch-enabled #wg .sr-pass .box { padding: 10px 16px 12px; } body.touch-enabled #wg .sr-pass .g b { font-size: 30px; }
+/* (a story world in a GameMog page's frame, 1146 x 645 or a 4:3 860 x 645, with a mouse: nothing laid over anything.
+   Colter Land's playtest, 16 Nov: the fight's HITS over the meters and the clock, the key row and the line over the
+   radar, the objective twice. The radar's column is 308 px from the left, 24 px kept clear of it: 332 px) */
+@media (min-width: 621px) and (max-height: 860px) {
+  /* (the fight's combo under the toolbar, above the right edge's meters, clock and DOWN count) */
+  body.wg-story:not(.touch-enabled) #wf .wf-combo { top: 84px; }
+}
+@media (min-width: 621px) {
+  /* (the fight's key row between the radar and the right edge, wrapping there: never over the radar or the street chips) */
+  body.wg-story:not(.touch-enabled) #wf .wf-keys { left: 332px; right: 24px; transform: none; width: auto; max-width: none; }
+}
+@media (min-width: 621px) and (max-width: 943px) {
+  /* (narrow: the line from the radar's edge to the right, not 280 px over the radar; in the car above the speed panel) */
+  body.wg-story:not(.wg-cine):not(.touch-enabled) #wg .wg-line { left: 332px; right: 24px; width: auto; transform: none; }
+  body.wg-story[data-mode='car']:not(.wg-cine):not(.touch-enabled) #wg .wg-line { bottom: 140px; }
+}
+/* (small: the line only announces a new objective, the tracker over the radar keeps it) */
+@media (max-height: 860px), (max-width: 1180px) { html:has(> body.wg-story) { --wg-obj-secs: 3; } }
+/* (a small frame, with a mouse: a GameMog page's frame in a narrow window, 640 x 360. The HUD's own corners, toolbar,
+   radar, meters, clock, call, line and fight cards drawn smaller, laid out as the full frame lays them out, so nothing
+   sits over anything. Left as they are: what is drawn on the world (the marker's label, the foes' tags, the pointers)
+   and the health bar, put under the radar where the radar is drawn) */
+@media (min-width: 560px) and (max-height: 559px) { html { --sr-hud-z: 0.8; } }
+@media (min-width: 560px) and (max-height: 439px) { html { --sr-hud-z: 0.6; } }
+body.wg-story:not(.touch-enabled) :is(.hud, #wg > :is(.sr-timer, .sr-meters, .sr-bar, .wg-count, .sr-choice, .wg-line, .wg-caller, .wg-phone, .wg-dm, .wg-turn, .wg-help, .wg-offer, .wg-skip, .wg-place, .wg-hold, .wg-gtitle), #wg > :is(.wg-big, .sr-card, .sr-pass) > *, #wf > :is(.wf-combo, .wf-hint, .wf-lesson, .wf-msg, .wf-keys), #sr-juice, #wg-heat, #wg-padsound, #mc-town-edge, #mc-town-ready) { zoom: var(--sr-hud-z, 1); }
 `;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 

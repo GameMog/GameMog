@@ -35,7 +35,7 @@ import { createAction } from './action.js';
 import { armTo } from '../mission/m3-set.js';
 import { world as cityWorld } from '../world/index.js';
 import { createReach, reachReason } from './reach.js';
-import { beatOf, gapAfter, readingTime, playTurns } from '../radio/turns.js'; import { importRetry } from '../net.js';
+import { beatOf, gapAfter, readingTime, playTurns, DECODE } from '../radio/turns.js'; import { importRetry } from '../net.js';
 
 const PI = Math.PI;
 export const KINDS_STUB = new Set(['patrol', 'wallet']);
@@ -78,6 +78,9 @@ const TIPS = {
   heard: ['Near them, walk: press [Q] and Ranger goes at a walk. Keep the ', { 'NOISE': 'yellow' }, ' bar from filling, and give them a wide berth.'],
   overrun: ['Meet each wave before it reaches the tents: ride out toward the ', { 'red marker': 'red' }, ' and they turn on you instead.'],
   chased: ['Hold [Shift] to gallop and keep to the ', { 'yellow line': 'yellow' }, ': it is never quite as fast as a gallop. Jump what is in the way with [Space].'],
+  // (a place the story names that this map does not have: Colter Land on its spawn district, 16 Nov. Retrying cannot
+  // bring it back, so Skip is offered at once)
+  place: ['This part of the story is somewhere this map does not reach yet. ', { 'Skip': 'yellow' }, ' goes on to the next part.'],
 };
 class Fail extends Error { constructor(reason, kind = null, o = {}) { super(reason); this.reason = reason; this.kind = kind; this.tip = o.tip || null; this.sounded = !!o.sounded; this.reach = o.reach || null; } }
 class Stop extends Error {}
@@ -229,7 +232,17 @@ export function createRunner(ctx) {
   }
 
   /* --------------------------------------------------------------- the world -- */
-  const placeOf = (ref, why) => { const p = places.at(ref); if (!p) throw new Fail(`The story names a place this city doesn't have (${typeof ref === 'string' ? ref : ref?.site ? `a ${String(ref.site.kind || ref.site).replace('_', ' ')}` : ref?.['@']}).`, 'place'); p.ref = ref; return p; };
+  // (a place the map does not have fails the step loudly, never idles: its MISSION FAILED with Skip at once (play()), on
+  // the test drive's page too (index.js); logged once a mission and place. 16 Nov: Colter Land on its spawn district
+  // stood him on foot with no objective under ?autopilot=1, the tail's whole route on places the district lacks)
+  const missingSaid = new Set();
+  const placeOf = (ref, why) => {
+    const p = places.at(ref); if (p) { p.ref = ref; return p; }
+    const name = typeof ref === 'string' ? ref : ref?.site ? `a ${String(ref.site.kind || ref.site).replace('_', ' ')}` : ref?.['@'];
+    const k = `${M?.def?.id || '-'}|${name}`;
+    if (!missingSaid.has(k)) { missingSaid.add(k); console.warn('[storyrun] missing place', name, 'in', M?.def?.id || '-', 'step', M ? M.i : '-', M?.def?.steps?.[M.i]?.type || ''); }
+    throw new Fail(`The story names a place this city doesn't have (${name}).`, 'place');
+  };
   // can a person stand at x, z (the controllers' own arrival test: buildings and walls, not other people; New York's
   // controllers have none: the same test over their colliders, a person's 0.48 m and 0.1 m round him, by a collider's
   // outline, its turned box, else its bounds)
@@ -333,7 +346,20 @@ export function createRunner(ctx) {
     throw new Fail(reachReason({ ...info, why: r.why }), 'reach', { reach: { ...info, why: r.why } });
   }
   // the player at a place: at the wheel (the car on its lane) or on foot beside the car
+  // the street round where he is put cleared for a moment: the traffic's hold zone (traffic.js hold) moves the cars and
+  // people in it somewhere out of view on its next frame, then lets go. Added to any hold a scene has, which is given
+  // back as it was. Colter Land, 16 Nov: a pedestrian stood in the road in front of the car at the start, cars stopped in
+  // the lane beside it
+  const TS0 = app.trafficSystem;
+  if (TS0?.hold && !TS0.__rectsKept) { const h0 = TS0.hold.bind(TS0); TS0.__rectsKept = true; TS0.__rects = []; TS0.hold = (rects = []) => { TS0.__rects = rects; return h0(rects); }; }
+  function clearSpot(x, z, r = 14, secs = 1.2) {
+    const TS = app.trafficSystem; if (!TS?.hold || !Number.isFinite(x) || !Number.isFinite(z)) return;
+    const was = TS.__rects || [], mine = [...was, { minX: x - r, maxX: x + r, minZ: z - r, maxZ: z + r }];
+    try { TS.hold(mine); } catch { return; }
+    setTimeout(() => { if (TS.__rects === mine) try { TS.hold(was); } catch {} }, secs * 1000);
+  }
   function putPlayer(p, mode = 'car') {
+    clearSpot(p.x, p.z);
     if (mode === 'walk' || mode === 'person') {
       putAt(W, { car: [p.x, p.z, p.heading ?? 0] });
       outBesideCar(W);
@@ -1025,9 +1051,9 @@ export function createRunner(ctx) {
         // A voiced line holds the shot for its voice and the beat after it, no longer: the shot's dur is the most a
         // recorded line waits in it (the old 1.4 s and reading-time floors are for lines with no voice); an unvoiced
         // line, a name card, a title or a caption keep the shot's whole dur as before
-        let linesDone = !said.length, linesEnd = 0, lastL = null;
+        let linesDone = !said.length, linesEnd = 0, lastL = null, cut = false;
         if (said.length) playTurns(W, said, {
-          dead: () => skip || local.dead, sleep: (ms) => delay(ms / 1000, local).catch(() => {}),
+          dead: () => skip || cut || local.dead, sleep: (ms) => delay(ms / 1000, local).catch(() => {}),
           show: (L, i, secs) => { ui.sub(L.who || null, L.text, colorOf(L.who), onAir(L.who)); if (L.who) mumble(L.who, L.text, secs); M?.log.push(['say', L.who, L.text]); lastL = L; },
           hide: () => {},
         }).finally(() => { linesDone = true; linesEnd = now(); });
@@ -1036,8 +1062,13 @@ export function createRunner(ctx) {
         const nextL = shotLines(live[si + 1] || {})[0] || null;
         const keepDur = !said.length || !voicedAll || !!(s.card || s.title || s.caption || s.where || opening);
         const len = keepDur ? Math.max(dur, said.length && !voicedAll ? said.reduce((a, L) => a + readingTime(L.text), 0) : 0) : Math.min(dur, 0.6);
+        // (a shot is never held for ever: past its own time, every line's voice or reading time with a decode's wait and
+        // a breath each, and 4 s more, it cuts to the next, said once in the log. Colter Land's OF-2 was reported stuck
+        // on its first shot after "On the ground?" for 2 minutes, 16 Nov; on the game clock, so a pause is not counted)
+        const cap = Math.max(dur, len) + said.reduce((a, L) => a + Math.max(readingTime(L.text), W.voice?.dur?.(L.who, L.text) || 0) + DECODE + 1, 0) + 4;
         try {
           await wait(() => {
+            if ((now() - t0) / 1000 > cap) { if (!cut) { cut = true; console.warn('[storyrun] a shot held past its time, cut:', M?.def?.id || '-', 'shot', si, linesDone ? 'lines said' : 'lines still going'); } return true; }
             const k = Math.min(dur, (now() - t0) / 1000), still = card && k >= hold, hh = handheld(k + t0 / 1000, still ? 0 : 0.4);
             if (still && !frozen) frozen = openCard(card, dur - hold);
             const p = pos(Math.min(k, hold)), l = look(Math.min(k, hold));
@@ -1430,6 +1461,9 @@ export function createRunner(ctx) {
     const ax = P.position.x, az = P.position.z;
     app.trafficSystem.hold?.([{ minX: ax - 40, maxX: ax + 40, minZ: az - 40, maxZ: az + 40 }]);
     combat.clear?.();
+    // (the lesson's first line names the men to hit: a world's men are never Mog City's Suits; Colter Land, 16 Nov)
+    // (Mog City's own story as a world, packs/mog-city.json, keeps its Suits)
+    combat.foeLine = d.lessonLine || (def0.id === 'mog-city' ? null : 'Hit them');
     // (the rules: the step's, else combat's own: Mog City's first fight teaches, FIGHT BASICS)
     if (d.rules) try { combat.debug?.rules?.(d.rules); } catch {}
     combat.player.maxHp = d.hp || combat.player.maxHp; combat.player.hp = combat.player.maxHp;
@@ -2911,7 +2945,10 @@ export function createRunner(ctx) {
         if (r?.end) M.endNow = true;
         if (r?.goto) M.gotoNow = r.goto;
       } catch (e) {
-        if (e instanceof Fail) M.fail(e);
+        // (a side step at a place the map lacks, a roadblock on the way: left out, logged once by placeOf; the step it
+        // runs beside goes on. Colter Land's last pursuit failed on its roadblock's corner)
+        if (e instanceof Fail && e.kind === 'place') { /* dropped */ }
+        else if (e instanceof Fail) M.fail(e);
         else if (!(e instanceof Stop)) console.warn('[storyrun] side step', d.type, e);
       } finally { M.sides.delete(s); }
     })();
@@ -3137,9 +3174,22 @@ export function createRunner(ctx) {
           if (!e.sounded) sfx.play('failed');
           // (a spot a player cannot reach is the story's to fix, never the drive's to retry: reach.js)
           if (ctx.flags.autopilot && (ctx.flags.failStop || fails >= 3 || e.kind === 'timeout' || e.kind === 'place' || e.kind === 'reach')) return { how: 'fail', why: e.reason, ...(e.reach ? { reach: e.reach } : {}) };
-          const pick = ctx.flags.autoRetry ? (await new Promise((r) => setTimeout(r, 1200)), 'retry') : await ui.failed(e.reason, { skip: fails >= 3, tip: e.tip || TIPS[e.kind === 'time' && car.noBoost ? 'timeSlow' : e.kind] || null, retryLabel: at.cp && at.cp.i > 0 ? 'Retry: from the checkpoint' : 'Retry: from the start' });
+          const pick = ctx.flags.autoRetry ? (await new Promise((r) => setTimeout(r, 1200)), 'retry') : await ui.failed(e.reason, { skip: fails >= 3 || e.kind === 'place', ...(e.kind === 'place' ? { skipLabel: 'Skip: this part' } : {}), tip: e.tip || TIPS[e.kind === 'time' && car.noBoost ? 'timeSlow' : e.kind] || null, retryLabel: at.cp && at.cp.i > 0 ? 'Retry: from the checkpoint' : 'Retry: from the start' });
           if (pick === 'quit') return { how: 'quit' };
-          if (pick === 'skip') { cp = { ...at.cp, i: Math.min(def.steps.length, (at.i || 0) + 1) }; continue; }
+          // (a start place that failed fails before step 0 runs (M.live is set only after it): Skip then plays step 0, never
+          // past it. A step that failed mid-mission: the next one. Either way from where the hero stands now, the story's
+          // flags and meters as the steps before it left them (the last checkpoint's own spot and state would put him
+          // back there and undo them), and never a direct start's `from` again (its place is the one that failed). Its
+          // timers stay the checkpoint's: a timer that ran out is never restored to fail him again)
+          if (pick === 'skip') {
+            const next = Math.min(def.steps.length, at.live ? (at.i || 0) + 1 : (at.i || 0));
+            const { from: _from, ...base } = at.cp || {};
+            let here = null;
+            try { const e = cm.getActiveEntity(); here = { x: e.position.x, z: e.position.z, heading: e.heading, mode: inCar() ? 'car' : 'walk' }; } catch {}
+            cp = { ...base, i: next, state: JSON.parse(JSON.stringify(at.state)), stats: { ...at.stats }, timers: base.timers || [], ...(here ? { at: here } : {}) };
+            if (!cp.at) cp = null; // (nowhere to put him: the mission from its start)
+            continue;
+          }
           cp = at.cp && at.cp.i > 0 ? at.cp : null;
         }
       }

@@ -114,6 +114,8 @@ body.wf-fight .hud-top-left,body.wf-fight .hud-top-right,body.wf-fight .hud-bott
 #wf .wf-hint kbd{font:700 12px/1 'Barlow Condensed',system-ui,sans-serif;border:1.5px solid rgba(255,255,255,.8);border-radius:4px;padding:3px 5px;background:rgba(0,0,0,.25)}
 #wf .wf-offer{position:fixed;left:0;top:0;will-change:transform;opacity:0;transition:opacity .15s}
 #wf .wf-offer.wf-on{opacity:1}
+/* (never over a cutscene's frame, its letterbox up: Colter Land, 16 Nov, a shot on a shopfront under PICK UP BOTTLE) */
+body.wg-cine #wf .wf-offer{display:none}
 #wf .wf-offer div{position:absolute;left:0;top:0;transform:translate(-50%,-100%);display:flex;align-items:center;gap:7px;padding:6px 10px 6px 7px;border-radius:10px;background:${PANEL};white-space:nowrap;font:700 15px/1 'Barlow Condensed',system-ui,sans-serif;letter-spacing:.1em}
 #wf .wf-offer kbd{font:800 13px/1 'Barlow Condensed',system-ui,sans-serif;color:#15171C;background:${Y};border-radius:4px;padding:3px 6px}
 #wf .wf-offer b{color:${Y};font-weight:800}

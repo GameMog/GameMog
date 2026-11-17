@@ -230,7 +230,15 @@ export async function install(W) {
       if (last && act.end) await actEnd(act.end, { holdNext: k === order.length - 1 });
       k++;
     } else if (r.how === 'fail') {
-      tell('mission-end', { id: m.id, how: 'fail', why: r.why, ...(r.reach ? { reach: r.reach } : {}) }); break;
+      tell('mission-end', { id: m.id, how: 'fail', why: r.why, ...(r.reach ? { reach: r.reach } : {}) });
+      // (the test drive's stop, on the page too: it ended there with the hero stood on foot, no objective and nothing
+      // said (Colter Land's WR-1 and RD-2 under ?autopilot=1, 16 Nov). Its MISSION FAILED and why, the drive let go;
+      // Retry plays the mission again, Skip the next one, Quit is free roam. A framing GameMog has its mission-end)
+      autopilot?.stop();
+      const pick = await ui.failed(r.why || 'The test drive stopped here.', { skip: k + 1 < order.length, retryLabel: 'Retry: the mission again', skipLabel: 'Skip: the next mission', quitLabel: 'Quit: free roam' });
+      if (pick === 'retry') continue;
+      if (pick === 'skip') { k++; first = true; continue; }
+      break;
     } else {
       tell('mission-end', { id: m.id, how: 'quit' });
       // (quit: free roam, the mission's start marked again)

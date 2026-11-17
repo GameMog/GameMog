@@ -753,7 +753,8 @@ export async function install(W) {
   // (or three tries); then a last word and the fight as it is. Once a session: a restart of the checkpoint picks up at
   // the step it reached
   const LESSON = [
-    { key: 'strike', need: 3, title: 'STRIKE', line: `<kbd>LMB</kbd><kbd>J</kbd><span>${Story.html(Story.t('Hit the Suits'))}</span>` },
+    // (whom to hit: Mog City's Suits, or a story world's own word, c.foeLine (wagmi/storyrun: 'Hit them'); read as shown)
+    { key: 'strike', need: 3, title: 'STRIKE', get line() { return `<kbd>LMB</kbd><kbd>J</kbd><span>${Story.html(Story.t(c.foeLine || 'Hit the Suits'))}</span>`; } },
     { key: 'counter', need: 1, title: 'COUNTER', line: '<span>When his <b class="y">!</b> turns yellow</span><kbd>Q</kbd><kbd>L</kbd><span>Counter</span>' },
     { key: 'dodge', need: 1, title: 'DODGE', line: '<span>A red <b class="r">‼</b> can’t be countered</span><kbd>C</kbd><kbd>Space</kbd><span>Dodge</span>' },
   ];
@@ -885,7 +886,7 @@ export async function install(W) {
   };
   c.afterCamera = (rdt) => {
     const t0 = performance.now();
-    c.hud.update(c.fixed ? 1 / 60 : rdt, { threats: c.threats, fighting: fightOn, onFoot: cm.activeMode === 'person' && !P.inVehicle, cutscene: !!W.cutscene });
+    c.hud.update(c.fixed ? 1 / 60 : rdt, { threats: c.threats, fighting: fightOn, onFoot: cm.activeMode === 'person' && !P.inVehicle, cutscene: !!(W.cutscene || W.directed) });
     c.cost += performance.now() - t0;
   };
 
@@ -1038,6 +1039,8 @@ export async function install(W) {
     // (a story fight's fierce creatures, SF 2040: the runner sets it here; read inside as c.fierce. Without it the
     // runner's flag sat on this object and never reached the fight)
     get fierce() { return !!c.fierce; }, set fierce(v) { c.fierce = !!v; },
+    // (a story world's word for whom to hit in the lesson, read inside as c.foeLine (wagmi/storyrun): set here, as fierce)
+    get foeLine() { return c.foeLine; }, set foeLine(v) { c.foeLine = v || null; },
     get crews() { return c.crews; },
     nav: c.nav, // (the pathfinding: nav.statsNow(), nav.ready(); ?nav=0 turns it off, ?navdebug draws it)
     player: {

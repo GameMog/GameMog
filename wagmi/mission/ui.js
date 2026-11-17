@@ -305,6 +305,9 @@ body.wg-offering #wg .wg-help { opacity: 0 !important; }
 .wg-big:not(.wg-ep) button small { display: block; margin-top: 5px; font: 600 14px/1.15 'Barlow Condensed'; letter-spacing: .5px; text-transform: none; opacity: .85; }
 /* (while it is up the fight's own layer goes, its lesson card, prompts and arrows under the words, and a phone's stick) */
 body.wg-failing #wf, body.wg-failing #touch-controls, body.wg-failing .touch-look-hint { opacity: 0 !important; visibility: hidden; transition: opacity .3s, visibility 0s .3s; }
+/* (the car's F prompt is the street's, never a screen's: not over the start gate's 'Click or press any key to start', the
+   instant title under it, or MISSION FAILED's buttons. Colter Land, 16 Nov: "F · Get in" sat under the gate's line) */
+body.wg-failing #wg-prompt, body:has(#wg .wg-gate.on) #wg-prompt, body:has(#wg-boot:not(.off)) #wg-prompt { visibility: hidden !important; }
 body.wg-ko #canvas-container { filter: grayscale(.85) contrast(1.05); transition: filter .6s; }
 #canvas-container { transition: filter .8s; }
 
