@@ -413,7 +413,17 @@ export function compile(S) {
   // coats, the overcoat, the hoodie, loose trousers. Every cloth colour through the colour guard (colour.mjs): a colour
   // that would drift out of its family under a warm or cool light has its chroma taken down until it holds)
   const G = (g, d) => { const w = capWhite(c3(g, d)); if (w.changed) log.push(`white cap ${g?.color || 'default'} -> #${w.rgb.map((x) => x.toString(16).padStart(2, '0')).join('')}`); const c = w.rgb, r = guard(c); if (r.changed) log.push(`colour guard ${g?.color || 'default'} -> #${r.rgb.map((x) => x.toString(16).padStart(2, '0')).join('')}`); return '#' + r.rgb.map((x) => x.toString(16).padStart(2, '0')).join(''); };
-  const LIBTOP = { 'chef-jacket': 3, 'doorman-coat': 5, 'uniform-jacket': 3, hoodie: 3, overcoat: 5, 'puffer-coat': 4 };
+  const LIBTOP = { 'chef-jacket': 3, 'doorman-coat': 5, 'uniform-jacket': 3, hoodie: 3, overcoat: 5, 'puffer-coat': 4, 'western-shirt': 3 };
+  // (WW: western wear. A western belt goes on over a western shirt, tucked under it (any other top hangs over the waist:
+  // the belt is left off, logged); a ranch jacket, a vest or a duster over whatever the top is, in that order outward)
+  const OVERW = { vest: 4, 'ranch-jacket': 5, duster: 6 }, overs = (W.over || []).map((o) => o.item);
+  const belted = top.item === 'western-shirt' && overs.includes('western-belt'), coated = overs.includes('ranch-jacket') || overs.includes('duster');
+  // (a western shirt is tucked in under a belt, and under a ranch jacket or a duster (its hem there would only come out
+  // through the coat's); under those the belt itself is left off (the coat covers it, and its buckle stood through the
+  // coat's front) and so is the shirt's collar (the coat's own collar is there))
+  const tucked = top.item === 'western-shirt' && (belted || coated);
+  if (overs.includes('western-belt') && !belted) log.push(`western-belt left off: only over a western shirt tucked under it (top ${top.item})`);
+  if (belted && coated) log.push('western-belt left off under the coat (the shirt still tucked)');
   C.lib = [];
   // (RZ: a bare torso only when the sheet asks for one (a man shirtless, a swimmer: the pack has no swimsuit, so not a
   // woman's); anything else must end with a top on)
@@ -438,6 +448,8 @@ export function compile(S) {
     if (bopt.rips) bopt.skinRGB = skinRGB;
     // (denim's printed blue a little faded (x0.75 chroma): it keeps its family under a warm light (colour.mjs), as worn denim does)
     if (/jeans/.test(bot.item)) bopt.desat = 0.25;
+    // (WW: under a western belt the trousers' own waistband (the pack prints a black one, under any top) is their cloth)
+    if (tucked) bopt.fillBand = true;
     C.wear.push([bf, 'bottom', [1, 1, 1], bm, { ...bopt, tint: lin3(hex(G(bot, [40, 40, 44]))), floor: 0.3 }]);
   }
   // the top
@@ -445,6 +457,7 @@ export function compile(S) {
     // (MV: a puffer's nylon held under OKLCH chroma 0.09: a saturated orange-red puffer read as moulded plastic, GR)
     const topCol = top.item === 'puffer-coat' ? capChroma(G(top, [60, 60, 66]), 0.09, log) : G(top, top.item === 'chef-jacket' ? [238, 238, 234] : [60, 60, 66]);
     C.lib.push({ item: top.item, color: topCol, accent: top.accent || null, fit: top.fit || 'regular', layer: LIBTOP[top.item], apron: (W.over || []).some((o) => o.item === 'apron'),
+      ...(top.item === 'western-shirt' ? { pattern: top.pattern === 'plaid' ? 'plaid' : 'plain', accent: top.accent ? G({ color: top.accent }, [30, 36, 52]) : null, tuck: tucked || undefined, under: overs.some((x) => x in OVERW) || undefined, noCollar: coated || undefined } : {}),
       // (HD: the top told what is worn with it: no neckband under a hood worn up, no tall collar under a scarf)
       hoodUp: (W.headwear?.item || 'none') === 'hood-up' || undefined, scarf: (W.over || []).some((o) => o.item === 'scarf') || undefined });
     // (an overcoat as the top: a shirt under it, seen at the collar)
@@ -468,11 +481,13 @@ export function compile(S) {
     // (C5: over the base suit's shirt, whose collar is kept only in the V (core.mjs), the jacket's collar sits closer on the neck)
     if (!coatOverSuit) C.lib.push({ item: top.item, color: G(top, [38, 40, 48]), pattern: top.pattern || 'plain', fit: top.fit || 'regular', layer: 3, ...(fem ? {} : { collarGap: 0.003 }) }); }
   for (const o of W.over || []) if (o.item === 'overcoat' && !libTop) C.lib.push({ item: 'overcoat', color: G(o, [60, 60, 66]), accent: o.accent || null, layer: 5 });
+  if (belted && !coated) { const o = W.over.find((x) => x.item === 'western-belt'); C.lib.push({ item: 'western-belt', color: G(o, [64, 44, 30]), accent: o.accent || null, layer: 3.5 }); }
+  for (const it of ['vest', 'ranch-jacket', 'duster']) for (const o of W.over || []) if (o.item === it) C.lib.push({ item: it, color: G(o, { vest: [74, 52, 38], 'ranch-jacket': o.pattern === 'canvas' ? [128, 98, 62] : [58, 78, 108], duster: [104, 86, 62] }[it]), accent: o.accent || null, pattern: o.pattern || null, layer: OVERW[it], ...(it === 'vest' && belted ? { belted: true } : {}) });
   for (const o of W.over || []) if (o.item === 'apron') C.apron = { len: fem ? 0.5 : 0.56, width: fem ? 0.36 : 0.4, curve: 5, color: c3(o, [236, 236, 232]), check: o.pattern === 'check' ? { a: c3(o, [40, 64, 120]), b: hex(o.accent, [236, 236, 232]), size: 0.022 } : null, band: hex(o.accent, null) || null, gap: 0.014, ties: true };
   // (RZ: the wardrobe must end with something over the torso: a pack garment worn for its top or whole, or a library top,
   // a suit's jacket or a coat. A sheet that would leave none is an error, never a silent hole (the skin under a garment's
   // hide list is taken out of the body), unless it asks for a bare torso)
-  const TORSO_LIB = new Set([...Object.keys(LIBTOP), 'suit-jacket', 'suit-jacket-db', 'overcoat']);
+  const TORSO_LIB = new Set([...Object.keys(LIBTOP), 'suit-jacket', 'suit-jacket-db', 'overcoat', 'ranch-jacket', 'duster']);
   C.torso = C.wear.some((w) => w[1] === 'top' || w[1] === 'all') || C.lib.some((l) => TORSO_LIB.has(l.item));
   if (!C.torso && !(BARE.has(top.item) && !fem)) throw new Error(`forge compile: the wardrobe has nothing over the torso (top "${top.item}", bottom "${bot.item}", ${S.identity.body}): no garment for it`);
   if (BARE.has(top.item) && !fem) { C.bareTorso = true; log.push(`bare torso: ${top.item}`); }
@@ -481,6 +496,7 @@ export function compile(S) {
   // under a hood is the scalp's shadow only, so no card comes through it)
   if (hw === 'hood-up') { C.lib.push({ item: 'hood-up', color: G(top.item === 'hoodie' ? top : W.headwear, [70, 72, 78]), layer: 4 }); C.hood = null; C.hair = 'none'; C.boxBraids = null; C.hairTousle = null; C.shaved = { a: 0.6, col: ramp[0] }; }
   for (const o of W.over || []) if (o.item === 'scarf') C.lib.push({ item: 'scarf', color: G(o, [150, 40, 44]), accent: o.accent || null, layer: 6 });
+  for (const o of W.over || []) if (o.item === 'bandana') C.lib.push({ item: 'bandana', color: G(o, [142, 28, 32]), accent: o.accent || null, layer: 6.5 });
   if (hw === 'knit-beanie') C.cap = { make: true, style: 'beanie', color: c3(W.headwear, [180, 30, 36]).map((x) => +(lin(x)).toFixed(3)), front: 0.032, back: -0.02, side: 0.0, off: 0.008, slouch: 0.016, cuff: 0.048, ribs: 72, pom: W.headwear.pattern === 'stripe' ? 0.03 : 0, knit: true };
   else if (hw === 'peaked-cap') C.cap = { make: true, style: 'peaked', color: c3(W.headwear, [92, 18, 32]).map((x) => +(lin(x)).toFixed(3)), band: hex(W.headwear.accent, [176, 136, 52]).map((x) => +(lin(x) * 0.8).toFixed(3)), front: 0.042, back: 0.014, side: 0.012, off: 0.007, crown: 0.05, flare: 0.016, bandH: 0.02, brimLen: 0.036, brimSpan: 0.86, pitch: 0.55, rough: 0.72 };
   else if (hw === 'ball-cap') C.cap = { make: true, style: 'ball', color: c3(W.headwear, [20, 26, 48]).map((x) => +(lin(x)).toFixed(3)) };
@@ -489,9 +505,9 @@ export function compile(S) {
   // (forge v2.3, SH: work boots and sneakers are the library's rigid shoes (shoes.mjs: a last round the foot, a sole, laces,
   // on the foot bone alone); FORGE_PACK_SHOES=1 the pack's. A man's dress shoes (the oxford) are built but opt in with
   // FORGE_LIB_DRESS=1: under a suit's long trousers they fail the cloth gate (the hem over the laces), so not anchor-ready)
-  const LIBSHOE = { 'work-boots': 'work-boots', boots: 'work-boots', sneakers: 'sneakers', 'white-sneakers': 'sneakers', 'skate-shoes': 'sneakers', ...(fem || !globalThis.process?.env?.FORGE_LIB_DRESS ? {} : { dress: 'dress-shoes' }) }[W.shoes.item];
+  const LIBSHOE = { 'cowboy-boots': 'cowboy-boots', 'work-boots': 'work-boots', boots: 'work-boots', sneakers: 'sneakers', 'white-sneakers': 'sneakers', 'skate-shoes': 'sneakers', ...(fem || !globalThis.process?.env?.FORGE_LIB_DRESS ? {} : { dress: 'dress-shoes' }) }[W.shoes.item];
   if (LIBSHOE && !globalThis.process?.env?.FORGE_PACK_SHOES) { C.lib.unshift({ item: LIBSHOE, color: W.shoes.color ? G(W.shoes, [0, 0, 0]) : null, accent: W.shoes.accent || null, layer: 1.5 }); C.shoes = 'none'; } else
-  C.shoes = { dress: 'shoes03', boots: 'shoes02', 'work-boots': 'shoes02', 'work-shoes': 'shoes04', loafers: 'shoes01', 'white-sneakers': 'shoes05', sneakers: 'shoes06', 'skate-shoes': 'shoes06' }[W.shoes.item] || 'shoes04';
+  C.shoes = { dress: 'shoes03', boots: 'shoes02', 'cowboy-boots': 'shoes02', 'work-boots': 'shoes02', 'work-shoes': 'shoes04', loafers: 'shoes01', 'white-sneakers': 'shoes05', sneakers: 'shoes06', 'skate-shoes': 'shoes06' }[W.shoes.item] || 'shoes04';
   C.shoesTint = W.shoes.color ? hex(W.shoes.color).map((x) => +(x / 160).toFixed(2)) : [1, 1, 1];
 
   /* the mouth: always teeth (found lips -> placed); the props for the runtime */

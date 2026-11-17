@@ -558,7 +558,7 @@
    "properties": {
     "top": {
      "$ref": "#/$defs/garment",
-     "description": "item: tee | long-sleeve | hoodie | puffer-coat | suit-jacket (single-breasted) | suit-jacket-db (double-breasted) | doorman-coat | uniform-jacket | chef-jacket | overalls (= dungarees: bib and straps over a tee; accent = the tee) | overcoat (overcoat = a knee-length coat over a shirt) | shirtless (a man only, a bare torso, only when the story asks for one)"
+     "description": "item: tee | long-sleeve | hoodie | puffer-coat | suit-jacket (single-breasted) | suit-jacket-db (double-breasted) | doorman-coat | uniform-jacket | chef-jacket | overalls (= dungarees: bib and straps over a tee; accent = the tee) | overcoat (overcoat = a knee-length coat over a shirt) | western-shirt (a pearl-snap western shirt: pointed yoke, snap-flap chest pockets; pattern plaid (accent = the plaid's bands) | plain (accent = the yoke's piping)) | shirtless (a man only, a bare torso, only when the story asks for one)"
     },
     "bottom": {
      "$ref": "#/$defs/garment",
@@ -566,11 +566,11 @@
     },
     "over": {
      "type": "array",
-     "maxItems": 2,
+     "maxItems": 3,
      "items": {
       "$ref": "#/$defs/garment"
      },
-     "description": "item: apron (pattern plain | check; tied at the back) | overcoat | puffer-coat | scarf (knit, wound at the neck, ends down the front; accent = stripes)"
+     "description": "item: apron (pattern plain | check; tied at the back) | overcoat | puffer-coat | scarf (knit, wound at the neck, ends down the front; accent = stripes) | western-belt (tooled leather, an engraved oval buckle; accent = the buckle's metal; only over a western-shirt, which it tucks in) | vest (a western vest; pattern leather | quilted) | ranch-jacket (hip length; pattern denim | canvas; accent = its sherpa collar) | duster (a long canvas coat to mid-calf with a shoulder cape) | bandana (a neckerchief knotted behind the neck, its point down the front; accent = its print)"
     },
     "headwear": {
      "$ref": "#/$defs/garment",
@@ -578,7 +578,7 @@
     },
     "shoes": {
      "$ref": "#/$defs/garment",
-     "description": "item: dress | sneakers | white-sneakers | boots | work-boots | work-shoes | skate-shoes (sneakers and work boots are cut from the foot; accent = a sneaker's stripe and heel)"
+     "description": "item: dress | sneakers | white-sneakers | boots | work-boots | cowboy-boots (pointed toe, riding heel, pull-on; accent = the shaft) | work-shoes | skate-shoes (sneakers and work boots are cut from the foot; accent = a sneaker's stripe and heel)"
     }
    }
   },
@@ -768,7 +768,12 @@
      "enum": [
       "plain",
       "check",
-      "stripe"
+      "stripe",
+      "plaid",
+      "denim",
+      "canvas",
+      "leather",
+      "quilted"
      ]
     },
     "fit": {

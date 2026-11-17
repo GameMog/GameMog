@@ -67,7 +67,7 @@ export function runWardrobeChecks(ok: Ok) {
     ['a delivery driver in a suit gets a plain tee, trousers and sneakers', person('the delivery driver', 'Knows every porch in town.', SUIT()), null, ['tee', 'trousers', 'sneakers']],
     ['a teacher in overalls gets smart casual (her sneakers kept)', person('the high school teacher', 'Grades papers at the diner.', W('overalls', 'jeans', 'sneakers'), 'female'), null, ['long-sleeve', 'loose-trousers', 'sneakers']],
     ['a college student in a double-breasted suit gets a hoodie, jeans and sneakers', person('the college student home for summer', 'Wants out of this town.', W('suit-jacket-db', 'suit-trousers', 'dress')), null, ['hoodie', 'jeans', 'white-sneakers']],
-    ['a rancher in a suit gets a work shirt, jeans and boots (a farmer keeps the overalls)', person('the rancher next door', 'Three hundred head and a bad back.', SUIT()), null, ['long-sleeve', 'jeans', 'boots']],
+    ['a rancher in a suit gets a western shirt, jeans and cowboy boots (a farmer keeps the overalls)', person('the rancher next door', 'Three hundred head and a bad back.', SUIT()), null, ['western-shirt', 'jeans', 'cowboy-boots']],
     ['a boss forged in overalls gets the old boss\'s suit', person('the boss', 'Runs the feed store and the town.', W('overalls', 'jeans', 'work-boots')), null, ['suit-jacket', 'suit-trousers', 'dress']],
     ['a woman executive in a work jacket gets a suit jacket over trousers', person('the executive', 'Flew in to close the plant.', W('uniform-jacket', 'jeans', 'sneakers'), 'female'), null, ['suit-jacket', 'trousers', 'dress']],
   ];
@@ -97,6 +97,21 @@ export function runWardrobeChecks(ok: Ok) {
     hatted(blunt, null, '"no-nonsense" before the hat is not a no');
     const kid = person('the college student', 'Home for the summer.', W('hoodie', 'jeans', 'sneakers')); (kid.wardrobe as any).headwear = { item: 'ball-cap' };
     ok('a student in a ball cap keeps it (no western hat in his words)', !fitWardrobe(kid).length && (kid.wardrobe as any).headwear.item === 'ball-cap');
+  }
+  // western wear (Colter Land, 16 Nov: "it doesn't look like Montana"): ranch and rodeo people in pearl-snap shirts,
+  // cowboy boots and a belt; a ranch's people with no job named in the shirt and belt; town people untouched
+  {
+    const valid = (p: any) => !v.check((FORGE as any).$id, { ...clone(FORGE_BASE), wardrobe: p.wardrobe }).problems.length;
+    const hand = person('the ranch hand', 'Up before the cattle.', W('long-sleeve', 'jeans', 'boots')); const ch = fitWardrobe(hand);
+    ok('a ranch hand in a work shirt and boots gets a western shirt, cowboy boots and a belt (valid, fitting again changes nothing)', hand.wardrobe.top.item === 'western-shirt' && hand.wardrobe.shoes.item === 'cowboy-boots' && (hand.wardrobe as any).over?.[0]?.item === 'western-belt' && valid(hand) && !fitWardrobe(hand).length, ch.join('; '));
+    const bull = person('the bull rider', 'Eight seconds at a time.', W('tee', 'jeans', 'work-boots'));
+    ok('a bull rider is a ranch hand for his clothes', fitWardrobe(bull).length > 0 && bull.wardrobe.top.item === 'western-shirt' && bull.wardrobe.shoes.item === 'cowboy-boots');
+    const son = person("the rancher's son", 'Home from Missoula, wants none of the Colter Ranch.', W('long-sleeve', 'jeans', 'sneakers'));
+    ok("the rancher's son (no job of his own, on a ranch) gets the shirt and belt, keeps his sneakers", fitWardrobe(son).length > 0 && son.wardrobe.top.item === 'western-shirt' && son.wardrobe.shoes.item === 'sneakers' && valid(son));
+    const dev = person('the developer from Denver', 'Wants to buy the Colter Ranch and pave it.', W('suit-jacket', 'suit-trousers', 'dress'));
+    ok('a developer who wants to buy the ranch keeps his suit', !fitWardrobe(dev).length && dev.wardrobe.top.item === 'suit-jacket');
+    const asked = person('the ranch hand', 'Always in his grey hoodie.', W('hoodie', 'jeans', 'boots'));
+    ok('a ranch hand whose words ask for a hoodie keeps it', !fitWardrobe(asked).some((c: string) => c.startsWith('top')) && asked.wardrobe.top.item === 'hoodie');
   }
   const security = person('the sheriff', '', SUIT()); fitWardrobe(security);
   ok('the uniform carries no insignia: its trim is the cloth\'s own colour and no cap is added', security.wardrobe.top.accent === security.wardrobe.top.color && !(security.wardrobe as any).headwear);
@@ -135,6 +150,15 @@ export function runWardrobeChecks(ok: Ok) {
   ok('forge: an overcoat over a suit\'s jacket is one coat over the suit (no jacket under it; the suit\'s shirt, tie and trousers kept)', items(coated) === 'overcoat' && !!coated.suit && coated.wear.some((w: any) => w[0] === 'male_elegantsuit01'), items(coated));
   const suited = dress({ top: { item: 'suit-jacket', color: '#2A2A2E' }, bottom: { item: 'suit-trousers', color: '#2A2A2E' }, shoes: { item: 'dress' } });
   ok('forge: a suit without a coat keeps its jacket', items(suited) === 'suit-jacket', items(suited));
+  // (WW) the forge's western wear: a belt tucks a western shirt in; under a ranch jacket or a duster the belt and the
+  // shirt's collar are left off (the coat's own cover them); a belt over any other top is left off, logged
+  const shirt = { item: 'western-shirt', color: '#8E2E2A', accent: '#232C3C', pattern: 'plaid' }, jeans = { item: 'jeans', color: '#2C3646' }, boots = { item: 'cowboy-boots', color: '#5A3A26' };
+  const belted = dress({ top: shirt, bottom: jeans, shoes: boots, over: [{ item: 'western-belt' }, { item: 'vest', pattern: 'leather' }, { item: 'bandana' }] });
+  ok('forge: a western shirt with a belt, a vest and a bandana: boots, the tucked shirt, the belt, the vest, the bandana in that order', items(belted) === 'cowboy-boots,western-shirt,western-belt,vest,bandana' && belted.lib[1].tuck === true && belted.wear.some((w: any) => w[4]?.fillBand), items(belted));
+  const coatedW = dress({ top: shirt, bottom: jeans, shoes: boots, over: [{ item: 'western-belt' }, { item: 'duster' }] });
+  ok('forge: under a duster the belt is left off, the shirt tucked and collarless', items(coatedW) === 'cowboy-boots,western-shirt,duster' && coatedW.lib[1].tuck === true && coatedW.lib[1].noCollar === true, items(coatedW));
+  const teeBelt = compile({ ...clone(FORGE_BASE), wardrobe: { top: { item: 'tee' }, bottom: jeans, shoes: boots, over: [{ item: 'western-belt' }] } });
+  ok('forge: a western belt over a tee is left off (logged), never a belt over an untucked top', !(teeBelt.cfg as any).lib.some((l: any) => l.item === 'western-belt') && teeBelt.log.some((l: string) => /western-belt left off/.test(l)));
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

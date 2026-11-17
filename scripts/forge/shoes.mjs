@@ -55,6 +55,11 @@ export const KINDS = {
     upperBottom: -0.002, rows: 6, eyeW: [0.0135, 0.0115], roll: 0.0055, shaftEase: 0.6, lace: { w: 0.0034, t: 0.0014 }, rough: { upper: 0.9, sole: 0.8, lace: 0.92 } },
   boot: { soleH: 0.027, wrap: [0.006, 0.004, 0.006], room: 0.0038, allow: 0.015, toeH: 0.037, collar: [0.112, 0.108, 0.122], tongue: 0, bevel: 0.009, spring: 0.009, arch: 0.004, welt: 0.0058,
     upperBottom: -0.004, rows: 8, eyeW: [0.0145, 0.0125], roll: 0.006, shaftEase: 0.92, lace: { w: 0.0036, t: 0.0024 }, rough: { upper: 0.4, sole: 0.9, lace: 0.9 } },
+  // (WW) a cowboy boot: the boot's last and welt, no laces (a pull-on: rows 0), a long narrow pointed toe (more room
+  // ahead of the toes, a lower toe box tapering to a snip), the waist lifted under the arch so the riding heel stands
+  // apart from the forepart's sole, smooth leather (no lugs); the shaft rides under the jeans as a work boot's does
+  western: { soleH: 0.017, wrap: [0.006, 0.0035, 0.005], room: 0.0056, allow: 0.052, toeH: 0.034, collar: [0.15, 0.185, 0.16], tongue: 0, bevel: 0.005, spring: 0.018, arch: 0.011, welt: 0.0032,
+    upperBottom: -0.004, rows: 0, eyeW: [0.0145, 0.0125], roll: 0.0026, shaftEase: 0.92, lace: { w: 0.0036, t: 0.0024 }, rough: { upper: 0.56, sole: 0.7, lace: 0.9 }, toeExp: [1.3, 1.22], tipAt: 0.5, relief: 'western', smoothSole: true },
   dress: { soleH: 0.022, wrap: [-0.0105, -0.0105, -0.0105], room: 0.0034, allow: 0.02, toeH: 0.027, collar: [0.02, -0.009, -0.004], tongue: 0, bevel: 0.011, spring: 0.011, arch: 0.009, welt: 0.003,
     upperBottom: -0.012, rows: 5, eyeW: [0.0085, 0.0075], roll: 0.0026, shaftEase: 0, lace: { w: 0.0019, t: 0.0016 }, rough: { upper: 0.4, sole: 0.55, lace: 0.6 } },
 };
@@ -106,9 +111,9 @@ function last(ctx, F, K, top) {
     for (let q = 0; q < bodyIdx.length; q += 3) for (let e = 0; e < 3; e++) { const u = bodyIdx[q + e], v = bodyIdx[q + (e + 1) % 3]; if (cls[u] !== 3 || cls[v] !== 3 || Math.sign(bPos[u * 3]) !== F.sx) continue;
       const a = P(u), b = P(v); for (const yy of [yc, ...bands.flatMap((B) => [B.lo, B.hi])]) { if ((a[1] - yy) * (b[1] - yy) >= 0) continue; const t = (yy - a[1]) / (b[1] - a[1]), p = a.map((x, k) => x + (b[k] - x) * t), lq = loc(p); if (Math.hypot(lq[0], lq[1]) < 0.08 && lq[0] < 0.07) leg.push(p); } } }
   for (const p of leg) for (const B of bands) if (p[1] >= B.lo - 1e-4 && p[1] <= B.hi + 1e-4) B.pts.push(p);
-  const aB = aT - 0.072, bIn = ball[0], bOut = ball[1], tipB = bIn + 0.36 * (bOut - bIn), yTopBall = (() => { let m = yb; for (const q of F.L) if (q[0] > aB - 0.01 && q[0] < aB + 0.01 && q[2] < A[1]) m = Math.max(m, q[2]); return m; })();
+  const aB = aT - 0.072, bIn = ball[0], bOut = ball[1], tipB = bIn + (K.tipAt ?? 0.36) * (bOut - bIn), [ex0, ex1] = K.toeExp || [3.2, 2.2], yTopBall = (() => { let m = yb; for (const q of F.L) if (q[0] > aB - 0.01 && q[0] < aB + 0.01 && q[2] < A[1]) m = Math.max(m, q[2]); return m; })();
   for (let i = 0; i <= 16; i++) { const t = i / 16, a = aB + (aTip - K.room - aB) * t;
-    const wm = (tipB - bIn) * Math.pow(Math.max(0, 1 - Math.pow(t, 3.2)), 1 / 3.2), wl = (bOut - tipB) * Math.pow(Math.max(0, 1 - Math.pow(t, 2.2)), 1 / 2.2);
+    const wm = (tipB - bIn) * Math.pow(Math.max(0, 1 - Math.pow(t, ex0)), 1 / ex0), wl = (bOut - tipB) * Math.pow(Math.max(0, 1 - Math.pow(t, ex1)), 1 / ex1);
     const hTop = yb + (K.toeH - K.room) + (yTopBall - yb - (K.toeH - K.room)) * Math.pow(1 - t, 1.6), front = Math.pow(Math.max(0, 1 - Math.pow(Math.max(0, (t - 0.55) / 0.45), 2.4)), 1 / 2.4), h = yb + (hTop - yb) * (0.35 + 0.65 * front);
     for (let j = 0; j <= 10; j++) { const s = j / 10, b = tipB - wm + (wm + wl) * s, edge = Math.pow(Math.abs(2 * s - 1), 4); foot.push(wld(a, b, yb), wld(a, b, h - (h - yb) * 0.55 * edge)); } }
   // (the upper's walls down past the foot's underside into the sole (an oxford's lasting margin over its thin sole))
@@ -178,7 +183,7 @@ function panelsOf(kind, F, S, q) { const { A, aH, yb } = F, a = q[0], b = q[1], 
   return { a, b, y, dy: y - A[1], cap, lacing, onTop, back, counter, yb, aTip, aLB: S.aLB }; }
 // (the panels' relief, m along the surface's ray: the tongue sunk in the lacing's gap, the facings over it, the toe cap's
 // overlay, the counter's, a padded collar, a boot's back stay)
-function reliefOf(kind, P0, toTop) { let h = 0; const K0 = { boot: [0.0022, 0.0013, 0.001, 0.002], sneaker: [0.0016, 0.001, 0.0007, 0.0038], dress: [0.0011, 0.0006, 0.0004, 0] }[kind];
+function reliefOf(kind, P0, toTop) { let h = 0; const K0 = { western: [0, 0, 0, 0.0016], boot: [0.0022, 0.0013, 0.001, 0.002], sneaker: [0.0016, 0.001, 0.0007, 0.0038], dress: [0.0011, 0.0006, 0.0004, 0] }[kind];
   if (P0.onTop && P0.lacing < 0) h -= K0[0] * sm(0, -0.0025, P0.lacing) * sm(P0.aLB + 0.004, P0.aLB - 0.008, P0.a);
   if (P0.onTop && P0.lacing >= 0) h += K0[1] * (1 - sm(0.017, 0.024, P0.lacing)) * sm(P0.aLB + 0.004, P0.aLB - 0.008, P0.a);
   if (P0.cap > 0) h += K0[2] * sm(0, 0.0025, P0.cap); if (P0.counter < 0) h += K0[2] * sm(0, -0.0025, P0.counter); if (kind === 'boot' && P0.back < 0.14) h += 0.0008 * sm(0.14, 0.11, P0.back);
@@ -199,7 +204,7 @@ function buildSide(ctx, F, kind, K, colours) {
   const thTop = findTh((p) => p[1] < collarY(0) - (kind === 'boot' ? 0.012 : kind === 'sneaker' ? 0.026 : 0.004)), thBot = findTh((p) => loc(p)[0] > (kind === 'dress' ? 0.075 : S.aTip - (kind === 'boot' ? 0.1 : 0.088)));
   S.aLB = loc(sag(thBot))[0] + 0.006;
   { const phL = (p) => { const q = loc(p); return Math.atan2(q[1], q[0]); }; for (let k = 0; k < R.length; k++) { const p = [c[0] + DIR[k * 3] * R[k], c[1] + DIR[k * 3 + 1] * R[k], c[2] + DIR[k * 3 + 2] * R[k]];
-    R[k] += reliefOf(kind, panelsOf(kind, F, S, loc(p)), collarY(phL(p)) - p[1]); } }
+    R[k] += reliefOf(K.relief || kind, panelsOf(kind, F, S, loc(p)), collarY(phL(p)) - p[1]); } }
   // the grid's points
   const G = { P: [], UV: [], X: [], idx: [] };
   for (let j = 0; j <= NV; j++) for (let i = 0; i <= NU; i++) { const k = j * (NU + 1) + i, r = R[k]; G.P.push(c[0] + DIR[k * 3] * r, c[1] + DIR[k * 3 + 1] * r, c[2] + DIR[k * 3 + 2] * r); G.UV.push(i / NU, j / NV); G.X.push({}); }
@@ -253,7 +258,7 @@ function buildSide(ctx, F, kind, K, colours) {
   const SP = [], SUV = [], Sidx = [], RW = prof.length;
   for (let k = 0; k <= NB; k++) { const ph = ((k % NB) + 0.5) / NB * 2 * Math.PI, r = RO[k % NB], da = -Math.cos(ph), db = Math.sin(ph);
     // (an oxford's heel: a stacked block to the heel's breast, the forepart's sole thin under the upper's lasting)
-    const lug = kind === 'boot' && (k % 3) === 0; for (const [dr0, hy, v] of prof) { const dr = dr0 - (lug && hy < 0.2 ? 0.003 : 0), a = scl[0] + da * (r + dr), b = scl[1] + db * (r + dr), yf = floorAt(a, b), heel = kind === 'dress' ? 1 - sm(F.aH + 0.075, F.aH + 0.085, a) : 0;
+    const lug = kind === 'boot' && !K.smoothSole && (k % 3) === 0; for (const [dr0, hy, v] of prof) { const dr = dr0 - (lug && hy < 0.2 ? 0.003 : 0), a = scl[0] + da * (r + dr), b = scl[1] + db * (r + dr), yf = floorAt(a, b), heel = kind === 'dress' ? 1 - sm(F.aH + 0.075, F.aH + 0.085, a) : 0;
       const yTop = yb + wrapAt(ph) + (kind === 'dress' ? heel * 0.0105 : 0), y = yf + (yTop - yf) * hy, p = wld(a, b, y); p[1] += spring(p); SP.push(...p); SUV.push(k / NB, v); } }
   for (let k = 0; k < NB; k++) for (let j = 0; j < RW - 1; j++) { const a = k * RW + j, b = a + RW; if (sx > 0) Sidx.push(a, a + 1, b, a + 1, b + 1, b); else Sidx.push(a, b, a + 1, a + 1, b, b + 1); }
   // (the bottom: its edge ring again, then rings in to the middle, uv in plan (v under 0.33), so the tread is painted where it is)
@@ -274,7 +279,7 @@ function buildSide(ctx, F, kind, K, colours) {
     eyes.push(pair); }
   const nOn = (p) => { const d = [p[0] - c[0], p[1] - c[1], p[2] - c[2]], n = Math.hypot(...d); return d.map((x) => x / n); };
   const laceSeg = (p0, p1, over) => { const pts = [], nn = []; for (let i = 0; i <= 10; i++) { const t = i / 10, q = [0, 1, 2].map((k) => p0[k] + (p1[k] - p0[k]) * t), lift = -0.0008 + (K.lace.t * 0.5 + 0.0016 + over * 0.0011) * Math.sqrt(Math.sin(Math.PI * t)); pts.push(S.onto(q, Math.max(-0.0008, lift))); nn.push(nOn(q)); } return tube(pts, nn, K.lace.w, K.lace.t, false, 6); };
-  const laces = []; for (let r = rows - 1; r > 0; r--) { laces.push(laceSeg(eyes[r][0], eyes[r - 1][1], r % 2), laceSeg(eyes[r][1], eyes[r - 1][0], 1 - (r % 2))); }
+  const laces = []; if (rows) { for (let r = rows - 1; r > 0; r--) { laces.push(laceSeg(eyes[r][0], eyes[r - 1][1], r % 2), laceSeg(eyes[r][1], eyes[r - 1][0], 1 - (r % 2))); }
   laces.push(laceSeg(eyes[rows - 1][0], eyes[rows - 1][1], 0));
   // (the bow at the top: a knot, two loops lying over the quarters, two ends hanging)
   { const k0 = S.onto([(eyes[0][0][0] + eyes[0][1][0]) / 2, (eyes[0][0][1] + eyes[0][1][1]) / 2 + 0.006, (eyes[0][0][2] + eyes[0][1][2]) / 2], K.lace.t * 1.6), kl = loc(k0), big = kind === 'dress' ? 0.7 : 1;
@@ -282,10 +287,11 @@ function buildSide(ctx, F, kind, K, colours) {
       laces.push(tube(lp, ln, K.lace.w, K.lace.t, false, 6));
       const tp = [], tn = []; for (let i = 0; i <= 10; i++) { const t = i / 10, q = wld(kl[0] - 0.004 * t + sgn * 0.0, kl[1] + sgn * (0.004 + 0.012 * t), k0[1] - 0.045 * big * t); tp.push(S.onto(q, K.lace.t * (1.1 + 0.8 * t))); tn.push(nOn(q)); } laces.push(tube(tp, tn, K.lace.w, K.lace.t, false, 6)); }
     const kn = []; for (let i = 0; i <= 6; i++) { const t = i / 6 - 0.5, q = wld(kl[0] + t * 0.004, kl[1] + t * 0.009, k0[1]); kn.push(S.onto(q, K.lace.t * 2)); } laces.push(tube(kn, kn.map(nOn), K.lace.w * 2.1, K.lace.t * 2.4, false, 8)); }
+  }
   const lm = laces.reduce((acc, t) => { const o = acc.P.length / 3; acc.P.push(...t.P); acc.UV.push(...t.UV); for (const i of t.idx) acc.idx.push(o + i); return acc; }, { P: [], UV: [], idx: [] });
   const laceM = fin(lm.P, lm.UV, lm.idx);
   // (eyelets: a ring at each hole; brass on a boot, nothing but the painted hole on the others)
-  let eyeM = null; if (kind === 'boot') { const E = { P: [], UV: [], idx: [] }; for (const pair of eyes) for (const e of pair) { const n0 = nOn(e), ring = [], rn = []; const t1 = Math.abs(n0[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0], u = [n0[1] * t1[2] - n0[2] * t1[1], n0[2] * t1[0] - n0[0] * t1[2], n0[0] * t1[1] - n0[1] * t1[0]], ul = Math.hypot(...u), U = u.map((x) => x / ul), V = [n0[1] * U[2] - n0[2] * U[1], n0[2] * U[0] - n0[0] * U[2], n0[0] * U[1] - n0[1] * U[0]];
+  let eyeM = null; if (kind === 'boot' && rows) { const E = { P: [], UV: [], idx: [] }; for (const pair of eyes) for (const e of pair) { const n0 = nOn(e), ring = [], rn = []; const t1 = Math.abs(n0[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0], u = [n0[1] * t1[2] - n0[2] * t1[1], n0[2] * t1[0] - n0[0] * t1[2], n0[0] * t1[1] - n0[1] * t1[0]], ul = Math.hypot(...u), U = u.map((x) => x / ul), V = [n0[1] * U[2] - n0[2] * U[1], n0[2] * U[0] - n0[0] * U[2], n0[0] * U[1] - n0[1] * U[0]];
       for (let i = 0; i < 12; i++) { const g = (i / 12) * 2 * Math.PI; ring.push([0, 1, 2].map((k) => e[k] + (U[k] * Math.cos(g) + V[k] * Math.sin(g)) * 0.0032 + n0[k] * 0.0008)); rn.push(n0); }
       const T = tube(ring, rn, 0.0016, 0.0013, true, 5), o = E.P.length / 3; E.P.push(...T.P); E.UV.push(...T.UV); for (const i of T.idx) E.idx.push(o + i); }
     eyeM = fin(E.P, E.UV, E.idx); }
@@ -301,8 +307,8 @@ function buildSide(ctx, F, kind, K, colours) {
 function painter(sides, fn) { return (p, n, f, c, ao, uv) => { const s = sides[p[0] >= 0 ? 'L' : 'R'] || sides.L, q = s.F.loc(p); return fn(q, p, n, uv, s); }; }
 const stitch = (d, along, w = 0.0005, pitch = 0.0034) => Math.abs(d) < w && Math.sin((along / pitch) * 2 * Math.PI) > -0.2;
 function shoes(ctx, o) {
-  const kind = o.kind, K = KINDS[kind], fem = ctx.sex === 'female';
-  const col = kind === 'sneaker' ? hexRGB(o.color, [234, 234, 230]) : leatherColour(hexRGB(o.color, kind === 'boot' ? [70, 54, 44] : [26, 22, 21]));
+  const kind = o.kind, west = !!o.western, K = west ? KINDS.western : KINDS[kind], fem = ctx.sex === 'female';
+  const col = kind === 'sneaker' ? hexRGB(o.color, [234, 234, 230]) : leatherColour(hexRGB(o.color, west ? [84, 58, 40] : kind === 'boot' ? [70, 54, 44] : [26, 22, 21]));
   const acc = kind === 'sneaker' ? hexRGB(o.accent, [36, 46, 74]) : leatherColour(hexRGB(o.accent, col.map((x) => Math.round(x * 0.8))));
   const solC = kind === 'sneaker' ? [238, 236, 228] : kind === 'boot' ? [19, 18, 18] : [22, 19, 18], laceC = kind === 'sneaker' ? [240, 240, 236] : kind === 'boot' ? (Math.max(...col) < 40 ? [17, 16, 16] : [98, 74, 52]) : [14, 13, 13];
   const sides = {}; for (const s of ['L', 'R']) { const F = footFrame(ctx, s); sides[s] = buildSide(ctx, F, kind, K, { col, acc }); }
@@ -318,6 +324,14 @@ function shoes(ctx, o) {
       if (inStripe) { C0 = acc; if (Math.abs(Math.abs(band) - 0.0055) < 0.0005) k *= 0.8; }
       if (P0.onTop && P0.lacing < 0) { k *= 0.72 + 0.08 * fbm(p, 0.002); if (P0.lacing > -0.0014) k *= 0.6; } // (the tongue in the lacing's gap, in its shadow)
       if (P0.onTop && P0.lacing > 0 && P0.lacing < 0.012) { if (Math.abs(P0.lacing - 0.0105) < 0.0005) k *= 0.8; } // (the eyestay's stitch)
+    } else if (west) { // (WW: a cowboy boot's smooth leather: the vamp's seam slanting back up the instep, two rows of
+      // decorative stitching across the toe, a heel counter, the shaft (seen when a jeans leg rides up) in the accent with
+      // its own stitched rows)
+      k *= 0.93 + 0.05 * fbm(p, 0.004) + 0.02 * fbm(p, 0.0006); k *= 1 + 0.05 * Math.max(0, n[1]) * sm(0.0, 0.03, P0.a - (P0.aTip - 0.08));
+      const shaft = P0.dy - (0.05 - 0.022 * Math.min(1, Math.abs(P0.b) / 0.035)); if (Math.abs(shaft) < 0.0009) k *= 0.6; else if (stitch(shaft + 0.003, P0.a + P0.b)) k *= 0.72;
+      if (shaft > 0) { C0 = acc; if (stitch(Math.sin(P0.dy * 160 + P0.a * 40) * 0.004 - (Math.abs(P0.b) - 0.026), P0.y)) k *= 0.7; }
+      const tb = P0.a - (P0.aTip - 0.052) + 260 * P0.b * P0.b; if (P0.y > P0.yb + 0.012 && Math.abs(P0.b) < 0.03) { if (stitch(tb, P0.b) || stitch(tb - 0.006, P0.b) || stitch(tb + 0.008 - 0.012 * Math.cos(P0.b * 220), P0.b)) k *= 0.68; }
+      if (P0.back < 0.16) { k *= 0.9; if (Math.abs(P0.back - 0.16) < 0.012) k *= 0.8; }
     } else if (kind === 'boot') { // (oiled leather: a pebbled grain, a stitched toe cap, the vamp's seam, a back stay, a padded collar)
       k *= 0.9 + 0.07 * fbm(p, 0.0018) + 0.03 * fbm(p, 0.0005); k *= 1 + 0.06 * sm(0.0, 0.03, P0.cap) * Math.max(0, n[1]); // (worn lighter where it scuffs)
       if (Math.abs(P0.cap) < 0.0012) k *= 0.62; if (stitch(P0.cap - 0.0035, P0.b) || stitch(P0.cap - 0.0062, P0.b)) k *= 0.7;
@@ -335,25 +349,28 @@ function shoes(ctx, o) {
     return shade(C0, k); });
   const upperBump = painter(sides, (q, p, n, uv, s) => { const P0 = panels(q, s); let h = 128;
     if (kind === 'sneaker') { h += 10 * Math.sin(p[1] * 2600) * Math.sin((p[0] + p[2]) * 2600); if (Math.abs(P0.cap) < 0.0014) h -= 30; if (P0.counter < 0 && P0.counter > -0.0014) h -= 30; }
+    else if (west) { h += 10 * (fbm(p, 0.002) - 0.5); const tb = P0.a - (P0.aTip - 0.052) + 260 * P0.b * P0.b; if (P0.y > P0.yb + 0.012 && Math.abs(P0.b) < 0.03 && (stitch(tb, P0.b) || stitch(tb - 0.006, P0.b))) h -= 22; const vamp = P0.a - (0.018 - 0.55 * Math.max(0, P0.dy - 0.01)); if (P0.dy > -0.03 && Math.abs(vamp) < 0.0009) h -= 40; }
     else if (kind === 'boot') { h += 34 * (fbm(p, 0.0007) - 0.5); if (Math.abs(P0.cap) < 0.0012) h -= 50; if (stitch(P0.cap - 0.0035, P0.b) || stitch(P0.cap - 0.0062, P0.b)) h += 30; }
     else { h += 6 * (fbm(p, 0.002) - 0.5); if (Math.abs(P0.cap) < 0.0009) h -= 40; if (stitch(P0.cap - 0.0022, P0.b, 0.0003, 0.0022)) h += 18; }
     if (eyeD(p) < 0.002) h -= 40; return [h, h, h]; });
-  const soleBump = painter(sides, (q, p, n, uv) => { let h = 128; if (uv[1] < 0.33) { const u = uv[0] * 60, v = uv[1] * 60; h += kind === 'boot' ? (Math.sin(u * 1.6) * Math.sin(v * 3) > 0.15 ? 60 : -40) : kind === 'sneaker' ? (Math.abs(((u + v * 0.7) % 1 + 1) % 1 - 0.5) < 0.18 ? 40 : -20) : 0; } else if (kind === 'sneaker' && uv[1] > 0.5 && uv[1] < 0.84) h += 18 * Math.sin(uv[1] * 260); return [h, h, h]; });
+  const soleBump = painter(sides, (q, p, n, uv) => { let h = 128; if (uv[1] < 0.33) { const u = uv[0] * 60, v = uv[1] * 60; h += west ? 4 * (fbm(p, 0.003) - 0.5) : kind === 'boot' ? (Math.sin(u * 1.6) * Math.sin(v * 3) > 0.15 ? 60 : -40) : kind === 'sneaker' ? (Math.abs(((u + v * 0.7) % 1 + 1) % 1 - 0.5) < 0.18 ? 40 : -20) : 0; } else if (kind === 'sneaker' && uv[1] > 0.5 && uv[1] < 0.84) h += 18 * Math.sin(uv[1] * 260); return [h, h, h]; });
   const solePaint = painter(sides, (q, p, n, uv, s) => { const v = uv[1]; let k = 1, C0 = solC;
     if (v < 0.33) { k = kind === 'boot' ? 0.85 : 0.8; return shade(C0, k * (0.94 + 0.06 * fbm(p, 0.003))); } // (the tread, painted in the normal map)
     if (kind === 'sneaker') { k *= 0.96 + 0.04 * fbm(p, 0.004); if (v > 0.6 && v < 0.64) C0 = acc; if (v > 0.9) k *= 0.92; if (v < 0.44) k *= 0.85; }
+    else if (west) { const heel = q[0] < s.F.aH + 0.072; C0 = [74, 56, 40]; k *= 0.92 + 0.06 * fbm(p, 0.002);   // (a leather sole's edge; the riding heel's stacked lifts)
+      if (v > 0.66) { C0 = col; k *= 0.9; if (Math.abs(v - 0.8) < 0.025 && Math.sin(uv[0] * 1400) > -0.2) k *= 0.6; } else if (heel && Math.sin(p[1] * 2100) > 0.82) k *= 0.7; }
     else if (kind === 'boot') { if (v > 0.66) { C0 = col; k *= 0.92 + 0.06 * fbm(p, 0.0018); if (Math.abs(v - 0.8) < 0.025 && Math.sin(uv[0] * 1400) > -0.2) k *= 0.6; } else { k *= 0.9 + 0.1 * (Math.sin(uv[0] * 500) > 0.3 ? 1 : 0.55); } }
     else { const a = q[0], heel = a < s.F.aH + 0.08; if (heel && v > 0.42 && v < 0.84) { k *= 0.9 + 0.1 * (Math.sin(p[1] * 1600) > 0.8 ? 0.6 : 1); } if (!heel && v > 0.66) { C0 = col; k *= 0.95; if (Math.abs(v - 0.76) < 0.02 && Math.sin(uv[0] * 1600) > -0.2) k *= 0.7; } }
     return shade(C0, k); });
   const parts = [], extras = [];
   const both = (key) => merge(['L', 'R'].map((s) => sides[s][key]).filter(Boolean));
-  const id = kind === 'boot' ? 'work-boots' : kind === 'sneaker' ? 'sneakers' : 'dress-shoes';
+  const id = west ? 'cowboy-boots' : kind === 'boot' ? 'work-boots' : kind === 'sneaker' ? 'sneakers' : 'dress-shoes';
   extras.push({ name: id, mesh: both('upper'), S: 1024, base: col, paint: upperPaint, bump: upperBump, bumpK: kind === 'boot' ? 3 : 2, rough: K.rough.upper });
   extras.push({ name: id + '-soles', mesh: both('sole'), S: 512, base: solC, paint: solePaint, bump: soleBump, bumpK: 3, rough: K.rough.sole });
-  extras.push({ name: id + '-collar', mesh: both('roll'), S: 128, base: kind === 'sneaker' ? col : col.map((x) => Math.round(x * 0.85)), paint: (p) => shade(kind === 'sneaker' ? col : col, kind === 'sneaker' ? 0.95 + 0.05 * fbm(p, 0.002) : 0.8), rough: kind === 'dress' ? 0.45 : K.rough.upper });
+  extras.push({ name: id + '-collar', mesh: both('roll'), S: 128, base: west ? acc : kind === 'sneaker' ? col : col.map((x) => Math.round(x * 0.85)), paint: (p) => shade(west ? acc : col, kind === 'sneaker' ? 0.95 + 0.05 * fbm(p, 0.002) : 0.8), rough: kind === 'dress' ? 0.45 : K.rough.upper });
   extras.push({ name: id + '-lining', mesh: both('lining'), S: 64, base: kind === 'sneaker' ? [64, 64, 68] : [30, 26, 24], paint: () => (kind === 'sneaker' ? [64, 64, 68] : [30, 26, 24]), rough: 0.9 });
-  extras.push({ name: id + '-laces', mesh: both('laces'), S: 128, base: laceC, paint: (p, n, f, c, ao, uv) => shade(laceC, 0.85 + 0.15 * Math.abs(Math.sin(uv[0] * 90 + uv[1] * 6))), rough: K.rough.lace });
-  if (kind === 'boot') extras.push({ name: id + '-eyelets', mesh: both('eyes'), S: 64, base: [150, 128, 84], paint: () => [150, 128, 84], rough: 0.38, metal: 0.85 });
+  if (K.rows) extras.push({ name: id + '-laces', mesh: both('laces'), S: 128, base: laceC, paint: (p, n, f, c, ao, uv) => shade(laceC, 0.85 + 0.15 * Math.abs(Math.sin(uv[0] * 90 + uv[1] * 6))), rough: K.rough.lace });
+  if (kind === 'boot' && K.rows) extras.push({ name: id + '-eyelets', mesh: both('eyes'), S: 64, base: [150, 128, 84], paint: () => [150, 128, 84], rough: 0.38, metal: 0.85 });
   // the body's points inside the shoe (a margin in): the skin hidden there, a trouser leg's points laid under it
   // (the body's points inside the shoe: the skin hidden there (2 mm in), and what the core does with a trouser leg's points
   // over them: laid 3 mm off the skin, never dropped (a dropped triangle leaves a ragged hem). Over the leg just above the
@@ -378,4 +395,5 @@ export const SHOES = {
   'work-boots': (ctx, o) => shoes(ctx, { ...o, kind: 'boot' }),
   sneakers: (ctx, o) => shoes(ctx, { ...o, kind: 'sneaker' }),
   'dress-shoes': (ctx, o) => shoes(ctx, { ...o, kind: 'dress' }),
+  'cowboy-boots': (ctx, o) => shoes(ctx, { ...o, kind: 'boot', western: true }),
 };
