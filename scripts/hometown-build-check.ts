@@ -203,11 +203,23 @@ function g2(ok: Ok, dir: string) {
   const badKeys = [bundleKey(B, 'us-4054200', T64, 'part', 'geodata.json'), bundleKey(B, 'us-4054200', 'abc', 'full', 'geodata.json'), bundleKey(B, 'us-4054200', T64, 'full', '../x'), farKey(B, 'conus', 2, 1, 1),
     'src/overture/latest/hg1-conus/4/1/1/files.json', 'src/overture/2026-10-21.0/hg1-conus/4/1/1/evil.sh', 'dem/13/n36w097/abc/7.bin', 'dem/snapshots/x.json'];
   ok('anything else is not a key', badKeys.every((k) => !parseKeyString(k)), badKeys.find((k) => parseKeyString(k)));
-  ok('src layers may be 64 MB, DEM pieces 2 MB, the rest 16 MB', maxUploadOf('src') === 64 << 20 && maxUploadOf('dem') === 2 << 20 && maxUploadOf('tiles') === 16 << 20);
+  ok('src layers and bundle files may be 64 MB, DEM pieces 2 MB, the rest 16 MB', maxUploadOf('src') === 64 << 20 && maxUploadOf('bundles') === 64 << 20 && maxUploadOf('dem') === 2 << 20 && maxUploadOf('tiles') === 16 << 20);
   ok('src and dem count towards no build (the GC keeps them apart)', buildOfKey(keys[4]) === null && buildOfKey(keys[6]) === null && buildOfKey(keys[0]) === B);
 
   const store = new TileStore({ root: path.join(dir, 'g2'), capBytes: GB, minFreeBytes: 0, freeBytes: () => 100 * GB, log: () => {} });
   const put = (k: string, b: Buffer, s: string | null = null) => { const v = verifyObject(store, k, b, s); if (v.ok) store.put(k, b); return v; };
+  {
+    // (Bozeman, MT: its full bundle's terrain.bin.gz is 17,898,870 bytes, a whole 15 x 15 tiles of hilly ground; at the old
+    // 16 MB cap for every family it was refused (413) after each compile, and the town never became whole)
+    const sh = (b: Buffer) => createHash('sha256').update(b).digest('hex');
+    const boz = Buffer.alloc(17_898_870, 7), terrain = bundleKey(B, 'us-3008950', T64, 'full', 'data/terrain.bin.gz');
+    ok('a full bundle\'s 17.9 MB terrain is taken (Bozeman, MT)', verifyObject(store, terrain, boz, sh(boz)).ok);
+    const big = Buffer.alloc((64 << 20) + 1);
+    const v = verifyObject(store, terrain, big, sh(big));
+    ok('a bundle file over 64 MB is refused (413)', !v.ok && v.status === 413);
+    const t = verifyObject(store, tileKey(B, 'conus', 5806, 4290), boz, sh(boz));
+    ok('a tile is still held to 16 MB (413)', !t.ok && t.status === 413);
+  }
   // frames
   const tiles = ['hg1-conus/0/5806/4290', 'hg1-conus/0/5807/4290'];
   const frame = (l: ServiceLock, t = tiles) => Buffer.from(JSON.stringify({ format: 'hometown-frame', formatVersion: 1, buildId: B, placeId: 'us-4054200', tiles: t, lock: l }));
