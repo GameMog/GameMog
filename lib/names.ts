@@ -32,6 +32,20 @@ const RESERVED_WORDS = ['admin', 'administrator', 'staff', 'support', 'mod', 'mo
 /** ...or as the whole name. */
 const RESERVED_WHOLE = ['team', 'system', 'root', 'anon', 'anonymous', 'null', 'undefined', 'you', 'me', 'gm', 'discord'];
 
+/**
+ * What builds the worlds is never named to a player (CLAUDE.md): a model or its maker is no creator's name. Colter Land
+ * (16 Nov) published as "Created by Claude": the name field took the builder's name. Matched anywhere when the word
+ * cannot hide in an ordinary name (anthropic, chatgpt), else as a word (Claude, not Claudia; AI, not Kai)...
+ */
+const MODEL_ANYWHERE = ['anthropic', 'openai', 'chatgpt'];
+const MODEL_WORDS = ['claude', 'opus', 'sonnet', 'haiku', 'gpt', 'gemini', 'copilot', 'llm', 'ai'];
+
+/** Whether a name is a model's or its maker's (Claude, Anthropic, AI...), however it is spelled out. */
+export function isModelName(name: string): boolean {
+  const f = forms(name);
+  return f.chunks.some((c) => MODEL_ANYWHERE.some((r) => c.includes(r))) || f.words.some((w) => MODEL_WORDS.includes(w));
+}
+
 /** Phrases, matched on the words in order (kill yourself). */
 const PHRASES = new RegExp(`(?:^| )(?:${list('xvyy arpx unat').join('|')}) (?:${list('lbhefrys lbhe frys hefrys lbfrys').join('|')})(?: |$)`);
 
@@ -104,7 +118,7 @@ export function cleanName(input: unknown): Clean {
   if (length(v) < 2) return { ok: false, error: 'Use at least 2 letters.' };
   if (length(v) > 20) return { ok: false, error: 'Keep it to 20 letters.' };
   if (!/\p{L}/u.test(v)) return { ok: false, error: 'Use at least one letter.' };
-  if (isReserved(v)) return { ok: false, error: 'That name is taken.' };
+  if (isReserved(v) || isModelName(v)) return { ok: false, error: 'That name is taken.' };
   if (isBlocked(v)) return { ok: false, error: 'Pick another name.' };
   return { ok: true, value: v };
 }

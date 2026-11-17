@@ -10,7 +10,11 @@
  *   - a story world the repo ships: a showcase (meta.storykit.showcase, Pickup Time) or Mog City's own story
  *     (meta.storykit.own), never a Mog (a Mog is its creator's, whatever its parent).
  * Any other game reads "Created by <name>" when its creator named it, else "By a GameMog creator".
+ * A stored creator that is a model's or its maker's name (Claude, Anthropic, AI: lib/names.ts isModelName, which
+ * cleanName now refuses at publish) is never shown: it reads as an unnamed creator (16 Nov, Colter Land).
  */
+import { isModelName } from './names';
+
 export const PLATFORM = 'GameMog';
 
 type Who = { creator?: string | null; featured?: number | null; meta?: string | null; parent_id?: string | null };
@@ -34,13 +38,20 @@ export function isFirstParty(g: Who): boolean {
   return !g.creator?.trim() && !!g.featured;
 }
 
+/** A creator's name as it may be shown: trimmed, and null when empty or a model's name. */
+export function shownCreator(creator: string | null | undefined): string | null {
+  const c = creator?.trim();
+  return c && (c === PLATFORM || !isModelName(c)) ? c : null;
+}
+
 /** The name a game is by: "GameMog" for a first-party world, its creator's name, or null (an unnamed creator). */
 export function byName(g: Who): string | null {
-  return isFirstParty(g) ? PLATFORM : g.creator?.trim() || null;
+  return isFirstParty(g) ? PLATFORM : shownCreator(g.creator);
 }
 
 /** The byline as words: "By GameMog", "Created by <name>" or "By a GameMog creator". */
 export function bylineText(g: Who): string {
   if (isFirstParty(g)) return `By ${PLATFORM}`;
-  return g.creator?.trim() ? `Created by ${g.creator.trim()}` : 'By a GameMog creator';
+  const c = shownCreator(g.creator);
+  return c ? `Created by ${c}` : 'By a GameMog creator';
 }

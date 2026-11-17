@@ -70,8 +70,10 @@ async function run() {
   ok('the check runs on its own snapshot', db.prepare('PRAGMA database_list').all().some((r) => String((r as { file: string }).file).startsWith(TMP) || String((r as { file: string }).file).includes('gm-dare-')));
 
   /* ------------------------------------------------------------- names -- */
-  const good = ['DuneKing', 'José', 'Zoë', '李小龙', 'Badminton Bob', 'Scunthorpe', 'Therapist', 'Dickens', 'Hancock', 'Cocktail Kid', 'Pakistan', 'Analyst', 'Spicy Joe', 'Team Rocket', 'Ashkenazi', 'Peacock', "O'Neil", 'x_y-z.k'];
-  const taken = ['GameMog', 'G4meM0g', 'the gamemog team', 'GameMog Official', 'Site Admin', 'StaffBot', 'Moderator', 'Me', 'Team', 'ＧａｍｅＭｏｇ'];
+  const good = ['DuneKing', 'José', 'Zoë', '李小龙', 'Badminton Bob', 'Scunthorpe', 'Therapist', 'Dickens', 'Hancock', 'Cocktail Kid', 'Pakistan', 'Analyst', 'Spicy Joe', 'Team Rocket', 'Ashkenazi', 'Peacock', "O'Neil", 'x_y-z.k', 'Claudia', 'Claudette', 'Kai', 'Aidan', 'Haikus Rule'];
+  const taken = ['GameMog', 'G4meM0g', 'the gamemog team', 'GameMog Official', 'Site Admin', 'StaffBot', 'Moderator', 'Me', 'Team', 'ＧａｍｅＭｏｇ',
+    // (16 Nov: Colter Land read "Created by Claude"; a model or its maker is never a creator's name)
+    'Claude', 'claude', 'Cl4ude', 'ClaudeBot', 'Claude AI', 'Anthropic', 'TheAnthropicTeam', 'ChatGPT', 'GPT-5', 'Opus', 'AI'];
   const blocked = ['f.u.c.k', 'FuUuCk', 'n1gg3r', 'Ｆｕｃｋ', 'Big D1ck', 'BigDick', 'c o c k', 'nazis', 'kys', 'fυck'];
   for (const n of good) ok(`name passes: ${n}`, N.cleanName(n).ok, N.cleanName(n));
   for (const n of taken) ok(`name taken: ${n}`, (N.cleanName(n) as { error?: string }).error === 'That name is taken.', N.cleanName(n));

@@ -1807,6 +1807,22 @@ export const MIGRATIONS = [
       return `titled Long Way; key art back to the plain frame (square: ${square ? 'the store\'s key-square' : 'cut from the cover'}), titled again at its next cover request`;
     },
   },
+  {
+    // 16 Nov: Colter Land (the owner's hometown story world) read "Created by Claude": the publish's name field took the
+    // builder's name. A model or its maker is never named to a player (lib/names.ts cleanName now refuses it at publish,
+    // lib/byline.ts hides one stored before). Colter Land is the owner's, published as the site: "By GameMog", as the
+    // owner had the live test's worlds (2026-11-07-live-test-by-gamemog). Any other row carrying exactly such a name has
+    // it cleared ("By a GameMog creator"); a row named anything else is left alone
+    id: '2026-11-16-no-model-creator',
+    run(db) {
+      if (!columns(db, 'games').has('creator')) return 'no creator column yet';
+      const MODEL = ['claude', 'claude ai', 'anthropic', 'opus', 'sonnet', 'haiku', 'chatgpt', 'openai', 'gpt', 'gemini', 'copilot', 'ai', 'llm'];
+      const inList = `lower(trim(creator)) IN (${MODEL.map(() => '?').join(', ')})`;
+      const colter = db.prepare(`UPDATE games SET creator = 'GameMog' WHERE slug = 'colter-land' AND parent_id IS NULL AND ${inList}`).run(...MODEL).changes;
+      const other = db.prepare(`UPDATE games SET creator = NULL WHERE ${inList}`).run(...MODEL).changes;
+      return `Colter Land by GameMog: ${colter}; other model-named creators cleared: ${other}`;
+    },
+  },
 ];
 
 /**

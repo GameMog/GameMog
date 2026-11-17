@@ -88,6 +88,8 @@ export async function POST(req: Request) {
     // leave a listed game whose world the store's sweep takes a day later. Fail closed: a draft the store cannot keep
     // publishes nothing. If the commit then fails, the keep is handed back, but only when this request did it (a draft
     // kept already stays kept). With the switch off a story draft is not published
+    // (a hometown story whose served town lacks some of its places still publishes, 16 Nov owner: never a gate; the
+    // owner sees it on /admin's Story towns card, lib/storykit-publish.ts townGap, and delists to fix)
     const story = sealStoryDraft(d, storykitForRequest(req));
     if (story && !story.ok) return NextResponse.json({ error: story.error }, { status: story.status });
     if (story) add = { ...add, ...story.meta };

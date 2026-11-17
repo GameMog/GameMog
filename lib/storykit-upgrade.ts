@@ -82,6 +82,25 @@ export function worldPlaces(world: World): { ids: Map<string, { via: Set<string>
   return { ids, marks, unresolved };
 }
 
+/**
+ * The places a world names that its town's spawn district does not have (16 Nov, Colter Land: Bozeman's whole town
+ * failed to build, so its play page served the spawn district for good and 8 of the story's 14 places were "not found
+ * on the map"). Each as the world says it (@alias (id)) with the package's name. A place the package does not have at
+ * all is listed too; a mark of the world's own ({ at }) is not (it stands wherever the map is). Empty for a package with
+ * no district (lock v2: the whole town or nothing).
+ */
+export function outsideDistrict(world: World, pkg: CityPackage): string[] {
+  if (pkg.lockVersion !== 3) return [];
+  const { ids } = worldPlaces(world);
+  const by = new Map(pkg.places.map((p) => [p.id, p] as [string, PackagePlace]));
+  const out: string[] = [];
+  for (const id of [...ids.keys()].sort()) {
+    const p = by.get(id);
+    if (!p || !p.inDistrict) out.push(`${said(id, ids.get(id)!.via)}${p ? `: ${p.name}` : ''}`);
+  }
+  return out;
+}
+
 /** '' when two locks put a coordinate in the same spot (FRAME_KEYS), else the first field that differs. */
 export function frameMoved(a: HometownLock | null | undefined, b: HometownLock | null | undefined): string {
   if (!a || !b) return 'lock';
