@@ -187,8 +187,9 @@ export function storyPlay(meta: string | null | undefined, game: string, site = 
  * frame gets, app/api/storykit/drafts/[id]/route.ts storyFrameQuery) and moves to the whole town once it is built. Bozeman's
  * whole town failed, the district was served for good, and 8 of the 14 places never appeared: /admin's Story towns card
  * lists such a story ("district only, N places missing") so the owner can delist and fix. Null when nothing is missing
- * (not a hometown story, the in-process builder's one bundle, the whole town served, or a district with every place);
- * else what is missing, in the owner's words. `world`: the world as it plays (the store draft's, StoryStore.world).
+ * (not a hometown story, the in-process builder (builder off), the whole town served, or a district with every place);
+ * else what is missing, in the owner's words: "its town is not built" whenever townPlay finds no playable variant of the
+ * pinned lock (a town never built, or a bundle whose tiles are not the lock's). `world`: the world as it plays (the store draft's, StoryStore.world).
  */
 export function townGap(meta: string | null | undefined, world: Record<string, unknown> | null): { words: string; places: string[] } | null {
   if (storyCityOf(meta) !== 'hometown') return null;
@@ -298,7 +299,8 @@ export function storyTownsAdmin(): StoryTownRow[] {
     const town = storyTownOf(g.meta), w = sealedWorldOf(g.meta), u = w ? storyUpgrade(w) : null;
     // (what the served town lacks: townGap; a story whose world cannot be read is judged on its meta alone)
     let gap: StoryTownRow['gap'] = null;
-    try { const id = storeDraftOf(g.meta); gap = townGap(g.meta, id ? storyStore().world(id) : null); } catch (e) { console.error('admin: story town gap', String((e as Error)?.message ?? e).slice(0, 200)); }
+    // (not for a story that plays its town's newer whole town (storyPlay: an upgrade), which townGap's pinned lock cannot see)
+    try { const id = storeDraftOf(g.meta); gap = u?.state === 'upgrade' ? null : townGap(g.meta, id ? storyStore().world(id) : null); } catch (e) { console.error('admin: story town gap', String((e as Error)?.message ?? e).slice(0, 200)); }
     return { gap, slug: g.slug, title: g.title, hidden: !!g.hidden, place: town?.place ?? '', pinned: town?.compiler ?? '', state: u?.state ?? 'unknown', build: u && 'build' in u ? u.build : null,
       words: upgradeWords(u), why: u?.state === 'held' ? u.why : [], notes: u && (u.state === 'held' || u.state === 'upgrade') ? u.notes : [] };
   });

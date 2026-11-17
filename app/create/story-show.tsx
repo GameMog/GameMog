@@ -283,7 +283,8 @@ export function StoryShow({ mode, stage, chars, startedAt, now, story, subject, 
   const counted = key === 'cast' && cast.length ? `${cast.filter((p) => p.state === 'done').length} of ${cast.length} people ready`
     : key === 'voices' && story?.voices ? `${story.voices.done} of ${story.voices.total} lines`
     : key === 'drive' && story?.drive ? `${story.drive.missions.filter((m) => m.state === 'passed').length} of ${story.drive.missions.length} missions passed`
-    : key === 'write' && chars > 0 ? `${Math.round(Math.min(0.98, chars / 40000) * 100)}% written`
+    // (the label reads the bar's own share: the planned fifth and the words written, so the two never disagree)
+    : key === 'write' && chars > 0 ? `${Math.round(within('write', chars, story, tStage) * 100)}% written`
     : key === 'write' ? `Planning the story · ${clock(tStage * 1000)}` : '';
   return (
     <section className="bshow skshow" role="status" aria-live="polite">
