@@ -77,7 +77,10 @@ const cityUniforms = {
   // (SF 2040, wagmi/apocalypse) 0 the city's lawns as they are, 1 dead: trampled, ash-dusted grass and bare dirt
   uDeadGround: uniform(0),
   // (SF 2040) 0 no fires, 1 a few windows burning in the walk-ups (createPreWarBuildingMaterial: flicker, soot above)
-  uFireWindows: uniform(0)
+  uFireWindows: uniform(0),
+  // (a Hometown town at blue hour, lighting.js applyPreset: the preset's openSky there, 0 everywhere else) 0 the street
+  // floor as Manhattan's canyons shade it (canyonSkyAONode), 1 a low town's open sky: its ground seen by most of the sky
+  uOpenSky: uniform(0)
 };
 
 // Fast deterministic 2D -> 1D hash in TSL
@@ -230,7 +233,11 @@ const canyonSkyAONode = Fn(() => {
   const aboveGround = wp.y.sub(groundHeightNode(wp.xz));
   const heightOpenness = smoothstep(0.0, 68.0, aboveGround);
   const streetCrevice = smoothstep(0.0, 7.5, aboveGround).mul(0.22).add(0.78);
-  return mix(float(0.44), float(1.0), heightOpenness).mul(streetCrevice);
+  const canyon = mix(float(0.44), float(1.0), heightOpenness).mul(streetCrevice);
+  // (a Hometown town: one- to four-storey blocks on wide streets and open land, not a canyon. Its ground took the
+  // canyon's 0.34 of the sky at the street floor, so at blue hour, when the sky is nearly all the light there is, every
+  // street in shade went near black (Colter Land, Bozeman). cityUniforms.uOpenSky lifts the floor toward the open sky)
+  return mix(canyon, canyon.mul(0.3).add(0.7), cityUniforms.uOpenSky);
 });
 
 // Material caches to prevent duplicate WebGPU WGSL shader compilation across blocks & landmarks

@@ -95,7 +95,9 @@ const TIME_PRESETS = {
     cloudCoverage: 0.40,
     cloudDensity: 0.42,
     skyExposure: 0.115,
-    nightFactor: 0.28
+    nightFactor: 0.28,
+    // (a Hometown town only: its street floor under the open sky, cityUniforms.uOpenSky; San Francisco keeps its canyons)
+    openSky: 1.0
   },
   midnight: {
     id: 'midnight',
@@ -358,6 +360,8 @@ class LightingSystem {
     if (cityUniforms.uCanyonBounce) {
       cityUniforms.uCanyonBounce.value = p.canyonBounce;
     }
+    // (Colter Land QA #14: a low town's ground at blue hour, lit by the sky it sees, not near black in every shade)
+    if (cityUniforms.uOpenSky) cityUniforms.uOpenSky.value = window.NYC.PKG ? (p.openSky ?? 0) : 0;
 
     // (SF 2040: a preset's sky tint and horizon glow, else none)
     this.uSkyTint.value.setHex(p.skyTint ?? 0xffffff);
