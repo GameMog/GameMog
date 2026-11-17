@@ -11,20 +11,31 @@
 //                               brakes, handling), in place of the roadster's; its chase framing Mog City's (mogFraming)
 import { buildVehicle } from './vehicles/build-vehicle.js';
 import { buildFleetCar, fleetModelReady } from '../fleet-car.js';
+import { rideFleetOf } from '../fleet-picks.js';
 
 // (a sheet naming one of a town fleet's ready-made models, fleet: '<id>', wagmi/fleet-car.js, wears it when it has
-// loaded; the sheet's own Story Kit body otherwise)
-export function buildSheetCar(THREE, sheet) {
+// loaded; the sheet's own Story Kit body otherwise. In a town, a sheet's own pickup or SUV wears the fleet's full-size
+// one, wagmi/fleet-picks.js rideFleetOf: asked for here if it isn't loaded yet, for the next time)
+export function rideSheet(sheet) {
+  const N = globalThis.window?.NYC, id = N?.CITY === 'pkg' && N.Fleet ? rideFleetOf(sheet) : null;
+  if (!id || !N.Fleet.data?.models?.[id]) return sheet;
+  if (fleetModelReady(id)) return { ...sheet, fleet: id };
+  N.Fleet.load(id).catch(() => {});
+  return sheet;
+}
+export function buildSheetCar(THREE, sheet0) {
   let rs = null;
+  const sheet = rideSheet(sheet0);
   if (sheet && sheet.fleet && fleetModelReady(sheet.fleet)) { try { rs = buildFleetCar(THREE, sheet); } catch (err) { console.warn('[fleet] car', err); rs = null; } }
   if (!rs) { const { fleet, ...plain } = sheet || {}; rs = buildVehicle(THREE, plain); }
   rs.doorless = !rs.doors?.L;
   if (rs.doorless) { rs.setDoor = rs.door = () => {}; rs.doorT = () => 0; rs.doors = null; }
   rs.scale = 1;
   // (the roadster's driver marks are hip and heel; a sheet's are hip, knee, foot, hand, eye: its heel a little behind
-  // the foot's mark, on the floor)
+  // the foot's mark, on the floor. The heel's x is the feet's spread either side of his hip (the roadster's 0.11), not
+  // a place: the foot's own x there put his left boot out through the door, 2 x the hip's, and his right on the middle)
   const f = rs.seat.foot || [rs.seat.hip[0], 0.27, rs.seat.hip[2] + 0.75];
-  rs.seat.heel = rs.seat.heel || [f[0], f[1], f[2] - 0.2];
+  rs.seat.heel = rs.seat.heel || [0.11, f[1], f[2] - 0.2];
   return rs;
 }
 

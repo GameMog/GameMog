@@ -92,7 +92,9 @@ function ownTextures(id) {
   // (a decal's lettering repainted once loaded where a painter is set, N.fleetDecalPaint[id](image) -> canvas: a town
   // bus's destination sign, traffic.js)
   const repaint = (tx) => { const P = N.fleetDecalPaint && N.fleetDecalPaint[id]; if (!P || !tx.image) return; try { const c = P(tx.image); if (c) { tx.image = c; tx.needsUpdate = true; } } catch (e) { console.warn('[fleet] decal', id, e); } };
-  return (t.own[id] = { base: rep(t.one(`${id}${sfx}.webp`, true)), orm: rep(t.one(`${id}-orm${sfx}.webp`, false)), decal: m.decal ? t.one(`${id}-decal${sfx}.webp`, true, repaint) : null, optics: rep(t.optics) });
+  // (a passenger pack's wheels have a texture of their own, m.wheelTex: drawn with the body's they took its colours)
+  const wheel = m.wheelTex ? { base: rep(t.one(`${id}-wheel${sfx}.webp`, true)), orm: rep(t.one(`${id}-wheel-orm${sfx}.webp`, false)) } : null;
+  return (t.own[id] = { base: rep(t.one(`${id}${sfx}.webp`, true)), orm: rep(t.one(`${id}-orm${sfx}.webp`, false)), decal: m.decal ? t.one(`${id}-decal${sfx}.webp`, true, repaint) : null, optics: rep(t.optics), wheel });
 }
 
 // ---- the materials ---------------------------------------------------------------------------------------------------
@@ -108,7 +110,12 @@ function material(kind, o = {}) {
   const own = o.own ? ownTextures(o.own) : null;
   const { attribute, texture, uv, vec3, float, mix, step, smoothstep, max, min, abs, sin, positionLocal, time, color } = T;
   const fl = attribute('_fleet', 'vec4');
-  const paintMask = step(0.5, fl.x);
+  // (a paintable model of its own textures, m.paintable: its body's paint marked in its base texture's alpha, 0.5,
+  // tools/vehicles/build-c1280.mjs; the paint goes on there, as light or dark as the texture is against its own colour)
+  const ownM = o.own ? D.models[o.own] : null, ownPaint = !!(ownM && ownM.paintable && kind === 'body');
+  const wheelOwn = kind === 'wheel' && own && own.wheel ? own.wheel : null;
+  const base = texture(wheelOwn ? wheelOwn.base : own ? (kind === 'optics' ? own.optics : own.base) : t.kit, uv());
+  const paintMask = ownPaint ? step(base.a, 0.75) : step(0.5, fl.x);
   const lampId = fl.y.mul(255).round();
   const glassKind = fl.z.mul(255).round();
   const is = (v, id) => step(abs(v.sub(id)), 0.25);
@@ -133,15 +140,19 @@ function material(kind, o = {}) {
     mats.set(key, mat);
     return mat;
   }
-  const base = texture(own ? (kind === 'optics' ? own.optics : own.base) : t.kit, uv());
-  const orm = own ? (kind === 'optics' ? T.vec4(1, 0.1, 0, 1) : texture(own.orm, uv())) : texture(t.orm, uv());
+  const orm = wheelOwn ? texture(wheelOwn.orm, uv()) : own ? (kind === 'optics' ? T.vec4(1, 0.1, 0, 1) : texture(own.orm, uv())) : texture(t.orm, uv());
   // the paint: the instance's colour (or the uniform's), the taxi's and the cruiser's their livery's texture
   const U = o.uniforms;
-  const paint = kind === 'wheel' || own ? vec3(1, 1, 1) : o.instanced ? attribute('paintColor', 'vec3') : U.paint;
+  const refC = ownPaint ? new THREE.Color(ownM.paint || '#808080') : null;
+  const paintOf = () => (o.instanced ? attribute('paintColor', 'vec3') : U ? U.paint : color(refC));
+  const paint = ownPaint ? paintOf() : kind === 'wheel' || own ? vec3(1, 1, 1) : paintOf();
   const state = kind === 'wheel' || (own && kind !== 'optics') ? null : o.instanced ? attribute('carState', 'vec4') : U.state;
   const livT = o.livery ? liveryTex(o.livery) : null;
   const liv = livT ? texture(livT, uv()).rgb : null;
-  const paintCol = liv || paint;
+  // (an own paintable body: the paint as light or dark as the texel is against the model's own colour, its shading)
+  const refLum = refC ? Math.max(0.004, 0.2126 * refC.r + 0.7152 * refC.g + 0.0722 * refC.b) : 1;
+  const shade = ownPaint ? min(T.dot(base.rgb, vec3(0.2126, 0.7152, 0.0722)).div(refLum), float(2.2)) : null;
+  const paintCol = liv || (ownPaint ? paint.mul(shade) : paint);
   // (glass seen as opaque in the far LODs: a dark tint)
   const farGlass = is(glassKind, 1);
   let col = mix(base.rgb, paintCol, paintMask);

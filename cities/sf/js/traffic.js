@@ -82,13 +82,13 @@ const PACE = { pickup: 9.4, van: 9, minivan: 9.6, oldsedan: 9.8, coupe: 11.4, mu
 const FMD = (window.NYC.Fleet && window.NYC.Fleet.data && window.NYC.Fleet.data.models) || null;
 const MODEL_FLEETS = {
   rural: { muscle69: 18, gt83: 12, sport99: 10, turbo81: 8, gt95: 7, roadster00: 9,
-    pickup89: 22, sedan80: 13, suv10: 12, sedan10: 9, minivan20: 4, van92: 5, hatch11: 3, box95: 3, utility: 1, mailvan: 1, tow: 1 },
+    pickup20: 14, pickup89: 8, sedan80: 13, suv20: 6, offroad20: 3, suv10: 3, sedan10: 9, minivan20: 4, van92: 5, hatch11: 3, box95: 3, utility: 1, mailvan: 1, tow: 1 },
   resort: { gt95: 16, turbo81: 11, sport99: 14, gt83: 10, roadster00: 14, muscle69: 10,
-    suv10: 15, sedan10: 13, hatch11: 6, city07: 4, minivan20: 4, van92: 3, pickup89: 4, sedan80: 2, box95: 2, taxi75: 3, taxi20: 2, ambulance: 1, mailvan: 1 },
+    suv10: 9, suv20: 6, sedan10: 13, hatch11: 6, city07: 4, minivan20: 4, van92: 3, pickup89: 2, pickup20: 2, sedan80: 2, box95: 2, taxi75: 3, taxi20: 2, ambulance: 1, mailvan: 1 },
   city: { gt95: 14, turbo81: 12, sport99: 16, gt83: 14, roadster00: 10, muscle69: 14,
-    sedan10: 13, hatch11: 8, city07: 6, suv10: 9, sedan80: 3, van92: 4, box95: 3, minivan20: 3, pickup89: 2, taxi75: 3, taxi20: 3, garbage: 1, mailvan: 1, ambulance: 1, utility: 1, firetruck: 0.5 },
+    sedan10: 13, hatch11: 8, city07: 6, suv10: 7, suv20: 2, sedan80: 3, van92: 4, box95: 3, minivan20: 3, pickup89: 2, taxi75: 3, taxi20: 3, garbage: 1, mailvan: 1, ambulance: 1, utility: 1, firetruck: 0.5 },
   suburbs: { gt95: 14, turbo81: 13, sport99: 17, gt83: 15, roadster00: 12, muscle69: 17,
-    suv10: 15, sedan10: 13, minivan20: 7, pickup89: 9, hatch11: 6, city07: 3, sedan80: 5, van92: 3, box95: 2, taxi75: 1, mailvan: 1, utility: 1, tow: 0.5 }
+    suv10: 9, suv20: 6, sedan10: 13, minivan20: 7, pickup89: 4, pickup20: 4, offroad20: 1, hatch11: 6, city07: 3, sedan80: 5, van92: 3, box95: 2, taxi75: 1, mailvan: 1, utility: 1, tow: 0.5 }
 };
 // (the sports cars' paint: bright and dark show colours)
 const SPORTS_PAINTS = [0xb3121a, 0xf2c230, 0xf08a1c, 0x2f63b8, 0x111214, 0xe4e4e0, 0xd8dade, 0x1c8a8c, 0x1f6b3a, 0x7a1e22, 0x6a2fb8, 0x1d3b6c];
@@ -105,7 +105,7 @@ const FLEET = (() => {
   // (the models' mix when their numbers are here, each model's procedural body standing in; else the bodies' own)
   const models = !!FMD;
   const F = FLEETS[region], mix = models ? Object.fromEntries(Object.entries(MODEL_FLEETS[region]).filter(([k]) => FMD[k])) : { ...F.mix };
-  const K = models ? { conv: 'roadster00', suv: 'suv10', pickup: 'pickup89' } : { conv: 'convertible', suv: 'suv', pickup: 'pickup' };
+  const K = models ? { conv: 'roadster00', suv: FMD.suv20 ? 'suv20' : 'suv10', pickup: FMD.pickup20 ? 'pickup20' : 'pickup89' } : { conv: 'convertible', suv: 'suv', pickup: 'pickup' };
   if (snow) {
     // (the models' open car's share goes to the other sports cars, so they still lead)
     const share = models ? mix[K.conv] || 0 : 0, hard = models ? Object.keys(mix).filter((k) => k !== K.conv && FMD[k].group === 'sports') : [];

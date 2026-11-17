@@ -1596,12 +1596,13 @@ function createTreeMaterial(leafAtlas) {
     const hedgeCore = aData.xyz.mul(n1.mul(0.35).add(0.45));
     const barkBase = mix(mix(furrowed, planeBark, step(species, 0.5)), palmBark, isPalm);
     const barkWarm = mix(mix(barkBase, warmPalm, isWarmPalm), seaGrapeBark, step(8.5, species).mul(step(species, 9.5)));
-    const bark = mix(barkWarm, hedgeCore, step(9.5, species)).mul(crownAO.mul(0.4).add(0.6));
+    const bark = mix(barkWarm, hedgeCore, step(9.5, species).mul(step(species, 10.5))).mul(crownAO.mul(0.4).add(0.6));
 
     return vec4(mix(bark, foliage, isLeaf), alpha);
   })();
 
-  mat.roughnessNode = mix(float(0.93), float(0.72).sub(leaf.r.mul(0.1)), isLeaf);
+  // (a spruce's needles, trees.js 11: matte, no sky sheen (its dense crown read frosted white against the light))
+  mat.roughnessNode = mix(float(0.93), float(0.72).sub(leaf.r.mul(0.1)).add(step(10.5, species).mul(0.24)), isLeaf);
 
   // Card normals are crown-shell normals on both faces: no back-face flip
   mat.normalNode = normalViewGeometry;

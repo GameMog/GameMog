@@ -77,6 +77,18 @@ installDriveMode(WAGMI);
       }
     } catch (err) { console.warn('[fleet] picked car', err); heroSheet = null; }
   }
+  // (a town: a story's own pickup or SUV, its hero's car or a mission's ride, wears the fleet's full-size one,
+  // wagmi/fleet-picks.js rideFleetOf: the hero's loaded first (as a picked car is), the rides' asked for now so they are
+  // there by the mission that names them; wagmi/storyrun/ride.js buildSheetCar)
+  if (!horseRs && window.NYC?.CITY === 'pkg' && window.NYC.Fleet && PACK?.ok) {
+    try {
+      const { rideFleetOf } = await importRetry(() => import('./fleet-picks.js'));
+      const F = window.NYC.Fleet, rides = PACK.def && PACK.def.rides && typeof PACK.def.rides === 'object' ? Object.values(PACK.def.rides) : [];
+      for (const r of rides) { const id = rideFleetOf(r); if (id && F.data.models[id]) F.load(id).catch(() => {}); }
+      const own = !heroSheet && PACK.sheetCar ? rideFleetOf(PACK.sheetCar) : null;
+      if (own && F.data.models[own]) await Promise.race([F.load(own), new Promise((res, rej) => setTimeout(() => rej(new Error('slow')), 12000))]);
+    } catch (err) { console.warn('[fleet] story car', err); }
+  }
   if (!heroSheet && !horseRs && window.NYC?.CITY === 'pkg' && window.NYC.Fleet && !(PACK?.ok && (PACK.sheetCar || PACK.modelCar || PACK.stockCar))) {
     try {
       const F = window.NYC.Fleet, have = (k) => !!F.data.models[k];

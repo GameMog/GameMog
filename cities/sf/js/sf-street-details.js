@@ -406,6 +406,7 @@ function buildSFStreetDetails(scene, network, buildingColliders = []) {
   const sites = [];
   let offSidewalk = 0, snapped = 0;
   const TR = window.NYC.GEO.trees || [];
+  const mountainWest = window.NYC.PkgBuildings?.pkgRegion?.() === 'mountain', SPRUCE = window.NYC.TREE_SPRUCE ?? 5;
   for (let i = 0; i < TR.length; i += 4) {
     let x = TR[i], z = TR[i + 1];
     const cls = TR[i + 2], dbh = TR[i + 3];
@@ -435,7 +436,15 @@ function buildSFStreetDetails(scene, network, buildingColliders = []) {
     const s = cls === 2 ? 0.75 + Math.min(dbh, 30) / 120 : cls >= 6 && cls <= 8 ? 0.78 + Math.min(dbh, 42) / 110 : cls === 9 ? 0.75 + Math.min(dbh, 42) / 90
       : Math.min(1, 0.36 + dbh / 40);
     const r = Math.abs(Math.sin(x * 12.9898 + z * 78.233) * 43758.5453) % 1;
-    sites.push({ x, y: groundAt(x, z) + CURB_H, z, scale: s, species: SPECIES_OF[cls] ?? 2, yaw: r * Math.PI * 2, tier: 1 });
+    let species = SPECIES_OF[cls] ?? 2;
+    // (montana: a mountain-west town's yards are spruce among the cottonwoods and ashes: its ficus (no ficus grows there)
+    // a spruce or an elm-like cottonwood, a fifth of its planes spruces, its conifers spruces (trees.js 11, a dense spire;
+    // the open pine, 5, read as a dead snag there))
+    if (mountainWest && (cls === 0 || cls === 1 || cls === 4)) {
+      const q = Math.abs(Math.sin(x * 4.1414 + z * 9.1731) * 24634.6345) % 1;
+      species = cls === 4 ? SPRUCE : cls === 1 ? (q < 0.55 ? SPRUCE : 2) : q < 0.2 ? SPRUCE : species;
+    }
+    sites.push({ x, y: groundAt(x, z) + CURB_H, z, scale: s, species, yaw: r * Math.PI * 2, tier: 1 });
   }
   // (a Hometown town: its tree levels by the graphics tier, and (r14) no shadow from a level beyond the cascades' reach, no
   // far tree well outside the view; trees.js)

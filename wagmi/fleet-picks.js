@@ -22,12 +22,27 @@ export const FLEET_PICKS = Object.freeze({
   'old-sedan': 'sedan80',
   hatchback: 'hatch11',
   'city-car': 'city07',
-  suv: 'suv10',
+  // (16 Nov, the owner, "car doesn't look good, maybe we can find new ones": an SUV and a pickup are the big full-size
+  // ones now, a ranch's or a mountain town's; the smaller ones they were stay offered by names of their own, after the
+  // others, as does the short four-by-four)
+  suv: 'suv20',
   minivan: 'minivan20',
-  pickup: 'pickup89',
+  pickup: 'pickup20',
   van: 'van92',
+  crossover: 'suv10',
+  'compact-pickup': 'pickup89',
+  'four-by-four': 'offroad20',
 });
 
+// (Mog City, Hometown) a story's own pickup or SUV (a ride a mission names, or the hero's car when no car was picked)
+// wears the fleet's full-size model of its class: its own name, paint, handling, sound and abilities kept (a tow rig built
+// on the model's bed, wagmi/fleet-car.js rigFit), only the body the model's; the plain Story Kit body while it loads or
+// if it can't (wagmi/storyrun/ride.js buildSheetCar). Other classes keep their own body.
+export const RIDE_MODELS = Object.freeze({ pickup: 'pickup20', suv: 'suv20' });
+export const rideFleetOf = (sheet) => (sheet && typeof sheet === 'object' && !sheet.fleet && (!sheet.family || sheet.family === 'car4') && Object.prototype.hasOwnProperty.call(RIDE_MODELS, sheet.class) ? RIDE_MODELS[sheet.class] : null);
+
+// (the picks named apart from the model's own sheet label: the smaller SUV and pickup, offered under their own names)
+export const PICK_LABELS = Object.freeze({ crossover: 'Crossover', 'compact-pickup': 'Compact Pickup' });
 export const fleetPickOf = (name) => (typeof name === 'string' && Object.prototype.hasOwnProperty.call(FLEET_PICKS, name) ? FLEET_PICKS[name] : null);
 
 const COLOUR = /^#[0-9A-Fa-f]{6}$/;
@@ -42,7 +57,7 @@ export function pickedFleetSheet(name, o = {}) {
   const story = o.story && typeof o.story === 'object' ? o.story : null;
   const storyPaint = story && story.paint && COLOUR.test(story.paint.base || '') ? story.paint.base : null;
   const paint = storyPaint || (COLOUR.test(o.paint || '') ? o.paint : null) || o.models[id].paint || '#B3121A';
-  const label = story && typeof story.label === 'string' && story.label.trim() ? story.label.trim().slice(0, 40) : (o.label || base.label);
+  const label = story && typeof story.label === 'string' && story.label.trim() ? story.label.trim().slice(0, 40) : (o.label || PICK_LABELS[name] || base.label);
   // (the story's abilities for its car ride along, so a mission's tow or ram still has its rig: no thrusters on a real
   // car, and the tow only on a model whose class carries a tow rig; none left, the model's own)
   const ab = story && Array.isArray(story.abilities) ? story.abilities.filter((a) => typeof a === 'string' && a !== 'hop' && a !== 'dash' && (a !== 'tow' || TOW_CLASSES.includes(base.class))) : [];

@@ -495,8 +495,20 @@ const SPECIES = [
     name: 'hedge', tile: 3, light: true, hedge: { l: 2.25, w: 1.0, h: 1.7 },
     trunk: { r: 0.1, top: 1, lean: 0, segs: 1 }, limbs: { n: 0 }, branches: { n: 0 }, twigs: { n: 0 }, cards: { perTwig: 0, scale: [1, 1], droop: 0 },
     tints: [0x3e5c26, 0x46652b, 0x385424]
+  },
+  { // 11: Spruce (Colorado blue and Engelmann spruce, the mountain west's yard and park evergreen; montana): a straight
+    //     leader under a dense narrow cone, its many whorls of limbs sweeping down and out, short at the spire, sprays
+    //     thick along every branch (the old 5 is an open pine; a spruce reads as a solid dark spire)
+    name: 'spruce', tile: 3,
+    trunk: { r: 0.24, top: 12.2, lean: 0.015, segs: 10 },
+    limbs: { n: 38, y: [0.8, 11.9], tilt: [1.8, 1.0], len: [3.3, 0.3], r: 0.32, up: 0.0, out: 0, droop: 0.06, jitter: 0.05, segs: 4 },
+    branches: { n: 5, t: [0.15, 0.98], angle: [0.75, 1.15], len: [0.42, 0.3], up: 0, out: 0.02, droop: 0.12, jitter: 0.1, segs: 3 },
+    twigs: { n: 3, t: [0.2, 1.0], angle: [0.6, 1.0], len: [0.8, 0.55], up: 0, out: 0, droop: 0.12, jitter: 0.1, segs: 2 },
+    cards: { perTwig: 4, scale: [0.3, 0.38], droop: 0.25 }, cone: true,
+    tints: [0x1f3a2a, 0x274433, 0x1b3324]
   }
 ];
+const SPRUCE = 11;
 const WARM_SPECIES = 6; // (species from here on are built only when a field plants them)
 // (`light` species, the warm band's: one variant, palms' fronds carded more coarsely, their far level just a 10-card crown
 // shell over the trunk, a hedge's far level its core alone, shadows from the near level only: planted by the thousand)
@@ -824,7 +836,7 @@ function placeCards(sp, branches, lod, tileMeters, rng, crown) {
       if (b.level !== 2) continue;
       const a = along(b, 1);
       const { up, face } = orient(a.p, a.d, sp.cards.droop);
-      cards.push({ at: a.p, up, face, size: size * R(0.9, 1.1), tile: sp.tile });
+      cards.push({ at: a.p, up, face, size: size * (sp.cone ? sp.cards.scale[1] : 1) * R(0.9, 1.1), tile: sp.tile });
     }
   } else if (lod === 1) {
     for (const b of branches) {
@@ -833,7 +845,23 @@ function placeCards(sp, branches, lod, tileMeters, rng, crown) {
         const a = along(b, Math.min(1, t + R(-0.06, 0.04)));
         const { up, face } = orient(a.p, a.d, sp.cards.droop);
         const at = a.p.clone().addScaledVector(outward(a.p), 0.35);
-        cards.push({ at, up, face, size: size * R(1.35, 1.6), tile: sp.tile });
+        // (a spruce's: its small clumps' scale, so the cone keeps its outline at 105-420 m)
+        cards.push({ at, up, face, size: size * (sp.cone ? sp.cards.scale[1] * 1.5 : 1) * R(1.35, 1.6), tile: sp.tile });
+      }
+    }
+  } else if (sp.cone) {
+    // (a spruce's far level: cards round a cone, not the crown's ellipsoid (a round blob): rings up the spire, each
+    // ring narrower and its cards smaller, the top one a spire card)
+    const bot = crown.bottom, top = crown.C.y + crown.R.y, rB = Math.max(crown.R.x, crown.R.z) * 0.9;
+    const rings = 6;
+    for (let k = 0; k < rings; k++) {
+      const h = (k + 0.35) / rings, y = bot + (top - bot) * h * 0.92, r = rB * (1 - h), m = Math.max(3, Math.round(6 * (1 - h)) + 2);
+      const s = Math.max(1.1, 2 * r + 0.6);
+      for (let i = 0; i < m; i++) {
+        const ph = (i / m) * Math.PI * 2 + k * 0.7 + R(-0.2, 0.2);
+        const face = new V3(Math.cos(ph), 0.25, Math.sin(ph)).normalize();
+        const at = new V3(crown.C.x + Math.cos(ph) * r * 0.45, y - s * 0.45, crown.C.z + Math.sin(ph) * r * 0.45);
+        cards.push({ at, up: new V3(0, 1, 0), face, size: s, tile: sp.tile });
       }
     }
   } else {
@@ -1259,5 +1287,5 @@ function createTreeField(scene, sites, opts = {}) {
   return { group, material, atlas, update, meshes: instanced, stats };
 }
 
-Object.assign(window.NYC, { createTreeField, createLeafAtlas, buildTreeGeometries, TREE_SPECIES: SPECIES });
+Object.assign(window.NYC, { createTreeField, createLeafAtlas, buildTreeGeometries, TREE_SPECIES: SPECIES, TREE_SPRUCE: SPRUCE });
 })();

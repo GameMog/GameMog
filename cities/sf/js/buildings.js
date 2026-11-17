@@ -2315,6 +2315,9 @@ function buildCityBlocks(scene, opts = {}) {
       // proportion to its span, so the wings of an L-shaped house sit under the main ridge)
       let rise0 = 0, kRise = 0;
       const pitched = PK && look.roof !== 'flat' && count > 0;
+      // (montana: the mountain west's false front, PkgBuildings falseFront: a flat-roofed shop or small office under 16 m
+      // that faces a road; its own cap and sign band stand in for the cornice slab)
+      const ffront = PK && look.falseFront && !mall && count > 0 && height < 16 && rec[FI.front] >= 0;
       if (pitched) {
         const big = all[biggest];
         const span = Math.min(big.w, big.d) * 0.5;
@@ -2407,7 +2410,7 @@ function buildCityBlocks(scene, opts = {}) {
         collider(m, roof);
         if (balcony && !curved && m.w >= 5 && m.d >= 5) pb.balconies(m, theta, box.base + box.plinth, roof, storeyH || storeys[mat], 0xf3f3ef, railHex, slabOut);
         if (pitched) { if (m.w * m.d >= 6 || k === biggest) pb.roof(m, theta, roof, Math.min(rise0, kRise * Math.min(m.w, m.d) * 0.5), look.roof, look.roofColor, paint[0], look.parapet); }
-        else if (mat <= 2 && m.w > 3 && m.d > 3) blk.cornices.push({ x: m.cx, y: roof, z: m.cz, w: m.w + 1.0, h: 0.8, d: m.d + 1.0 });
+        else if (mat <= 2 && m.w > 3 && m.d > 3 && !ffront) blk.cornices.push({ x: m.cx, y: roof, z: m.cz, w: m.w + 1.0, h: 0.8, d: m.d + 1.0 });
         if (!top || m.w * m.d > top.w * top.d) { top = m; topBox = box; }
       }
       if (curved) pb.outlineBalconies(pts, base, roof, storeyH || storeys[mat], 0xf3f3ef, railHex, slabOut);
@@ -2429,9 +2432,16 @@ function buildCityBlocks(scene, opts = {}) {
       // (a package shop: canvas awnings along its longest shop wall; a house: a chimney and a porch on the road side; a
       // church: its tower)
       if (PK && kind === 'shop' && topBox) shopAwnings(blk, topBox, i);
+      if (ffront && biggest >= 0) {
+        const big = all[biggest], fa = (rec[FI.front] * Math.PI) / 180, one = height < 5.5;
+        const rise = one ? 1.9 + 1.4 * hash(i, 31.7) : 1.1 + 1.1 * hash(i, 31.7);
+        if (!pb.falseFront(big, theta, roof, Math.cos(fa), Math.sin(fa), rise, hash(i, 33.1) < (one ? 0.3 : 0.55), paint[0], paint[1]) && big.w > 3 && big.d > 3) {
+          blk.cornices.push({ x: big.cx, y: roof, z: big.cz, w: big.w + 1.0, h: 0.8, d: big.d + 1.0 });
+        }
+      }
       if (pitched && biggest >= 0) {
         const big = all[biggest], fr = rec[FI.front], fa = (fr * Math.PI) / 180;
-        if (look.chimney) pb.chimney(big, theta, roof, kRise * Math.min(big.w, big.d) * 0.5, (a) => hash(i, a));
+        if (look.chimney) pb.chimney(big, theta, roof, look.chimneyFit ? Math.min(rise0, kRise * Math.min(big.w, big.d) * 0.5) : kRise * Math.min(big.w, big.d) * 0.5, (a) => hash(i, a), look.chimneyFit && look.roof);
         if (look.porch && fr >= 0 && rec[FI.frontDist] / 4 >= 3) pb.porch(big, theta, base, roof, Math.cos(fa), Math.sin(fa), look.roofColor, paint[1]);
         if (kind === 'church') pb.tower(big, theta, base, roof, roof + rise0, fr >= 0 ? Math.cos(fa) : 1, fr >= 0 ? Math.sin(fa) : 0, paint[0], look.roofColor);
       }

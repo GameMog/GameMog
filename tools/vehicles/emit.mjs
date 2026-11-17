@@ -40,12 +40,15 @@ const ROLES = {
   police20: { proc: 'sedan', cls: 'cruiser', noun: 'police car', label: 'Police Car', group: 'police', title: 'Generic civil service vehicles pack' },
   taxi20: { proc: 'taxi', cls: 'taxi', noun: 'cab', label: 'Cab', group: 'taxi', title: 'Generic civil service vehicles pack' },
   minivan20: { proc: 'minivan', cls: 'minivan', noun: 'minivan', label: 'Minivan', group: 'everyday', title: 'Generic passenger car pack' },
+  pickup20: { proc: 'pickup', cls: 'pickup', noun: 'pickup', label: 'Pickup', group: 'everyday', title: 'Generic passenger car pack' },
+  suv20: { proc: 'suv', cls: 'suv', noun: 'SUV', label: 'SUV', group: 'everyday', title: 'Generic passenger car pack' },
+  offroad20: { proc: 'suv', cls: 'suv', noun: 'four by four', label: 'Four by Four', group: 'everyday', title: 'Generic passenger car pack' },
 };
 const byFile = Object.fromEntries(sources.map((s) => [s.file, s]));
 // (shipped: the models, the shared atlas at both sizes, and the liveries' and service vehicles' own textures at 512 only:
 // the engine draws those at the traffic's size, so their 1024 builds stay in the staging folder)
 const OWN = new Set(Object.entries(metas).filter(([, m]) => m.own).map(([id]) => id));
-const shipped = (f) => /\.glb$/.test(f) || /^kit(-orm)?(-lo)?\.webp$/.test(f) || /-lo\.webp$/.test(f) && (/^livery-|^c1280-optics/.test(f) || OWN.has(f.replace(/(-orm|-decal)?-lo\.webp$/, '')));
+const shipped = (f) => /\.glb$/.test(f) || /^kit(-orm)?(-lo)?\.webp$/.test(f) || /-lo\.webp$/.test(f) && (/^livery-|^c1280-optics/.test(f) || OWN.has(f.replace(/(-wheel)?(-orm|-decal)?-lo\.webp$/, '')));
 const files = readdirSync(STAGE).filter((f) => /\.(glb|webp)$/.test(f) && shipped(f)).sort();
 const out = join(REPO, 'assets/vehicles/fleet');
 mkdirSync(out, { recursive: true });
@@ -59,9 +62,9 @@ for (const [id, m] of Object.entries(metas)) {
     file: id + '.glb', title: m.title || role.title, creator: src.creator, licence: src.licence, licenceUrl: 'https://creativecommons.org/licenses/by/4.0/',
     source: src.source, sourceUid: src.uid, downloaded: src.downloaded, sourceFile: m.source.file, sourceSha256: m.source.sha256, sourceBytes: m.source.bytes,
     part: m.part || null, sha256: m.sha256, bytes: m.bytes, tris: m.tris,
-    changes: m.changes || (m.own ? 'split from the pack; wheels split from the body by geometry; re-oriented and re-centred to the engine frame; textures downscaled (normal maps dropped) and WebP-encoded; lamps tagged; two simplified LODs added; geometry meshopt-compressed' : null) || 'badges and their atlas removed; number-plate characters removed (blank plates); tyre sidewall lettering removed; re-oriented and re-centred to the engine frame; parts merged onto a shared texture atlas; two simplified LODs added; textures downscaled and WebP-encoded; geometry meshopt-compressed',
+    changes: m.changes || (m.own ? 'split from the pack; wheels split from the body by geometry; re-oriented and re-centred to the engine frame; textures downscaled (normal maps dropped) and WebP-encoded; lamps tagged; two simplified LODs added; geometry meshopt-compressed' + (m.paintable ? '; the body paint marked in the base texture\'s alpha and redrawn in its own colour, its baked shading lifted at the dark end, so it can be repainted' : '') : null) || 'badges and their atlas removed; number-plate characters removed (blank plates); tyre sidewall lettering removed; re-oriented and re-centred to the engine frame; parts merged onto a shared texture atlas; two simplified LODs added; textures downscaled and WebP-encoded; geometry meshopt-compressed',
   };
-  runtime[id] = { file: id + '.glb', sha: m.sha256.slice(0, 10), ...Object.fromEntries(['length', 'width', 'height', 'zF', 'zR', 'hw', 'axle', 'wheels', 'head', 'tail', 'steer', 'livery', 'open', 'paint', 'own', 'decal'].map((k) => [k, m[k]])),
+  runtime[id] = { file: id + '.glb', sha: m.sha256.slice(0, 10), ...Object.fromEntries(['length', 'width', 'height', 'zF', 'zR', 'hw', 'axle', 'wheels', 'head', 'tail', 'steer', 'livery', 'open', 'paint', 'own', 'decal', 'wheelTex', 'paintable'].map((k) => [k, m[k]])),
     proc: role.proc, cls: role.cls, noun: role.noun, label: role.label, group: role.group };
 }
 const kit = { hi: 'kit.webp', lo: 'kit-lo.webp', orm: 'kit-orm.webp', ormLo: 'kit-orm-lo.webp', livery: { taxi: [null, 'livery-taxi-lo.webp'], police: [null, 'livery-police-lo.webp'] }, optics: [null, 'c1280-optics-lo.webp'] };

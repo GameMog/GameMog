@@ -33,6 +33,11 @@ export const MODEL_SHEETS = {
   sedan80: { ...SHEETS.oldsedan, say: 'old sedan' }, suv10: { ...SHEETS.suv, say: 'SUV' }, van92: { ...SHEETS.van, say: 'van', label: 'Van' }, pickup89: { ...SHEETS.pickup, say: 'pickup' },
   taxi75: { class: 'taxi', noun: 'cab', say: 'cab', label: 'Cab', handling: { pace: -0.1, weight: 0.2 } }, taxi20: { class: 'taxi', noun: 'cab', say: 'cab', label: 'Cab', handling: { pace: -0.05, weight: 0.1 } },
   minivan20: { ...SHEETS.minivan, say: 'minivan' },
+  // (the full-size pickup and SUV and the short four-by-four, 16 Nov: big, heavy and slow to turn; the four-by-four short
+  // and nimbler, a little quicker off the line)
+  pickup20: { ...SHEETS.pickup, say: 'pickup', handling: { pace: -0.25, pull: -0.15, weight: 0.65, grip: -0.15, turnIn: -0.4, brakes: -0.2 } },
+  suv20: { ...SHEETS.suv, say: 'SUV', handling: { pace: -0.15, pull: -0.1, weight: 0.6, grip: -0.1, turnIn: -0.3, brakes: -0.1 } },
+  offroad20: { class: 'suv', noun: 'suv', say: 'four by four', label: 'Four by Four', handling: { pace: -0.25, pull: 0.05, weight: 0.35, grip: 0.05, turnIn: -0.05 } },
   tow: { class: 'wrecker', noun: 'truck', say: 'tow truck', label: 'Tow Truck', handling: { pace: -0.5, pull: -0.4, weight: 0.85, grip: -0.25, turnIn: -0.5, brakes: -0.3 } },
   box95: { class: 'van', noun: 'truck', say: 'box truck', label: 'Box Truck', handling: { pace: -0.75, pull: -0.7, weight: 0.95, grip: -0.35, turnIn: -0.7, brakes: -0.45 } },
   ambulance: { class: 'van', noun: 'van', say: 'ambulance', label: 'Ambulance', handling: { pace: -0.4, pull: -0.35, weight: 0.8, grip: -0.25, turnIn: -0.5, brakes: -0.3 } },
