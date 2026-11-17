@@ -1083,10 +1083,66 @@
        }
       },
       "description": "a sub-place: metres from the key's point along its facing (right, forward): the side door round the corner"
+     },
+     "ranch": {
+      "enum": [
+       "gate",
+       "yard",
+       "porch",
+       "barn",
+       "stable",
+       "corral",
+       "windmill",
+       "hay",
+       "pasture"
+      ],
+      "description": "a place at a ranch (ranches[]): its `@` the same town place as the ranch's own; the player is sent to that mark of the ranch (its gate on the road for a car)"
      }
     }
    },
    "description": "the pack's own names for city places: { key: { \"@\": cityKey, name } }. Never a coordinate."
+  },
+  "ranches": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "place"
+    ],
+    "properties": {
+     "place": {
+      "$ref": "#/$defs/placeKey",
+      "description": "the pack's own place (a key of places) the ranch is dressed at: Mog City finds open land fronting a road near it, at the edge of the town, and builds the ranch there; the place is then the ranch's yard (its gate for a car)"
+     },
+     "sign": {
+      "type": "string",
+      "maxLength": 32,
+      "description": "the name over the gate, as the sign reads (\"Colter Ranch\"); an original name, never a real ranch's or brand's"
+     },
+     "brand": {
+      "type": "string",
+      "maxLength": 1,
+      "pattern": "^[A-Z]$",
+      "description": "the letter of the ranch's brand, burned into the sign beside the name (default: the name's first letter)"
+     },
+     "cattle": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 16,
+      "description": "cattle grazing in the pasture (default 12)"
+     },
+     "horses": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 6,
+      "description": "horses idling in the corral, props only (default 3): scenery, never a ride"
+     }
+    }
+   },
+   "minItems": 0,
+   "maxItems": 2,
+   "description": "hometown only: a ranch dressed at one of the story's places (a rural place the town's map has not got): fences, the gate and its sign, the farmhouse and porch, the barn, the stable, a corral of horses, the windmill and its trough, hay, the pasture and its cattle. Name its marks with place aliases' `ranch`"
   },
   "cast": {
    "type": "array",

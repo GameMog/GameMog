@@ -437,6 +437,19 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
     if (!cityPlaces[a['@']]) refuse(`places.${k}: "${a['@']}" is not a place in ${cityName}.`);
     if (a.face && !cityPlaces[a.face] && !aliases[a.face]) refuse(`places.${k}.face: "${a.face}" is not a place in ${cityName}.`);
   }
+  // 2b. ranches (Mog City wagmi/storyrun/ranch.js): a hometown's only (open land at the town's edge), each at one of
+  // the pack's own places, one a town place; a place alias's `ranch` mark names one of them (its `@` the ranch's)
+  const ranches: Json[] = (pack as Json).ranches || [];
+  if (ranches.length && !town) refuse(`ranches: a ranch is dressed on a hometown's open land; ${cityName} has none to dress. Leave ranches out.`);
+  const ranchTown = new Set<string>();
+  ranches.forEach((r: Json, i: number) => {
+    const a = aliases[r.place];
+    if (!a) { refuse(`ranches[${i}].place: "${r.place}" is not one of the pack's places (a key of places, its own name for the ranch).`); return; }
+    if (a.ranch) refuse(`places.${r.place}: the ranch's own place is its yard; it has no \`ranch\` mark (that is for its other places).`);
+    if (ranchTown.has(a['@'])) refuse(`ranches[${i}]: two ranches at "${a['@']}"; one ranch a place.`);
+    ranchTown.add(a['@']);
+  });
+  for (const [k, a] of Object.entries(aliases)) if (a.ranch && !ranchTown.has(a['@'])) refuse(`places.${k}.ranch: no ranch is dressed at "${a['@']}" (a ranches[] entry whose place's @ is it); a ranch mark needs its ranch.`);
   const placeOf = (key: string) => (aliases[key] ? cityPlaces[aliases[key]['@']] : cityPlaces[key]);
   const meters = new Set<string>((pack.hud?.meters || []).map((m: Json) => m.id));
 
@@ -656,6 +669,7 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
   // pack-wide texts (title, places, cast, rides, hud)
   collect({ title: pack.title, kicker: pack.kicker, tagline: pack.tagline }, 'pack', texts);
   for (const [k, a] of Object.entries(aliases)) collect({ name: a.name }, `places.${k}`, texts);
+  ranches.forEach((r: Json, i: number) => { if (r.sign) collect({ name: r.sign }, `ranches[${i}].sign`, texts); });
   for (const c of pack.cast) { collect(c.sheet || { name: c.name, role: c.role }, `cast "${c.id}"${c.sheet ? '.sheet' : ''}`, texts); collect({ description: c.voice?.description }, `cast "${c.id}".voice`, texts); }
   for (const p of pack.pets || []) collect({ name: p.name }, `pets "${p.id}"`, texts);
   for (const v of pack.vehicles) if (!v.stock) collect({ label: v.label, nickname: v.story?.nickname, oneLine: v.story?.oneLine }, `vehicles "${v.id}"`, texts);
@@ -919,6 +933,8 @@ export function toRunnerPack(pack: PackV2, opts: { cast?: Record<string, string>
     // the player: the hero's display name, when they have a body (the engine puts it on foot and at the wheel)
     ...(pack.hero && (opts.cast?.[pack.hero] || bodyOf(pack.cast.find((c: Json) => c.id === pack.hero) || {})) ? { hero: name(pack.hero) } : {}),
     places: pack.places,
+    // (a ranch at a place: Mog City wagmi/storyrun/ranch.js finds the open land and builds it; its `at` the pack's place)
+    ...(Array.isArray((pack as Json).ranches) && (pack as Json).ranches.length ? { ranches: (pack as Json).ranches.map((r: Json) => ({ at: r.place, ...(r.sign ? { sign: r.sign } : {}), ...(r.brand ? { brand: r.brand } : {}), ...(r.cattle != null ? { cattle: r.cattle } : {}), ...(r.horses != null ? { horses: r.horses } : {}) })) } : {}),
     // the opening, as the runner plays it: speakers, cards and stage by display name, a line under its shot
     ...(pack.opening ? { opening: {
       place: pack.opening.place, ...(pack.opening.time ? { time: pack.opening.time } : {}),

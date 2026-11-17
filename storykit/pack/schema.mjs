@@ -45,6 +45,10 @@ export const WEATHER = ['clear', 'overcast', 'rain', 'storm', 'fog', 'snow'];
 export const HOLIDAYS = ['christmas', 'new-year', 'halloween', 'thanksgiving', 'lunar-new-year', 'valentines', 'independence-day', 'diwali', 'hanukkah', 'pride'];
 // a power cut in part of Manhattan (Mog City wagmi/storyrun/dressing.js): left out, the power is on
 export const BLACKOUTS = ['midtown', 'downtown', 'manhattan'];
+// a ranch dressed on open land at one of a hometown's places (Mog City wagmi/storyrun/ranch.js): the marks a place alias
+// may name with `ranch` (where the player is sent there; every one outdoors and reached on foot from the road)
+export const RANCH_MARKS = ['gate', 'yard', 'porch', 'barn', 'stable', 'corral', 'windmill', 'hay', 'pasture'];
+export const RANCH_LIMITS = { ranches: 2, cattle: 16, horses: 6, sign: 32 };
 // archetype anchors (STORY-KIT-PLAN 3.3 #5): the hand-polished person a sheet varies from; 'none' starts from the base
 export const ANCHORS = ['none', 'old-boss', 'young-hero', 'grandmother', 'grandfather', 'chef', 'cop', 'doorman', 'teen',
   'office-worker', 'driver', 'fixer', 'nurse', 'mechanic', 'street-vendor', 'musician',
@@ -395,8 +399,16 @@ export const SCHEMA = {
         goal: N(1, 1e7, { description: "what it is raised toward: the HUD shows '$430,000 / $1,000,000' and a bar, the MISSION PASSED card its progress" }) }, ['id', 'kind']), 4)
     }),
     places: { type: 'object', maxProperties: 24, propertyNames: R('placeKey'), additionalProperties: O({ '@': R('placeKey'), name: S(60), face: R('placeKey'), heading: R('heading'),
-      offset: O({ right: N(-60, 60), fwd: N(-60, 60) }, [], { description: "a sub-place: metres from the key's point along its facing (right, forward): the side door round the corner" }) }, ['@']),
+      offset: O({ right: N(-60, 60), fwd: N(-60, 60) }, [], { description: "a sub-place: metres from the key's point along its facing (right, forward): the side door round the corner" }),
+      ranch: E(RANCH_MARKS, { description: "a place at a ranch (ranches[]): its `@` the same town place as the ranch's own; the player is sent to that mark of the ranch (its gate on the road for a car)" }) }, ['@']),
       description: 'the pack\'s own names for city places: { key: { "@": cityKey, name } }. Never a coordinate.' },
+    ranches: A(O({
+      place: { ...R('placeKey'), description: "the pack's own place (a key of places) the ranch is dressed at: Mog City finds open land fronting a road near it, at the edge of the town, and builds the ranch there; the place is then the ranch's yard (its gate for a car)" },
+      sign: S(RANCH_LIMITS.sign, { description: "the name over the gate, as the sign reads (\"Colter Ranch\"); an original name, never a real ranch's or brand's" }),
+      brand: S(1, { pattern: '^[A-Z]$', description: 'the letter of the ranch\'s brand, burned into the sign beside the name (default: the name\'s first letter)' }),
+      cattle: I(0, RANCH_LIMITS.cattle, { description: 'cattle grazing in the pasture (default 12)' }),
+      horses: I(0, RANCH_LIMITS.horses, { description: 'horses idling in the corral, props only (default 3): scenery, never a ride' }),
+    }, ['place']), RANCH_LIMITS.ranches, 0, { description: "hometown only: a ranch dressed at one of the story's places (a rural place the town's map has not got): fences, the gate and its sign, the farmhouse and porch, the barn, the stable, a corral of horses, the windmill and its trough, hay, the pasture and its cattle. Name its marks with place aliases' `ranch`" }),
     cast: A(O({
       id: R('slug'), anchor: E(ANCHORS), color: R('colour'), voiceOnly: { ...B, description: 'heard, never seen (a dispatcher on the phone): no sheet, no body' },
       model: E(CAST_MODELS, { description: 'a shipped person from the cast registry (public/storykit/cast/registry.json), as they are: their own body, clips, face and recorded lines. No sheet. anchor and voice default to the registry\'s' }),

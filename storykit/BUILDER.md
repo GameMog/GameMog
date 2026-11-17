@@ -405,6 +405,28 @@ Every place is a key from Mog City's place list (given after this chapter): `"@l
 - Mog City has no named camera points: a camera is a place, `"player"`, or `{ "rel": "player" | "<cast id>",
   "right", "up", "fwd" }` (from that person's eyes, in their frame: a close-up).
 
+### Ranches (a hometown)
+
+A hometown's map has its streets, buildings and named places, but not the ranches and farms out past them. When the
+story lives on a ranch (a ranch family's spread, a horse barn, the cattle a plot turns on), ask Mog City to **dress
+one**: `ranches: [{ "place": "colter-ranch", "sign": "Colter Ranch", "brand": "C", "cattle": 10, "horses": 3 }]`, its
+`place` one of your own `places`, aliased to the town place nearest where the ranch should be (an edge-of-town place:
+a gas station or a store on the road out, a park at the town's edge). Mog City finds open land fronting a road near
+it, clear of every building and road, and builds the ranch there: the fences, the gate with its sign (your `sign`, the
+brand's letter beside it), the farmhouse and porch, the red barn, the stable, a corral with the horses, the windmill
+and its trough, hay, the pasture and its cattle.
+
+- Write one only when the story is about the ranch (where its people live and work, where it is won or lost). A story
+  that only passes a farm needs none. Two at most (two ranch families).
+- `"@colter-ranch"` is then the ranch's yard (a `drive` there ends at its gate on the road). Name its other spots with
+  aliases of the same town place and a `ranch` mark: `"colter-porch": { "@": "<the same town key>", "ranch":
+  "porch", "name": "the porch" }`. The marks: `gate`, `yard`, `porch`, `barn`, `stable`, `corral`, `windmill`, `hay`,
+  `pasture`. Every one is outdoors and reached on foot from the road (a walk, a search, a fight, an npc there).
+- The sign is an original name in the story's own words, never a real ranch, company or brand. Its people dress for
+  it (see People: a rancher in a cowboy hat, boots and work wear).
+- The horses and cattle are the ranch's own animals, idling and grazing: scenery the player sees, never a ride.
+- New York and San Francisco have no open land: `ranches` is for a hometown only.
+
 ## The city is the city
 
 The story happens in New York, and every on-screen word says so. **On-screen labels** (titles, objectives, place
