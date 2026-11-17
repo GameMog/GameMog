@@ -457,9 +457,16 @@ export function compile(S) {
   }
   // (forge v2.2: a suit's jacket is the library's (cut from the body, lapels, natural shoulders) over the base suit's shirt,
   // tie and trousers; a woman's over a plain shirt)
+  // (VM: an overcoat over a suit's jacket wears the coat over the base suit alone: the library's jacket under the
+  // library's coat came out through it in every view (the coat clears inner layers only within 3 cm of it, and the
+  // jacket's chest and hang stand further off than that; its lapels not at all), dark patches all over a light coat
+  // (Colter Land's developer). One library coat over the torso, as an overcoat over a library top already was (the
+  // over list's overcoat is skipped there): the suit's trousers, shirt and tie stay, the coat shows the shirt and tie at its V)
+  const coatOverSuit = suitTop && (W.over || []).some((o) => o.item === 'overcoat');
+  if (coatOverSuit) log.push(`overcoat over a ${top.item}: the jacket left off (the coat over the suit's shirt and tie)`);
   if (suitTop) { if (fem) C.wear.push(['female_casualsuit01', 'top', [1, 1, 1], 'bake', { tint: lin3(hex(top.accent2 || null, [226, 226, 222])), floor: 0.5 }]);
     // (C5: over the base suit's shirt, whose collar is kept only in the V (core.mjs), the jacket's collar sits closer on the neck)
-    C.lib.push({ item: top.item, color: G(top, [38, 40, 48]), pattern: top.pattern || 'plain', fit: top.fit || 'regular', layer: 3, ...(fem ? {} : { collarGap: 0.003 }) }); }
+    if (!coatOverSuit) C.lib.push({ item: top.item, color: G(top, [38, 40, 48]), pattern: top.pattern || 'plain', fit: top.fit || 'regular', layer: 3, ...(fem ? {} : { collarGap: 0.003 }) }); }
   for (const o of W.over || []) if (o.item === 'overcoat' && !libTop) C.lib.push({ item: 'overcoat', color: G(o, [60, 60, 66]), accent: o.accent || null, layer: 5 });
   for (const o of W.over || []) if (o.item === 'apron') C.apron = { len: fem ? 0.5 : 0.56, width: fem ? 0.36 : 0.4, curve: 5, color: c3(o, [236, 236, 232]), check: o.pattern === 'check' ? { a: c3(o, [40, 64, 120]), b: hex(o.accent, [236, 236, 232]), size: 0.022 } : null, band: hex(o.accent, null) || null, gap: 0.014, ties: true };
   // (RZ: the wardrobe must end with something over the torso: a pack garment worn for its top or whole, or a library top,

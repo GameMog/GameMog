@@ -14,6 +14,7 @@ import { readFileSync } from 'node:fs';
 import { Validator } from '../storykit/pack/validate.ts';
 import FORGE from './forge/character-sheet.schema.json' with { type: 'json' };
 import { fitWardrobe, fitCastWardrobes, workOf } from '../lib/storykit-wardrobe.ts';
+import { compile } from './forge/compile.mjs';
 
 type Ok = (name: string, cond: boolean, detail?: string) => void;
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x));
@@ -126,6 +127,14 @@ export function runWardrobeChecks(ok: Ok) {
   ] };
   const was = pack.cast.map((c) => JSON.stringify(c.sheet.wardrobe)), fitted = fitCastWardrobes(pack, null);
   ok('in a cast, only the person whose own words clash with their clothes is changed', Object.keys(fitted).join() === 'hero' && pack.cast.slice(1).every((c, i) => JSON.stringify(c.sheet.wardrobe) === was[i + 1]), JSON.stringify(fitted));
+  // (VM: the forge wears one library coat over the torso: an overcoat over a suit's jacket is the coat over the suit's
+  // shirt, tie and trousers, the jacket left off. The jacket under the coat came out through it in every view: Colter
+  // Land's developer, a dark suit under a cream coat, read as a coat in dark patches)
+  const dress = (wardrobe: any) => compile({ ...clone(FORGE_BASE), wardrobe }).cfg as any, items = (c: any) => c.lib.map((l: any) => l.item).join(',');
+  const coated = dress({ top: { item: 'suit-jacket', color: '#2A2A2E' }, bottom: { item: 'suit-trousers', color: '#2A2A2E' }, shoes: { item: 'dress' }, over: [{ item: 'overcoat', color: '#D8C8A0' }] });
+  ok('forge: an overcoat over a suit\'s jacket is one coat over the suit (no jacket under it; the suit\'s shirt, tie and trousers kept)', items(coated) === 'overcoat' && !!coated.suit && coated.wear.some((w: any) => w[0] === 'male_elegantsuit01'), items(coated));
+  const suited = dress({ top: { item: 'suit-jacket', color: '#2A2A2E' }, bottom: { item: 'suit-trousers', color: '#2A2A2E' }, shoes: { item: 'dress' } });
+  ok('forge: a suit without a coat keeps its jacket', items(suited) === 'suit-jacket', items(suited));
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
