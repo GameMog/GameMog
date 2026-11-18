@@ -1,0 +1,124 @@
+{
+ "id": "dex",
+ "name": "Dex Varga",
+ "role": "rival CEO of Cobalt Circuitry: Jensen Heist",
+ "logline": "Puffer over a hoodie; wants one real keynote in his life.",
+ "identity": {
+  "age": 34,
+  "body": "male",
+  "presentation": "man",
+  "heightCm": 180,
+  "build": {
+   "frame": "medium",
+   "weight": "slim",
+   "muscle": "average"
+  }
+ },
+ "heritage": {
+  "note": "invented person; no real likeness",
+  "blend": {
+   "african": 0.0,
+   "asian": 0.3,
+   "european": 0.7
+  },
+  "skin": {
+   "tone": "light",
+   "undertone": "neutral",
+   "makeup": "none",
+   "lipTint": "natural"
+  }
+ },
+ "face": {
+  "jaw": "soft",
+  "cheeks": "average",
+  "cheekbones": "average",
+  "faceWidth": "average",
+  "nose": {
+   "width": "average",
+   "length": "average",
+   "tip": "average",
+   "bridge": "straight"
+  },
+  "browRidge": "average",
+  "chin": {
+   "projection": "receding",
+   "length": "average",
+   "width": "average"
+  },
+  "eyes": "brown",
+  "brows": {
+   "color": "dark-brown",
+   "weight": "average"
+  },
+  "eyeShape": "almond",
+  "eyeBags": "none",
+  "mouth": {
+   "lips": "average",
+   "width": "average",
+   "cupidsBow": "average",
+   "corners": "neutral"
+  },
+  "ears": {
+   "size": "average",
+   "angle": "flat"
+  },
+  "skull": {
+   "shape": "oval"
+  },
+  "forehead": "average",
+  "faceLength": "average"
+ },
+ "hair": {
+  "style": "side-part",
+  "color": "dark-brown",
+  "greying": 0
+ },
+ "facialHair": {
+  "style": "stubble",
+  "color": "dark-brown",
+  "density": 0.5
+ },
+ "wardrobe": {
+  "top": {
+   "item": "hoodie",
+   "color": "#6E727B",
+   "accent": "#E4E1DA"
+  },
+  "bottom": {
+   "item": "jeans",
+   "color": "#262C38"
+  },
+  "shoes": {
+   "item": "white-sneakers",
+   "color": "#E2DFD8"
+  },
+  "over": [
+   {
+    "item": "puffer-coat",
+    "color": "#2F5FD0"
+   }
+  ]
+ },
+ "posture": {
+  "stance": "guarded",
+  "pace": "restless",
+  "gestures": "restarts his sentences with his hands",
+  "idle": "shift",
+  "walk": "walk"
+ },
+ "personality": {
+  "traits": [
+   "nervous",
+   "ambitious",
+   "earnest",
+   "awkward"
+  ],
+  "speech": "sentences that restart"
+ },
+ "voice": {
+  "id": "dex-v1",
+  "description": "light and bright, restarts his sentences",
+  "pitch": "mid-high",
+  "rate": "quick"
+ }
+}
