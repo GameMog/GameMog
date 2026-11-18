@@ -36,7 +36,11 @@ export type PackagePlace = { id: string; kind: string; name: string; x: number; 
   cx?: number; cz?: number;
   /** how a player reaches it (storykit/hometown/approach.ts): the compiler's own when its data says (the hook for the
    *  town source's reach flags); 'none' also for a place a test drive found unreachable (lib/storykit-reach.ts) */
-  approach?: 'foot' | 'car' | 'none' };
+  approach?: 'foot' | 'car' | 'none';
+  /** not where (or what) the town's data says: a distant landmark's name, another town's listing, a backcountry
+   *  feature, a misfiled kind, or the same place twice (storykit/hometown/astray.ts withAstray: set when the Story Kit
+   *  reads the town, never stored by the compiler). Never offered to the builder; refused unless a Mog's parent named it */
+  astray?: { why: 'far' | 'elsewhere' | 'nature' | 'kind' | 'duplicate' | 'ambiguous'; say: string; of?: string } };
 export type PackageLandmark = { id: string; name: string; kind: string; x: number; z: number; tags?: string[] };
 export type District = { id: string; name: string; x: number; z: number };
 export type SpawnPoint = { id: string; x: number; z: number; heading: number; mode?: 'car' | 'foot'; name?: string; inDistrict?: boolean };

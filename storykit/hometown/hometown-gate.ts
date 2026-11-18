@@ -115,7 +115,8 @@ export function gateHometown(input: unknown, pkg: CityPackage, opts: { parent?: 
   const safety = pack && typeof pack === 'object' ? safetyProblems({ pkg, refs: plan, violentMissions: violentMissions(pack), texts, aliases: pack.places ?? {} }) : [];
   const district = pack && typeof pack === 'object' ? districtProblems(pack, pkg, plan) : [];
   const reach = pack && typeof pack === 'object' ? approachProblems(pack, pkg) : [];
-  const problems = [...gated.problems, ...safety, ...district, ...reach];
+  const astray = pack && typeof pack === 'object' ? astrayProblems(pack, pkg, plan, opts.parent ?? null) : [];
+  const problems = [...gated.problems, ...safety, ...district, ...reach, ...astray];
   return { ...gated, ok: problems.length === 0, problems, pack: problems.length ? null : gated.pack, safety, plan };
 }
 
@@ -143,4 +144,23 @@ export function districtProblems(pack: PackV2, pkg: CityPackage, plan: Ref[] = s
 export function unknownPlaces(pack: PackV2, pkg: CityPackage): string[] {
   const ids = new Set(pkg.places.filter((p) => !classify(p).residence).map((p) => p.id)), aliases = pack.places ?? {};
   return storyPlan(pack).filter((r) => !ids.has(aliases[r.key]?.['@'] ?? r.key)).map((r) => `${r.at}: @${r.key}`);
+}
+
+/**
+ * The sanity rule (storykit/hometown/astray.ts): no place the town's data has in the wrong spot, under the wrong kind or
+ * twice. A Mog keeps what its parent named (a published world plays and Mogs as it was); anything new is refused.
+ */
+export function astrayProblems(pack: PackV2, pkg: CityPackage, plan: Ref[] = storyPlan(pack), parent: PackV2 | null = null): string[] {
+  const by = new Map(pkg.places.filter((p) => p.astray).map((p) => [p.id, p]));
+  if (!by.size) return [];
+  const idOf = (pk: PackV2, key: string) => ((pk.places ?? {}) as Record<string, { '@'?: string }>)[key]?.['@'] ?? key;
+  const kept = new Set(parent && typeof parent === 'object' ? storyPlan(parent).map((r) => idOf(parent, r.key)) : []);
+  const out: string[] = [];
+  for (const r of plan) {
+    const id = idOf(pack, r.key), p = by.get(id);
+    if (!p || kept.has(id)) continue;
+    const a = p.astray!;
+    out.push(`${r.at}: @${r.key} is not a place to use in ${pkg.name}: ${a.say}${a.of ? ` (use @${a.of})` : ''}. Pick another of the town's places.`);
+  }
+  return out;
 }

@@ -121,7 +121,7 @@ export function swapPlace(pack: PackV2, reach: Reach, pkg: CityPackage, gate: (p
   const centre = targetsOf(pack).some((t) => t.mission === reach.mission && t.key === key && t.centre);
   const used = new Set(Object.values(pack.places ?? {}).map((a: any) => a?.['@']).concat(targetsOf(pack).map((t) => placeIdOf(pack, t.key))));
   const cands = pkg.places
-    .filter((p) => p.id !== from && p.kind === old.kind && displayName(p) !== null && !classify(p).residence)
+    .filter((p) => p.id !== from && p.kind === old.kind && displayName(p) !== null && !classify(p).residence && !p.astray)
     .filter((p) => { const a = approachOf(p); return a !== 'none' && (!centre || a === 'foot'); })
     .sort((a, b) => Number(used.has(a.id)) - Number(used.has(b.id)) || Math.hypot(a.x - old.x, a.z - old.z) - Math.hypot(b.x - old.x, b.z - old.z));
   for (const c of cands.slice(0, 16)) {

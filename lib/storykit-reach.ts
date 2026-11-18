@@ -22,6 +22,7 @@ import { storyStore } from './storykit-store';
 import { playHashOf, draftOfStore } from './storykit-publish';
 import { cityPackageByLock } from './hometown/towns';
 import { storykitModule } from './storykit-build';
+import { townForStory } from './storykit-hometown';
 import { codeHash } from './test-drive';
 import { townUnreachable, readMark, type DriveReach } from './drive-reach';
 export { readReach, townUnreachable, withDriveReach, type DriveReach } from './drive-reach';
@@ -29,6 +30,8 @@ import { gateHometown } from '../storykit/hometown/hometown-gate.ts';
 import { swapPlace, targetsOf, withUnreachable, markOf, type Mark, type Swap } from '../storykit/hometown/approach.ts';
 import type { CityPackage } from '../storykit/hometown/city-package.ts';
 
+/** The town as the builder reads it (the sanity pass, lib/storykit-hometown.ts townForStory): a swap never picks an astray place. */
+const storyPkg = (p: CityPackage | null) => (p ? townForStory(p) : null);
 /** How many places one draft's drives may swap (each swap is another drive of what is left). */
 export const SWAPS = 3;
 export type ReachFix = { swap: Swap } | { swap: null; why: string };
@@ -71,7 +74,7 @@ export function afterDriveReach(storeId: string, reach: DriveReach): ReachFix {
   const pack = row ? JSON.parse(row.pack) : null;
   const parent = row?.parent ? JSON.parse((s.db.prepare('SELECT pack FROM drafts WHERE id = ?').get(row.parent) as { pack: string } | undefined)?.pack ?? 'null') : null;
   const town = pack?.base?.city === 'hometown' && pack.base.hometown ? pack.base.hometown : null;
-  const plan = planReachFix({ report: JSON.parse(d.report), pack, parent, published: !row || row.state === 'kept', reach, pkg: town ? cityPackageByLock(town) : null, townMarks: town ? townUnreachable(town) : [] });
+  const plan = planReachFix({ report: JSON.parse(d.report), pack, parent, published: !row || row.state === 'kept', reach, pkg: town ? storyPkg(cityPackageByLock(town)) : null, townMarks: town ? townUnreachable(town) : [] });
   let report = plan.report, code: string | null = null;
   if (plan.pack) {
     const stored = s.repack(storeId, plan.pack);

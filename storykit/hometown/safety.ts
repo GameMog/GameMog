@@ -60,7 +60,7 @@ export const RESIDENCE_KINDS = new Set(['house', 'residential', 'apartments', 'd
   'farmhouse', 'cabin', 'houseboat', 'static_caravan', 'trailer', 'mobile_home', 'residence', 'home', 'private_residence', 'duplex', 'condominium']);
 /** Kinds that are a business: offered as a generic descriptor, their names refused. Values: the descriptor. */
 export const BUSINESS_KINDS: Record<string, string> = {
-  retail: 'a shop', commercial: 'a business', shop: 'a shop', convenience: 'the corner store', supermarket: 'the grocery store', grocery: 'the grocery store',
+  retail: 'a shop', commercial: 'a business', shop: 'a shop', convenience: 'the corner store', convenience_store: 'the corner store', supermarket: 'the grocery store', grocery: 'the grocery store',
   general: 'the general store', department_store: 'the department store', mall: 'the mall', hardware: 'the hardware store', farm: 'the farm supply store',
   agrarian: 'the feed store', car_repair: 'the garage', car_dealer: 'the car lot', car: 'the car lot', tyres: 'the tire shop',
   restaurant: 'the diner', fast_food: 'the burger place', fast_food_restaurant: 'the burger place', cafe: 'the cafe', coffee_shop: 'the coffee shop',
@@ -73,12 +73,16 @@ export const BUSINESS_KINDS: Record<string, string> = {
   amusement_arcade: 'the arcade', nightclub: 'the club', casino: 'the casino', storage: 'the storage lots', self_storage: 'the storage lots',
   laundry: 'the laundromat', hairdresser: 'the barbershop', beauty: 'the salon', clothes: 'the clothing store', liquor: 'the liquor store',
 };
+/** The national hotel and motel chains (in CHAIN_BRANDS; storykit/hometown/astray.ts: a place named for one is never a
+ *  public park or hospital, whatever kind the town's data filed it under). */
+export const LODGING_CHAINS = ['Holiday Inn', 'Best Western', 'Motel 6', 'Super 8', 'Days Inn', 'Hampton Inn', 'Marriott', 'Hilton', 'Ramada', 'Wyndham',
+  'La Quinta', 'Comfort Inn'];
 /** National chains a US town is likely to have (business names, never in a hometown story's words). */
 export const CHAIN_BRANDS = ['Walmart', "McDonald's", 'Burger King', "Wendy's", 'Sonic Drive-In', 'Taco Bell', 'KFC', 'Pizza Hut', "Domino's", 'Subway',
   'Starbucks', "Dunkin'", 'Dollar General', 'Family Dollar', 'Dollar Tree', "Casey's", "Love's", 'Pilot Flying J', 'QuikTrip', 'Shell', 'Chevron',
   'Exxon', 'Conoco', 'Phillips 66', 'Valero', 'Walgreens', 'CVS', 'Rite Aid', 'Target', 'Costco', 'Kroger', 'Safeway', 'Home Depot', "Lowe's",
   'AutoZone', "O'Reilly", 'Tractor Supply', 'Braum\'s', 'Dairy Queen', 'Chick-fil-A', 'Whataburger', 'Applebee\'s', 'Waffle House', 'Arby\'s',
-  'Holiday Inn', 'Best Western', 'Motel 6', 'Super 8', 'Days Inn', 'Hampton Inn', 'Marriott', 'Hilton', 'Wells Fargo', 'Chase Bank', 'Bank of America'];
+  ...LODGING_CHAINS, 'Wells Fargo', 'Chase Bank', 'Bank of America'];
 
 /** Names that make a place sensitive (or a home) whatever its kind says (kind 'yes', a bare building). */
 const NAME_RULES: [RegExp, Sensitive][] = [
@@ -105,7 +109,9 @@ export function classify(p: { kind: string; name: string; tags?: string[] }): Pl
   const sens = kinds.map((k) => SENSITIVE_KINDS[k]).find(Boolean) ?? null;
   const religion = tagged(p.tags, 'religion').length > 0;
   const byKind = kinds.some((k) => k in BUSINESS_KINDS || RESIDENCE_KINDS.has(k));
-  const nameRule = NAME_RULES.find(([re]) => re.test(p.name))?.[1] ?? (SAINT_NAME.test(p.name) && !byKind ? 'worship' : null);
+  // (a name the compiler already wrote as a descriptor, "the corner store on W College St": its street is not what it is)
+  const own = /^the [a-z][^A-Z]*? on [A-Z0-9]/.test(p.name) ? p.name.replace(/ on [A-Z0-9].*$/, '') : p.name;
+  const nameRule = NAME_RULES.find(([re]) => re.test(own))?.[1] ?? (SAINT_NAME.test(own) && !byKind ? 'worship' : null);
   const byName: Sensitive | null = nameRule ?? (religion ? 'worship' : null);
   const residence = kinds.some((k) => RESIDENCE_KINDS.has(k)) || RESIDENCE_NAME.test(p.name) || (p.tags ?? []).some((t) => t === 'private' || t === 'access=private');
   const business = !sens && !residence && (kinds.some((k) => k in BUSINESS_KINDS) || tagged(p.tags, 'brand').length > 0 || tagged(p.tags, 'operator:type').includes('private'));

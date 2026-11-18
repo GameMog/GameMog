@@ -20,9 +20,24 @@ import { hometownBase, townName, type CityPackage } from '../storykit/hometown/c
 import { classify, displayName, sensitiveWord, descriptor } from '../storykit/hometown/safety.ts';
 import { gateHometown, type HometownResult } from '../storykit/hometown/hometown-gate.ts';
 import { approachOf } from '../storykit/hometown/approach.ts';
+import { withAstray, astrayWordOk } from '../storykit/hometown/astray.ts';
+import { placeById, searchPlaces } from './places/search.ts';
 
 /** How many landmarks the builder reads (the rest are still the town's; a big city has over a thousand). */
 export const LANDMARKS_SHOWN = 60;
+
+/**
+ * The town as the Story Kit reads it: its places put through the sanity pass (storykit/hometown/astray.ts), with the
+ * town's Census anchor and the gazetteer for "Name, Town" listings. Every builder and reach-fix read of a town goes
+ * through this; the compiler's package, its lock and the engine's place library are unchanged.
+ */
+export function townForStory(pkg: CityPackage): CityPackage {
+  const at = placeById(pkg.placeId);
+  return withAstray(pkg, {
+    anchor: at ? { lat: at.lat, lon: at.lon } : null, town: at?.name ?? pkg.name,
+    townsNamed: (name) => searchPlaces(name, { limit: 25 }).filter((h) => h.match === 'exact').map((h) => ({ name: h.name, state: h.state, lat: h.lat, lon: h.lon })),
+  });
+}
 
 export const REAL_PLACE_RULES = `## Real places: the rules (a hometown is a real town)
 
@@ -39,6 +54,8 @@ export function hometownPlaceList(pkg: CityPackage): string {
   for (const p of pkg.places) {
     const c = classify(p), name = displayName(p);
     if (name === null) continue; // (a home: never offered)
+    // (a place the town's data has in the wrong spot or under the wrong kind, or twice: never offered; astray.ts)
+    if (p.astray) continue;
     // (a place a test drive found no player could reach: never offered; approach.ts)
     const reach = approachOf(p);
     if (reach === 'none') continue;
@@ -51,8 +68,15 @@ export function hometownPlaceList(pkg: CityPackage): string {
     if (pkg.lockVersion === 3 && p.inDistrict) notes.push('near the start: Mission 1 may use it');
     rows.push(`- @${p.id}: ${name} (${notes.join('; ')})`);
   }
-  const lm = pkg.landmarks.filter((l) => displayName(l) !== null && !classify(l).business).slice(0, LANDMARKS_SHOWN)
-    .map((l) => `${displayName(l)}${classify(l).sensitive ? ' (sensitive)' : ''}`);
+  // (a landmark is a word for the lines: never a distant park's or a misfiled place's name, and a name listed twice once)
+  const astray = new Map(pkg.places.map((p) => [p.id, p.astray]));
+  const words = new Map<string, string>();
+  for (const l of pkg.landmarks) {
+    if (displayName(l) === null || classify(l).business || !astrayWordOk(astray.get(l.id))) continue;
+    const w = `${displayName(l)}${classify(l).sensitive ? ' (sensitive)' : ''}`;
+    if (!words.has(w.toLowerCase())) words.set(w.toLowerCase(), w);
+  }
+  const allWords = [...words.values()], lm = allWords.slice(0, LANDMARKS_SHOWN);
   const spawns = pkg.spawnPoints.map((s) => `@${s.id}`).filter((k) => pkg.places.some((p) => `@${p.id}` === k));
   return `## ${townName(pkg)}: the town's place list (base exactly ${JSON.stringify(base)})
 
@@ -62,7 +86,7 @@ ${rows.join('\n')}
 
 Parts of town: ${pkg.districts.map((d) => d.name).join(', ') || 'none named'}.
 Arrivals (a good Mission 1 start or opening place): ${spawns.join(', ') || 'any place on the lanes'}.${pkg.lockVersion === 3 ? '\nThe part of town near the start is ready first: Mission 1 and the story\'s start use ONLY places marked "near the start"; later missions may use any place.' : ''}
-Landmarks (words only, for lines and labels; not keys): ${lm.join('; ') || 'none'}${pkg.landmarks.length > lm.length ? ` (and ${pkg.landmarks.length - lm.length} more not listed)` : ''}.
+Landmarks (words only, for lines and labels; not keys): ${lm.join('; ') || 'none'}${allWords.length > lm.length ? ` (and ${allWords.length - lm.length} more not listed)` : ''}.
 Roads: ${pkg.roadsSummary.streets} named streets, ${pkg.roadsSummary.km} km; the main ones: ${pkg.roadsSummary.main.join(', ')}.
 Named camera points: none (use a place, the player or a cast member).
 

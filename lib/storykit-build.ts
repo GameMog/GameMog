@@ -17,7 +17,7 @@ import { NAMES_CHECK_SYSTEM, readNamesCheck, consented, type Consent } from './e
 import { storykitLive } from './storykit-switch';
 import { storyStore } from './storykit-store';
 import { storykitMc } from './storykit-publish';
-import { hometownSystem, hometownTurn, checkHometownReply } from './storykit-hometown';
+import { hometownSystem, hometownTurn, checkHometownReply, townForStory } from './storykit-hometown';
 import { townName, type CityPackage } from '../storykit/hometown/city-package.ts';
 import { cityPackageByLock } from './hometown/towns';
 import { withDriveReach } from './drive-reach';
@@ -783,7 +783,9 @@ export async function generateStorykit(
   if (parent?.base.city === 'hometown' && !town0) return emit({ type: 'error', error: 'The town this story world is set in could not be read.' });
   // (with what the town's test drives found: a place no player could reach never offered, and refused by the gate; a
   // parking structure whose middle was inside a building, drive-up only: lib/drive-reach.ts, storykit/hometown/approach.ts)
-  const town: CityPackage | null = town0 ? withDriveReach(town0, { place: town0.placeId, compiler: town0.compilerVersion }) : null;
+  // (and through the sanity pass: a place the town's data has in the wrong spot, under the wrong kind or twice, never
+  // offered and refused unless a Mog's parent named it: storykit/hometown/astray.ts, lib/storykit-hometown.ts townForStory)
+  const town: CityPackage | null = town0 ? townForStory(withDriveReach(town0, { place: town0.placeId, compiler: town0.compilerVersion })) : null;
   const city = (town ? 'hometown' : parent?.base.city ?? sk.city) as CityId;
   if (!town) {
     if (!city || !PLACES[city]) return emit({ type: 'error', error: 'Pick a city for the story world.' });
