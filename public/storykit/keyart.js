@@ -12,7 +12,7 @@ const $ = (s) => document.querySelector(s);
 const API = '/api/storykit/admin/keyart';
 const slug = new URLSearchParams(location.search).get('slug') || '';
 // (the owner's picks, 18 Nov: Oaktown's hero sat on the hood of his car; Colter Land's riding off into the sunset)
-const SHOTS = { oaktown: 'hood', 'colter-land': 'rideoff' };
+const SHOTS = { 'colter-land': 'rideoff' }; // (owner 18 Nov: Oaktown keeps its stand-by-the-car cover; 'hood' stays available via ?shot=hood)
 const shot = (() => { const s = new URLSearchParams(location.search).get('shot'); return ['stand', 'hood', 'rideoff'].includes(s) ? s : SHOTS[slug] || 'stand'; })();
 const W = (window.__keyart = { slug, state: 'loading', log: [] });
 const say = (s, cls = '') => { const e = $('#st'); e.textContent = s; e.className = cls; };
