@@ -105,8 +105,9 @@ export type BuilderDeps = { cfg: HometownConfig; store: TileStore; queue: BuildQ
 /**
  * The compiler's places entry of a pick. `bbox` is THE play box (box.ts: the internal point's, stage 1 here); `searchBbox`
  * is the search's whole square (compiler 0.8.0+): when the cap cuts it, the compiler's frame centres a box of the same size
- * on the place's downtown (MogCity tools/hometown/assemble.py downtown_box), so a capped town's FRAME may pin other tiles
- * than stage 1 here. The frame is the truth: afterJobDone re-tiles the town to it (retileToFrame).
+ * on the place's downtown (MogCity tools/hometown/assemble.py downtown_box; 0.14.0: on its core's downtown when that box
+ * misses the core, tools/hometown/cores.json), so a capped town's FRAME may pin other tiles than stage 1 here, kilometres
+ * away (San Jose's 8 km). The frame is the truth: afterJobDone re-tiles the town to it (retileToFrame).
  */
 type Gaz = { name: string; geoid: string; anchor: [number, number]; anchorSource: string; bbox: Box; bboxSource: string; searchBbox?: Box };
 export const gazetteerOf = (p: Place): Gaz => ({ name: `${p.name}, ${p.state}`, geoid: p.geoid, anchor: [p.lon, p.lat], anchorSource: 'Census Gazetteer INTPTLAT/INTPTLONG', bbox: playBox(p), bboxSource: BOX_SOURCE, searchBbox: [...p.bbox] as Box });

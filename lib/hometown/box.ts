@@ -13,6 +13,16 @@
  *
  * The box is an input of every manifest built for the town: changing this rule changes towns, so it needs a new build.
  * scripts/hometown-build-pycheck.py checks it against fetch.py's own expressions (inspect.getsource) on 1,000 places.
+ *
+ * This is stage 1's box. For a CAPPED town (its search box wider than this) the compiler's frame decides the box it
+ * builds, from this box, the search box and its own tables (MogCity tools/hometown/assemble.py downtown_box):
+ *   0.8.0   the same size of box centred on the strongest downtown centre within half a box of the internal point;
+ *   0.14.0  and when that box misses the place's core (tools/hometown/cores.json: the OSM / Overture locality point of
+ *           1,580 big places whose internal point is too far off, San Jose's 8 km), centred on the strongest downtown
+ *           centre round the core. Every other town keeps the 0.8.0 box. The rule is the compiler's (its version is in
+ *           the buildId), so a town already built keeps its build and box; a story pinned to it stays on it unless every
+ *           place it names is the same place in the new build (lib/storykit-upgrade.ts).
+ * The builder re-tiles a town to its frame when the frame lands (lib/hometown-build/towns.ts retileToFrame).
  */
 import type { Place } from '../places/types.ts';
 

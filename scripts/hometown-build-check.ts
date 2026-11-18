@@ -183,6 +183,19 @@ function g1(ok: Ok) {
   }
   ok(`THE play box equals fetch.py's own cap (Python, the real compiler) on all ${sample.length} places`, sample.length === 1000 && boxBad === 0 && fx.maxSideM === 4500, first);
   ok(`stage 1 in TS (tile range, frame origin, k0, gamma0, play box) equals assemble.py stage1 on all ${sample.length} places`, s1Bad === 0, first);
+  // (compiler 0.14.0: the core table, tools/hometown/cores.py, is cut from this repo's index by the compiler's own reading
+  // of it; that reading must be THE boxes this repo sends (search.ts toPlace, box.ts playBox), or the table's gate drifts)
+  if ('cores' in fx) {
+    let coreBad = 0, firstCore = '';
+    for (const p of sample) {
+      const py = by.get(p.placeId) as { coreInput?: { searchBbox: number[]; bbox: number[] } | null } | undefined;
+      const ci = py?.coreInput;
+      if (!ci || JSON.stringify(ci.searchBbox) !== JSON.stringify(p.bbox) || JSON.stringify(ci.bbox) !== JSON.stringify(playBox(p))) { coreBad++; firstCore ||= `${p.placeId} ${JSON.stringify(ci)}`; }
+    }
+    const sj = by.get('us-0668000') as { core?: number[] | null } | undefined, boz = by.get('us-3008950') as { core?: number[] | null } | undefined;
+    ok(`the compiler's core table reads the search box and play box GameMog sends on all ${sample.length} places (cores.py census_rows)`, coreBad === 0, firstCore);
+    ok('the core table moves San Jose onto its downtown and leaves Bozeman (Colter Land) on the 0.8.0 rule', Array.isArray(sj?.core) && Math.abs(sj!.core![0] + 121.8906) < 0.01 && Math.abs(sj!.core![1] - 37.3362) < 0.01 && (boz === undefined || boz.core == null), JSON.stringify(sj?.core));
+  }
   const domains = new Set(fx.places.map((p) => p.domain));
   ok('the sample covers the lower 48 and the other domains', domains.has('conus') && domains.has('ak') && domains.has('hi') && domains.has('pr'), [...domains].join(','));
   const okemah = placeById('us-4054200')!;

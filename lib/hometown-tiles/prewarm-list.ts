@@ -13,7 +13,10 @@ export const PLAY_SIDE_M = MAX_SIDE_M;
 /** The owner-named towns (the three demo towns), always on the list. */
 export const NAMED = ['us-4054200', 'us-0455000', 'us-4261000'];
 
-export type GazetteerPlace = { name: string; geoid: string; anchor: [number, number]; anchorSource: string; bbox: [number, number, number, number]; bboxSource: string; pop2010: number | null };
+/** `searchBbox`: the search's whole square, as an on-demand ask sends it (lib/hometown-build/towns.ts gazetteerOf): the
+ * compiler moves a capped town's box onto its downtown only when it has it (0.8.0), and onto its core (0.14.0), so a
+ * pre-warmed capped town without it would be built over another box than the same town asked on demand. */
+export type GazetteerPlace = { name: string; geoid: string; anchor: [number, number]; anchorSource: string; bbox: [number, number, number, number]; bboxSource: string; searchBbox: [number, number, number, number]; pop2010: number | null };
 
 /** A town's play box: THE canonical box (lib/hometown/box.ts), the same as an on-demand ask's. */
 export const playBox = (p: Pick<Place, 'lat' | 'lon' | 'bbox'>) => canonicalPlayBox(p);
@@ -41,7 +44,7 @@ export function prewarmList(n: number, named: string[] = NAMED): { places: Recor
     places[id] = {
       name: `${p.name}, ${p.state}`, geoid: p.geoid, anchor: [p.lon, p.lat],
       anchorSource: `Census Gazetteer INTPTLAT/INTPTLONG (GEOID ${p.geoid})`, bbox: playBox(p),
-      bboxSource: BOX_SOURCE, pop2010: p.pop,
+      bboxSource: BOX_SOURCE, searchBbox: [...p.bbox] as GazetteerPlace['searchBbox'], pop2010: p.pop,
     };
     order.push(id);
   }
