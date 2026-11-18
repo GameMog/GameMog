@@ -5,9 +5,15 @@
 // art and titles them. The owner's /admin session only (the route answers 404 to anyone else).
 //   /storykit/keyart.html              the published story worlds with no key art, each a link
 //   /storykit/keyart.html?slug=<slug>  take it for that world (keep this tab in front: a hidden tab draws nothing)
+//   ...&shot=stand|hood|rideoff         the composition (Mog City wagmi/storyrun/keyshots.js, its &keyshot=): the hero
+//                                      standing by his car (every world's, unless SHOTS names another), sat on its hood,
+//                                      or riding his horse off into the sunset
 const $ = (s) => document.querySelector(s);
 const API = '/api/storykit/admin/keyart';
 const slug = new URLSearchParams(location.search).get('slug') || '';
+// (the owner's picks, 18 Nov: Oaktown's hero sat on the hood of his car; Colter Land's riding off into the sunset)
+const SHOTS = { oaktown: 'hood', 'colter-land': 'rideoff' };
+const shot = (() => { const s = new URLSearchParams(location.search).get('shot'); return ['stand', 'hood', 'rideoff'].includes(s) ? s : SHOTS[slug] || 'stand'; })();
 const W = (window.__keyart = { slug, state: 'loading', log: [] });
 const say = (s, cls = '') => { const e = $('#st'); e.textContent = s; e.className = cls; };
 const esc = (s) => String(s).replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' })[c]);
@@ -37,7 +43,7 @@ async function take() {
   $('#title').textContent = `Key art: ${g.title}`;
   document.title = `Key art: ${g.title}`;
   say(`${g.hasArt ? 'It has key art; this replaces it. ' : ''}Playing the world in Mog City until its first drive is framed...`);
-  W.state = 'playing'; W.src = g.src;
+  W.state = 'playing'; W.src = g.src; W.shot = shot;
   const f = document.createElement('iframe');
   f.title = 'The world playing'; f.allow = 'autoplay; gamepad; fullscreen';
   const art = await new Promise((resolve, reject) => {
@@ -57,7 +63,7 @@ async function take() {
     };
     addEventListener('message', onMessage);
     $('#stage').appendChild(f);
-    f.src = g.src;
+    f.src = shot === 'stand' ? g.src : `${g.src}&keyshot=${shot}`;
   });
   f.remove();
   for (const [k, b] of Object.entries(art)) { const i = new Image(); i.alt = k; i.src = URL.createObjectURL(new Blob([b], { type: 'image/jpeg' })); $('#shots').appendChild(i); }
