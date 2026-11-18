@@ -32,7 +32,8 @@ import { createTimers, meterText, deltaText, progress, seen as inSight, band as 
 import { createSets } from './sets.js';
 import { createJuice } from './juice.js';
 import { createGuide, propOf, reword, PROP_RIDES } from './guide.js';
-import { createAction, clearLens, lensOnPerson } from './action.js';
+import { createAction, clearLens, lensOnPerson, readable, speakerLens, bodyOn, FAR, SWUNG } from './action.js';
+import { gazeAim } from './cast.js';
 import { armTo } from '../mission/m3-set.js';
 import { world as cityWorld } from '../world/index.js';
 import { createReach, reachReason } from './reach.js';
@@ -760,17 +761,33 @@ export function createRunner(ctx) {
 
   // the cutscene camera: a point is 'player' (his head), '@place', or { rel: 'player' | <cast name>, right, up, fwd }
   const _v = new THREE.Vector3();
+  // the hero's head on foot: his body's own head bone, wherever his pose puts it (standing, crouched, kneeling, down),
+  // as a cast body's head is its bone (cast.js head). Colter Land's RD-2, 18 Nov: the close-up on Jack's 'Shake on
+  // this' looked at a head 1.55 m up, a fixed standing height, and Jack's head is at 1.79 m: his shirt filled the frame,
+  // his head cut off. Null in a car or on a horse, or with no bone found near him (the fixed height then, as before)
+  let heroBone = null, heroBoneOf = null;
+  const isHeadBone = (o) => o.isBone && /^(mixamorig:?)?head$/i.test(o.name);
+  function heroHead() {
+    if (inCar()) return null;
+    const e = cm.getActiveEntity(), m = e?.mesh || e?.model; if (!m) return null;
+    let ok = heroBone && heroBoneOf === m; for (let o = heroBone; ok && o && o !== m; o = o.parent) if (!o.parent) ok = false;
+    if (!ok) { heroBone = null; heroBoneOf = m; m.traverse((o) => { if (!heroBone && isHeadBone(o)) heroBone = o; }); }
+    if (!heroBone) return null;
+    const v = heroBone.getWorldPosition(new THREE.Vector3()), up = v.y - e.position.y;
+    if (!(up > 0.1 && up < 2.4) || Math.hypot(v.x - e.position.x, v.z - e.position.z) > 2) return null;
+    return v;
+  }
   function camPt(ref, fallbackUp = 1.5) {
     // (a shot in a set: its own room's points, sets.js)
     if (setRun?.active) return setRun.point(ref, fallbackUp);
     // (a point the runner works out itself: a boss's wake beat)
     if (Array.isArray(ref) && ref.length === 3) return ref;
-    const e = cm.getActiveEntity();
-    if (!ref || ref === 'player') return [e.position.x, e.position.y + (inCar() ? (car.kind === 'horse' ? 2.55 : 1.2) : 1.55), e.position.z];
+    const e = cm.getActiveEntity(), hh = !ref || ref === 'player' || (typeof ref === 'object' && ref.rel === 'player') ? heroHead() : null;
+    if (!ref || ref === 'player') return hh ? [hh.x, hh.y, hh.z] : [e.position.x, e.position.y + (inCar() ? (car.kind === 'horse' ? 2.55 : 1.2) : 1.55), e.position.z];
     if (typeof ref === 'string' && ref.startsWith('@')) { const p = places.at(ref); if (p) return [p.cx ?? p.x, cm.getGroundHeight(p.cx ?? p.x, p.cz ?? p.z, 'person') + fallbackUp, p.cz ?? p.z]; }
     if (typeof ref === 'object' && ref.rel) {
       const fig = ref.rel !== 'player' ? cast.get(castName(ref.rel)) : null;
-      const base = fig ? fig.head(_v) : _v.set(e.position.x, e.position.y + (inCar() ? (car.kind === 'horse' ? 2.55 : 1.2) : 1.55), e.position.z);
+      const base = fig ? fig.head(_v) : hh ? _v.copy(hh) : _v.set(e.position.x, e.position.y + (inCar() ? (car.kind === 'horse' ? 2.55 : 1.2) : 1.55), e.position.z);
       const h = fig ? fig.heading : e.heading, f = ref.fwd || 0, r = ref.right || 0;
       return [base.x + Math.sin(h) * f - Math.cos(h) * r, base.y + (ref.up || 0), base.z + Math.cos(h) * f + Math.sin(h) * r];
     }
@@ -779,10 +796,47 @@ export function createRunner(ctx) {
   // (a frame's people, action.js frame(): a head on the street, [x, y, z] with its heading h; the hero's 'player')
   function headOf(ref) {
     const e = cm.getActiveEntity();
-    if (!ref || ref === 'player' || cast.isHero?.(castName(ref)) || castName(ref) === heroName) { const o = [e.position.x, e.position.y + (inCar() ? 1.2 : 1.55), e.position.z]; o.h = e.heading; o.car = inCar() && car.kind !== 'horse'; return o; }
+    // (down: the head under DOWN m from the feet, crouched, kneeling or on the ground: action.js frames it from above)
+    if (isHeroRef(ref)) {
+      const hh = heroHead(), o = hh ? [hh.x, hh.y, hh.z] : [e.position.x, e.position.y + (inCar() ? (car.kind === 'horse' ? 2.55 : 1.2) : 1.55), e.position.z];
+      o.h = e.heading; o.car = inCar() && car.kind !== 'horse'; o.down = !!hh && hh.y - e.position.y < DOWN;
+      if (hh && heroBone) { if (heroRig.of !== heroBoneOf) { heroRig.of = heroBoneOf; heroRig._fok = null; } faceOfBone(o, heroBone, e.heading, heroRig); } return o;
+    }
     const fig = cast.get(castName(ref)); if (!fig || !fig.head) return null;
-    const v = fig.head(new THREE.Vector3()), o = [v.x, v.y, v.z]; o.h = fig.heading || 0; return o;
+    const v = fig.head(new THREE.Vector3()), o = [v.x, v.y, v.z]; o.h = fig.heading || 0; o.down = !!fig.root && v.y - fig.root.position.y < DOWN;
+    if (fig.bones?.head) faceOfBone(o, fig.bones.head, fig.root?.rotation.y ?? o.h, fig);
+    // (a body the cutscene turns to look at someone (cast.js gazeStep): its face where the turn puts it, the gaze's
+    // way and the world's up, not where its clip has it this moment: the turn eases in over the shot's first half
+    // second, and the cut to a speaker is chosen as their line starts. RD-2's Mercer on the ground, 18 Nov: his fall's
+    // head bone pointed 80 degrees off the way his face came round to Jack, and the cut saw it side on)
+    if (o.face && fig.gaze && !fig.noGaze && fig._gok !== false && fig.root) {
+      let g = null; try { g = fig.gaze(); } catch { g = null; }
+      if (g) {
+        const [yaw, pitch] = gazeAim({ x: o[0], y: o[1], z: o[2] }, g, fig.root.rotation.y), d = [Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch)];
+        const u = [-d[0] * d[1], 1 - d[1] * d[1], -d[2] * d[1]], un = Math.hypot(u[0], u[1], u[2]) || 1;
+        o.face = d; o.up = [u[0] / un, u[1] / un, u[2] / un]; o.gaze = true;
+      }
+    }
+    return o;
   }
+  // the way the face itself points, o.face [x, y, z], and its crown's way, o.up: the head bone's +Z and +Y in the world
+  // (Dan's rig, every forged body's: cast.js gazeStep turns the same axes), its pitch, its turn toward who they talk to
+  // and a body down on the ground's head included (action.js faceFwd, readable, speakerLens). Trusted once the rig is
+  // seen to be that make, standing: its head's +Z ahead of the body and its +Y up (rig._fok); a standing head turned
+  // further round from its body than a neck goes (110 degrees) is a pose's bone pointing anywhere, and not trusted
+  // (OF-2's Tessa, 18 Nov: her idle's hand at her hat brim); with none, faceDir works from the heading as before
+  const heroRig = {}, _fq = new THREE.Quaternion(), _fz = new THREE.Vector3(), _fy = new THREE.Vector3();
+  function faceOfBone(o, b, h, rig) {
+    b.getWorldQuaternion(_fq);
+    const z = _fz.set(0, 0, 1).applyQuaternion(_fq), y = _fy.set(0, 1, 0).applyQuaternion(_fq), fl = Math.hypot(z.x, z.z);
+    const ahead = fl > 1e-6 ? (z.x * Math.sin(h) + z.z * Math.cos(h)) / fl : 0;
+    if (rig._fok == null && !o.down) rig._fok = fl > 0.5 && ahead > 0.2 && y.y > 0.5;
+    if (!rig._fok) return;
+    if (!o.down && fl > 0.3 && ahead < Math.cos((110 * Math.PI) / 180)) return;
+    o.face = [z.x, z.y, z.z]; o.up = [y.x, y.y, y.z];
+  }
+  const DOWN = 1.1;
+  const isHeroRef = (ref) => !ref || ref === 'player' || cast.isHero?.(castName(ref)) || castName(ref) === heroName;
   // the cutscene's key light on the face it looks at, placed as Mog City's night scene places it (m2-scenes.js
   // burnerMeet's keyL: loc(0.8, 0.5, 1.9), 1.9 m out in front of the face, 0.8 m to one side, 0.5 m up, 2.6): from the
   // camera's side of the face but off its axis, so the face is modelled, not flattened. (VR, 5 Nov: it was put between
@@ -1034,6 +1088,61 @@ export function createRunner(ctx) {
       fig.gaze = !s || setRun?.active ? null : () => { const who = aim(name); if (!who || who === name) return null; const p = headOf(isHero(who) ? 'player' : who); return p ? { x: p[0], y: p[1], z: p[2] } : null; };
     }
   }
+  // the cut to whoever says a line (shotList): null when the shot's own lens at p looking at l shows their face
+  // (action.js readable), they are a voice on the air, have no body here or stand FAR m and more from the shot's
+  // people; else the lens on them, toward who they talk to (the shot's other person, else its `on`), kept clear
+  // (the hero's car's box in the world, when it stands drawn in the street: none when it is the speaker's own seat)
+  function carBox(own) {
+    const m = cm.entities?.car?.mesh; if (own || !m || !m.visible || !m.parent) return null;
+    const b = new THREE.Box3().setFromObject(m); return b.isEmpty() ? null : b.expandByScalar(-0.05);
+  }
+  const segBox = (a, b, box) => { const d = new THREE.Vector3(b[0] - a[0], b[1] - a[1], b[2] - a[2]), n = d.length(); if (n < 1e-3) return false; const hit = new THREE.Ray(new THREE.Vector3(a[0], a[1], a[2]), d.divideScalar(n)).intersectBox(box, new THREE.Vector3()); return !!hit && hit.distanceTo(new THREE.Vector3(a[0], a[1], a[2])) < n; };
+  // (the heads of the bodies within r m of the face H, its own left out: the cast, the hero, a fight's men, people;
+  // each with the ground under it, where its feet are: action.js bodyOn)
+  function headsNear(H, r) {
+    const out = [], v = new THREE.Vector3();
+    app.scene.traverseVisible((o) => { if (!isHeadBone(o)) return; o.getWorldPosition(v); const d = Math.hypot(v.x - H[0], v.z - H[2]); if (d < r && Math.hypot(d, v.y - H[1]) > 0.25) out.push([v.x, v.y, v.z]); });
+    for (const q of out) { const g = cm.getGroundHeight(q[0], q[2], 'person'); q.push(Number.isFinite(g) ? Math.max(g, q[1] - 2.2) : q[1] - 1.6); }
+    return out;
+  }
+  function speakerCut(who, s, p, l, fov, si) {
+    if (onAir(who)) return null;
+    const H = headOf(who); if (!H) return null;
+    const same = (a, b) => (isHeroRef(a) && isHeroRef(b)) || (!isHeroRef(a) && !isHeroRef(b) && castName(a) === castName(b));
+    const other = same(who, s.on || 'player') ? s.at : s.at && same(who, s.at) ? (s.on || 'player') : (s.on || 'player');
+    const O = other && !same(who, other) ? headOf(other) : null, C = headOf(s.on || 'player') || O;
+    if (C && C !== H && Math.hypot(C[0] - H[0], C[2] - H[2]) >= FAR) return null;
+    // (the hero's own car stands in the street with them, and reach.js's sight is the town's walls and ground only: a
+    // line through its body is shut too (OF-2 on Peets Hill, 18 Nov: Tessa and Wade's two-shot was the SUV's door))
+    // (nor through anyone else standing in the street between the lens and the face: OF-1's cut to Jack for 'That was
+    // the polite one' was the back of a hired man's hat; every body's head bone near, the speaker's own left out)
+    const cb = carBox(isHeroRef(who) && inCar()), others = headsNear(H, 25), see = (a, b) => (cb && segBox(a, b, cb) || bodyOn(a, b, others) ? 0 : reach.sight(a, b));
+    if (readable(p, l, fov, H, O, see)) return null;
+    const L0 = speakerLens(H, O); if (!L0) return null;
+    // (the lens on their face, kept clear (action.js clearLens: a swing kept within SWUNG of the face's way); when that
+    // leaves it shut or off the face, the same lens raised over the heads between (OF-1's 'That was the polite one',
+    // 18 Nov: a hired man between, and the lens pulled in to 0.9 m stood inside his head; RD-2's Mercer on the ground
+    // with Jack standing at his head: the cut pulled in between Jack's legs). Never a lens pulled in to the last
+    // ('tight') when a raised one is open: the highest raised lens as it is, else
+    // (a face on the ground, turned up, is seen from round it too: the lens turned about it, 45 and 90 degrees either
+    // way, when someone stands at its head (RD-2's Jack over Mercer, 18 Nov); readable keeps each within the face's way)
+    const turn = (P, deg) => { const a = (deg * Math.PI) / 180, c = Math.cos(a), sn = Math.sin(a), x = P[0] - H[0], z = P[2] - H[2]; return [H[0] + x * c - z * sn, P[1], H[2] + x * sn + z * c]; };
+    const tries = H.car ? [[0, 0]] : H.down ? [0, 45, -45, 90, -90].flatMap((d) => [[d, 0], [d, 0.5]]).concat([[0, 1]]) : [[0, 0], [0, 0.45], [0, 0.8]];
+    let pick = null, open = null;
+    for (const [deg, up] of tries) {
+      const L = { ...L0, A: turn([L0.A[0], L0.A[1] + up, L0.A[2]], deg), B: turn([L0.B[0], L0.B[1] + up * 0.9, L0.B[2]], deg) };
+      for (const q of [L.A, L.B]) q[1] = Math.max(q[1], cm.getGroundHeight(q[0], q[2], 'person') + 0.35);
+      const cl = clearLens(L, see, (P, Lk) => readable(P, Lk, L.fov, H, O, null, SWUNG));
+      const seen = cl.how !== 'tight' && cl.how !== 'kept' && readable(cl.lens.A, L.LA, L.fov, H, O, see) && readable(cl.lens.B, L.LB, L.fov, H, O, see);
+      if (seen) { pick = { cl, L, up, deg }; break; }
+      if (!open && cl.how !== 'tight') open = { cl, L, up, deg };
+      pick = { cl: { lens: L, how: 'raised' }, L, up, deg };
+    }
+    if (pick.cl.how === 'raised' && open) pick = open;
+    const { cl, L } = pick;
+    console.info('[storyrun] speaker', M?.def?.id || '-', 'shot', si, s.frame, who, cl.how, H.gaze ? 'gaze' : H.face ? 'bone' : 'body', (pick.up ? 'up ' + pick.up : '') + (pick.deg ? ' turn ' + pick.deg : ''));
+    return { A: cl.lens.A, B: cl.lens.B, LA: L.LA, LB: L.LB, fov: L.fov };
+  }
   async function shotList(shots, t, { skippable = true, beat = false, opening = false, set = null } = {}) {
     const D = createDirector(W);
     const ssr0 = ssrOf()?.intensity.value ?? 0;
@@ -1085,6 +1194,13 @@ export function createRunner(ctx) {
         if (s.caption) ui.caption(s.caption, '', '#FFC93C', Math.min(dur, 3));
         let frozen = null;
         if (opening) openBeat(s, dur);
+        // (whoever says a line is seen saying it: a shot by its grammar whose lens does not show the speaker's face, too
+        // small in a wide or a two-shot of people far apart, turned away, off the frame or behind something (action.js
+        // readable), cuts to them for their line (speakerLens) and back for a line it does show; a wide that sets a
+        // place, or one with a caption, is held EST s first. Never in an opening, in a set, or on a voice on the air)
+        const est = s.frame === 'wide' || s.caption || s.where ? 1.2 : 0;
+        let spkWho, spk = null;
+        const canCut = !!fr && !opening && !beat && !setRun?.active && !s.card && !s.title;
         // the shot's lines (one, or several in one shot: lines [...]), said in turn (radio/turns.js) while the lens moves.
         // A voiced line holds the shot for its voice and the beat after it, no longer: the shot's dur is the most a
         // recorded line waits in it (the old 1.4 s and reading-time floors are for lines with no voice); an unvoiced
@@ -1109,8 +1225,13 @@ export function createRunner(ctx) {
             if ((now() - t0) / 1000 > cap) { if (!cut) { cut = true; console.warn('[storyrun] a shot held past its time, cut:', M?.def?.id || '-', 'shot', si, linesDone ? 'lines said' : 'lines still going'); } return true; }
             const k = Math.min(dur, (now() - t0) / 1000), still = card && k >= hold, hh = handheld(k + t0 / 1000, still ? 0 : 0.4);
             if (still && !frozen) frozen = openCard(card, dur - hold);
-            const p = pos(Math.min(k, hold)), l = look(Math.min(k, hold));
-            D.camera = { pos: [p[0] + hh.x, p[1] + hh.y, p[2]], look: l, fov: s.fov || fr?.fov || 40, roll: 0, shake: hh };
+            let p = pos(Math.min(k, hold)), l = look(Math.min(k, hold)), fov = s.fov || fr?.fov || 40;
+            if (canCut && k >= est) {
+              const who = talking || (said[0]?.who ?? null);
+              if (who !== spkWho) { spkWho = who; spk = who ? speakerCut(who, s, p, l, fov, si) : null; if (spk) spk.t0 = now(); }
+              if (spk) { const u = Math.min(1, (now() - spk.t0) / 3000), e = u * (2 - u); p = spk.A.map((x, i) => x + (spk.B[i] - x) * e); l = spk.LA.map((x, i) => x + (spk.LB[i] - x) * e); fov = spk.fov; }
+            }
+            D.camera = { pos: [p[0] + hh.x, p[1] + hh.y, p[2]], look: l, fov, roll: 0, shake: hh };
             if (setRun?.active) setRun.frame({ pos: D.camera.pos, look: l, fov: s.fov || 40 });
             { const n = keyLight(p, l, !!s.warm), ssr = ssrOf(); if (ssr) ssr.intensity.value = n < CLOSE ? 0 : ssr0; }
             if (!beat) stepSkip();
