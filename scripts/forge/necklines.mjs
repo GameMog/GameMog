@@ -147,16 +147,32 @@ export function standCollar(ctx, o) {
   return { P: Float32Array.from(P), UV: Float32Array.from(UV), JI, WT, idx: Uint32Array.from(idx), roll: [0.42, 0.62], hide };
 }
 
+// (WS2) a shell's own neckline evened before a collar is sewn to it: each open-edge point moved onto one smooth line
+// (its height by angle round the neck, laid over the edge's highest points, then smoothed), so the cut is one line, not
+// the steps a field cut through the cloth's triangles leaves (a shirt's neckline brought up the shoulders' slope stood
+// up beside its collar in shards). Mostly the low points lifted, as the binding's evening (a high point let down past the
+// row under it folded its triangle over: a dark shard on the shoulder)
+export function evenNeckline(ctx, sh, o = {}) {
+  const { NECKY } = ctx, nz = ctx.jpos('neck01')[2], NE = necklineOf(sh.P, sh.idx, nz, NECKY, { envelope: o.envelope ?? 3, smooth: o.smooth ?? 40 }); let n = 0;
+  // (and its distance from the neck's axis onto the line's too, so no lifted point stands out past the collar's fall)
+  for (const v of NE.verts) { const x = sh.P[v * 3], z = sh.P[v * 3 + 2] - nz, a = Math.atan2(x, z), y = NE.y(a), r = Math.hypot(x, z), r1 = o.radius === false ? r : NE.r(a);
+    if (Math.abs(sh.P[v * 3 + 1] - y) > 1e-4 || Math.abs(r - r1) > 1e-4) { sh.P[v * 3 + 1] = y; if (r > 1e-4) { sh.P[v * 3] = x * r1 / r; sh.P[v * 3 + 2] = nz + z * r1 / r; } n++; } }
+  ctx.log?.(`neckline evened (WS2): ${n} of ${NE.verts.size} edge points moved onto the smoothed line`); return n;
+}
 /* ------------------------------------------------------------- turned collar -- */
 // a jacket's collar (o.sh: the jacket's shell): the stand up the back of the neck from the jacket's neckline, over the
 // shirt's collar (o.gap off the skin), turned over at the top, and the fall down over the stand and past the jacket's
 // neckline (o.over) so the jacket's cut edge never shows; open at the front by o.frontGap (rad), its ends at the lapels'
 // tops; the stand lower toward the front. One closed band (no back face, no open edge)
+// (WS2, a shirt's own collar: o.even { envelope, smooth } the neckline's line laid over its highest edge points and
+// smoothed (a shirt's neckline brought up the shoulders' slope is cut in steps; the stand's top followed each one as a
+// row of spikes), and with o.field the skin closed in by the collar hidden, as the stand collar's (the trapezius beside
+// the neck came up through the shirt's top under the fall as pale flecks))
 export function turnCollar(ctx, o) {
-  const { NECKY } = ctx, { at: skin, nz } = neckSkin(ctx), NE = necklineOf(o.sh.P, o.sh.idx, nz, NECKY), S = surfaces(o.sh, NECKY, nz), gap = o.gap ?? 0.011, th = o.th ?? 0.003, fg = o.frontGap ?? 0.62, NA = 64;
+  const { NECKY } = ctx, { at: skin, nz } = neckSkin(ctx), NE = necklineOf(o.sh.P, o.sh.idx, nz, NECKY, o.even || {}), S = surfaces(o.sh, NECKY, nz), gap = o.gap ?? 0.011, th = o.th ?? 0.003, fg = o.frontGap ?? 0.62, NA = 64;
   const angle = (i) => fg + ((TAU - 2 * fg) * i) / NA;
   const loop = (i) => { const a = angle(i), f = 0.5 + 0.5 * Math.cos(a), yE = NE.y(a), rE = NE.r(a), end = sm(0, 0.3, Math.min(a - fg, TAU - fg - a));
-    const yS = yE + (o.stand ?? 0.03) - 0.012 * f * f, y0 = yE - 0.006, rI = (y) => skin(a, y) + gap, over = (o.over ?? 0.012) * (0.4 + 0.6 * end);
+    const yS = yE + (o.stand ?? 0.03) - 0.012 * f * f, y0 = yE - 0.006, rI = (y) => skin(a, y) + gap, over = (o.over ?? 0.012) * (0.4 + 0.6 * end) + (o.point ?? 0) * Math.pow(f, 3); // (o.point: a shirt collar's leaves falling longer toward the front, to its points)
     const yF = yE - over, rF = Math.max(rE + th + 0.002, rI(yS) + th + 0.004 + (yS - yF) * 0.35), out = [];
     // (the stand's inner face, up)
     for (let k = 0; k <= 3; k++) { const y = y0 + ((yS - y0) * k) / 3; out.push({ r: rI(y), y }); }
@@ -170,9 +186,18 @@ export function turnCollar(ctx, o) {
     const yFe = out[out.length - 1].y; out.push({ r: rF - th * 0.5, y: yFe - th * 0.4 }); out.push({ r: rF - th, y: yFe - 0.001 }); out.push({ r: (rF + rI(y0)) / 2, y: Math.min((yFe + y0) / 2, yFe - 0.002) });
     return out; };
   const { P, UV, idx } = revolve(NA, angle, loop, { nz, closed: false, outerK: 7 });
-  const near = o.nearestNeck, { JI, WT } = skinBy(P, (p) => { const a = angOf(p[0], p[2], nz), ys = Math.min(p[1], NE.y(a) + 0.008), r = skin(a, ys), q = near(ctx, [Math.sin(a) * r, ys, nz + Math.cos(a) * r]); if (q >= 0) return weightsOf(ctx.si, ctx.sw, q); const nk = ctx.BI('neck01'); return [[nk, 1], [0, 0], [0, 0], [0, 0]]; });
-  ctx.log?.(`turned collar (NK): ${NA + 1} sections, neckline from ${NE.found} edge points, open ${fg.toFixed(2)} rad`);
-  return { P: Float32Array.from(P), UV: Float32Array.from(UV), JI, WT, idx: Uint32Array.from(idx) };
+  // (o.follow: the weights read from the neck's skin up to that far over the neckline (a shirt's stand, close on the neck,
+  // turns with it in a talk instead of the neck coming out through its top))
+  const near = o.nearestNeck, { JI, WT } = skinBy(P, (p) => { const a = angOf(p[0], p[2], nz), ys = Math.min(p[1], NE.y(a) + (o.follow ?? 0.008)), r = skin(a, ys), q = near(ctx, [Math.sin(a) * r, ys, nz + Math.cos(a) * r]); if (q >= 0) return weightsOf(ctx.si, ctx.sw, q); const nk = ctx.BI('neck01'); return [[nk, 1], [0, 0], [0, 0], [0, 0]]; });
+  const hide = new Set();
+  if (o.field) { const { bodyIdx, bPos, cls } = ctx;
+    const inside = (v) => { const x = bPos[v * 3], y = bPos[v * 3 + 1], z = bPos[v * 3 + 2] - nz, a = Math.atan2(x, z); if (Math.abs(a) < fg + 0.05) return false;
+      const f = 0.5 + 0.5 * Math.cos(a), yE = NE.y(a), yS = yE + (o.stand ?? 0.03) - 0.012 * f * f, rF = Math.max(NE.r(a) + th + 0.002, skin(a, yS) + gap + th + 0.004);
+      return y < yS - (o.hideTop ?? 0.006) && y > yE - 0.03 && Math.hypot(x, z) < rF; };
+    const under = (v) => inside(v) || (o.field([bPos[v * 3], bPos[v * 3 + 1], bPos[v * 3 + 2]], cls[v], v) > 0 && bPos[v * 3 + 1] > NECKY - 0.12);
+    for (let q = 0; q < bodyIdx.length; q += 3) { const t = [bodyIdx[q], bodyIdx[q + 1], bodyIdx[q + 2]]; if (t.every((v) => cls[v] !== 5) && t.every(under) && t.some(inside)) hide.add(q / 3); else if (cls[t[0]] !== 1 && t.every(inside)) hide.add(q / 3); } }
+  ctx.log?.(`turned collar (NK): ${NA + 1} sections, neckline from ${NE.found} edge points, open ${fg.toFixed(2)} rad${o.field ? `, ${hide.size} skin triangles inside it hidden` : ''}`);
+  return { P: Float32Array.from(P), UV: Float32Array.from(UV), JI, WT, idx: Uint32Array.from(idx), hide };
 }
 
 /* ----------------------------------------------------------- the hood, down -- */

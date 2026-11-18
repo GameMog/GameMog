@@ -405,6 +405,32 @@ Every place is a key from Mog City's place list (given after this chapter): `"@l
 - Mog City has no named camera points: a camera is a place, `"player"`, or `{ "rel": "player" | "<cast id>",
   "right", "up", "fwd" }` (from that person's eyes, in their frame: a close-up).
 
+### Ranches (a hometown)
+
+A hometown's map has its streets, buildings and named places, but not the ranches and farms out past them. When the
+story lives on a ranch (a ranch family's spread, a horse barn, the cattle a plot turns on), ask Mog City to **dress
+one**: `ranches: [{ "place": "colter-ranch", "sign": "Colter Ranch", "brand": "C", "cattle": 10, "horses": 3 }]`, its
+`place` one of your own `places`, aliased to a town place on the side of town where the ranch should be (a gas
+station or a store on the road out). Mog City finds the open land at the edge of the town nearest it (often a kilometre
+or more out, up to about 4 km), fronting a road, clear of every building and road, and builds the ranch there: the
+fences, the gate with its sign (your `sign`, the brand's letter beside it), the farmhouse and porch, the red barn, the
+stable, a corral with the horses, the windmill and its trough, hay, the pasture and its cattle. So `"@colter-ranch"` is
+the ranch, not that town place: give the town place an alias of its own if the story goes there too.
+
+- Write one only when the story is about the ranch (where its people live and work, where it is won or lost). A story
+  that only passes a farm needs none. Two at most (two ranch families).
+- `"@colter-ranch"` is then the ranch's yard (a `drive` there ends at its gate on the road). Name its other spots with
+  aliases of the same town place and a `ranch` mark: `"colter-porch": { "@": "<the same town key>", "ranch":
+  "porch", "name": "the porch" }`. The marks: `gate`, `yard`, `porch`, `barn`, `stable`, `corral`, `windmill`, `hay`,
+  `pasture`. Every one is outdoors and reached on foot from the road (a walk, a search, a fight, an npc there).
+- The sign is an original name in the story's own words, never a real ranch, company or brand. Its people dress for
+  it (see People: a rancher in a cowboy hat, boots and work wear).
+- The horses and cattle are the ranch's own animals, idling and grazing: scenery the player sees, never a ride.
+- A town with no open land at all inside its map (a small district of a town still building) gets the ranch on the
+  nearest open park instead, and with none of that either, the place plays as the town place it is aliased to: the
+  story never stops for it.
+- New York and San Francisco have no open land: `ranches` is for a hometown only.
+
 ## The city is the city
 
 The story happens in New York, and every on-screen word says so. **On-screen labels** (titles, objectives, place
@@ -537,6 +563,13 @@ and speak but never stands in a scene: never an `npc`, an enemy or a close-up.
   or mountain country, ranch people and the hired men alike wear work shirts, jeans, boots and a western hat
   (headwear `cowboy-hat`, its `accent` the hatband); a `peaked-cap` is a doorman's or a cop's, and hoodies and ball
   caps are a city kid's. A creator's "cowboy hat" or "Stetson" is always a `cowboy-hat`.
+- **Western wear** for ranch, rodeo and rural-West people (all plain cloth, no logos): top `western-shirt` (pearl
+  snaps, pointed yoke; `pattern` `plaid` with `accent` the plaid's bands, or `plain` with `accent` the yoke's piping),
+  jeans, dark `work-boots`. In `over`: `western-belt` (only with a `western-shirt`, which it tucks in; `accent` the
+  buckle's metal) and `bandana` (`accent` its print). Vary them across a cast: the rancher in a plain shirt, belt and
+  hat, the hand in a plaid shirt and belt, the daughter in a plaid shirt and a bandana. There are no cowboy boots,
+  western vests, ranch jackets or dusters yet: never write one (the forge forges cowboy boots as dark work boots and
+  leaves the others off). Dress only the ranch's own people this way; town people (the developer, the banker, the sheriff, the diner's waitress) keep their own clothes.
 - **Invented people only.** No real person, living or dead, famous or not, by name, likeness or voice: no "looks
   like", "sounds like", "played by", "in the style of", "a younger version of". There is no field for a likeness, a
   photo or a reference, and a pack with one is refused. If the creator names a real person, write an original

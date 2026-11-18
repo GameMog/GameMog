@@ -102,6 +102,20 @@ export function runHometownChecks(ok: Ok) {
   ok('a hometown pack pinning another town than its package is refused', gateHometown({ ...clone(okPack), base: { ...okPack.base, hometown: { ...okPack.base.hometown, place: 'us-ok-boley' } } }, OK).problems.some((p) => /base\.hometown\.place/.test(p)));
   ok('New York\'s own foreign-city rule is as before', foreignIn('Meet me in Chicago', 'ny').length === 1 && foreignIn('Back to Manhattan', 'ny').length === 0);
 
+  // ── ranches (Mog City wagmi/storyrun/ranch.js): a hometown's, at one of the pack's places, its marks by alias ──
+  const ranched = (f: (p: PackV2) => void = () => {}) => { const p = clone(okPack); p.places = { ...p.places, 'hollis-ranch': { '@': 'feed-store', name: 'the Hollis Ranch' }, 'hollis-barn': { '@': 'feed-store', ranch: 'barn', name: 'the barn' } }; p.ranches = [{ place: 'hollis-ranch', sign: 'Hollis Ranch', brand: 'H', cattle: 8, horses: 2 }]; f(p); return p; };
+  const rOk = gateHometown(ranched(), OK);
+  ok('a ranch at one of the pack\'s places, its barn by a ranch mark, passes in a town', rOk.ok, show(rOk.problems));
+  const rw = rOk.pack ? toRunnerPack(rOk.pack, { townName: 'Okemah, Oklahoma' }) as PackV2 : null;
+  ok('the runner world names the ranch by its place (at), with its sign, brand and herds; the mark alias as written', !!rw && JSON.stringify(rw.ranches) === JSON.stringify([{ at: 'hollis-ranch', sign: 'Hollis Ranch', brand: 'H', cattle: 8, horses: 2 }]) && rw.places['hollis-barn'].ranch === 'barn', JSON.stringify(rw?.ranches));
+  ok('a story with no ranch has none in its runner world', !('ranches' in (toRunnerPack(okPack, { townName: 'Okemah, Oklahoma' }) as PackV2)));
+  const rBad = (f: (p: PackV2) => void, re: RegExp) => { const r = gateHometown(ranched(f), OK); return !r.ok && r.problems.some((x) => re.test(x)); };
+  ok('a ranch at a place the pack has not got is refused', rBad((p) => { p.ranches[0].place = 'nowhere'; }, /ranches\[0\]\.place/));
+  ok('a ranch mark with no ranch at its town place is refused', rBad((p) => { p.places['hollis-barn']['@'] = 'depot'; }, /places\.hollis-barn\.ranch/));
+  ok('a ranch mark that is not one of the ranch\'s marks is refused', rBad((p) => { p.places['hollis-barn'].ranch = 'kitchen'; }, /ranch/));
+  ok('two ranches at one town place, or three ranches, are refused', rBad((p) => { p.places['other'] = { '@': 'feed-store', name: 'the other ranch' }; p.ranches.push({ place: 'other' }); }, /two ranches/) && !gateHometown(ranched((p) => { p.ranches = [1, 2, 3].map(() => ({ place: 'hollis-ranch' })); }), OK).ok);
+  ok('a New York story asking for a ranch is refused (no open land)', gatePack({ ...clone(ny), places: { ...(ny.places || {}), r: { '@': Object.keys(PLACES.ny)[0], name: 'the ranch' } }, ranches: [{ place: 'r' }] }).problems.some((p) => /ranches: a ranch is dressed on a hometown/.test(p)));
+
   // ── the Mog lock: the town stays, the game, people and missions change ──
   const mog = (f: (p: PackV2) => void) => { const p = clone(okPack); p.id = 'sk-okemog1'; p.parent = okPack.id; p.title = 'Harvest Moon'; f(p); return p; };
   const good = gateHometown(mog((p) => { p.acts[0].missions[0].stakes = 'Somebody moved the ledger.'; }), OK, { parent: okPack });

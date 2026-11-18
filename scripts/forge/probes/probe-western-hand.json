@@ -1,0 +1,130 @@
+{
+ "id": "probe-western-hand",
+ "name": "Probe Ranch Hand",
+ "role": "probe: a ranch hand in western wear",
+ "logline": "A plain pearl-snap western shirt tucked under a tooled belt, jeans, dark work boots, a cowboy hat.",
+ "identity": {
+  "age": 58,
+  "body": "male",
+  "presentation": "man",
+  "heightCm": 180,
+  "build": {
+   "frame": "broad",
+   "weight": "average",
+   "muscle": "strong"
+  }
+ },
+ "heritage": {
+  "note": "Irish-American",
+  "blend": {
+   "african": 0,
+   "asian": 0,
+   "european": 1
+  },
+  "skin": {
+   "tone": "light",
+   "undertone": "warm",
+   "weathered": true,
+   "makeup": "none",
+   "lipTint": "natural"
+  }
+ },
+ "face": {
+  "jaw": "heavy",
+  "cheeks": "average",
+  "cheekbones": "flat",
+  "faceWidth": "wide",
+  "nose": {
+   "width": "wide",
+   "length": "average",
+   "tip": "drooping",
+   "bridge": "hump"
+  },
+  "browRidge": "strong",
+  "chin": {
+   "projection": "average",
+   "length": "average",
+   "width": "wide"
+  },
+  "eyes": "blue",
+  "brows": {
+   "color": "auburn",
+   "weight": "heavy"
+  },
+  "eyeShape": "deep-set",
+  "eyeBags": "heavy",
+  "mouth": {
+   "lips": "thin",
+   "width": "average",
+   "corners": "down"
+  },
+  "ears": {
+   "size": "large",
+   "angle": "average"
+  },
+  "skull": {
+   "shape": "square"
+  },
+  "forehead": "high"
+ },
+ "hair": {
+  "style": "balding",
+  "color": "auburn",
+  "greying": 0.5
+ },
+ "facialHair": {
+  "style": "stubble",
+  "color": "salt-and-pepper",
+  "density": 0.8
+ },
+ "wardrobe": {
+  "top": {
+   "item": "western-shirt",
+   "color": "#8FA2B4",
+   "accent": "#5A3A26",
+   "pattern": "plain"
+  },
+  "bottom": {
+   "item": "jeans",
+   "color": "#2C3646"
+  },
+  "shoes": {
+   "item": "work-boots",
+   "color": "#2A211C"
+  },
+  "over": [
+   {
+    "item": "western-belt",
+    "color": "#3A2618"
+   }
+  ],
+  "headwear": {
+   "item": "cowboy-hat",
+   "color": "#C9B48C",
+   "accent": "#3A2A1C"
+  }
+ },
+ "posture": {
+  "stance": "guarded",
+  "pace": "slow",
+  "gestures": "wipes his hands on a rag, nods at the engine not at you",
+  "idle": "arms",
+  "walk": "walk"
+ },
+ "personality": {
+  "traits": [
+   "gruff",
+   "honest",
+   "patient",
+   "private"
+  ],
+  "wants": "to be left alone with the cars and his radio",
+  "speech": "few words, low, a long pause before the answer"
+ },
+ "voice": {
+  "id": "anchor-mechanic-v1",
+  "description": "deep gravel bass, slow",
+  "pitch": "low",
+  "rate": "slow"
+ }
+}

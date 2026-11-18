@@ -1559,6 +1559,17 @@ function paint3D(o, info, T, opt) {
     console.error('paint3D bib: texels grown past the islands', grown); }
   console.error('paint3D px', n);
 }
+// (WW) a pack bottom's printed waistband (male_casualsuit06's jeans: a black band 6 cm deep at the top, always under a
+// top) painted as the trousers' own cloth: its near-black texels in the atlas's lower half take the cloth's middle colour
+// and a little of its grain, so a western belt over it sits on denim, not on a black band
+function fillBand(data, info) {
+  const W0 = info.width, H0 = info.height, acc = [0, 0, 0]; let n = 0;
+  for (let y = Math.floor(H0 * 0.45); y < H0; y++) for (let x = 0; x < W0; x++) { const i = (y * W0 + x) * 3, r = data[i], g = data[i + 1], b = data[i + 2], mx = Math.max(r, g, b), mn = Math.min(r, g, b); if (mx > 60 && !(mx - mn < 18 && mn > 150)) { acc[0] += r; acc[1] += g; acc[2] += b; n++; } }
+  if (!n) return; const m = acc.map((c) => c / n); let k = 0;
+  for (let y = Math.floor(H0 * 0.42); y < H0; y++) for (let x = 0; x < W0; x++) { const i = (y * W0 + x) * 3, mx = Math.max(data[i], data[i + 1], data[i + 2]); if (mx > 48) continue;
+    const g = 0.86 + 0.14 * vnoise(x / 2.2, y / 2.2, 5) + 0.05 * Math.sin((x + y) * 1.4); for (let c = 0; c < 3; c++) data[i + c] = Math.max(0, Math.min(255, Math.round(m[c] * 0.82 * g))); k++; }
+  console.error('fillBand (WW): waistband texels painted as the cloth', k);
+}
 function paintGrime(o, info, T, k) {
   const S = info.width, uv = PK.get('uv'); let n = 0;
   const done = new Uint8Array(S * info.height);
@@ -1646,11 +1657,13 @@ async function garment(name, mode, opt = {}, T = null) {
     if (CFG.grime && T) paintGrime(data, info, T, CFG.grime.k);
     return sharp(data, { raw: info }).jpeg({ quality: 92 }).toBuffer();
   }
-  if (mode === 'tex' && T && (opt.rips || opt.pocket || opt.desat)) { const { data, info } = await sharp(f).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+  if (mode === 'tex' && T && (opt.rips || opt.pocket || opt.desat || opt.fillBand)) { const { data, info } = await sharp(f).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+    if (opt.fillBand) fillBand(data, info);
     if (opt.desat) for (let i = 0; i < data.length; i += 3) { const L = 0.3 * data[i] + 0.59 * data[i + 1] + 0.11 * data[i + 2]; for (let c = 0; c < 3; c++) data[i + c] = Math.round(L + (data[i + c] - L) * (1 - opt.desat)); }
     if (opt.rips || opt.pocket) paint3D(data, info, T, opt); return sharp(data, { raw: info }).jpeg({ quality: 92 }).toBuffer(); }
   if (mode !== 'flat' && mode !== 'bake') return rd(f);
   const { data, info } = await sharp(f).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+  if (opt.fillBand) fillBand(data, info);
   // (the cloth's shading: its brightness, blurred over the print's fine stripes, about its own middle)
   const lum = new Uint8Array(info.width * info.height); for (let i = 0; i < lum.length; i++) lum[i] = Math.round(0.3 * data[i * 3] + 0.59 * data[i * 3 + 1] + 0.11 * data[i * 3 + 2]);
   // (down to 64 px and back: the print's stripes gone, the folds' broad light and shade kept)

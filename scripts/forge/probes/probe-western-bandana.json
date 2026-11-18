@@ -1,0 +1,135 @@
+{
+ "id": "probe-western-bandana",
+ "name": "Probe Ranch Daughter",
+ "role": "probe: a rancher's daughter in a bandana",
+ "logline": "A plaid pearl-snap shirt tucked under a western belt, a bandana, dark work boots.",
+ "identity": {
+  "age": 36,
+  "body": "female",
+  "presentation": "woman",
+  "heightCm": 175,
+  "build": {
+   "frame": "medium",
+   "weight": "slim",
+   "muscle": "average"
+  }
+ },
+ "heritage": {
+  "note": "Indian-British",
+  "blend": {
+   "african": 0.1,
+   "asian": 0.45,
+   "european": 0.45
+  },
+  "skin": {
+   "tone": "medium",
+   "undertone": "warm",
+   "weathered": false,
+   "makeup": "natural",
+   "lipTint": "rose"
+  }
+ },
+ "face": {
+  "jaw": "average",
+  "cheeks": "average",
+  "cheekbones": "high",
+  "faceWidth": "narrow",
+  "nose": {
+   "width": "average",
+   "length": "long",
+   "tip": "drooping",
+   "bridge": "greek"
+  },
+  "browRidge": "average",
+  "chin": {
+   "projection": "average",
+   "length": "average",
+   "width": "narrow"
+  },
+  "eyes": "dark-brown",
+  "brows": {
+   "color": "black",
+   "weight": "average"
+  },
+  "eyeShape": "almond",
+  "eyeBags": "none",
+  "mouth": {
+   "lips": "average",
+   "width": "average",
+   "cupidsBow": "average",
+   "corners": "neutral"
+  },
+  "ears": {
+   "size": "average",
+   "angle": "average"
+  },
+  "skull": {
+   "shape": "oval"
+  },
+  "forehead": "high",
+  "faceLength": "long",
+  "jawWidth": "narrow",
+  "eyeSpacing": "close"
+ },
+ "hair": {
+  "style": "long-straight",
+  "color": "dark-brown"
+ },
+ "facialHair": {
+  "style": "none"
+ },
+ "wardrobe": {
+  "top": {
+   "item": "western-shirt",
+   "color": "#2F4A3A",
+   "accent": "#1E2430",
+   "pattern": "plaid"
+  },
+  "bottom": {
+   "item": "jeans",
+   "color": "#2C3646"
+  },
+  "shoes": {
+   "item": "work-boots",
+   "color": "#2A211C"
+  },
+  "over": [
+   {
+    "item": "western-belt",
+    "color": "#5A3A24"
+   },
+   {
+    "item": "bandana",
+    "color": "#8E2228",
+    "accent": "#EDE6D6"
+   }
+  ],
+  "headwear": {
+   "item": "none"
+  }
+ },
+ "props": [],
+ "posture": {
+  "stance": "upright",
+  "pace": "quick",
+  "gestures": "pushes her glasses up, counts on her fingers",
+  "idle": "arms",
+  "walk": "walk"
+ },
+ "personality": {
+  "traits": [
+   "precise",
+   "guarded",
+   "dry",
+   "principled"
+  ],
+  "wants": "to get the file to someone who will read it, and keep her job doing it",
+  "speech": "measured, exact, a dry joke when cornered"
+ },
+ "voice": {
+  "id": "anchor-office-worker-v1",
+  "description": "clear alto, crisp and even",
+  "pitch": "mid",
+  "rate": "steady"
+ }
+}

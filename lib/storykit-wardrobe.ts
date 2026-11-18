@@ -8,7 +8,7 @@
  * the sheet schema's item lists) and its anchors (scripts/forge/anchors) where one exists:
  *   hands-on work (garage, welding, docks, a truck) the mechanic anchor's work shirt, dark trousers, work boots
  *   construction   a khaki work shirt, jeans, work boots        farm      denim overalls over a tee, work boots
- *   ranch          a brown work shirt, jeans, boots              chef/cook the chef anchor's whites, dark trousers, boots
+ *   ranch          a plaid pearl-snap western shirt, jeans, work boots      chef/cook the chef anchor's whites, dark trousers, boots
  *   nurse/doctor   scrubs (the nurse anchor: one colour top and trousers, white sneakers)
  *   cop/guard      a plain dark uniform jacket (its trim the cloth's colour: no gold, no badge, no cap), trousers, boots
  *   delivery       a plain slate tee (no company colours), dark trousers, sneakers
@@ -43,7 +43,7 @@ const JOBS: [Job, RegExp][] = [
   ['construction', /\b(construction (workers?|crew|foreman|foremen)?|builders?|bricklayers?|stonemasons?|roofers?|carpenters?|framers?|site (workers?|foreman)|foreman|foremen|hard ?hats?)\b/gi],
   ['hands', /\b(mechanics?|grease ?monkey|garages?|auto ?shop|body ?shop|tow(-| )?(truck|driver|yard)s?|welders?|welding|machinists?|plumbers?|electricians?|linem[ae]n|dock ?workers?|dockhands?|longshorem[ae]n|truckers?|truck ?drivers?|oil ?field|roughnecks?|miners?|loggers?|janitors?|handym[ae]n|repairm[ae]n|mill ?(hands?|workers?)|factory (hands?|workers?)|fix(es|ing)? (trucks|cars|engines|tractors)|scrapyard|junkyard|salvage yard)\b/gi],
   ['farm', /\b(farmers?|farmhands?|farm ?hands?|farm ?girl|farm ?boy|dairym[ae]n|growers?)\b/gi],
-  ['ranch', /\b(ranchers?|ranch ?hands?|cowboys?|cowgirls?|cowhands?|wranglers?|cattlem[ae]n|cattlewom[ae]n)\b/gi],
+  ['ranch', /\b(ranchers?|ranch ?hands?|cowboys?|cowgirls?|cowhands?|wranglers?|cattlem[ae]n|cattlewom[ae]n|rodeo (riders?|cowboys?|cowgirls?|clowns?|queens?|hands?)|bull ?riders?|bronc ?riders?|barrel ?racers?|calf ?ropers?|ropers?|horsem[ae]n|horsewom[ae]n|farriers?)\b/gi],
   ['delivery', /\b(delivery (drivers?|m[ae]n|guys?|girls?|boys?|riders?)|couriers?|mail ?carriers?|postm[ae]n|postwom[ae]n|mailm[ae]n|van drivers?)\b/gi],
   ['office', /\b(school ?teachers?|teachers?|professors?|principals?|librarians?|tutors?|accountants?|bookkeepers?|clerks?|office workers?|secretar(y|ies)|receptionists?|reporters?|journalists?|bank tellers?|loan officers?|insurance (agents?|m[ae]n)|realtors?|real estate agents?)\b/gi],
   ['student', /\b(students?|schoolkids?|schoolgirls?|schoolboys?|high ?schoolers?|teenagers?|freshm[ae]n|sophomores?|college kids?|undergrads?|grad students?)\b/gi],
@@ -59,7 +59,9 @@ const CLAUSE = /[.;,:!?()—]|\b(and|but|who|whose|which|that|while|until|since|
 const LOOK = /\b(suits?|suited|tie|necktie|blazer|tux(edo)?|three-piece|business ?wear|dressed|gown|uniform(ed)?|overalls|dungarees|scrubs|apron|jackets?|coats?|hoodies?|sweat ?shirts?|t-?shirts?|tees?|shirts?|blouses?|sweaters?|jeans|trousers|pants|slacks|skirts?|shorts|boots|sneakers|trainers|heels|loafers|shoes|hats?|beanies?|outfits?|wears?|wearing|worn|clothes|clothing)\b/i;
 
 const FORMAL = ['suit-jacket', 'suit-jacket-db', 'doorman-coat'], WORK_TOPS = ['overalls', 'uniform-jacket', 'chef-jacket'];
-const BOOTS = ['work-boots', 'boots'];
+const BOOTS = ['work-boots', 'boots', 'cowboy-boots'];
+// (the ranch's boots: the hands' dark work boots (WS2: the forge's cowboy boots are held back))
+const RANCH_BOOTS = '#2A211C';
 type Fit = {
   top: Garment; bottom: Garment; bottomF?: Garment; shoes: Garment;
   clash: string[];     // tops that are wrong for the job (replaced, with the legs and shoes that go with them)
@@ -75,7 +77,7 @@ const FITS: Record<Job, Fit> = {
     clash: [...FORMAL, 'chef-jacket'], legs: ['jeans', 'ripped-jeans', 'trousers'], feet: BOOTS, strict: true },
   farm: { top: { item: 'overalls', color: '#3D5573', accent: '#C9C1B0' }, bottom: { item: 'jeans', color: '#2C3646' }, shoes: { item: 'work-boots', color: '#4A3626' },
     clash: [...FORMAL, 'chef-jacket'], legs: [], feet: BOOTS, strict: true },
-  ranch: { top: { item: 'long-sleeve', color: '#6E4B32' }, bottom: { item: 'jeans', color: '#2C3646' }, shoes: { item: 'boots', color: '#4A3626' },
+  ranch: { top: { item: 'western-shirt', color: '#6E3A2E', accent: '#2B3445', pattern: 'plaid' }, bottom: { item: 'jeans', color: '#2C3646' }, shoes: { item: 'work-boots', color: RANCH_BOOTS },
     clash: [...FORMAL, 'chef-jacket'], legs: ['jeans', 'ripped-jeans'], feet: BOOTS, strict: true },
   chef: { top: { item: 'chef-jacket', color: '#ECEBE6' }, bottom: { item: 'trousers', color: '#262628' }, bottomF: { item: 'loose-trousers', color: '#262628' }, shoes: { item: 'work-boots', color: '#1A1816' },
     clash: [...FORMAL, 'overalls', 'uniform-jacket'], legs: ['trousers', 'loose-trousers'], feet: [...BOOTS, 'work-shoes', 'sneakers'] },
@@ -118,7 +120,6 @@ const WESTERN_HAT = /\b(cowboy hats?|stetsons?|western hats?|ten[- ]gallon hats?
 // three words before the hat, in the same clause, says no)
 const NO_HAT = /\b(?:never|no|without)\s(?:\s*[\w'’]+){0,3}\s*$/i;   // ("no-nonsense" or a comma between is not a no)
 const westernHat = (words: string) => [...String(words || '').matchAll(WESTERN_HAT)].some((m) => !NO_HAT.test(words.slice(0, m.index!)));
-const RANCH = /\branch(?:es)?\b/i;
 const HAT_FELT = '#7A5A3C', HAT_BAND = '#2A2018';
 /** the headwear the person's own words or job call for: a cowboy hat for a western hat in the words, or in place of a
  * uniform's peaked cap on a ranch hand, or on anyone whose role or logline is a ranch ("owner of the Colter Ranch" names
@@ -126,10 +127,45 @@ const HAT_FELT = '#7A5A3C', HAT_BAND = '#2A2018';
 function fitHeadwear(sheet: Sheet, words: string, job: Job | null): string[] {
   const w = sheet.wardrobe!, now = w.headwear?.item || 'none';
   if (now === 'cowboy-hat') return [];
-  const ranch = job === 'ranch' || RANCH.test([sheet.role, sheet.logline].filter(Boolean).join(' . '));
+  const ranch = job === 'ranch' || ranchFolk(sheet);
   if (!(westernHat(words) || (ranch && now === 'peaked-cap'))) return [];
   w.headwear = { item: 'cowboy-hat', color: w.headwear?.color && now !== 'hood-up' ? w.headwear.color : HAT_FELT, accent: HAT_BAND };
   return [`headwear ${now} -> cowboy-hat`];
+}
+
+// western wear for the West's working people (Colter Land, 16 Nov: the ranch family "doesn't look like Montana"): a
+// rancher's, a ranch hand's or a rodeo rider's everyday shirt (a tee, a long-sleeve) becomes the forge's pearl-snap
+// western-shirt (its colour kept, a plaid in a dark band), their sneakers or shoes dark work boots, and over jeans a western
+// belt. Someone with no job of their own is dressed for the ranch only when they belong to one (WW2, 17 Nov: the word
+// "ranch" anywhere in a logline dressed a developer who "plans condos where the ranch is", the diner's waitress who
+// "serves the ranch hands", a kid who "watches the ranch-house burn"): their ROLE says so ("the rancher's son", "owner of
+// the Colter Ranch", "the ranching widow"), or their logline says they live or work on it ("grew up on the Colter
+// Ranch"), never with a no/never/without before it. Never over clothes the person's words ask for, never on another
+// job's uniform.
+const WEST_TOPS = ['tee', 'long-sleeve'], PLAID_BAND = '#2B3445', TO_BOOTS = ['cowboy-boots', 'sneakers', 'white-sneakers', 'skate-shoes', 'work-shoes'];
+const KIN = '(?:owners?|heirs?|heiress|sons?|daughters?|wife|husband|widow(?:er)?|kids?|children|boss|matriarch|patriarch|foreman|cook|manager|family|grand(?:son|daughter|mother|father|ma|pa)|mother|father|mom|dad|ma|pa|brothers?|sisters?|uncle|aunt|nephew|niece|cousin)';
+const RANCH_ROLE = new RegExp(`\\b(?:ranchers?['’]s?\\s+${KIN}\\b|ranching\\b|ranch (?:${KIN})\\b|${KIN}\\s+(?:of|at|on|from)\\s+(?:the\\s+)?(?:[\\w'’-]+\\s+){0,3}ranch(?:es)?\\b)`, 'i');
+const RANCH_LIFE = /\b(?:grew up|raised|born|lives?|living|works?|working|worked|lived|runs?|running|ran|keeps?|kept|owns?|owned|inherit(?:s|ed)?)\s+(?:on|at)?\s*(?:the|our|his|her|their|a|this)\s+(?:family\s+)?(?:[\w'’-]+\s+){0,2}ranch\b/i;
+const NO_BEFORE = /\b(?:no|never|not|without|nothing|n['’]t)\b(?:\s+[\w'’]+){0,3}\s*$/i;
+/** does the person belong to a ranch (their role, or their logline's own life on one), with no job of their own? */
+export function ranchFolk(sheet: Pick<Sheet, 'role' | 'logline'>): boolean {
+  if (RANCH_ROLE.test(sheet.role || '')) return true;
+  const lg = String(sheet.logline || ''), m = RANCH_LIFE.exec(lg);
+  return !!m && !NO_BEFORE.test(lg.slice(0, m.index));
+}
+function fitWestern(sheet: Sheet, job: Job | null): string[] {
+  const w = sheet.wardrobe!, out: string[] = [];
+  const country = job === 'ranch' || ((!job || job === 'farm' || job === 'hands' || job === 'construction') && ranchFolk(sheet));
+  if (!country) return out;
+  if (WEST_TOPS.includes(w.top!.item)) { out.push(`top ${w.top!.item} -> western-shirt`); w.top = { item: 'western-shirt', color: w.top!.color || '#6E3A2E', accent: PLAID_BAND, pattern: 'plaid' }; }
+  // (a ranch hand's or a rodeo rider's own feet in the dark work boots, whatever the forge first put on them: a rancher in
+  // white sneakers read as a city kid; the words asking for sneakers keep them, as everything they ask for). (WS2, 17 Nov:
+  // the forge's cowboy boots are held back, below the bar in Chrome (a flat heel, a rubber read, the jeans through the
+  // shaft): a sheet's cowboy-boots become these work boots too)
+  if (job === 'ranch' && TO_BOOTS.includes(w.shoes!.item)) { out.push(`shoes ${w.shoes!.item} -> work-boots`); w.shoes = { item: 'work-boots', color: RANCH_BOOTS }; }
+  const over = w.over || [];
+  if (w.top!.item === 'western-shirt' && /jeans/.test(w.bottom!.item) && !over.some((o) => o.item === 'western-belt') && over.length < 3) { w.over = [{ item: 'western-belt', color: '#4A3020', accent: '#C9C6BC' }, ...over]; out.push('over + western-belt'); }
+  return out;
 }
 
 export function fitWardrobe(sheet: Sheet | null | undefined, look?: string | null): string[] {
@@ -138,7 +174,8 @@ export function fitWardrobe(sheet: Sheet | null | undefined, look?: string | nul
   // (the role first: "the mechanic who came home" is a mechanic whatever the logline says of the farms round him)
   const job = workOf(sheet.role || '') || workOf([sheet.logline, look].filter(Boolean).join(' . '));
   const hat = fitHeadwear(sheet, [look, sheet.role, sheet.logline].filter(Boolean).join(' . '), job);
-  if (!job || [look, sheet.role, sheet.logline].some((s) => s && LOOK.test(s))) return hat;
+  if ([look, sheet.role, sheet.logline].some((s) => s && LOOK.test(s))) return hat;
+  if (!job) return [...hat, ...fitWestern(sheet, null)];
   const fit = FITS[job], fem = sheet.identity?.body === 'female', out: string[] = [...hat];
   const set = (k: 'top' | 'bottom' | 'shoes', g: Garment) => { out.push(`${k} ${w[k]!.item} -> ${g.item}`); w[k] = { ...g }; };
   const legs = fem && fit.bottomF ? fit.bottomF : fit.bottom;
@@ -152,6 +189,7 @@ export function fitWardrobe(sheet: Sheet | null | undefined, look?: string | nul
     if (w.bottom.item === 'suit-trousers' && w.top.item !== 'overalls') set('bottom', legs);
     if (w.shoes.item === 'dress') set('shoes', fit.shoes);
   }
+  out.push(...fitWestern(sheet, job));
   return out;
 }
 
