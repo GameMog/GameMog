@@ -1822,6 +1822,20 @@ export const MIGRATIONS = [
       const other = db.prepare(`UPDATE games SET creator = NULL WHERE ${inList}`).run(...MODEL).changes;
       return `Colter Land by GameMog: ${colter}; other model-named creators cleared: ${other}`;
     },
+  },  {
+    // 18 Nov: Colter Land's finale patch re-forged the cast in western wear (Jack in a cowboy hat), but the patch route
+    // stores no art, so Jump In still showed Jack's old capped headshot. The new one is shot from the new body with the
+    // platform's own portrait camera, on light blue. Only the old portrait is replaced; anything else is left alone
+    id: '2026-11-18-colter-land-avatar',
+    run(db) {
+      const img = file('colter-land-avatar.jpg');
+      if (!img) throw new Error('deploy/migrations/colter-land-avatar.jpg is not in this build');
+      const sha = (b) => (b ? createHash('sha256').update(Buffer.from(b)).digest('hex').slice(0, 16) : null);
+      const g = db.prepare("SELECT id, art_avatar FROM games WHERE slug = 'colter-land' AND parent_id IS NULL").get();
+      if (!g) return 'no Colter Land';
+      if (sha(g.art_avatar) !== 'c9cc56c00fbd79b0') return 'Colter Land avatar is not the old capped portrait: left alone';
+      return `Colter Land avatar: ${db.prepare('UPDATE games SET art_avatar = ? WHERE id = ?').run(img, g.id).changes}`;
+    },
   },
 ];
 
