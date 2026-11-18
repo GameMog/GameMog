@@ -47,6 +47,17 @@ function leatherColour(rgb, cap = 0.42) {
   if (mx < 1e-4 || !(L[0] >= L[1] && L[1] >= L[2])) return c; const sat = (mx - mn) / mx; if (sat <= cap) return c;
   const k = cap / sat; return L.map((x) => enc(g + (x - g) * k));
 }
+// (WS, a cowboy boot's leather (16 Nov re-review: the lighter browns, #6A4630 and up, read as pinkish-tan rubber rain boots
+// on the town's pavement in daylight): a boot's saddle leather is a deep, warm, oiled brown, never a light one. A warm
+// brown keeps its red, its green held to at most half the red and its blue to at most 0.42 of the green (in linear light:
+// orange-brown, never pink), and its lightness capped at a #5A3A26's (luminance 0.0525), so a sheet's tan comes out a
+// rich mid saddle brown and a dark one stays as asked; a black, a grey or a cool colour goes the work boots' way)
+function westLeather(rgb) {
+  const c = guard(rgb).rgb, L = c.map(lin); if (Math.max(...c) < 56 || !(L[0] >= L[1] && L[1] >= L[2]) || L[0] < 1e-4) return leatherColour(rgb, 0.72);
+  const r = L[0], g = Math.min(L[1], r * 0.5), b = Math.min(L[2], g * 0.42), Y = 0.2126 * r + 0.7152 * g + 0.0722 * b, k = Math.min(1, 0.0525 / Y);
+  return [r, g, b].map((x) => enc(x * k));
+}
+const mixRGB = (a, b, t) => a.map((x, i) => Math.round(x + (b[i] - x) * t));
 
 /* ------------------------------------------------------------------ the kinds -- */
 // soleH: floor to the foot's underside (cm of stack); wrap: how far the sole climbs the upper's side (heel, side, toe);
@@ -62,7 +73,7 @@ export const KINDS = {
   // ahead of the toes, a lower toe box tapering to a snip), the waist lifted under the arch so the riding heel stands
   // apart from the forepart's sole, smooth leather (no lugs); the shaft rides under the jeans as a work boot's does
   western: { soleH: 0.02, wrap: [0.006, 0.0035, 0.005], room: 0.0056, allow: 0.052, toeH: 0.034, collar: [0.15, 0.185, 0.16], tongue: 0, bevel: 0.005, spring: 0.018, arch: 0.0155, breast: 0.255, welt: 0.0032,
-    upperBottom: -0.004, rows: 0, eyeW: [0.0145, 0.0125], roll: 0.0026, shaftEase: 0.92, lace: { w: 0.0036, t: 0.0024 }, rough: { upper: 0.56, sole: 0.7, lace: 0.9 }, toeExp: [1.3, 1.22], tipAt: 0.5, relief: 'western', smoothSole: true },
+    upperBottom: -0.004, rows: 0, eyeW: [0.0145, 0.0125], roll: 0.0026, shaftEase: 0.92, lace: { w: 0.0036, t: 0.0024 }, rough: { upper: 0.46, sole: 0.62, lace: 0.9 }, toeExp: [1.3, 1.22], tipAt: 0.5, relief: 'western', smoothSole: true },
   dress: { soleH: 0.022, wrap: [-0.0105, -0.0105, -0.0105], room: 0.0034, allow: 0.02, toeH: 0.027, collar: [0.02, -0.009, -0.004], tongue: 0, bevel: 0.011, spring: 0.011, arch: 0.009, welt: 0.003,
     upperBottom: -0.012, rows: 5, eyeW: [0.0085, 0.0075], roll: 0.0026, shaftEase: 0, lace: { w: 0.0019, t: 0.0016 }, rough: { upper: 0.4, sole: 0.55, lace: 0.6 } },
 };
@@ -311,8 +322,11 @@ function painter(sides, fn) { return (p, n, f, c, ao, uv) => { const s = sides[p
 const stitch = (d, along, w = 0.0005, pitch = 0.0034) => Math.abs(d) < w && Math.sin((along / pitch) * 2 * Math.PI) > -0.2;
 function shoes(ctx, o) {
   const kind = o.kind, west = !!o.western, K = west ? KINDS.western : KINDS[kind], fem = ctx.sex === 'female';
-  const col = kind === 'sneaker' ? hexRGB(o.color, [234, 234, 230]) : leatherColour(hexRGB(o.color, west ? [84, 58, 40] : kind === 'boot' ? [70, 54, 44] : [26, 22, 21]), west ? 0.72 : 0.42);
-  const acc = kind === 'sneaker' ? hexRGB(o.accent, [36, 46, 74]) : leatherColour(hexRGB(o.accent, col.map((x) => Math.round(x * 0.8))), west ? 0.72 : 0.42);
+  const col = kind === 'sneaker' ? hexRGB(o.color, [234, 234, 230]) : west ? westLeather(hexRGB(o.color, [84, 58, 40])) : leatherColour(hexRGB(o.color, kind === 'boot' ? [70, 54, 44] : [26, 22, 21]), 0.42);
+  const acc = kind === 'sneaker' ? hexRGB(o.accent, [36, 46, 74]) : west ? westLeather(hexRGB(o.accent, col.map((x) => Math.round(x * 0.8)))) : leatherColour(hexRGB(o.accent, col.map((x) => Math.round(x * 0.8))), 0.42);
+  // (WS: a cowboy boot's shaft the foot's leather a shade darker with a third of the accent in it (a black shaft over a
+  // brown foot read as a duck boot), its decorative stitching and the toe's in a light waxed thread that reads at a distance)
+  const shaftC = west ? mixRGB(col.map((x) => Math.round(x * 0.9)), acc, 0.3) : col, thread = [206, 178, 128], threadW = mixRGB(col, thread, 0.45);
   const solC = kind === 'sneaker' ? [238, 236, 228] : kind === 'boot' ? [19, 18, 18] : [22, 19, 18], laceC = kind === 'sneaker' ? [240, 240, 236] : kind === 'boot' ? (Math.max(...col) < 40 ? [17, 16, 16] : [98, 74, 52]) : [14, 13, 13];
   const sides = {}; for (const s of ['L', 'R']) { const F = footFrame(ctx, s); sides[s] = buildSide(ctx, F, kind, K, { col, acc }); }
   ctx.log?.(`shoes ${kind}: foot length ${((sides.L.F.aT - sides.L.F.aH) * 100).toFixed(1)} cm, underside y ${sides.L.F.yb.toFixed(3)}, last points ${sides.L.S.foot}+${sides.L.S.leg}, rim ${sides.L.upper ? 'ok' : '-'}`);
@@ -328,12 +342,23 @@ function shoes(ctx, o) {
       if (P0.onTop && P0.lacing < 0) { k *= 0.72 + 0.08 * fbm(p, 0.002); if (P0.lacing > -0.0014) k *= 0.6; } // (the tongue in the lacing's gap, in its shadow)
       if (P0.onTop && P0.lacing > 0 && P0.lacing < 0.012) { if (Math.abs(P0.lacing - 0.0105) < 0.0005) k *= 0.8; } // (the eyestay's stitch)
     } else if (west) { // (WW: a cowboy boot's smooth leather: the vamp's seam slanting back up the instep, two rows of
-      // decorative stitching across the toe, a heel counter, the shaft (seen when a jeans leg rides up) in the accent with
-      // its own stitched rows)
-      k *= 0.93 + 0.05 * fbm(p, 0.004) + 0.02 * fbm(p, 0.0006); k *= 1 + 0.05 * Math.max(0, n[1]) * sm(0.0, 0.03, P0.a - (P0.aTip - 0.08));
-      const shaft = P0.dy - (0.05 - 0.022 * Math.min(1, Math.abs(P0.b) / 0.035)); if (Math.abs(shaft) < 0.0009) k *= 0.6; else if (stitch(shaft + 0.003, P0.a + P0.b)) k *= 0.72;
-      if (shaft > 0) { C0 = acc; if (stitch(Math.sin(P0.dy * 160 + P0.a * 40) * 0.004 - (Math.abs(P0.b) - 0.026), P0.y)) k *= 0.7; }
-      const tb = P0.a - (P0.aTip - 0.052) + 260 * P0.b * P0.b; if (P0.y > P0.yb + 0.012 && Math.abs(P0.b) < 0.03) { if (stitch(tb, P0.b) || stitch(tb - 0.006, P0.b) || stitch(tb + 0.008 - 0.012 * Math.cos(P0.b * 220), P0.b)) k *= 0.68; }
+      // decorative stitching across the toe, a heel counter, the shaft (seen when a jeans leg rides up) plain
+      // leather. WS: antiqued as a worn boot is: the grain mottled, the toe and the heel counter burnished darker,
+      // darker down to the welt, flex creases across the vamp; the stitching in a light thread)
+      const toTip = P0.aTip - P0.a, h0 = P0.y - P0.yb;
+      // (WS2: the mottling held to a tenth on the shaft, whose texture runs stretched up the leg: there the grain's noise
+      // smeared into long light streaks)
+      const onShaft = sm(0.035, 0.05, P0.dy), mot = 1 - 0.9 * onShaft;
+      k *= 1 - mot * 0.08 + mot * (0.11 * (fbm(p, 0.007) - 0.5) + 0.05 * (fbm(p, 0.0009) - 0.5));
+      k *= 1 - 0.26 * sm(0.075, 0.0, toTip); k *= 1 - 0.22 * sm(0.3, 0.05, P0.back); k *= 1 - 0.2 * sm(0.022, 0.0, h0);
+      k *= 1 + 0.12 * Math.max(0, n[1]) * sm(0.11, 0.05, toTip) * sm(0.0, 0.02, toTip);
+      const fx = toTip - 0.1; if (P0.y > P0.yb + 0.026 && Math.abs(fx) < 0.022) { const cr = Math.sin((fx + 0.004 * Math.sin(P0.b * 140)) / 0.0062 * Math.PI); if (cr > 0.86) k *= 0.8 + 0.2 * sm(0.006, 0.022, Math.abs(fx)); }
+      const shaft = P0.dy - (0.05 - 0.022 * Math.min(1, Math.abs(P0.b) / 0.035)); if (Math.abs(shaft) < 0.0009) k *= 0.55; else if (stitch(shaft + 0.003, P0.a + P0.b, 0.0007)) { C0 = threadW; k *= 0.92; }
+      // (WS2: the shaft plain leather a shade darker, its only stitching the row along the vamp's seam above. The shaft's
+      // texture is a narrow band stretched ten times up the leg, so any stitched scroll or grain drawn there smeared into
+      // long light streaks, a wood grain)
+      if (shaft > 0) C0 = shaftC;
+      const tb = P0.a - (P0.aTip - 0.052) + 260 * P0.b * P0.b; if (P0.y > P0.yb + 0.012 && Math.abs(P0.b) < 0.03) { if (stitch(tb, P0.b, 0.0007) || stitch(tb - 0.006, P0.b, 0.0007) || stitch(tb + 0.008 - 0.012 * Math.cos(P0.b * 220), P0.b, 0.0007)) { C0 = threadW; k = 0.9; } }
       if (P0.back < 0.16) { k *= 0.9; if (Math.abs(P0.back - 0.16) < 0.012) k *= 0.8; }
     } else if (kind === 'boot') { // (oiled leather: a pebbled grain, a stitched toe cap, the vamp's seam, a back stay, a padded collar)
       k *= 0.9 + 0.07 * fbm(p, 0.0018) + 0.03 * fbm(p, 0.0005); k *= 1 + 0.06 * sm(0.0, 0.03, P0.cap) * Math.max(0, n[1]); // (worn lighter where it scuffs)
@@ -352,7 +377,7 @@ function shoes(ctx, o) {
     return shade(C0, k); });
   const upperBump = painter(sides, (q, p, n, uv, s) => { const P0 = panels(q, s); let h = 128;
     if (kind === 'sneaker') { h += 10 * Math.sin(p[1] * 2600) * Math.sin((p[0] + p[2]) * 2600); if (Math.abs(P0.cap) < 0.0014) h -= 30; if (P0.counter < 0 && P0.counter > -0.0014) h -= 30; }
-    else if (west) { h += 10 * (fbm(p, 0.002) - 0.5); const tb = P0.a - (P0.aTip - 0.052) + 260 * P0.b * P0.b; if (P0.y > P0.yb + 0.012 && Math.abs(P0.b) < 0.03 && (stitch(tb, P0.b) || stitch(tb - 0.006, P0.b))) h -= 22; const vamp = P0.a - (0.018 - 0.55 * Math.max(0, P0.dy - 0.01)); if (P0.dy > -0.03 && Math.abs(vamp) < 0.0009) h -= 40; }
+    else if (west) { h += 14 * (1 - 0.8 * sm(0.035, 0.05, P0.dy)) * (fbm(p, 0.0016) - 0.5); { const fx = P0.aTip - P0.a - 0.1; if (P0.y > P0.yb + 0.026 && Math.abs(fx) < 0.022 && Math.sin((fx + 0.004 * Math.sin(P0.b * 140)) / 0.0062 * Math.PI) > 0.8) h -= 26 * sm(0.022, 0.006, Math.abs(fx)); } const tb = P0.a - (P0.aTip - 0.052) + 260 * P0.b * P0.b; if (P0.y > P0.yb + 0.012 && Math.abs(P0.b) < 0.03 && (stitch(tb, P0.b) || stitch(tb - 0.006, P0.b))) h -= 22; const vamp = P0.a - (0.018 - 0.55 * Math.max(0, P0.dy - 0.01)); if (P0.dy > -0.03 && Math.abs(vamp) < 0.0009) h -= 40; }
     else if (kind === 'boot') { h += 34 * (fbm(p, 0.0007) - 0.5); if (Math.abs(P0.cap) < 0.0012) h -= 50; if (stitch(P0.cap - 0.0035, P0.b) || stitch(P0.cap - 0.0062, P0.b)) h += 30; }
     else { h += 6 * (fbm(p, 0.002) - 0.5); if (Math.abs(P0.cap) < 0.0009) h -= 40; if (stitch(P0.cap - 0.0022, P0.b, 0.0003, 0.0022)) h += 18; }
     if (eyeD(p) < 0.002) h -= 40; return [h, h, h]; });
@@ -360,11 +385,11 @@ function shoes(ctx, o) {
   const solePaint = painter(sides, (q, p, n, uv, s) => { const v = uv[1]; let k = 1, C0 = solC;
     if (v < 0.33) { k = kind === 'boot' ? 0.85 : 0.8; return shade(C0, k * (0.94 + 0.06 * fbm(p, 0.003))); } // (the tread, painted in the normal map)
     if (kind === 'sneaker') { k *= 0.96 + 0.04 * fbm(p, 0.004); if (v > 0.6 && v < 0.64) C0 = acc; if (v > 0.9) k *= 0.92; if (v < 0.44) k *= 0.85; }
-    else if (west) { const tA = (q[0] - s.F.aH) / (s.S.aTip - s.F.aH), heel = tA < 0.265; C0 = [74, 56, 40]; k *= 0.92 + 0.06 * fbm(p, 0.002);   // (a leather sole's edge; the riding heel's stacked lifts)
+    else if (west) { const tA = (q[0] - s.F.aH) / (s.S.aTip - s.F.aH), heel = tA < 0.265; C0 = [44, 32, 24]; k *= 0.92 + 0.06 * fbm(p, 0.002);   // (WS: the edge dressed dark, as a boot's is)   // (a leather sole's edge; the riding heel's stacked lifts)
       // (WW2: the riding heel a block of its own: stacked leather lifts, darker, each lift's line, and the breast's face in
       // shadow, so in profile it stands apart from the forepart's thin sole and the waist's gap between them)
-      if (v > 0.66) { C0 = col; k *= 0.9; if (Math.abs(v - 0.8) < 0.025 && Math.sin(uv[0] * 1400) > -0.2) k *= 0.6; }
-      else if (heel) { C0 = [52, 38, 28]; k *= Math.sin(p[1] * 1500) > 0.7 ? 0.62 : 0.96; if (tA > 0.235) k *= 0.6; } else k *= 1.08; }
+      if (v > 0.66) { C0 = col.map((x) => Math.round(x * 0.7)); k *= 0.9; if (Math.abs(v - 0.8) < 0.014 && Math.sin(uv[0] * 1400) > -0.2) { C0 = mixRGB(col, thread, 0.35); k = 0.75; } }
+      else if (heel) { C0 = [34, 26, 21]; k *= Math.sin(p[1] * 1500) > 0.7 ? 0.62 : 0.96; if (tA > 0.235) k *= 0.6; } else k *= 1.08; }
     else if (kind === 'boot') { if (v > 0.66) { C0 = col; k *= 0.92 + 0.06 * fbm(p, 0.0018); if (Math.abs(v - 0.8) < 0.025 && Math.sin(uv[0] * 1400) > -0.2) k *= 0.6; } else { k *= 0.9 + 0.1 * (Math.sin(uv[0] * 500) > 0.3 ? 1 : 0.55); } }
     else { const a = q[0], heel = a < s.F.aH + 0.08; if (heel && v > 0.42 && v < 0.84) { k *= 0.9 + 0.1 * (Math.sin(p[1] * 1600) > 0.8 ? 0.6 : 1); } if (!heel && v > 0.66) { C0 = col; k *= 0.95; if (Math.abs(v - 0.76) < 0.02 && Math.sin(uv[0] * 1600) > -0.2) k *= 0.7; } }
     return shade(C0, k); });
@@ -373,7 +398,7 @@ function shoes(ctx, o) {
   const id = west ? 'cowboy-boots' : kind === 'boot' ? 'work-boots' : kind === 'sneaker' ? 'sneakers' : 'dress-shoes';
   extras.push({ name: id, mesh: both('upper'), S: 1024, base: col, paint: upperPaint, bump: upperBump, bumpK: kind === 'boot' ? 3 : 2, rough: K.rough.upper });
   extras.push({ name: id + '-soles', mesh: both('sole'), S: 512, base: solC, paint: solePaint, bump: soleBump, bumpK: 3, rough: K.rough.sole });
-  extras.push({ name: id + '-collar', mesh: both('roll'), S: 128, base: west ? acc : kind === 'sneaker' ? col : col.map((x) => Math.round(x * 0.85)), paint: (p) => shade(west ? acc : col, kind === 'sneaker' ? 0.95 + 0.05 * fbm(p, 0.002) : 0.8), rough: kind === 'dress' ? 0.45 : K.rough.upper });
+  extras.push({ name: id + '-collar', mesh: both('roll'), S: 128, base: west ? shaftC : kind === 'sneaker' ? col : col.map((x) => Math.round(x * 0.85)), paint: (p) => shade(west ? shaftC.map((x) => Math.round(x * 0.8)) : col, kind === 'sneaker' ? 0.95 + 0.05 * fbm(p, 0.002) : 0.8), rough: kind === 'dress' ? 0.45 : K.rough.upper });
   extras.push({ name: id + '-lining', mesh: both('lining'), S: 64, base: kind === 'sneaker' ? [64, 64, 68] : [30, 26, 24], paint: () => (kind === 'sneaker' ? [64, 64, 68] : [30, 26, 24]), rough: 0.9 });
   if (K.rows) extras.push({ name: id + '-laces', mesh: both('laces'), S: 128, base: laceC, paint: (p, n, f, c, ao, uv) => shade(laceC, 0.85 + 0.15 * Math.abs(Math.sin(uv[0] * 90 + uv[1] * 6))), rough: K.rough.lace });
   if (kind === 'boot' && K.rows) extras.push({ name: id + '-eyelets', mesh: both('eyes'), S: 64, base: [150, 128, 84], paint: () => [150, 128, 84], rough: 0.38, metal: 0.85 });

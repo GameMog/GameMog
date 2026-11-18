@@ -134,6 +134,25 @@ export function shell(ctx, spec) {
   // the collar to the waist. The smoothing after may round it by at most spec.chest.keep, never erode it back onto the
   // body (it used to: 120 smoothing passes took every tent the hang made back down to the skin))
   const keepOff = new Float32Array(nW).fill(-1);
+  const untangle = () => { if (globalThis.process?.env?.FORGE_NO_UNTANGLE || !spec.chest) return;
+    const yHi = spec.chest.top, yLo = spec.chest.bottom; let czS = 0, czN = 0; for (let w = 0; w < nW; w++) { const i = first[w]; if (C[i] === 0 && Pp[i * 3 + 1] < yHi && Pp[i * 3 + 1] > yLo) { czS += Pp[i * 3 + 2]; czN++; } } if (czN < 50) return;
+    const cz = czS / czN - (spec.chest.back ?? 0.02), ok = (w) => { const i = first[w], y = Pp[i * 3 + 1]; return C[i] === 0 && !rim[w] && y < yHi + 0.02 && y > yLo - 0.02 && Pp[i * 3 + 2] > cz; };
+    const T = []; for (let q = 0; q < idx.length; q += 3) { const t = [idx[q], idx[q + 1], idx[q + 2]], ws = t.map((i) => wOfI[i]); if (ws[0] === ws[1] || ws[1] === ws[2] || ws[0] === ws[2] || !ws.every(ok)) continue; T.push(t); }
+    const area = (A, t) => { const u = [0, 1, 2].map((k) => A[t[1] * 3 + k] - A[t[0] * 3 + k]), v = [0, 1, 2].map((k) => A[t[2] * 3 + k] - A[t[0] * 3 + k]); return [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]]; };
+    const badTris = () => T.filter((t) => { const g = area(Pp, t), g0 = Math.hypot(...area(P0, t)), m = [0, 1, 2].map((k) => (Pp[t[0] * 3 + k] + Pp[t[1] * 3 + k] + Pp[t[2] * 3 + k]) / 3), rr = [m[0], 0, m[2] - cz];
+      return g[0] * rr[0] + g[2] * rr[2] <= 0 || Math.hypot(...g) < 0.1 * g0; });
+    let bad = badTris(); const n0 = bad.length; let round = 0;
+    // (a round can leave more than it found before a wider one clears them, so the best state any round reached is kept)
+    let best = Float32Array.from(Pp), bestN = bad.length;
+    for (; bad.length && round < 6; round++) { let reg = new Set(); for (const t of bad) for (const i of t) reg.add(wOfI[i]);
+      for (let g = 0; g < 2 + round; g++) { const nx = new Set(reg); for (const w of reg) for (const o of adj[w]) if (ok(o)) nx.add(o); reg = nx; }
+      const R = [...reg], par = new Map(); for (let w = 0; w < nW; w++) { if (!reg.has(w) && ![...adj[w]].some((o) => reg.has(o))) continue; const i = first[w], x = Pp[i * 3], z = Pp[i * 3 + 2] - cz; par.set(w, [Pp[i * 3 + 1], Math.atan2(x, z), Math.hypot(x, z)]); }
+      for (let it = 0; it < 60; it++) { const nx = new Map(); for (const w of R) { const m = [0, 0, 0]; let c = 0; for (const o of adj[w]) { const q = par.get(o); if (!q) continue; m[0] += q[0]; m[1] += q[1]; m[2] += q[2]; c++; } if (c) nx.set(w, m.map((v) => v / c)); }
+        for (const [w, q] of nx) { const p = par.get(w); par.set(w, [p[0] + (q[0] - p[0]) * 0.6, p[1] + (q[1] - p[1]) * 0.6, Math.max(p[2], p[2] + (q[2] - p[2]) * 0.6)]); } }
+      for (const w of R) { const [y, a, r] = par.get(w); for (const j of members[w]) { Pp[j * 3] = Math.sin(a) * r; Pp[j * 3 + 1] = y; Pp[j * 3 + 2] = cz + Math.cos(a) * r; } }
+      bad = badTris(); if (bad.length < bestN) { best = Float32Array.from(Pp); bestN = bad.length; } }
+    if (bad.length > bestN) { Pp.set(best); bad = badTris(); }
+    ctx.log?.(`${spec.id}: untangled ${n0} folded or crushed triangles over the chest in ${round} rounds, ${bad.length} left${bad.slice(0, 3).map((t) => ' ' + [0, 1, 2].map((k) => Pp[t[0] * 3 + k].toFixed(3)).join(',')).join('')}`); };
   const chestPass = (lock, tag) => { if (!spec.chest || globalThis.process?.env?.FORGE_NO_CHEST) return; const Q = spec.chest, NB = 36, dy = 0.008, yHi = Q.top, yLo = Q.bottom, NY = Math.ceil((yHi - yLo) / dy) + 1, front = Q.front ?? 1.35, fade = Q.fade ?? 0.45;
     const mem = []; let czS = 0; for (let w = 0; w < nW; w++) { const i = first[w], y = Pp[i * 3 + 1]; if (C[i] !== 0 || y > yHi || y < yLo) continue; mem.push(w); czS += Pp[i * 3 + 2]; }
     if (mem.length > 50) { const cz0 = czS / mem.length - (Q.back ?? 0.02), slices = Array.from({ length: NY }, () => []);
@@ -147,6 +166,17 @@ export function shell(ctx, spec) {
         // (below the fullest point the cloth falls back in no faster than spec.chest.taper (m per m): it hangs from the
         // chest nearly straight (a stiff coat) or eases back toward the body (a soft hoodie), never tucks under the chest)
         if (Q.taper) { let bm = -1, em = -1; for (let b = 0; b < NY; b++) if (E[b * NB + k] > em) { em = E[b * NB + k]; bm = b; } for (let b = bm + 1; b < NY; b++) E[b * NB + k] = Math.max(E[b * NB + k], em - Q.taper * (b - bm) * dy); } }
+      // (WS: the envelope rounded over its peaks. Each column's hull and each slice's hull meet at the chest's fullest
+      // points (a woman's bust, a man's pectoral) in a corner, so the cloth came to a point there: a nipple through every
+      // shirt, and a pocket's snap sat on it (16 Nov re-review). Each cell takes the highest of the cells round it (2.4 cm
+      // up and down, two columns (20 degrees) either side), then that is blurred over the same window: never under the envelope (every
+      // cell in a cell's window has a window holding that cell), and a soft dome over the fullest point, as a cloth
+      // stretched over it lies)
+      if (!globalThis.process?.env?.FORGE_NO_DOME) { const rb = Q.domeRows ?? 3, rk = Q.domeCols ?? 2, live = (k) => Math.abs(angA(k)) <= front + 0.2;
+        const filt = (A, f) => { const O = Float32Array.from(A); for (let b = 0; b < NY; b++) for (let k = 0; k < NB; k++) { if (!live(k) || !A[b * NB + k]) continue; let m = f ? 0 : -1, c = 0;
+          for (let db = -rb; db <= rb; db++) { const b2 = b + db; if (b2 < 0 || b2 >= NY) continue; for (let dk = -rk; dk <= rk; dk++) { const k2 = ((k + dk) % NB + NB) % NB, v = A[b2 * NB + k2]; if (!v || !live(k2)) continue; if (f) { m += v; c++; } else m = Math.max(m, v); } }
+          O[b * NB + k] = f ? m / Math.max(1, c) : m; } return O; };
+        const D = filt(filt(E, false), true); for (let q = 0; q < E.length; q++) if (D[q] > E[q]) E[q] = D[q]; }
       const Eat = (y, a) => { const fb = clamp((yHi - y) / dy - 0.5, 0, NY - 1.001), b0 = Math.floor(fb), tb = fb - b0, fk = ((a + Math.PI) / (2 * Math.PI)) * NB - 0.5, k0 = Math.floor(fk), tk = fk - k0, g = (b, k) => E[b * NB + ((k % NB) + NB) % NB];
         return (g(b0, k0) * (1 - tk) + g(b0, k0 + 1) * tk) * (1 - tb) + (g(b0 + 1, k0) * (1 - tk) + g(b0 + 1, k0 + 1) * tk) * tb; };
       let moved = 0, big = 0; for (const w of mem) { const i = first[w], x = Pp[i * 3], z = Pp[i * 3 + 2] - cz0, r = Math.hypot(x, z), a = Math.atan2(x, z), wa = 1 - sm(front - fade, front, Math.abs(a)); if (wa <= 0 || r < 1e-4) continue;
@@ -236,6 +266,15 @@ export function shell(ctx, spec) {
     for (let i = 0; i < nv; i++) { const e = mv[wOfI[i]]; if (e) for (let k = 0; k < 3; k++) Pp[i * 3 + k] += Nn[i * 3 + k] * e; } }
   // (and once more on the finished surface: whatever the hang and smoothing left standing over the chest is bridged)
   chestPass(false, 'final');
+  // (WS, the shirt's torn crease (16 Nov re-review: dark tears across a plain shirt's chest, under the pockets): the chest
+  // envelope and the hang move each point straight out from the body's axis, so where the body faces down (under a strong
+  // man's pectoral, under a woman's bust) a band of points at nearly one height was laid onto one line of the cloth: slivers
+  // of no area, which the hang's and the smoothing's small moves then turned over (15-40 inside-out triangles a shirt, a
+  // jagged dark tear in close-up, hidden by a plaid). The cloth there is a surface r(height, angle) round the axis, so
+  // every triangle of it faces out from the axis; where one doesn't (or has under a tenth of its area on the body), it and
+  // two rings round it are spread out again over that surface (each point to its neighbours' middle in height, angle and
+  // radius, the rest held), until none is left)
+  untangle();
   // (relief added after the smoothing: a puffer's channels)
   if (spec.relief) for (let i = 0; i < nv; i++) { const d0 = spec.relief([P0[i * 3], P0[i * 3 + 1], P0[i * 3 + 2]], C[i], F[i]); if (d0) for (let k = 0; k < 3; k++) Pp[i * 3 + k] += Nn[i * 3 + k] * d0; }
   // (forge v2.4, HD: the hem band. Where the field's hem line crossed the body's triangles the cloth's lowest few
@@ -1218,9 +1257,10 @@ function plaid(ctx, o) {
 }
 // the yoke's seam height at a point of the torso: in front two points down over the pockets' middles, rising out to
 // the armholes and in to the collar; behind one point at the middle
+// (a woman's front yoke 1 cm higher, so her pockets clear her bust under it)
 function yokeOf(ctx) {
-  const N = ctx.NECKY, nz = ctx.jpos('neck01')[2] - 0.02;
-  return (p) => { const ax = Math.abs(p[0]); if (p[2] > nz) return ax < 0.075 ? N - 0.095 - 0.04 * (ax / 0.075) : N - 0.135 + 0.075 * Math.min(1, (ax - 0.075) / 0.11);
+  const N = ctx.NECKY, nz = ctx.jpos('neck01')[2] - 0.02, up = ctx.sex === 'female' ? 0.01 : 0;
+  return (p) => { const ax = Math.abs(p[0]); if (p[2] > nz) return up + (ax < 0.075 ? N - 0.095 - 0.04 * (ax / 0.075) : N - 0.135 + 0.075 * Math.min(1, (ax - 0.075) / 0.11));
     return N - 0.165 + 0.06 * Math.min(1, ax / 0.15); };
 }
 // a dashed stitch row d from a seam (m), along the cloth
@@ -1237,28 +1277,37 @@ function westCollar(ctx, o, col, weave) {
 }
 function westernShirt(ctx, o) {
   const N = ctx.NECKY, nz = ctx.jpos('neck01')[2] - 0.02, acc = hexRGB(o.accent, [30, 36, 52]), plain = o.pattern !== 'plaid', yoke = yokeOf(ctx);
-  const hem = o.tuck ? beltY(ctx) - 0.012 : ctx.hip - 0.03, yF = N - 0.165, hw = 0.046, PX = 0.09;
+  // (the chest's fullest point each side (a woman's bust point, a man's pectoral), from the body)
+  let apex = null; for (let v = 0; v < ctx.nBody; v++) { const x = Math.abs(ctx.bPos[v * 3]), y = ctx.bPos[v * 3 + 1], z = ctx.bPos[v * 3 + 2]; if (ctx.cls[v] !== 0 || x < 0.04 || x > 0.16 || y > N - 0.08 || y < N - 0.32) continue; if (!apex || z > apex[2]) apex = [x, y, z]; }
+  // (WS, 16 Nov re-review: on a woman the pockets sat on her bust, their flaps' snaps right on its points. A woman's
+  // western shirt carries them higher and shallower: the flap's top 1.5 cm under the (raised) yoke, a shallower point, the
+  // snap at least 3 cm over her bust point, a shorter pocket under it; and centred over the bust point across)
+  const fem = ctx.sex === 'female', hem = o.tuck ? beltY(ctx) - 0.012 : ctx.hip - 0.03, hw = fem ? 0.042 : 0.046, PX = fem && apex ? clamp(apex[0] - 0.004, 0.084, 0.1) : 0.09;
+  const FD = fem ? [0.017, 0.012] : [0.026, 0.016], SNAP = fem ? 0.022 : 0.033, yF = fem ? Math.max(N - 0.165, Math.min(N - 0.145, (apex ? apex[1] : N - 0.2) + 0.03 + SNAP)) : N - 0.165, PB = fem ? 0.1 : 0.13;
+  ctx.log?.(`western shirt: chest's fullest point ${apex ? apex.map((v) => v.toFixed(3)).join(',') : 'none'}, neck ${N.toFixed(3)}, pockets at ${PX.toFixed(3)} from ${(N - yF).toFixed(3)} under the neck, snaps ${apex ? (yF - SNAP - apex[1]).toFixed(3) : '?'} over the chest's fullest point`);
   const detail = (p, n, f, c, k, C0) => {
     if (c === 1) { if (f >= 0 && f < 0.062 && (stitchAt(p, f - 0.004) || stitchAt(p, f - 0.058))) k *= 0.78; return [k, C0]; }
     const front = p[2] > nz, d = p[1] - yoke(p);
     // (the yoke's seam: on a plain shirt piped in the accent, on a plaid sunk with its stitch row under it)
-    if (plain && Math.abs(d) < 0.0021) return [k * 0.97, acc];
+    // (the piping's edges blended over a texel or so, never a hard per-texel cut: a stair-stepped line in close-up)
+    const pipe = (C, t) => (t > 0 ? C.map((x, i) => x + (acc[i] - x) * t) : C);
+    if (plain && Math.abs(d) < 0.0028) { const t = sm(0.0028, 0.0015, Math.abs(d)); if (t > 0.98) return [k * 0.97, acc]; C0 = pipe(C0, t); }
     if (Math.abs(d) < 0.0008) k *= 0.68; else if (stitchAt(p, d + 0.0045)) k *= 0.8;
     if (front && n[2] > 0.1) {
       const ax = Math.abs(p[0]);
       if (ax < 0.018 && p[1] < N - 0.03 && stitchAt(p, ax - 0.016)) k *= 0.8;   // (the placket's stitch rows)
       // (a chest pocket each side under a pointed flap: the flap's edge, its stitch row, its shadow on the pocket)
       for (const cx of [PX, -PX]) { const dx = Math.abs(p[0] - cx); if (dx > hw + 0.004) continue;
-        const yb = yF - 0.026 - 0.016 * (1 - dx / hw);
-        if (dx < hw && p[1] < yF && p[1] > yb) { const e = Math.min(p[1] - yb, yF - p[1], hw - dx); if (e < 0.0011) k *= 0.62; else if (stitchAt(p, e - 0.0035)) k *= 0.8; else k *= 1.03; if (plain && e < 0.0021 && yF - p[1] > 0.0011) C0 = acc; }
+        const yb = yF - FD[0] - FD[1] * (1 - dx / hw);
+        if (dx < hw && p[1] < yF && p[1] > yb) { const e = Math.min(p[1] - yb, yF - p[1], hw - dx); if (e < 0.0011) k *= 0.62; else if (stitchAt(p, e - 0.0035)) k *= 0.8; else k *= 1.03; if (plain && yF - p[1] > 0.0011) C0 = pipe(C0, sm(0.0028, 0.0015, e)); }
         else if (p[1] <= yb && p[1] > yb - 0.005 && dx < hw) k *= 0.8 + 0.2 * ((yb - p[1]) / 0.005);
-        else if (p[1] < yb && p[1] > yF - 0.13 && dx < hw - 0.002) { const e = Math.min(hw - 0.002 - dx, p[1] - (yF - 0.13)); if (e < 0.001) k *= 0.7; else if (stitchAt(p, e - 0.003)) k *= 0.84; } }
+        else if (p[1] < yb && p[1] > yF - PB && dx < hw - 0.002) { const e = Math.min(hw - 0.002 - dx, p[1] - (yF - PB)); if (e < 0.001) k *= 0.7; else if (stitchAt(p, e - 0.003)) k *= 0.84; } }
     }
     return [k, C0];
   };
   // (under a ranch jacket or a duster no snaps (hidden, and a snap stood through the coat over it); under a vest only the
   // placket's in the vest's V)
-  const snaps = (h) => { const s = []; if (o.noCollar) return s; for (let y = N - 0.075; y > h + 0.035; y -= 0.088) if (!o.under || y > N - 0.2) s.push([0, y]); if (!o.under) s.push([PX, yF - 0.033], [-PX, yF - 0.033]); return s; };
+  const snaps = (h) => { const s = []; if (o.noCollar) return s; for (let y = N - 0.075; y > h + 0.035; y -= 0.088) if (!o.under || y > N - 0.2) s.push([0, y]); if (!o.under) s.push([PX, yF - SNAP], [-PX, yF - SNAP]); return s; };
   Object.assign(snaps, { color: [234, 228, 214], rough: 0.22, metal: 0.1, size: { r: 0.0056, h: 0.0026 } });
   // (under a vest, a jacket or a duster the collar is a small one, its leaf no further out than the outer garment's
   // neckline; and it is one of the shirt's parts, not an extra, so whatever is worn over it is cut to clear it)
