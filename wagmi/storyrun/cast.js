@@ -175,7 +175,51 @@ export function createCast(W, world) {
     if (W.paused) return;
     // (a body held still: an opening's name card freezes its frame on them, runner.js openCard)
     // (then a set's arms over the clip: a hug, a hand held: sets.js post)
-    for (const f of [...live.values(), ...doubles.values()]) if (!f.hold) try { f.update(dt); f.post?.(dt); } catch {}
+    for (const f of [...live.values(), ...doubles.values()]) if (!f.hold) try { f.update(dt); f.post?.(dt); gazeStep(f, dt); } catch {}
   })();
   return cast;
+}
+
+// Who they look at in a cutscene (the owner's bar, 17 Nov: Colter Land's OF-2 close-up on Wade framed the crown of his
+// cap: his idle hangs his head 25-45 degrees, so a lens at his eyes saw the top of it). While a cutscene runs and the
+// runner has given a body someone to look at (f.gaze = () => a world point, their head: runner.js shotGaze), the head
+// and neck are turned over the clip toward them, the head's lean taken out: the face comes up and round to who they
+// talk to, within GAZE.yaw of the way the body faces and GAZE.pitch up or down, eased in and out (GAZE.ease /s); the
+// neck takes GAZE.neck of the turn, the head the rest. Every forged body is on Dan's rig, whose head bone faces +Z; a rig
+// whose head's +Z is not ahead of its body (a native body of another make) is left as its clip has it.
+export const GAZE = { yaw: 1.15, pitch: 0.32, weight: 0.88, neck: 0.45, ease: 3.5 };
+const _gq = [0, 1, 2, 3, 4].map(() => new THREE.Quaternion()), _gv = [0, 1, 2, 3].map(() => new THREE.Vector3()), _gm = new THREE.Matrix4();
+const wrapA = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+// the head's way for a body at heading h looking from its head (hp) to P: [yaw, pitch], held within GAZE's reach
+export function gazeAim(hp, P, h) {
+  const dx = P.x - hp.x, dy = P.y - hp.y, dz = P.z - hp.z;
+  const yaw = h + Math.max(-GAZE.yaw, Math.min(GAZE.yaw, wrapA(Math.atan2(dx, dz) - h)));
+  const pitch = Math.max(-GAZE.pitch, Math.min(GAZE.pitch, Math.atan2(dy, Math.hypot(dx, dz) || 1e-6)));
+  return [yaw, pitch];
+}
+function gazeStep(f, dt) {
+  const want = f.gaze && !f.noGaze && f.root.visible && globalThis.window?.WAGMI?.cutscene ? GAZE.weight : 0;
+  f._gw = (f._gw || 0) + (want - (f._gw || 0)) * Math.min(1, dt * GAZE.ease);
+  if (f._gw < 0.01 || !f.gaze) return;
+  const hb = f.bones?.head, nb = f.bones?.neck01 || f.bones?.neck;
+  if (!hb || !nb || !nb.parent || !hb.parent) { f.noGaze = true; return; }
+  let P = null; try { P = f.gaze(); } catch { P = null; }
+  if (!P) return;
+  f.root.updateMatrixWorld(true);
+  const hp = hb.getWorldPosition(_gv[0]), hq = hb.getWorldQuaternion(_gq[0]);
+  const h = f.root.rotation.y;
+  // (the rig's own way, once: the head's +Z ahead of the body, or this body is left alone)
+  if (f._gok == null) { const z = _gv[1].set(0, 0, 1).applyQuaternion(hq); const n = Math.hypot(z.x, z.z) || 1; f._gok = (z.x * Math.sin(h) + z.z * Math.cos(h)) / n > 0.2; if (!f._gok) { f.noGaze = true; return; } }
+  const [yaw, pitch] = gazeAim(hp, P, h);
+  const d = _gv[1].set(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch));
+  const up = _gv[2].set(0, 1, 0).addScaledVector(d, -d.y).normalize(), x = _gv[3].crossVectors(up, d).normalize();
+  const want_ = _gq[1].setFromRotationMatrix(_gm.makeBasis(x, up, d));
+  // (the turn in the world, from where the clip has the head, by the weight; the neck's share first)
+  const full = _gq[2].copy(want_).multiply(_gq[3].copy(hq).invert());
+  full.copy(_gq[4].identity().slerp(full, f._gw));
+  const half = _gq[3].identity().slerp(full, GAZE.neck);
+  const nq = nb.getWorldQuaternion(_gq[1]).premultiply(half);
+  nb.quaternion.copy(nb.parent.getWorldQuaternion(_gq[4]).invert().multiply(nq)); nb.updateMatrixWorld(true);
+  const hq2 = _gq[1].copy(full).multiply(hq);
+  hb.quaternion.copy(hb.parent.getWorldQuaternion(_gq[4]).invert().multiply(hq2)); hb.updateMatrixWorld(true);
 }

@@ -60,6 +60,9 @@ const CSS = `
 body:not(.touch-enabled) #wg:has(.sr-bar.on) .wg-count { bottom: 292px; }
 body:not(.touch-enabled) #wg:has(.sr-bar.on):has(.wg-count.on) .sr-timer { bottom: 352px; }
 body:not(.touch-enabled) #wg:has(.sr-bar.on):has(.wg-count.on) .sr-meters { bottom: 414px; }
+/* (the clock up, its 40 px time and its label (58 px from 296) well under the meters' column, not behind it: Colter Land's
+   VALLEY card sat over its FIVE SHARP and VAULT labels, 17 Nov) */
+body:not(.touch-enabled) #wg:has(.sr-timer.on):not(:has(.sr-bar.on):has(.wg-count.on)) .sr-meters { bottom: 372px; }
 body.wg-cine #wg .sr-bar, body.wg-paused #wg .sr-bar { opacity: 0; }
 #wg .sr-bar.go { width: auto; min-width: 250px; max-width: min(380px, calc(100vw - 32px)); }
 #wg .sr-bar.go .row { gap: 18px; } #wg .sr-bar.go .row b { color: #fff; font-variant-numeric: tabular-nums; }

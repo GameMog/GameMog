@@ -275,7 +275,21 @@ installDriveMode(WAGMI);
     stuck.hist.push([stuck.clock, car.position.x, car.position.z]);
     while (stuck.hist.length > 2 && stuck.clock - stuck.hist[1][0] > 1.5) stuck.hist.shift();
     const [, x0, z0] = stuck.hist[0];
-    stuck.t = stuck.held > 1.2 && Math.hypot(car.position.x - x0, car.position.z - z0) < 2.5 ? stuck.held : 0;
+    stuck.t = stuck.held > 1.2 && Math.hypot(car.position.x - x0, car.position.z - z0) < 2.5 && !creeping() ? stuck.held : 0;
+  }
+  // (a creep is not stuck: the car going one way all along those 1.5 s, at a walking pace or more (0.4 m every half
+  // second, ~1 mph, the same way each time). Colter Land's WR-2, 17 Nov: the feed truck towing at 3 mph behind traffic
+  // was offered 'Stuck? The car is going nowhere'. A wriggle, a metre on and back into the wall, still counts as stuck)
+  function creeping() {
+    const H = stuck.hist, t1 = stuck.clock; if (H.length < 4 || t1 - H[0][0] < 1.4) return false;
+    const at = (t) => { let p = H[0]; for (const q of H) { if (q[0] > t) break; p = q; } return p; };
+    let px = 0, pz = 0;
+    for (let k = 3; k >= 1; k--) {
+      const a = at(t1 - k * 0.5), b = k === 1 ? H[H.length - 1] : at(t1 - (k - 1) * 0.5), dx = b[1] - a[1], dz = b[2] - a[2];
+      if (Math.hypot(dx, dz) < 0.4 || (k < 3 && dx * px + dz * pz <= 0)) return false;
+      px = dx; pz = dz;
+    }
+    return true;
   }
   WAGMI.carStuck = () => stuck.t;
   // (a Hometown town's, ?city=pkg; New York and San Francisco keep theirs: San Francisco's bay is a wall the car stops at)

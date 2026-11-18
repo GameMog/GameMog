@@ -331,7 +331,7 @@ export function createGPS(W) {
   // the stall watch (see the top): headway is the route getting shorter; the time is play time (the clock stops in the
   // pause menu, and a cutscene starts it over)
   const stall = (() => {
-    let best = Infinity, since = 0, stuckT = 0, lastT = 0, offered = false, noted = false;
+    let best = Infinity, since = 0, stuckT = 0, lastT = 0, offered = false, noted = false, mine = null, mineWhy = null, mineL = Infinity, goingT = 0;
     const S = {
       reset(all = false) { best = Infinity; since = now(); stuckT = 0; if (all) { offered = false; noted = false; } },
       step(still = true) {
@@ -345,6 +345,15 @@ export function createGPS(W) {
         // the car going nowhere; else the pedal down with it stood still)
         if (W.carStuck) stuckT = inCar ? W.carStuck() : 0;
         else stuckT = inCar && (k.forward || k.backward) && Math.abs(car?.speed || 0) < 1.2 ? stuckT + dt : Math.max(0, stuckT - dt * 2);
+        // (the help taken down once it no longer fits: 'Stuck?' when the car has been going again for a second (driven
+        // free, or put back on the road); 'Need a hand?' once the route is getting shorter again. Colter Land's WR-3, 17
+        // Nov: 'Stuck? The car is going nowhere' stayed up its whole 14 s over the car doing 34 mph)
+        if (mine && W.ui?.offering?.() !== mine) mine = null;
+        if (mine) {
+          const going = mineWhy === 'stuck' ? !inCar || (stuckT === 0 && Math.abs(car?.speed || 0) > 3) : L < mineL - 25;
+          goingT = going ? goingT + dt : 0;
+          if (goingT > (mineWhy === 'stuck' ? 1 : 0)) { W.ui.offer(null); mine = null; }
+        }
         if (offered) return;
         if (t - since > 50000) S.offer('lost');
         else if (stuckT > 4 && W.recoverCar) S.offer('stuck');
@@ -358,7 +367,9 @@ export function createGPS(W) {
         if (inCar && W.recoverCar) opts.push({ key: String(opts.length + 1), label: W.car?.kind === 'horse' ? `Put ${W.car.label || 'my horse'} back on the road` : 'Put my car back on the road', run: () => { W.recoverCar?.(); S.reset(); } });
         if (M && W.ui?.pause?.restartCurrent) opts.push({ key: String(opts.length + 1), label: 'Restart the checkpoint', run: () => W.ui.pause.restartCurrent() });
         if (!opts.length) return;
+        mineWhy = why; mineL = gps.length || Infinity; goingT = 0;
         ui.offer({ title: why === 'stuck' ? 'Stuck?' : 'Need a hand?', note: why === 'stuck' ? (W.car?.kind === 'horse' ? `${W.car.label || 'The horse'} is going nowhere.` : 'The car is going nowhere.') : null, options: opts });
+        mine = ui.offering?.() || null;
         if (!noted && gps.stallNote && why === 'lost') { noted = true; const [from, text] = gps.stallNote; W.sfx?.play?.('buzz', { gain: 0.14, times: 1 }); W.audio?.play?.('phoneBuzz'); ui.dm(from, text, 8); }
       },
       // the way, again: his own waypoint away, the route planned afresh, the objective's line up, the place's blip pulsing

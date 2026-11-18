@@ -3,7 +3,7 @@
 // a roadblock coming up and being rammed through (a beat of slow motion), a tail getting too close or too far, a hard
 // timer starting (its label and what is at stake) and its last ten seconds (a red pulse at the screen's edge).
 // Nothing here changes a rule: it draws, sounds and leans on Mog City's own slow motion and camera jolt (wagmi/crash).
-//   createJuice(W) -> { alert(text, { sub, tone, sting, secs, jolt }), pulse(k), slow(secs, scale), clear(), live }
+//   createJuice(W) -> { alert(text, { sub, tone, sting, secs, jolt }), hold(ms), pulse(k), slow(secs, scale), clear(), live }
 // Near misses (live: a mission is on): his car, at speed, slipping past one of the city's cars or buses within a hand's
 // width of it and never touching it: NEAR MISS, a whoosh and a little camera kick; a crash on the way past cancels it.
 //   tone: 'red' (danger) | 'green' (made it) | 'yellow' (a clock, a warning); sting: 'up' | 'down' | 'hit' | null
@@ -60,7 +60,7 @@ export function createJuice(W) {
     pt.classList.add('on');
   };
   requestAnimationFrame(ptrLoop);
-  let hideT = 0, pulseT = 0, lastAt = 0;
+  let hideT = 0, pulseT = 0, lastAt = 0, holdTill = 0;
   // (near misses: the city's cars within reach of his car's side, at speed; touched on the way past: no near miss)
   const close = new Map();
   let lastHit = 0, lastMiss = 0;
@@ -93,6 +93,8 @@ export function createJuice(W) {
     alert(text, { sub = '', tone = 'red', sting = null, secs = 2.4, jolt = 0 } = {}) {
       if (!text || W.cutscene) return;
       const t = performance.now();
+      // (never over the mission's title while it is slammed in: it waits until the title has gone, action.js slam)
+      if (t < holdTill) { setTimeout(() => api.alert(text, { sub, tone, sting, secs, jolt }), holdTill - t + 20); return; }
       // (two in one breath: the second waits its turn rather than stepping on the first)
       if (t - lastAt < 900) { setTimeout(() => api.alert(text, { sub, tone, sting, secs, jolt }), 900 - (t - lastAt)); return; }
       lastAt = t;
@@ -103,6 +105,8 @@ export function createJuice(W) {
       if (sting && STING[sting]) sfx?.play?.('stinger', { gain: 0.34, notes: STING[sting] });
       if (jolt) try { W.crash?.jolt?.(jolt, 0, 0); } catch {}
     },
+    // alerts held back for ms (the screen is someone else's: a mission's title card), then each in its turn
+    hold(ms) { holdTill = Math.max(holdTill, performance.now() + ms); },
     // the screen's edge, red, pulsed once (k 0..1: how hard)
     pulse(k = 1) {
       pl.style.transition = 'opacity .08s'; pl.style.opacity = String(Math.min(1, 0.35 + 0.65 * k));

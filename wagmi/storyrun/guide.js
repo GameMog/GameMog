@@ -13,6 +13,8 @@
 //   createGuide(W, THREE, { gps, ui, groundY, createMarker }) -> { source, state(), stop() }
 //   guide.source = () => ({ x, z, name, hold: { reach, label } | null, key }) | null   (the runner sets it)
 const YELLOW = '#FFC93C', GREEN = '#4ADE80';
+// the HUD's cards an edge marker keeps off (mission/ui.js, storyrun/hud.js, pursuit/hud.js, index.html's own)
+const HUD_CARDS = '.wg-track:not(.off), #wg .sr-timer, #wg .sr-meters, #wg .wg-caller, #wg .wg-offer, #wg .wg-help, #wg .wg-turn, #wg-heat, .hud-bottom-left, .hud-bottom-right, .hud-top-right';
 export const NEAR = 40, STUCK_SECS = 90, STUCK_FAR = 30;
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -104,7 +106,7 @@ export function createGuide(W, THREE, { gps, ui, groundY, createMarker }) {
   beam.group.name = 'wagmi-marker-guide';
   const v = new THREE.Vector3(), vc = new THREE.Vector3();
   const stuck = createStuck();
-  let live = true, last = performance.now(), st = { on: false }, html = '', colour = YELLOW;
+  let live = true, last = performance.now(), st = { on: false }, html = '', colour = YELLOW, lw = 0, hud = [], hudAt = 0;
   const hidden = () => W.cutscene || W.paused || document.body.classList.contains('wg-cine') || app.mapSystem?.isFullMapOpen;
   const api = {
     source: null,
@@ -148,10 +150,38 @@ export function createGuide(W, THREE, { gps, ui, groundY, createMarker }) {
     if (!q.inView) arEl.style.transform = `rotate(${q.ang}rad)`;
     const name = esc(String(s.hold && hold ? s.hold.label || s.name : s.name || '').toUpperCase());
     const h = hold ? `Hold <kbd>F</kbd> · <em>${name}</em> · ${Math.round(d)} m` : `${name ? `<em>${name}</em> · ` : ''}${d >= 1000 ? (d / 1000).toFixed(1) + ' km' : Math.round(d) + ' m'}`;
-    if (h !== html) { html = h; lEl.innerHTML = h; }
+    if (h !== html) { html = h; lEl.innerHTML = h; lw = 0; }
+    if (!lw) lw = lEl.offsetWidth || 0;
     // (the marker's middle over the spot: in view, its pin's point on it; at the edge, its arrow)
-    el.style.transform = `translate(${Math.round(sx - 90)}px, ${Math.round(sy - (q.inView ? 26 : 14))}px)`;
+    let top = sy - (q.inView ? 26 : 14);
+    // (its name whole on the screen: slid along its line to stay inside the edges, 10 px in. Colter Land, 17 Nov: 'THE
+    // COPPER SPUR DINER · 184 M' cut off at the left edge over the objective; 'SIXTY MILE SAVINGS · 1.6' at the right)
+    const natural = sx - 90 + Math.max(0, (180 - lw) / 2), Lx = Math.max(10, Math.min(W0 - 10 - lw, sx - lw / 2));
+    lEl.style.transform = Math.abs(Lx - natural) > 0.5 ? `translateX(${Math.round(Lx - natural)}px)` : '';
+    // (at the screen's edge, never over the HUD's own cards, the objective, the timer, a call, the radar: moved up or down
+    // the edge clear of them; in view its pin stays on the spot)
+    if (!q.inView) {
+      if (t - hudAt > 300) { hudAt = t; hud = hudRects(); }
+      const hgt = 24 + 2 + 5 + 22;
+      for (let k = 0; k < 4; k++) {
+        const r = hud.find((b) => Lx < b.right + 6 && Lx + lw > b.left - 6 && top < b.bottom + 6 && top + hgt > b.top - 6);
+        if (!r) break;
+        top = r.top - hgt - 8 >= 8 ? r.top - hgt - 8 : r.bottom + 8;
+      }
+    }
+    el.style.transform = `translate(${Math.round(sx - 90)}px, ${Math.round(top)}px)`;
     el.classList.add('on');
+  }
+  // (the HUD's cards on the screen now, their boxes)
+  function hudRects() {
+    const out = [];
+    for (const e of document.querySelectorAll(HUD_CARDS)) {
+      if (!e.isConnected || !e.getClientRects().length) continue;
+      const r = e.getBoundingClientRect(); if (r.width < 4 || r.height < 4) continue;
+      if (+getComputedStyle(e).opacity < 0.05) continue;
+      out.push(r);
+    }
+    return out;
   }
   requestAnimationFrame(frame);
   return api;

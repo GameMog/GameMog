@@ -32,7 +32,7 @@ import { createTimers, meterText, deltaText, progress, seen as inSight, band as 
 import { createSets } from './sets.js';
 import { createJuice } from './juice.js';
 import { createGuide, propOf, reword, PROP_RIDES } from './guide.js';
-import { createAction } from './action.js';
+import { createAction, clearLens, lensOnPerson } from './action.js';
 import { armTo } from '../mission/m3-set.js';
 import { world as cityWorld } from '../world/index.js';
 import { createReach, reachReason } from './reach.js';
@@ -438,8 +438,10 @@ export function createRunner(ctx) {
     if (d.add != null && d.seconds == null) { M.timer.add(d.add, name); return; }
     const secs = value(d.seconds, M.state, ctx.save.done) || 60;
     M.timer.start(secs, { label: d.label, fail: d.fail || 'hard', why: d.why, flag: d.flag, set: d.set, lateLabel: d.lateLabel }, name);
-    // (a clock that fails the mission says so as it starts: its label, its time, and what running out costs)
-    if ((d.fail || 'hard') === 'hard' && d.label) juice.alert(`${d.label} · ${Math.floor(secs / 60)}:${String(Math.round(secs % 60)).padStart(2, '0')}`, { sub: d.why ? tokens(d.why) : '', tone: 'yellow', sting: 'up', secs: 2.8 });
+    // (a clock that fails the mission says so as it starts: its label and its time. Its `why` is what is said when it
+    // runs out, 'Five came and went. Mercer took his offer to the bank.': the end of the story, never its start. Colter
+    // Land's OF-1, 17 Nov, opened on it)
+    if ((d.fail || 'hard') === 'hard' && d.label) juice.alert(`${d.label} · ${Math.floor(secs / 60)}:${String(Math.round(secs % 60)).padStart(2, '0')}`, { tone: 'yellow', sting: 'up', secs: 2.8 });
   };
 
   // drive: the corona, the GPS ('get there' the Mog City way: gps.drive), there inside the radius and slowed down
@@ -1021,6 +1023,17 @@ export function createRunner(ctx) {
     if (sub && sub[1]) { const o = one([sub[0] || null, sub[1]]); return o ? [o] : []; }
     return [];
   }
+  // who each body on the street looks at through a shot (cast.js gazeStep): the shot's `on` at its `at` and back, every
+  // other one at whoever is saying a line, else at the hero; the hero's own body is his clip's. A set's room is its own
+  function shotGaze(s, talking) {
+    const isHero = (n) => !n || n === 'player' || n === heroName || cast.isHero?.(castName(n));
+    const onN = isHero(s?.on) ? heroName : castName(s.on), atN = !s?.at ? null : isHero(s.at) ? heroName : castName(s.at);
+    const aim = (name) => (name === onN && atN && atN !== name ? atN : name === atN && onN !== name ? onN : talking() && talking() !== name ? talking() : heroName);
+    for (const name of cast.live || []) {
+      const fig = cast.get(name); if (!fig) continue;
+      fig.gaze = !s || setRun?.active ? null : () => { const who = aim(name); if (!who || who === name) return null; const p = headOf(isHero(who) ? 'player' : who); return p ? { x: p[0], y: p[1], z: p[2] } : null; };
+    }
+  }
   async function shotList(shots, t, { skippable = true, beat = false, opening = false, set = null } = {}) {
     const D = createDirector(W);
     const ssr0 = ssrOf()?.intensity.value ?? 0;
@@ -1047,6 +1060,8 @@ export function createRunner(ctx) {
         if (setRun) { const id = s.set === false ? null : (s.set || set); setRun.use(id && setRun.has(id) ? id : null); if (s.act) setRun.act(s.act); }
         // (on the street: the shot's changes to the people in it, a run to someone and a hug: streetAct)
         if (s.act && !setRun?.active) streetAct(s.act);
+        // (their heads to who they talk to: shotGaze)
+        let talking = null; if (!beat) shotGaze(s, () => talking);
         // (a shot by its grammar, action.js frame(): the lens from where its people stand; a lens written out wins)
         const fr = !s.cam && s.frame && !setRun?.active ? action.frame(s, headOf) : null;
         // (a worked-out lens is never under the street: kept 0.35 m over the ground where it stands)
@@ -1055,7 +1070,13 @@ export function createRunner(ctx) {
         const scL = s.look || (!fr && s.frame ? { rel: sc.rel } : s.look);
         // (a lineless reaction shot, react: true or frame 'react' with no line: 0.6-1.2 s, after a reveal)
         const said = shotLines(s), reactOnly = !said.length && (s.react === true || s.frame === 'react') && !s.text && !s.caption && !s.card && !s.title;
-        const dur = reactOnly ? Math.max(0.6, Math.min(1.2, s.dur || 0.9)) : s.dur || 3, A = fr ? fr.A : camPt(sc), B = fr ? fr.B : s.to ? camPt(s.to) : A, LA = fr ? fr.LA : camPt(scL, 1.4), LB = fr ? fr.LB : s.lookTo ? camPt(s.lookTo, 1.4) : LA;
+        const dur = reactOnly ? Math.max(0.6, Math.min(1.2, s.dur || 0.9)) : s.dur || 3, A0 = fr ? fr.A : camPt(sc), B0 = fr ? fr.B : s.to ? camPt(s.to) : A0, LA = fr ? fr.LA : camPt(scL, 1.4), LB = fr ? fr.LB : s.lookTo ? camPt(s.lookTo, 1.4) : LA;
+        // (never through a wall: a lens with a building, a wall or the hill between it and its people pulled in or swung
+        // round them, action.js clearLens; a set's room is its own; only a lens on a person, lensOnPerson: a title, a
+        // place's name or a look at a spot in the street is as it was written)
+        const cl = setRun?.active || !lensOnPerson(s, scL) ? { lens: { A: A0, B: B0 }, how: 'clear' } : clearLens({ A: A0, B: B0, LA, LB }, reach.sight);
+        const A = cl.lens.A, B = cl.lens.B;
+        if (cl.how !== 'clear' && cl.how !== 'kept') console.info('[storyrun] lens', cl.how, M?.def?.id || (opening ? 'opening' : '-'), 'shot', si, s.frame || 'cam');
         // (an opening's name card: the lens settles on its person through the first part of the shot, then the frame
         // freezes on them, their body held mid-move, as their name and role come up: openCard())
         const card = opening && s.card && s.card.who ? s.card : null, hold = card ? Math.min(dur * 0.42, 1.6) : dur;
@@ -1071,7 +1092,7 @@ export function createRunner(ctx) {
         let linesDone = !said.length, linesEnd = 0, lastL = null, cut = false;
         if (said.length) playTurns(W, said, {
           dead: () => skip || cut || local.dead, sleep: (ms) => delay(ms / 1000, local).catch(() => {}),
-          show: (L, i, secs) => { ui.sub(L.who || null, L.text, colorOf(L.who), onAir(L.who)); if (L.who) mumble(L.who, L.text, secs); M?.log.push(['say', L.who, L.text]); lastL = L; },
+          show: (L, i, secs) => { ui.sub(L.who || null, L.text, colorOf(L.who), onAir(L.who)); if (L.who) mumble(L.who, L.text, secs); M?.log.push(['say', L.who, L.text]); lastL = L; talking = L.who || null; },
           hide: () => {},
         }).finally(() => { linesDone = true; linesEnd = now(); });
         else if (s.text) ui.sub(null, tokens(s.text));
@@ -1105,7 +1126,7 @@ export function createRunner(ctx) {
       }
     } finally {
       ui.sub(null); ui.caption(null); ui.skip(null); keyL.intensity = 0; if (ssrOf()) ssrOf().intensity.value = ssr0;
-      if (!beat) heroHug(null);
+      if (!beat) { heroHug(null); shotGaze(null); }
       setRun?.use(null);
       if (opening) { ui.placeOff(); ui.gameTitle(false, true); }
       if (!beat) D.block(false);
@@ -3186,8 +3207,10 @@ export function createRunner(ctx) {
     // (the title card, unless the mission's first scene draws its own: Mog City's opening ends on ACT I · BAGGED)
     if (def.card !== false && !(cp && cp.from)) {
       // (an action world, or a mission that asks: its title slammed in with a hit, action.js)
-      if (action.on || def.card === 'slam') action.slam({ kicker: act?.name || '', title: def.title }, ctx.flags.autoCard ? 1.2 : 2.4);
-      else ui.title(act?.name || '', def.title, ctx.flags.autoCard ? 1.2 : 2.6);
+      // (the act's name over it, unless it is the title itself: Colter Land's act 1 is THE OFFER and so is its OF-1)
+      const kick = act?.name && String(act.name).trim().toUpperCase() !== String(def.title || '').trim().toUpperCase() ? act.name : '';
+      if (action.on || def.card === 'slam') action.slam({ kicker: kick, title: def.title }, ctx.flags.autoCard ? 1.2 : 2.4);
+      else { ui.title(kick, def.title, ctx.flags.autoCard ? 1.2 : 2.6); juice.hold((ctx.flags.autoCard ? 1.2 : 2.6) * 1000 + 750); }
     }
     host.tell('mission-start', { id: def.id, title: def.title });
     let i = M.i;

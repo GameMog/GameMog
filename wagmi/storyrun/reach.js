@@ -17,6 +17,7 @@
 //                          R m), 'off-road' (a car's spot no lane reaches and on no street of the road graph)
 //     line(ax, az, bx, bz) every 0.5 m between them clear on foot (a teleport or a nudge that crosses no wall)
 //     nearestClear(x, z, r) the nearest clear spot within r m (a person stood up inside a wall moved out of it), or null
+//     sight(a, b)          the share of a camera's line from what it looks at (a) to the lens (b) open before a wall
 //     notes                what it found (the test drive's probes read and empty it)
 //   }
 //   searchFromRoad({ x, z, clear, road, cell, R, max })   the pure search (node --test tests/storyrun-reach.test.mjs)
@@ -153,7 +154,25 @@ export function createReach(W, world) {
   function nearClearCar(x, z) { for (let d = 0.5; d <= 1.5; d += 0.5) for (let a = 0; a < 12; a++) { const q = a * Math.PI / 6; if (!blocked(x + Math.cos(q) * d, z + Math.sin(q) * d, 1.1, 'car')) return true; } return false; }
   // (a car's middle r m round clear of any building and dry: where a jump may put it)
   const free = (x, z, r = 0.8) => !water(x, z) && !blocked(x, z, r, 'car');
-  return { clear, free, inside, fromRoad, line, nearestClear, onRoad, water, notes, note };
+  // a camera's line of sight, from what it looks at (a) out to the lens (b), [x, y, z] each: the share of the way that is
+  // open before the first building, wall or rise of the ground across it (1: none). A cutscene's lens is kept on the
+  // near side of it (runner.js clearLens)
+  function sight(a, b) {
+    const dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2], L = Math.hypot(dx, dy, dz), n = Math.max(1, Math.ceil(L / 0.3)), g = G();
+    for (let k = 1; k <= n; k++) {
+      const t = k / n, x = a[0] + dx * t, y = a[1] + dy * t, z = a[2] + dz * t;
+      if (groundY(x, z) > y + 0.05) return (k - 1) / n;
+      let list; try { list = cm.nearColliders(x, z, 0.8); } catch { return 1; }
+      for (const c of list) {
+        if (c.carOnly) continue;
+        if (Number.isFinite(c.maxY) && y > c.maxY) continue;
+        if (Number.isFinite(c.minY) && y < c.minY - 0.5) continue;
+        if (touches(g, c, x, z, 0.15)) return (k - 1) / n;
+      }
+    }
+    return 1;
+  }
+  return { clear, free, inside, fromRoad, line, nearestClear, onRoad, water, sight, notes, note };
 }
 
 // The words a reach failure is told in (the test drive's reason; the creator reads it on the build show): what the step

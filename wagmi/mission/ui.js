@@ -572,7 +572,7 @@ export function createUI() {
   // (a help about the car's door: getting out is for the car, getting in is for on foot)
   const modeOf = (text) => { const s = plain(text); return /\bget out\b/i.test(s) ? 'car' : /\bget (back )?in(to)? (a|your|the) (car|vehicle)\b/i.test(s) ? 'foot' : null; };
   const modeNow = () => { const cm = window.WAGMI?.app?.controllerManager; return cm ? (cm.activeMode === 'car' ? 'car' : 'foot') : null; };
-  let offerKeys = null;
+  let offerKeys = null, offerNow = null;
   (function watch() {
     requestAnimationFrame(watch);
     const W = window.WAGMI; if (!W || W.paused) return;
@@ -716,10 +716,13 @@ export function createUI() {
       ui.offer(null);
     },
     get stepId() { return stepId; },
+    // (the offer up now, the very object it was given, or null: its maker takes it down once it no longer fits)
+    offering: () => offerNow,
     // real help after a genuine stall: { title, note, options: [{ key: '1', label, run }] }, up for secs (null: down)
     offer(o, secs = 14) {
       if (offerKeys) { removeEventListener('keydown', offerKeys, true); offerKeys = null; }
       clearTimeout(timers.get('offer'));
+      offerNow = o && o.options?.length ? o : null;
       if (!o || !o.options?.length) { offerEl.classList.remove('on'); document.body.classList.remove('wg-offering'); return; }
       offerEl.innerHTML = `<div class="h">${esc(story.t(o.title || 'Need a hand?'))}</div>${o.note ? `<div class="n">${rich(o.note)}</div>` : ''}
         ${o.options.map((p, i) => `<button type="button" data-i="${i}"><kbd>${esc(p.key)}</kbd><span>${rich(p.label)}</span></button>`).join('')}<div class="x">Or just carry on.</div>`;

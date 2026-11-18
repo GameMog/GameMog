@@ -44,6 +44,22 @@ export const isOwn = (world) => {
   try { return world?.def?.id === 'mog-city' && new URL(world.url).origin === location.origin && new URL(world.url).pathname === '/packs/mog-city.json'; } catch { return false; }
 };
 
+// the loading screen's name (index.html #loading-overlay, a direct start's: ?nogate, ?mission=) the world's: its title and
+// its first letter in the bullet, as soon as its file is read (pack.js load(), before a town has loaded behind it); the
+// line under it is the town's own already ('Loading Bozeman…', cities/pkg/js/pkg-hud.js). null: Mog City's again (a
+// refused world, or Mog City's own story)
+export function loaderTitle(def) {
+  if (typeof document === 'undefined') return;
+  try {
+    const t = document.querySelector('#loading-overlay .loader-title'), b = document.querySelector('#loading-overlay .loader-bullet');
+    const title = def ? ownTitle(def.title) : 'MOG CITY';
+    if (t) t.textContent = title.toUpperCase();
+    if (b) b.textContent = ([...title.replace(/[^\p{L}\p{N}]/gu, '')][0] || 'M').toUpperCase();
+    const main = document.getElementById('canvas-container'); if (main) main.setAttribute('aria-label', title);
+    if (def) document.documentElement.classList.add('wg-pk-l');
+  } catch {}
+}
+
 export function showTitle(def, gate = null, own = false) {
   if (typeof document === 'undefined' || !def) return;
   if (own) {
@@ -56,11 +72,14 @@ export function showTitle(def, gate = null, own = false) {
   }
   const title = ownTitle(def.title);
   try { document.title = title; } catch {}
+  loaderTitle(def);
   try { const boot = document.querySelector('#wg-boot .wg-boot-title'); if (boot) fill(boot.querySelector('.wg-boot-logo'), boot.querySelector('.wg-boot-tag'), def); } catch {}
   if (gate) try { fill(gate.querySelector('.logo'), gate.querySelector('.tag'), def); gate.setAttribute('aria-label', title); } catch {}
   document.documentElement.classList.add('wg-pk-t');
 }
 
+// (a refused world: the game is plain Mog City, so the page is no story world's either: html.wg-pk off, which brings
+// back the free-roam HUD index.html puts away under ?pack=)
 export function plainTitle() {
-  if (typeof document !== 'undefined') document.documentElement.classList.add('wg-pk-t');
+  if (typeof document !== 'undefined') { loaderTitle(null); document.documentElement.classList.remove('wg-pk-l', 'wg-pk'); document.documentElement.classList.add('wg-pk-t'); }
 }

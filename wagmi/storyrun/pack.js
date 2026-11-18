@@ -12,7 +12,7 @@
 //                                     or null, heroGLTF(loadGLB), sheetCar, modelCar, ... }
 import { packUrl, packHash, assetUrl, hostOf } from './allow.js';
 import { watch, error as hostError } from './host.js';
-import { showTitle, plainTitle, isOwn } from './title.js';
+import { showTitle, plainTitle, isOwn, loaderTitle } from './title.js';
 import { applyTheme, THEMES } from './theme.js';
 import { world as cityWorld, CITIES, cityQuery } from '../world/index.js';
 import { townLockMismatch } from '../world/town-src.js';
@@ -352,6 +352,8 @@ export async function load() {
     const h = await sha256(bytes), want = packHash(url);
     if (want && h !== want) throw new Error('its bytes do not match its name');
     const def = JSON.parse(new TextDecoder().decode(bytes));
+    // (its name on the loading screen now, while its town loads behind it: title.js loaderTitle)
+    if (def && typeof def.title === 'string' && !isOwn({ def, url })) loaderTitle(def);
     // (a hometown world is checked against the town the page loaded: index.html's NYC.townReady, the bundle fetched)
     if (def && def.city === 'hometown' && globalThis.window?.NYC?.townReady) await globalThis.window.NYC.townReady;
     const errs = check(def);
