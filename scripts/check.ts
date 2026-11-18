@@ -662,5 +662,16 @@ await runSameOriginChecks(ok);
   ok('the hometown Mog check ran to the end', r.status === 0 && lines.length > 0, `${r.status} ${(r.stderr ?? '').slice(-400)}`);
 }
 
+console.log('\na community project: no company or "Powered by" credit on the site (owner, 18 Nov 2026)');
+{
+  const { readFileSync, readdirSync, statSync } = await import('node:fs');
+  const hits: string[] = [];
+  const walk = (d: string) => { for (const f of readdirSync(d)) { const p = `${d}/${f}`; if (statSync(p).isDirectory()) walk(p);
+    else if (/\.(tsx?|css|html|json|md)$/.test(f) && /ockams|powered by\s*(<[^>]*>\s*)?why/i.test(readFileSync(p, 'utf8'))) hits.push(p); } };
+  for (const d of ['app', 'lib', 'public/storykit']) walk(d);
+  for (const f of ['README.md', 'LICENSE', 'package.json']) try { if (/ockams|powered by\s*why/i.test(readFileSync(f, 'utf8'))) hits.push(f); } catch {}
+  ok('no "Ockams" and no "Powered by WHY." anywhere on the site; the footer reads "GameMog Community"', !hits.length && readFileSync('app/header.tsx', 'utf8').includes('© 2026 GameMog Community'), hits.join(', '));
+}
+
 console.log(`\n${failures ? `${failures} FAILED` : 'all checks passed'}\n`);
 process.exit(failures ? 1 : 0);

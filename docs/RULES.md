@@ -308,3 +308,9 @@ A build (Create or Mog) is one long request to `/api/generate`: the model writes
   earnings depend on, need accounts.
 - **Distinct players count finished runs**, reported by the game frame; a game's `plays` counter
   counts page loads.
+
+## Community project (18 Nov 2026)
+
+| Owner's words | What the code does | Check |
+|---|---|---|
+| "make this a community project not a company behind GameMog. scrub any mention of Ockams Inc anywhere on website, metadata or github and CHANGE To GameMog Community. Also delete \"Powered by WHY.\" anywhere and everywhere" | The footer reads "© 2026 GameMog Community"; the "Powered by WHY." line is gone. No company name appears on the site, its metadata, the README, the licence ("The GameMog authors") or the GitHub org/repo profile. | `npm run check` "no \"Ockams\" and no \"Powered by WHY.\" anywhere on the site" |
