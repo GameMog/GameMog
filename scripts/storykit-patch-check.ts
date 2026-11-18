@@ -126,6 +126,20 @@ export function runStoryPatchChecks(ok: Ok) {
     ok('a Mog of the world gets the new body', mog2.ok && (s.db.prepare("SELECT hash FROM files WHERE draft_id = ? AND kind = 'glb' AND name = 'nico' AND inherited = 1").get(mog2.id) as any)?.hash === sha(body), mog2.ok ? '' : JSON.stringify(mog2));
     const back2 = nb.ok ? r({ world: w0, files: [], from: nb.hash }) : null;
     ok('patching back restores the old body', !!back2 && back2.ok && back2.bodies === 1 && kept().world === now0 && (s.db.prepare("SELECT hash FROM files WHERE draft_id = ? AND kind = 'glb' AND name = 'nico'").get(o.id) as any).hash === oldBody && !!s.read(`${sha(body)}.glb`), JSON.stringify(back2));
+
+    // a headshot (18 Nov: a re-forged cast is re-shot for its caller tiles): art head-<cast id>, sent as a real image
+    const now1 = kept().world, w1 = JSON.parse(s.read(`${now1}.json`)!.bytes.toString());
+    const jpg = new Uint8Array(96).fill(7); jpg.set([0xff, 0xd8, 0xff, 0xe0], 0); const jpgUrl = `/storykit/f/${sha(jpg)}.jpg`;
+    const wh = clone(w1); wh.art = { ...(wh.art ?? {}), 'head-nico': jpgUrl };
+    const asHead = (world: any, files: { ext: string; bytes: Uint8Array }[]) => r({ world, files, from: now1 });
+    const b2 = blobs();
+    ok('a headshot for no one in the world is refused', (() => { const x = clone(w1); x.art = { ...(x.art ?? {}), 'head-nobody': jpgUrl }; const y = asHead(x, [{ ext: 'jpg', bytes: jpg }]); return !y.ok && (y as any).problems.some((p: string) => /world\.art\.head-nobody/.test(p)); })());
+    ok('a sent image that is no one\'s headshot is refused', (() => { const y = asHead(w1, [{ ext: 'jpg', bytes: jpg }]); return !y.ok && (y as any).problems.some((p: string) => /no cast member's headshot/.test(p)); })());
+    ok('a headshot that is not a real JPEG is refused', (() => { const bad = jpg.slice(); bad[0] = 0; const x = clone(w1); x.art = { ...(x.art ?? {}), 'head-nico': `/storykit/f/${sha(bad)}.jpg` }; const y = asHead(x, [{ ext: 'jpg', bytes: bad }]); return !y.ok && (y as any).problems.some((p: string) => /not a JPEG/.test(p)); })());
+    ok('a refused headshot stores nothing and changes nothing', blobs() === b2 && kept().world === now1);
+    const nh = asHead(wh, [{ ext: 'jpg', bytes: jpg }]);
+    ok('a headshot for a cast member is accepted, and the world sealed as sent', nh.ok && kept().world === nh.hash && nh.hash === sha(JSON.stringify(wh)), JSON.stringify(nh));
+    ok('the draft\'s art for that person is the new headshot (the store builds the same art)', (s.db.prepare("SELECT hash FROM files WHERE draft_id = ? AND kind = 'art' AND name = 'head-nico.jpg'").get(o.id) as any)?.hash === sha(jpg) && (s.world(o.id) as any).art?.['head-nico'] === jpgUrl);
   } finally { rmSync(root, { recursive: true, force: true }); }
 
   const route = 'app/api/storykit/admin/patch/route.ts';

@@ -458,7 +458,8 @@ export class StoryStore {
    *   - `files`: voice clips the world's voice plan lists (voice.clips: <line hash>-<voice key>, a line of the world in
    *     its speaker's voice), each a real Ogg or WAV under the clip limit, and GLBs, each a real glTF 2.0 binary under
    *     the per-person cap that is a cast member's new body (world.cast[name].glb); each named in the world by its
-   *     SHA-256;
+   *     SHA-256; and headshots (.jpg, .webp or .png, each a real image under the art cap), each the world's caller-tile
+   *     art of a cast member (world.art['head-<cast id>'], 18 Nov: a re-forged cast is re-shot);
    *   - every /storykit/f/ file the world names is stored (or sent), and all of it is within a world's limits.
    * Then the clips and bodies become the draft's (as files the creator's browser stored: a Mog of the world carries
    * them), the draft's pack takes the opening (a Mog keeps it), and the world is sealed as sent. The world it replaces
@@ -506,17 +507,27 @@ export class StoryStore {
       bodies.set(forged.get(n)!, { who: n, hash: m[1] });
     }
     const newBodies = new Set([...bodies.values()].map((b) => b.hash));
+    // the headshots the world names: art head-<cast id> of a person of the pack (a caller tile)
+    const heads = new Map<string, { id: string; hash: string; ext: string }>();   // sha256 -> its headshot
+    const castIds = new Set(g.pack.cast.map((c: any) => c.id));
+    for (const [k, v] of Object.entries((w.art ?? {}) as Record<string, unknown>)) {
+      if (!k.startsWith('head-')) continue;
+      const m = typeof v === 'string' ? BLOB_REF.exec(v) : null;
+      if (!castIds.has(k.slice(5)) || !m || !/^(jpg|webp|png)$/.test(m[2])) { problems.push(`world.art.${k}: a headshot is head-<cast id> at /storykit/f/<sha256>.<jpg|webp|png>.`); continue; }
+      heads.set(m[1], { id: k.slice(5), hash: m[1], ext: m[2] });
+    }
 
     // the files sent: voice clips and new bodies only, real, within the limits, by their SHA-256
     const PL = this.limitsOf(d.id);
     const sent = new Map<string, { ext: string; bytes: Uint8Array }>();
     for (const [i, f] of (input.files ?? []).entries()) {
-      if (!f || !/^(ogg|wav|glb)$/.test(f.ext) || !(f.bytes instanceof Uint8Array)) { problems.push(`files[${i}]: a voice clip (.ogg or .wav) or a person's body (.glb).`); continue; }
-      const max = f.ext === 'glb' ? PL.glb.each : PL.voice.each;
-      if (f.bytes.length < 16 || f.bytes.length > max) { problems.push(`files[${i}]: a ${f.ext === 'glb' ? 'body' : 'clip'} is 16 bytes to ${max / MB} MB.`); continue; }
+      if (!f || !/^(ogg|wav|glb|jpg|webp|png)$/.test(f.ext) || !(f.bytes instanceof Uint8Array)) { problems.push(`files[${i}]: a voice clip (.ogg or .wav), a person's body (.glb) or a headshot (.jpg, .webp or .png).`); continue; }
+      const img = /^(jpg|webp|png)$/.test(f.ext), max = f.ext === 'glb' ? PL.glb.each : img ? PL.art.each : PL.voice.each;
+      if (f.bytes.length < 16 || f.bytes.length > max) { problems.push(`files[${i}]: a ${f.ext === 'glb' ? 'body' : img ? 'headshot' : 'clip'} is 16 bytes to ${max / KB >= 1024 ? `${max / MB} MB` : `${max / KB} KB`}.`); continue; }
       const bad = f.ext === 'glb' ? checkGlb(f.bytes) : checkMagic(f.ext, f.bytes); if (bad) { problems.push(`files[${i}]: ${bad}.`); continue; }
       const h = sha(f.bytes);
       if (f.ext === 'glb' && !newBodies.has(h)) { problems.push(`files[${i}]: a sent glb (${h.slice(0, 12)}…) is no cast member's new body (world.cast[name].glb).`); continue; }
+      if (img && heads.get(h)?.ext !== f.ext) { problems.push(`files[${i}]: a sent ${f.ext} (${h.slice(0, 12)}…) is no cast member's headshot (world.art['head-<cast id>']).`); continue; }
       sent.set(h, f);
     }
     // the voice plan's clips: each a line of the world, its file named by its line, its url a clip of its own format
@@ -530,17 +541,18 @@ export class StoryStore {
     // every file the world names: stored already, or sent; nothing sent that it does not name
     const refs = new Map<string, string>();
     for (const m of JSON.stringify(w).matchAll(/\/storykit\/f\/([0-9a-f]{64})\.([a-z]{3,4})/g)) refs.set(m[1], m[2]);
-    let total = body.length, voice = 0, nVoice = 0, glb = 0;
+    let total = body.length, voice = 0, nVoice = 0, glb = 0, art = 0;
     for (const [h, ext] of refs) {
       const known = this.db.prepare('SELECT ext, bytes FROM blobs WHERE hash = ?').get(h) as { ext: string; bytes: number } | undefined;
       const s = sent.get(h), bytes = known?.bytes ?? s?.bytes.length;
       if (known ? known.ext !== ext : !s || s.ext !== ext) { problems.push(`/storykit/f/${h}.${ext}: not stored, and not sent.`); continue; }
-      total += bytes!; if (ext === 'ogg' || ext === 'wav') { voice += bytes!; nVoice++; } else if (ext === 'glb') glb += bytes!;
+      total += bytes!; if (ext === 'ogg' || ext === 'wav') { voice += bytes!; nVoice++; } else if (ext === 'glb') glb += bytes!; else if (heads.has(h)) art += bytes!;
     }
     for (const h of sent.keys()) if (!refs.has(h)) problems.push(`a sent ${sent.get(h)!.ext} (${h.slice(0, 12)}…) is not named by the world.`);
     if (total > PL.world) problems.push(`A world is at most ${PL.world / MB} MB in all (this one: ${(total / MB).toFixed(1)} MB).`);
     if (voice > PL.voice.total || nVoice > PL.voice.count) problems.push(`A world's clips are at most ${PL.voice.count} and ${PL.voice.total / MB} MB in all.`);
     if (glb > PL.glb.total) problems.push(`A world's bodies are at most ${PL.glb.total / MB} MB in all.`);
+    if (art > PL.art.total) problems.push(`A world's headshots are at most ${PL.art.total / MB} MB in all.`);
     if (problems.length) return { ...fail(422, 'The patch was refused. Nothing was changed.'), problems };
     const fresh = [...sent].filter(([h]) => !this.db.prepare('SELECT 1 FROM blobs WHERE hash = ?').get(h));
     const hash = sha(body), t = this.now();
@@ -579,6 +591,14 @@ export class StoryStore {
         const bytes = (this.db.prepare('SELECT bytes FROM blobs WHERE hash = ?').get(b.hash) as { bytes: number }).bytes;
         this.db.prepare("DELETE FROM files WHERE draft_id = ? AND kind = 'glb' AND name = ?").run(d.id, who);
         file.run(d.id, 'glb', who, b.hash, 'glb', bytes, null, t);
+      }
+      // a headshot: the draft's art for that person (a Mog shoots its own on its work page, as art is never inherited)
+      for (const hd of heads.values()) {
+        const name = `head-${hd.id}.${hd.ext}`;
+        if (this.db.prepare("SELECT 1 FROM files WHERE draft_id = ? AND kind = 'art' AND name = ? AND hash = ?").get(d.id, name, hd.hash)) continue;
+        const bytes = (this.db.prepare('SELECT bytes FROM blobs WHERE hash = ?').get(hd.hash) as { bytes: number }).bytes;
+        this.db.prepare("DELETE FROM files WHERE draft_id = ? AND kind = 'art' AND name GLOB ?").run(d.id, `head-${hd.id}.*`);
+        file.run(d.id, 'art', name, hd.hash, hd.ext, bytes, null, t);
       }
       // the world it replaces is kept (patching back is a patch with it); the sealed world is world.json, as seal() writes
       if (prior !== hash) {

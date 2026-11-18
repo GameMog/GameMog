@@ -11,7 +11,7 @@ export const runtime = 'nodejs';
  * the same name). Owner only, whatever the switch: 404 unless the Story Kit is on for this request
  * (lib/storykit-switch.ts) and the request carries the owner's admin session (app/admin/session.ts).
  *   POST /api/storykit/admin/patch
- *     { slug, world: <runner world>, files: [{ ext: 'ogg' | 'wav' | 'glb', base64 }], opening?: <story-pack opening> | null }
+ *     { slug, world: <runner world>, files: [{ ext: 'ogg' | 'wav' | 'glb' | 'jpg' | 'webp' | 'png', base64 }], opening?: <story-pack opening> | null }
  *     -> 200 { hash, url, was, clips, stored, bodies, bytes, worldBytes, game, drafts } | 404 | 409 | 413 | 422 { error, problems }
  * The checks and what changes: lib/storykit-store.ts StoryStore.patch, lib/storykit-publish.ts patchStoryWorld. The world
  * it replaces is kept: patching back is the same call with that world (fetch /storykit/f/<was>.json) and its opening
