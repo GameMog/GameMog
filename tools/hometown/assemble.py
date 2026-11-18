@@ -18,6 +18,7 @@ from shapely.ops import unary_union
 
 import grid
 import context
+import cores
 import compile as C
 
 PIN_PAD_CM = 100000     # the pinned tile set: the play box + 1 km
@@ -37,21 +38,10 @@ def box_cm(d, bbox):
     return int(gx.min()), int(gs.min()), int(gx.max()), int(gs.max())
 
 
-def downtown_box(pl, dom, data, store, bid):
-    """THE BOX RULE for a capped place (its search box `searchBbox` wider than its capped `bbox`, a square round the
-    Census internal point): the same size of box centred on the place's DOWNTOWN, the strongest ctx downtown centre
-    (context.py: POI score within 250 m, non-max suppression within 2000 m) within half the box of the internal point
-    (so the internal point stays in the box) and inside the search box; the internal point's box when there is none.
-    A city's internal point is a polygon's interior point, often kilometres from its downtown (Pittsburgh's lies 2 km
-    east of the Golden Triangle). -> (bbox, info) or (None, None) when the place is not capped. Raises MissingRegion
-    when the Overture regions round it are not fetched yet (compile.py exits 3 with the regions to fetch)."""
-    sb, bb = pl.get('searchBbox'), pl['bbox']
-    if not sb or (sb[2] - sb[0] <= bb[2] - bb[0] + 2e-5 and sb[3] - sb[1] <= bb[3] - bb[1] + 2e-5):
-        return None, None
-    d = grid.domain(dom)
-    lon, lat = pl['anchor']
-    hx, hy = (bb[2] - bb[0]) / 2, (bb[3] - bb[1]) / 2
-    win = [max(sb[0], lon - hx), max(sb[1], lat - hy), min(sb[2], lon + hx), min(sb[3], lat + hy)]
+def strongest_centre(d, dom, data, store, bid, win):
+    """The strongest ctx downtown centre (context.py: POI score within 250 m, non-max suppression within 2000 m) among
+    the cells of window `win` (lon/lat): (ci, cj, score, lon, lat), the point clamped into the window; None when none.
+    Raises MissingRegion when the Overture regions round it are not fetched yet."""
     w = box_cm(d, win)
     pad = 2400.0   # m: the centres' score (250 m) and suppression (2000 m) reach round the window
     Wd = C.World(data, dom, (w[0] / 100 - pad, w[1] / 100 - pad, w[2] / 100 + pad, w[3] / 100 + pad), store, bid)
@@ -59,17 +49,61 @@ def downtown_box(pl, dom, data, store, bid):
     cc = context.CELL
     cent = ctx.centres(w[0] // cc, w[1] // cc, w[2] // cc, w[3] // cc)
     if not cent:
-        return None, {'rule': 'capped: no downtown centre within half the box of the internal point (the internal point\'s box)'}
+        return None
     ci, cj, sc = cent[0]
     clon, clat = d.inverse([(ci * cc + cc // 2) / 100.0], [(cj * cc + cc // 2) / 100.0])
     clon, clat = float(clon[0]), float(clat[0])
-    # (still inside the window: the internal point stays in the box)
-    clon, clat = min(max(clon, win[0]), win[2]), min(max(clat, win[1]), win[3])
+    return ci, cj, sc, min(max(clon, win[0]), win[2]), min(max(clat, win[1]), win[3])
+
+
+def downtown_box(pl, dom, data, store, bid):
+    """THE BOX RULE for a capped place (its search box `searchBbox` wider than its capped `bbox`, a square round the
+    Census internal point). -> (bbox, info) or (None, None) when the place is not capped. Raises MissingRegion when the
+    Overture regions round it are not fetched yet (compile.py exits 3 with the regions to fetch).
+
+    0.8.0: the same size of box centred on the place's DOWNTOWN, the strongest ctx downtown centre within half the box of
+    the internal point (so the internal point stays in the box) and inside the search box; the internal point's box
+    when there is none. A city's internal point is a polygon's interior point, often kilometres from its downtown
+    (Pittsburgh's lies 2 km east of the Golden Triangle).
+
+    0.14.0, the CORE step: some internal points are too far for that window to reach the downtown at all (San Jose's
+    lies 8 km south-east of it, Phoenix's 14 km north). A place's core (cores.py: its Overture / OSM locality point,
+    the cores.json table by GEOID, or the entry's own `core`) inside its search box but OUTSIDE the 0.8.0 box moves the
+    box: the strongest centre within half a box of the core, when it scores at least the 0.8.0 centre's score. The
+    internal point may then lie outside the box (the session frame's origin stays its tile: coordinates are unchanged).
+    Every place whose 0.8.0 box already holds its core (or that has none) keeps the 0.8.0 box, byte for byte."""
+    sb, bb = pl.get('searchBbox'), pl['bbox']
+    if not sb or not cores.capped(bb, sb):
+        return None, None
+    d = grid.domain(dom)
+    lon, lat = pl['anchor']
+    hx, hy = (bb[2] - bb[0]) / 2, (bb[3] - bb[1]) / 2
     r = lambda v: round(v * 1e5) / 1e5  # noqa: E731
-    box = [r(clon - hx), r(clat - hy), r(clon + hx), r(clat + hy)]
     kx = 111320 * math.cos(math.radians(lat))
-    return box, {'rule': 'capped: centred on the strongest downtown centre within half the box of the internal point', 'cell': [ci, cj], 'score': sc,
-                 'movedM': [round((clon - lon) * kx), round((clat - lat) * 111320)], 'internalPointBox': bb}
+    win = cores.window((lon, lat), bb, sb)
+    best = strongest_centre(d, dom, data, store, bid, win)
+    if best is None:
+        box, info = None, {'rule': 'capped: no downtown centre within half the box of the internal point (the internal point\'s box)'}
+    else:
+        ci, cj, sc, clon, clat = best
+        box = [r(clon - hx), r(clat - hy), r(clon + hx), r(clat + hy)]
+        info = {'rule': 'capped: centred on the strongest downtown centre within half the box of the internal point', 'cell': [ci, cj], 'score': sc,
+                'movedM': [round((clon - lon) * kx), round((clat - lat) * 111320)], 'internalPointBox': bb}
+    core, how = cores.core_of(pl)
+    if core is None or not cores.inside(core, sb) or cores.inside(core, box or bb):
+        return box, info
+    # (0.14.0: the core is in the search box and the 0.8.0 box misses it)
+    cwin = cores.window(core, bb, sb)
+    alt = strongest_centre(d, dom, data, store, bid, cwin)
+    seen = {'core': [core[0], core[1]], 'coreSource': how}
+    if alt is None or (best is not None and alt[2] < best[2]):
+        why = 'no downtown centre within half a box of it' if alt is None else 'its centre scores %d, under the internal point\'s %d' % (alt[2], best[2])
+        return box, dict(info, coreKept=dict(seen, why=why))
+    ci, cj, sc, clon, clat = alt
+    box = [r(clon - hx), r(clat - hy), r(clon + hx), r(clat + hy)]
+    return box, dict(seen, rule='capped, core: centred on the strongest downtown centre within half the box of the place\'s core (its 0.8.0 box misses the core)',
+                     cell=[ci, cj], score=sc, movedM=[round((clon - lon) * kx), round((clat - lat) * 111320)], internalPointBox=bb,
+                     internalPointCentre=None if best is None else {'cell': [best[0], best[1]], 'score': best[2]})
 
 
 def stage1(pid, places, bid, data=None, store=None):

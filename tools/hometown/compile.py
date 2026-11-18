@@ -50,6 +50,7 @@ import climate  # noqa: E402
 from sources import Sources, blocks_for, MissingRegion  # noqa: E402
 import rects as rects_mod  # noqa: E402
 import looks  # noqa: E402
+import cores as cores_table  # noqa: E402
 import shapely.ops  # noqa: E402
 
 # bump on ANY change to a tile's bytes (a rule, a constant, an output field). 0.1.0 90bae8c; 0.2.0 water rule, 1 cm
@@ -111,7 +112,11 @@ import shapely.ops  # noqa: E402
 # levels (grade.links, TIE_SPLIT), and the third solve's free-node cap keeps the whole free chain's clearances; a
 # MultiPolygon's other polygons stand at their own floors or their area's default height, never the row's tallest
 # (building_height)
-COMPILER_VERSION = '0.13.2'
+# 0.14.0 (the core step of the box rule): a capped place whose 0.8.0 box misses its core (cores.json: the Overture / OSM
+# locality point of 1,580 big places, by GEOID) is centred on the strongest downtown centre round that core instead
+# (assemble.downtown_box); every other place keeps its box byte for byte and no tile changes; the table's sha256 is in
+# the build record (`cores`)
+COMPILER_VERSION = '0.14.0'
 OVERTURE_RELEASE = '2026-10-21.0'
 TILE, TCM = grid.TILE, grid.TILE_CM
 SIGNAL_REACH = 15.0  # m (stage 0): an OSM traffic_signals node this near a junction, on one of its approaches, signals it
@@ -994,7 +999,8 @@ def build_record(store):
             'demSnapshot': {'id': sid, 'key': 'dem/snapshots/%s.json' % sid, 'products': {p: len(v) for p, v in sorted(snap['products'].items())},
                             'partial': snap.get('partial') or None,
                             'policy': 'every 3DEP file at its snapshot ETag; range reads If-Match; bytes mirrored at dem/{product}/{name}/{etag}/'},
-            'osmRoads': None if not OSM_ROADS['meta'] else {k: OSM_ROADS['meta'].get(k) for k in ('source', 'sha256', 'ways')}}
+            'osmRoads': None if not OSM_ROADS['meta'] else {k: OSM_ROADS['meta'].get(k) for k in ('source', 'sha256', 'ways')},
+            'cores': cores_table.meta()}
 
 
 def build_id_of(rec):

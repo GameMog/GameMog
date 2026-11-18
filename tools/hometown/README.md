@@ -1,4 +1,4 @@
-# Hometown compiler 0.13.2 (the national grid hg1)
+# Hometown compiler 0.14.0 (the national grid hg1)
 
 Turns open US map data into **tiles on one national grid**. A tile is compiled from its own sources and context alone,
 so any tile can be compiled on first request, neighbouring towns share identical tiles, and a place is just a list of
@@ -102,10 +102,10 @@ centres by non-max suppression within 2 km, downtown = within 350 m of a centre)
 A tile reads the ctx blocks within 3.2 km and the regions within 3.2 km (a tile whose regions are not fetched is refused
 with the fetch command to run).
 
-**buildId** `htc-0.13.2-hg1-b{8 hex}`: the first 8 hex of the sha256 of the build record (`builds/{buildId}.json`:
+**buildId** `htc-0.14.0-hg1-b{8 hex}`: the first 8 hex of the sha256 of the build record (`builds/{buildId}.json`:
 compiler version, libraries incl. GEOS and zlib, the CPU architecture (`machine`) and the duckdb `spatial` extension's
 version, image digest (`HOMETOWN_IMAGE_DIGEST` from the environment: the town-builder image sets a recipe id), Overture
-release, DEM snapshot, grid). Compiler logic
+release, DEM snapshot, grid, and since 0.14.0 the core table's sha256, `cores`). Compiler logic
 changes bump `COMPILER_VERSION`; library, image or source changes change only `b`.
 
 ## Containers (gzip, mtime 0, sorted JSON)
@@ -153,6 +153,35 @@ from a compiled tile**, so it exists seconds after a town is picked and is the s
 Since 0.8.0 stage 1 is round 3's: a capped place (its `searchBbox` wider than its capped `bbox`) takes the same size of
 box centred on its downtown (`assemble.downtown_box`), so the frame's play box, tile range, district, spawns and lock
 are all over the downtown-centred box.
+
+**The core step (0.14.0).** The 0.8.0 search looks for that downtown only within half a box of the Census internal
+point, and some big places' internal points are farther than that from their downtown: San Jose's lies 8 km south-east
+of it (its 0.8.0 box is Story Rd and Senter Rd), Phoenix's 14 km north, Los Angeles' 16 km west. `cores.json` lists the
+**core** of each such place: its Overture locality point (OpenStreetMap's place node, which mappers put on the downtown,
+the main square or the city hall), matched to the Census place by state, folded name and its search box, for the 1,580
+capped places whose core lies outside the internal point's window (`cores.py --census <GameMog lib/places/us-places.tsv.gz>`
+rebuilds it, ~10 s, once per Overture release). When the 0.8.0 box misses the core, `downtown_box` takes the strongest
+ctx centre within half a box of the core instead, if it scores at least the 0.8.0 centre (POIs within 250 m); else the
+0.8.0 box with `boxRule.coreKept` saying why. The frame's `boxRule` names the core, its source and both centres. Every
+place whose 0.8.0 box already holds its core, or that has none, keeps that box byte for byte (checked on Bozeman and
+Pittsburgh: the same box, tiles and `boxRule` as 0.13.2), no tile's bytes change, and the session frame's origin stays
+the internal point's tile (a moved box lies kilometres from the origin; every coordinate is still the frame's). A
+places entry may carry its own `core: [lon, lat]` (a dev box, a test). Tests: `test_cores.py` (the rule on stubbed
+centres; the table; `HOMETOWN_CORES_CENSUS=<tsv>` re-derives the table and compares). GameMog's
+`scripts/hometown-build-pycheck.py` checks that the table reads the same search and play boxes GameMog sends.
+
+| place | 0.13.2 box (W, S, E, N) | 0.14.0 box | moved |
+|---|---|---|---|
+| San Jose (us-0668000) | -121.85016, 37.29601, -121.79935, 37.3365 | -121.91628, 37.31515, -121.86546, 37.35564 | onto downtown (score 921 vs 210) |
+| Phoenix (us-0455000) | -112.13506, 33.56426, -112.08654, 33.60475 | -112.09776, 33.42904, -112.04924, 33.46953 | onto downtown (897 vs 239) |
+| Bozeman (us-3008950) | -111.06506, 45.6587, -111.00719, 45.6992 | the same | no (core in its window) |
+| Pittsburgh (us-4261000) | -80.02648, 40.41855, -79.97337, 40.45904 | the same | no (0.8.0 box holds the core) |
+
+**Releasing it.** Stored worlds pin their buildId: 0.13.2's frames and bundles stay and are served as before; a
+published story pinned to a town whose box moved stays on its build (GameMog lib/storykit-upgrade.ts: a place not on the
+new map, or a datum that moved, holds it). Like any compiler release every town rebuilds cold under the new buildId on
+its first visit (`HOMETOWN_DAILY_COLD`); the towns whose box moves are exactly the listed places whose 0.8.0 box misses
+their core. No engine change: the engine plays a box kilometres from the origin (driven: San Jose, 0.14.0).
 
 The assembler lays out spawns, places, the datum and density **from the frame** (one source of truth); `--id` computes
 and stores the frame first. `--assemble <placeId> --window district|full --frame <file> --out <dir>` writes a **bundle**
