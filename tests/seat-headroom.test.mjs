@@ -67,7 +67,7 @@ test('the driver fits his head each time he gets in, his hips, heels, back and s
   assert.match(SRC, /attach\(ease = fade\) \{[\s\S]*?try \{ fitHead\(\); \}/);
   assert.match(SRC, /\[0\.75, hx \+ 0\.04 \* sc, hy, hz - slide\], \[1, hx, hy, hz - slide\]/);
   assert.match(SRC, /\[1, hx - fx, fy, fz\]/);
-  assert.match(SRC, /tilt = tilt0 \+ recline \* smooth/);
+  assert.match(SRC, /tilt = tilt0 \+ \(recline - hunch\) \* smooth/);
   assert.match(SRC, /body\.scale\.copy\(scale0\)\.multiplyScalar\(1 \+ \(shrink - 1\)/);
   // (his own size back when he gets out)
   assert.match(SRC, /detach\(parent\) \{[\s\S]*?if \(scale0\) body\.scale\.copy\(scale0\)/);
@@ -151,4 +151,20 @@ test('the very last resort: a size that leaves part of his crown out from under 
   // (against the skin only: no smaller than takes the crown 3 cm under it)
   assert.ok(0.8 * f.shrink + 0.03 <= 0.8 + 0.011, JSON.stringify(f));
   assert.ok(g.shrink < 1, JSON.stringify(g));
+});
+
+// (17 Nov: in the town fleet's cars his hands were 15 to 21 cm short of the wheel, lowered under the roof with the wheel
+// where it was) seated as fitted, a wrist that can't reach its grip's mark brings his hips forward and leans him forward,
+// the least of the two, and never takes his crown further out from under the roof; the passenger pack's own wheels
+test('his hands on the wheel: hips forward and a lean, as little as reaches, never his head through the roof', () => {
+  assert.match(SRC, /const REACH_FWD = 0\.16, REACH_LEAN = 0\.16;/);
+  assert.match(SRC, /out\.wrist = Math\.min\(out\.wrist \?\? Infinity, at\(u\)\.distanceTo\(at\(l\)\) \+ at\(l\)\.distanceTo\(at\(w\)\)\)/);
+  assert.match(SRC, /const want = crown\.wrist \* k - 0\.05/);
+  assert.match(SRC, /if \(h\.left > Math\.max\(left0, fit\.left\) \+ 0\.005\) break;/);
+  assert.match(SRC, /hunch = fit\.lean \|\| 0/);
+  const FD = readFileSync(new URL('../cities/sf/js/fleet-data.js', import.meta.url), 'utf8');
+  for (const id of ['pickup20', 'suv20', 'offroad20', 'minivan20', 'taxi20', 'police20']) {
+    const m = FD.match(new RegExp(`"${id}":\\{[^]*?"steer":(\\[[^\\]]*\\]|null)`));
+    assert.ok(m && m[1] !== 'null', id + ' has its own steering wheel');
+  }
 });

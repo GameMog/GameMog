@@ -25,7 +25,7 @@ test('regionAt: the compiler\'s bands; pkgRegion reads the package frame', () =>
   assert.equal(load(undefined).pkgRegion(), null);
 });
 
-test('the mountain palette: wood and metal roofs, siding first, a false front only on flat shops and offices, other regions untouched', () => {
+test('the mountain palette: wood and metal roofs, siding first, a false front only on flat shops, offices and warehouses, other regions untouched', () => {
   const P = load();
   const R = P.REGIONS.mountain;
   assert.equal(R.walls[0][0], 'siding');
@@ -39,7 +39,12 @@ test('the mountain palette: wood and metal roofs, siding first, a false front on
     assert.equal(P.styleFor({ kind: 'shop', roofShape: '', wall: '', region: 'plains-midwest', hash: hash(s) }).falseFront, false);
     assert.equal(P.styleFor({ kind: 'shop', roofShape: 'gabled', wall: '', region: 'mountain', hash: hash(s) }).falseFront, false);
   }
-  assert.ok(ff / n > 0.6 && ff / n < 0.95, `${ff}/${n}`);
+  // (17 Nov: nearly all of them now, Main St's western character; a few plain cornices left for variety)
+  assert.ok(ff / n > 0.85 && ff / n < 0.99, `${ff}/${n}`);
+  assert.equal(R.falseFrontMaxH, 40);
+  assert.ok(P.styleFor({ kind: 'warehouse', roofShape: '', wall: '', region: 'mountain', hash: hash(3) }).falseFront || P.styleFor({ kind: 'warehouse', roofShape: '', wall: '', region: 'mountain', hash: hash(4) }).falseFront);
+  assert.equal(P.styleFor({ kind: 'apartment', roofShape: '', wall: '', region: 'mountain', hash: hash(3) }).falseFront, false);
+  assert.equal(R.signs, 'western');
 });
 
 test('a false front: the road side carried up past the roof, nothing on the far side, a cap; too narrow a front: none', () => {
@@ -73,4 +78,24 @@ test('farKeys: a district bundle\'s far tiles by store key, as far.py lists them
   assert.ok(k.some((e) => e.key === 'far/htc-0.13.2-hg1-bbd2ead29/hg1-conus/1/1787/3087'));
   assert.equal(window.NYC.PkgFar.farKeys({ ...P, buildId: '../x' }).length, 0);
   assert.equal(window.NYC.PkgFar.farKeys({ ...P, far: { tiles: [] } }).length, 0);
+});
+
+// (17 Nov: a mall's band over its shops read as a blank slab) its band dressed: courses, a cornice, pilasters (none
+// where a colonnade carries them), framed sign panels a shade off the wall
+test('a mall band: a cornice, a string course, pilasters and framed panels along the wall; none on a band under 1.2 m', () => {
+  const P = load();
+  const b = P.createPkgBuilder();
+  const m = { cx: 0, cz: 0, w: 40, d: 30 };
+  b.mallBand(m, 0, 0, 1, 5, 9, true, 0xc7b08c, 0x3d3a35);
+  assert.equal(b.stats.mallBands, 1);
+  const g = b.mesh('t');
+  const pos = g.geometry ? g.geometry.attributes.position.array : g.attributes.position.array;
+  let zMax = -Infinity, yMin = Infinity, yMax = -Infinity;
+  for (let i = 0; i < pos.length; i += 3) { zMax = Math.max(zMax, pos[i + 2]); yMin = Math.min(yMin, pos[i + 1]); yMax = Math.max(yMax, pos[i + 1]); }
+  // (all of it on the +z wall, 15 m out from the middle, proud of it by the cornice's 0.34 m at most, within the band)
+  assert.ok(Math.abs(zMax - (15 + 0.34)) < 1e-6, String(zMax));
+  assert.ok(yMin >= 5 - 1e-6 && yMax <= 9 + 1e-6);
+  const b2 = P.createPkgBuilder();
+  b2.mallBand(m, 0, 0, 1, 5, 6, true, 0xc7b08c, 0x3d3a35);
+  assert.equal(b2.stats.mallBands || 0, 0);
 });

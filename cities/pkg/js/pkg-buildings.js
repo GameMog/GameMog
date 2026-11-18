@@ -94,7 +94,12 @@ const REGIONS = {
   mountain: {
     walls: [['siding', 0.38], ['wood', 0.24], ['brick', 0.18], ['clapboard', 0.12], ['stucco', 0.08]],
     roofs: [['gabled', 0.62], ['hipped', 0.2], ['gambrel', 0.05], ['skillion', 0.05], ['flat', 0.08]],
-    pitch: 1.25, chimney: 0.5, chimneyFit: true, porch: 0.55, parapet: 0.7, falseFront: 0.8,
+    // (17 Nov, Colter Land's Main St still only modestly western: nearly every flat-roofed shop, office and downtown brick
+    // warehouse (a downtown block's bracketed parapet and pediment up to 40 m) gets one now, not four in five under 16 m)
+    pitch: 1.25, chimney: 0.5, chimneyFit: true, porch: 0.55, parapet: 0.7, falseFront: 0.94, falseFrontMaxH: 40, falseFrontKinds: ['shop', 'office', 'warehouse'],
+    // (its shop signs painted boards: serif lettering in cream, gold or white on oxblood, forest, navy, black and walnut,
+    // a double rule round them; buildings.js's sign atlas)
+    signs: 'western',
     mall: { colors: [0xb89a76, 0x9a4f3a, 0x7f3f31, 0xc7b08c, 0x8c6a4e], trims: [0x3d3a35, 0x2f4031, 0x5a3f2c, 0xd9cbb0] },
     colors: {
       siding: [0x9fa58c, 0x8a979e, 0xcbb895, 0xe6dcc4, 0x8e3b2e, 0x5d6b52, 0xb9b7ae, 0x7c6650, 0xd7cfbd, 0x6f7f86],
@@ -211,9 +216,9 @@ function styleFor(o) {
   const roofColor = o.roofRGB || pickA(R.roofColors, h(7.9));
   // (the mountain west: a flat-roofed shop or small office's street wall carried up as a false front; createPkgBuilder
   // falseFront, buildings.js)
-  const falseFront = !!R.falseFront && roof === 'flat' && (o.kind === 'shop' || o.kind === 'office') && h(13.1) < R.falseFront;
+  const falseFront = !!R.falseFront && roof === 'flat' && (R.falseFrontKinds || ['shop', 'office']).includes(o.kind) && h(13.1) < R.falseFront;
   return {
-    wall, paint: [wallHex, trimHex, SURFACE[wall] ?? 1, house ? 0.4 : 0.3], roof, roofColor, pitch: R.pitch, parapet: R.parapet || 0.45, falseFront, chimneyFit: !!R.chimneyFit,
+    wall, paint: [wallHex, trimHex, SURFACE[wall] ?? 1, house ? 0.4 : 0.3], roof, roofColor, pitch: R.pitch, parapet: R.parapet || 0.45, falseFront, falseFrontMaxH: R.falseFrontMaxH || 16, chimneyFit: !!R.chimneyFit,
     chimney: o.kind === 'house' && roof !== 'flat' && h(8.3) < R.chimney, porch: o.kind === 'house' && h(9.1) < R.porch
   };
 }
@@ -542,6 +547,36 @@ function createPkgBuilder() {
     stats.colonnades = (stats.colonnades || 0) + 1;
     return out;
   }
+  // (17 Nov: a mall's band over its shops read as a blank, untextured slab) the band along one wall of mass m from y0 to
+  // y1 (lx, lz as colonnade's): a string course at its foot, a cornice and its drip at its top, pilasters every ~9 m
+  // (pil: none where a colonnade already carries them up the wall) and between each pair a framed sign panel, its field a
+  // shade off the wall's (darker on a light wall, lighter on a dark one), its frame and a slim reveal line in the trim's
+  function mallBand(m, theta, lx, lz, y0, y1, pil, wallHex, trimHex) {
+    const H = y1 - y0;
+    if (H < 1.2) return;
+    const cs = Math.cos(theta), sn = Math.sin(theta);
+    const half = lx ? m.w * 0.5 : m.d * 0.5, len = lx ? m.d : m.w, sgn = lx || lz, L2 = len * 0.5;
+    const P = (u, v, yy) => { const ax = lx ? sgn * (half + v) : u, az = lx ? u : sgn * (half + v); return [m.cx + ax * cs + az * sn, yy, m.cz - ax * sn + az * cs]; };
+    const F = { P };
+    const ch = [(wallHex >> 16) & 255, (wallHex >> 8) & 255, wallHex & 255], lum = (0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2]) / 255;
+    const k = lum > 0.45 ? 0.8 : 1.28, field = ch.map((v) => Math.min(255, Math.round(v * k))).reduce((h, v) => h * 256 + v, 0);
+    boxUV(F, -L2 - 0.12, L2 + 0.12, 0, 0.16, y0, y0 + 0.22, trimHex);
+    boxUV(F, -L2 - 0.3, L2 + 0.3, 0, 0.34, y1 - 0.42, y1, trimHex);
+    boxUV(F, -L2 - 0.18, L2 + 0.18, 0, 0.2, y1 - 0.56, y1 - 0.48, trimHex, false);
+    const n = Math.max(1, Math.round(len / 9)), bay = len / n;
+    for (let k = 0; k <= n; k++) {
+      const u = -L2 + k * bay;
+      if (pil) boxUV(F, Math.max(-L2, u - 0.38), Math.min(L2, u + 0.38), 0, 0.2, y0 + 0.22, y1 - 0.42, trimHex, false);
+      if (k === n) continue;
+      const a = u + 0.75, b = u + bay - 0.75, p0 = y0 + Math.min(0.55, H * 0.2), p1 = y1 - Math.min(0.85, H * 0.3);
+      if (b - a < 1.5 || p1 - p0 < 0.6) continue;
+      boxUV(F, a, b, 0, 0.05, p0, p1, field, false);
+      boxUV(F, a - 0.1, b + 0.1, 0, 0.1, p0 - 0.1, p0, trimHex, false); boxUV(F, a - 0.1, b + 0.1, 0, 0.1, p1, p1 + 0.1, trimHex, false);
+      boxUV(F, a - 0.1, a, 0, 0.1, p0, p1, trimHex, false); boxUV(F, b, b + 0.1, 0, 0.1, p0, p1, trimHex, false);
+      boxUV(F, a + 0.25, b - 0.25, 0, 0.07, p0 + 0.18, p0 + 0.23, trimHex, false);
+    }
+    stats.mallBands = (stats.mallBands || 0) + 1;
+  }
   // a flat roof's membrane over the rectangle at y (a mall's pale roof over the facade box's grey one)
   function membrane(m, theta, y, hex) {
     const { L, S, P } = frame(m.cx, m.cz, m.w, m.d, theta);
@@ -631,7 +666,7 @@ function createPkgBuilder() {
     me.userData.dispose = () => { g.dispose(); mat.dispose(); };
     return me;
   }
-  return { roof, chimney, porch, falseFront, tower, canopy, balconies, outlineBalconies, colonnade, membrane, mallRoof, mesh, stats };
+  return { roof, chimney, porch, falseFront, tower, canopy, balconies, outlineBalconies, colonnade, mallBand, membrane, mallRoof, mesh, stats };
 }
 
 // Shop signs: a town's storefronts are named after its own streets, its own name and its side of town ("COLUMBIA ST

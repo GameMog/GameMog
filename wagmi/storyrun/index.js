@@ -13,7 +13,7 @@
 //     the save (localStorage, per world), the pause menu's Mission select (W.storyList / W.replay); the end card.
 //   - a framing GameMog told what happens (host.js), and the test drive (?autopilot: autopilot.js).
 // URL: ?pack=<world> [&host=<gamemog origin>&game=<id>] [&mission=<ID> [&step=<step id>]] [&opening=0|1] [&nogate] [&autopilot=1 &autoanswer=1
-//      &autochoose=<n> &autocontinue=1 &autocard=1 &flowfast=1 &missionsecs=<s> &skipscenes=<s>] [&keyart=1]
+//      &autochoose=<n> &autocontinue=1 &autocard=1 &flowfast=1 &missionsecs=<s> &skipscenes=<s>] [&keyart=1 [&keyshot=hood|rideoff]]
 import * as THREE from 'three/webgpu';
 import { createUI } from '../mission/ui.js';
 import { createAudio } from '../mission/audio.js';
@@ -31,6 +31,7 @@ import { showTitle, plainTitle, isOwn, ownTitle } from './title.js';
 import { asksDressing, asksApocalypse, HOURS } from './pack.js';
 import { passCard } from './rules.js';
 import { createDirector } from '../mission/cine.js'; import { importRetry } from '../net.js';
+import { keyShotOf, hoodShot, rideOffShot } from './keyshots.js';
 
 const Q = new URLSearchParams(location.search);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -106,6 +107,7 @@ export async function install(W) {
     if (W.paused) return;
     try { W.gps.update(); } catch (e) { console.warn('[storyrun] gps', e); }
     if (pets) try { pets.update(dt); } catch (e) { console.warn('[storyrun] pets', e); pets = null; }
+    if (W.storyrun?.fronts) try { W.storyrun.fronts.update(dt); } catch (e) { console.warn('[storyrun] fronts', e); W.storyrun.fronts = null; }
     if (W.storyrun?.ranch) W.storyrun.ranch.update(dt);
     document.body.classList.toggle('wg-onfoot', W.app.controllerManager.activeMode !== 'car');
   })();
@@ -135,6 +137,10 @@ export async function install(W) {
     const clear = [];
     for (const m of def.missions || []) for (const st of m.steps || []) if (st.type === 'fight' && st.boss && st.arena) { try { const p = places.at(st.arena); if (p) clear.push([p.cx ?? p.x, p.cz ?? p.z, 26]); } catch {} }
     try { const A = await importRetry(() => import('../apocalypse/index.js')); await A.createApocalypse(W, { time: typeof def.dressing?.apocalypse === 'string' ? def.dressing.apocalypse : Q.get('apocalypse') || 'dusk', clear }); } catch (e) { console.warn('[storyrun] apocalypse', e); }
+  }
+  // a story's diner dressed as a diner (fronts.js: its street front, the neon with its own name), when the world has one
+  if (Object.values(def.places || {}).some((a) => /\bdiner\b/i.test(String(a?.name || '')))) {
+    try { const FR = await importRetry(() => import('./fronts.js')); W.storyrun.fronts = FR.createFronts(W, def, places); } catch (e) { console.warn('[storyrun] fronts', e); }
   }
   // a story's night is a lit city night, readable (nightlit.js: its fill, moon and exposure lifted at night only)
   try { const NL = await importRetry(() => import('./nightlit.js')); W.storyrun.nightLit = NL.createNightLit(W, def.dressing || {}); } catch (e) { console.warn('[storyrun] night', e); }
@@ -437,12 +443,16 @@ async function keyArt(W, runner) {
     await sleep(100);
   }
   await sleep(3500);
-  const st = document.createElement('style'); st.textContent = '#wg, #wg-tick, #wg-prompt, .hud, #touch-controls, .hud-bottom-left, .hud-top-right { visibility: hidden !important; }';
+  const st = document.createElement('style'); st.textContent = '#wg, #wg-tick, #wg-prompt, #sr-guide, .hud, #touch-controls, .hud-bottom-left, .hud-top-right { visibility: hidden !important; }';
   document.head.appendChild(st);
   let D = null, S = null;
   const frames = (n = 2) => new Promise((r) => { const f = () => (--n <= 0 ? r() : requestAnimationFrame(f)); requestAnimationFrame(f); });
   try {
-    S = await standShot(W, runner).catch((e) => { console.warn('[storyrun] key stand', e); return null; });
+    // (a staged composition the address asks for, &keyshot=hood | rideoff (keyshots.js), else the stand; either, if it
+    // finds nothing to do, the next)
+    const want = keyShotOf(Q), staged = want === 'hood' ? hoodShot : want === 'rideoff' ? rideOffShot : null;
+    if (staged) S = await staged(W, runner).catch((e) => { console.warn('[storyrun] key ' + want, e); return null; });
+    if (!S) S = await standShot(W, runner).catch((e) => { console.warn('[storyrun] key stand', e); return null; });
     if (S) {
       D = S.D;
       await frames(); await sleep(450);

@@ -900,7 +900,7 @@ const tackSound = (name, vol = 0.5, rate = 1) => { const p = car.position; WAGMI
 // (into the seat from his clip's own legs, not the standing correction: the seat's way in measures his idle hips once)
 const seated = (d) => { const attach = d.attach; d.attach = (ease) => { Q.unstand(); attach(ease); }; return d; };
 seated(drv);
-const ride = (WAGMI.ride = { phase: null, mode: null, k: 1, t: 0 });
+const ride = (WAGMI.ride = { phase: null, mode: null, k: 1, t: 0, driver: drv });
 // (the two rides, a horse alongside the car: WAGMI.rides, made below; null in a world with one ride)
 let rides = null;
 const smooth = (x) => { x = Math.min(1, Math.max(0, x)); return x * x * (3 - 2 * x); };

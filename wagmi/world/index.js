@@ -13,7 +13,8 @@
 //            of [[x, z], ...] ('car' the GPS's legal route, 'foot' a walk, 'chase' a chase car's);  roadClass(edge),
 //            isAvenue(edge);  streetNameAt(x, z, { dir: { ux, uz }, r });  districtAt(x, z);  commercial(district)
 //   signals  walkSignal({ dx, dz }, t) (a crossing walked that way has the WALK);  signalAt(road, t) -> 'green' | ...
-//   blocks   blockAt(x, z), blocksInRect(minX, maxX, minZ, maxZ), blocks (the curb islands)
+//   blocks   blockAt(x, z), blocksInRect(minX, maxX, minZ, maxZ), blocks (the curb islands); sidewalkAt(x, z) (the
+//            ground mask's sidewalks: San Francisco and a package; null in New York)
 //   places   places (key -> { x, z, heading, name, cx?, cz?, foot? }), placesMissing, spawnPoints('all' | 'ground'),
 //            findMissionSites({ near, min, max, count, foot }) (the library's keys, nearest first) or
 //            findMissionSites({ kind, near, min, max, road, access, open, roadView, ..., seed, count }) (real places of a

@@ -2317,7 +2317,7 @@ function buildCityBlocks(scene, opts = {}) {
       const pitched = PK && look.roof !== 'flat' && count > 0;
       // (montana: the mountain west's false front, PkgBuildings falseFront: a flat-roofed shop or small office under 16 m
       // that faces a road; its own cap and sign band stand in for the cornice slab)
-      const ffront = PK && look.falseFront && !mall && count > 0 && height < 16 && rec[FI.front] >= 0;
+      const ffront = PK && look.falseFront && !mall && count > 0 && height < (look.falseFrontMaxH || 16) && rec[FI.front] >= 0;
       if (pitched) {
         const big = all[biggest];
         const span = Math.min(big.w, big.d) * 0.5;
@@ -2385,6 +2385,7 @@ function buildCityBlocks(scene, opts = {}) {
           collider(m, roof);
           pb.roof(m, theta, roof, 0, 'flat', look.roofColor, paint[0], look.parapet);
           pb.mallRoof(m, theta, roof + 0.03, look.roofColor, (a) => hash(i, a + k * 3.17));
+          const colonnaded = new Set();
           WALLS.forEach(([lx, lz], f) => {
             if (faces[f] !== WALL_KINDS.shop || (lx ? m.d : m.w) < 8) return;
             const nx = lx * cs + lz * sn, nz = -lx * sn + lz * cs, half = lx ? m.w * 0.5 : m.d * 0.5, len = lx ? m.d : m.w;
@@ -2401,7 +2402,11 @@ function buildCityBlocks(scene, opts = {}) {
             }
             if (blocked) return;
             for (const c of pb.colonnade(m, theta, lx, lz, g, Math.min(g + G - 0.5, g + 4.6), roof, road ? 1.6 : DEPTH, !road, paint[0], paint[1])) colliders.push(c);
+            colonnaded.add(f);
           });
+          // (its band over the shops dressed on every open wall: courses, a cornice, pilasters where no colonnade carries
+          // them, framed sign panels; PkgBuildings mallBand)
+          if (H - G > 1.2) WALLS.forEach(([lx, lz], f) => { if (faces[f] === WALL_KINDS.shop && (lx ? m.d : m.w) >= 8) pb.mallBand(m, theta, lx, lz, g + G, roof, !colonnaded.has(f), paint[0], paint[1]); });
           mallN++;
           if (!top || m.w * m.d > top.w * top.d) { top = m; topBox = low; }
           continue;
@@ -2842,10 +2847,31 @@ function buildCityBlocks(scene, opts = {}) {
     c.width = COLS * CW;
     c.height = rows * CH;
     const ctx = c.getContext('2d');
+    // (17 Nov: a mountain town's Main St read as a modern strip's lit boxes; its region asks for painted boards, PkgBuildings
+    // REGIONS signs: 'western': serif lettering, a shadow line under it, a double rule round it and diamonds at its ends,
+    // on oxblood, forest, navy, black or walnut, in cream, gold or white, with the grain of the board under the paint)
+    const western = window.NYC.PkgBuildings?.REGIONS?.[window.NYC.DATA?.buildings?.header?.region]?.signs === 'western';
+    const WEST = [['#5a1e1a', '#e9d9b0', '#c9a45a'], ['#1f3a2a', '#efe3c2', '#c9a45a'], ['#1d2a40', '#f2ecdc', '#b8b2a0'], ['#151412', '#d9b35c', '#d9b35c'], ['#4a3424', '#f3e6c4', '#e0c78a']];
     signThemes.forEach((st, k) => {
       ctx.save();
       ctx.translate((k % COLS) * CW, Math.floor(k / COLS) * CH);
       ctx.scale(CW / 512, CH / 96);
+      if (western) {
+        const [bg, fg, rule] = WEST[(pkgSigns.themes[k]?.style ?? k) % WEST.length];
+        ctx.fillStyle = bg; ctx.fillRect(0, 0, 512, 96);
+        // (the board's grain, faint under the paint)
+        for (let y = 3; y < 96; y += 7) { ctx.fillStyle = `rgba(0,0,0,${0.05 + ((y * 37) % 11) / 160})`; ctx.fillRect(0, y, 512, 2); }
+        ctx.strokeStyle = rule; ctx.lineWidth = 3; ctx.strokeRect(7, 7, 498, 82); ctx.lineWidth = 1.5; ctx.strokeRect(13, 13, 486, 70);
+        ctx.fillStyle = rule;
+        for (const dx of [26, 486]) { ctx.beginPath(); ctx.moveTo(dx, 40); ctx.lineTo(dx + 6, 48); ctx.lineTo(dx, 56); ctx.lineTo(dx - 6, 48); ctx.closePath(); ctx.fill(); }
+        let px = 40; ctx.font = `700 ${px}px Georgia, 'Times New Roman', serif`;
+        while (px > 16 && ctx.measureText(st.text).width > 420) { px--; ctx.font = `700 ${px}px Georgia, 'Times New Roman', serif`; }
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillText(st.text, 258, 52);
+        ctx.fillStyle = fg; ctx.fillText(st.text, 256, 50);
+        ctx.restore();
+        return;
+      }
       ctx.fillStyle = st.bg;
       ctx.fillRect(0, 0, 512, 96);
       ctx.strokeStyle = st.border;
@@ -2869,8 +2895,11 @@ function buildCityBlocks(scene, opts = {}) {
     const mu = 3 / c.width, mv = 3 / c.height;
     const u = col.add(uv().x.mul(1 - (2 * 3) / CW)).div(float(COLS)).add(mu);
     const v = float(rows - 1).sub(row).add(uv().y.mul(1 - (2 * 3) / CH)).div(float(rows)).add(mv);
-    const sMat = new THREE.MeshBasicNodeMaterial();
+    // (painted boards are lit by the day as the wall they hang on is, a little of their own at night from the shop's
+    // lamps; the lit boxes are lit from within)
+    const sMat = western ? new THREE.MeshStandardNodeMaterial({ roughness: 0.78, metalness: 0 }) : new THREE.MeshBasicNodeMaterial();
     sMat.colorNode = texture(tex, vec2(u, v));
+    if (western && window.NYC.cityUniforms?.uInteriorGlow) sMat.emissiveNode = sMat.colorNode.mul(window.NYC.cityUniforms.uInteriorGlow.mul(0.35));
     const cap = Math.max(1, Math.min(MAX_AWNINGS, pkgSigns.per.reduce((a, b) => a + b, 0)));
     const geo = unitBox.clone();
     const cells = new THREE.InstancedBufferAttribute(new Float32Array(cap), 1);

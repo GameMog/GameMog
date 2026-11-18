@@ -152,7 +152,16 @@ function material(kind, o = {}) {
   // (an own paintable body: the paint as light or dark as the texel is against the model's own colour, its shading)
   const refLum = refC ? Math.max(0.004, 0.2126 * refC.r + 0.7152 * refC.g + 0.0722 * refC.b) : 1;
   const shade = ownPaint ? min(T.dot(base.rgb, vec3(0.2126, 0.7152, 0.0722)).div(refLum), float(2.2)) : null;
-  const paintCol = liv || (ownPaint ? paint.mul(shade) : paint);
+  let paintCol = liv || (ownPaint ? paint.mul(shade) : paint);
+  // (a car's own second colour (U.second, set by U.setSplit: a story's two-tone, wagmi/fleet-car.js): over the line
+  // U.split.y for a roof, under it for a lower body, a band of half-width U.split.z round it for a beltline; split.x the
+  // kind, 0 none)
+  if (U && U.second && kind === 'body' && !liv) {
+    const sp = U.split, y = positionLocal.y, second = ownPaint ? U.second.mul(shade) : U.second;
+    const band = (a) => step(a - 0.5, sp.x).mul(step(sp.x, a + 0.5));
+    const two = max(band(1).mul(step(sp.y, y)), max(band(2).mul(step(y, sp.y)), band(3).mul(step(sp.y.sub(sp.z), y)).mul(step(y, sp.y.add(sp.z)))));
+    paintCol = mix(paintCol, second, two);
+  }
   // (glass seen as opaque in the far LODs: a dark tint)
   const farGlass = is(glassKind, 1);
   let col = mix(base.rgb, paintCol, paintMask);
@@ -195,8 +204,11 @@ function material(kind, o = {}) {
 // a car's own lamp and paint uniforms (not instanced): { id, paint, state, set({ paint, brake, left, right, livery }) }
 let uid = 0;
 function uniforms(paintHex = '#888888') {
-  const U = { id: 'u' + uid++, paint: T.uniform(new THREE.Color(paintHex)), state: T.uniform(new THREE.Vector4(0, 0, 0, 0)) };
+  const U = { id: 'u' + uid++, paint: T.uniform(new THREE.Color(paintHex)), state: T.uniform(new THREE.Vector4(0, 0, 0, 0)),
+    second: T.uniform(new THREE.Color(paintHex)), split: T.uniform(new THREE.Vector4(0, 0, 0, 0)) };
   U.setPaint = (hex) => U.paint.value.set(hex);
+  // (a second colour: kind 'roof' | 'lower' | 'beltline' | 'none', the line's height in the model's frame, the band's half-width)
+  U.setSplit = (kind, hex, y = 0, half = 0.05) => { const k = { roof: 1, lower: 2, beltline: 3 }[kind] || 0; U.split.value.set(k, y, half, 0); if (hex) U.second.value.set(hex); };
   U.setState = (brake = 0, left = 0, right = 0, livery = 0) => U.state.value.set(brake, left, right, livery);
   return U;
 }
@@ -236,7 +248,7 @@ function buildCar(model, o = {}) {
   }
   // (its decals cast no shadow: they lie on the body, which casts it)
   group.traverse((x) => { if (x.isMesh) { x.castShadow = x.name !== 'fleet-decals'; x.receiveShadow = true; x.userData.shared = true; } });
-  return { group, body, glass, wheels, uniforms: U, meta: m, setPaint: U.setPaint, setState: U.setState };
+  return { group, body, glass, wheels, uniforms: U, meta: m, setPaint: U.setPaint, setState: U.setState, setSplit: U.setSplit };
 }
 
 N.Fleet = { data: D, base: BASE, load, get: (id) => loaded.get(id) || null, material, uniforms, textures, buildCar, wheelsOf, plain, LAMP: { head: 1, tail: 2, brake: 3, blink: 4, reverse: 5, beacon: 6, sign: 7 } };

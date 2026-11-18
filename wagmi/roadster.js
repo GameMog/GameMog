@@ -921,6 +921,8 @@ export function buildRoadster(THREE, o = {}) {
 // he clears; last: the further remedies were needed). settle: no crown is left be as fitting short of GAP under the lining
 // (fitHead's second reading, reclined or smaller). guard false: a size that takes part of his crown out from under the
 // roof as it was read is still tried (fitHead's very last resort).
+// how far a driver's hips come forward along the seat, at most, for his hands to reach the wheel (createDriver's fitHead)
+const REACH_FWD = 0.16, REACH_LEAN = 0.16;
 export function seatFit(crown, roofAt, hip, { gap = 0.03, skin: skinGap = 0.02, reach = 0.3, deep = 0.45, head = 0.17, minHip = -Infinity, minHipAt = null,
   pivot = [0, 0.2, 0], maxSlide = 0.12, minSlide = 0, maxRecline = 0.35, minShrink = 0.96, last = null, shoulders = [], reachOk = null, handCost = null, settle = false, guard = true } = {}) {
   const [hx, hy, hz] = hip;
@@ -1023,7 +1025,7 @@ export function createDriver(THREE, rs, q, { fade = 0.22 } = {}) {
   // (his hip's and heels' heights, the seat's lowered when his head would be through the roof; and where that is not
   // enough, the seat eased back (slide), his back reclined further (recline) and, last, a slightly smaller seated figure
   // (shrink): fitHead)
-  let hy = hy0, fy = fy0, slide = 0, recline = 0, shrink = 1, scale0 = null;
+  let hy = hy0, fy = fy0, slide = 0, recline = 0, hunch = 0, shrink = 1, scale0 = null;
   let R0 = null, scale0R = null;   // (his hips over his feet in the idle, measured the first time)
   const hip = (k) => track([[0, DOOR[0] + R0.x, R0.y, DOOR[1] + R0.z], [0.3, ...m(1.12, 0.6, -0.2)], [0.55, ...m(0.62, 0.39, -0.2)], [0.75, hx + 0.04 * sc, hy, hz - slide], [1, hx, hy, hz - slide]])(k);
   const yaw = track([[0, 0], [0.25, 0.55], [0.5, 0.8], [0.72, 0.45], [1, 0]]);
@@ -1183,6 +1185,8 @@ export function createDriver(THREE, rs, q, { fade = 0.22 } = {}) {
       if (!u || !l || !w) continue;
       out.shoulders.push(rel(at(u)));
       out.arm = Math.max(out.arm, at(u).distanceTo(at(l)) + at(l).distanceTo(at(w)) + (f ? at(w).distanceTo(at(f)) * WHEEL.along : 0) + WHEEL.depth + WHEEL.r);
+      // (shoulder to wrist: how far the wrist reaches, onto a grip's mark, the wrist's)
+      out.wrist = Math.min(out.wrist ?? Infinity, at(u).distanceTo(at(l)) + at(l).distanceTo(at(w)));
     }
     body.position.copy(p0); body.quaternion.copy(q0); body.scale.copy(s0); body.updateMatrixWorld(true);
     if (!pts.length) return out;
@@ -1241,7 +1245,7 @@ export function createDriver(THREE, rs, q, { fade = 0.22 } = {}) {
     // (his crown is his at the size he got in at: a rig made taller or smaller since (a hero scaled after he first sat in
     // this car, the game's own car worn as a mission's ride) is read again, not fitted by the old one's)
     const size = (scale0 || body.scale).toArray().map((x) => x.toFixed(4)).join(',');
-    if (!crown || size !== crownSize) { const keep = [slide, recline, shrink, hy]; slide = recline = 0; shrink = 1; hy = hy0; crown = readCrown(); crownSize = size; fitKey = null; [slide, recline, shrink, hy] = keep; }
+    if (!crown || size !== crownSize) { const keep = [slide, recline, hunch, shrink, hy]; slide = recline = hunch = 0; shrink = 1; hy = hy0; crown = readCrown(); crownSize = size; fitKey = null; [slide, recline, hunch, shrink, hy] = keep; }
     // (the car's own meshes: not his, nor a passenger's on the anchor, nor what is hidden, nor the driver's seat that
     // moves with him: this car's, or the body it wears for a mission's ride, ride.js wearRide)
     const worn = rs.__worn?.id ? rs.__worn.rigs?.[rs.__worn.id] : null;
@@ -1252,7 +1256,7 @@ export function createDriver(THREE, rs, q, { fade = 0.22 } = {}) {
     root.updateMatrixWorld(true);
     const ap = anchor.getWorldPosition(V()), key = meshes.map((o) => o.id).join(',') + '@' + root.worldToLocal(ap).toArray().map((x) => x.toFixed(3)).join(',');
     if (key === fitKey) return;
-    fitKey = key; hy = hy0; fy = fy0; slide = recline = 0; shrink = 1;
+    fitKey = key; hy = hy0; fy = fy0; slide = recline = hunch = 0; shrink = 1;
     for (const p of seats) { p.userData.at0 ??= p.position.clone(); p.position.copy(p.userData.at0); }
     const at = surfaces(meshes, [hx - 0.5, hx + 0.5, hz - 1.0, Math.max(hz, fz) + 0.3]);
     // (a roof: a surface over him that runs on across the car on the same mesh, a hand's breadth in toward its middle)
@@ -1341,13 +1345,46 @@ export function createDriver(THREE, rs, q, { fade = 0.22 } = {}) {
     // (a model's seat: a height in a band where its back's face would show through him goes on down to the next that is
     // all right)
     if (fleet && fit.drop > 0) { const ok = okAt(fit.slide); if (ok) { const h = ok.find((y) => y <= hy0 - fit.drop + 1e-6); if (h != null && h >= Math.max(floor + 0.08, hy0 - 0.22)) fit.drop = hy0 - h; } }
+    // (his hands on the wheel (17 Nov: 15 to 21 cm short of it in the town fleet's cars, lowered under their roofs with the
+    // wheel where it was): seated as fitted, a wrist further from its grip's mark than the arm reaches less 5 cm (his
+    // elbows a touch bent, the wheel turning) brings his hips forward along the seat, up to REACH_FWD, and leans him
+    // forward from his lower back, up to REACH_LEAN, the least of the two that brings both in (1 cm forward = 0.01 rad of
+    // lean), or where none does, the nearest; never so his crown comes out from under the roof further than it is as
+    // fitted, nor lower than the floor lets him (the fit read again there, his hip lowered as it asks)
+    if (crown.shoulders.length === 2 && crown.wrist > 0) {
+      const pts = recline ? readCrown().pts : crown.pts, pv = crown.pivot, k = fit.shrink;
+      // (a point of him about his hip mark turned forward by l about his lower back, at his fitted size)
+      const bow = ([x, y, z], l) => { const c = Math.cos(l), sn = Math.sin(l), dy = y - pv[1], dz = z - pv[2]; return [x * k, (pv[1] + dy * c - dz * sn) * k, (pv[2] + dz * c + dy * sn) * k]; };
+      const c0 = Math.cos(fit.recline), s0 = Math.sin(fit.recline);
+      const shoulderAt = (p, sl, dr, l) => { const dy = p[1] - pv[1], dz = p[2] - pv[2], q = bow([p[0], pv[1] + dy * c0 + dz * s0, pv[2] + dz * c0 - dy * s0], l); return [hx + q[0], hy0 - dr + q[1], hz + q[2] - sl]; };
+      const off = (sl, dr, l = 0) => Math.max(...crown.shoulders.map((sh, i) => { const [x, y, z] = shoulderAt(sh, sl, dr, l); return Math.hypot(x - grips[i].x, y - grips[i].y, z - grips[i].z); }));
+      const want = crown.wrist * k - 0.05, off0 = off(fit.slide, fit.drop);
+      if (off0 > want) {
+        const headAt = (sl, l) => seatFit(pts.map((p) => bow(p, l)), roofAt, [hx, hy0, hz - sl], { ...opts, minHip: minHipAt ? Math.max(minHip0, minHipAt(sl)) : minHip, minHipAt: null,
+          maxSlide: 0, minSlide: 0, maxRecline: 0, minShrink: 1, reachOk: null, handCost: null, settle: true, guard: false, last: null });
+        const left0 = headAt(fit.slide, 0).left;
+        let best = null;
+        for (let li = 0; li <= 4; li++) {
+          const l = li * REACH_LEAN / 4;
+          for (let f = 0; f <= REACH_FWD + 1e-9; f += 0.01) {
+            if (!f && !l) continue;
+            const sl = fit.slide - f, h = headAt(sl, l), dr = Math.max(fit.drop, Math.min(h.drop, fit.drop + 0.04));
+            if (h.left > Math.max(left0, fit.left) + 0.005) break;
+            const o = off(sl, dr, l), ok = o <= want, cost = f / 0.01 + l / 0.01;
+            if (!best || (ok && !best.ok) || (ok && best.ok && cost < best.cost) || (!ok && !best.ok && o < best.o - 1e-4)) best = { o, ok, cost, sl, dr, l };
+            if (ok) break;
+          }
+        }
+        if (best && best.o < off0 - 0.01) { fit.reach = +(fit.slide - best.sl).toFixed(3); fit.lean = +best.l.toFixed(3); fit.slide = best.sl; fit.drop = best.dr; }
+      }
+    }
     const drop = fit.drop;
-    hy = hy0 - drop; fy = fy0 - Math.max(0, Math.min(drop, fy0 - floor - 0.06)); slide = fit.slide; recline = fit.recline; shrink = fit.shrink;
+    hy = hy0 - drop; fy = fy0 - Math.max(0, Math.min(drop, fy0 - floor - 0.06)); slide = fit.slide; recline = fit.recline; hunch = fit.lean || 0; shrink = fit.shrink;
     for (const p of seats) { p.position.y = p.userData.at0.y - drop; p.position.z = p.userData.at0.z - slide; }
     d.headRoom = { hip: +hy0.toFixed(3), seated: +hy.toFixed(3), heel: +fy0.toFixed(3), heelSeated: +fy.toFixed(3), floor: +floor.toFixed(3),
-      cushion: cushion == null ? null : +cushion.toFixed(3), slide: +slide.toFixed(3), recline: +recline.toFixed(3), shrink: +shrink.toFixed(3),
-      need: +fit.need.toFixed(3), left: +fit.left.toFixed(3), crown: crown.pts.length, arm: +crown.arm.toFixed(3), shoulderToGrip: far0.map((f) => +f.toFixed(3)), ms: Math.round(performance.now() - t0) };
-    if (drop > 0 || slide || recline || shrink < 1) console.info(`[driver] head room: hip ${hy0.toFixed(3)} -> ${hy.toFixed(3)}${slide ? `, seat back ${slide.toFixed(2)}` : ''}${recline ? `, reclined ${recline.toFixed(2)}` : ''}${shrink < 1 ? `, size ${shrink.toFixed(3)}` : ''}${fit.left > 0.01 ? `, still ${fit.left.toFixed(3)} through` : ''}`);
+      cushion: cushion == null ? null : +cushion.toFixed(3), slide: +slide.toFixed(3), recline: +recline.toFixed(3), lean: +hunch.toFixed(3), shrink: +shrink.toFixed(3),
+      need: +fit.need.toFixed(3), left: +fit.left.toFixed(3), reach: fit.reach || 0, crown: crown.pts.length, arm: +crown.arm.toFixed(3), shoulderToGrip: far0.map((f) => +f.toFixed(3)), ms: Math.round(performance.now() - t0) };
+    if (drop > 0 || slide || recline || shrink < 1) console.info(`[driver] head room: hip ${hy0.toFixed(3)} -> ${hy.toFixed(3)}${slide ? `, seat ${slide > 0 ? 'back' : 'forward'} ${Math.abs(slide).toFixed(2)}` : ''}${recline ? `, reclined ${recline.toFixed(2)}` : ''}${hunch ? `, leant forward ${hunch.toFixed(2)}` : ''}${shrink < 1 ? `, size ${shrink.toFixed(3)}` : ''}${fit.left > 0.01 ? `, still ${fit.left.toFixed(3)} through` : ''}`);
   }
   function weights(sw) {
     for (const a of mixer._actions) if (a !== sit && a !== idle) a.setEffectiveWeight(0);
@@ -1372,7 +1409,7 @@ export function createDriver(THREE, rs, q, { fade = 0.22 } = {}) {
         R0 = anchor.worldToLocal(B.root.getWorldPosition(V()));
         body.position.copy(p0); body.quaternion.copy(q0);
       }
-      try { fitHead(); } catch (err) { hy = hy0; fy = fy0; slide = recline = 0; shrink = 1; console.warn('[driver] head room', err); }
+      try { fitHead(); } catch (err) { hy = hy0; fy = fy0; slide = recline = hunch = 0; shrink = 1; console.warn('[driver] head room', err); }
       d.attached = true;
     },
     detach(parent) {
@@ -1393,13 +1430,14 @@ export function createDriver(THREE, rs, q, { fade = 0.22 } = {}) {
       const h = hip(k), r = anchor.worldToLocal(B.root.getWorldPosition(_p));
       body.position.set(h[0] - r.x, h[1] - r.y, h[2] - r.z); body.updateMatrixWorld(true);
       // his back leaned (the whole of him over the hips), his head kept nearer level
-      const [wl, tilt0, az] = lean(k), tilt = tilt0 + recline * smooth((k - 0.72) / 0.28);
+      const [wl, tilt0, az] = lean(k), tilt = tilt0 + (recline - hunch) * smooth((k - 0.72) / 0.28);
       if (wl > 0.01 && B.spine05 && B.neck01) {
         const cur = dirOf('spine05', 'neck01', _d), want = _to.set(Math.sin(tilt) * Math.sin(az), Math.cos(tilt), Math.sin(tilt) * Math.cos(az)).transformDirection(anchor.matrixWorld);
         _q.setFromUnitVectors(cur, _w.copy(cur).lerp(want, wl).normalize()); turnWorld(B.spine05, _q);
         if (B.neck01) { const nd = dirOf('neck01', 'head', _d), lv = _w.copy(up).lerp(nd, 0.45).normalize(); _q.setFromUnitVectors(nd, nd.clone().lerp(lv, 0.5 * wl).normalize()); turnWorld(B.neck01, _q); }
         // (reclined further in a low car, his head brought forward as much again, his eyes on the road)
-        if (recline > 0) { (NK.pre ||= new THREE.Quaternion()).copy(B.neck01.quaternion); NK.wrote = NK.pre; _q.setFromAxisAngle(his(1, 0, 0, _w), 0.85 * recline * wl * smooth((k - 0.72) / 0.28)); turnWorld(B.neck01, _q); }
+        // (leant forward to reach the wheel, his head kept up as much again)
+        if (recline - hunch) { (NK.pre ||= new THREE.Quaternion()).copy(B.neck01.quaternion); NK.wrote = NK.pre; _q.setFromAxisAngle(his(1, 0, 0, _w), 0.85 * (recline - hunch) * wl * smooth((k - 0.72) / 0.28)); turnWorld(B.neck01, _q); }
       }
       // the legs and the arms
       const wf = wFoot(k)[0];

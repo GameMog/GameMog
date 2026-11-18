@@ -571,6 +571,9 @@ export function createWorld(city) {
     blockAt: (x, z) => N().blockAt?.(x, z) ?? null,
     blocksInRect: (minX, maxX, minZ, maxZ) => N().blocksInRect?.(minX, maxX, minZ, maxZ) ?? [],
     get blocks() { return N().BLOCKS || []; },
+    // (a sidewalk or a paved square by the city's own ground mask: San Francisco's and a Hometown package's; null in New
+    // York, whose sidewalks are its curb islands' raised rims)
+    sidewalkAt: city.sidewalkAt || null,
     get places() { return places(); },
     get placesMissing() { places(); return missing; },
     spawnPoints, findMissionSites, siteKinds: SITE_KINDS,

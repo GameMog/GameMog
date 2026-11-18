@@ -16,18 +16,19 @@ const SPLIT = join(OUT, '..', 'c1280'); mkdirSync(SPLIT, { recursive: true }); m
 const LAMP = { none: 0, head: 1, tail: 2, brake: 3, blink: 4, reverse: 5, beacon: 6, sign: 7 };
 const FLAG = { interior: 1, inner: 2, wheel: 4, glass: 8, plate: 16 };
 
-// the vehicles the game uses: pack, its root node, the engine's id, and flip (its nose the other way along its length)
+// the vehicles the game uses: pack, its root node, the engine's id, flip (its nose the other way along its length) and
+// drive (one a player drives: its steering wheel found, steerOf; the service vehicles, which no one drives, have none)
 export const C1280 = {
   bus: { pack: 'civil', root: 'citybus', flip: true }, schoolbus: { pack: 'civil', root: 'school_bus', flip: true }, ambulance: { pack: 'civil', root: 'ambulance' },
   firetruck: { pack: 'civil', root: 'fire_truck', flip: true }, garbage: { pack: 'civil', root: 'garbage_truck' }, mailvan: { pack: 'civil', root: 'postvan' },
-  utility: { pack: 'civil', root: 'rdservtruck', flip: true }, tow: { pack: 'civil', root: 'towtruck', flip: true }, police20: { pack: 'civil', root: 'police_sedan', flip: true },
-  taxi20: { pack: 'civil', root: 'taxi' }, minivan20: { pack: 'passenger', root: 'minivan body', wheels: /^Wheel_D/ },
+  utility: { pack: 'civil', root: 'rdservtruck', flip: true }, tow: { pack: 'civil', root: 'towtruck', flip: true }, police20: { pack: 'civil', root: 'police_sedan', flip: true, drive: true },
+  taxi20: { pack: 'civil', root: 'taxi', drive: true }, minivan20: { pack: 'passenger', root: 'minivan body', wheels: /^Wheel_D/, drive: true },
   // (the hero-grade big ones, 16 Nov, the owner: "car doesn't look good, maybe we can find new ones": a full-size
   // pickup, a full-size SUV and a short 4x4 for the ranch and mountain towns; paint: its body's own colour found and
   // marked, so a story's or the traffic's paint goes on it, wagmi/../fleet-models.js)
-  pickup20: { pack: 'passenger', root: 'Pickup Body', wheels: /^Wheel_E/, paint: true },
-  suv20: { pack: 'passenger', root: 'SUV Body', wheels: /^Wheel_/, flip: true, paint: true },
-  offroad20: { pack: 'passenger', root: 'Offroad Body', wheels: /^Wheel_G/, flip: true, paint: true },
+  pickup20: { pack: 'passenger', root: 'Pickup Body', wheels: /^Wheel_E/, paint: true, drive: true },
+  suv20: { pack: 'passenger', root: 'SUV Body', wheels: /^Wheel_/, flip: true, paint: true, drive: true },
+  offroad20: { pack: 'passenger', root: 'Offroad Body', wheels: /^Wheel_G/, flip: true, paint: true, drive: true },
 };
 const PACKS = { civil: 'gm-car-c1280-civil-pack.glb', passenger: 'gm-car-c1280-passenger-pack.glb' };
 
@@ -42,6 +43,16 @@ function pieces(p) {
   const comps = new Map();
   for (let t = 0; t < p.idx.length / 3; t++) { const r = find(weld[p.idx[t * 3]]); let c = comps.get(r); if (!c) comps.set(r, (c = { tris: [], lo: [Infinity, Infinity, Infinity], hi: [-Infinity, -Infinity, -Infinity] })); c.tris.push(t); for (let k = 0; k < 3; k++) { const v = p.idx[t * 3 + k]; for (let a = 0; a < 3; a++) { const x = p.pos[v * 3 + a]; if (x < c.lo[a]) c.lo[a] = x; if (x > c.hi[a]) c.hi[a] = x; } } }
   return [...comps.values()].map((c) => ({ ...c, c: c.lo.map((v, a) => (v + c.hi[a]) / 2), s: c.lo.map((v, a) => c.hi[a] - v) }));
+}
+
+// the steering wheel on the driver's side (+x): the body's own piece of it, a ring 0.3 to 0.5 m across, short in height and
+// depth, in the cabin's height; its middle, where a driver's hands hold it (wagmi/fleet-car.js moves the wheel he holds
+// onto it). null when the body has none
+function steerOf(a) {
+  const c = pieces(a).filter((k) => k.c[0] > 0.15 && k.c[0] < 0.7 && k.c[1] > 0.6 && k.c[1] < 1.6 && k.c[2] > -0.6 && k.c[2] < 1.6 && k.s[0] > 0.3 && k.s[0] < 0.5 && k.s[1] < 0.3 && k.s[2] < 0.15);
+  if (!c.length) return null;
+  const w = c.sort((p, q) => q.tris.length - p.tris.length)[0];
+  return w.c.map((v) => +v.toFixed(3));
 }
 
 async function texture(doc, sha) { for (const t of doc.getRoot().listTextures()) if (sha1s(t.getImage()) === sha) return t.getImage(); return null; }
@@ -315,7 +326,7 @@ async function finish(v) {
     wheels: { front: { x: r3(Math.abs(fk.c[0])), y: r3(fk.c[1]), z: r3(fk.c[2]), r: r3(rOf(fk)), w: r3(wOf(fk)) }, rear: { x: r3(Math.abs(rk.c[0])), y: r3(rk.c[1]), z: r3(rk.c[2]), r: r3(rOf(rk)), w: r3(wOf(rk)) }, rearMesh: !sameRear,
       extra: wheels.filter((k) => k !== fk && k !== rk && k.c[0] > 0).map((k) => ({ x: r3(Math.abs(k.c[0])), y: r3(k.c[1]), z: r3(k.c[2]), rear: Math.abs(k.c[2] - rk.c[2]) < Math.abs(k.c[2] - fk.c[2]) })) },
     head: lampAt(opticsA, LAMP.head), tail: lampAt(opticsA, LAMP.tail),
-    steer: null, livery: null, open: false, paint: v.paint ? v.paint.ref : null, own: true, decal: decalA.idx.length > 0,
+    steer: v.def.drive ? steerOf(bodyA) : null, livery: null, open: false, paint: v.paint ? v.paint.ref : null, own: true, decal: decalA.idx.length > 0,
     ...(v.wheelTex ? { wheelTex: true } : {}), ...(v.paint ? { paintable: true } : {}),
     tris: { lod0: body.tris + glass.tris + optics.tris + decal.tris + wheels.reduce((s, k) => s + k.items.reduce((q, w) => q + (w.tris ? w.tris.length : w.p.idx.length / 3), 0), 0), body: body.tris, glass: glass.tris, optics: optics.tris, decal: decal.tris, wheel: WF.idx.length / 3, wheels: wheels.length, lod1: lod1.idx.length / 3 + lod1g.idx.length / 3, lod2: lod2.idx.length / 3 },
   };
