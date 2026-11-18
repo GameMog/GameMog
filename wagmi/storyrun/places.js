@@ -17,6 +17,8 @@
 //   (a site he walks to, access 'foot', is at its centre: lx, lz keep its lane point, where the way in starts)
 //   prepare(mission) -> [{ i, kind, key, name, x, z, cx, cz }];  sites() -> every site picked so far;  siteName(mission,
 //   id) -> a site's name here (the runner's {site.<id>} in a line or an objective)
+//   setRanch(fn): fn(key, alias) -> a ranch's place for that key (ranch.js: the ranch's own key, an alias's `ranch`
+//   mark) or null
 import { world as cityWorld } from '../world/index.js';
 export { SF_PLACES } from '../world/places-sf.js';
 
@@ -107,7 +109,11 @@ export function createPlaces(W, world) {
     if (!loose.has(k)) { const n = nearOf(ref.site.near, null, new Map(), null); loose.set(k, pickSite(ref.site, null, k, n.at, n.implicit, [])); }
     return loose.get(k);
   }
+  // (a ranch dressed at a place, ranch.js: the place and its marks are the ranch's once it is built; before, or with
+  // no plot found, the place as it is)
+  let ranchOf = null;
   function base(key) {
+    if (ranchOf) { const r = ranchOf(key, Object.prototype.hasOwnProperty.call(aliases, key) ? aliases[key] : null); if (r) return r; }
     if (Object.prototype.hasOwnProperty.call(aliases, key)) {
       const a = aliases[key];
       // (a world's own mark on this map: at [x, z, heading in degrees], Mog City's own story's marks, packs/mog-city.json)
@@ -142,5 +148,5 @@ export function createPlaces(W, world) {
   }
   // (a mission's site by its id: its name here, for a line or an objective's {site.<id>})
   const siteName = (m, id) => { const l = prepare(m); const e = l.find((x) => x.id === id); return e ? e.name : null; };
-  return { at, lib, missing, prepare, siteName, sites: () => all.slice() };
+  return { at, lib, missing, aliases, prepare, siteName, sites: () => all.slice(), setRanch: (fn) => { ranchOf = typeof fn === 'function' ? fn : null; } };
 }

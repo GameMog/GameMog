@@ -359,6 +359,8 @@ export function createRunner(ctx) {
     try { TS.hold(mine); } catch { return; }
     setTimeout(() => { if (TS.__rects === mine) try { TS.hold(was); } catch {} }, secs * 1000);
   }
+  // a ranch's place as a fight stands in it: its yard (ranch.js), yard: true; any other place as it is
+  const yardOf = (p) => (p && p.kind === 'ranch' && Number.isFinite(p.ax) && Number.isFinite(p.az) ? { ...p, x: p.ax, z: p.az, yard: true } : p);
   function putPlayer(p, mode = 'car') {
     clearSpot(p.x, p.z);
     if (mode === 'walk' || mode === 'person') {
@@ -1469,10 +1471,17 @@ export function createRunner(ctx) {
     if (!combat?.spawnCrew) { console.warn('[storyrun] no fight on this page'); return; }
     // (the library's creatures for foes, or a boss: creatureFight; New York's fights never name them)
     if (d.foes || d.boss || d.waves) return creatureFight(d, t);
+    // (a ranch's fight is in its yard, never at its gate on the road verge, ranch.js: the place's x, z is the gate, a
+    // car's end; its ax, az the yard, yardOf. Off the car at the gate, he is put on foot at the yard's front, the car
+    // left at the gate)
     const p = placeOf(d.arena);
-    mustReach(p.x, p.z, 'person', d, p);
+    mustReach(yardOf(p).x, yardOf(p).z, 'person', d, p);
+    const pa = yardOf(p);
     if (inCar()) { putAt(W, { car: [car.position.x, car.position.z, car.heading] }); outBesideCar(W); }
-    if (dist(P.position, p.x, p.z) > 30) { putPlayer(p, 'walk'); }
+    if (dist(P.position, pa.x, pa.z) > 30) {
+      if (pa.yard) { const h = pa.heading ?? 0, g = footing(pa.x - Math.sin(h) * 9, pa.z - Math.cos(h) * 9, pa, 'fight'); putAt(W, { dan: [g.x, g.z, h] }); app.cameraSystem.resetForTeleport?.(); }
+      else putPlayer(p, 'walk');
+    }
     const ax = P.position.x, az = P.position.z;
     app.trafficSystem.hold?.([{ minX: ax - 40, maxX: ax + 40, minZ: az - 40, maxZ: az + 40 }]);
     combat.clear?.();

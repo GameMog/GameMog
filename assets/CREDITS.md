@@ -146,6 +146,14 @@ License: non-commercial use only. `NOTICE` lists exactly which files and what wa
 The trash cans in `assets/props/trash-cans.glb` are "Metal Trash Can" by GurJas Studios, from
 [Poly Haven](https://polyhaven.com/a/metal_trash_can), under [CC0 1.0](https://polyhaven.com/license).
 
+The cow in `assets/props/cow.glb` (a Story Kit world's ranch, `wagmi/storyrun/ranch.js`: its cattle) is the cow of
+"Realtime Rancher's 3D Model Pack" by Lyndon Daniels, from [OpenGameArt](https://opengameart.org/content/realtime-ranchers-3d-model-pack),
+dedicated to the public domain under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/). GameMog turned its
+OBJ into one GLB (facing +z, feet at the ground, 2.45 m long, smooth normals) with its colour (and opacity) and normal
+maps cut to 1024 px WebP. CC0 needs no credit; we give it anyway. The ranch's horses are the library's
+`creature-horse` (Patch, CC0, below); its clutter (`burn-barrel`, `old-tyre`, `dead-trunk`, `shrub`, `blue-drum`) the
+sets' Poly Haven scans; everything else on the ranch is built in code.
+
 ## Sets (the story runner's cutscene sets)
 
 The models and surfaces in `assets/sets/` are Poly Haven scans under [CC0 1.0](https://polyhaven.com/license), copied

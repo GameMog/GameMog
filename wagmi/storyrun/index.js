@@ -106,6 +106,7 @@ export async function install(W) {
     if (W.paused) return;
     try { W.gps.update(); } catch (e) { console.warn('[storyrun] gps', e); }
     if (pets) try { pets.update(dt); } catch (e) { console.warn('[storyrun] pets', e); pets = null; }
+    if (W.storyrun?.ranch) W.storyrun.ranch.update(dt);
     document.body.classList.toggle('wg-onfoot', W.app.controllerManager.activeMode !== 'car');
   })();
   W.storyrun = { world, places, cast, hud, runner, save, pets, host: hostLog, reach: runner.reach, get choosing() { return hud.choosing; } };
@@ -137,6 +138,16 @@ export async function install(W) {
   }
   // a story's night is a lit city night, readable (nightlit.js: its fill, moon and exposure lifted at night only)
   try { const NL = await importRetry(() => import('./nightlit.js')); W.storyrun.nightLit = NL.createNightLit(W, def.dressing || {}); } catch (e) { console.warn('[storyrun] night', e); }
+  // a ranch dressed at a place (ranch.js: world.ranches), only when the world asks: built while the gate is up, its place
+  // and marks the ranch's once it stands (places.js setRanch)
+  if (Array.isArray(def.ranches) && def.ranches.length) {
+    try {
+      const RM = await importRetry(() => import('./ranch.js'));
+      const ranch = await RM.createRanches(W, def, places);
+      W.storyrun.ranch = ranch;
+      ranch.ready.then((list) => { if (list.length) places.setRanch(ranch.place); }).catch((e) => console.warn('[storyrun] ranch', e));
+    } catch (e) { console.warn('[storyrun] ranch', e); }
+  }
   // the start: on foot by the car while the gate is up, the city at the world's time of day (a night world's gate at night)
   outBesideCar(W);
   // (a world that says no time at all, in its dressing or its first mission, is in daylight)
@@ -151,6 +162,8 @@ export async function install(W) {
   ui.gameTitle(false);
   if (Q.has('nogate')) sfx.unlock?.();
 
+  // (the ranch up before the first mission names it; never held more than 25 s)
+  if (W.storyrun.ranch) await Promise.race([W.storyrun.ranch.ready.catch(() => null), sleep(25000)]);
   let autopilot = null;
   if (flags.autopilot) {
     const { startAutopilot } = await importRetry(() => import('./autopilot.js'));

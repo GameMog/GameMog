@@ -18,6 +18,7 @@ import { world as cityWorld, CITIES, cityQuery } from '../world/index.js';
 import { townLockMismatch } from '../world/town-src.js';
 import { SITE_KINDS } from '../world/common.js';
 import { isSiteRef, siteRefs, SITE_KEYS } from './places.js';
+import { RANCH_MARKS } from './ranch-plan.js';
 import { fleetPickOf } from '../fleet-picks.js'; import { fetchRetry, importRetry } from '../net.js';
 // (a hero's wear: wear.js WEARS, kept here too so the check needs no three.js)
 const WEARS = new Set(['rider']);
@@ -202,6 +203,25 @@ export function creatureStep(s, city) {
   if (s.type === 'herd' && s.walkTo != null && !(isMark(s.walkTo) || isPlaceRef(s.walkTo))) errs.push('walkTo');
   return errs;
 }
+// a world's ranches (ranch.js) and its places' ranch marks: [] when sound
+export function ranchErrors(w) {
+  const errs = [], P = w && w.places && typeof w.places === 'object' ? w.places : {};
+  if (w.ranches != null) {
+    if (!Array.isArray(w.ranches) || w.ranches.length > 2) errs.push('ranches: up to two');
+    else w.ranches.forEach((r, i) => {
+      const at = `ranches[${i}]`;
+      if (!r || typeof r !== 'object' || Array.isArray(r)) { errs.push(at); return; }
+      for (const k of Object.keys(r)) if (!['at', 'sign', 'brand', 'cattle', 'horses'].includes(k)) errs.push(`${at}: ${k}`);
+      if (typeof r.at !== 'string' || !/^@?[\w-]{1,40}$/.test(r.at)) errs.push(`${at}: at`);
+      if (r.sign != null && (typeof r.sign !== 'string' || r.sign.length > 32)) errs.push(`${at}: sign`);
+      if (r.brand != null && (typeof r.brand !== 'string' || !/^[A-Z]$/.test(r.brand))) errs.push(`${at}: brand`);
+      if (r.cattle != null && !(Number.isInteger(r.cattle) && r.cattle >= 0 && r.cattle <= 16)) errs.push(`${at}: cattle`);
+      if (r.horses != null && !(Number.isInteger(r.horses) && r.horses >= 0 && r.horses <= 6)) errs.push(`${at}: horses`);
+    });
+  }
+  for (const [k, a] of Object.entries(P)) if (a && typeof a === 'object' && a.ranch != null && !RANCH_MARKS.includes(a.ranch)) errs.push(`places.${k}.ranch: one of ${RANCH_MARKS.join(', ')}`);
+  return errs;
+}
 // Mog City's own mission phases a step may name by `ref` (runner.js PART_IDS: m2.js / m3.js playPart)
 export const PART_REFS = new Set(['m2.start', 'm2.go', 'm2.tail', 'm2.yard', 'm2.fight', 'm2.chase', 'm2.crash', 'm2.phone', 'm2.chat',
   'm3.garage', 'm3.square', 'm3.rally', 'm3.rigs', 'm3.dump', 'm3.escape', 'm3.ret', 'm3.home']);
@@ -296,6 +316,8 @@ export function check(w) {
       if (d.holiday != null && (!Array.isArray(d.holiday) || d.holiday.some((h) => typeof h !== 'string' || !/^[a-z-]{1,24}$/.test(h)))) bad('dressing.holiday');
     }
   }
+  // (a ranch dressed at one of its places, ranch.js: up to two; a place alias's `ranch` mark one of the ranch's)
+  for (const e of ranchErrors(w)) bad(e);
   if (w.car != null && !(typeof w.car === 'string' ? STOCK.has(w.car) : w.car && (typeof w.car.sheet === 'object' || MODEL_CARS.has(w.car.model)))) bad('car');
   // (a Mog City model as the hero's car: { model: 'mogcity/gt', paint?, plate?, label?, body? }, wagmi/storyrun/gt.js;
   // it wears the downloaded body, wagmi/storyrun/vantor.js; body: 'built' the one built in code, gt.js)
