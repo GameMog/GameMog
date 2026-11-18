@@ -367,12 +367,16 @@ DAN   Except the laptop.
     real, I'm tired of being blamed. I'd like to be tired of something else.").
 11. **Gameplay in the fiction.** A call in a chase or a tail has `react` pools for at least two things the player does
     (`tooClose`, `hit`, `lost`, `spotted`), 2 or 3 short variants each; its `hold` lines notice the hero getting out of
-    the car and back in.
+    the car and back in. A variant can be an exchange, a list of 2 to 4 lines (`[{ "who": "ray", "text": "He made
+    you." }, { "who": "dez", "text": "I know.", "overlap": true }]`): the caller says it, the hero answers. `hit` plays
+    when the car hits something hard, `spotted` when a chase gets eyes on him again.
 
 **Delivery.** Give a line its `how` when it is not said plainly: `warm`, `tease`, `deadpan`, `urgent`, `angry`,
 `shout`, `scared`, `hushed`, `hesitant`, `sad`, `smug`. The voice changes its pace, pitch and level for it. `pre` and
 `post` are authored beats in seconds (the sincere beat: 0.6 to 0.8 before; after a reveal: 0.8 to 1.2 after); a reply
-of 2 words or fewer can be `"overlap": true`, cutting in just before the last line ends (at most one in 6 lines). In
+of 4 words or fewer can be `"overlap": true`, cutting in just before the last line ends (at most one in 6 lines). An
+interruption is `"cut"` on the line that gets cut off (0.3 to 0.95, the share of it said before the next speaker cuts
+in: `{ "text": "The more you buy, the more you save, the more you", "cut": 0.7 }` then `{ "text": "Stop." }`). In
 dialogue, `...` is a trail-off or a cut-off ("Don't you...", "...Okay."); still no em dashes.
 
 **Where talk goes.** Exposition, briefings and logistics are calls and radio while the player drives or walks. A
@@ -521,6 +525,10 @@ bodies and the voiced lines carry over. Its reply may be up to 128,000 tokens; s
 - **Call waiting.** A `call` with `"interrupts": true` in a drive's `during`, ringing while a car-phone call is on,
   comes up as CALL WAITING: answered, the car-phone call holds (its `hold.pause` line), this one is said, then the
   car-phone call resumes (its `hold.resume` line) where it was; declined, its `voicemail`, and the call never stopped.
+- **A call across the whole drive.** A car-phone call with `"span": 2` (1 to 6) goes on over the next 2 steps (the
+  legs of a long drive, a tail after it, a chase) with its `extra` blocks, and wraps when the last of them ends, not at
+  the first arrival. A cutscene, the mission's end or the next call still end it (the next one after its `wrap`).
+  Give a spanning call 4 to 8 `extra` blocks that wander off the plot: the drive is where people talk.
 - **Sub-places.** A place alias may carry `"offset": { "right": 24, "fwd": 0 }` (metres, up to 60, along its facing):
   the side door round the corner from its key.
 - **Walkie-talkies.** A `trigger`'s `cue` may be `walkie`, `walkie2` or `walkie3` (one, two, three beeps with a

@@ -151,6 +151,30 @@ export function runDialogueChecks(ok: Ok) {
   ok('the react shot plays with no line', rcut.shots.some((s: any) => s.frame === 'react' && !s.sub));
   ok('a call line with a delivery goes to the runner as an object (its tuple otherwise)', rcall.lines[1]?.how === 'urgent' && rcall.lines[1]?.pre === 0.3 && typeof rcall.lines[1]?.text === 'string' && Array.isArray(rcall.lines[0]) && rcall.register === 'fast' && Array.isArray(rcall.react?.tooClose?.[0]) && rcall.react.hit[0].how === 'scared');
   ok('a say step keeps its how and post for the runner', r.missions[0].steps[sayAt].how === 'hushed' && r.missions[0].steps[sayAt].post === 0.8);
+  // (18 Nov, the talk track: a react variant may be an exchange, a call may span the next steps, a line may be cut into)
+  const tk = clone(p), tcall = tk.acts[0].missions[0].steps[callAt].during.find((d: any) => d.type === 'call');
+  tcall.react.spotted = [[{ who: 'ray', text: 'He made you.' }, { who: 'dez', text: 'I know.', overlap: true }], { who: 'ray', text: 'Mirror. He looked.' }];
+  tcall.span = 2; tcall.lines[0].cut = 0.6;
+  const tg = gatePack(tk);
+  ok('a react exchange, a span and a cut gate', tg.ok, tg.problems.slice(0, 3).join('; '));
+  ok('a react exchange is voiced line by line (.rspot.l0.0, .rspot.l0.1, .rspot.l1)', ['.rspot.l0.0', '.rspot.l0.1', '.rspot.l1'].every((x) => tg.lines.some((l) => l.id.endsWith(x))));
+  const tr = toRunnerPack(tg.pack).missions[0].steps[callAt].during.find((d: any) => d.type === 'call');
+  ok('the runner pack: the exchange as a list of lines, the single variant as a line; span and cut kept', Array.isArray(tr.react.spotted[0]) && tr.react.spotted[0].length === 2 && tr.react.spotted[0][1].overlap === true
+    && Array.isArray(tr.react.spotted[1]) && typeof tr.react.spotted[1][0] === 'string' && tr.span === 2 && tr.lines[0].cut === 0.6);
+  // (a cut out of 0.3..0.95 is clamped by the engine: Mog City radio/turns.js beatOf)
+  // (a showcase's opening: exchanges in its shots, up to SHOWCASE.openingLines lines; a Create's stays 2 to 4)
+  const pt = JSON.parse(readFileSync('storykit/packs/pickup-time.json', 'utf8'));
+  const ptOk = gatePack(clone(pt), { showcase: true }).ok;
+  const pt2 = clone(pt), sh1 = pt2.opening.shots[1];
+  sh1.lines = [{ who: 'john', text: sh1.line }, { who: 'carissa', text: 'Five years. Say it again, slower.' }, { who: 'john', text: 'Five years clean.', how: 'warm' }, { who: 'carissa', text: 'Better.' }]; delete sh1.say; delete sh1.line;
+  pt2.opening.shots[3].lines = [{ who: 'carissa', text: pt2.opening.shots[3].line }, { who: 'john', text: 'Who said that?' }]; delete pt2.opening.shots[3].say; delete pt2.opening.shots[3].line;
+  const g2 = gatePack(pt2, { showcase: true });
+  ok("a showcase opening may say its premise in exchanges (7 lines here)", ptOk && g2.ok && g2.lines.filter((l) => /^OPEN\.c1\.l\d$/.test(l.id)).length === 4, g2.problems.slice(0, 3).join('; '));
+  const ro = toRunnerPack(g2.pack).opening.shots[1];
+  ok('the runner pack plays an opening exchange as one shot (lines)', Array.isArray(ro.lines) && ro.lines.length === 4 && ro.lines[2].how === 'warm');
+  const pt3 = clone(pt2); for (const k of [4, 5]) { const s3 = pt3.opening.shots[k]; if (s3) s3.lines = Array.from({ length: 4 }, (_, i) => ({ who: i % 2 ? 'john' : 'delgado', text: `Line ${i} of a long opening.` })), delete s3.say, delete s3.line; }
+  pt3.opening.shots[6].lines = Array.from({ length: 4 }, (_, i) => ({ who: i % 2 ? 'john' : 'carissa', text: `More of it, ${i}.` })); delete pt3.opening.shots[6].say; delete pt3.opening.shots[6].line;
+  ok('a showcase opening past its line cap is refused', gatePack(pt3, { showcase: true }).problems.some((x) => /spoken lines; the premise is said in 2 to 16/.test(x)));
   const old = gatePack(NS());
   ok('Night Shift without any of them gates exactly as before (every line, no how)', old.ok && old.lines.length > 0 && old.lines.every((l) => !('how' in l)));
 

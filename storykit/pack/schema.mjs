@@ -103,7 +103,7 @@ export const LIMITS = { bytes: 160_000, acts: 3, missions: 9, steps: 60, cast: 1
 // repo (storykit/packs/<id>.json, listed in SHOWCASE_PACKS), like Mog City's own story ({ own: true }); never the
 // builder's or the store's. It may be longer than a Create: up to 5 acts of up to 8 missions (15+ in all), longer
 // missions, more lines, a longer opening. Everything else (places, verbs, kinds, words, voices) is gated the same.
-export const SHOWCASE = { bytes: 640_000, acts: 5, missionsPerAct: 8, steps: 120, lines: 2400, cast: 24, openingSecs: [30, 150], openingShots: 24, places: 48 };
+export const SHOWCASE = { bytes: 640_000, acts: 5, missionsPerAct: 8, steps: 120, lines: 2400, cast: 24, openingSecs: [30, 150], openingShots: 24, openingLines: [2, 16], places: 48 };
 export const SHOWCASE_PACKS = ['pickup-time'];
 
 // ── builders ──
@@ -121,7 +121,8 @@ const DLV = {
   how: E(DELIVERY, { description: 'how it is said: warm, tease, deadpan, urgent, angry, shout, scared, hushed, hesitant, sad, smug' }),
   pre: N(0, 1.2, { description: 'an authored beat before the line, seconds (the sincere pivot after a joke: 0.6 to 0.8)' }),
   post: N(0, 1.2, { description: 'an authored beat after the line, seconds (after a reveal: 0.8 to 1.2)' }),
-  overlap: { ...B, description: 'a reply of 2 words or fewer that may start just before the last line ends (a cut-in)' }
+  overlap: { ...B, description: 'a reply of 4 words or fewer that may start just before the last line ends (a cut-in)' },
+  cut: N(0.3, 0.95, { description: "an interruption: the next speaker cuts in once this share of the line is said ('The more you buy, the more you...' / 'Stop.'); the next line is the one that interrupts" })
 };
 
 // fields every step can carry (missions/README.md "Fields every step can carry"), the during list added per step
@@ -206,7 +207,8 @@ const STEPS = fx(['drive', 'stops', 'pursuit', 'tail', 'tow', 'timer', 'fight', 
     extra: A(A(R('spoken'), 12, 1), 8, 0, { description: 'more talk, block by block, after the lines and while the step it rides on still runs (a long drive)' }),
     wrap: A(R('spoken'), 6, 0, { description: 'when the step it rides on ends (he arrived), the line being said finishes, then these, then the call ends' }),
     hold: O({ pause: A(R('spoken'), 2), resume: A(R('spoken'), 2) }, [], { description: 'inCar: what is said when he gets out, and when he is back at the wheel' }),
-    react: O(Object.fromEntries(REACT_POOLS.map((k) => [k, A(R('spoken'), 3, 2)])), [], { description: 'what the caller says when the player does this while the call talks (tooClose: on the bumper of who he tails; hit: a crash; lost: off the route or the target lost; spotted: seen): 2 or 3 variants each, one at a time, never twice in 7 s' }),
+    react: O(Object.fromEntries(REACT_POOLS.map((k) => [k, A(ONE(R('spoken'), A(R('spoken'), 4, 2)), 3, 2)])), [], { description: 'what the caller says when the player does this while the call talks (tooClose: on the bumper of who he tails; hit: a crash; lost: off the route or the target lost; spotted: seen again): 2 or 3 variants each, one at a time, never twice in 7 s. A variant is one line, or an exchange of 2 to 4 ([{ caller }, { hero }])' }),
+    span: I(1, 6, { description: "the car phone: the call goes on over the next span steps (the legs of a long drive, a tail, a chase), its extra blocks and all, and wraps when the last of them ends, instead of at the end of the step it rides on; a cutscene, the mission's end or the next call still end it (the next call after its wrap)" }),
     register: E(CALL_REGISTERS, { description: 'how the call is said: normal, whisper (they are hiding), fast (a chase: tight gaps)' }),
     voicemail: O({ text: R('speech'), secs: N(0.5, 20), from: R('castRef'), flag: R('flag'), set: R('set') }, ['text']),
     outgoing: B, pickup: B, tag: R('slug'), duck: B, carry: B,
@@ -337,6 +339,7 @@ const STEPS = fx(['drive', 'stops', 'pursuit', 'tail', 'tow', 'timer', 'fight', 
 // the opening's shots: a cutscene's (camera, a spoken line), plus the place card, a name card and the title
 const openingShot = O({
   cam: camRef, to: camRef, look: camRef, lookTo: camRef, dur: N(0.5, 12), fov: N(20, 90), say: R('castRef'), line: R('speech'), sub: R('line'), ...DLV,
+  lines: A(R('spoken'), 4, 2, { description: 'an exchange in this one shot, in place of say + line (2 to 4 lines, speakers alternating); each line counts toward the premise\'s lines' }),
   where: O({ name: R('label'), sub: R('label') }, ['name'], { description: "the place card (Mog City's 'Murray Hill' / 'E 37th St · Midtown · 5:45 PM'): the name of where we are, and under it the street, the part of town and the time" }),
   card: O({
     who: R('castRef'), role: S(60, { description: 'one line under the name: who they are to this story ("the fall guy", "the fixer running the auction")' }),
@@ -428,6 +431,7 @@ export const SCHEMA = {
       model: E(CAST_MODELS, { description: 'a shipped person from the cast registry (public/storykit/cast/registry.json), as they are: their own body, clips, face and recorded lines. No sheet. anchor and voice default to the registry\'s' }),
       name: S(40, { description: 'a model person\'s name (a sheet carries its own): a rename keeps the body' }), role: S(60, { description: 'a model person\'s role' }),
       sheet: { $ref: FORGE_SHEET }, voice,
+      face: O({ smile: N(0, 0.4, { description: 'a resting smile while they listen (0.18: a warm grin), on a body whose face has its morphs baked in' }), open: N(0.2, 0.7, { description: "how wide the mouth opens on the loudest syllable (0.45 the default)" }) }, [], { description: "the talking face's knobs (Mog City face.js); a body without a baked face uses only open" }),
       speech: O({
         rhythm: S(60, { description: 'fast or slow, long or short lines ("quick, clipped, finishes your sentences")' }),
         habit: S(60, { description: 'one verbal habit or pet name ("babe"; answers a question with a question)' }),

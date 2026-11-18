@@ -635,7 +635,22 @@
        },
        "overlap": {
         "type": "boolean",
-        "description": "a reply of 2 words or fewer that may start just before the last line ends (a cut-in)"
+        "description": "a reply of 4 words or fewer that may start just before the last line ends (a cut-in)"
+       },
+       "cut": {
+        "type": "number",
+        "minimum": 0.3,
+        "maximum": 0.95,
+        "description": "an interruption: the next speaker cuts in once this share of the line is said ('The more you buy, the more you...' / 'Stop.'); the next line is the one that interrupts"
+       },
+       "lines": {
+        "type": "array",
+        "items": {
+         "$ref": "#/$defs/spoken"
+        },
+        "minItems": 2,
+        "maxItems": 4,
+        "description": "an exchange in this one shot, in place of say + line (2 to 4 lines, speakers alternating); each line counts toward the premise's lines"
        },
        "where": {
         "type": "object",
@@ -1389,6 +1404,26 @@
        }
       ]
      },
+     "face": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+       "smile": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 0.4,
+        "description": "a resting smile while they listen (0.18: a warm grin), on a body whose face has its morphs baked in"
+       },
+       "open": {
+        "type": "number",
+        "minimum": 0.2,
+        "maximum": 0.7,
+        "description": "how wide the mouth opens on the loudest syllable (0.45 the default)"
+       }
+      },
+      "description": "the talking face's knobs (Mog City face.js); a body without a baked face uses only open"
+     },
      "speech": {
       "type": "object",
       "additionalProperties": false,
@@ -2026,7 +2061,13 @@
     },
     "overlap": {
      "type": "boolean",
-     "description": "a reply of 2 words or fewer that may start just before the last line ends (a cut-in)"
+     "description": "a reply of 4 words or fewer that may start just before the last line ends (a cut-in)"
+    },
+    "cut": {
+     "type": "number",
+     "minimum": 0.3,
+     "maximum": 0.95,
+     "description": "an interruption: the next speaker cuts in once this share of the line is said ('The more you buy, the more you...' / 'Stop.'); the next line is the one that interrupts"
     }
    }
   },
@@ -2074,7 +2115,13 @@
     },
     "overlap": {
      "type": "boolean",
-     "description": "a reply of 2 words or fewer that may start just before the last line ends (a cut-in)"
+     "description": "a reply of 4 words or fewer that may start just before the last line ends (a cut-in)"
+    },
+    "cut": {
+     "type": "number",
+     "minimum": 0.3,
+     "maximum": 0.95,
+     "description": "an interruption: the next speaker cuts in once this share of the line is said ('The more you buy, the more you...' / 'Stop.'); the next line is the one that interrupts"
     }
    }
   },
@@ -3526,7 +3573,19 @@
         "tooClose": {
          "type": "array",
          "items": {
-          "$ref": "#/$defs/spoken"
+          "oneOf": [
+           {
+            "$ref": "#/$defs/spoken"
+           },
+           {
+            "type": "array",
+            "items": {
+             "$ref": "#/$defs/spoken"
+            },
+            "minItems": 2,
+            "maxItems": 4
+           }
+          ]
          },
          "minItems": 2,
          "maxItems": 3
@@ -3534,7 +3593,19 @@
         "hit": {
          "type": "array",
          "items": {
-          "$ref": "#/$defs/spoken"
+          "oneOf": [
+           {
+            "$ref": "#/$defs/spoken"
+           },
+           {
+            "type": "array",
+            "items": {
+             "$ref": "#/$defs/spoken"
+            },
+            "minItems": 2,
+            "maxItems": 4
+           }
+          ]
          },
          "minItems": 2,
          "maxItems": 3
@@ -3542,7 +3613,19 @@
         "lost": {
          "type": "array",
          "items": {
-          "$ref": "#/$defs/spoken"
+          "oneOf": [
+           {
+            "$ref": "#/$defs/spoken"
+           },
+           {
+            "type": "array",
+            "items": {
+             "$ref": "#/$defs/spoken"
+            },
+            "minItems": 2,
+            "maxItems": 4
+           }
+          ]
          },
          "minItems": 2,
          "maxItems": 3
@@ -3550,13 +3633,31 @@
         "spotted": {
          "type": "array",
          "items": {
-          "$ref": "#/$defs/spoken"
+          "oneOf": [
+           {
+            "$ref": "#/$defs/spoken"
+           },
+           {
+            "type": "array",
+            "items": {
+             "$ref": "#/$defs/spoken"
+            },
+            "minItems": 2,
+            "maxItems": 4
+           }
+          ]
          },
          "minItems": 2,
          "maxItems": 3
         }
        },
-       "description": "what the caller says when the player does this while the call talks (tooClose: on the bumper of who he tails; hit: a crash; lost: off the route or the target lost; spotted: seen): 2 or 3 variants each, one at a time, never twice in 7 s"
+       "description": "what the caller says when the player does this while the call talks (tooClose: on the bumper of who he tails; hit: a crash; lost: off the route or the target lost; spotted: seen again): 2 or 3 variants each, one at a time, never twice in 7 s. A variant is one line, or an exchange of 2 to 4 ([{ caller }, { hero }])"
+      },
+      "span": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 6,
+       "description": "the car phone: the call goes on over the next span steps (the legs of a long drive, a tail, a chase), its extra blocks and all, and wraps when the last of them ends, instead of at the end of the step it rides on; a cutscene, the mission's end or the next call still end it (the next call after its wrap)"
       },
       "register": {
        "enum": [
@@ -4400,7 +4501,13 @@
          },
          "overlap": {
           "type": "boolean",
-          "description": "a reply of 2 words or fewer that may start just before the last line ends (a cut-in)"
+          "description": "a reply of 4 words or fewer that may start just before the last line ends (a cut-in)"
+         },
+         "cut": {
+          "type": "number",
+          "minimum": 0.3,
+          "maximum": 0.95,
+          "description": "an interruption: the next speaker cuts in once this share of the line is said ('The more you buy, the more you...' / 'Stop.'); the next line is the one that interrupts"
          },
          "lines": {
           "type": "array",
@@ -4966,7 +5073,13 @@
       },
       "overlap": {
        "type": "boolean",
-       "description": "a reply of 2 words or fewer that may start just before the last line ends (a cut-in)"
+       "description": "a reply of 4 words or fewer that may start just before the last line ends (a cut-in)"
+      },
+      "cut": {
+       "type": "number",
+       "minimum": 0.3,
+       "maximum": 0.95,
+       "description": "an interruption: the next speaker cuts in once this share of the line is said ('The more you buy, the more you...' / 'Stop.'); the next line is the one that interrupts"
       },
       "sting": {
        "$ref": "#/$defs/sting"

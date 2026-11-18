@@ -607,7 +607,9 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
           (s.wrap || []).forEach((l: Json, j: number) => { who(l.who, `${at}.wrap[${j}].who`); line(`${lid}.w.l${j}`, l.who, l.text, l); });
           for (const k of ['pause', 'resume'] as const) (s.hold?.[k] || []).forEach((l: Json, j: number) => { who(l.who, `${at}.hold.${k}[${j}].who`); line(`${lid}.h${k[0]}.l${j}`, l.who, l.text, l); });
           // its react pools (W11): voiced like its other lines (ids <step>.rclose, .rhit, .rlost, .rspot)
-          for (const [k, tag] of REACT_IDS) (s.react?.[k] || []).forEach((l: Json, j: number) => { who(l.who, `${at}.react.${k}[${j}].who`); line(`${lid}.${tag}.l${j}`, l.who, l.text, l); });
+          // (a variant is a line, or an exchange of lines: <step>.rhit.l1.0, .l1.1)
+          for (const [k, tag] of REACT_IDS) (s.react?.[k] || []).forEach((v: Json, j: number) => { if (Array.isArray(v)) v.forEach((l: Json, i: number) => { who(l.who, `${at}.react.${k}[${j}][${i}].who`); line(`${lid}.${tag}.l${j}.${i}`, l.who, l.text, l); }); else { who(v.who, `${at}.react.${k}[${j}].who`); line(`${lid}.${tag}.l${j}`, v.who, v.text, v); } });
+          if (s.span && !s.inCar && !s.auto) warnings.push(`${at}: span carries a car-phone call (auto or inCar) over the next steps; this call is not one.`);
           if (s.react && !s.inCar && !s.auto) warnings.push(`${at}: react pools play on a car-phone call (auto or inCar), while the player drives.`);
           if (s.hold && !s.inCar) warnings.push(`${at}: hold lines only play on a call with inCar: true.`);
           if (s.interrupts && !side) warnings.push(`${at}: interrupts (call waiting) only waits on a live car-phone call; as a step of its own it is an ordinary call unless one is on.`);
@@ -689,9 +691,13 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
 
   // 14. the opening: the world's own, before Mission 1 (openingProblems); a Mog keeps its parent's unless it writes its own
   if (pack.opening) {
-    for (const p of openingProblems(pack, { cast, pets, placeOf, camPoints, cityName, keys: [...Object.keys(cityPlaces), ...Object.keys(aliases)], secs: show ? SHOWCASE.openingSecs : undefined })) refuse(p);
+    for (const p of openingProblems(pack, { cast, pets, placeOf, camPoints, cityName, keys: [...Object.keys(cityPlaces), ...Object.keys(aliases)], secs: show ? SHOWCASE.openingSecs : undefined, lines: show ? SHOWCASE.openingLines : undefined })) refuse(p);
     collect(pack.opening, 'opening', texts);
-    pack.opening.shots.forEach((sh: Json, j: number) => { if (sh.say && sh.line && cast.has(sh.say)) lines.push({ id: `OPEN.c${j}`, who: sh.say, text: sh.line, hash: lineHash(sh.line), status: 'pending', clip: null, ...(sh.how ? { how: sh.how } : {}) }); });
+    pack.opening.shots.forEach((sh: Json, j: number) => {
+      if (sh.say && sh.line && cast.has(sh.say)) lines.push({ id: `OPEN.c${j}`, who: sh.say, text: sh.line, hash: lineHash(sh.line), status: 'pending', clip: null, ...(sh.how ? { how: sh.how } : {}) });
+      // (an exchange in one of its shots: OPEN.c<j>.l<k>, as a cutscene's)
+      (sh.lines || []).forEach((l: Json, k: number) => { if (l.who && l.text && cast.has(l.who)) lines.push({ id: `OPEN.c${j}.l${k}`, who: l.who, text: l.text, hash: lineHash(l.text), status: 'pending', clip: null, ...(l.how ? { how: l.how } : {}) }); });
+    });
   } else if (opts.parent?.opening) refuse(`opening: the original has an opening (its place card, its people's name cards, its premise). A Mog keeps it: copy the original's "opening" exactly, or, when the idea changes the story or its people, write the Mog's own, by the same rules.`);
 
   // 5, 6, 7: every text
@@ -759,7 +765,8 @@ export function setShotProblems(def: Json, sh: Json, at: string, hero: string): 
 }
 
 /** The seconds an opening's shot is on screen: its dur (3), or its line's reading time when longer (the runner's). */
-export const shotSecs = (sh: Json) => Math.max(sh?.dur ?? 3, sh?.line ? Math.max(1.4, String(sh.line).length / 15) : 0);
+export const shotSecs = (sh: Json) => Math.max(sh?.dur ?? 3, sh?.line ? Math.max(1.4, String(sh.line).length / 15) : 0,
+  Array.isArray(sh?.lines) ? sh.lines.reduce((n: number, l: Json) => n + Math.max(1, String(l?.text || '').length / 15), 0) : 0);
 /**
  * Rule 14, the opening (Mog City's runner plays it before Mission 1, as Mog City's own opening plays before its Mission 1):
  * it opens wide on the city with the place card (never on a close-up of one person); it brings on the hero (the pack's
@@ -768,8 +775,8 @@ export const shotSecs = (sh: Json) => Math.max(sh?.dur ?? 3, sh?.line ? Math.max
  * 'player'), every person a shot looks at or a card names stood on the street (stage) unless they are the hero; it says
  * the premise in OPENING.lines spoken lines (say + line); the title once; OPENING.secs seconds in all.
  */
-export function openingProblems(pack: PackV2, ctx: { cast: Map<string, Json>; pets: Map<string, Json>; placeOf: (k: string) => Json; camPoints: string[]; cityName: string; keys: string[]; secs?: number[] }): string[] {
-  const SECS = ctx.secs || OPENING.secs;
+export function openingProblems(pack: PackV2, ctx: { cast: Map<string, Json>; pets: Map<string, Json>; placeOf: (k: string) => Json; camPoints: string[]; cityName: string; keys: string[]; secs?: number[]; lines?: number[] }): string[] {
+  const SECS = ctx.secs || OPENING.secs, LINES = ctx.lines || OPENING.lines;
   const out: string[] = [], o = pack.opening, at = 'opening', { cast } = ctx;
   const placeOk = (ref: Json, where: string) => { const key = typeof ref === 'string' ? ref.slice(1) : ref?.['@']; if (key && !ctx.placeOf(key)) out.push(`${where}: "@${key}" is not a place in ${ctx.cityName}${suggest(key, ctx.keys)}.`); };
   const body = (id: string, where: string) => { const c = cast.get(id); if (!c) { out.push(`${where}: "${id}" is not in the cast${suggest(id, [...cast.keys()])}.`); return false; } if (c.voiceOnly) { out.push(`${where}: "${id}" is voiceOnly (heard, never seen); they can't be seen in the opening.`); return false; } return true; };
@@ -802,6 +809,11 @@ export function openingProblems(pack: PackV2, ctx: { cast: Map<string, Json>; pe
     else if (sh.act) out.push(`${w}.act: a shot on the street has no set to change.`);
     if (sh.line && !sh.say) out.push(`${w}: a line needs a speaker (say).`);
     if (sh.say) { if (cast.has(sh.say)) lines++; else out.push(`${w}.say: "${sh.say}" is not in the cast.`); }
+    // (an exchange in the shot: each of its lines is one of the premise's)
+    if (sh.lines) {
+      if (sh.say || sh.line) out.push(`${w}: a shot says one line (say + line) or an exchange (lines), not both.`);
+      sh.lines.forEach((l: Json, k: number) => { if (cast.has(l.who)) lines++; else out.push(`${w}.lines[${k}].who: "${l.who}" is not in the cast.`); });
+    }
     if (sh.title) titles++;
     secs += shotSecs(sh);
     const c = sh.card;
@@ -823,7 +835,7 @@ export function openingProblems(pack: PackV2, ctx: { cast: Map<string, Json>; pe
   if (!of('hero').length) out.push(`${at}: the hero ("${pack.hero}") gets a name card (card { "who": "${pack.hero}", "is": "hero", "role": "..." }), on a shot that looks at them.`);
   if (!of('antagonist').length) out.push(`${at}: who is in the hero's way gets a name card too (card { "is": "antagonist" }): the player meets them here, not in a later voicemail.`);
   if (of('ally').length > OPENING.allies) out.push(`${at}: ${of('ally').length} others have name cards; at most ${OPENING.allies} besides the hero and the antagonist (the rest meet the player in the missions).`);
-  if (lines < OPENING.lines[0] || lines > OPENING.lines[1]) out.push(`${at}: ${lines} spoken line${lines === 1 ? '' : 's'}; the premise is said in ${OPENING.lines[0]} to ${OPENING.lines[1]} (say + line): what the hero wants tonight, who is in the way, what is at stake.`);
+  if (lines < LINES[0] || lines > LINES[1]) out.push(`${at}: ${lines} spoken line${lines === 1 ? '' : 's'}; the premise is said in ${LINES[0]} to ${LINES[1]} (say + line, or a shot's lines): what the hero wants tonight, who is in the way, what is at stake.`);
   if (titles !== 1) out.push(`${at}: the world's title is shown once (title: true on one shot, the last is the usual place); this opening has ${titles}.`);
   if (secs < SECS[0] || secs > SECS[1]) out.push(`${at}: ${Math.round(secs)} s; an opening is ${SECS[0]} to ${SECS[1]} s (each shot its dur, or its line's reading time when longer).`);
   return out;
@@ -861,7 +873,7 @@ export function toRunnerPack(pack: PackV2, opts: { cast?: Record<string, string>
   // keeps `sub` [who, text] (its first line): an engine before shotLines() reads only sub and says that line
   const cutShot = (sh: Json): Json => {
     const c: Json = { ...sh };
-    for (const f of ['how', 'pre', 'post', 'overlap']) delete c[f];
+    for (const f of ['how', 'pre', 'post', 'overlap', 'cut']) delete c[f];
     if (Array.isArray(sh.lines) && sh.lines.length) {
       c.lines = sh.lines.map((l: Json) => ({ who: name(l.who), text: l.text, ...delivery(l) }));
       c.sub = tuple(sh.lines[0].who, sh.lines[0].text);
@@ -886,7 +898,7 @@ export function toRunnerPack(pack: PackV2, opts: { cast?: Record<string, string>
   const tuple = (who: string, text: string, secs?: number) => (secs == null ? [name(who), text] : [name(who), text, secs]);
   // (a line with a delivery (how, pre, post, overlap) goes as an object, which the runner reads as it reads a tuple
   // (runner.js tuple(): an array is [who, text, secs], an object is used as it is); without one, the tuple as before)
-  const delivery = (l: Json) => Object.fromEntries(['how', 'pre', 'post', 'overlap'].filter((k) => l?.[k] != null).map((k) => [k, l[k]]));
+  const delivery = (l: Json) => Object.fromEntries(['how', 'pre', 'post', 'overlap', 'cut'].filter((k) => l?.[k] != null).map((k) => [k, l[k]]));
   const step = (s: Json): Json => {
     const o: Json = { ...s };
     if (o.during) o.during = o.during.map(step);
@@ -898,7 +910,8 @@ export function toRunnerPack(pack: PackV2, opts: { cast?: Record<string, string>
     if (s.type === 'call' && o.extra) o.extra = o.extra.map(callLines);
     if (s.type === 'call' && o.wrap) o.wrap = callLines(o.wrap);
     if (s.type === 'call' && o.hold) o.hold = { pause: callLines(o.hold.pause || []), resume: callLines(o.hold.resume || []) };
-    if (s.type === 'call' && o.react) o.react = Object.fromEntries(Object.entries(o.react as Record<string, Json[]>).map(([k, ls]) => [k, callLines(ls)]));
+    // (a react variant that is an exchange goes as a list of lines: Mog City's talk.js reads either)
+    if (s.type === 'call' && o.react) o.react = Object.fromEntries(Object.entries(o.react as Record<string, Json[]>).map(([k, ls]) => [k, ls.map((v: Json) => (Array.isArray(v) ? callLines(v) : callLines([v])[0]))]));
     if (s.type === 'dm') { o.from = s.from ? name(s.from) : s.name; delete o.name; }
     if (s.type === 'comfort' && o.lines) o.lines = o.lines.map((l: Json) => ({ ...l, who: name(l.who) }));
     if (s.type === 'passenger' && o.comfort?.lines) o.comfort = { ...o.comfort, lines: o.comfort.lines.map((l: Json) => ({ ...l, who: name(l.who) })) };
@@ -938,7 +951,7 @@ export function toRunnerPack(pack: PackV2, opts: { cast?: Record<string, string>
     ...(sheets.some((v: Json) => v !== heroSheet) ? { rides: Object.fromEntries(sheets.filter((v: Json) => v !== heroSheet).map((v: Json) => [v.id, v])) } : {}),
     // a seen person's body: their forged GLB (opts.cast: cast id -> path next to the page) and the shared clip pack
     cast: Object.fromEntries([
-      ...pack.cast.map((c: Json) => [name(c.id), { color: c.color, role: c.sheet?.role ?? c.role, ...(bodyOf(c) || (opts.cast?.[c.id] && c.sheet ? { glb: opts.cast[c.id], idle: c.sheet.posture?.idle, walk: c.sheet.posture?.walk } : {})) }]),
+      ...pack.cast.map((c: Json) => [name(c.id), { color: c.color, role: c.sheet?.role ?? c.role, ...(c.face ? { face: c.face } : {}), ...(bodyOf(c) || (opts.cast?.[c.id] && c.sheet ? { glb: opts.cast[c.id], idle: c.sheet.posture?.idle, walk: c.sheet.posture?.walk } : {})) }]),
       // a pet's body: the registry's pet (Mog City's Moon) or a dog built the same way in its coat and size
       ...(pack.pets || []).map((p: Json) => [p.name, { color: p.coat || '#E9E2D6', pet: { species: p.species, breed: p.breed, size: p.size, coat: p.coat, model: p.model, owner: p.owner ? name(p.owner) : null, follows: !!p.follows } }])
     ]),
