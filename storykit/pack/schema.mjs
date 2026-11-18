@@ -65,7 +65,11 @@ export { HERO_CARS, HERO_CAR_IDS } from './hero-cars.mjs';
 import { HERO_CAR_IDS } from './hero-cars.mjs';
 export const STEP_KINDS = ['drive', 'stops', 'walk', 'pursuit', 'timer', 'call', 'voicemail', 'voicenote', 'choice', 'cutscene',
   'place', 'set', 'say', 'wait', 'goto', 'end', 'label', 'transition', 'vignette', 'wallet', 'actEnd', 'comfort', 'tail',
-  'stealth', 'patrol', 'convoy', 'trigger', 'beat', 'roadblock', 'passenger', 'npc', 'fight', 'dm', 'search', 'scene', 'tow', 'ally', 'car'];
+  'stealth', 'patrol', 'convoy', 'trigger', 'beat', 'roadblock', 'passenger', 'npc', 'fight', 'dm', 'search', 'scene', 'tow', 'ally', 'car',
+  'mount', 'ride', 'dismount'];
+// the steps on the story's horse (a hometown story on Mog City's engine: its `horse`, saddled alongside the hero's car;
+// Mog City wagmi/game.js the two rides): mount at a place, ride to places, dismount; gate.ts says where they may be used
+export const HORSE_STEPS = ['mount', 'ride', 'dismount'];
 // the kinds Mog City's runner has no part for yet (Mog City wagmi/storyrun/runner.js KINDS_STUB): on mogcity-1 they pass
 // at once without playing, so a story never rests on one (gate.ts warns; the builder refuses them in a new story)
 export const MOGCITY_STUBS = ['patrol', 'wallet'];
@@ -173,6 +177,14 @@ const STEPS = fx(['drive', 'stops', 'pursuit', 'tail', 'tow', 'timer', 'fight', 
     stopTimer: ONE(B, R('slug'), { description: "on arrival, stop a running timer by its name (true: every one): the clock beaten" }) }, ['to']),
   stops: step('stops', { stops: A(R('stopRef'), 8, 1), radius: N(3, 60), objective: R('objective') }, ['stops']),
   walk: step('walk', { to: R('placeRef'), radius: N(1, 20), leaveCar: B, enterCar: B, beam: B, objective: R('objective') }, ['to']),
+  // the story's horse (its `horse`): mount where he stands saddled (`at`: stood there first, on the place's footpath side;
+  // the hero drives up, gets out and climbs up, F), ride to a place as a drive is driven (a horse's pace: a trot, a gallop
+  // on Shift; the streets either way, as a man walks them), dismount. Driving again after a ride needs the dismount first
+  mount: step('mount', { at: R('placeRef'), objective: R('objective'), quick: { ...B, description: 'up into the saddle at once (a scene that wants him up there)' },
+    arm: E(['bat', 'bottle'], { description: 'something in his hand for the blows from the saddle (J)' }) }),
+  ride: step('ride', { to: ONE(R('placeRef'), A(R('placeRef'), 6, 1)), radius: N(3, 60), stop: B, objective: R('objective'), bonus: N(0, 600), flag: R('flag'),
+    stopTimer: ONE(B, R('slug'), { description: "on arrival, stop a running timer by its name (true: every one)" }) }, ['to']),
+  dismount: step('dismount', { objective: R('objective'), quick: { ...B, description: 'down at once' } }),
   pursuit: step('pursuit', {
     count: R('value'), level: I(1, 5), kind: E(['crew', 'police']), goal: E(['lose', 'reach', 'escort']), to: R('placeRef'), radius: N(3, 60),
     los: N(0, 20), roles: A(E(['chaser', 'cutter', 'pacer', 'blocker']), 6), until: N(5, 600), loseDist: N(40, 400), loseTime: N(1, 30),
@@ -392,6 +404,8 @@ export const SCHEMA = {
     cine: O({ action: { ...B, description: "the action layer: chase cameras, speed lines, near misses held in slow motion, crash beats, title slams. On by itself in a hometown story" } }),
     opening,
     ride: { ...R('rideId'), description: 'the free-drive ride (a vehicle id); the first vehicle when left out' },
+    horse: O({ name: S(24, { pattern: "^[A-Z][A-Za-z' .-]{0,23}$", description: "the horse's name, on the HUD and in the words ('Dusty')" }) }, ['name'],
+      { description: "the hero's horse, saddled alongside the hero's car (a hometown story on Mog City's engine, in horse country: a ranch, a farm, a rodeo town): the mount, ride and dismount steps ride him. Never a vehicle" }),
     heroCar: E(HERO_CAR_IDS, { description: "the player's car as the creator picked it on Create (left out: the story's own). The hero's ride (ride, or the first vehicle) is then a vehicle sheet of that kind of car (gate.ts), and in a hometown Mog City draws it as the town fleet's realistic model of that name" }),
     hud: O({
       clock: O({ label: S(12), format: E(['count', 'age', 'text']), unit: S(12, { pattern: '^[a-z]{1,12}$' }), unitLabel: S(12), zero: S(24) }),

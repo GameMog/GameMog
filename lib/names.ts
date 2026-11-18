@@ -40,10 +40,17 @@ const RESERVED_WHOLE = ['team', 'system', 'root', 'anon', 'anonymous', 'null', '
 const MODEL_ANYWHERE = ['anthropic', 'openai', 'chatgpt'];
 const MODEL_WORDS = ['claude', 'opus', 'sonnet', 'haiku', 'gpt', 'gemini', 'copilot', 'llm', 'ai'];
 
+// ...and a model's word only when the name is nothing else: "Claude", "Claude AI", "ClaudeBot", "GPT-5", "Cl4ude"; a person
+// who shares the word keeps their name ("Jean-Claude", "Claude Monet", "Ai Weiwei", "Opus Dei")
+const MODEL_FILL = ['bot', 'the', 'by', 'model', 'assistant', 'official', 'real'];
+const modelOnly = new RegExp(`^(?:${[...MODEL_WORDS, ...MODEL_FILL].join('|')})+$`), modelWord = new RegExp(MODEL_WORDS.join('|'));
+
 /** Whether a name is a model's or its maker's (Claude, Anthropic, AI...), however it is spelled out. */
 export function isModelName(name: string): boolean {
   const f = forms(name);
-  return f.chunks.some((c) => MODEL_ANYWHERE.some((r) => c.includes(r))) || f.words.some((w) => MODEL_WORDS.includes(w));
+  if (f.chunks.some((c) => MODEL_ANYWHERE.some((r) => c.includes(r)))) return true;
+  // (each reading of the name: its words, with and without leetspeak and camelCase; all of them model words or filler)
+  return f.readings.some((ws) => ws.length > 0 && ws.every((w) => modelOnly.test(w)) && ws.some((w) => modelWord.test(w) && !MODEL_FILL.includes(w)));
 }
 
 /** Phrases, matched on the words in order (kill yourself). */
@@ -66,8 +73,8 @@ const LEET: Record<string, string> = { '0': 'o', '2': 'z', '3': 'e', '4': 'a', '
  * but its letters removed (f.u_c-k), where the strongest words are matched anywhere. Each with and without leetspeak,
  * with 1 read as i and as l. lines: the words in order, for phrases. whole: all of its letters run together (only for a whole reserved name).
  */
-function forms(text: string): { words: string[]; chunks: string[]; whole: string[]; lines: string[] } {
-  const out = { words: [] as string[], chunks: [] as string[], whole: [] as string[], lines: [] as string[] };
+function forms(text: string): { words: string[]; chunks: string[]; whole: string[]; lines: string[]; readings: string[][] } {
+  const out = { words: [] as string[], chunks: [] as string[], whole: [] as string[], lines: [] as string[], readings: [] as string[][] };
   const plain = text.normalize('NFKC').replace(INVISIBLE, '');
   for (const camel of [false, true]) {
     const base = (camel ? plain.replace(/(\p{Ll})(\p{Lu})/gu, '$1 $2') : plain)
@@ -77,13 +84,15 @@ function forms(text: string): { words: string[]; chunks: string[]; whole: string
         const t = leet ? base.replace(/[0-9@$!|+€£¡]/g, (c) => (c === '1' ? one : LEET[c] ?? c)) : base;
         const words = t.split(/[^a-z]+/).filter(Boolean);
         let run = '';
+        const reading: string[] = [];
         for (const w of words) {
           if (w.length === 1) { run += w; continue; }
-          if (run.length > 1) out.words.push(run);
+          if (run.length > 1) { out.words.push(run); reading.push(run); }
           run = '';
-          out.words.push(w);
+          out.words.push(w); reading.push(w);
         }
-        if (run.length > 1) out.words.push(run);
+        if (run.length > 1) { out.words.push(run); reading.push(run); }
+        out.readings.push(reading);
         if (!camel) out.lines.push(words.join(' '));
         if (!camel) { out.chunks.push(...t.split(/\s+/).map((c) => c.replace(/[^a-z]/g, '')).filter(Boolean)); out.whole.push(t.replace(/[^a-z]/g, '')); }
       }

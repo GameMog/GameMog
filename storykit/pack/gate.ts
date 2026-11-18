@@ -75,7 +75,7 @@ import FORGE from '../../scripts/forge/character-sheet.schema.json' with { type:
 import VEHICLE_SCHEMA from '../vehicles/vehicle-sheet.schema.json' with { type: 'json' };
 import { Validator, type Schema } from './validate.ts';
 import { PLACES, CAM_POINTS, CITY_NAME, HOMETOWN, LOCK_KEYS, foreignIn, buildsFor, type CityId, type CityTable } from './cities.ts';
-import { MOGCITY_STUBS, OPENING, SHOWCASE, SHOWCASE_PACKS, SHOWCASE_CARS, HERO_CARS } from './schema.mjs';
+import { MOGCITY_STUBS, OPENING, SHOWCASE, SHOWCASE_PACKS, SHOWCASE_CARS, HERO_CARS, HORSE_STEPS } from './schema.mjs';
 import { lintVoiceBlock, KOKORO_VOICES, lineHash as vdLineHash } from '../voices/voice-design.js';
 import { isBlocked } from '../../lib/names.ts';
 import { modelOf, nearVoice, can as modelCan } from './registry.ts';
@@ -90,7 +90,7 @@ export type GateResult = { ok: boolean; problems: string[]; warnings: string[]; 
 export const PACK_ID = (SCHEMA as Schema).$id as string;
 const LIMIT_BYTES = 160_000;
 // the step kinds whose own `at` is a place (not the side step's seconds)
-const AT_PLACE = new Set(['npc', 'roadblock', 'place', 'search', 'car']);
+const AT_PLACE = new Set(['npc', 'roadblock', 'place', 'search', 'car', 'mount']);
 /** Mog City's engine (mc.gamemog.com): every Create and Mog is written for it. */
 export const MOGCITY = 'mogcity-1';
 const STUBS = new Set<string>(MOGCITY_STUBS as string[]);
@@ -372,7 +372,7 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
       const two = TWO_WHEEL.includes(r.family);
       const m = (two ? RIDE_WORDS.car4 : RIDE_WORDS.two).exec(text);
       if (m) refuse(`vehicles[${i}] (${r.id}).${field}: "${text}" calls a ${familyWord(r.family)} a "${m[1]}". A ride is never renamed into another kind of thing.`);
-      const a = ANIMAL.exec(text); if (a && field !== 'oneLine') refuse(`vehicles[${i}] (${r.id}).${field}: "${text}" names an animal; a pet is a pet (pets[]).`);
+      const a = ANIMAL.exec(text); if (a && field !== 'oneLine') refuse(`vehicles[${i}] (${r.id}).${field}: "${text}" names an animal; a pet is a pet (pets[])${/^(horse|pony)$/i.test(a[1]) ? ', and a horse is the story\'s horse (horse { name }, ridden with mount, ride and dismount steps: a hometown story in horse country), never a vehicle' : ''}.`);
     }
   }
   if (pack.ride && !rides.has(pack.ride)) refuse(`ride "${pack.ride}" is not one of the vehicles.`);
@@ -547,6 +547,11 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
           break;
         case 'stops': need.set('drive', at); s.stops.forEach((p: Json, j: number) => { place(p, `${at}.stops[${j}]`, 'drive'); if (p.set) set(p.set, `${at}.stops[${j}].set`); }); break;
         case 'walk': need.set('walk', at); place(s.to, `${at}.to`, 'walk'); break;
+        // (the story's horse: he stands at a place he can be walked up to, and rides where a man walks: horseRules)
+        case 'mount': if (s.at) place(s.at, `${at}.at`, 'walk'); break;
+        case 'ride': [s.to].flat().forEach((p: Json, j: number) => place(p, Array.isArray(s.to) ? `${at}.to[${j}]` : `${at}.to`, 'walk'));
+          if (typeof s.stopTimer === 'string' && !timerNames.has(s.stopTimer)) refuse(`${at}.stopTimer: no timer step before it starts "${s.stopTimer}".`);
+          break;
         case 'pursuit': need.set(s.goal === 'lose' ? 'escape' : 'chase', at); if (s.to) place(s.to, `${at}.to`, 'drive'); break;
         case 'tail': need.set('tail', at); s.route.forEach((p: Json, j: number) => place(p, `${at}.route[${j}]`, 'drive')); break;
         case 'convoy':
@@ -655,13 +660,15 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
       for (const [re, verb] of TEXT_VERBS) if (re.test(t.text) && !need.has(verb)) need.set(verb, `${t.at} ("${clip(t.text)}")`);
       if (ride.family === 'car4') {
         const hit = t.speech ? SPOKEN_TWO.exec(t.text) : RIDE_WORDS.two.exec(t.text);
-        if (hit) refuse(`${t.at}: "${clip(t.text)}" says "${hit[0]}", but ${M} is driven in the ${ride.label}, a car. Bike words on a car are a rename: refused.`);
+        // (a mission on the story's horse says saddle: the horse's, not a bike's)
+        if (hit && !(horsed(m) && /^saddle$/i.test(hit[1] ?? hit[0]))) refuse(`${t.at}: "${clip(t.text)}" says "${hit[0]}", but ${M} is driven in the ${ride.label}, a car. Bike words on a car are a rename: refused.`);
       } else if (TWO_WHEEL.includes(ride.family) && !t.speech) {
         const hit = RIDE_WORDS.car4.exec(t.text);
         if (hit) refuse(`${t.at}: "${clip(t.text)}" says "${hit[1]}", but ${M} is ridden on a ${familyWord(ride.family)}.`);
       } else if (ride.family === 'foot' && !t.speech && /\b(?:drive|driving)\b/i.test(t.text)) refuse(`${t.at}: "${clip(t.text)}" says drive, but ${M} is on foot.`);
     }
     for (const [verb, from] of need) if (!canDo(ride, verb)) refuse(`${M}: "${verb}" (from ${from}) can't be done ${ride.family === 'foot' ? 'on foot' : `in the ${ride.label}`}: ${VERBS[verb].why}. Give the mission a ride that can, or drop the verb; it is never faked.`);
+    for (const p of horseRules(m, M, { town, mc, horse: pack.horse })) refuse(p);
     const seats = m.steps.filter((s: Json) => s.type === 'passenger' && s.board !== false).length;
     if (ride.family !== 'foot' && seats >= ride.seats) refuse(`${M}: ${seats} passengers board the ${ride.label}, which seats ${ride.seats} with the driver.`);
   }
@@ -672,6 +679,10 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
   ranches.forEach((r: Json, i: number) => { if (r.sign) collect({ name: r.sign }, `ranches[${i}].sign`, texts); });
   for (const c of pack.cast) { collect(c.sheet || { name: c.name, role: c.role }, `cast "${c.id}"${c.sheet ? '.sheet' : ''}`, texts); collect({ description: c.voice?.description }, `cast "${c.id}".voice`, texts); }
   for (const p of pack.pets || []) collect({ name: p.name }, `pets "${p.id}"`, texts);
+  if (pack.horse) collect({ name: pack.horse.name }, 'horse', texts);
+  // (a horse named but never ridden, or ridden with no story of horse country round it: said, not refused)
+  if (pack.horse && !allMissions.some(horsed)) warnings.push('horse: no mission mounts or rides him; leave horse out, or give him a ride.');
+  if (allMissions.some(horsed) && !HORSE_COUNTRY.test(texts.map((t) => t.text).join(' '))) warnings.push('the story rides a horse, but nothing in it says horse country (a ranch, a farm, a rodeo, cattle, a trail): a horse belongs to a rural or ranch story (BUILDER.md Horses).');
   for (const v of pack.vehicles) if (!v.stock) collect({ label: v.label, nickname: v.story?.nickname, oneLine: v.story?.oneLine }, `vehicles "${v.id}"`, texts);
   for (const mt of pack.hud?.meters || []) collect({ label: mt.label }, `hud.meters "${mt.id}"`, texts);
   if (pack.hud?.clock) collect({ label: pack.hud.clock.label, unitLabel: pack.hud.clock.unitLabel, zero: pack.hud.clock.zero }, 'hud.clock', texts);
@@ -920,6 +931,8 @@ export function toRunnerPack(pack: PackV2, opts: { cast?: Record<string, string>
     // (the car the creator picked, rule 17: Mog City's wagmi/fleet-picks.js; in a town the player's car is the fleet's
     // realistic model of that name, on the hero ride's sheet; an engine that does not know it plays the sheet as before)
     ...(pack.heroCar ? { fleetCar: pack.heroCar } : {}),
+    // (the story's horse, saddled alongside the hero's car: Mog City's wagmi/game.js the two rides, his name on the HUD)
+    ...(pack.horse ? { horse: { name: pack.horse.name } } : {}),
     // (the action layer: Mog City's wagmi/storyrun/action.js; left out, on in a hometown world and off elsewhere)
     ...(pack.cine ? { cine: pack.cine } : {}),
     ...(sheets.some((v: Json) => v !== heroSheet) ? { rides: Object.fromEntries(sheets.filter((v: Json) => v !== heroSheet).map((v: Json) => [v.id, v])) } : {}),
@@ -945,6 +958,43 @@ export function toRunnerPack(pack: PackV2, opts: { cast?: Record<string, string>
     acts: pack.acts.map((a: Json) => ({ id: a.id, name: a.name, order: a.missions.map((m: Json) => m.id), timeline: a.timeline, ...(a.end ? { end: end(a.end) } : {}) })),
     missions,
   };
+}
+
+// ── the story's horse ──
+const HORSE_KINDS = new Set<string>(HORSE_STEPS);
+/** the steps a horse can't do: the car's (a drive, its stops, a tail, a chase, a tow, a convoy, a passenger, a roadblock to get past) */
+const CAR_ONLY = new Set(['drive', 'stops', 'tail', 'pursuit', 'tow', 'convoy', 'passenger']);
+/** words that say horse country: a ranch, a farm, a rodeo... (a warning only) */
+export const HORSE_COUNTRY = /\b(ranch(?:es|er|ers|ing|hand)?|farm(?:s|er|ers|house|land)?|rodeo|cattle|cowboy|cowgirl|cowhand|wrangler|stable|stables|barn|corral|pasture|paddock|herd|hay|trail|trailhead|range|homestead|stockyard|saddle|horse|horses|outfitter|fairgrounds?|county fair)\b/i;
+/** Whether a mission rides the story's horse (a mount or a ride, anywhere in it). */
+export function horsed(m: Json): boolean {
+  const any = (list: Json[] = []): boolean => list.some((s: Json) => s && (HORSE_KINDS.has(s.type) || any(s.during) || any(s.do)));
+  return any(m?.steps);
+}
+/**
+ * Rule 18, the story's horse: where a horse may be ridden. Only in a hometown story on Mog City's engine (the horse rides
+ * alongside the hero's car there: Mog City wagmi/game.js the two rides), a horse the pack names (horse { name }); never as
+ * a side step. Within a mission, in order: a mount first (never twice), then rides, then a dismount before any car step
+ * (a drive, stops, a tail, a chase, a tow, a convoy, a passenger); a ride or a dismount with nobody up is refused.
+ * The order is read top to bottom (a goto's jumps are not followed).
+ */
+export function horseRules(m: Json, M: string, o: { town: boolean; mc: boolean; horse?: Json }): string[] {
+  const out: string[] = [];
+  if (!horsed(m)) return out;
+  if (!o.town || !o.mc) out.push(`${M}: a horse is ridden only in a hometown story on Mog City's engine (a town in horse country, a ranch or a farm); this world has no horse.`);
+  if (!o.horse) out.push(`${M}: it rides a horse, so the story names him: horse { "name": "Dusty" }.`);
+  const side = (list: Json[] = [], at: string) => list.forEach((s: Json, j: number) => { if (s && HORSE_KINDS.has(s.type)) out.push(`${at}[${j}]: a ${s.type} is a step of its own, never a side step.`); });
+  (m.steps || []).forEach((s: Json, i: number) => { side(s?.during, `${M}.steps[${i}].during`); side(s?.do, `${M}.steps[${i}].do`); });
+  let up = false;
+  (m.steps || []).forEach((s: Json, i: number) => {
+    const at = `${M}.steps[${i}]`;
+    if (!s) return;
+    if (s.type === 'mount') { if (up) out.push(`${at}: he is up on the horse already; one mount, then rides, then a dismount.`); up = true; }
+    else if (s.type === 'ride') { if (!up) out.push(`${at}: a ride follows a mount (nobody is up on the horse here).`); }
+    else if (s.type === 'dismount') { if (!up) out.push(`${at}: a dismount follows a mount (nobody is up on the horse here).`); up = false; }
+    else if (up && (CAR_ONLY.has(s.type) || (s.type === 'roadblock' && s.to))) out.push(`${at}: a ${s.type} is the car's, and he is on the horse; dismount first (then the car).`);
+  });
+  return out;
 }
 
 // ── helpers ──

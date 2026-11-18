@@ -70,6 +70,9 @@ export function targetsOf(pack: PackV2): Target[] {
         case 'search': add(s.at, !(s.on === 'ride' || (s.part && s.on !== 'place')), '.at'); break;
         case 'walk': add(s.to, false, '.to'); break;
         case 'drive': for (const [j, t] of [].concat(s.to ?? []).entries()) add(t, false, `.to${Array.isArray(s.to) ? `[${j}]` : ''}`); break;
+        // (the story's horse: he stands on the place's footpath side, and a ride ends at its front, as a drive's does)
+        case 'mount': add(s.at, false, '.at'); break;
+        case 'ride': for (const [j, t] of [].concat(s.to ?? []).entries()) add(t, false, `.to${Array.isArray(s.to) ? `[${j}]` : ''}`); break;
         case 'stops': for (const [j, t] of (s.stops ?? []).entries()) add(t, false, `.stops[${j}]`); break;
         case 'pursuit': case 'roadblock': add(s.to, false, '.to'); break;
         case 'fight': add(s.arena, false, '.arena'); add(s.crewAt, true, '.crewAt'); break;
