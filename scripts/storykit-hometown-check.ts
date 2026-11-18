@@ -102,6 +102,20 @@ export function runHometownChecks(ok: Ok) {
   ok('a hometown pack pinning another town than its package is refused', gateHometown({ ...clone(okPack), base: { ...okPack.base, hometown: { ...okPack.base.hometown, place: 'us-ok-boley' } } }, OK).problems.some((p) => /base\.hometown\.place/.test(p)));
   ok('New York\'s own foreign-city rule is as before', foreignIn('Meet me in Chicago', 'ny').length === 1 && foreignIn('Back to Manhattan', 'ny').length === 0);
 
+  // ── ranches (Mog City wagmi/storyrun/ranch.js): a hometown's, at one of the pack's places, its marks by alias ──
+  const ranched = (f: (p: PackV2) => void = () => {}) => { const p = clone(okPack); p.places = { ...p.places, 'hollis-ranch': { '@': 'feed-store', name: 'the Hollis Ranch' }, 'hollis-barn': { '@': 'feed-store', ranch: 'barn', name: 'the barn' } }; p.ranches = [{ place: 'hollis-ranch', sign: 'Hollis Ranch', brand: 'H', cattle: 8, horses: 2 }]; f(p); return p; };
+  const rOk = gateHometown(ranched(), OK);
+  ok('a ranch at one of the pack\'s places, its barn by a ranch mark, passes in a town', rOk.ok, show(rOk.problems));
+  const rw = rOk.pack ? toRunnerPack(rOk.pack, { townName: 'Okemah, Oklahoma' }) as PackV2 : null;
+  ok('the runner world names the ranch by its place (at), with its sign, brand and herds; the mark alias as written', !!rw && JSON.stringify(rw.ranches) === JSON.stringify([{ at: 'hollis-ranch', sign: 'Hollis Ranch', brand: 'H', cattle: 8, horses: 2 }]) && rw.places['hollis-barn'].ranch === 'barn', JSON.stringify(rw?.ranches));
+  ok('a story with no ranch has none in its runner world', !('ranches' in (toRunnerPack(okPack, { townName: 'Okemah, Oklahoma' }) as PackV2)));
+  const rBad = (f: (p: PackV2) => void, re: RegExp) => { const r = gateHometown(ranched(f), OK); return !r.ok && r.problems.some((x) => re.test(x)); };
+  ok('a ranch at a place the pack has not got is refused', rBad((p) => { p.ranches[0].place = 'nowhere'; }, /ranches\[0\]\.place/));
+  ok('a ranch mark with no ranch at its town place is refused', rBad((p) => { p.places['hollis-barn']['@'] = 'depot'; }, /places\.hollis-barn\.ranch/));
+  ok('a ranch mark that is not one of the ranch\'s marks is refused', rBad((p) => { p.places['hollis-barn'].ranch = 'kitchen'; }, /ranch/));
+  ok('two ranches at one town place, or three ranches, are refused', rBad((p) => { p.places['other'] = { '@': 'feed-store', name: 'the other ranch' }; p.ranches.push({ place: 'other' }); }, /two ranches/) && !gateHometown(ranched((p) => { p.ranches = [1, 2, 3].map(() => ({ place: 'hollis-ranch' })); }), OK).ok);
+  ok('a New York story asking for a ranch is refused (no open land)', gatePack({ ...clone(ny), places: { ...(ny.places || {}), r: { '@': Object.keys(PLACES.ny)[0], name: 'the ranch' } }, ranches: [{ place: 'r' }] }).problems.some((p) => /ranches: a ranch is dressed on a hometown/.test(p)));
+
   // ── the Mog lock: the town stays, the game, people and missions change ──
   const mog = (f: (p: PackV2) => void) => { const p = clone(okPack); p.id = 'sk-okemog1'; p.parent = okPack.id; p.title = 'Harvest Moon'; f(p); return p; };
   const good = gateHometown(mog((p) => { p.acts[0].missions[0].stakes = 'Somebody moved the ledger.'; }), OK, { parent: okPack });
@@ -160,6 +174,46 @@ export function runHometownChecks(ok: Ok) {
   passes('a common word is not a core ("veterans" for Veterans Memorial, "crossroads" for Crossroads Fuel)', said('The veterans meet at the crossroads.'));
   passes('a core\'s words in another order are not the name ("a rose on the prairie")', said('She left a rose on the prairie.'));
   passes('"Okemah High" is a whole-word match ("Okemah Highway" is a road)', said('They attack the convoy on the Okemah Highway.'));
+
+  // ── the story's horse: a hometown story in horse country rides one alongside the car (Mog City's two rides) ──
+  const ranch = (f?: (p: PackV2) => void) => { const p = clone(okPack); p.horse = { name: 'Dusty' };
+    p.acts[0].missions[4].steps = [
+      { type: 'drive', to: '@town-park', objective: 'Drive to **the town park**.' },
+      { type: 'mount', at: '@town-park', objective: 'Saddle up on **Dusty**.' },
+      { type: 'say', who: p.hero, text: 'Easy, Dusty. Fence line first.' },
+      { type: 'ride', to: '@creek-trailhead', objective: 'Ride **Dusty** up to **the creek trailhead**.' },
+      { type: 'dismount', objective: 'Get down from **Dusty**.' },
+      ...p.acts[0].missions[4].steps];
+    f?.(p); return p; };
+  const horseGate = (f?: (p: PackV2) => void) => gateHometown(ranch(f), OK);
+  const horseRefused = (name: string, f: (p: PackV2) => void, re: RegExp) => { const r = horseGate(f); ok(name, !r.ok && r.problems.some((x) => re.test(x)), show(r.problems)); };
+  const hg = horseGate();
+  ok('a hometown story with a horse (mount at the park, ride to the creek trailhead, dismount, drive on) passes', hg.ok, show(hg.problems));
+  if (hg.pack) {
+    const w = toRunnerPack(hg.pack, { townName: 'Okemah, Oklahoma' }) as PackV2;
+    const kinds = w.missions[4].steps.map((x: PackV2) => x.type).slice(0, 5).join();
+    ok('the runner pack carries the horse by name and the mount, ride and dismount steps as written', w.horse?.name === 'Dusty' && kinds === 'drive,mount,say,ride,dismount' && w.missions[4].steps[1].at === '@town-park', JSON.stringify(w.horse) + ' ' + kinds);
+    ok('saddle words in a horse mission are the horse\'s, not a bike rename', !hg.problems.some((x) => /Bike words/.test(x)));
+  }
+  horseRefused('a ride before any mount is refused', (p) => { p.acts[0].missions[4].steps.splice(1, 1); }, /a ride follows a mount/);
+  horseRefused('a drive while he is up on the horse is refused (dismount first)', (p) => { const st = p.acts[0].missions[4].steps; st.splice(4, 1); }, /is the car's, and he is on the horse; dismount first/);
+  horseRefused('a second mount while he is up is refused', (p) => { p.acts[0].missions[4].steps.splice(3, 0, { type: 'mount' }); }, /up on the horse already/);
+  horseRefused('a dismount with nobody up is refused', (p) => { p.acts[0].missions[3].steps.push({ type: 'dismount' }); }, /a dismount follows a mount/);
+  horseRefused('a story that rides a horse names him (horse { name })', (p) => { delete p.horse; }, /names him: horse/);
+  horseRefused('a mount as a side step is refused', (p) => { p.acts[0].missions[4].steps[0].during = [{ type: 'mount', at: '@town-park' }]; }, /never a side step/);
+  horseRefused('a mount at a place that is not in the town is refused', (p) => { p.acts[0].missions[4].steps[1].at = '@the-ranch'; }, /"@the-ranch" is not a place/);
+  horseRefused('a horse\'s name that is not a plain name is refused', (p) => { p.horse = { name: 'dusty<b>' }; }, /horse/);
+  { const p = clone(okPack); p.vehicles = [...p.vehicles, { stock: 'trailhand', id: 'rides.horse' }];
+    const r = gateHometown(p, OK); ok('a vehicle named a horse is refused, and told the horse is the story\'s (horse, mount, ride)', !r.ok && r.problems.some((x) => /never a vehicle/.test(x)), show(r.problems)); }
+  { const nyp = clone(JSON.parse(readFileSync('storykit/pack/fixtures/good-ny.json', 'utf8'))); nyp.horse = { name: 'Dusty' }; const m = nyp.acts[0].missions[0]; m.steps = [{ type: 'mount' }, { type: 'ride', to: m.steps.find((x: PackV2) => x.type === 'drive')?.to ?? m.start }, { type: 'dismount' }, ...m.steps];
+    const r = gatePack(nyp); ok('a horse in a New York story is refused (horse country is a hometown story)', !r.ok && r.problems.some((x) => /ridden only in a hometown story/.test(x)), show(r.problems)); }
+  { const r = gateHometown((() => { const p = clone(okPack); p.acts[0].missions[4].steps[0].objective = 'Saddle up and drive to **the water tower**.'; return p; })(), OK);
+    ok('saddle in a car mission with no horse is still a bike word on a car (refused)', !r.ok && r.problems.some((x) => /Bike words on a car/.test(x)), show(r.problems)); }
+  { const p = ranch((q) => { q.places = { ...q.places, 'park-gate': { '@': 'town-park', name: 'the park gate' } }; q.acts[0].missions[4].steps[3].to = '@park-gate'; }); const pp = pacingProblems({ acts: p.acts, places: p.places }, OK);
+    ok('a ride of a couple of hundred metres is sent back by pacing (250 to 1,800 m)', pp.some((x) => /rides \d+ m .*too short to feel the horse/.test(x)), pp.join(' | ').slice(0, 300)); }
+  { const pp = pacingProblems({ acts: ranch().acts, places: okPack.places }, OK);
+    ok('a 660 m ride from the park to the trailhead is not sent back', !pp.some((x) => /rides .* horse/.test(x)), pp.join(' | ').slice(0, 300)); }
+  ok('the builder reads when a horse may be ridden (BUILDER.md Horses, the schema\'s horse, mount, ride)', /## Horses \(a hometown story in horse country\)/.test(sys) && sys.includes('"const":"ride"') && sys.includes('"const":"mount"') && /horse country/.test(sys));
 
   // ── names that make a place sensitive with a bare kind ──
   ok('worship names with a bare kind are sensitive (denominations, masjid, parish, St. X\'s)', ['First Baptist', 'Grace Methodist', 'Trinity Lutheran', 'First Presbyterian', 'St. Paul\'s Episcopal', 'Holy Family Catholic', 'Okemah Pentecostal Holiness', 'Okemah Assembly of God', 'Okemah Church of Christ', 'Islamic Masjid', 'Beth El Synagogue', 'Hope Temple', 'Wayside Chapel', 'Sacred Heart Parish', "St. Mary's", "Saint Anne's"].every((n) => C('yes', n).sensitive === 'worship'), ['First Baptist', 'Grace Methodist', 'Islamic Masjid', "St. Mary's"].map((n) => `${n}: ${C('yes', n).sensitive}`).join(', '));

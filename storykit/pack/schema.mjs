@@ -45,6 +45,10 @@ export const WEATHER = ['clear', 'overcast', 'rain', 'storm', 'fog', 'snow'];
 export const HOLIDAYS = ['christmas', 'new-year', 'halloween', 'thanksgiving', 'lunar-new-year', 'valentines', 'independence-day', 'diwali', 'hanukkah', 'pride'];
 // a power cut in part of Manhattan (Mog City wagmi/storyrun/dressing.js): left out, the power is on
 export const BLACKOUTS = ['midtown', 'downtown', 'manhattan'];
+// a ranch dressed on open land at one of a hometown's places (Mog City wagmi/storyrun/ranch.js): the marks a place alias
+// may name with `ranch` (where the player is sent there; every one outdoors and reached on foot from the road)
+export const RANCH_MARKS = ['gate', 'yard', 'porch', 'barn', 'stable', 'corral', 'windmill', 'hay', 'pasture'];
+export const RANCH_LIMITS = { ranches: 2, cattle: 16, horses: 6, sign: 32 };
 // archetype anchors (STORY-KIT-PLAN 3.3 #5): the hand-polished person a sheet varies from; 'none' starts from the base
 export const ANCHORS = ['none', 'old-boss', 'young-hero', 'grandmother', 'grandfather', 'chef', 'cop', 'doorman', 'teen',
   'office-worker', 'driver', 'fixer', 'nurse', 'mechanic', 'street-vendor', 'musician',
@@ -61,7 +65,11 @@ export { HERO_CARS, HERO_CAR_IDS } from './hero-cars.mjs';
 import { HERO_CAR_IDS } from './hero-cars.mjs';
 export const STEP_KINDS = ['drive', 'stops', 'walk', 'pursuit', 'timer', 'call', 'voicemail', 'voicenote', 'choice', 'cutscene',
   'place', 'set', 'say', 'wait', 'goto', 'end', 'label', 'transition', 'vignette', 'wallet', 'actEnd', 'comfort', 'tail',
-  'stealth', 'patrol', 'convoy', 'trigger', 'beat', 'roadblock', 'passenger', 'npc', 'fight', 'dm', 'search', 'scene', 'tow', 'ally', 'car'];
+  'stealth', 'patrol', 'convoy', 'trigger', 'beat', 'roadblock', 'passenger', 'npc', 'fight', 'dm', 'search', 'scene', 'tow', 'ally', 'car',
+  'mount', 'ride', 'dismount'];
+// the steps on the story's horse (a hometown story on Mog City's engine: its `horse`, saddled alongside the hero's car;
+// Mog City wagmi/game.js the two rides): mount at a place, ride to places, dismount; gate.ts says where they may be used
+export const HORSE_STEPS = ['mount', 'ride', 'dismount'];
 // the kinds Mog City's runner has no part for yet (Mog City wagmi/storyrun/runner.js KINDS_STUB): on mogcity-1 they pass
 // at once without playing, so a story never rests on one (gate.ts warns; the builder refuses them in a new story)
 export const MOGCITY_STUBS = ['patrol', 'wallet'];
@@ -169,6 +177,14 @@ const STEPS = fx(['drive', 'stops', 'pursuit', 'tail', 'tow', 'timer', 'fight', 
     stopTimer: ONE(B, R('slug'), { description: "on arrival, stop a running timer by its name (true: every one): the clock beaten" }) }, ['to']),
   stops: step('stops', { stops: A(R('stopRef'), 8, 1), radius: N(3, 60), objective: R('objective') }, ['stops']),
   walk: step('walk', { to: R('placeRef'), radius: N(1, 20), leaveCar: B, enterCar: B, beam: B, objective: R('objective') }, ['to']),
+  // the story's horse (its `horse`): mount where he stands saddled (`at`: stood there first, on the place's footpath side;
+  // the hero drives up, gets out and climbs up, F), ride to a place as a drive is driven (a horse's pace: a trot, a gallop
+  // on Shift; the streets either way, as a man walks them), dismount. Driving again after a ride needs the dismount first
+  mount: step('mount', { at: R('placeRef'), objective: R('objective'), quick: { ...B, description: 'up into the saddle at once (a scene that wants him up there)' },
+    arm: E(['bat', 'bottle'], { description: 'something in his hand for the blows from the saddle (J)' }) }),
+  ride: step('ride', { to: ONE(R('placeRef'), A(R('placeRef'), 6, 1)), radius: N(3, 60), stop: B, objective: R('objective'), bonus: N(0, 600), flag: R('flag'),
+    stopTimer: ONE(B, R('slug'), { description: "on arrival, stop a running timer by its name (true: every one)" }) }, ['to']),
+  dismount: step('dismount', { objective: R('objective'), quick: { ...B, description: 'down at once' } }),
   pursuit: step('pursuit', {
     count: R('value'), level: I(1, 5), kind: E(['crew', 'police']), goal: E(['lose', 'reach', 'escort']), to: R('placeRef'), radius: N(3, 60),
     los: N(0, 20), roles: A(E(['chaser', 'cutter', 'pacer', 'blocker']), 6), until: N(5, 600), loseDist: N(40, 400), loseTime: N(1, 30),
@@ -388,6 +404,8 @@ export const SCHEMA = {
     cine: O({ action: { ...B, description: "the action layer: chase cameras, speed lines, near misses held in slow motion, crash beats, title slams. On by itself in a hometown story" } }),
     opening,
     ride: { ...R('rideId'), description: 'the free-drive ride (a vehicle id); the first vehicle when left out' },
+    horse: O({ name: S(24, { pattern: "^[A-Z][A-Za-z' .-]{0,23}$", description: "the horse's name, on the HUD and in the words ('Dusty')" }) }, ['name'],
+      { description: "the hero's horse, saddled alongside the hero's car (a hometown story on Mog City's engine, in horse country: a ranch, a farm, a rodeo town): the mount, ride and dismount steps ride him. Never a vehicle" }),
     heroCar: E(HERO_CAR_IDS, { description: "the player's car as the creator picked it on Create (left out: the story's own). The hero's ride (ride, or the first vehicle) is then a vehicle sheet of that kind of car (gate.ts), and in a hometown Mog City draws it as the town fleet's realistic model of that name" }),
     hud: O({
       clock: O({ label: S(12), format: E(['count', 'age', 'text']), unit: S(12, { pattern: '^[a-z]{1,12}$' }), unitLabel: S(12), zero: S(24) }),
@@ -395,8 +413,16 @@ export const SCHEMA = {
         goal: N(1, 1e7, { description: "what it is raised toward: the HUD shows '$430,000 / $1,000,000' and a bar, the MISSION PASSED card its progress" }) }, ['id', 'kind']), 4)
     }),
     places: { type: 'object', maxProperties: 24, propertyNames: R('placeKey'), additionalProperties: O({ '@': R('placeKey'), name: S(60), face: R('placeKey'), heading: R('heading'),
-      offset: O({ right: N(-60, 60), fwd: N(-60, 60) }, [], { description: "a sub-place: metres from the key's point along its facing (right, forward): the side door round the corner" }) }, ['@']),
+      offset: O({ right: N(-60, 60), fwd: N(-60, 60) }, [], { description: "a sub-place: metres from the key's point along its facing (right, forward): the side door round the corner" }),
+      ranch: E(RANCH_MARKS, { description: "a place at a ranch (ranches[]): its `@` the same town place as the ranch's own; the player is sent to that mark of the ranch (its gate on the road for a car)" }) }, ['@']),
       description: 'the pack\'s own names for city places: { key: { "@": cityKey, name } }. Never a coordinate.' },
+    ranches: A(O({
+      place: { ...R('placeKey'), description: "the pack's own place (a key of places) the ranch is dressed at: Mog City finds the open land at the edge of the town nearest it (up to about 4 km out), fronting a road, and builds the ranch there; the place is then the ranch's yard (its gate for a car)" },
+      sign: S(RANCH_LIMITS.sign, { description: "the name over the gate, as the sign reads (\"Colter Ranch\"); an original name, never a real ranch's or brand's" }),
+      brand: S(1, { pattern: '^[A-Z]$', description: 'the letter of the ranch\'s brand, burned into the sign beside the name (default: the name\'s first letter)' }),
+      cattle: I(0, RANCH_LIMITS.cattle, { description: 'cattle grazing in the pasture (default 12)' }),
+      horses: I(0, RANCH_LIMITS.horses, { description: 'horses idling in the corral, props only (default 3): scenery, never a ride' }),
+    }, ['place']), RANCH_LIMITS.ranches, 0, { description: "hometown only: a ranch dressed at one of the story's places (a rural place the town's map has not got): fences, the gate and its sign, the farmhouse and porch, the barn, the stable, a corral of horses, the windmill and its trough, hay, the pasture and its cattle. Name its marks with place aliases' `ranch`" }),
     cast: A(O({
       id: R('slug'), anchor: E(ANCHORS), color: R('colour'), voiceOnly: { ...B, description: 'heard, never seen (a dispatcher on the phone): no sheet, no body' },
       model: E(CAST_MODELS, { description: 'a shipped person from the cast registry (public/storykit/cast/registry.json), as they are: their own body, clips, face and recorded lines. No sheet. anchor and voice default to the registry\'s' }),

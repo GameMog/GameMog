@@ -405,6 +405,32 @@ Every place is a key from Mog City's place list (given after this chapter): `"@l
 - Mog City has no named camera points: a camera is a place, `"player"`, or `{ "rel": "player" | "<cast id>",
   "right", "up", "fwd" }` (from that person's eyes, in their frame: a close-up).
 
+### Ranches (a hometown)
+
+A hometown's map has its streets, buildings and named places, but not the ranches and farms out past them. When the
+story lives on a ranch (a ranch family's spread, a horse barn, the cattle a plot turns on), ask Mog City to **dress
+one**: `ranches: [{ "place": "colter-ranch", "sign": "Colter Ranch", "brand": "C", "cattle": 10, "horses": 3 }]`, its
+`place` one of your own `places`, aliased to a town place on the side of town where the ranch should be (a gas
+station or a store on the road out). Mog City finds the open land at the edge of the town nearest it (often a kilometre
+or more out, up to about 4 km), fronting a road, clear of every building and road, and builds the ranch there: the
+fences, the gate with its sign (your `sign`, the brand's letter beside it), the farmhouse and porch, the red barn, the
+stable, a corral with the horses, the windmill and its trough, hay, the pasture and its cattle. So `"@colter-ranch"` is
+the ranch, not that town place: give the town place an alias of its own if the story goes there too.
+
+- Write one only when the story is about the ranch (where its people live and work, where it is won or lost). A story
+  that only passes a farm needs none. Two at most (two ranch families).
+- `"@colter-ranch"` is then the ranch's yard (a `drive` there ends at its gate on the road). Name its other spots with
+  aliases of the same town place and a `ranch` mark: `"colter-porch": { "@": "<the same town key>", "ranch":
+  "porch", "name": "the porch" }`. The marks: `gate`, `yard`, `porch`, `barn`, `stable`, `corral`, `windmill`, `hay`,
+  `pasture`. Every one is outdoors and reached on foot from the road (a walk, a search, a fight, an npc there).
+- The sign is an original name in the story's own words, never a real ranch, company or brand. Its people dress for
+  it (see People: a rancher in a cowboy hat, boots and work wear).
+- The horses and cattle are the ranch's own animals, idling and grazing: scenery the player sees, never a ride.
+- A town with no open land at all inside its map (a small district of a town still building) gets the ranch on the
+  nearest open park instead, and with none of that either, the place plays as the town place it is aliased to: the
+  story never stops for it.
+- New York and San Francisco have no open land: `ranches` is for a hometown only.
+
 ## The city is the city
 
 The story happens in New York, and every on-screen word says so. **On-screen labels** (titles, objectives, place
@@ -424,6 +450,9 @@ This is the rule the gate holds hardest, because breaking it is what made a Mog 
   on foot or in a car that fits and say so in the blurb in the story's own words; never dress a car as a bike.
 - **A person is a person, an animal is a pet.** A dog is in `pets` (`species: "dog"`, the only animal the engine has),
   never a cast member whose name or role is "the dog". A pet can appear as an npc; it never speaks lines.
+- **A horse is the story's horse, never a vehicle.** In a hometown story in horse country the hero may have a horse
+  (`horse`, ridden with `mount`, `ride` and `dismount` steps: Horses, below); a vehicle sheet is never a horse or
+  named one, and a person is never renamed into one.
 - **A verb is what the ride can do.** Each mission lists its `verbs`, and the gate adds the ones its steps imply
   (a `drive` is drive, a `pursuit` to lose is escape) and the ones its words say ("ram", "hop", "pedal"). Every one
   must be possible on the mission's ride, or the pack is refused:
@@ -599,15 +628,49 @@ starts `rides.` by convention. No maker's or model's real name anywhere (label, 
 The hero's free-roam car is `ride`.
 
 **The creator's car (`heroCar`).** A Create may come with the hero's car picked (the Car dropdown: GT Coupe, Muscle
-Car, Roadster, Sports Car, Sports Coupe, Supercar, Sedan, Old Sedan, Hatchback, City Car, SUV, Minivan, Pickup, Van).
-The first turn then says so: write `"heroCar"` exactly as it says, and make the hero's `ride` a car4 sheet of that kind
+Car, Roadster, Sports Car, Sports Coupe, Supercar, Sedan, Old Sedan, Hatchback, City Car, SUV, Minivan, Pickup, Van,
+Crossover, Compact Pickup, Four by Four; the SUV and the Pickup are full-size). The first turn then says so: write
+`"heroCar"` exactly as it says, and make the hero's `ride` a car4 sheet of that kind
 of car (its class as the turn names it, no `hop` or `dash`, `boost` only on a sports car), so every mission in the
 hero's own car is one that car can do. In a hometown Mog City draws it as the town's realistic model of that name. With
-no car picked, leave `heroCar` out and choose the car the story needs.
+no car picked, leave `heroCar` out and choose the car the story needs. In a hometown any `pickup` or `suv` sheet (the
+hero's or a mission's ride) is drawn as the town's full-size realistic pickup or SUV, keeping its own name, paint
+(the whole body, any colour), sound, handling and abilities.
 
 Copy says what the ride is with tokens, so a Mog that swaps the car keeps its lines: `{ride}` (the noun: cab, van),
 `{ride.name}` (its label), `{ride.board}` (get in), `{ride.go}` (drive), `{ride.park}` (park). In objectives also `{n}`,
 `{of}`, `{name}` (stops). Any other `{token}` is refused.
+
+## Horses (a hometown story in horse country)
+
+The hero may own a horse, saddled and standing by alongside the car, **only in a hometown story** (`base.city`
+`"hometown"`) **set in horse country**: a ranch or a farm family, a rodeo town, a mountain or prairie town, a trail
+outfitter, a county fair. Never in one of Mog City's own big-city worlds (a pack whose `base.city` is not
+`"hometown"`), never for a city or a suburban story, and never because the idea is merely "western" in a downtown. Name him once at the top: `"horse": { "name": "Dusty" }` (a plain name,
+capitalised, at most 24 characters; it is on the speed panel and in the words). Mog City builds him (a saddled bay)
+and keeps the car too: the hero drives up, gets out, climbs into the saddle, rides, gets down and drives on, and the
+player can swap between them on foot at any time (F beside either).
+
+| want | write |
+|---|---|
+| get up on him (he waits saddled there) | `{ "type": "mount", "at": "@ranch-gate", "objective": "Saddle up on **Dusty**." }` |
+| ride somewhere (a drive on the horse) | `{ "type": "ride", "to": "@north-pasture", "objective": "Ride **Dusty** to **the north pasture**." }` |
+| get down | `{ "type": "dismount", "objective": "Get down from **Dusty**." }` |
+
+- **In order, in one mission:** a `mount`, then one or more `ride`s (talk, a call, a fight from the saddle between
+  them), then a `dismount` **before any car step** (`drive`, `stops`, `tail`, `pursuit`, `tow`). A `ride` or a
+  `dismount` with nobody up is refused, and so is a `mount` when he is already up. Never as a side step (`during`).
+- **Where he stands:** `mount.at` is a place he can be walked up to: a park, a fairground, a trailhead, the edge of town,
+  a ranch's gate (an alias of a real place: never a private home). The hero arrives in the car, gets out and walks to
+  him. Without `at` he is wherever the hero left him (or comes at his whistle).
+- **Where he goes:** a `ride` goes where a man on foot could walk: the streets (either way down a one-way), parks,
+  plazas. **250 to 1,800 m** as the crow flies (a trot and a gallop, about a minute or two in the saddle). Never a
+  highway, never a chase, a tail or a tow on horseback: those are the car's.
+- **What it is for:** the ranch's own work and its pride: riding out to check a fence, to a neighbour's, to bring
+  someone home the old way, a ride the town turns to look at. One or two missions with a ride make the story feel like
+  horse country; every mission on horseback makes it a commute. The car stays the story's main ride.
+- **His words:** he is "Dusty" or "the horse", never "the car" or "the truck"; saddle words ("saddle up", "the
+  reins") belong to his missions. A fight can happen with him close by: the hero fights from the saddle or gets down.
 
 ## Dressing
 

@@ -20,5 +20,9 @@ export const HERO_CARS = [
   { id: 'minivan', label: 'Minivan', classes: ['minivan'], group: 'everyday' },
   { id: 'pickup', label: 'Pickup', classes: ['pickup'], group: 'everyday' },
   { id: 'van', label: 'Van', classes: ['van'], group: 'everyday' },
+  // (16 Nov: 'suv' and 'pickup' are the fleet's full-size ones now; the smaller two they were, and a short four-by-four)
+  { id: 'crossover', label: 'Crossover', classes: ['crossover', 'suv'], group: 'everyday' },
+  { id: 'compact-pickup', label: 'Compact Pickup', classes: ['pickup'], group: 'everyday' },
+  { id: 'four-by-four', label: 'Four by Four', classes: ['suv'], group: 'everyday' },
 ];
 export const HERO_CAR_IDS = HERO_CARS.map((c) => c.id);

@@ -913,6 +913,22 @@
    "$ref": "#/$defs/rideId",
    "description": "the free-drive ride (a vehicle id); the first vehicle when left out"
   },
+  "horse": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "name"
+   ],
+   "properties": {
+    "name": {
+     "type": "string",
+     "maxLength": 24,
+     "pattern": "^[A-Z][A-Za-z' .-]{0,23}$",
+     "description": "the horse's name, on the HUD and in the words ('Dusty')"
+    }
+   },
+   "description": "the hero's horse, saddled alongside the hero's car (a hometown story on Mog City's engine, in horse country: a ranch, a farm, a rodeo town): the mount, ride and dismount steps ride him. Never a vehicle"
+  },
   "heroCar": {
    "enum": [
     "gt-coupe",
@@ -928,7 +944,10 @@
     "suv",
     "minivan",
     "pickup",
-    "van"
+    "van",
+    "crossover",
+    "compact-pickup",
+    "four-by-four"
    ],
    "description": "the player's car as the creator picked it on Create (left out: the story's own). The hero's ride (ride, or the first vehicle) is then a vehicle sheet of that kind of car (gate.ts), and in a hometown Mog City draws it as the town fleet's realistic model of that name"
   },
@@ -1083,10 +1102,66 @@
        }
       },
       "description": "a sub-place: metres from the key's point along its facing (right, forward): the side door round the corner"
+     },
+     "ranch": {
+      "enum": [
+       "gate",
+       "yard",
+       "porch",
+       "barn",
+       "stable",
+       "corral",
+       "windmill",
+       "hay",
+       "pasture"
+      ],
+      "description": "a place at a ranch (ranches[]): its `@` the same town place as the ranch's own; the player is sent to that mark of the ranch (its gate on the road for a car)"
      }
     }
    },
    "description": "the pack's own names for city places: { key: { \"@\": cityKey, name } }. Never a coordinate."
+  },
+  "ranches": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "place"
+    ],
+    "properties": {
+     "place": {
+      "$ref": "#/$defs/placeKey",
+      "description": "the pack's own place (a key of places) the ranch is dressed at: Mog City finds the open land at the edge of the town nearest it (up to about 4 km out), fronting a road, and builds the ranch there; the place is then the ranch's yard (its gate for a car)"
+     },
+     "sign": {
+      "type": "string",
+      "maxLength": 32,
+      "description": "the name over the gate, as the sign reads (\"Colter Ranch\"); an original name, never a real ranch's or brand's"
+     },
+     "brand": {
+      "type": "string",
+      "maxLength": 1,
+      "pattern": "^[A-Z]$",
+      "description": "the letter of the ranch's brand, burned into the sign beside the name (default: the name's first letter)"
+     },
+     "cattle": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 16,
+      "description": "cattle grazing in the pasture (default 12)"
+     },
+     "horses": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 6,
+      "description": "horses idling in the corral, props only (default 3): scenery, never a ride"
+     }
+    }
+   },
+   "minItems": 0,
+   "maxItems": 2,
+   "description": "hometown only: a ranch dressed at one of the story's places (a rural place the town's map has not got): fences, the gate and its sign, the farmhouse and porch, the barn, the stable, a corral of horses, the windmill and its trough, hay, the pasture and its cattle. Name its marks with place aliases' `ranch`"
   },
   "cast": {
    "type": "array",
@@ -2739,6 +2814,279 @@
       },
       "objective": {
        "$ref": "#/$defs/objective"
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type"
+     ],
+     "properties": {
+      "type": {
+       "const": "mount"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "$ref": "#/$defs/placeRef"
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "type": "boolean"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "objective": {
+       "$ref": "#/$defs/objective"
+      },
+      "quick": {
+       "type": "boolean",
+       "description": "up into the saddle at once (a scene that wants him up there)"
+      },
+      "arm": {
+       "enum": [
+        "bat",
+        "bottle"
+       ],
+       "description": "something in his hand for the blows from the saddle (J)"
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type",
+      "to"
+     ],
+     "properties": {
+      "type": {
+       "const": "ride"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 600,
+       "description": "a side step only (during, do): seconds in"
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "type": "boolean"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "to": {
+       "oneOf": [
+        {
+         "$ref": "#/$defs/placeRef"
+        },
+        {
+         "type": "array",
+         "items": {
+          "$ref": "#/$defs/placeRef"
+         },
+         "minItems": 1,
+         "maxItems": 6
+        }
+       ]
+      },
+      "radius": {
+       "type": "number",
+       "minimum": 3,
+       "maximum": 60
+      },
+      "stop": {
+       "type": "boolean"
+      },
+      "objective": {
+       "$ref": "#/$defs/objective"
+      },
+      "bonus": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 600
+      },
+      "flag": {
+       "$ref": "#/$defs/flag"
+      },
+      "stopTimer": {
+       "oneOf": [
+        {
+         "type": "boolean"
+        },
+        {
+         "$ref": "#/$defs/slug"
+        },
+        {
+         "description": "on arrival, stop a running timer by its name (true: every one)"
+        }
+       ]
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type"
+     ],
+     "properties": {
+      "type": {
+       "const": "dismount"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 600,
+       "description": "a side step only (during, do): seconds in"
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "type": "boolean"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "objective": {
+       "$ref": "#/$defs/objective"
+      },
+      "quick": {
+       "type": "boolean",
+       "description": "down at once"
       }
      }
     },
