@@ -536,12 +536,11 @@ and speak but never stands in a scene: never an `npc`, an enemy or a close-up.
   caps are a city kid's. A creator's "cowboy hat" or "Stetson" is always a `cowboy-hat`.
 - **Western wear** for ranch, rodeo and rural-West people (all plain cloth, no logos): top `western-shirt` (pearl
   snaps, pointed yoke; `pattern` `plaid` with `accent` the plaid's bands, or `plain` with `accent` the yoke's piping),
-  jeans, shoes `cowboy-boots` (`color` the leather: any brown comes out an oiled saddle brown, a light tan darkened to
-  one; `accent` tints the shaft). In `over`: `western-belt` (only with a `western-shirt`, which it
-  tucks in; `accent` the buckle's metal) and `bandana` (`accent` its print). Vary them across a cast: the rancher in a
-  plain shirt, belt and hat, the hand in a plaid shirt and belt, the daughter in a plaid shirt and a bandana. There is
-  no western vest, ranch jacket or duster yet: never write one (the forge leaves it off). Dress only the ranch's own
-  people this way; town people (the developer, the banker, the sheriff, the diner's waitress) keep their own clothes.
+  jeans, dark `work-boots`. In `over`: `western-belt` (only with a `western-shirt`, which it tucks in; `accent` the
+  buckle's metal) and `bandana` (`accent` its print). Vary them across a cast: the rancher in a plain shirt, belt and
+  hat, the hand in a plaid shirt and belt, the daughter in a plaid shirt and a bandana. There are no cowboy boots,
+  western vests, ranch jackets or dusters yet: never write one (the forge forges cowboy boots as dark work boots and
+  leaves the others off). Dress only the ranch's own people this way; town people (the developer, the banker, the sheriff, the diner's waitress) keep their own clothes.
 - **Invented people only.** No real person, living or dead, famous or not, by name, likeness or voice: no "looks
   like", "sounds like", "played by", "in the style of", "a younger version of". There is no field for a likeness, a
   photo or a reference, and a pack with one is refused. If the creator names a real person, write an original

@@ -15,7 +15,7 @@
 //             with the library's settings (BRAIDS)
 // Every number is in metres in the body's bind space (y up, z forward, +x the character's left).
 import { SHOES } from './shoes.mjs';
-import { standCollar, turnCollar, neckSkin } from './necklines.mjs';
+import { standCollar, turnCollar, neckSkin, evenNeckline } from './necklines.mjs';
 const sm = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 const hash3 = (x, y, z) => { let h = (x * 374761393 + y * 668265263 + z * 2147483647) >>> 0; h = ((h ^ (h >>> 13)) * 1274126177) >>> 0; return ((h ^ (h >>> 16)) & 0xffff) / 65535; };
@@ -486,13 +486,16 @@ export function collar(ctx, o) {
   const rAt = (a) => { const u = ((a + Math.PI) / (2 * Math.PI)) * NB - 0.5, i0 = ((Math.floor(u) % NB) + NB) % NB, f = u - Math.floor(u); return rN[i0] * (1 - f) + rN[(i0 + 1) % NB] * f; };
   const P = [], UV = [], JI = [], WT = [], idx = [], NA = 72, prof = o.style === 'turn' ? [[0, 0], [0.5, 0.004], [0.85, 0.006], [1, 0.012], [0.72, 0.024], [0.3, 0.034], [0.05, 0.04]] : [[0, 0], [0.5, 0.0015], [1, -0.002]];
   const open = o.open ?? 0, nk = BI('neck01'), sp = BI('spine05') >= 0 ? BI('spine05') : BI('spine04'), cl = [BI('clavicle.L'), BI('clavicle.R')];
-  // (o.frontGap: the band open at the front instead (a jacket's collar runs round the back into its lapels))
-  for (let i = 0; i <= NA; i++) { const a = o.frontGap ? o.frontGap + ((2 * Math.PI - 2 * o.frontGap) * i) / NA : -Math.PI + open + ((2 * Math.PI - 2 * open) * i) / NA, r0 = rAt(a) + gap, front = 0.5 + 0.5 * Math.cos(a), yb = cy - (o.dropFront ?? 0) * front * front;
+  // (o.open, o.frontGap: half the band's opening, at the front (a = 0), its back whole. WS2, 17 Nov: `open` laid the band
+  // from -PI + open to PI - open, so its opening was at the BACK: a western shirt's collar split at centre back over a
+  // notch of bare neck in the hero's close-up from behind, an overcoat's the same)
+  const g = o.frontGap ?? open;
+  for (let i = 0; i <= NA; i++) { const a = g + ((2 * Math.PI - 2 * g) * i) / NA, r0 = rAt(a) + gap, front = 0.5 + 0.5 * Math.cos(a), yb = cy - (o.dropFront ?? 0) * front * front;
     for (let k = 0; k < prof.length; k++) { const [u, out] = prof[k], hh = h * (1 - (o.lowFront ?? 0) * front), y = yb + u * hh, r = r0 + out * (o.scale ?? 1);
       P.push(Math.sin(a) * r, y, nz + Math.cos(a) * r); UV.push(i / NA, k / (prof.length - 1));
       // (its weights: the nearest neck / shoulder point's (not the head's), so it turns with the neck as the skin does)
       const q = (o.follow ? nearestNeck : nearestBody)(ctx, [Math.sin(a) * r, y, nz + Math.cos(a) * r]); if (q >= 0) { const e = [0, 1, 2, 3].map((k) => [ctx.si[q * 4 + k], ctx.sw[q * 4 + k] / 255]); for (const [j, w] of e) { JI.push(j); WT.push(w); } }
-      else { const side = a > 0 ? 0 : 1, wc = 0.25 * (1 - Math.abs(Math.cos(a))); JI.push(sp, nk, cl[side], 0); WT.push(0.62 - wc, 0.38, wc, 0); } } }
+      else { const side = Math.sin(a) > 0 ? 0 : 1, wc = 0.25 * (1 - Math.abs(Math.cos(a))); JI.push(sp, nk, cl[side], 0); WT.push(0.62 - wc, 0.38, wc, 0); } } }
   const R = prof.length; for (let i = 0; i < NA; i++) for (let k = 0; k < R - 1; k++) { const a = i * R + k, b = a + R; idx.push(a, b, a + 1, a + 1, b, b + 1); }
   // (NK: every triangle wound to face out from the neck: a turned collar's fold faced in, so its outside was a back face)
   for (let q = 0; q < idx.length; q += 3) { const [a, b, c] = [idx[q], idx[q + 1], idx[q + 2]], u = [0, 1, 2].map((k) => P[b * 3 + k] - P[a * 3 + k]), w = [0, 1, 2].map((k) => P[c * 3 + k] - P[a * 3 + k]);
@@ -666,7 +669,7 @@ export const GARMENTS = {
 };
 function coat(ctx, o) {
   const col = hexRGB(o.color, o.kind === 'chef' ? [238, 238, 234] : [60, 60, 66]), acc = hexRGB(o.accent, o.kind === 'doorman' ? [176, 140, 58] : o.kind === 'chef' ? [228, 226, 220] : [24, 22, 22]);
-  const hem = o.hemTop ?? o.hem, field = torsoArmField(ctx, { ...o, hem, neckBase: o.neckBase ?? (o.collar === 'stand' ? 0.022 : 0.026), neckFront: o.neckFront ?? (o.collar === 'turn' ? 0.03 : 0.02), neckBack: o.collar === 'stand' ? 0.014 : 0, hugNeck: o.collar === 'stand' ? { margin: o.kind === 'chef' ? 0.009 : 0.006, up: 0.015 } : null, vee: o.vee ?? (o.collar === 'turn' ? 0.07 : 0) });
+  const hem = o.hemTop ?? o.hem, field = torsoArmField(ctx, { ...o, hem, neckBase: o.neckBase ?? (o.collar === 'stand' ? 0.022 : 0.026), neckFront: o.neckFront ?? (o.collar === 'turn' ? 0.03 : 0.02), neckBack: o.collar === 'stand' ? 0.014 : 0, hugNeck: o.collar === 'stand' ? { margin: o.kind === 'chef' ? 0.009 : 0.006, up: 0.015 } : o.hug ?? null, vee: o.vee ?? (o.collar === 'turn' ? 0.07 : 0) });
   const weave = CLOTH[o.cloth] || CLOTH.cotton, overlapX = o.db ? 0.055 : 0.0, ribBand = 0.05;
   const quilt = (p, c) => { if (!o.quilt) return 0; const h = c === 1 ? ctx.down(p) / o.quilt.sleeve : (p[1] - ctx.WAIST) / o.quilt.pitch, fq = h - Math.floor(h); return 0.5 - 0.5 * Math.cos(2 * Math.PI * fq); };
   const thick = (p, c, f) => (c === 1 ? o.thick * 0.85 : o.thick) + (o.flap && p[0] < overlapX && p[2] > 0.02 && p[1] < ctx.NECKY - 0.03 ? 0.0025 : 0) + (o.quilt ? o.quilt.amp * 0.5 : 0);
@@ -691,8 +694,11 @@ function coat(ctx, o) {
       // (MV: each baffle's down lumpy, the nylon crinkled where the stitching pulls it in)
       k *= 0.93 + 0.1 * fbm(p, 0.028); if (q < 0.3) k *= 0.9 + 0.1 * fbm(p, 0.0045); }
     const ang = Math.atan2(p[0], p[2]);
-    if (f < 0.006 && f >= 0) k *= 0.86 + 0.14 * sm(0.0, 0.006, f); // (a hem's turn)
-    if (Math.abs(f - 0.009) < 0.0006) k *= 0.82; // (its stitch line)
+    // (WS2: not at a sewn collar's neckline: the band is sewn there, under its fall; the turn's shade showed under the fall
+    // as a grey smudge at the back)
+    const hemHere = !(o.hug && c !== 1 && p[1] > ctx.NECKY - 0.08);
+    if (hemHere && f < 0.006 && f >= 0) k *= 0.86 + 0.14 * sm(0.0, 0.006, f); // (a hem's turn)
+    if (hemHere && Math.abs(f - 0.009) < 0.0006) k *= 0.82; // (its stitch line)
     if (o.ribs && f < ribBand) { const a = c === 1 ? ang * 3 + p[1] * 40 : ang; k *= rib(p, a, c === 1 ? 60 : 220); }
     if (o.trim && c === 1 && f < 0.05 && f > 0.012 && ctx.down(p) > ctx.wristDown[p[0] >= 0 ? 'L' : 'R'] - 0.09) C0 = acc; // (a uniform's cuffs in the trim colour)
     if (o.cuffBand && c === 1 && f < o.cuffBand) { k *= f < 0.003 ? 0.85 : 1.02; if (Math.abs(f - o.cuffBand) < 0.0012) k *= 0.8; }
@@ -727,7 +733,7 @@ function coat(ctx, o) {
     const cm = standCollar(ctx, { name: o.kind, sh, nearestNeck, field, top: tall ? 0.03 : o.kind === 'chef' ? 0.002 : 0.011, smoothTop: o.kind === 'chef', dropFront: tall ? 0.012 : o.kind === 'chef' ? -0.002 : 0.007, gap: tall ? 0.006 : 0.0025, th: tall ? 0.011 : 0.0035, open: o.kind === 'chef' ? 0.09 : tall ? 0.08 : 0, round: o.kind === 'chef' ? 0.012 : 0.007, minH: tall ? 0.04 : 0.018 }); for (const t of cm.hide) sh.hide.add(t);
     extras.push({ name: o.kind + '-collar', mesh: cm, S: 512, base: col,
       paint: (p, n, f, c, ao, uv) => { const roll = uv[1] > 0.4 && uv[1] < 0.64; return shade(o.trim && roll ? acc : col, weave(p) * (roll ? 0.92 : 1) * (uv[1] < 0.05 ? 0.8 : 1) * (o.kind !== 'chef' && !tall && (uv[0] < 0.005 || uv[0] > 0.995) ? 0.45 : 1)); } }); }
-  if (o.collar === 'turn' && o.turn) extras.push(westCollar(ctx, o, col, weave));
+  if (o.collar === 'turn' && o.turn) extras.push(westCollar(ctx, o, col, weave, sh, field));
   else if (o.collar === 'turn') extras.push({ name: o.kind + '-collar', mesh: collar(ctx, { y: ctx.NECKY - (o.collar === 'turn' ? 0.04 : o.collar === 'stand-tall' ? 0.03 : 0.024), h: o.collar === 'turn' ? 0.05 : o.collar === 'stand-tall' ? (o.scarf ? 0.04 : 0.065) : 0.036, style: o.collar === 'stand-tall' ? 'stand' : o.collar, follow: o.collar === 'stand-tall', gap: o.thick + (o.collar === 'stand-tall' ? 0.008 : 0.004), dropFront: o.collar === 'turn' ? 0.035 : 0.006, open: o.collar === 'stand' && o.kind === 'chef' ? 0.12 : o.collar === 'turn' ? 0.42 : 0.05 }), S: 256, base: col, paint: (p, n, f, c, ao, uv) => shade(o.trim && (uv[1] > 0.82 || uv[1] < 0.1) ? acc : col, weave(p) * (uv[1] > 0.95 ? 0.85 : 1)) });
   // (HD: no neckband under a hood worn up: the hood is sewn in there)
   if (o.collar === 'rib' && !o.hoodUp) extras.push({ name: o.kind + '-neckband', mesh: standCollar(ctx, { name: 'rib', sh, nearestNeck, shellWeights: true, seamBack: true, top: -0.008, dropFront: 0.012, gap: 0.003, th: 0.0055, open: 0, minH: 0.012, tuck: 0.005 }), S: 256, base: col, paint: (p) => shade(col, rib(p, Math.atan2(p[0], p[2]), 200) * 0.97) });
@@ -1267,13 +1273,25 @@ function yokeOf(ctx) {
 const stitchAt = (p, d, w = 0.00045, pitch = 0.0016) => Math.abs(d) < w && Math.sin((p[0] + p[1] + p[2]) / pitch * Math.PI) > -0.15;
 // a turned collar sized for the garment (o.turn: y under the neck's base, h, drop in front, open at the front, scale of
 // the leaf); a sherpa collar (o.sherpa, the accent) is a fleece pile
-function westCollar(ctx, o, col, weave) {
-  const T = o.turn, sher = o.sherpa;
-  const mesh = collar(ctx, { y: ctx.NECKY - (T.y ?? 0.036), h: T.h ?? 0.03, style: 'turn', gap: o.thick + (T.gap ?? 0.003), dropFront: T.drop ?? 0.03, open: T.open ?? 0.32, scale: T.scale ?? 0.7 });
+// (WS2, 17 Nov: a western shirt's own collar (not under an outer garment) is sewn to its neckline (necklines.mjs
+// turnCollar, as a jacket's): the stand up the neck from the shirt's own cut edge, closed round the back, and the fall
+// over that edge, so neither the edge nor the skin at the shoulders' tops beside the neck shows. The free band (collar())
+// stood on a ring sized to the neck alone: at the trapezius the shirt's edge lay out past its fall, the skin in wedges
+// over it, and its opening was at the back (a ragged notch of bare neck at centre back from behind))
+function westCollar(ctx, o, col, weave, sh, field) {
+  const T = o.turn, sher = o.sherpa, sewn = o.kind === 'western' && !o.under && sh;
+  if (sewn) evenNeckline(ctx, sh, { envelope: 3, smooth: 40 });
+  const mesh = sewn ? turnCollar(ctx, { sh, nearestNeck, field, even: { envelope: 3, smooth: 40 }, hideTop: 0.002, follow: 0.03, point: T.point ?? 0, gap: T.gap ?? 0.003, th: 0.0028, frontGap: T.open ?? 0.3, stand: T.h ?? 0.032, over: T.over ?? 0.009 })
+    : collar(ctx, { y: ctx.NECKY - (T.y ?? 0.036), h: T.h ?? 0.03, style: 'turn', gap: o.thick + (T.gap ?? 0.003), dropFront: T.drop ?? 0.03, open: T.open ?? 0.32, scale: T.scale ?? 0.7 });
+  // (the fall's edge and its stitch row by the uv's v: collar()'s leaf ends at v 1; a sewn collar's profile (the stand's
+  // inner face up, the turn, the fall's outer face down to its edge (point 10), back under) read off its first section)
+  const vE = sewn ? mesh.UV[10 * 2 + 1] : 1, vPerM = sewn ? (mesh.UV[10 * 2 + 1] - mesh.UV[9 * 2 + 1]) / Math.hypot(mesh.P[30] - mesh.P[27], mesh.P[31] - mesh.P[28], mesh.P[32] - mesh.P[29]) : 0;
+  if (sewn && field) for (const t of mesh.hide) sh.hide.add(t);
+  const edge = (v) => (sewn ? Math.abs(v - vE) < 0.0012 * vPerM : v > 0.95), stitch = (v) => (sewn ? Math.abs(v - (vE - 0.0045 * vPerM)) < 0.0005 * vPerM : Math.abs(v - 0.86) < 0.02);
   // (a sherpa's pile: curly tufts a few millimetres across, each lit on its top and dark in the gaps between)
   const pile = (p) => { const a = vnoise(p[0] / 0.0024, p[1] / 0.0024, p[2] / 0.0024), b = vnoise(p[0] / 0.0011 + 4, p[1] / 0.0011, p[2] / 0.0011); return 0.62 + 0.42 * Math.pow(a, 0.8) * (0.75 + 0.25 * b); };
   return { name: o.kind + '-collar', mesh, S: sher ? 1024 : 256, base: sher || col, ...(sher ? { cloth: 'fleece', rough: 0.98, bump: (p) => { const v = 128 + 90 * (pile(p) - 0.83); return [v, v, v]; }, bumpK: 4 } : o.fabric ? { cloth: o.fabric } : {}),
-    paint: (p, n, f, c, ao, uv) => (sher ? shade(sher, pile(p)) : shade(o.plaid ? o.plaid(p, 0, true) : col, weave(p) * (uv[1] > 0.95 ? 0.82 : 1) * (Math.abs(uv[1] - 0.86) < 0.02 ? 0.9 : 1))) };
+    paint: (p, n, f, c, ao, uv) => (sher ? shade(sher, pile(p)) : shade(o.plaid ? o.plaid(p, 0, true) : col, weave(p) * (edge(uv[1]) ? 0.82 : 1) * (stitch(uv[1]) ? 0.9 : 1))) };
 }
 function westernShirt(ctx, o) {
   const N = ctx.NECKY, nz = ctx.jpos('neck01')[2] - 0.02, acc = hexRGB(o.accent, [30, 36, 52]), plain = o.pattern !== 'plaid', yoke = yokeOf(ctx);
@@ -1312,7 +1330,12 @@ function westernShirt(ctx, o) {
   // (under a vest, a jacket or a duster the collar is a small one, its leaf no further out than the outer garment's
   // neckline; and it is one of the shirt's parts, not an extra, so whatever is worn over it is cut to clear it)
   const r = coat(ctx, { ...o, kind: 'western', hem, hangRamp: 0.08, cloth: 'cotton', thick: 0.0062, collar: 'turn', lapels: false, vee: 0.012, neckBase: 0.02, neckFront: 0.022, cuff: 0.012, cuffBand: 0.062,
-    frontOnly: !!o.noCollar, turn: o.under ? { y: 0.026, h: 0.03, drop: 0.026, open: 0.3, scale: 0.22, gap: 0.0028 } : { y: 0.03, h: 0.036, drop: 0.032, open: 0.3, scale: 0.48, gap: 0.0028 }, buttonsN: 0, snaps, detail, plaid: plain ? null : plaid(ctx, o), yoke: plain ? null : yoke });
+    frontOnly: !!o.noCollar, turn: o.under ? { y: 0.026, h: 0.03, drop: 0.026, open: 0.3, scale: 0.22, gap: 0.0028 } : { h: 0.032, open: 0.15, gap: 0.006, over: 0.009, point: 0.028 },
+    // (WS2: its neckline brought up the shoulders' slope (up to 2.5 cm) to ring the neck's base, the collar's stand sewn on
+    // there: cut at the flat neckline, the trapezius beside the neck stood over it in skin wedges either side of the collar.
+    // The shoulder line still reads the cloth's own top beside the neck (a stand collar's coat's fieldBase let the raised
+    // cloth there stand over the line in shards))
+    hug: o.under || o.noCollar ? null : { margin: 0.005, up: 0.025 }, buttonsN: 0, snaps, detail, plaid: plain ? null : plaid(ctx, o), yoke: plain ? null : yoke });
   if (!o.noCollar) r.parts.push(...r.extras.filter((e) => /-collar$/.test(e.name))); r.extras = r.extras.filter((e) => !/-collar$/.test(e.name));
   return r;
 }

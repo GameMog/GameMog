@@ -578,7 +578,7 @@
     },
     "shoes": {
      "$ref": "#/$defs/garment",
-     "description": "item: dress | sneakers | white-sneakers | boots | work-boots | cowboy-boots (pointed toe, riding heel, pull-on, toe stitching; color = the leather, browns kept a saddle brown; accent tints the shaft) | work-shoes | skate-shoes (sneakers and work boots are cut from the foot; accent = a sneaker's stripe and heel)"
+     "description": "item: dress | sneakers | white-sneakers | boots | work-boots | cowboy-boots (not offered yet: forged as dark work-boots) | work-shoes | skate-shoes (sneakers and work boots are cut from the foot; accent = a sneaker's stripe and heel)"
     }
    }
   },

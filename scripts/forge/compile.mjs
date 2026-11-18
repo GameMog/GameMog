@@ -513,10 +513,17 @@ export function compile(S) {
   // (forge v2.3, SH: work boots and sneakers are the library's rigid shoes (shoes.mjs: a last round the foot, a sole, laces,
   // on the foot bone alone); FORGE_PACK_SHOES=1 the pack's. A man's dress shoes (the oxford) are built but opt in with
   // FORGE_LIB_DRESS=1: under a suit's long trousers they fail the cloth gate (the hem over the laces), so not anchor-ready)
-  const LIBSHOE = { 'cowboy-boots': 'cowboy-boots', 'work-boots': 'work-boots', boots: 'work-boots', sneakers: 'sneakers', 'white-sneakers': 'sneakers', 'skate-shoes': 'sneakers', ...(fem || !globalThis.process?.env?.FORGE_LIB_DRESS ? {} : { dress: 'dress-shoes' }) }[W.shoes.item];
-  if (LIBSHOE && !globalThis.process?.env?.FORGE_PACK_SHOES) { C.lib.unshift({ item: LIBSHOE, color: W.shoes.color ? G(W.shoes, [0, 0, 0]) : null, accent: W.shoes.accent || null, layer: 1.5 }); C.shoes = 'none'; } else
-  C.shoes = { dress: 'shoes03', boots: 'shoes02', 'cowboy-boots': 'shoes02', 'work-boots': 'shoes02', 'work-shoes': 'shoes04', loafers: 'shoes01', 'white-sneakers': 'shoes05', sneakers: 'shoes06', 'skate-shoes': 'shoes06' }[W.shoes.item] || 'shoes04';
-  C.shoesTint = W.shoes.color ? hex(W.shoes.color).map((x) => +(x / 160).toFixed(2)) : [1, 1, 1];
+  // (WS2, 17 Nov: the cowboy boots are held back like the western outerwear: in Chrome a light pair read as glossy rubber
+  // wellingtons on a flat heel and the jeans showed through the shaft. A sheet's cowboy-boots are forged as the work boots
+  // the dark work boots (the ranch hands' #2A211C: a cowboy boot's light tan on a work boot read pink), logged;
+  // FORGE_WEST_BOOTS=1 (Node only, never a creator's browser) forges them for work on them)
+  const westBoots = !!globalThis.process?.env?.FORGE_WEST_BOOTS;
+  const SH = W.shoes.item === 'cowboy-boots' && !westBoots ? { item: 'work-boots', color: '#2A211C' } : W.shoes;
+  if (SH !== W.shoes) log.push('cowboy-boots -> work-boots: not yet offered (the forge\'s cowboy boots are held back; the dark work boots)');
+  const LIBSHOE = { 'cowboy-boots': 'cowboy-boots', 'work-boots': 'work-boots', boots: 'work-boots', sneakers: 'sneakers', 'white-sneakers': 'sneakers', 'skate-shoes': 'sneakers', ...(fem || !globalThis.process?.env?.FORGE_LIB_DRESS ? {} : { dress: 'dress-shoes' }) }[SH.item];
+  if (LIBSHOE && !globalThis.process?.env?.FORGE_PACK_SHOES) { C.lib.unshift({ item: LIBSHOE, color: SH.color ? G(SH, [0, 0, 0]) : null, accent: SH.accent || null, layer: 1.5 }); C.shoes = 'none'; } else
+  C.shoes = { dress: 'shoes03', boots: 'shoes02', 'cowboy-boots': 'shoes02', 'work-boots': 'shoes02', 'work-shoes': 'shoes04', loafers: 'shoes01', 'white-sneakers': 'shoes05', sneakers: 'shoes06', 'skate-shoes': 'shoes06' }[SH.item] || 'shoes04';
+  C.shoesTint = SH.color ? hex(SH.color).map((x) => +(x / 160).toFixed(2)) : [1, 1, 1];
 
   /* the mouth: always teeth (found lips -> placed); the props for the runtime */
   C.teeth = true; C.teethScale = fem ? 0.96 : 1; C.teethTone = age > 60 ? [222, 212, 188] : [232, 224, 206];

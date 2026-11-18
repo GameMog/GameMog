@@ -2,7 +2,7 @@
  "id": "probe-western-bandana",
  "name": "Probe Ranch Daughter",
  "role": "probe: a rancher's daughter in a bandana",
- "logline": "A plaid pearl-snap shirt tucked under a western belt, a bandana, cowboy boots.",
+ "logline": "A plaid pearl-snap shirt tucked under a western belt, a bandana, dark work boots.",
  "identity": {
   "age": 36,
   "body": "female",
@@ -90,9 +90,8 @@
    "color": "#2C3646"
   },
   "shoes": {
-   "item": "cowboy-boots",
-   "color": "#6A4630",
-   "accent": "#4A3022"
+   "item": "work-boots",
+   "color": "#2A211C"
   },
   "over": [
    {

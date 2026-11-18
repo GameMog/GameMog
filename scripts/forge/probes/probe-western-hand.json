@@ -2,7 +2,7 @@
  "id": "probe-western-hand",
  "name": "Probe Ranch Hand",
  "role": "probe: a ranch hand in western wear",
- "logline": "A plain pearl-snap western shirt tucked under a tooled belt, jeans, cowboy boots, a cowboy hat.",
+ "logline": "A plain pearl-snap western shirt tucked under a tooled belt, jeans, dark work boots, a cowboy hat.",
  "identity": {
   "age": 58,
   "body": "male",
@@ -89,9 +89,8 @@
    "color": "#2C3646"
   },
   "shoes": {
-   "item": "cowboy-boots",
-   "color": "#4A3020",
-   "accent": "#2E2018"
+   "item": "work-boots",
+   "color": "#2A211C"
   },
   "over": [
    {

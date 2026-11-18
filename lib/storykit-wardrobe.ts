@@ -8,7 +8,7 @@
  * the sheet schema's item lists) and its anchors (scripts/forge/anchors) where one exists:
  *   hands-on work (garage, welding, docks, a truck) the mechanic anchor's work shirt, dark trousers, work boots
  *   construction   a khaki work shirt, jeans, work boots        farm      denim overalls over a tee, work boots
- *   ranch          a plaid pearl-snap western shirt, jeans, cowboy boots    chef/cook the chef anchor's whites, dark trousers, boots
+ *   ranch          a plaid pearl-snap western shirt, jeans, work boots      chef/cook the chef anchor's whites, dark trousers, boots
  *   nurse/doctor   scrubs (the nurse anchor: one colour top and trousers, white sneakers)
  *   cop/guard      a plain dark uniform jacket (its trim the cloth's colour: no gold, no badge, no cap), trousers, boots
  *   delivery       a plain slate tee (no company colours), dark trousers, sneakers
@@ -60,6 +60,8 @@ const LOOK = /\b(suits?|suited|tie|necktie|blazer|tux(edo)?|three-piece|business
 
 const FORMAL = ['suit-jacket', 'suit-jacket-db', 'doorman-coat'], WORK_TOPS = ['overalls', 'uniform-jacket', 'chef-jacket'];
 const BOOTS = ['work-boots', 'boots', 'cowboy-boots'];
+// (the ranch's boots: the hands' dark work boots (WS2: the forge's cowboy boots are held back))
+const RANCH_BOOTS = '#2A211C';
 type Fit = {
   top: Garment; bottom: Garment; bottomF?: Garment; shoes: Garment;
   clash: string[];     // tops that are wrong for the job (replaced, with the legs and shoes that go with them)
@@ -75,7 +77,7 @@ const FITS: Record<Job, Fit> = {
     clash: [...FORMAL, 'chef-jacket'], legs: ['jeans', 'ripped-jeans', 'trousers'], feet: BOOTS, strict: true },
   farm: { top: { item: 'overalls', color: '#3D5573', accent: '#C9C1B0' }, bottom: { item: 'jeans', color: '#2C3646' }, shoes: { item: 'work-boots', color: '#4A3626' },
     clash: [...FORMAL, 'chef-jacket'], legs: [], feet: BOOTS, strict: true },
-  ranch: { top: { item: 'western-shirt', color: '#6E3A2E', accent: '#2B3445', pattern: 'plaid' }, bottom: { item: 'jeans', color: '#2C3646' }, shoes: { item: 'cowboy-boots', color: '#4A3626', accent: '#3A2A20' },
+  ranch: { top: { item: 'western-shirt', color: '#6E3A2E', accent: '#2B3445', pattern: 'plaid' }, bottom: { item: 'jeans', color: '#2C3646' }, shoes: { item: 'work-boots', color: RANCH_BOOTS },
     clash: [...FORMAL, 'chef-jacket'], legs: ['jeans', 'ripped-jeans'], feet: BOOTS, strict: true },
   chef: { top: { item: 'chef-jacket', color: '#ECEBE6' }, bottom: { item: 'trousers', color: '#262628' }, bottomF: { item: 'loose-trousers', color: '#262628' }, shoes: { item: 'work-boots', color: '#1A1816' },
     clash: [...FORMAL, 'overalls', 'uniform-jacket'], legs: ['trousers', 'loose-trousers'], feet: [...BOOTS, 'work-shoes', 'sneakers'] },
@@ -133,14 +135,14 @@ function fitHeadwear(sheet: Sheet, words: string, job: Job | null): string[] {
 
 // western wear for the West's working people (Colter Land, 16 Nov: the ranch family "doesn't look like Montana"): a
 // rancher's, a ranch hand's or a rodeo rider's everyday shirt (a tee, a long-sleeve) becomes the forge's pearl-snap
-// western-shirt (its colour kept, a plaid in a dark band), their boots or sneakers cowboy boots, and over jeans a western
+// western-shirt (its colour kept, a plaid in a dark band), their sneakers or shoes dark work boots, and over jeans a western
 // belt. Someone with no job of their own is dressed for the ranch only when they belong to one (WW2, 17 Nov: the word
 // "ranch" anywhere in a logline dressed a developer who "plans condos where the ranch is", the diner's waitress who
 // "serves the ranch hands", a kid who "watches the ranch-house burn"): their ROLE says so ("the rancher's son", "owner of
 // the Colter Ranch", "the ranching widow"), or their logline says they live or work on it ("grew up on the Colter
 // Ranch"), never with a no/never/without before it. Never over clothes the person's words ask for, never on another
 // job's uniform.
-const WEST_TOPS = ['tee', 'long-sleeve'], PLAID_BAND = '#2B3445', TO_COWBOY = ['boots', 'work-boots', 'sneakers', 'white-sneakers', 'skate-shoes', 'work-shoes'];
+const WEST_TOPS = ['tee', 'long-sleeve'], PLAID_BAND = '#2B3445', TO_BOOTS = ['cowboy-boots', 'sneakers', 'white-sneakers', 'skate-shoes', 'work-shoes'];
 const KIN = '(?:owners?|heirs?|heiress|sons?|daughters?|wife|husband|widow(?:er)?|kids?|children|boss|matriarch|patriarch|foreman|cook|manager|family|grand(?:son|daughter|mother|father|ma|pa)|mother|father|mom|dad|ma|pa|brothers?|sisters?|uncle|aunt|nephew|niece|cousin)';
 const RANCH_ROLE = new RegExp(`\\b(?:ranchers?['’]s?\\s+${KIN}\\b|ranching\\b|ranch (?:${KIN})\\b|${KIN}\\s+(?:of|at|on|from)\\s+(?:the\\s+)?(?:[\\w'’-]+\\s+){0,3}ranch(?:es)?\\b)`, 'i');
 const RANCH_LIFE = /\b(?:grew up|raised|born|lives?|living|works?|working|worked|lived|runs?|running|ran|keeps?|kept|owns?|owned|inherit(?:s|ed)?)\s+(?:on|at)?\s*(?:the|our|his|her|their|a|this)\s+(?:family\s+)?(?:[\w'’-]+\s+){0,2}ranch\b/i;
@@ -156,9 +158,11 @@ function fitWestern(sheet: Sheet, job: Job | null): string[] {
   const country = job === 'ranch' || ((!job || job === 'farm' || job === 'hands' || job === 'construction') && ranchFolk(sheet));
   if (!country) return out;
   if (WEST_TOPS.includes(w.top!.item)) { out.push(`top ${w.top!.item} -> western-shirt`); w.top = { item: 'western-shirt', color: w.top!.color || '#6E3A2E', accent: PLAID_BAND, pattern: 'plaid' }; }
-  // (a ranch hand's or a rodeo rider's own feet in cowboy boots, whatever the forge first put on them: a rancher in white
-  // sneakers read as a city kid; the words asking for sneakers keep them, as everything they ask for)
-  if (job === 'ranch' && TO_COWBOY.includes(w.shoes!.item)) { out.push(`shoes ${w.shoes!.item} -> cowboy-boots`); w.shoes = { item: 'cowboy-boots', color: /sneakers|skate/.test(w.shoes!.item) ? '#4A3626' : w.shoes!.color || '#4A3626' }; }
+  // (a ranch hand's or a rodeo rider's own feet in the dark work boots, whatever the forge first put on them: a rancher in
+  // white sneakers read as a city kid; the words asking for sneakers keep them, as everything they ask for). (WS2, 17 Nov:
+  // the forge's cowboy boots are held back, below the bar in Chrome (a flat heel, a rubber read, the jeans through the
+  // shaft): a sheet's cowboy-boots become these work boots too)
+  if (job === 'ranch' && TO_BOOTS.includes(w.shoes!.item)) { out.push(`shoes ${w.shoes!.item} -> work-boots`); w.shoes = { item: 'work-boots', color: RANCH_BOOTS }; }
   const over = w.over || [];
   if (w.top!.item === 'western-shirt' && /jeans/.test(w.bottom!.item) && !over.some((o) => o.item === 'western-belt') && over.length < 3) { w.over = [{ item: 'western-belt', color: '#4A3020', accent: '#C9C6BC' }, ...over]; out.push('over + western-belt'); }
   return out;
