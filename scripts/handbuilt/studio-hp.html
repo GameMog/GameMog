@@ -117,7 +117,11 @@ for (const p of props) if (p.kind === 'glasses' && fm) {
 const pack = q.get('clips') ? await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(q.get('clips')) : null;
 const CLIPS = (pack && castClips(THREE, pack.animations, extras)) || gltf.animations;
 const mixer = new THREE.AnimationMixer(M); let action = null;
+// (JH: rot = { bone: [x, y, z] degrees } turned on top of the clip's pose in each bone's own frame: the relaxed A-pose
+// turntable and the hands-out keynote gesture are the idle with the arms turned this way (scripts/handbuilt/jensen/poses.json))
+let ROT = null;
 const pose = (clip, t) => { const c = THREE.AnimationClip.findByName(CLIPS, clip) || CLIPS[0]; if (action) action.stop(); action = mixer.clipAction(c); action.reset().play(); mixer.setTime(t);
+  if (ROT) for (const [n, r] of Object.entries(ROT)) { const b = M.getObjectByName(n); if (b) b.quaternion.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(r[0] * Math.PI / 180, r[1] * Math.PI / 180, r[2] * Math.PI / 180))); }
   // (in place: the root's travel off for framing, its height kept)
   const rt = M.getObjectByName('root'); rt.position.x = 0; rt.position.z = 0; M.updateMatrixWorld(true); };
 const camera = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, 0.05, 50);
@@ -174,7 +178,8 @@ function maskMat(o) {
   else { m = flat(0x000000); if (o.material.map && (o.material.alphaTest || o.material.transparent)) { m.opacityNode = TSL.texture(o.material.map).a; m.alphaTest = Math.max(0.3, o.material.alphaTest || 0); } }
   maskMats.set(key, m); return m;
 }
-window.__shot = ({ mode = 'turn', yaw = 0, cam = 'eye', clip = 'idle', t = 1.2, jaw = 0, blink = 0, w = 1, ang = 0.35, mask = false, nospec = false, hide = '' } = {}) => {
+window.__shot = ({ mode = 'turn', yaw = 0, cam = 'eye', clip = 'idle', t = 1.2, jaw = 0, blink = 0, w = 1, ang = 0.35, mask = false, nospec = false, hide = '', rot = null } = {}) => {
+  ROT = rot;
   // (G8b: hide: a regex of material names left out of this frame (the scalp's paint seen without the hair over it))
   { const re = hide ? new RegExp(hide) : null; M.traverse((o) => { if (!o.isMesh) return; if (o.userData.vis0 === undefined) o.userData.vis0 = o.visible; o.visible = o.userData.vis0 && !(re && re.test(o.material?.name || '')); }); }
   if (window.__leather) window.__leather.visible = mode === 'study'; holder.rotation.y = 0; pose(clip, t); holder.rotation.y = yaw; holder.updateMatrixWorld(true);

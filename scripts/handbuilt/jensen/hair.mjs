@@ -45,3 +45,22 @@ export function volumePass(doc, K = {}) {
       const s = k * clamp(edge) - back; if (!s) continue; for (let q = 0; q < 3; q++) a[v * 3 + q] += (d[q] / L) * s; n++; }
     P.setArray(a); console.log('hair volume points', n); }
 }
+// (round 4, owner: "the hair should be thicker and swept back, not flat") a second layer of the cut's cards over the
+// first: the same cards copied as their own primitive and lifted off the head (most over the front top, where the sweep
+// stands up off the forehead, less at the crown, nothing at the sides over the ears or at the nape), drawn back a few
+// millimetres (the comb's direction) and a shade lighter, so the head of hair has depth and the light catches its top
+// layer instead of one flat sheet of cards on the skull
+export async function layerPass(doc, K = {}) {
+  K = { front: 0.0075, crown: 0.0045, back: 0.004, ...K };
+  const { EY, EZ } = LM, c = [0, EY + 0.02, EZ - 0.085];
+  const p = prim(doc, 'hair')[0], mesh = doc.getRoot().listMeshes().find((m) => m.listPrimitives().includes(p)), buf = doc.getRoot().listBuffers()[0];
+  const I = p.getIndices().getArray(), used = [...new Set(I)], map = new Map(used.map((v, k) => [v, k]));
+  const np = doc.createPrimitive().setMaterial(p.getMaterial()).setIndices(doc.createAccessor().setType('SCALAR').setArray(Uint32Array.from(I, (v) => map.get(v))).setBuffer(buf));
+  for (const sem of p.listSemantics()) { const A = p.getAttribute(sem), src = A.getArray(), e = A.getElementSize(), out = new src.constructor(used.length * e);
+    used.forEach((v, k) => { for (let q = 0; q < e; q++) out[k * e + q] = src[v * e + q]; });
+    if (sem === 'POSITION') used.forEach((v, k) => { const x = out[k * 3], y = out[k * 3 + 1], z = out[k * 3 + 2], dd = [x - c[0], y - c[1], z - c[2]], L = Math.hypot(...dd) || 1;
+      const up = sm(EY + 0.035, EY + 0.1, y), fr = sm(EZ - 0.1, EZ - 0.02, z), side = sm(0.045, 0.072, Math.abs(x)), nape = sm(EZ - 0.13, EZ - 0.17, z) * sm(EY + 0.05, EY - 0.02, y);
+      const s = (K.front * fr + K.crown * (1 - fr)) * up * (1 - 0.85 * side) * (1 - nape); for (let q = 0; q < 3; q++) out[k * 3 + q] += (dd[q] / L) * s; out[k * 3 + 2] -= K.back * up * fr; });
+    np.setAttribute(sem, doc.createAccessor().setType(A.getType()).setArray(out).setNormalized(A.getNormalized()).setBuffer(buf)); }
+  mesh.addPrimitive(np); console.log('hair layer: points', used.length, 'triangles', I.length / 3);
+}

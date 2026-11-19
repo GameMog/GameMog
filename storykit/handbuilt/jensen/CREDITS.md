@@ -16,11 +16,12 @@ features at the forge's defaults, no exaggeration), then by hand (`scripts/handb
 | Part | Source | Licence |
 |---|---|---|
 | body, face shape, swept-back hair cards, black tee, jeans, dress shoes | MakeHuman 1.x base mesh and assets (via the Character Forge) | CC0 1.0 |
-| the jacket's cut (open front, notched lapels, flap pockets) | MakeHuman `male_casualsuit05` (people pack) | CC0 1.0 |
+| the jacket's cut (round 4: the Character Forge library's tailored jacket, cut from his body: full sleeves, turned collar and lapels, the off-centre closure; hemmed at the belt) | made here (`scripts/forge/library.mjs`, `scripts/handbuilt/jensen/forge-base.mjs`) | original |
+| his age (nose-to-mouth folds, lower cheeks, lower lids, hooded lids, thinner lips, the neck) | MakeHuman 1.x modelling targets (cheek, eyes, eyebrows, mouth, neck) | CC0 1.0 |
 | the jacket's leather colour | ambientCG Leather026 (Lennart Demes), ambientcg.com/view?id=Leather026 | CC0 1.0 |
 | the leather's fine grain (normal, roughness) | Poly Haven `leather_white` (Rob Tuytel), polyhaven.com/a/leather_white | CC0 1.0 |
 | the resting grin and the 33 talking-face morph targets (blinks, jaw, 14 visemes, smile, squints, brows, spares) | MakeHuman Faceunits 01 and Visemes 02 by Mika Suominen, makehumancommunity.org asset packs | CC0 1.0 |
-| rectangular glasses (geometry, `scripts/handbuilt/frames.mjs`), plain silver zip, skin, scalp and hair paint | made here | original |
+| rectangular glasses (geometry, `scripts/handbuilt/frames.mjs`), plain silver zips, skin (creases, age spots), scalp and hair paint | made here | original |
 
 No CC-BY asset is used in this GLB, so it needs no credits-page line of its own. (The CC-BY candidates in the research
 shortlist, e.g. Elvaerwyn's Grump Hair, were not used.)
