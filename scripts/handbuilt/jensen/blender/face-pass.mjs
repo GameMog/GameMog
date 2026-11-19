@@ -89,7 +89,7 @@ export async function skinTonePass(doc, K = {}) {
     for (let p = 0; p < W * H; p++) if (data[p * 4] + data[p * 4 + 1] + data[p * 4 + 2] < 24) bg[p] = 1;
     for (let p = 0; p < W * H; p++) if (bg[p]) { const x = p % W, y = (p / W) | 0; if ((x > 0 && !bg[p - 1]) || (x < W - 1 && !bg[p + 1]) || (y > 0 && !bg[p - W]) || (y < H - 1 && !bg[p + W])) front.push(p); }
     let filled = 0;
-    for (let ring = 0; ring < (K.bleed ?? 24) && front.length; ring++) {
+    for (let ring = 0; ring < (K.bleed ?? 96) && front.length; ring++) {
       const set = [];
       for (const p of front) { if (!bg[p]) continue; const x = p % W, y = (p / W) | 0; let n = 0; const c = [0, 0, 0];
         for (const q of [x > 0 ? p - 1 : -1, x < W - 1 ? p + 1 : -1, y > 0 ? p - W : -1, y < H - 1 ? p + W : -1]) if (q >= 0 && !bg[q]) { n++; for (let k = 0; k < 3; k++) c[k] += data[q * 4 + k]; }
@@ -111,11 +111,17 @@ export async function skinTonePass(doc, K = {}) {
         const x0 = Math.max(0, Math.floor(Math.min(...ux))), x1 = Math.min(W - 1, Math.ceil(Math.max(...ux))), y0 = Math.max(0, Math.floor(Math.min(...uy))), y1 = Math.min(H - 1, Math.ceil(Math.max(...uy)));
         if ((x1 - x0) * (y1 - y0) > 40000) continue;
         const ed = (i, j, px, py) => (ux[j] - ux[i]) * (py - uy[i]) - (uy[j] - uy[i]) * (px - ux[i]), ar = ed(0, 1, ux[2], uy[2]); if (!ar) continue;
-        const inside = [], m = [0, 0, 0]; let n = 0;
+        const inside = [];
         for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { const px = x + 0.5, py = y + 0.5, e0 = ed(1, 2, px, py) / ar, e1 = ed(2, 0, px, py) / ar, e2 = ed(0, 1, px, py) / ar;
-          if (e0 < -0.02 || e1 < -0.02 || e2 < -0.02) continue; const q = (y * W + x) * 4; inside.push(q); if (data[q] - data[q + 2] >= warm) { for (let k = 0; k < 3; k++) m[k] += data[q + k]; n++; } }
+          if (e0 < -0.04 || e1 < -0.04 || e2 < -0.04) continue; inside.push((y * W + x) * 4); }
+        if (!inside.length) continue;
+        // (a texel is the neck's skin when it is warm (red over blue by K.warm) and not far darker than the triangle's own
+        // brightest half: the scalp's grey and the islands' dark edges are neither)
+        const lum = (q) => data[q] + data[q + 1] + data[q + 2], L = inside.map(lum).sort((a, b) => a - b), ref = L[Math.floor(L.length * 0.75)];
+        const good = (q) => data[q] - data[q + 2] >= warm && lum(q) >= ref * 0.72, m = [0, 0, 0]; let n = 0;
+        for (const q of inside) if (good(q)) { for (let k = 0; k < 3; k++) m[k] += data[q + k]; n++; }
         if (!n || n < inside.length * 0.3) continue;
-        for (const q of inside) if (data[q] - data[q + 2] < warm) { for (let k = 0; k < 3; k++) data[q + k] = m[k] / n; fixed++; } } }
+        for (const q of inside) if (!good(q)) { for (let k = 0; k < 3; k++) data[q + k] = m[k] / n; fixed++; } } }
     console.log('neck texels re-skinned', fixed); }
   for (let i = 0; i < data.length; i += 4) { const r = data[i], g = data[i + 1], b = data[i + 2], l = 0.2126 * r + 0.7152 * g + 0.0722 * b;
     data[i] = Math.min(255, (r + (l - r) * K.desat) * K.mul[0]); data[i + 1] = Math.min(255, (g + (l - g) * K.desat) * K.mul[1]); data[i + 2] = Math.min(255, (b + (l - b) * K.desat) * K.mul[2]); }
