@@ -19,7 +19,8 @@ import { teePass, jeansPass } from './wear.mjs';
 import { bandCollarPass } from './collar.mjs';
 import { motoPass, tailorPass, teeHemPass, teeShoulderPass, teeCrewPass, drapePass } from './moto.mjs';
 import { bakeRest, addMorphs } from '../facekit.mjs';
-import { hairSwoopPass, glassesBigPass } from './caricature.mjs';
+import { hairSwoopPass, glassesBigPass, stylizeFacePass, skinGradePass, hairWhitePass, proportionPass, outfitPass, glassesFitPass, hairDomePass, grinTargets, chinPass, smileChinPass } from './caricature.mjs';
+import os from 'node:os';
 const FACE = process.env.JH_FACE || new URL('../../../.scratch/jensen/face/', import.meta.url).pathname;
 import { holeUvPass, sculptPass, mapsPass, mouthBagPass, teethRigidPass, skinTonePass } from './blender/face-pass.mjs';
 import { keepOrder, stripOld, addParts, writeKept, flatFront, teeUnder, neckSkirt, ownClips, lensPanes, matteFront } from './blender/assemble.mjs';
@@ -50,7 +51,10 @@ const steps = [
   // (the caricature, the owner 19 Nov: a big, warm, open presenter grin (the upper teeth showing, the corners well up, the
   // cheeks lifted with it; no eye squint baked: the eyes stay as made) and lively brows (the outer brows up, the inner
   // ones almost level: no worried look))
-  ['grin', () => bakeRest(doc, (JSON.parse(process.env.JH_GRIN || 'null') || [['jawOpen', 0.1], ['mouthSmileLeft', 0.8], ['mouthSmileRight', 0.8], ['viseme_aa', 0.25], ['mouthUpperUpLeft', 0.3], ['mouthUpperUpRight', 0.3], ['cheekSquintLeft', 0.3], ['cheekSquintRight', 0.3], ['mouthDimpleLeft', 0.3], ['mouthDimpleRight', 0.3], ['browInnerUp', 0.06], ['browOuterUpLeft', 0.6], ['browOuterUpRight', 0.6], ['eyeWideLeft', 0.2], ['eyeWideRight', 0.2]]).map(([n, w]) => [FACE + n + '.target', w]))],
+  // (caricature round 2, the critic: the baked open grin fought the talk visemes and read as a smirk: the rest face is a
+  // closed, warm slight smile with lively brows; the big open presenter grin is the smile morph (x1.5 below), which the
+  // engine drives on warm lines)
+  ['grin', () => bakeRest(doc, (JSON.parse(process.env.JH_GRIN || 'null') || [['jawOpen', 0.07], ['mouthSmileLeft', 0.38], ['mouthSmileRight', 0.38], ['cheekSquintLeft', 0.18], ['cheekSquintRight', 0.18], ['browInnerUp', 0.05], ['browOuterUpLeft', 0.5], ['browOuterUpRight', 0.5], ['eyeWideLeft', 0.12], ['eyeWideRight', 0.12]]).map(([n, w]) => [FACE + n + '.target', w]))],
   // (round 4: his age in the face's shape: MakeHuman's own targets, age.mjs)
   // (likeness round 1: the owner's reference is a lean, taut face: no jowls or heavy cheeks; age.mjs's lean set)
   // (likeness round 2: a broad face (wider cheekbones and temples, a squarer, shorter midface and forehead), the mouth's
@@ -76,6 +80,9 @@ const steps = [
   // (blender/face/v3): the jaw corner, jaw line and lower cheeks fuller, the cheekbone hollow mostly filled, a broader,
   // rounder chin; the same points in the same order)
   ['sculpt', () => sculptPass(doc, PARTS + 'face/head-sculpt.target')],
+  // (caricature round 2: one clean symmetric form on the same points: mirrored, the lumps ironed, apple cheeks; caricature.mjs)
+  ['stylize', () => stylizeFacePass(doc, JSON.parse(process.env.JH_STYLE || '{}'))],
+  ['chin', () => chinPass(doc)],
   // (clean-shaven; an older man's skin: the age detail up, lentigines and crow's feet; round 4: less orange)
   // (likeness round 2: smoother: fewer dots, less of the painted age texture)
   // (likeness round 3, the critic: warm light tan, toward olive, not peach-pink; almost no dots)
@@ -136,7 +143,8 @@ const steps = [
   // (round 4: no extra saturation or warmth for him: the round-3 skin read orange and doll-like)
   ['scatter', () => skinScatterPass(doc, JSON.parse(process.env.JH_SCATTER || '{}'))],
   // (the caricature: the head 1.2 x for the body, the head bone's scale, now kept by writeKept (it was written back to 1 before))
-  ['headsize', () => headSizePass(doc, +(process.env.JH_HEAD || 1.2))],
+  // (round 2, the owner: "he looks like a midget": adult proportions, the head as made; proportionPass sets the final 1.02)
+  ['headsize', () => headSizePass(doc, +(process.env.JH_HEAD || 1.0))],
   ['daylight', () => daylightSkinPass(doc, { sat: 1.0, warm: [1.01, 0.995, 0.98], gain: 0.82 })],
   // (likeness round 2b: the tee's crew neck painted in the jacket's open collar, moto.mjs)
   // (Blender round, iteration 1: the face's own skin, MR and normal maps and the eyes (blender/face/bake.py, eyetex.py); the
@@ -145,13 +153,23 @@ const steps = [
   ['facemaps', () => mapsPass(doc, PARTS + 'face/')],
   // (assembly, iteration 1: in the game's lights the bake read orange: less saturated, lifted to a warm light tan)
   ['skintone', () => skinTonePass(doc, JSON.parse(process.env.JH_TONE || '{}'))],
-  ['scalp2', () => scalpPass(doc, { root: [78, 77, 76], tip: [100, 99, 97], grey: [118, 117, 115], area: (x, y, z, n) => hairArea(x, y, z, n, 0.047, 0.006) * scalp2Low(y, z) })],
+  // (caricature round 2, the owner: "skin too orange: lighter, natural, neutral, like the references"; the hands the face's tone)
+  ['grade', () => skinGradePass(doc, JSON.parse(process.env.JH_GRADE || '{}'))],
+  // (round 2, the owner's standing note "he reads younger than 63": soft creases of a fit man in his sixties painted back on
+  // the graded map (the Blender face maps had replaced round 4's): the nose-to-mouth folds, crow's feet, a few forehead
+  // lines, the marionette lines faint; no spots, no tone change)
+  ['age2', () => ageSkinPass(doc, { depth: 0.55, spots: 0, desat: 0, cool: [1, 1, 1], fore: 0.4, frown: 0.2, folds: 0.8, mar: 0.3, trough: 0, jowl: 0.2, neckR: 0.3, ...JSON.parse(process.env.JH_AGE2 || '{}') })],
+  // (caricature round 2: the scalp under the cards silver-white, no dark root band at the hairline)
+  ['scalp2', () => scalpPass(doc, { root: [168, 170, 174], tip: [205, 207, 211], grey: [188, 190, 194], area: (x, y, z, n) => hairArea(x, y, z, n, 0.047, 0.006) * scalp2Low(y, z) })],
   ['mouthbag', () => mouthBagPass(doc, JSON.parse(process.env.JH_MOUTH || '{}'))],
   ['teecrew', () => teeCrewPass(doc)],
   // (the talking face, last: MakeHuman Faceunits 01 and Visemes 02 (CC0) as glTF morph targets, the names and the set
   // Mog City's face.js plays (FACE-CONTRACT: blinks, jaw, the 15 visemes, the grin and what rides it, brows, spares);
   // the lashes and brows ride the lids and brows, the lower teeth the jaw)
-  ['morphs', () => addMorphs(doc, MORPHS.map((n) => [n, FACE + n + '.target']))],
+  // (caricature round 2: the smile morph 1.5 x, a strong open presenter grin at the engine's 0.45; the eye squint that rides
+  // it at 0.4 (a mild lower-lid lift only, the eyes stay open))
+  ['morphs', () => { const G = grinTargets(FACE, os.tmpdir() + '/jensen-grin', JSON.parse(process.env.JH_GRINT || '{}')); return addMorphs(doc, MORPHS.map((n) => [n, G[n] || FACE + n + '.target', /^mouthSmile/.test(n) ? 1.4 : /^eyeSquint/.test(n) ? 0.4 : 1])); }],
+  ['smilechin', () => smileChinPass(doc)],
   // (Blender round, iteration 1: the lower teeth swing as one piece about the jaw's hinge in every target)
   ['teethrigid', () => teethRigidPass(doc, JSON.parse(process.env.JH_TEETH || '{}'))],
   // (Blender round, iteration 1: the Blender parts (parts.mjs, assemble.mjs) in place of the round-3 hair, brows, glasses and
@@ -172,8 +190,17 @@ const steps = [
   // specular 0.3, extras.look): only the front's normals straightened here, its roughness and coat left as made)
   // (the caricature, the owner 19 Nov: the big silver swoop lifted up and back off the scalp, the browline glasses a
   // little oversized with a thicker gunmetal bar (caricature.mjs); after the parts, before the waist and lens steps)
-  ['swoop', () => hairSwoopPass(doc, JSON.parse(process.env.JH_SWOOP || '{}'))],
-  ['bigglasses', () => glassesBigPass(doc, JSON.parse(process.env.JH_GLASSES || '{}'))],
+  // (round 2, the critic: not a tall front pompadour but a broad, soft, rounded dome swept up and BACK and a little to his
+  // left: the front peak low, the volume at the crown, wide at the temples and full over the ears)
+  ['swoop', () => hairSwoopPass(doc, { quiff: 0.01, top: 0.022, back: 0.026, side: 0.014, flowBack: 0.024, flowSide: 0.006, flatFront: 0.004, ...JSON.parse(process.env.JH_SWOOP || '{}') })],
+  // (round 2: the front 1.12 x, the bar NOT thicker; then lowered under the brows, a fine dark rim, satin gunmetal)
+  ['dome', () => hairDomePass(doc, JSON.parse(process.env.JH_DOME || '{}'))],
+  ['bigglasses', () => glassesBigPass(doc, { big: 1.12, bar: 1.0, col: null, ...JSON.parse(process.env.JH_GLASSES || '{}') })],
+  ['glassesfit', () => glassesFitPass(doc, JSON.parse(process.env.JH_GFIT || '{}'))],
+  // (round 2: the hair silver-white, the outfit all black with glossy leather and silver hardware, the caricature's proportions)
+  ['hairwhite', () => hairWhitePass(doc, JSON.parse(process.env.JH_HAIRW || '{}'))],
+  ['outfit', () => outfitPass(doc, JSON.parse(process.env.JH_OUTFIT || '{}'))],
+  ['proportion', () => proportionPass(doc, JSON.parse(process.env.JH_PROP || '{}'))],
   ['matte', () => matteFront(doc, { rough: 0, coat: 0.05, spec: 0.3, ...JSON.parse(process.env.JH_MATTE || '{}') })],
   // (iteration 2: the tee's flared hem out from under the flat front)
   ['teeunder', () => teeUnder(doc)],
@@ -189,4 +216,4 @@ const steps = [
   // layers, its own cut (0.35) and colour made for the engine's strand shader)
 ];
 for (const [k, f] of steps) if (on(k)) { const t = Date.now(); await f(); console.log('step', k, ((Date.now() - t) / 1000).toFixed(1), 's'); }
-const glb = await writeKept(doc, src, new Set(on('headsize') ? ['head'] : [])); fs.writeFileSync(OUT, glb); console.log(OUT, (glb.length / 1048576).toFixed(2), 'MB');
+const glb = await writeKept(doc, src, new Set([...(on('headsize') || on('proportion') ? ['head'] : []), ...(on('proportion') ? ['wrist_L', 'wrist_R'] : [])])); fs.writeFileSync(OUT, glb); console.log(OUT, (glb.length / 1048576).toFixed(2), 'MB');
