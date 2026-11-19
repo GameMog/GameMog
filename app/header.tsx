@@ -74,7 +74,7 @@ function GitHubMark() {
 const X = 'https://x.com/gamemogged';
 const TELEGRAM = 'https://t.me/gamemogged';
 /** (the owner, 4 Nov: "we have a YouTube social icon and channel to add") */
-const YOUTUBE = 'https://www.youtube.com/@gamemogged';
+const YOUTUBE = 'https://www.youtube.com/@gamemogtv';
 
 /** X's mark, from Simple Icons (CC0), on the same 24px grid. */
 function XMark() {
