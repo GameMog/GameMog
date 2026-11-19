@@ -104,7 +104,7 @@ export const LIMITS = { bytes: 160_000, acts: 3, missions: 9, steps: 60, cast: 1
 // builder's or the store's. It may be longer than a Create: up to 5 acts of up to 8 missions (15+ in all), longer
 // missions, more lines, a longer opening. Everything else (places, verbs, kinds, words, voices) is gated the same.
 export const SHOWCASE = { bytes: 640_000, acts: 5, missionsPerAct: 8, steps: 120, lines: 2400, cast: 24, openingSecs: [30, 150], openingShots: 24, openingLines: [2, 16], places: 48 };
-export const SHOWCASE_PACKS = ['pickup-time'];
+export const SHOWCASE_PACKS = ['pickup-time', 'jensen-heist'];
 // a video call (Mog City wagmi/storyrun/vcall.js, 18 Nov): every conversation can be one: each person in an office of
 // their own, head and shoulders on their webcam, in a call's layout (tiles, names, the one talking lit, subtitles), with
 // the call's own life between the lines (VCALL_EVENTS). gate.ts vcallProblems holds its rules

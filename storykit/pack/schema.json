@@ -5045,7 +5045,7 @@
            },
            "overlap": {
             "type": "boolean",
-            "description": "a reply of 2 words or fewer that may start just before the last line ends (a cut-in)"
+            "description": "a reply of 4 words or fewer that may start just before the last line ends (a cut-in)"
            },
            "cut": {
             "type": "number",

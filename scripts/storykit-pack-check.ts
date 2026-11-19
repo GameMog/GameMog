@@ -8,6 +8,7 @@ import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { runnerPackOf } from './storykit-pack.ts';
 import { ownRecord, OWN_RECORD } from './storykit-own-world.ts';
 import { showcaseProblems, SHOWCASE_ID, SHOWCASE_RECORD } from './storykit-showcase.ts';
+import { jhProblems, jhGate, JH_RECORD, BODIES } from './storykit-showcase-jensen.ts';
 import { gatePack, toRunnerPack, lineHash, type GateResult } from '../storykit/pack/gate.ts';
 import { PLACES, CAM_POINTS } from '../storykit/pack/cities.ts';
 import { SCHEMA, SHOWCASE, SHOWCASE_PACKS, MOGCITY_STUBS, HERO_CARS, HERO_CAR_IDS } from '../storykit/pack/schema.mjs';
@@ -319,7 +320,10 @@ export function runStoryPackChecks(ok: Ok) {
   const forgeRt = R('scripts/forge/clips-runtime.mjs'), served = R('public/storykit/forge/clips.js');
   ok('the headshots\' clip binder (forge/clips.js) is the forge\'s clips-runtime.mjs', served.endsWith(forgeRt));
   for (const f of readdirSync('storykit/packs').filter((x) => x.endsWith('.json'))) {
-    const id = f.replace(/\.json$/, ''), src = JSON.parse(R(`storykit/packs/${f}`)), g = gatePack(src, { own: id === 'mog-city', showcase: SHOWCASE_PACKS.includes(id) });
+    const id = f.replace(/\.json$/, ''), src = JSON.parse(R(`storykit/packs/${f}`));
+    // (a showcase in a hometown, Jensen Heist: gated with its town's table, below; it has no built fixture here)
+    if (src?.base?.city === 'hometown') continue;
+    const g = gatePack(src, { own: id === 'mog-city', showcase: SHOWCASE_PACKS.includes(id) });
     // (a showcase's story may name another city in its dialogue, as Pickup Time names Miami: the gate notes it, never on screen)
     const warns = g.warnings.filter((w: string) => !(SHOWCASE_PACKS.includes(id) && /\(dialogue, so allowed\)$/.test(w)));
     ok(`${id}: passes the gate with no warnings${SHOWCASE_PACKS.includes(id) ? ' (but another city named in dialogue)' : ''}`, g.ok && !warns.length && !g.clamped.length, g.problems.concat(warns, g.clamped).slice(0, 3).join(' | '));
@@ -344,6 +348,17 @@ export function runStoryPackChecks(ok: Ok) {
     { const ogg = new Uint8Array(80); ogg.set([0x4f, 0x67, 0x67, 0x53]); const r1 = saveVoiceClip('.', id, '00000000-00000000.ogg', ogg), r2 = saveVoiceClip('.', id, '../x.ogg', ogg), r3 = saveVoiceClip('.', id, `${vp.lines[0].clip}.ogg`, new Uint8Array(80));
       ok(`${id}: the voice store takes only a current line's clip, by name and kind (no line, a path, not Ogg: refused)`, !r1.ok && r1.status === 409 && !r2.ok && r2.status === 400 && !r3.ok && r3.status === 415); }
   }
+  // Jensen Heist (18 Nov): a showcase in a hometown (San Jose), gated with its town's table; its record waits for the
+  // bodies and the voices (the migration waits with it), and is held current once written
+  {
+    const jp = jhProblems();
+    ok(`jensen-heist: passes its town's gate as a showcase (San Jose), pinned to that town${existsSync(JH_RECORD) ? `, and ${JH_RECORD} is current` : ' (its record waits for the bodies and the voices)'}`, !jp.length, jp.slice(0, 3).join(' | '));
+    const { g, town } = jhGate(), P = g.pack!, steps = (P?.acts ?? []).flatMap((a: any) => a.missions).flatMap((m: any) => m.steps);
+    const talk = steps.filter((x: any) => x.type === 'cutscene'), calls = steps.filter((x: any) => x.type === 'vcall');
+    ok(`jensen-heist: every conversation scene is a video call (${calls.length} calls, no street cutscene)`, !!P && !talk.length && calls.length >= 10);
+    ok('jensen-heist: the hero drives Mog City\'s roadster (stock), never a town fleet car (no heroCar)', !!P && P.ride === 'roadster' && P.vehicles.some((v: any) => v.stock === 'roadster') && !P.heroCar);
+    ok('jensen-heist: every seen person but Mr. Board (Mog City\'s own, renamed) has a hand-built body named for the migration', !!P && P.cast.filter((c: any) => !c.model && !c.voiceOnly).every((c: any) => !!BODIES[c.id]) && P.cast.find((c: any) => c.id === 'board')?.model === 'mogcity/mrbig');
+    ok(`jensen-heist: its town is San Jose (${town.placeId}), the box on its downtown (the stadium a place of it)`, town.placeId === 'us-0668000' && town.places.some((p: any) => p.kind === 'stadium')); }
   // the fight step (Mog City's street fighting, W.combat): test-fight is the worked example
   { const FT = JSON.parse(R('storykit/packs/test-fight.json')), fight = (p: any) => p.acts[0].missions[0].steps.find((s: any) => s.type === 'fight');
     bad('a fight against the hero himself', FT, (p) => { fight(p).enemies = ['nico', 'vance']; }, /"nico" is the hero/);
