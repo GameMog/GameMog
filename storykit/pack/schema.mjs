@@ -66,7 +66,7 @@ import { HERO_CAR_IDS } from './hero-cars.mjs';
 export const STEP_KINDS = ['drive', 'stops', 'walk', 'pursuit', 'timer', 'call', 'voicemail', 'voicenote', 'choice', 'cutscene',
   'place', 'set', 'say', 'wait', 'goto', 'end', 'label', 'transition', 'vignette', 'wallet', 'actEnd', 'comfort', 'tail',
   'stealth', 'patrol', 'convoy', 'trigger', 'beat', 'roadblock', 'passenger', 'npc', 'fight', 'dm', 'search', 'scene', 'tow', 'ally', 'car',
-  'mount', 'ride', 'dismount'];
+  'mount', 'ride', 'dismount', 'vcall'];
 // the steps on the story's horse (a hometown story on Mog City's engine: its `horse`, saddled alongside the hero's car;
 // Mog City wagmi/game.js the two rides): mount at a place, ride to places, dismount; gate.ts says where they may be used
 export const HORSE_STEPS = ['mount', 'ride', 'dismount'];
@@ -105,6 +105,13 @@ export const LIMITS = { bytes: 160_000, acts: 3, missions: 9, steps: 60, cast: 1
 // missions, more lines, a longer opening. Everything else (places, verbs, kinds, words, voices) is gated the same.
 export const SHOWCASE = { bytes: 640_000, acts: 5, missionsPerAct: 8, steps: 120, lines: 2400, cast: 24, openingSecs: [30, 150], openingShots: 24, openingLines: [2, 16], places: 48 };
 export const SHOWCASE_PACKS = ['pickup-time'];
+// a video call (Mog City wagmi/storyrun/vcall.js, 18 Nov): every conversation can be one: each person in an office of
+// their own, head and shoulders on their webcam, in a call's layout (tiles, names, the one talking lit, subtitles), with
+// the call's own life between the lines (VCALL_EVENTS). gate.ts vcallProblems holds its rules
+export const VCALL_OFFICES = ['exec', 'startup', 'backstage', 'boardroom', 'kitchen', 'study'];
+export const VCALL_EVENTS = ['mute', 'unmute', 'join', 'drop', 'freeze', 'unfreeze', 'share', 'unshare', 'blur', 'unblur', 'hand', 'wait'];
+export const VCALL_CAMS = ['close', 'wide', 'low'];
+export const VCALL = { people: [2, 6], items: 40, events: 24 };
 
 // ── builders ──
 const S = (maxLength, extra = {}) => ({ type: 'string', maxLength, ...extra });
@@ -203,6 +210,7 @@ const STEPS = fx(['drive', 'stops', 'pursuit', 'tail', 'tow', 'timer', 'fight', 
     // the car phone (Mog City's): it answers itself, talks only while the hero is at the wheel (on hold when he gets out,
     // with the hold lines), plays its extra blocks while the leg it rides on lasts, and wraps up when that leg ends
     auto: { ...B, description: 'answers itself (no ring, no decline): a call the hero always takes, on the car phone' },
+    video: O({ office: E(VCALL_OFFICES), blur: B, light: E(['day', 'golden', 'night']) }, ['office'], { description: "a car-phone call as a video call: the caller in their office, on webcam, in a small picture at the top of the screen while it talks (auto or inCar; the caller has a body)" }),
     inCar: { ...B, description: 'talks only while the hero is in a car; on foot it holds (hold.pause), back in it resumes (hold.resume)' },
     extra: A(A(R('spoken'), 12, 1), 8, 0, { description: 'more talk, block by block, after the lines and while the step it rides on still runs (a long drive)' }),
     wrap: A(R('spoken'), 6, 0, { description: 'when the step it rides on ends (he arrived), the line being said finishes, then these, then the call ends' }),
@@ -219,6 +227,22 @@ const STEPS = fx(['drive', 'stops', 'pursuit', 'tail', 'tow', 'timer', 'fight', 
   voicenote: step('voicenote', { who: R('castRef'), role: S(40), text: R('speech'), secs: N(0.5, 20), time: R('clock'), set: R('set') }, ['who', 'text']),
   choice: step('choice', CHOICE, ['prompt', 'options']),
   cutscene: step('cutscene', { shots: A(shot, 12, 1), place: R('placeRef'), set: setDef }, ['shots']),
+  // a video call (VCALL_*): its people each in an office, its lines and the call's events between them, in order
+  vcall: step('vcall', {
+    title: S(40, { description: "the call's name in its top bar ('Q3 Board Sync')" }), layout: E(['grid', 'speaker'], { description: 'grid: equal tiles; speaker: whoever talks fills the stage, the rest in a strip' }),
+    end: E(['leave', 'drop'], { description: 'how it ends: you leave the meeting, or the call drops' }), time: E(['day', 'golden', 'night'], { description: "the light through every office's window (else the mission's time)" }),
+    people: A(O({
+      who: { ...R('slug'), description: "a cast id with a body, or 'player'" }, office: E(VCALL_OFFICES, { description: "the office they sit in: exec (a corner office, the skyline), startup (an open-plan loft), backstage (a stage manager's room), boardroom (the long table), kitchen (a home kitchen), study (walnut and books, Mr. Big's)" }),
+      label: S(24, { description: 'the name on their tile (else the cast name)' }), sub: S(32, { description: 'a second line on the tag: a title or a company (invented names only)' }),
+      blur: { ...B, description: 'background blur on from the start' }, muted: { ...B, description: 'starts muted (the red mic): their lines are heard by nobody until they unmute' },
+      late: { ...B, description: 'not in the call at the start: their tile reads Waiting to join until a join event' }, light: E(['day', 'golden', 'night']), cam: E(VCALL_CAMS, { description: "the webcam's framing: close (head and shoulders), wide (down to the desk), low (a laptop below the eyes)" })
+    }, ['who', 'office']), VCALL.people[1], VCALL.people[0]),
+    lines: A({ oneOf: [
+      O({ who: { ...R('slug'), description: "one of the call's people (or 'player')" }, line: R('speech'), ...DLV, cut: N(0.3, 0.95, { description: 'cut into: the next speaker talks over it once this share of it is said' }), muted: { ...B, description: 'said on mute: their mouth moves, nobody hears it, the subtitle reads (muted)' } }, ['who', 'line']),
+      O({ do: E(VCALL_EVENTS), who: R('slug'), secs: N(0.2, 4, { description: 'wait only: seconds of nothing' }),
+        slide: O({ title: S(48), lines: A(S(64), 4), big: S(12, { description: 'a big number or word' }) }, [], { description: 'share only: the slide on the stage' }) }, ['do'])
+    ] }, VCALL.items, 1, { description: "the call in order: spoken lines ({ who, line, how, pre, post, overlap, cut, muted }) and the call's events ({ do, who, slide, secs })" })
+  }, ['people', 'lines']),
   place: step('place', { at: R('placeRef'), time: E(TIMES), bonus: N(0, 600) }, ['at']),
   set: step('set', { set: R('set') }, ['set']),
   say: step('say', { who: R('castRef'), text: R('speech'), secs: N(0.5, 12), wait: B, ...DLV }, ['who', 'text']),
