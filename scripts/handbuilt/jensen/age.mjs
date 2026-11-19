@@ -62,8 +62,8 @@ export async function ageSkinPass(doc, K = {}) {
       // forehead: four lines, wavy, longest in the middle ones, fading at the temples and toward the hairline
       { const fh = sm(EY + 0.026, EY + 0.034, y) * sm(EY + 0.078, EY + 0.066, y) * (1 - sm(0.042, 0.06, x)) * sm(EZ - 0.035, EZ - 0.012, z);
         if (fh > 0) { const ph = (y - EY - 0.031 - 0.004 * (x / 0.05) ** 2) / 0.0095 + 0.35 * n1, k = Math.round(ph), f = ph - k;
-          if (k >= 0 && k <= 3) { const len = 1 - sm(0.03 + 0.008 * (k === 1 || k === 2), 0.052, x + 0.01 * n2); const ln = Math.exp(-((f / 0.075) ** 2)) * len, bump = Math.exp(-(((Math.abs(f) - 0.3) / 0.16) ** 2)) * len;
-            h += fh * (-0.00026 * ln + 0.00006 * bump); dk += fh * 0.09 * ln; } } }
+          if (k >= 0 && k <= 2) { const len = 1 - sm(0.03 + 0.008 * (k === 1 || k === 2), 0.052, x + 0.01 * n2); const ln = Math.exp(-((f / 0.075) ** 2)) * len, bump = Math.exp(-(((Math.abs(f) - 0.3) / 0.16) ** 2)) * len;
+            h += fh * (-0.0002 * ln + 0.00005 * bump); dk += fh * 0.09 * ln; } } }
       // the frown lines between the brows
       { const gl = Math.exp(-(((x - 0.0065 - 0.002 * (y - EY - 0.012) / 0.02) / 0.0011) ** 2)) * sm(EY + 0.004, EY + 0.012, y) * sm(EY + 0.04, EY + 0.026, y) * sm(EYEFRONT - 0.03, EYEFRONT - 0.012, z);
         h -= 0.00022 * gl; dk += 0.08 * gl; }
@@ -74,13 +74,13 @@ export async function ageSkinPass(doc, K = {}) {
       // under-eye: the bag's lower edge (the tear trough), a curved crease 9-11 mm under the eye's centre
       { const t = seg(x, y, [[EYEX - 0.014, EY - 0.009], [EYEX - 0.004, EY - 0.0175], [EYEX + 0.009, EY - 0.0185], [EYEX + 0.02, EY - 0.013]]);
         if (z > EZ - 0.035) { const f = Math.exp(-((t.d / 0.0016) ** 2)) * sm(0, 0.15, t.t) * sm(1, 0.8, t.t), bag = Math.exp(-((t.d / 0.004) ** 2)) * (t.side > 0 ? 1 : 0) * sm(0, 0.2, t.t) * sm(1, 0.7, t.t);
-          h += -0.0003 * f + 0.00018 * bag; dk += 0.12 * f + 0.06 * Math.exp(-((t.d / 0.006) ** 2)) * (t.side > 0 ? 1 : 0); } }
+          h += -0.0003 * f + 0.00018 * bag; dk += 0.16 * f + 0.1 * Math.exp(-((t.d / 0.006) ** 2)) * (t.side > 0 ? 1 : 0); } }
       // the nose-to-mouth folds: from the nose's wing down and out past the mouth's corner, the cheek bulging over it
-      { const t = seg(x, y, [[0.0175, EY - 0.042], [0.0225, MOUTHY + 0.018], [0.0285, MOUTHY + 0.002], [0.032, MOUTHY - 0.012]]);
+      { const t = seg(x, y, [[0.0175, EY - 0.042], [0.0235, MOUTHY + 0.018], [0.031, MOUTHY + 0.004], [0.037, MOUTHY - 0.01]]);
         if (z > EZ - 0.04) { const end = sm(0, 0.04, t.t) * sm(1, 0.8, t.t), f = Math.exp(-((t.d / 0.0026) ** 2)) * end, bulge = Math.exp(-(((t.d - 0.0045) / 0.0045) ** 2)) * (t.side < 0 ? 1 : 0) * end;
-          h += -0.00055 * f + 0.0003 * bulge; dk += 0.17 * f + 0.05 * Math.exp(-((t.d / 0.006) ** 2)) * end; } }
+          h += -0.00055 * f + 0.0003 * bulge; dk += 0.24 * f + 0.05 * Math.exp(-((t.d / 0.006) ** 2)) * end; } }
       // marionette lines: from the mouth's corners down toward the chin's sides
-      { const t = seg(x, y, [[0.026, MOUTHY - 0.006], [0.029, MOUTHY - 0.02], [0.033, CHINY + 0.016]]);
+      { const t = seg(x, y, [[0.029, MOUTHY - 0.012], [0.031, MOUTHY - 0.024], [0.034, CHINY + 0.016]]);
         if (z > EZ - 0.05) { const end = sm(0, 0.15, t.t) * sm(1, 0.55, t.t), f = Math.exp(-((t.d / 0.0032) ** 2)) * end; h -= 0.0002 * f; dk += 0.05 * f; } }
       // fine vertical lines over the upper lip
       { const a = (1 - sm(0.016, 0.022, x)) * sm(MOUTHY + 0.004, MOUTHY + 0.007, y) * sm(MOUTHY + 0.015, MOUTHY + 0.01, y) * sm(EYEFRONT - 0.01, EYEFRONT, z);
@@ -94,6 +94,8 @@ export async function ageSkinPass(doc, K = {}) {
     // the neck: three soft rings across its front
     if (y < CHINY - 0.01 && y > CHINY - 0.11 && z > 0.0 && head[i] < 0.95) { const ph = (y - (CHINY - 0.045)) / 0.016 + 0.4 * n1, k = Math.round(ph), f = ph - k;
       if (k >= -1 && k <= 1) { const w = sm(0.055, 0.03, x) * sm(0.0, 0.03, z), ln = Math.exp(-((f / 0.09) ** 2)) * w; h -= 0.00025 * ln; dk += 0.06 * ln; } }
+    // (no crease right at the mouth's corners: the grin and the talk move them, and a line there read as a cut)
+    if (face) { const mc = Math.hypot(x - 0.024, y - MOUTHY), keep = sm(0.004, 0.009, mc); h *= keep; dk *= keep; }
     H[i] = h * K.depth; DK[i] = dk * K.depth;
     // age spots: one candidate per 9 mm cell, a third of the cells, 1.5-4 mm across, soft-edged; on the temples, the
     // upper cheeks, the forehead and the backs of the hands (where the sun falls)
@@ -110,7 +112,7 @@ export async function ageSkinPass(doc, K = {}) {
     let r = lin(d[i * 4]), g = lin(d[i * 4 + 1]), b = lin(d[i * 4 + 2]); const Y = 0.2126 * r + 0.7152 * g + 0.0722 * b; if (Y < 0.02) continue; // (hair paint)
     const ds = K.desat * (head[i] > 0.3 || y < 1.15 ? 1 : 0.6); r = Y + (r - Y) * (1 - ds); g = Y + (g - Y) * (1 - ds); b = Y + (b - Y) * (1 - ds);
     r *= K.cool[0]; g *= K.cool[1]; b *= K.cool[2];
-    const k = 1 - clamp(DK[i], 0, 0.4); r *= k; g *= k * 0.985; b *= k * 0.98;
+    const k = 1 - clamp(DK[i], 0, 0.45); r *= k; g *= k * 0.985; b *= k * 0.98;
     const s = SP[i]; if (s > 0) { r *= 1 - 0.28 * s; g *= 1 - 0.38 * s; b *= 1 - 0.48 * s; }
     d[i * 4] = enc(r); d[i * 4 + 1] = enc(g); d[i * 4 + 2] = enc(b); }
   await setWebp(tex, d, S, S, 90);

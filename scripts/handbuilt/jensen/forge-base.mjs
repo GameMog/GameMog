@@ -6,6 +6,8 @@
 //    edge runs off to one side (a moto jacket's asymmetric closure), hemmed short at the belt, its cloth leather
 //    (FABRIC 'leather': the library's pebbled grain and a leather's roughness); the hand pass (moto.mjs) paints it as
 //    black leather with the zips. Its buttons are taken off in the hand pass.
+//    Its collar sits close on the neck and the shoulders' tops are stiff (the library's snug option, collarGap): in the
+//    talk clip the loose collar and lapels stood up beside the neck as leather shards.
 //  - the sheet's black tee stays under it, and its dark jeans
 //  - Mr. Big's shoulder fix (the arm joints in along the clavicles, a little more slope from the neck: no shoulder pads),
 //    as John's base has.
@@ -26,7 +28,7 @@ const HEM = +(process.env.JH_HEM ?? 0.015);
 GARMENTS['moto-jacket'] = (ctx, o) => { const c2 = Object.create(ctx); c2.crotch = ctx.hip + HEM; return GARMENTS['suit-jacket-db'](c2, o); };
 FABRIC['moto-jacket'] = 'leather';
 const env = await nodeEnv(), { cfg } = compile(S);
-cfg.lib = [...(cfg.lib || []), { item: 'moto-jacket', color: '#141416', accent: null, accent2: '#141416', layer: 5 }];
+cfg.lib = [...(cfg.lib || []), { item: 'moto-jacket', color: '#141416', accent: null, accent2: '#141416', layer: 5, collarGap: +(process.env.JH_COLLAR ?? 0.006) }];
 cfg.shoulder = +(process.env.HB_SHOULDER || 0.76); cfg.slope = { ...(cfg.slope || {}), drop: +(process.env.HB_SLOPE || 0.015) };
 console.log('wear', JSON.stringify(cfg.wear), 'lib', JSON.stringify(cfg.lib.map((l) => l.item)));
 const logs = [], env1 = { ...env, log: (...a) => logs.push(a.join(' ')) };

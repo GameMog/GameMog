@@ -9,12 +9,14 @@ import { prim, matOf, rgba, setWebp, sharp, raster, h3, sm, clamp } from '../you
 import { hairTonePass } from '../john/hair.mjs';
 import { LM } from './landmarks.mjs';
 export async function silverPass(doc, K = {}) {
-  // (the cards' strand contrast softened first: each texel halfway to its 3 px neighbourhood and a third of the way to
-  // the middle tone, so the white reads as combed hair, not straw)
-  { const m = matOf(doc, 'hair'), tex = m.getBaseColorTexture(), { data, w, h } = await rgba(tex), b = await sharp(data, { raw: { width: w, height: h, channels: 4 } }).blur(4).raw().toBuffer();
-    for (let i = 0; i < w * h; i++) for (let c = 0; c < 3; c++) data[i * 4 + c] = Math.round((data[i * 4 + c] * 0.4 + b[i * 4 + c] * 0.6) * 0.65 + 78 * 0.35);
+  // (the cards' strand contrast softened a little (round 3 blurred it 4 px and pulled it to a middle grey: the strands'
+  // flow was lost and the head read as straw; round 4 keeps the combed flow: a 1.5 px blur, a fifth toward the middle)
+  { const m = matOf(doc, 'hair'), tex = m.getBaseColorTexture(), { data, w, h } = await rgba(tex), b = await sharp(data, { raw: { width: w, height: h, channels: 4 } }).blur(1.5).raw().toBuffer();
+    for (let i = 0; i < w * h; i++) for (let c = 0; c < 3; c++) data[i * 4 + c] = Math.round((data[i * 4 + c] * 0.5 + b[i * 4 + c] * 0.5) * 0.8 + 80 * 0.2);
     await setWebp(tex, data, w, h, 92); }
-  return hairTonePass(doc, { root: [54, 53, 52], mid: [128, 126, 123], hi: [196, 194, 190], grey: [58, 57, 56], temple: 0.14, top: 0.06, greyMix: 0.55, rough: 0.5, spec: 0.38, ...K });
+  // (round 4: no scattered dark dashes (they ran across the strands' flow as straw); the silver ramp alone, its darker
+  // strands the cards' own shadows)
+  return hairTonePass(doc, { root: [66, 65, 64], mid: [150, 148, 145], hi: [214, 212, 207], grey: [58, 57, 56], temple: 0, top: 0, greyMix: 0, rough: 0.45, spec: 0.42, ...K });
 }
 // the cut's front edge feathered: the cap's last 12 mm at the forehead thinned out by a dithered alpha (its hard rim read
 // as a helmet's edge in the close-ups), so the hairline grades into the silver painted on the scalp under it

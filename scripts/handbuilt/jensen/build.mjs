@@ -16,7 +16,7 @@ import { paintSkin } from './skin.mjs';
 import { silverPass, volumePass, hairlinePass, layerPass } from './hair.mjs';
 import { ageShapePass, ageSkinPass, browAgePass } from './age.mjs';
 import { teePass, jeansPass } from './wear.mjs';
-import { motoPass } from './moto.mjs';
+import { motoPass, teeHemPass } from './moto.mjs';
 import { bakeRest, addMorphs } from '../facekit.mjs';
 const FACE = process.env.JH_FACE || new URL('../../../.scratch/jensen/face/', import.meta.url).pathname;
 import { framesPass } from '../frames.mjs';
@@ -39,7 +39,7 @@ const steps = [
   ['age', () => ageSkinPass(doc)],
   ['brows', () => browAgePass(doc)],
   // (the scalp under the cut painted as short silver hair, not dark)
-  ['scalp', () => scalpPass(doc, { root: [120, 118, 116], tip: [196, 194, 190], grey: [80, 78, 76] })],
+  ['scalp', () => scalpPass(doc, { root: [150, 148, 145], tip: [206, 204, 200], grey: [118, 116, 114] })],
   ['hair', () => silverPass(doc)],
   ['volume', () => volumePass(doc, { front: 0.0065, crown: 0.003 })],
   ['hairline', () => hairlinePass(doc)],
@@ -50,6 +50,8 @@ const steps = [
   // (round 4: the moto jacket is the forge library's tailored cut (forge-base.mjs), made black leather with its zips here)
   ['jacket', () => motoPass(doc)],
   ['tee', () => teePass(doc)],
+  // (round 4: the tee's hem taken up under the short jacket)
+  ['teehem', () => teeHemPass(doc)],
   ['jeans', () => jeansPass(doc)],
   ['glasses', () => framesPass(doc, { style: 'acetate', LW: 0.049, LH: 0.028, T: 0.0022, D: 0.004, r: 0.004, bevel: 0.0006, armW: 0.0024, armH: 0.0045, col: [0.012, 0.012, 0.014], rough: 0.3 })],
   // (round 4: no extra saturation or warmth for him: the round-3 skin read orange and doll-like)

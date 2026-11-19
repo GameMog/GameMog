@@ -91,3 +91,18 @@ export async function motoPass(doc, K = {}) {
   }
   console.log('moto: leather on', parts.length, 'pieces; zip texels', nz);
 }
+
+// the tee under the short jacket: its hem (9 cm under the jacket's at the forge's length, a long undershirt's) taken up
+// to `hem` (3-4 cm showing under the leather, over the jeans' waistband), the cloth from `from` down drawn up into the
+// shorter length; the sleeves left as they are
+export function teeHemPass(doc, K = {}) {
+  K = { hem: 0.975, from: 1.07, ...K };
+  const R = doc.getRoot(), jn = R.listSkins()[0].listJoints().map((j) => j.getName()); let n = 0;
+  for (const p of R.listMeshes().flatMap((m) => m.listPrimitives())) { const e = p.getMaterial()?.getExtras() || {}; if (!(e.garment === 'male_casualsuit06' && e.layer === 2)) continue;
+    const P = p.getAttribute('POSITION'), a = P.getArray().slice(), J = p.getAttribute('JOINTS_0').getArray(), W = p.getAttribute('WEIGHTS_0'), Wa = W.getArray(), sc = W.getNormalized() ? (Wa instanceof Uint8Array ? 255 : 65535) : 1;
+    const used = [...new Set(p.getIndices().getArray())]; let lo = 9; for (const v of used) lo = Math.min(lo, a[v * 3 + 1]); if (lo >= K.hem) continue;
+    const k = (K.from - K.hem) / (K.from - lo);
+    for (const v of used) { const y = a[v * 3 + 1]; if (y >= K.from) continue; let arm = 0; for (let q = 0; q < 4; q++) if (/^(upperarm|lowerarm|wrist|finger)/.test(jn[J[v * 4 + q]] || '')) arm += Wa[v * 4 + q] / sc; const t = 1 - Math.min(1, arm * 2); if (t <= 0) continue;
+      a[v * 3 + 1] = y + (K.from - (K.from - y) * k - y) * t; n++; }
+    P.setArray(a); console.log('tee hem:', lo.toFixed(3), '->', K.hem, 'points', n); }
+}
