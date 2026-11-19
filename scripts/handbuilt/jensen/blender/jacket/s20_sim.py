@@ -10,6 +10,12 @@ J = {j['name']: Vector(lib.g2b(j['bind'])[0]) for j in lib.JOINTS}
 o = bpy.data.objects['jk']
 fb = lib.load_fullbody(None)
 col = fb.modifiers.new('col', 'COLLISION'); fb.collision.thickness_outer = 0.004; fb.collision.thickness_inner = 0.01; fb.collision.cloth_friction = 12; fb.collision.damping = 0.8
+# it2: the jeans' waistband collides too (the hem band overlaps it)
+from common import HEM
+JP = lib.g2b(lib.rd('p12', 'pos', 'Float32Array')); JT = lib.rd('p12', 'idx', 'Uint16Array').reshape(-1, 3).astype(np.int64)
+JT = JT[(JP[JT][:, :, 2] > HEM - 0.04).all(1)]
+jm = bpy.data.meshes.new('jeans'); jm.from_pydata(JP.tolist(), [], JT.tolist()); jm.validate(); jo = bpy.data.objects.new('jeans', jm); bpy.context.scene.collection.objects.link(jo)
+jo.modifiers.new('col', 'COLLISION'); jo.collision.thickness_outer = 0.003; jo.collision.thickness_inner = 0.006; jo.collision.cloth_friction = 12
 # pin weights: hangs from the shoulders, neckline and the top of the sleeves; a whisper everywhere so it keeps its cut
 vg = o.vertex_groups.new(name='pin')
 sh = J['shoulder01_L'].z
@@ -40,5 +46,5 @@ co = np.array([v.co[:] for v in ev.data.vertices]); co0 = np.array([v.co[:] for 
 d = np.linalg.norm(co - co0, axis=1); print('moved: mean %.4f p95 %.4f max %.4f' % (d.mean(), np.percentile(d, 95), d.max()))
 o.modifiers.remove(cm); o.data.vertices.foreach_set('co', co.ravel()); o.data.update()
 o['sim_moved_mean'] = float(d.mean())
-bpy.data.objects.remove(fb)
+bpy.data.objects.remove(fb); bpy.data.objects.remove(jo)
 bpy.ops.wm.save_as_mainfile(filepath=H + '/sim.blend')

@@ -10,7 +10,8 @@ bpy.ops.wm.open_mainfile(filepath=H + '/uv.blend')
 import lib
 JN = lib.JN
 fb = lib.load_fullbody(None)
-L = bpy.data.objects['leather']; M = bpy.data.objects['metal']; T = bpy.data.objects['tape']
+L = bpy.data.objects['leather']; M = bpy.data.objects['metal']; T = bpy.data.objects['tape']; SN = bpy.data.objects['snaps']
+from common import COL_H0, COL_H1, COL_TH
 def transfer(dst, src, mode):
     for g in list(dst.vertex_groups): dst.vertex_groups.remove(g)
     for n in JN: dst.vertex_groups.new(name=n)
@@ -78,8 +79,8 @@ if isc.any():
     kb = kb * kb * (3 - 2 * kb)
     W = W * (1 - kb[:, None]) + Wang * kb[:, None]
     for i in np.where(isc)[0]:
-        hh = auxv[i] if auxv[i] < 0.047 else max(0.0, 0.047 - (auxv[i] - 0.052))
-        f = float(os.environ.get('NECKF', 0.25)) * float(np.clip(hh / 0.045, 0, 1)) ** 1.5
+        HM = COL_H0 + COL_H1; hh = auxv[i] if auxv[i] < HM else max(0.0, HM - (auxv[i] - HM - COL_TH * 1.6))
+        f = float(os.environ.get('NECKF', 0.25)) * float(np.clip(hh / (HM - 0.002), 0, 1)) ** 1.5
         W[i] = Wang[i] * (1 - f); W[i, JN.index('neck01')] += f
 # top 4 influences, normalised
 def cap(W):
@@ -125,16 +126,14 @@ class _KD:
         return (None, coll[b[1]], b[2]) if b[2] < a[2] - 0.002 else (None, sid[a[1]], a[2])
 kd_sh = _KD()
 # the centre-front chain lifted 0.8 mm so the two fronts never close over it as the chest folds
-for v in T.data.vertices:   # the tape kept narrow and under the leather edges (it showed past them in a fold)
-    v.co.x *= 0.58; v.co.y += 0.0005
 cf_n = np.array([0.0, -1.0, 0.0])
-for o in (M, T):
+for o in (M, T, SN):
     for v in o.data.vertices:
         if abs(v.co.x) < 0.012 and v.co.y < 0: v.co = v.co + Vector(cf_n * 0.0008)
     idx = np.array([kd_sh.find(v.co)[1] for v in o.data.vertices]); write(o, J4[idx], W4[idx])
 bpy.data.objects.remove(fb)
 arm_ = lib.make_armature()
-for o in (L, M, T):
+for o in (L, M, T, SN):
     o.parent = arm_; md = o.modifiers.new('arm', 'ARMATURE'); md.object = arm_
 # ---- the shoulder cap rounded where it is seen (the forge's posecap, post.mjs): posed as the runner poses the idle
 # (1.2 s, armhang levelled), each cap point moved along its posed normal toward its neighbours' middle (at most 3 cm,
@@ -169,7 +168,24 @@ for s_ in ('L', 'R'):
 slope[isc] = 0
 for it in range(6):
     acc = np.zeros(nV); np.add.at(acc, E[:, 0], slope[E[:, 1]]); np.add.at(acc, E[:, 1], slope[E[:, 0]]); slope = slope * 0.5 + acc / np.maximum(deg, 1) * 0.5
-mv[:, 2] -= 0.018 * slope
+mv[:, 2] -= 0.026 * slope   # it2: more slope (it1 1.8 cm)
+# it2: the shoulder line 4% narrower: each shoulder point drawn in ~9 mm toward the neck, fading down the arm and toward
+# the collar, so the silhouette slopes from the collar to a rounded, narrower shoulder
+narrow = np.zeros(nV)
+for s_ in ('L', 'R'):
+    sg = 1 if s_ == 'L' else -1
+    A = np.array(lib.g2b(lib.JOINTS[JN.index('upperarm01_' + s_)]['bind'])[0])
+    d = np.linalg.norm(co - A, axis=1)
+    narrow += (sg * co[:, 0] > 0.06) * np.clip(1 - d / 0.15, 0, 1) ** 1.2 * np.clip((sg * co[:, 0] - 0.06) / 0.08, 0, 1) * np.clip((co[:, 2] - (A[2] - 0.10)) / 0.05, 0, 1) * sg
+narrow[isc] = 0
+for it in range(4):
+    acc = np.zeros(nV); np.add.at(acc, E[:, 0], narrow[E[:, 1]]); np.add.at(acc, E[:, 1], narrow[E[:, 0]]); narrow = narrow * 0.5 + acc / np.maximum(deg, 1) * 0.5
+mv[:, 0] -= 0.009 * narrow
+# it2: the whole shoulder move field smoothed over the mesh so the cap rounds without crumpling (no ridges at the point)
+fixed_ = isc | tabv
+for it in range(int(os.environ.get('MVSMOOTH', 14))):
+    acc = np.zeros_like(mv); np.add.at(acc, E[:, 0], mv[E[:, 1]]); np.add.at(acc, E[:, 1], mv[E[:, 0]])
+    mv = mv * 0.5 + acc / np.maximum(deg, 1)[:, None] * 0.5; mv[fixed_] = 0
 print('posecap: points moved', int((ln > 0.001).sum()), 'max %.1f mm' % (np.linalg.norm(mv, axis=1).max() * 1000))
 # back to the bind: x_bind = (sum_j w_j S_j)^-1 x_posed, S_j = posed_j * rest_j^-1
 S = [rig_pb.matrix @ rig_pb.bone.matrix_local.inverted() for rig_pb in (arm_.pose.bones[n] for n in JN)]
@@ -238,11 +254,11 @@ bpy.context.view_layer.update()
 bpy.ops.wm.save_as_mainfile(filepath=H + '/skin.blend')
 # ---- dump for the GLB writer (glTF space)
 import bmesh
-for o in (L, M, T):
+for o in (L, M, T, SN):
     bm = bmesh.new(); bm.from_mesh(o.data); bmesh.ops.triangulate(bm, faces=bm.faces[:]); bm.to_mesh(o.data); bm.free()
 os.makedirs(H + '/export', exist_ok=True)
 info = {}
-for o, name in ((L, 'leather'), (M, 'hardware'), (T, 'zip-tape')):
+for o, name in ((L, 'leather'), (M, 'hardware'), (T, 'zip-tape'), (SN, 'snaps')):
     m = o.data; m.calc_loop_triangles()
     has_uv = len(m.uv_layers) > 0
     if has_uv:

@@ -140,8 +140,10 @@ export async function writeKept(doc, src) {
 // (the most forward point between yc0 and yc1), never pushed out; every point within depth of the front surface moves
 // with it (the zip, the pockets' hardware, the rolled hem), the back and the sleeves stay. The jeans' and the tee's
 // waist below the hem (the belly that showed under it) pulled in behind the hem the same way.
+// (iteration 2: the jacket is cut flat in Blender itself (blender/jacket common.flatten_front, its hem band 4 mm clear of
+// the waist pulled in here, its sim's collider): K.jacket false leaves it as made, only the waist under it is pulled in)
 export function flatFront(doc, K = {}) {
-  K = { yc0: 1.27, yc1: 1.37, taper: 0.006, depth: 0.045, xIn: 0.14, xOut: 0.19, under: 0.007, y0: 0.885, y1: 0.935, ...K };
+  K = { yc0: 1.27, yc1: 1.37, taper: 0.006, depth: 0.045, xIn: 0.14, xOut: 0.19, under: 0.007, y0: 0.885, y1: 0.935, jacket: false, ...K };
   const R = doc.getRoot(), jm = R.listMeshes().find((m) => m.getName() === 'moto-jacket'); if (!jm) throw new Error('flatFront: no moto-jacket');
   const C = 0.01, col = (x) => Math.round(x / C), fade = (x) => { const a = Math.abs(x); return a <= K.xIn ? 1 : a >= K.xOut ? 0 : 1 - (a - K.xIn) / (K.xOut - K.xIn); };
   const leather = jm.listPrimitives().find((p) => p.getMaterial()?.getName() === 'leather') || jm.listPrimitives()[0];
@@ -153,7 +155,7 @@ export function flatFront(doc, K = {}) {
   const yc = (K.yc0 + K.yc1) / 2, T = (x, y) => { const c = chest.get(col(x)); return c === undefined ? 9 : c - K.taper * Math.max(0, Math.min(1, (yc - y) / (yc - hem))); };
   const front = (x, y) => { let m = -9; for (const dy of [-1, 0, 1]) m = Math.max(m, zmax.get(col(x) + ',' + (Math.round(y / C) + dy)) ?? -9); return m; };
   let maxIn = 0, n = 0; const moved = new Set();
-  for (const p of jm.listPrimitives()) { const acc = p.getAttribute('POSITION'); if (moved.has(acc)) continue; moved.add(acc); const A = acc.getArray().slice();
+  if (K.jacket) for (const p of jm.listPrimitives()) { const acc = p.getAttribute('POSITION'); if (moved.has(acc)) continue; moved.add(acc); const A = acc.getArray().slice();
     for (let i = 0; i < A.length / 3; i++) { const x = A[i * 3], y = A[i * 3 + 1], z = A[i * 3 + 2]; if (y >= yc || z < 0) continue; const f = fade(x); if (!f) continue;
       const fz = front(x, y); if (fz < -1) continue; const over = fz - T(x, y); if (over <= 0) continue;
       const w = Math.max(0, Math.min(1, 1 - (fz - z) / K.depth)) * f * Math.min(1, (yc - y) / 0.03); if (!w) continue; A[i * 3 + 2] = z - over * w; maxIn = Math.max(maxIn, over * w); n++; }
@@ -189,4 +191,109 @@ export function combBack(doc, K = {}) {
       const w = Math.max(0, Math.min(1, (z - K.z0) / (K.z1 - K.z0))) * t ** K.pow; if (!w) continue;
       A[i * 3 + 2] -= K.back * w; A[i * 3 + 1] -= K.down * w; mx = Math.max(mx, w); }
     acc.setArray(A); console.log('comb back:', K.back * mx * 1000, 'mm at most'); }
+}
+
+// The tee's hem under the jacket (iteration 2): the tee (the pack's layer-2 'clothes', garment male_casualsuit06) flares
+// out to 15.4 cm in front of his middle at y 0.975-1.01, in front of the flat leather front (the black band under the
+// iteration-1 hem, and a hump to push the jacket over): every tee triangle wholly below K.y (all under the jacket) out.
+export function teeUnder(doc, K = {}) {
+  K = { y: 1.05, ...K }; let n = 0;
+  for (const m of doc.getRoot().listMeshes()) for (const p of m.listPrimitives()) { const mt = p.getMaterial(), ex = mt?.getExtras() || {};
+    if (mt?.getName() !== 'clothes' || ex.layer !== 2 || !/casualsuit06/.test(ex.garment || '')) continue;
+    const P = p.getAttribute('POSITION').getArray(), I = p.getIndices(), A = I.getArray(), out = [];
+    for (let t = 0; t < A.length; t += 3) { if ([A[t], A[t + 1], A[t + 2]].every((v) => P[v * 3 + 1] < K.y)) { n++; continue; } out.push(A[t], A[t + 1], A[t + 2]); }
+    I.setArray(new A.constructor(out)); }
+  console.log('tee under the jacket: triangles out', n);
+}
+
+// The neck's skin under the lower band collar (iteration 2): the forge cut the skin away under the library jacket's
+// collar, its edge a saw-tooth ring round the neck at y 1.44 (front) to 1.54 (sides); the Blender collar, 15% lower, left
+// the teeth and the dark inside of the neck showing over its band at the sides. A skirt of skin hung from that edge: each
+// edge point copied K.drop metres down (and K.in toward the neck's axis, under the collar), every attribute and face target
+// copied from its edge point, so the neck reads whole down into the collar. Its own primitive, the skin's material, after
+// the face targets (it carries all of them).
+export function neckSkirt(doc, K = {}) {
+  K = { drop: 0.05, in: 0.006, rings: 2, yMax: 1.56, xMax: 0.1, holeMax: 16, ...K };
+  const R = doc.getRoot(), body = R.listMeshes().find((m) => m.getExtras().targetNames && m.listPrimitives().some((p) => p.getMaterial()?.getName() === 'skin'));
+  const sks = body.listPrimitives().filter((p) => p.getMaterial()?.getName() === 'skin');
+  const main = sks.slice().sort((a, b) => b.getIndices().getCount() - a.getIndices().getCount())[0], P = main.getAttribute('POSITION').getArray();
+  const pk = (A, v) => `${Math.round(A[v * 3] * 1e5)},${Math.round(A[v * 3 + 1] * 1e5)},${Math.round(A[v * 3 + 2] * 1e5)}`;
+  // edges by position (uv seams split points), each with the main primitive's point and its winding
+  const E = new Map(), mainOf = new Map(); for (let v = 0; v < P.length / 3; v++) if (!mainOf.has(pk(P, v))) mainOf.set(pk(P, v), v);
+  for (const p of sks) { const A = p.getAttribute('POSITION').getArray(), I = p.getIndices().getArray();
+    for (let t = 0; t < I.length; t += 3) for (let e = 0; e < 3; e++) { const ka = pk(A, I[t + e]), kb = pk(A, I[t + (e + 1) % 3]); if (ka === kb) continue; const k = ka < kb ? ka + '|' + kb : kb + '|' + ka;
+      const o = E.get(k); if (o) o.n++; else E.set(k, { n: 1, ka, kb }); } }
+  const used = new Set(main.getIndices().getArray());
+  const pts = (k) => mainOf.get(k);
+  const bnd = [...E.values()].filter((e) => { if (e.n !== 1) return false; const a = pts(e.ka), b = pts(e.kb); if (a === undefined || b === undefined) return false;
+    return [a, b].every((v) => P[v * 3 + 1] < K.yMax && P[v * 3 + 1] > 1.3 && Math.abs(P[v * 3]) < K.xMax); });
+  // the neck ring: the boundary chain through the lowest front point
+  const adj = new Map(); for (const e of bnd) { (adj.get(e.ka) || adj.set(e.ka, []).get(e.ka)).push(e); (adj.get(e.kb) || adj.set(e.kb, []).get(e.kb)).push(e); }
+  let start = null; for (const e of bnd) { const a = pts(e.ka); if (!start || (P[a * 3 + 2] > 0 && P[a * 3 + 1] < P[pts(start.ka) * 3 + 1])) start = e; }
+  const ring = new Set(), stack = [start]; while (stack.length) { const e = stack.pop(); if (ring.has(e)) continue; ring.add(e); for (const k of [e.ka, e.kb]) for (const f of adj.get(k)) if (!ring.has(f)) stack.push(f); }
+  // (the small holes left beside it, under the ears behind the jaw (the neck-hole fill's slivers): each closed by a fan
+  // round a new middle point, one triangle per hole edge, wound as the reverse of the skin triangle the edge bounds)
+  const holes = []; { const left = bnd.filter((e) => !ring.has(e));
+    const W = new Set(); for (const p of sks) { const A = p.getAttribute('POSITION').getArray(), Ix = p.getIndices().getArray(); for (let t = 0; t < Ix.length; t += 3) for (let e = 0; e < 3; e++) W.add(pk(A, Ix[t + e]) + '>' + pk(A, Ix[t + (e + 1) % 3])); }
+    const comp = new Map(); for (const e of left) { const c = new Set([e]); for (const f of left) if (f !== e && [f.ka, f.kb].some((k) => k === e.ka || k === e.kb)) c.add(f); comp.set(e, c); }
+    const done = new Set(); for (const e of left) { if (done.has(e)) continue; const C = new Set(), st = [e]; while (st.length) { const x = st.pop(); if (C.has(x)) continue; C.add(x); done.add(x); for (const y of comp.get(x)) if (!C.has(y)) st.push(y); }
+      if (C.size > K.holeMax) continue; const ed = [...C].map((x) => (W.has(x.ka + '>' + x.kb) ? [x.kb, x.ka] : [x.ka, x.kb])); holes.push({ ed, keys: [...new Set(ed.flat())] }); } }
+  // the neck's axis (its middle in x and z) from the ring
+  let cx = 0, cz = 0, nk = 0; for (const e of ring) { const a = pts(e.ka); cx += P[a * 3]; cz += P[a * 3 + 2]; nk++; } cx /= nk; cz /= nk;
+  // new points: ring point i, level r (0 = the edge itself)
+  const keys = [...new Set([...ring].flatMap((e) => [e.ka, e.kb]))], slot = new Map(keys.map((k, i) => [k, i])), L = K.rings + 1, N = keys.length * L + holes.reduce((a, h) => a + h.keys.length + 1, 0);
+  const src = []; for (let r = 0; r < L; r++) for (const k of keys) src.push(pts(k));
+  const holeAt = holes.map((h) => { const at = src.length; for (const k of h.keys) src.push(pts(k)); src.push(pts(h.keys[0])); return at; });
+  const buf = P.constructor === Float32Array ? main.getAttribute('POSITION').getBuffer() : null, pr = doc.createPrimitive().setMaterial(main.getMaterial());
+  for (const name of main.listSemantics()) { const acc = main.getAttribute(name), old = acc.getArray(), es = acc.getElementSize(), out = new old.constructor(N * es);
+    src.forEach((v, j) => { for (let c = 0; c < es; c++) out[j * es + c] = old[v * es + c]; });
+    if (name === 'POSITION') for (let j = 0; j < keys.length * L; j++) { const r = Math.floor(j / keys.length) / K.rings; if (!r) continue; const x = out[j * 3], z = out[j * 3 + 2], d = Math.hypot(x - cx, z - cz) || 1;
+      out[j * 3 + 1] -= K.drop * r; out[j * 3] -= ((x - cx) / d) * K.in * r; out[j * 3 + 2] -= ((z - cz) / d) * K.in * r; }
+    // (each hole's middle point: the mean of its edge points)
+    if (name === 'POSITION') holes.forEach((h, i) => { const at = holeAt[i], n = h.keys.length, m = [0, 0, 0]; for (let j = 0; j < n; j++) for (let c = 0; c < 3; c++) m[c] += out[(at + j) * 3 + c] / n; for (let c = 0; c < 3; c++) out[(at + n) * 3 + c] = m[c]; });
+    const na = doc.createAccessor().setType(acc.getType()).setArray(out).setBuffer(buf); if (acc.getNormalized()) na.setNormalized(true); pr.setAttribute(name, na); }
+  // quads, wound against the skin triangle each edge belongs to (its edge runs the other way in the skirt)
+  const I = []; const win = new Map();
+  { const A = P, Ix = main.getIndices().getArray(); for (let t = 0; t < Ix.length; t += 3) for (let e = 0; e < 3; e++) win.set(pk(A, Ix[t + e]) + '>' + pk(A, Ix[t + (e + 1) % 3]), 1); }
+  for (const p of sks) if (p !== main) { const A = p.getAttribute('POSITION').getArray(), Ix = p.getIndices().getArray(); for (let t = 0; t < Ix.length; t += 3) for (let e = 0; e < 3; e++) win.set(pk(A, Ix[t + e]) + '>' + pk(A, Ix[t + (e + 1) % 3]), 1); }
+  for (const e of ring) { let [ka, kb] = [e.ka, e.kb]; if (!win.has(ka + '>' + kb)) [ka, kb] = [kb, ka];
+    const a = slot.get(ka), b = slot.get(kb), M = keys.length;
+    for (let r = 0; r < K.rings; r++) { const a0 = a + r * M, b0 = b + r * M, a1 = a0 + M, b1 = b0 + M; I.push(b0, a0, a1, b0, a1, b1); } }
+  holes.forEach((h, i) => { const at = holeAt[i], ix = new Map(h.keys.map((k, j) => [k, at + j])), mid = at + h.keys.length; for (const [a, b] of h.ed) I.push(ix.get(a), ix.get(b), mid); });
+  pr.setIndices(doc.createAccessor().setType('SCALAR').setArray(new Uint16Array(I)).setBuffer(buf));
+  for (const t of main.listTargets()) { const D = t.getAttribute('POSITION').getArray(), out = new Float32Array(N * 3); src.forEach((v, j) => { for (let c = 0; c < 3; c++) out[j * 3 + c] = D[v * 3 + c]; });
+    pr.addTarget(doc.createPrimitiveTarget(t.getName()).setAttribute('POSITION', doc.createAccessor().setType('VEC3').setArray(out).setBuffer(buf))); }
+  body.addPrimitive(pr);
+  let ylo = 9, yhi = -9; for (const k of keys) { const y = P[pts(k) * 3 + 1]; ylo = Math.min(ylo, y); yhi = Math.max(yhi, y); }
+  console.log('neck skirt: holes closed', holes.map((h) => h.ed.length).join(','), '; ring edges', ring.size, 'of', bnd.length, 'boundary edges; edge y', ylo.toFixed(3), '-', yhi.toFixed(3), '; axis', cx.toFixed(3), cz.toFixed(3), '; tris', I.length / 3);
+}
+
+// His posture (iteration 2, the owner's plumb line: the ear over the shoulder over the hip, no forward head, the chest
+// relaxed, seated upright): Dan's idle, talk, phone, arms, sitTalk and sit with the spine pitched over the hips, the neck
+// and head over the shoulders and the arms counter-turned so they still hang (blender/jacket posture.py, s97_clips.mjs),
+// carried in his own GLB: Mog City plays a body's own clips before Dan's (storyrun/cast.js), so only he changes.
+export async function ownClips(doc, file, names = ['idle', 'talk', 'phone', 'arms', 'sitTalk', 'sit']) {
+  const { doc: cd } = await read(file), R = doc.getRoot(), buf = R.listBuffers()[0];
+  const byName = new Map(R.listNodes().map((n) => [n.getName(), n]));
+  for (const a of R.listAnimations()) if (names.includes(a.getName())) a.dispose();
+  let nc = 0;
+  for (const src of cd.getRoot().listAnimations()) { if (!names.includes(src.getName())) continue;
+    const an = doc.createAnimation(src.getName()), done = new Map();
+    for (const ch of src.listChannels()) { const node = byName.get(ch.getTargetNode()?.getName()); if (!node) continue;
+      const s = ch.getSampler(); let ns = done.get(s);
+      if (!ns) { const cp = (acc) => doc.createAccessor().setType(acc.getType()).setArray(acc.getArray().slice()).setBuffer(buf);
+        ns = doc.createAnimationSampler().setInput(cp(s.getInput())).setOutput(cp(s.getOutput())).setInterpolation(s.getInterpolation()); an.addSampler(ns); done.set(s, ns); }
+      an.addChannel(doc.createAnimationChannel().setTargetNode(node).setTargetPath(ch.getTargetPath()).setSampler(ns)); nc++; }
+  }
+  console.log('own clips:', R.listAnimations().map((a) => a.getName()).join(' '), '; channels', nc);
+}
+
+// The lens panes out (iteration 2): Mog City casts a shadow from every mesh of a cast body (storyrun/cast.js: castShadow
+// on all), a clear pane's too, so the panes laid a grey band over his eyes and upper cheeks in every lit shot. The rimless
+// lens shows as its polished edge (glasses-lens-edge) and the bar; the panes come back when the engine stops shadows from
+// see-through materials.
+export function lensPanes(doc, K = {}) {
+  if (K.keep) return; let n = 0;
+  for (const m of doc.getRoot().listMeshes()) for (const p of m.listPrimitives()) if (p.getMaterial()?.getName() === 'glasses-lens') { m.removePrimitive(p); p.dispose(); n++; }
+  console.log('lens panes out:', n);
 }

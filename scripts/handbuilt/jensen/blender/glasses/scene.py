@@ -8,6 +8,13 @@ def load_head(glb=GLB):
     # make armature/mesh identity so mesh-local (= glTF bind space) is world space
     arm.parent=None; arm.matrix_world=mathutils.Matrix.Identity(4)
     o=bpy.data.objects['Mesh_0']
+    # (a build that already wears glasses: its glasses node out, so the new pair is fitted to the skin alone)
+    for ob in list(bpy.data.objects):
+        if ob.type=='MESH' and ob.name.startswith('glasses'): bpy.data.objects.remove(ob)
+    for m in list(bpy.data.meshes):
+        if m.name.startswith('glasses') and m.users==0: bpy.data.meshes.remove(m)
+    for m in list(bpy.data.materials):
+        if m.name.startswith('glasses-') and m.users==0: bpy.data.materials.remove(m)
     for n in ('Icosphere',):
         if n in bpy.data.objects: bpy.data.objects.remove(bpy.data.objects[n])
     mats=[m.name for m in o.data.materials]
@@ -58,6 +65,7 @@ def views():
       'front': (at(0,2,0.62,T,85),T,85),
       '34': (at(-38,4,0.62,T,85),T,85),
       'profile': (at(-90,2,0.62,T+mathutils.Vector((0,0.0,0)),85),T,85),
+      'back34': (at(-135,8,0.62,T+mathutils.Vector((0,0.06,0)),85),T+mathutils.Vector((0,0.06,0)),85),
       'eyes': (at(-12,3,0.30,EYE+mathutils.Vector((0,0,0.004)),100),EYE+mathutils.Vector((0,0,0.004)),100),
     }
 def render_setup(engine='CYCLES', samples=96, res=(1280,720)):

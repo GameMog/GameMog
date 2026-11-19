@@ -76,6 +76,9 @@ for s in ('L', 'R'):
         X[ii] = np.array(a) + np.outer(tt, u) + radial / np.maximum(r, 1e-9)[:, None] * target[:, None]
 for it in range(10):
     X = X + 0.4 * mask * lap(X); X = X - 0.42 * mask * lap(X)
+# it2: the front one flat plane from the chest to the hem band (no belly, no barrel), the band tucked to the hips
+from common import flatten_front
+X = flatten_front(X)
 # build mesh (welded)
 tri = wid[T]; tri = tri[(tri[:, 0] != tri[:, 1]) & (tri[:, 1] != tri[:, 2]) & (tri[:, 0] != tri[:, 2])]
 me = bpy.data.meshes.new('form'); me.from_pydata(X.tolist(), [], tri.tolist()); me.validate()
@@ -86,7 +89,7 @@ print('voxel', len(o.data.vertices))
 # remesh coarser for the garment's working topology (~1.1 cm quads)
 md = o.modifiers.new('rm', 'REMESH'); md.mode = 'VOXEL'; md.voxel_size = 0.011; md.use_smooth_shade = True
 bpy.ops.object.modifier_apply(modifier='rm')
-from common import HEM
+from common import HEM, flatten_front
 bm = bmesh.new(); bm.from_mesh(o.data)
 def cut(co, no, geom=None):
     g = geom if geom is not None else bm.verts[:] + bm.edges[:] + bm.faces[:]
@@ -149,6 +152,14 @@ bb.verts.ensure_lookup_table()
 for t in T:
     try: bb.faces.new([bb.verts[i] for i in t])
     except ValueError: pass
+# it2: the jeans' waistband too (the hem band now overlaps it): their faces above the hem join the collider
+JP = lib.g2b(lib.rd('p12', 'pos', 'Float32Array')); JT = lib.rd('p12', 'idx', 'Uint16Array').reshape(-1, 3).astype(np.int64)
+JT = JT[(JP[JT][:, :, 2] > HEM - 0.04).all(1)]; off = len(bb.verts); bb.faces.ensure_lookup_table(); NBF = len(bb.faces)
+for p in JP: bb.verts.new(p)
+bb.verts.ensure_lookup_table()
+for t in JT:
+    try: bb.faces.new([bb.verts[off + i] for i in t])
+    except ValueError: pass
 bb.normal_update(); body = BVHTree.FromBMesh(bb)
 moved = 0
 for it in range(3):
@@ -156,7 +167,8 @@ for it in range(3):
         co, n, i, d = body.find_nearest(v.co)
         if co is None: continue
         s_ = (v.co - co).dot(n)
-        if s_ < 0.007: v.co = co + n * 0.007; moved += 1
+        dmin = 0.004 if i >= NBF else 0.007   # 4 mm over the jeans' waistband, 7 mm over skin
+        if s_ < dmin: v.co = co + n * dmin; moved += 1
     for v in bm.verts:
         if v.is_boundary: continue
         nb = [e.other_vert(v).co for e in v.link_edges]; c = sum(nb, Vector()) / len(nb); v.co = v.co.lerp(c, 0.15)

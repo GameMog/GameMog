@@ -46,11 +46,11 @@ def box(bmx, c, t, b, n, lt, lb, ln, taper=1.0, bshift=0.0):
                 vs.append(bmx.verts.new(c + t * (st * lt / 2 * k) + b * (sb * lb / 2 * (k if sb * bshift <= 0 else 1)) + n * (sn * ln / 2)))
     idx = [(0, 1, 3, 2), (4, 6, 7, 5), (0, 4, 5, 1), (2, 3, 7, 6), (0, 2, 6, 4), (1, 5, 7, 3)]
     for f in idx: bmx.faces.new([vs[i] for i in f])
-def teeth(bmx, Pf, Ff, L0, L1, pitch=0.0018, w=0.0050, h=0.0024, lt=0.0016, lift=0.0004):
+def teeth(bmx, Pf, Ff, L0, L1, pitch=0.0015, w=0.0040, h=0.0019, lt=0.0012, lift=0.0004):
     s = L0; k = 0
     while s < L1:
         t, b, n = Ff(s); side = 1 if k % 2 == 0 else -1
-        c = Pf(s) + n * (lift + h / 2) + b * (side * 0.0007)
+        c = Pf(s) + n * (lift + h / 2) + b * (side * 0.0005)
         # each tooth: a body on its own tape side and a rounded head reaching across the chain
         box(bmx, c, t, b, n, lt, w * 0.9, h, taper=0.78)
         s += pitch; k += 1
@@ -67,14 +67,14 @@ def ribbon(bmx, Pf, Ff, L0, L1, b0, b1, depth, step=0.004):
     for i in range(len(rows) - 1): bmx.faces.new([rows[i][0], rows[i][1], rows[i + 1][1], rows[i + 1][0]])
 SNECK = float(S[np.searchsorted(path[:, 2], 1.445)]) if path[:, 2].max() > 1.445 else LZ
 for sgn in (1, -1):
-    ribbon(tbm, P, frame_c, 0.0, SNECK, sgn * 0.0012, sgn * 0.0105, -0.0006)
-    ribbon(tbm, P, frame_c, SNECK - 0.004, LZ - 0.004, sgn * 0.0012, sgn * 0.0042, -0.0012)  # narrower between the collar's ends
-ribbon(tbm, P, frame_c, 0.0, LZ - 0.004, -0.0013, 0.0013, -0.0002)  # the gap under the teeth
+    ribbon(tbm, P, frame_c, 0.0, SNECK, sgn * 0.0010, sgn * (GAP + 0.0012), -0.0005)
+    ribbon(tbm, P, frame_c, SNECK - 0.004, LZ - 0.002, sgn * 0.0010, sgn * 0.0034, -0.0010)  # narrower between the collar's ends
+ribbon(tbm, P, frame_c, 0.0, LZ - 0.002, -0.0011, 0.0011, -0.0002)  # the gap under the teeth
 # bottom stop (retainer box) at the hem
-t, b, n = frame_c(0.004); box(mb, P(0.004) + n * 0.0018, t, b, n, 0.010, 0.0085, 0.0034, taper=0.8)
-box(mb, P(LZ - 0.003) + frame_c(LZ - 0.003)[2] * 0.0016, *frame_c(LZ - 0.003), 0.003, 0.0062, 0.0026, taper=0.8)  # top stops
+t, b, n = frame_c(0.004); box(mb, P(0.004) + n * 0.0015, t, b, n, 0.008, 0.0062, 0.0026, taper=0.8)
+box(mb, P(LZ - 0.0025) + frame_c(LZ - 0.0025)[2] * 0.0013, *frame_c(LZ - 0.0025), 0.0025, 0.0048, 0.0020, taper=0.8)  # top stops
 # ---- slider + pull
-def slider(bmx, c, t, b, n, L=0.016, W=0.0105, Hh=0.0052):
+def slider(bmx, c, t, b, n, L=0.012, W=0.0074, Hh=0.0036):
     # a tapered body (wide at the top where the chains enter), rounded crown
     rings = []
     for i, f in enumerate(np.linspace(-0.5, 0.5, 6)):
@@ -99,16 +99,16 @@ def rr(w, h, r, nc=4, cy=0.0):
         for k in range(nc + 1):
             a = math.radians(a0 + 90 * k / nc); pts.append((cx + r * math.cos(a), cy + cyy + r * math.sin(a)))
     return pts
-def pull(bmx, anchor, down, n, length=0.030, width=0.0088, th=0.0017):
+def pull(bmx, anchor, down, n, length=0.021, width=0.0064, th=0.0013):
     across = n.cross(down).normalized()
-    out = rr(width, length, 0.0034, cy=-length / 2); hole = rr(width * 0.42, length * 0.38, 0.0016, cy=-length * 0.68)
+    out = rr(width, length, 0.0026, cy=-length / 2); hole = rr(width * 0.42, length * 0.36, 0.0012, cy=-length * 0.70)
     # tapered toward the top: squeeze x near y=0
     out = [(x * (0.72 + 0.28 * min(1, -y / (length * 0.45))), y) for (x, y) in out]
     plate(bmx, anchor, across, down, n, [(x, -y) for (x, y) in out][::-1], [(x, -y) for (x, y) in hole][::-1], th)
-t, b, n = frame_c(LZ - 0.011)
-slider(mb, P(LZ - 0.011) + n * 0.0012, -t, b, n)
+t, b, n = frame_c(LZ - 0.0085)
+slider(mb, P(LZ - 0.0085) + n * 0.0010, -t, b, n)
 # the pull hangs from the slider's crown, lying on the chain
-pull(mb, P(LZ - 0.006) + n * 0.0060, -t, n)
+pull(mb, P(LZ - 0.0045) + n * 0.0044, -t, n)
 # ---- pocket zips: projected lines on the front
 def surf_path(p0, p1, step=0.001):
     pts = []; nn = []
@@ -124,33 +124,33 @@ def surf_path(p0, p1, step=0.001):
         t = (Pf(min(s + 0.002, SS[-1])) - Pf(max(s - 0.002, 0))).normalized(); n = Vector([np.interp(s, SS, nn[:, k]) for k in range(3)]).normalized()
         n = (n - t * n.dot(t)).normalized(); return t, n.cross(t), n
     return Pf, Ff, SS[-1]
-POCKETS = {'chest': ((0.048, 0, 1.300), (0.142, 0, 1.312)), 'handL': ((0.084, 0, 1.030), (0.130, 0, 1.160)), 'handR': ((-0.084, 0, 1.030), (-0.130, 0, 1.160))}
 pk = {}
 for name, (p0, p1) in POCKETS.items():
     Pf, Ff, Lp = surf_path(p0, p1); pk[name] = (p0, p1, Lp)
-    teeth(mb, Pf, Ff, 0.004, Lp - 0.004, pitch=0.0017, w=0.0042, h=0.0018, lt=0.0014, lift=-0.0003)
-    s_sl = Lp - 0.012 if name == 'chest' else Lp - 0.012
-    t, b, n = Ff(s_sl); slider(mb, Pf(s_sl) + n * 0.0004, t, b, n, L=0.013, W=0.0085, Hh=0.0042)
+    teeth(mb, Pf, Ff, 0.004, Lp - 0.004, pitch=0.0014, w=0.0034, h=0.0015, lt=0.0011, lift=-0.0003)
+    s_sl = Lp - 0.010
+    t, b, n = Ff(s_sl); slider(mb, Pf(s_sl) + n * 0.0003, t, b, n, L=0.010, W=0.0064, Hh=0.0032)
     dn = Vector((0, 0, -1)); dn = (dn - n * dn.dot(n)).normalized()
-    pull(mb, Pf(s_sl + 0.004) + n * 0.0048, dn, n, length=0.026, width=0.0078)
-# ---- snaps: domed caps with a rim
+    pull(mb, Pf(s_sl + 0.003) + n * 0.0036, dn, n, length=0.019, width=0.0058)
+# ---- snaps: domed caps with a rim (it2: their own object, dull nickel; smaller)
+sb = bmesh.new()
 for row in np.load(H + '/snaps.npy'):
     c = Vector(row[:3]); n = Vector(row[3:]).normalized(); a1 = n.orthogonal().normalized(); a2 = n.cross(a1)
-    prof = [(0.0058, 0.0), (0.0061, 0.0006), (0.0058, 0.0013), (0.0050, 0.0018), (0.0040, 0.0019), (0.0030, 0.0024), (0.0015, 0.0028), (0.0, 0.0029)]
+    k_ = SNAP_R / 0.0058; prof = [(r * k_, h * k_ * 0.9) for (r, h) in [(0.0058, 0.0), (0.0061, 0.0006), (0.0058, 0.0013), (0.0050, 0.0018), (0.0040, 0.0019), (0.0030, 0.0024), (0.0015, 0.0028), (0.0, 0.0029)]]
     seg_ = 16; rings = []
     for (r, h) in prof:
-        if r == 0: rings.append([mb.verts.new(c + n * h)]); continue
-        rings.append([mb.verts.new(c + (a1 * math.cos(2 * math.pi * k / seg_) + a2 * math.sin(2 * math.pi * k / seg_)) * r + n * h) for k in range(seg_)])
+        if r == 0: rings.append([sb.verts.new(c + n * h)]); continue
+        rings.append([sb.verts.new(c + (a1 * math.cos(2 * math.pi * k / seg_) + a2 * math.sin(2 * math.pi * k / seg_)) * r + n * h) for k in range(seg_)])
     for i in range(len(rings) - 1):
         A_, B_ = rings[i], rings[i + 1]
         for k in range(seg_):
-            if len(B_) == 1: mb.faces.new([A_[k], A_[(k + 1) % seg_], B_[0]])
-            else: mb.faces.new([A_[k], A_[(k + 1) % seg_], B_[(k + 1) % seg_], B_[k]])
-    mb.faces.new(rings[0][::-1])
+            if len(B_) == 1: sb.faces.new([A_[k], A_[(k + 1) % seg_], B_[0]])
+            else: sb.faces.new([A_[k], A_[(k + 1) % seg_], B_[(k + 1) % seg_], B_[k]])
+    sb.faces.new(rings[0][::-1])
 def finish(bmx, name):
     bmesh.ops.recalc_face_normals(bmx, faces=bmx.faces[:]); m = bpy.data.meshes.new(name); bmx.to_mesh(m); bmx.free()
     o = bpy.data.objects.new(name, m); bpy.context.scene.collection.objects.link(o); return o
-mo = finish(mb, 'metal'); to = finish(tbm, 'tape')
+mo = finish(mb, 'metal'); to = finish(tbm, 'tape'); so = finish(sb, 'snaps')
 import json; json.dump({'zip_len': LZ, 'pockets': {k: [list(v[0]), list(v[1]), v[2]] for k, v in pk.items()}, 'zip_path': path.tolist()}, open(H + '/hw.json', 'w'))
 print('teeth', nt, 'metal tris', sum(len(p.vertices) - 2 for p in mo.data.polygons), 'tape', len(to.data.polygons))
 bpy.ops.wm.save_as_mainfile(filepath=H + '/hw.blend')

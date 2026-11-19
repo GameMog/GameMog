@@ -17,17 +17,18 @@ SHOTS = os.path.join(HERE, '..', '..', 'shots', 'blender')
 
 # ---------------------------------------------------------------- parameters (metres)
 K = dict(
-    W=0.0550, H=0.0270,          # lens box (A x B): a slim, wide rectangle
+    W=0.0550, H=0.0235,          # lens box (A x B): a slim, wide rectangle (it2: 3.5 mm less tall below)
     DBL=0.0190,                  # distance between lenses (bridge)
-    rTN=0.0035, rTT=0.0045,      # corner radii: top-nasal, top-temporal
-    rBN=0.0095, rBT=0.0105,      # bottom-nasal, bottom-temporal (his lenses soften at the bottom corners)
-    botBow=0.0012,               # the bottom edge bows down a little at its middle
-    nasalSlant=0.0018,           # the nasal side leans in toward the top (lens narrower at the bottom by the nose)
+    rTN=0.0030, rTT=0.0040,      # corner radii: top-nasal, top-temporal
+    rBN=0.0085, rBT=0.0095,      # bottom-nasal, bottom-temporal (his lenses soften at the bottom corners)
+    botBow=0.0008,               # the bottom edge bows down a little at its middle
+    nasalSlant=0.0016,           # the nasal side leans in toward the top (lens narrower at the bottom by the nose)
+    topRise=0.0009,              # it2: the top edge (and the bar on it) sweeps up a little toward the temple
     thick=0.0019, R=0.135,       # lens thickness; front base curve radius (about a base-4 curve)
     wrap=math.radians(5.5), tilt=math.radians(8.0),
     vertex=0.0125,               # cornea to lens back at the pupil
-    topAbovePupil=0.0101,        # lens top edge above the pupil centre
-    barH0=0.0021, barH1=0.0027, barD0=0.0016, barD1=0.0020, barOverlap=0.0007,
+    topAbovePupil=0.0074,        # lens top edge above the pupil centre (it2: frame dropped 2.7 mm off the brows)
+    barH0=0.0015, barH1=0.0019, barD0=0.0013, barD1=0.0015, barOverlap=0.0005,   # it2: ~30% thinner
     templeW=0.00125, templeH0=0.0024, templeH1=0.0015, tipR=0.00125,
     clear=0.0022,                # temple to skin clearance
 )
@@ -90,6 +91,11 @@ def outline(n=160):
     v = v - K['botBow'] * bot * np.clip(1 - (u / (W / 2)) ** 2, 0, 1)
     nas = np.clip(-u / (W / 2), 0, 1) ** 2
     u = u + K['nasalSlant'] * nas * (0.5 - (v + H / 2) / H)
+    # the browline's upswept outer end: the top rises smoothly toward the temple (fades out to nothing at the bottom)
+    g = np.clip((u + W / 2) / W, 0, 1); g = g * g * (3 - 2 * g); g = g ** 1.6
+    v = v + K['topRise'] * g * np.clip((v + H / 2) / H, 0, 1) ** 2
+    global TOPMASK
+    TOPMASK = Q[:, 1] > H / 2 - 0.0026
     return np.c_[u, v]
 
 # lens-local (u: outward, v: up, w: back toward the face from the lens front) -> world, per side s
@@ -211,7 +217,7 @@ for s in (1, -1): lens(s)
 
 # ---------------------------------------------------------------- top bars, endpieces, hinges
 H, W = K['H'], K['W']
-top = [q for q in OL if q[1] > H / 2 - 0.0026]
+top = [q for q, t in zip(OL, TOPMASK) if t]
 top.sort(key=lambda q: q[0])
 hinge = {}
 for s in (1, -1):
@@ -256,9 +262,9 @@ bL, _ = barNasal(1); bR, _ = barNasal(-1)
 mid = (bL + bR) / 2
 upv = (tiltM @ Vector((0, 0, 1)).to_4d()).to_3d()
 fwd = (tiltM @ Vector((0, -1, 0)).to_4d()).to_3d()
-bp = [bR + (bL - bR) * 0.0 , bR + (bL - bR) * 0.18 + upv * 0.0006 + fwd * 0.0005,
-      mid + upv * 0.0011 + fwd * 0.0009, bL + (bR - bL) * 0.18 + upv * 0.0006 + fwd * 0.0005, bL]
-sweep('glasses-metal', catmull(bp, 40), lambda t: (0.00062 + 0.0002 * abs(2 * t - 1) ** 3, 0.00072 + 0.00025 * abs(2 * t - 1) ** 3), upv, m=12, p=2.6)
+# it2: a small STRAIGHT bridge bar, the bar's own flattened section a touch slimmer, flaring into the bars' nasal ends
+bp = [bR + (bL - bR) * f for f in np.linspace(0, 1, 9)]
+sweep('glasses-metal', bp, lambda t: (0.00058 + 0.00012 * abs(2 * t - 1) ** 4, 0.00068 + 0.00012 * abs(2 * t - 1) ** 4), upv, m=12, p=3.0)
 
 # ---------------------------------------------------------------- nose pads on adjustable arms, seated on the nose's sides
 padInfo = {}
@@ -277,7 +283,7 @@ for s in (1, -1):
     for _ in range(40):   # push the pad out along the skin normal until its whole rim clears the skin
         ax_ = Vector((0, 0, 1)); ax_ = (ax_ - ax_.dot(pn) * pn).normalized(); bx_ = pn.cross(ax_).normalized(); worst = 1
         for j in range(16):
-            th = 2 * math.pi * j / 16; q = padC + ax_ * 0.005 * math.cos(th) + bx_ * 0.003 * math.sin(th) - pn * 0.0006
+            th = 2 * math.pi * j / 16; q = padC + ax_ * 0.004 * math.cos(th) + bx_ * 0.0024 * math.sin(th) - pn * 0.0005
             r = bvh.find_nearest(q)
             if r[0] is not None: worst = min(worst, (q - r[0]).dot(r[1]))
         if worst > 0.0002: break
@@ -291,7 +297,7 @@ for s in (1, -1):
         for r, hgt in rings:
             for j in range(m):
                 th = 2 * math.pi * j / m
-                Vs.append(padC + ax * (0.0050 * r * math.cos(th)) + bx * (0.0030 * r * math.sin(th)) + pn * (side * 0.00075 * hgt))
+                Vs.append(padC + ax * (0.0040 * r * math.cos(th)) + bx * (0.0024 * r * math.sin(th)) + pn * (side * 0.0006 * hgt))
         for ri in range(len(rings) - 1):
             for j in range(m):
                 a, b = base + ri * m + j, base + ri * m + (j + 1) % m
@@ -300,18 +306,13 @@ for s in (1, -1):
         else: ring1 = base
     # (the two halves share their rim ring position: weld by merging later)
     add('glasses-pads', Vs, Fs)
-    # the pad arm: from under the bar's nasal end, down behind the lens, curling to the pad's back
-    root, (u0, v0) = barNasal(s)
-    du, dv, dn = sideW(s, u0, v0)
-    padBack = padC + pn * 0.0008
-    p0 = root + dn * 0.0012 - dv * 0.0008
-    p1 = L2W(s, u0 + 0.0016, v0 - 0.0035, K['thick'] + 0.0015)
-    p2 = L2W(s, u0 + 0.0008, v0 - 0.0085, K['thick'] + 0.0035)
-    p3 = padBack + pn * 0.0030 + ax * 0.0012
-    p4 = padBack + pn * 0.0006
-    sweep('glasses-metal', catmull([p0, p1, p2, p3, p4], 36), lambda t: (0.00042, 0.00042), Vector((s, 0, 0)), m=10, p=2.0, hintMode='side')
-    # the pad's little metal box clip on its back
-    sweep('glasses-metal', catmull([padBack + pn * 0.0001 - ax * 0.0012, padBack + pn * 0.0001 + ax * 0.0012], 4), lambda t: (0.0006, 0.00045), pn, m=10, p=3.0)
+    # it2: no metal pad arms. The clear pad is held by a short clear stem off the lens's back, just inside its nasal
+    # edge, so from the front it sits tucked behind the lens edge (no wire between the eyes)
+    du, dv, dn = sideW(s, -K['W'] / 2, 0)
+    vP = (padC.z - zC) / math.cos(K['tilt']); uN = -K['W'] / 2 + K['nasalSlant'] * (0.5 - (vP + K['H'] / 2) / K['H']) + 0.0024
+    root = L2W(s, uN, vP, K['thick'] - 0.0002)
+    padBack = padC + pn * 0.0005
+    sweep('glasses-pads', catmull([root, root + (padBack - root) * 0.5 + dn * 0.0004, padBack], 8), lambda t: (0.00065, 0.00055), Vector((s, 0, 0)), m=10, p=2.2, hintMode='side')
     padInfo[s] = dict(center=list(padC), normal=list(pn))
 
 # ---------------------------------------------------------------- temples: hinge, back along the head clear of the skin, over the ear, down behind it
@@ -334,16 +335,21 @@ for s in (1, -1):
         z = (hp2.z - 0.0005) * (1 - f) + zA * f
         x = max(clearX(y, z), abs(hp2.x) + 0.0035 * f)
         pts.append(Vector((s * x, y, z)))
-    # over the ear's top and down behind it, hugging the skull
-    yb = ey + 0.012
-    for (dy, dz) in ((0.008, -0.0006), (0.0145, -0.0035), (0.0190, -0.0110), (0.0205, -0.0210), (0.0195, -0.0310), (0.0165, -0.0395)):
+    # it2: over the ear's root (where the helix joins the head) and straight DOWN behind the pinna, tucked into the
+    # crease between ear and skull so the pinna hides the bend and the tip from the side; nothing runs on past the ear.
+    def tuckX(z):   # the skull just behind the ear (pure skull there) plus a little clearance
+        x = skullX(ey + 0.0165, z, s) or skullX(ey + 0.02, z, s) or 0.078
+        return x + 0.0008 + K['templeW'] / 2
+    for (dy, dz, w) in ((0.0036, -0.0004, 0.30), (0.0064, -0.0030, 0.80), (0.0080, -0.0080, 1.0), (0.0088, -0.0150, 1.0),
+                        (0.0086, -0.0235, 1.0), (0.0074, -0.0315, 1.0)):
         y, z = ey + dy, zA + dz
-        pts.append(Vector((s * (clearX(y, z, outer=dy < 0.016) - 0.0004), y, z)))
+        x = clearX(y, z) * (1 - w) + tuckX(z) * w
+        pts.append(Vector((s * x, y, z)))
     path = catmull(pts, 120)
     # length along, for the tip sleeve
     L = [0];
     for i in range(1, len(path)): L.append(L[-1] + (path[i] - path[i - 1]).length)
-    tot = L[-1]; tipStart = tot - 0.034
+    tot = L[-1]; tipStart = tot - 0.030
     k0 = next(i for i, l in enumerate(L) if l >= tipStart)
     def tdims(t, tot=tot):
         l = t * tot; f = min(1, l / 0.03)
@@ -397,10 +403,10 @@ def ar(b):  # anti-reflection coating: a faint thin-film sheen (exports as KHR_m
     try:
         b.inputs['Thin Film Thickness'].default_value = 280; b.inputs['Thin Film IOR'].default_value = 1.38
     except Exception as ex: print('thin film', ex)
-setp(M['glasses-metal'], (0.06, 0.062, 0.068), 1.0, 0.32)
+setp(M['glasses-metal'], (0.15, 0.155, 0.165), 1.0, 0.30)   # it2: gunmetal, not black
 setp(M['glasses-lens'], (0.08, 0.085, 0.09), 0.0, 0.03, 0.10, ar)
-setp(M['glasses-lens-edge'], (0.55, 0.6, 0.6), 0.0, 0.15, 0.35)
-setp(M['glasses-pads'], (0.86, 0.87, 0.84), 0.0, 0.32, 0.55)
+setp(M['glasses-lens-edge'], (0.80, 0.84, 0.84), 0.0, 0.08, 0.42)   # it2: a faint polished edge highlight
+setp(M['glasses-pads'], (0.42, 0.44, 0.46), 0.0, 0.25, 0.22)   # (as parts.mjs sets them: faint grey, mostly clear)
 setp(M['glasses-tips'], (0.035, 0.036, 0.04), 0.0, 0.38)
 
 # ---------------------------------------------------------------- report the fit
@@ -442,14 +448,15 @@ bpy.ops.wm.save_as_mainfile(filepath=os.path.join(HERE, 'glasses-on-head.blend')
 if RENDER:
     lm = bpy.data.materials.new('render-lens'); lm.use_nodes = True; nt = lm.node_tree; b = nt.nodes['Principled BSDF']
     b.inputs['Base Color'].default_value = (1, 1, 1, 1); b.inputs['Transmission Weight'].default_value = 1.0
-    b.inputs['Roughness'].default_value = 0.0; b.inputs['IOR'].default_value = 1.2; ar(b)
+    b.inputs['Roughness'].default_value = 0.0; b.inputs['IOR'].default_value = 1.12   # it2: no thin film in the preview (its sheen hid the outer eye corner)
     out = nt.nodes['Material Output']; lp = nt.nodes.new('ShaderNodeLightPath'); tr = nt.nodes.new('ShaderNodeBsdfTransparent'); mx = nt.nodes.new('ShaderNodeMixShader')
     nt.links.new(lp.outputs['Is Shadow Ray'], mx.inputs['Fac']); nt.links.new(b.outputs[0], mx.inputs[1]); nt.links.new(tr.outputs[0], mx.inputs[2]); nt.links.new(mx.outputs[0], out.inputs['Surface'])
     em = bpy.data.materials.new('render-edge'); em.use_nodes = True; be = em.node_tree.nodes['Principled BSDF']
-    be.inputs['Base Color'].default_value = (0.8, 0.86, 0.85, 1); be.inputs['Transmission Weight'].default_value = 0.95; be.inputs['Roughness'].default_value = 0.12; be.inputs['IOR'].default_value = 1.5
+    be.inputs['Base Color'].default_value = (0.9, 0.94, 0.93, 1); be.inputs['Transmission Weight'].default_value = 0.8; be.inputs['Roughness'].default_value = 0.05; be.inputs['IOR'].default_value = 1.5
     pm = bpy.data.materials.new('render-pads'); pm.use_nodes = True; bp_ = pm.node_tree.nodes['Principled BSDF']
     bp_.inputs['Base Color'].default_value = (0.95, 0.95, 0.9, 1); bp_.inputs['Transmission Weight'].default_value = 1.0; bp_.inputs['Roughness'].default_value = 0.18; bp_.inputs['IOR'].default_value = 1.4
     gl.data.materials[1] = lm; gl.data.materials[2] = em; gl.data.materials[3] = pm
+    if '--hide' in argv: gl.hide_render = True   # (debug: the head alone)
     S.world(0.45); S.lights(); S.render_setup('CYCLES', SAMPLES)
     Vw = S.views()
     for k in RENDER:

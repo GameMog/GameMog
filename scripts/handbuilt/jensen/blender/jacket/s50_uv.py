@@ -33,10 +33,10 @@ def classify(c, is_lip):
             t, ph, r, L = arm_frame(s, c)
             if t > L - CUFF: return PANELS.index('cuff_' + s)
             # padded shoulder panel (same oval as the puff in s30)
-            A, B, C = arm(s); u = (B - A).normalized(); up = (Vector((0, 0, 1)) - u * u.z).normalized(); w = u.cross(up).normalized()
-            cc = A + u * 0.03 + up * 0.03 + Vector((0, -0.008, 0)); dp = c - cc
-            if dp.dot(up) > -0.035 and math.sqrt((dp.dot(u) / 0.095) ** 2 + (dp.dot(w) / 0.078) ** 2) < 1.0: return PANELS.index('shoulder_' + s)
+            if shoulder_metric(s, c) < 1.0: return PANELS.index('shoulder_' + s)
             return PANELS.index(('sleeve_top_' if math.cos(ph - math.radians(90)) > 0 else 'sleeve_under_') + s)
+    for s in ('L', 'R'):
+        if (c.x > 0) == (s == 'L') and abs(c.x) > 0.11 and shoulder_metric(s, c) < 1.0: return PANELS.index('shoulder_' + s)
     if c.z < HEM + BAND: return PANELS.index('band')
     f = abs(phi(c)) < SIDE_PHI
     side = 'L' if c.x > 0 else 'R'
@@ -79,8 +79,8 @@ for ob in (jk, collar, tabs):
             u, v = uvd[l.index].uv
             if ob is collar: vals[l.vertex_index] = v
             else:
-                if u > 11: vals[l.vertex_index] = -rr_sdf(u - 12, v, 0.044, 0.018, 0.008)
-                else: vals[l.vertex_index] = -rr_sdf(u - 10, v, 0.046, 0.019, 0.008)
+                if u > 11: vals[l.vertex_index] = -rr_sdf(u - 12, v, TAB_W, TAB_H, 0.0065)
+                else: vals[l.vertex_index] = -rr_sdf(u - 10, v, TAB_W, TAB_H, 0.0065)
     a.data.foreach_set('value', vals)
 for ob in (collar, tabs):
     for uvl in list(ob.data.uv_layers): ob.data.uv_layers.remove(uvl)
@@ -92,7 +92,11 @@ for e in bmc.edges:
     xs = [v.co.x for v in e.verts]
     if e.verts[0].co.y > 0.04 and abs(xs[0]) < 0.0026 and abs(xs[1]) < 0.0026: e.seam = True
 bmc.to_mesh(collar.data); bmc.free()
-# tabs: seam round the top's outline (the face and the edge roll unwrap separately)
+# tabs: seam round the top's outline (the face and the edge roll unwrap separately) -- it2: actually marked
+bmt = bmesh.new(); bmt.from_mesh(tabs.data); bmt.normal_update()
+for e in bmt.edges:
+    if len(e.link_faces) == 2 and e.calc_face_angle(0) > math.radians(40): e.seam = True
+bmt.to_mesh(tabs.data); bmt.free()
 # join into 'leather'
 for ob in bpy.data.objects: ob.select_set(False)
 for ob in (jk, collar, tabs): ob.select_set(True)

@@ -75,11 +75,14 @@ export function teethRigidPass(doc, K = {}) {
     for (const v of idx) { const y = a[v * 3 + 1] - hy, z = a[v * 3 + 2] - hz; d[v * 3] = mx * 0.5; d[v * 3 + 1] = (c * y + s * z) - y; d[v * 3 + 2] = (-s * y + c * z) - z; }
     A.setArray(d); n++; }
   console.log('teeth rigid: targets', n, 'teeth points', idx.length);
+  holePatchMorphs(doc);
 }
 // The skin's tone graded (assembly, iteration 1): in the game's lights the Blender bake's albedo (face ~ sRGB 158,111,71)
 // read orange, not his warm light tan: some of its saturation out (desat), then lifted and balanced per channel (mul).
+// (iteration 2: the blue gain over the green was the pink; the face part's 1.14/1.09/0.97 read orange in the game's
+// kitchen: a warm light tan between the two, a little less saturated)
 export async function skinTonePass(doc, K = {}) {
-  K = { desat: 0.3, mul: [1.2, 1.13, 1.15], q: 90, ...K };
+  K = { desat: 0.36, mul: [1.18, 1.12, 1.06], q: 90, ...K };
   const t = matOf(doc, 'skin').getBaseColorTexture(), img = sharp(Buffer.from(t.getImage())), meta = await img.metadata();
   const { data, info } = await img.ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   // (the bake's islands bled out: its background is black, and a few triangles at the neck behind the jaw reach past their
@@ -128,4 +131,74 @@ export async function skinTonePass(doc, K = {}) {
   let out = sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } }); if (!meta.hasAlpha) out = out.removeAlpha();
   const buf = await out.webp({ quality: K.q, effort: 5 }).toBuffer(); t.setImage(buf).setMimeType('image/webp');
   console.log('skin tone: desat', K.desat, 'mul', K.mul.join(','), (buf.length / 1024 | 0) + 'K');
+}
+// (Blender round, iteration 2) The neck-hole fill (age.mjs neckHolesPass) fans each closed loop with whichever copy of a
+// seam point it met first, so four fill triangles under the ears joined points from DIFFERENT uv islands: in uv they were
+// slivers 0.6-0.85 of the atlas long, crossing the scalp's grey and the face. On the body each showed that whole strip
+// squeezed into a few mm (the pale grey diamond and dark streak on the side of his neck), and in the skin bake they
+// stamped thin dark lines across the forehead and cheek. Each such triangle (a uv edge over K.maxUv) now takes, at each
+// corner, the copy of that point (same position, so same skinning) that keeps its uv triangle smallest; a corner that has
+// no copy in its neighbours' island gets a new copy of its point (every attribute copied, appended at the end, so no
+// existing point moves or changes index) whose uv is the mean of the other two corners'. Run before 'morphs'.
+export function holeUvPass(doc, K = {}) {
+  K = { maxUv: 0.2, snap: 0.006, ...K }; const { prim } = HBmods;
+  const ps = prim(doc, 'skin'), main = ps.sort((a, b) => b.getIndices().getCount() - a.getIndices().getCount())[0];
+  if (main.listTargets().length) throw new Error('holeUvPass must run before the morph targets are added');
+  const P = main.getAttribute('POSITION').getArray(), U0 = main.getAttribute('TEXCOORD_0'), n0 = P.length / 3;
+  let U = U0.getArray();
+  const key = (v) => `${Math.round(P[v * 3] * 1e5)},${Math.round(P[v * 3 + 1] * 1e5)},${Math.round(P[v * 3 + 2] * 1e5)}`;
+  const copies = new Map(); for (let v = 0; v < n0; v++) { const k = key(v); (copies.get(k) || copies.set(k, []).get(k)).push(v); }
+  const I = main.getIndices(), A = I.getArray().slice(); let fixed = 0; const patch = [];
+  const uvOf = (v) => [U[v * 2], U[v * 2 + 1]];
+  const ud = (a, b) => { const p = uvOf(a), q = uvOf(b); return Math.hypot(p[0] - q[0], p[1] - q[1]); };
+  const per = (a, b, c) => ud(a, b) + ud(b, c) + ud(c, a);
+  for (let t = 0; t < A.length; t += 3) { const [a, b, c] = [A[t], A[t + 1], A[t + 2]];
+    if (Math.max(ud(a, b), ud(b, c), ud(c, a)) <= K.maxUv) continue;
+    let best = [a, b, c], bp = per(a, b, c);
+    for (const x of copies.get(key(a))) for (const y of copies.get(key(b))) for (const z of copies.get(key(c))) { const q = per(x, y, z); if (q < bp) { bp = q; best = [x, y, z]; } }
+    for (let r = 0; r < 3 && Math.max(ud(best[0], best[1]), ud(best[1], best[2]), ud(best[2], best[0])) > K.maxUv; r++) {
+      // the odd corner out: the one farthest from the other two
+      const far = [0, 1, 2].map((i) => ud(best[i], best[(i + 1) % 3]) + ud(best[i], best[(i + 2) % 3])), o = far.indexOf(Math.max(...far));
+      const p1 = uvOf(best[(o + 1) % 3]), p2 = uvOf(best[(o + 2) % 3]);
+      // no copy there: the triangle moves to a small patch primitive of its own (same material, its three points copied
+      // with every attribute, the odd corner's uv set to the mean of the other two), and its place in the body's index list
+      // becomes degenerate (so no later triangle changes its index). The patch's face targets are copied from the body's
+      // points after 'morphs' (holePatchMorphs, called by teethRigidPass).
+      // (the odd corner's uv: that of the body point nearest it in space among those whose uv lies in its neighbours'
+      // island, so the patch samples the skin there and not an island's edge)
+      const q = best[o]; let bv = -1, bd = 1e9;
+      for (let v = 0; v < n0; v++) { if (Math.hypot(U[v * 2] - p1[0], U[v * 2 + 1] - p1[1]) > 0.08 || v === best[(o + 1) % 3] || v === best[(o + 2) % 3]) continue;
+        const d = Math.hypot(P[v * 3] - P[q * 3], P[v * 3 + 1] - P[q * 3 + 1], P[v * 3 + 2] - P[q * 3 + 2]); if (d < bd) { bd = d; bv = v; } }
+      patch.push({ tri: [best[0], best[1], best[2]], odd: o, uv: bv >= 0 ? [U[bv * 2], U[bv * 2 + 1]] : [(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2] });
+      best = [best[(o + 1) % 3], best[(o + 1) % 3], best[(o + 1) % 3]]; break; }
+    A[t] = best[0]; A[t + 1] = best[1]; A[t + 2] = best[2]; fixed++; }
+  if (patch.length) { const buf = main.getAttribute('POSITION').getBuffer(), pr = doc.createPrimitive().setMaterial(main.getMaterial());
+    const srcs = patch.flatMap((d) => d.tri);
+    for (const name of main.listSemantics()) { const acc = main.getAttribute(name), old = acc.getArray(), es = acc.getElementSize(), out = new old.constructor(srcs.length * es);
+      srcs.forEach((v, j) => { for (let k = 0; k < es; k++) out[j * es + k] = old[v * es + k]; });
+      patch.forEach((d, i) => { if (name === 'TEXCOORD_0') { out[(i * 3 + d.odd) * 2] = d.uv[0]; out[(i * 3 + d.odd) * 2 + 1] = d.uv[1]; } });
+      const na = doc.createAccessor().setType(acc.getType()).setArray(out).setBuffer(buf); if (acc.getNormalized()) na.setNormalized(true); pr.setAttribute(name, na); }
+    pr.setIndices(doc.createAccessor().setType('SCALAR').setArray(new Uint16Array(srcs.map((_, j) => j))).setBuffer(buf));
+    pr.setExtras({ holePatch: srcs });
+    doc.getRoot().listMeshes().find((m) => m.listPrimitives().includes(main)).addPrimitive(pr); }
+  let worst = 0; for (let t = 0; t < A.length; t += 3) { const [a, b, c] = [A[t], A[t + 1], A[t + 2]]; worst = Math.max(worst, ud(a, b), ud(b, c), ud(c, a)); }
+  I.setArray(A);
+  console.log('hole uv: triangles re-pointed', fixed, 'moved to a patch', patch.length, 'longest uv edge now', worst.toFixed(3));
+}
+// (iteration 2) the hole patch's face targets: each patch point takes the deltas of the body point it was copied from
+export function holePatchMorphs(doc) {
+  for (const m of doc.getRoot().listMeshes()) for (const pr of m.listPrimitives()) { const src = pr.getExtras()?.holePatch; if (!src) continue;
+    const body = m.listPrimitives().find((p) => p !== pr && p.getMaterial() === pr.getMaterial() && p.listTargets().length);
+    if (!body) continue;
+    // (the passes between 'holeuv' and here reshape the body (the sculpt, age, head size): the patch's points follow, every
+    // attribute but its uv taken again from the body points they copy)
+    for (const name of pr.listSemantics()) { if (name === 'TEXCOORD_0') continue; const ba = body.getAttribute(name); if (!ba) continue;
+      const B = ba.getArray(), es = ba.getElementSize(), acc = pr.getAttribute(name), out = acc.getArray().slice();
+      src.forEach((v, j) => { for (let k = 0; k < es; k++) out[j * es + k] = B[v * es + k]; }); acc.setArray(out); }
+    const BT = body.listTargets(), PT = pr.listTargets(); if (BT.length !== PT.length) throw new Error('hole patch: target count');
+    BT.forEach((bt, i) => { const B = bt.getAttribute('POSITION').getArray(), acc = PT[i].getAttribute('POSITION'), out = new Float32Array(src.length * 3);
+      src.forEach((v, j) => { for (let k = 0; k < 3; k++) out[j * 3 + k] = B[v * 3 + k]; });
+      // the zero accessor addMorphs gave may be shared between primitives: always a fresh one
+      PT[i].setAttribute('POSITION', doc.createAccessor().setType('VEC3').setArray(out).setBuffer(acc.getBuffer())); });
+    pr.setExtras({}); console.log('hole patch morphs:', BT.length, 'targets on', src.length, 'points'); }
 }

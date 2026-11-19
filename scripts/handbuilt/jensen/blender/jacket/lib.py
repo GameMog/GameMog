@@ -80,7 +80,7 @@ CL = None
 def clip_pose(name, t):
     """world rotation (Blender) and position per joint for clip `name` at time t (seconds)."""
     global CL
-    if CL is None: CL = json.load(open(D + 'clips.json'))
+    if CL is None: CL = json.load(open(D + os.environ.get('CLIPS', 'clips_fixed.json' if os.path.exists(D + 'clips_fixed.json') else 'clips.json')))
     c = CL['clips'][name]
     def samp(key, n):
         ch = c.get(key)

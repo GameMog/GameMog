@@ -20,8 +20,8 @@ import { bandCollarPass } from './collar.mjs';
 import { motoPass, tailorPass, teeHemPass, teeShoulderPass, teeCrewPass, drapePass } from './moto.mjs';
 import { bakeRest, addMorphs } from '../facekit.mjs';
 const FACE = process.env.JH_FACE || new URL('../../../.scratch/jensen/face/', import.meta.url).pathname;
-import { sculptPass, mapsPass, mouthBagPass, teethRigidPass, skinTonePass } from './blender/face-pass.mjs';
-import { keepOrder, stripOld, addParts, writeKept, flatFront, hairLook, combBack } from './blender/assemble.mjs';
+import { holeUvPass, sculptPass, mapsPass, mouthBagPass, teethRigidPass, skinTonePass } from './blender/face-pass.mjs';
+import { keepOrder, stripOld, addParts, writeKept, flatFront, teeUnder, neckSkirt, ownClips, lensPanes } from './blender/assemble.mjs';
 const MORPHS = ['eyeBlinkLeft', 'eyeBlinkRight', 'jawOpen', ...['sil', 'PP', 'FF', 'TH', 'DD', 'kk', 'CH', 'SS', 'nn', 'RR', 'aa', 'E', 'I', 'O', 'U'].map((v) => 'viseme_' + v),
   'mouthSmileLeft', 'mouthSmileRight', 'cheekSquintLeft', 'cheekSquintRight', 'eyeSquintLeft', 'eyeSquintRight', 'browInnerUp', 'browOuterUpLeft', 'browOuterUpRight', 'mouthClose',
   'eyeWideLeft', 'eyeWideRight', 'mouthFrownLeft', 'mouthFrownRight', 'mouthPucker', 'mouthFunnel'];
@@ -43,7 +43,8 @@ const steps = [
   // the mouth neutral and relaxed, the lips just parted; the eyes open and alert (no squint, a little wide), the brows a
   // little raised)
   // (Blender round, iteration 1 (blender/face): "grin B": less smirk, the lips parted as in his photo, the brows up a touch)
-  ['grin', () => bakeRest(doc, (JSON.parse(process.env.JH_GRIN || 'null') || [['jawOpen', 0.07], ['mouthSmileLeft', 0.04], ['mouthSmileRight', 0.04], ['browInnerUp', 0.1], ['browOuterUpLeft', 0.18], ['browOuterUpRight', 0.18], ['eyeWideLeft', 0.14], ['eyeWideRight', 0.14]]).map(([n, w]) => [FACE + n + '.target', w]))],
+  // (Blender round, iteration 2 (blender/face): the alert, open face of his photo: the eyes ~15% more open, the brows 2-3 mm up)
+  ['grin', () => bakeRest(doc, (JSON.parse(process.env.JH_GRIN || 'null') || [['jawOpen', 0.07], ['mouthSmileLeft', 0.04], ['mouthSmileRight', 0.04], ['browInnerUp', 0.22], ['browOuterUpLeft', 0.38], ['browOuterUpRight', 0.38], ['eyeWideLeft', 0.4], ['eyeWideRight', 0.4]]).map(([n, w]) => [FACE + n + '.target', w]))],
   // (round 4: his age in the face's shape: MakeHuman's own targets, age.mjs)
   // (likeness round 1: the owner's reference is a lean, taut face: no jowls or heavy cheeks; age.mjs's lean set)
   // (likeness round 2: a broad face (wider cheekbones and temples, a squarer, shorter midface and forehead), the mouth's
@@ -60,6 +61,9 @@ const steps = [
   // in the neck's skin behind the ears closed (the dark spot))
   ['smooth', () => smoothFacePass(doc, JSON.parse(process.env.JH_SMOOTH || '{}'))],
   ['holes', () => neckHolesPass(doc)],
+  // (Blender round, iteration 2: the hole fill's four triangles that joined different uv islands (the neck streak, and the
+  // dark lines they stamped across the forehead in the bake) re-pointed or moved to a small patch, blender/face-pass.mjs)
+  ['holeuv', () => holeUvPass(doc)],
   // (Blender round, iteration 1: the head re-sculpted on the same points (blender/face/sculpt.py, a MakeHuman-format target):
   // broader, forward cheekbones, wider temples, no jowls, a tapered lower jaw, the chin 6 mm shorter, a wider nose and mouth)
   ['sculpt', () => sculptPass(doc, PARTS + 'face/head-sculpt.target')],
@@ -146,9 +150,18 @@ const steps = [
   ['strip', () => stripOld(doc)],
   ['parts', () => addParts(doc, PARTS)],
   // (the owner, 18 Nov: no humps: the jacket's front flat from the chest to the hem, the waist under it pulled in behind it)
+  // (iteration 2: the jacket cut flat in Blender itself; here only the waist under its hem pulled in, as its sim saw it)
   ['flat', () => flatFront(doc, JSON.parse(process.env.JH_FLAT || '{}'))],
-  ['comb', () => combBack(doc, JSON.parse(process.env.JH_COMB || '{}'))],
-  ['hairlook', () => hairLook(doc, JSON.parse(process.env.JH_HAIRLOOK || '{}'))],
+  // (iteration 2: the tee's flared hem out from under the flat front)
+  ['teeunder', () => teeUnder(doc)],
+  // (iteration 2: the neck's skin hung down into the lower collar: the forge's saw-tooth cut showed over it at the sides)
+  ['skirt', () => neckSkirt(doc, JSON.parse(process.env.JH_SKIRT || '{}'))],
+  // (iteration 2: the clear lens panes out: the engine's shadow from them greyed his eyes; the polished edges stay)
+  ['lenses', () => lensPanes(doc, JSON.parse(process.env.JH_LENSES || '{}'))],
+  // (iteration 2, the owner's posture notes: his idle, talk, phone, arms and seated clips stacked on the plumb line, his own)
+  ['posture', () => ownClips(doc, PARTS + 'clips-posture.glb')],
+  // (iteration 1's 'comb' and 'hairlook' (assemble.mjs combBack, hairLook) gone: the iteration-2 groom lies up and back in
+  // layers, its own cut (0.35) and colour made for the engine's strand shader)
 ];
 for (const [k, f] of steps) if (on(k)) { const t = Date.now(); await f(); console.log('step', k, ((Date.now() - t) / 1000).toFixed(1), 's'); }
 const glb = await writeKept(doc, src); fs.writeFileSync(OUT, glb); console.log(OUT, (glb.length / 1048576).toFixed(2), 'MB');

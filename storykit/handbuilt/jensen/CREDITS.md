@@ -32,10 +32,12 @@ looked at, never sampled, projected or traced.
 | Part | Source | Licence |
 |---|---|---|
 | the head re-sculpt (`parts/face/head-sculpt.target`), the skin's albedo, roughness and normal maps (pores, fine lines, tone), the eyes' irises, the mouth's dark inside, the lower teeth's rigid jaw swing | made here (`blender/face/`: sculpt.py, bake.py, eyetex.py; procedural, on MakeHuman's CC0 UVs) | original, CC0 |
-| the leather moto jacket (`parts/jacket.glb`): pattern, cloth drape, full-length metal zip, band collar with two snap tabs, quilted shoulder panels, seams and topstitching, chest and hand-warmer zip pockets | made here (`blender/jacket/`) | original |
+| the leather moto jacket (`parts/jacket.glb`; iteration 2: flat front and back from chest to hem band, princess seams, gunmetal zip, nickel snaps): pattern, cloth drape, full-length metal zip, band collar with two snap tabs, quilted shoulder panels, seams and topstitching, chest and hand-warmer zip pockets | made here (`blender/jacket/`) | original |
 | the jacket leather's colour and grain | ambientCG Leather026 (Lennart Demes, ambientcg.com) and Poly Haven `leather_white` (Rob Tuytel, polyhaven.com) | CC0 1.0 |
 | the groomed hair cards, cap and card brows (`parts/hair.glb`) and their strand atlas | made here (`blender/hair/`: Blender hair curves, the atlas baked from original strand clumps) | original, CC0 |
-| the browline glasses (`parts/glasses.glb`): gunmetal top bar, rimless lenses, wire bridge, pad arms, hinges, temples | made here (`blender/glasses/build.py`, procedural) | original, CC0 |
+| the browline glasses (`parts/glasses.glb`): gunmetal top bar, rimless lenses, straight bridge bar, clear nose pads, hinges, temples tucked behind the ears (iteration 2) | made here (`blender/glasses/build.py`, procedural) | original, CC0 |
+| his posture-fixed idle, talk, phone, arms and seated clips (`parts/clips-posture.glb`) | Dan's clips (the cast's shared clip pack) re-posed here on the plumb line (`blender/jacket/posture.py`, `s97_clips.mjs`) | as the clip pack; the change original |
+| the neck's skin skirt under the collar, the tee's hem out from under the jacket (`blender/assemble.mjs` neckSkirt, teeUnder) | made here from his own MakeHuman skin points | original, CC0 |
 
 Still no CC-BY asset, so no credits-page line is needed.
 

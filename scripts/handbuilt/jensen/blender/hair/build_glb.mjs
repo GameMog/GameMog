@@ -35,8 +35,8 @@ function prim(k, mat) {
 }
 const webp = doc.createExtension(EXTTextureWebP).setRequired(true);
 const tex = (f, name) => doc.createTexture(name).setImage(fs.readFileSync(f)).setMimeType('image/webp').setURI(name + '.webp');
-const hairMat = doc.createMaterial('hair').setBaseColorTexture(tex(`${D}/atlas/hair_basecolor.webp`, 'hair_basecolor')).setAlphaMode('MASK').setAlphaCutoff(0.3)
-  .setDoubleSided(true).setRoughnessFactor(0.6).setMetallicFactor(0).setExtras({ hairTone: 'light', hairNormals: 'volume', atlas: 'blender/hair 16 tiles 256x1024' });
+const hairMat = doc.createMaterial('hair').setBaseColorTexture(tex(`${D}/atlas/hair_basecolor.webp`, 'hair_basecolor')).setAlphaMode('MASK').setAlphaCutoff(0.35)
+  .setDoubleSided(true).setRoughnessFactor(0.6).setMetallicFactor(0).setExtras({ hairTone: 'light', hairNormals: 'volume', atlas: 'blender/hair v2 16 tiles 256x1024' });
 const capMat = doc.createMaterial('hairCap').setBaseColorFactor([1, 1, 1, 1]).setRoughnessFactor(0.85).setMetallicFactor(0);
 const browMat = doc.createMaterial('brows').setBaseColorTexture(tex(`${D}/atlas/brows_basecolor.webp`, 'brows_basecolor')).setAlphaMode('MASK').setAlphaCutoff(0.3)
   .setDoubleSided(true).setRoughnessFactor(0.65).setMetallicFactor(0);

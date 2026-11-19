@@ -27,6 +27,36 @@ relax(bm.verts[:], 0.35, 3)
 pits = [Vector((s_ * 0.155, -0.04, 1.31)) for s_ in (1, -1)]
 near = [v for v in bm.verts if min((v.co - p).length for p in pits) < 0.10]
 relax(near, 0.5, 12)
+# it2: the draped front back onto one flat plane (the sim lets it sag forward at the belly)
+Xa = np.array([v.co[:] for v in bm.verts]); Xb = flatten_back(flatten_front(Xa))
+for v, p in zip(bm.verts, Xb): v.co = Vector(p)
+# it2: the hem band clear of the jeans' waistband all round (radially from the hips' axis, 4 mm), so nothing of the
+# jeans shows through the band at the back
+JP = lib.g2b(lib.rd('p12', 'pos', 'Float32Array')); JI = np.unique(lib.rd('p12', 'idx', 'Uint16Array')); JP = JP[JI]
+JP = JP[JP[:, 2] > HEM - 0.03]; YC = -0.02
+ja = np.arctan2(JP[:, 0], JP[:, 1] - YC); jr = np.hypot(JP[:, 0], JP[:, 1] - YC)
+ZB = np.floor((JP[:, 2] - (HEM - 0.03)) / 0.01).astype(int); AB = np.floor((ja + np.pi) / (2 * np.pi) * 60).astype(int) % 60
+RM = np.zeros((20, 60)); np.maximum.at(RM, (np.clip(ZB, 0, 19), AB), jr)
+RM = np.maximum(RM, np.maximum(np.roll(RM, 1, 1), np.roll(RM, -1, 1))); RM2 = RM.copy(); RM2[1:] = np.maximum(RM2[1:], RM[:-1]); RM2[:-1] = np.maximum(RM2[:-1], RM[1:])
+npush = 0; disp = {}
+for v in bm.verts:
+    if v.co.z > HEM + 0.17: continue
+    zi = int((v.co.z - (HEM - 0.03)) / 0.01)
+    if zi < 0 or zi > 19: continue
+    a = math.atan2(v.co.x, v.co.y - YC); r = math.hypot(v.co.x, v.co.y - YC); need = RM2[zi, int((a + math.pi) / (2 * math.pi) * 60) % 60] + 0.004
+    if RM2[zi].max() > 0 and r < need: disp[v] = need - r
+for it in range(3):   # spread the push so the band stays smooth
+    nd = {}
+    for v in bm.verts:
+        if v.co.z > HEM + 0.20: continue
+        nb = [disp.get(e.other_vert(v), 0.0) for e in v.link_edges]
+        nd[v] = max(disp.get(v, 0.0), sum(nb) / max(1, len(nb)) * 0.8)
+    disp = {k: x for k, x in nd.items() if x > 1e-5}
+for v, dd in disp.items():
+    r_ = Vector((v.co.x, v.co.y - YC, 0)); 
+    if r_.length > 1e-6: v.co += r_.normalized() * dd; npush += 1
+print('hem band pushed clear of the jeans', npush, 'max %.1f mm' % (max(disp.values()) * 1000 if disp else 0))
+bm.normal_update()
 # ---- 1. creases: compression rings at the inner elbow, stacking above the cuff, soft folds across the small of the back
 for v in bm.verts:
     p = v.co; d = 0.0
@@ -41,6 +71,18 @@ for v in bm.verts:
         d += 0.0022 * kw * math.sin(2 * math.pi * (t + 0.006 * math.sin(3 * ph)) / 0.034)
         # the sleeve's underside (armpit) gathers a little
         ka = math.exp(-((t - 0.05) / 0.05) ** 2) * max(0.0, -math.cos(ph - 0.0)) if False else 0.0
+    # it2: broad folds under the arms: they fan from the armpit down and forward over the side of the torso
+    for sg in (1, -1):
+        pit = Vector((sg * 0.150, -0.025, 1.300)); r = (p - pit)
+        if sg * p.x < 0.07: continue
+        k = math.exp(-(r.length / 0.075) ** 2) * (1 - math.exp(-(r.length / 0.02) ** 2))
+        a_ = math.atan2(r.z, -r.y)   # angle round the pit in the side plane
+        d += 0.0026 * k * math.sin(3.2 * a_ + 9.0 * r.length)
+    # it2: broad soft folds at the waist sides (never across the flat front)
+    phw = math.atan2(p.x, -p.y)
+    if 0.95 < abs(phw) < 2.3 and HEM + BAND < p.z < 1.16:
+        ks = math.sin((abs(phw) - 0.95) / 1.35 * math.pi) * math.exp(-((p.z - 1.06) / 0.06) ** 2)
+        d += 0.0020 * ks * math.sin(2 * math.pi * (p.z + 0.015 * math.sin(abs(phw) * 5)) / 0.055)
     if abs(p.x) < 0.2 and p.y > 0.04:  # back: two soft horizontal folds at the waist
         kb = math.exp(-((p.z - 1.06) / 0.07) ** 2) * (1 - abs(p.x) / 0.2)
         d += 0.0018 * kb * math.sin(2 * math.pi * (p.z + 0.02 * math.sin(p.x * 18)) / 0.07)
@@ -57,10 +99,10 @@ def panel_metric(s, p):
 for v in bm.verts:
     for s in ('L', 'R'):
         if (v.co.x > 0) != (s == 'L'): continue
-        m = panel_metric(s, v.co)
+        m = shoulder_metric(s, v.co)
         if m < 1.08:
             e = min(1.0, max(0.0, (1.08 - m) / 0.16)); e = e * e * (3 - 2 * e)
-            v.co += v.normal * 0.0028 * e
+            v.co += v.normal * 0.0030 * e
 bm.normal_update()
 # ---- 3. the centre-front opening: cut at x = 0 on the front, the two fronts drawn apart for the zip chain
 front = [f for f in bm.faces if f.calc_center_median().y < -0.02 and abs(f.calc_center_median().x) < 0.05]
@@ -122,14 +164,14 @@ def at(sv):
 # fine columns near the ends (rounded corners), 5 mm elsewhere
 cols = list(np.arange(0, 0.012, 0.002)) + list(np.arange(0.012, Ltot - 0.012, 0.005)) + list(Ltot - np.arange(0.012, -0.0001, -0.002))
 cols = np.unique(np.clip(cols, 0, Ltot))
-RC = 0.009
+RC = 0.008
 def height(sv, p):
     fr = np.clip((p[1] + 0.086) / 0.16, 0, 1)   # 0 front, 1 back
-    h = 0.040 + 0.007 * fr
+    h = COL_H0 + COL_H1 * fr
     d = min(sv, Ltot - sv)
     if d < RC: h -= RC - math.sqrt(max(0.0, RC * RC - (RC - d) ** 2))
     return h
-TH = 0.0034
+TH = COL_TH
 rows_out = np.linspace(0.0, 1.0, 9)
 cv = []; cuv = []; grid = []
 def frame(p):
@@ -206,24 +248,19 @@ def slab(place, w, h, rad, th, uvoff):
         f = tb.faces.new([rings[-1][i], rings[-1][(i + 1) % n], ctr])
         for l, (xx, yy) in zip(f.loops, [outline[i], outline[(i + 1) % n], (0, 0)]): l[tuv].uv = (uvoff[0] + xx, uvoff[1] + yy)
 # tab A on the band, his right side (the chain's far end is his right front)
-sA0 = Ltot - 0.040
+sA0 = Ltot - 0.036; TABY = COL_H0 * 0.5 + 0.001
 def placeA(x, y, z):
-    q, r = collar_pt(sA0 - x, 0.021 + y, 0.0006 + z); return q, r
-slab(placeA, 0.046, 0.019, 0.008, 0.0026, (10.0, 0.0))
-for x in (-0.009, 0.009):
-    q, r = placeA(x - 0.004, 0, 0.0026); snaps.append((q, r))
-# tab B: on his left, from the collar's foot down onto the chest, tipped 25 degrees outward
-cB = Vector((0.050, -0.095, 1.415))
-co, nB, _, _ = jbvh.find_nearest(cB); cB = co
-upB = Vector((0, 0, 1)); upB = (upB - nB * upB.dot(nB)).normalized(); rtB = upB.cross(nB).normalized()
-ang = math.radians(-28); ax = (rtB * math.cos(ang) + upB * math.sin(ang)); ay = nB.cross(ax)
+    q, r = collar_pt(sA0 - x, TABY + y, 0.0005 + z); return q, r
+slab(placeA, TAB_W, TAB_H, 0.0065, 0.0022, (10.0, 0.0))
+for x in (-0.0085, 0.0085):
+    q, r = placeA(x, 0, 0.0022); snaps.append((q, r))
+# it2: tab B mirrors tab A on his left side of the band (it1 had it floating on the chest)
+sB0 = 0.036
 def placeB(x, y, z):
-    q = cB + ax * x + ay * y
-    hit, n, _, _ = jbvh.find_nearest(q)
-    return hit + n * (0.0012 + z), n
-slab(placeB, 0.044, 0.018, 0.008, 0.0026, (12.0, 0.0))
-for x in (-0.009, 0.009):
-    q, n = placeB(x + 0.004, 0, 0.0026); snaps.append((q, n))
+    q, r = collar_pt(sB0 + x, TABY + y, 0.0005 + z); return q, r
+slab(placeB, TAB_W, TAB_H, 0.0065, 0.0022, (12.0, 0.0))
+for x in (-0.0085, 0.0085):
+    q, r = placeB(x, 0, 0.0022); snaps.append((q, r))
 tbm = bpy.data.meshes.new('tabs'); bmesh.ops.recalc_face_normals(tb, faces=tb.faces[:]); tb.to_mesh(tbm); tb.free()
 tabs = bpy.data.objects.new('tabs', tbm); bpy.context.scene.collection.objects.link(tabs); tbm.polygons.foreach_set('use_smooth', [True] * len(tbm.polygons))
 np.save(H + '/snaps.npy', np.array([list(q) + list(n) for q, n in snaps]))

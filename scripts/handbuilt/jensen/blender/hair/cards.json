@@ -1,37 +1,45 @@
 {
- "segs": 7,
+ "segs": 8,
  "sink": 0.0015,
- "taper": 0.6,
- "ridge": 0.12,
- "volW": 0.85,
- "cut": 0.3,
+ "taper": 0.25,
+ "ridge": 0.08,
+ "volW": 0.7,
+ "cut": 0.35,
  "tiles": {
   "inner": [
    0,
    1,
    2,
-   12
+   0,
+   1,
+   2,
+   3
   ],
   "mid": [
    3,
    4,
    5,
+   12,
    13,
-   6,
-   7,
-   14
+   0
   ],
   "outer": [
    6,
    7,
-   14,
    8,
    9,
-   15
+   12,
+   13,
+   4
   ],
   "top": [
+   6,
+   7,
    8,
    9,
+   12,
+   13,
+   14,
    15
   ],
   "line": [
@@ -39,27 +47,49 @@
    11,
    10,
    11,
-   8,
-   9
+   12
   ]
  },
  "ao": [
-  0.62,
+  0.45,
   1.0
  ],
- "aoLine": 0.9,
+ "aoLine": 0.7,
+ "cardVary": 0.07,
+ "sideDk": 0.7,
  "capEdge": 0.3,
- "capMin": 0.0004,
+ "capMin": 0.0003,
  "capK": 0.25,
- "capCol": 0.06,
+ "capCol": 0.05,
+ "capMax": 0.0035,
+ "capBack": 0.007,
  "browIn": -0.001,
- "browOut": 0.003,
- "browGrow": 0.002,
+ "browOut": 0.002,
+ "browGrow": 0.0008,
+ "browTail": 0.35,
  "browOff": [
   0.0003,
   0.0009
  ],
- "capMax": 0.0035,
- "sideDk": 0.75,
- "capBack": 0.025
+ "rootW": 0.25,
+ "rootWLen": 0.3,
+ "rootDk": 0.5,
+ "rootDkLen": 0.4,
+ "hl": {
+  "zBack": 0.075,
+  "bins": 57,
+  "seg": 0.016,
+  "step": 0.009,
+  "tiles": [
+   10,
+   11
+  ],
+  "below": 0.005,
+  "above": 0.011,
+  "off": 0.0026,
+  "offUp": 0.0015,
+  "vSpan": 0.97,
+  "col": 0.65,
+  "xMax": 0.056
+ }
 }

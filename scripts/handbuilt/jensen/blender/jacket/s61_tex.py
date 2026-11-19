@@ -26,15 +26,20 @@ def bil(img, u, v):
 def tri(img, tile, off=(0.0, 0.0)):
     w = np.abs(N) ** 4; w /= w.sum(1, keepdims=True)
     return (bil(img, y / tile + off[0], z / tile + off[1]) * w[:, 0] + bil(img, x / tile + 0.37 + off[0], z / tile + 0.11 + off[1]) * w[:, 1] + bil(img, x / tile + 0.71 + off[0], y / tile + 0.53 + off[1]) * w[:, 2])
-D26 = load(A + 'ambientcg_Leather026/Leather026_4K-JPG_Displacement.jpg'); D26 -= D26.mean(); D26 /= D26.std() + 1e-6
-DW = load(A + 'polyhaven_leather_white/leather_white_disp_4k.jpg'); DW -= DW.mean(); DW /= DW.std() + 1e-6
-R26 = load(A + 'ambientcg_Leather026/Leather026_4K-JPG_Roughness.jpg'); RW = load(A + 'polyhaven_leather_white/leather_white_rough_4k.jpg')
-C26 = load(A + 'ambientcg_Leather026/Leather026_4K-JPG_Color.jpg'); C26 = C26 / (C26.mean() + 1e-6)
+# it2: the grain 3.6x finer (tile 15 cm -> 4.2 cm) at ~40% of it1's normal strength; each source pre-filtered to the
+# atlas's texel (0.35 mm) so the finer tile does not alias into noise. Large-scale sheen patches keep the 2K sources.
+def nrm_(a): a = a - a.mean(); return a / (a.std() + 1e-6)
+SRC26 = A + 'ambientcg_Leather026/Leather026_4K-JPG_'; SRCW = A + 'polyhaven_leather_white/leather_white_'
+D26 = nrm_(load(SRC26 + 'Displacement.jpg', 256)); DW = nrm_(load(SRCW + 'disp_4k.jpg', 128))
+D26L = nrm_(load(SRC26 + 'Displacement.jpg')); DWL = nrm_(load(SRCW + 'disp_4k.jpg'))
+R26 = load(SRC26 + 'Roughness.jpg', 256); RW = load(SRCW + 'rough_4k.jpg', 128)
+C26 = load(SRC26 + 'Color.jpg', 256); C26 = C26 / (C26.mean() + 1e-6)
+GT26, GTW = 0.042, 0.030
 log('sources loaded')
-grain = tri(D26, 0.15) * 0.000045 + tri(DW, 0.06) * 0.00002
-rough_src = (tri(R26, 0.15) - R26.mean()) * 0.45 + (tri(RW, 0.06) - RW.mean()) * 0.5
-mott = tri(C26, 0.15)
-patch = tri(DW, 1.6) * 0.5 + tri(D26, 0.9, (0.3, 0.6)) * 0.5   # large soft variation (polish / sheen patches)
+grain = tri(D26, GT26) * 0.0000060 + tri(DW, GTW) * 0.0000035
+rough_src = (tri(R26, GT26) - R26.mean()) * 0.40 + (tri(RW, GTW) - RW.mean()) * 0.4
+mott = tri(C26, GT26) * 0.6 + 0.4
+patch = tri(DWL, 1.6) * 0.5 + tri(D26L, 0.9, (0.3, 0.6)) * 0.5   # large soft variation (polish / sheen patches)
 log('grain')
 h = np.zeros(n, np.float32); thread = np.zeros(n, np.float32); hcr = np.zeros(n, np.float32)
 TORSO = np.isin(pid, [0, 1, 2, 3, 4, 5, 6]); SLEEVE = np.isin(pid, [7, 8, 9, 10, 11, 12]); SHP = np.isin(pid, [13, 14]); COL = pid == 16; TAB = pid == 17; FAC = pid == 15
@@ -61,6 +66,10 @@ seam(z - YOKE_B, phi_ * rxy, TORSO & ~front & (z > YOKE_B - 0.03), rows=(0.0034,
 seam(z - (HEM + BAND), phi_ * rxy, TORSO, rows=(0.0034,))
 stitch(z - (HEM + 0.0075), phi_ * rxy, TORSO | FAC)
 stitch(np.abs(x) - (GAP + 0.0068), z, (TORSO) & (y < 0) & (np.abs(x) < 0.03))
+# it2: princess seams, front (yoke to band, clear of the pockets) and back; lapped, one row of topstitching outboard
+zb_ = HEM + BAND; NOBAND = TORSO & (pid != 6)
+seam(np.abs(x) - princess_x(z, True), z, NOBAND & front & (y < 0) & (z < YOKE_F) & (z > zb_ - 0.002), rows=(0.0034,))
+seam(np.abs(x) - princess_x(z, False), z, NOBAND & ~front & (y > 0) & (z < YOKE_B) & (z > zb_ - 0.002), rows=(0.0034,))
 log('torso seams')
 # ---- arm-related: armhole, two-piece sleeve seams, cuff, shoulder panel + quilting, elbow fine creases
 for s_ in ('L', 'R'):
@@ -86,16 +95,16 @@ for s_ in ('L', 'R'):
     kw = np.exp(-((t - (Lt - 0.10)) / 0.05) ** 2) * (side & SLEEVE)
     hcr += (0.00022 * kw * np.sin(2 * np.pi * (t + 0.003 * np.sin(7 * ph)) / 0.011)).astype(np.float32)
     # padded shoulder panel: its outline seam and quilted channels across the arm, every 2.4 cm
-    Av = arm(s_)[0]; Bv = arm(s_)[1]
-    uu = (Bv - Av).normalized(); up = (Vector((0, 0, 1)) - uu * uu.z).normalized(); ww = uu.cross(up).normalized()
-    cc = np.array(Av + uu * 0.03 + up * 0.03 + Vector((0, -0.008, 0)), np.float32); uu, up, ww = [np.array(v, np.float32) for v in (uu, up, ww)]
+    cc, uu, up, ww = shoulder_frame(s_)
+    cc, uu, up, ww = [np.array(v, np.float32) for v in (cc, uu, up, ww)]
     dp = P - cc; qa = dp @ uu; qw = dp @ ww
-    m = np.sqrt((qa / 0.095) ** 2 + (qw / 0.078) ** 2)
-    sp = side & (SHP | SLEEVE | TORSO) & ((dp @ up) > -0.035)
-    seam((m - 1) * 0.085, np.arctan2(qw / 0.078, qa / 0.095) * 0.085, sp, rows=(-0.0034,))
+    m = np.sqrt((qa / SHP_ALONG) ** 2 + (qw / SHP_AROUND) ** 2)
+    sp = side & (SHP | SLEEVE | TORSO) & ((dp @ up) > -0.03)
+    seam((m - 1) * 0.10, np.arctan2(qw / SHP_AROUND, qa / SHP_ALONG) * 0.10, sp, rows=(-0.0034,))
     inside = side & SHP & (m < 0.97)
-    qq = (qa + 0.012) % 0.024 - 0.012
-    h[inside] += (0.0008 * np.cos(np.pi * qq[inside] / 0.024) ** 2 - 0.0003 * np.exp(-(qq[inside] / 0.0008) ** 2)).astype(np.float32)
+    QP = 0.020; qq = (qa + QP / 2) % QP - QP / 2
+    fade = np.clip((0.97 - m) / 0.06, 0, 1)
+    h[inside] += ((0.0013 * np.cos(np.pi * qq / QP) ** 2 - 0.00045 * np.exp(-(qq / 0.0009) ** 2)) * fade)[inside].astype(np.float32)
     stitch(qq, qw, inside)
 log('arms')
 # ---- welted zip pockets: two rounded lips with the chain between, a topstitched box round them
@@ -111,15 +120,15 @@ for name, (p0, p1, Lp) in hw['pockets'].items():
     stitch(np.minimum(np.abs(a + 0.006), np.abs(a - Lp - 0.006)), c, sel & (ac < 0.0098))
 log('pockets')
 # ---- collar: stitched 4.5 mm under its top and 5 mm over its seam; tabs edge-stitched 2.8 mm in
-fr = np.clip((y + 0.086) / 0.16, 0, 1); hcol = 0.040 + 0.007 * fr
-stitch(aux - (hcol - 0.0045), phi_ * rxy, COL & (aux < hcol))
-stitch(aux - 0.005, phi_ * rxy, COL & (aux < hcol))
+fr = np.clip((y + 0.086) / 0.16, 0, 1); hcol = COL_H0 + COL_H1 * fr
+stitch(aux - (hcol - 0.0035), phi_ * rxy, COL & (aux < hcol))
+stitch(aux - 0.0045, phi_ * rxy, COL & (aux < hcol))
 snaps = np.load(H + '/snaps.npy')
 for k in range(2):
     c0 = snaps[2 * k:2 * k + 2, :3].mean(0); nz = snaps[2 * k, 3:]; e1 = snaps[2 * k + 1, :3] - snaps[2 * k, :3]; e1 /= np.linalg.norm(e1); e2 = np.cross(nz, e1)
     near = TAB & (np.linalg.norm(P - c0, axis=1) < 0.04)
     dpp = P - c0; aa = np.arctan2(dpp @ e2, dpp @ e1) * 0.02
-    stitch(aux - 0.0028, aa, near & (aux > 0.0005))
+    stitch(aux - 0.0022, aa, near & (aux > 0.0005))
 h[TAB] += (0.0004 * np.clip(aux[TAB] / 0.003, 0, 1)).astype(np.float32)
 log('collar/tabs')
 # ---- height -> image, normal map
@@ -184,9 +193,10 @@ base = np.array([0.0082, 0.0077, 0.0074], np.float32)           # warm near-blac
 worn = np.array([0.026, 0.023, 0.021], np.float32)
 col = base[None] * np.clip(mott, 0.85, 1.18)[:, None] * (1 + 0.05 * patch)[:, None]
 col = col * (1 - wear[:, None]) + worn[None] * wear[:, None]
-thr = np.array([0.020, 0.020, 0.021], np.float32); tm = np.clip(thread, 0, 1)[:, None] * 0.85
+thr = np.array([0.046, 0.045, 0.044], np.float32); tm = np.clip(thread, 0, 1)[:, None] * 0.9   # it2: a slightly lighter dark-grey thread
 col = col * (1 - tm) + thr[None] * tm
-rough = 0.46 + rough_src * 0.40 + patch * 0.045 - wear * 0.08 + thread * 0.22
+high = np.clip(cvx / 0.35, 0, 1); low = np.clip(-cvx / 0.35, 0, 1)
+rough = 0.54 + rough_src * 0.30 + patch * 0.03 - wear * 0.08 - high * 0.10 + low * 0.06 + thread * 0.20   # it2: sheen on the high points
 rough = np.clip(rough, 0.22, 0.85)
 AO = np.load(H + '/bake/ao.npy'); AO = np.repeat(np.repeat(AO, 2, 0), 2, 1)[:R, :R]
 ao = np.clip(AO[idx], 0, 1) ** 0.8

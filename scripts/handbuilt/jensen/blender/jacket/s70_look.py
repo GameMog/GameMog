@@ -7,7 +7,7 @@ a = sys.argv[sys.argv.index('--') + 1:]
 bpy.ops.wm.open_mainfile(filepath=a[0])
 import lib, mats
 for o in list(bpy.data.objects):
-    if o.name not in ('leather', 'metal', 'tape', 'rig') and o.type == 'MESH' and not o.name.startswith(('skin', 'eyes', 'brows', 'lashes', 'teeth', 'hair', 'glasses', 'lens', 'lenses', 'clothes', 'shoes', 'neckline')): bpy.data.objects.remove(o)
+    if o.name not in ('leather', 'metal', 'tape', 'snaps', 'rig') and o.type == 'MESH' and not o.name.startswith(('skin', 'eyes', 'brows', 'lashes', 'teeth', 'hair', 'glasses', 'lens', 'lenses', 'clothes', 'shoes', 'neckline')): bpy.data.objects.remove(o)
 if 'rig' not in bpy.data.objects:
     for p in lib.BODY['prims']:
         if p['mat'] in ('uniform', 'uniform-hem', 'moto-collar'): continue
@@ -15,6 +15,7 @@ if 'rig' not in bpy.data.objects:
 L = bpy.data.objects['leather']; L.data.materials.clear(); L.data.materials.append(mats.leather_mat())
 bpy.data.objects['metal'].data.materials.clear(); bpy.data.objects['metal'].data.materials.append(mats.metal_mat())
 bpy.data.objects['tape'].data.materials.clear(); bpy.data.objects['tape'].data.materials.append(mats.tape_mat())
+bpy.data.objects['snaps'].data.materials.clear(); bpy.data.objects['snaps'].data.materials.append(mats.snap_mat())
 for o in bpy.data.objects:
     if o.type == 'MESH':
         for p in o.data.polygons: p.use_smooth = True

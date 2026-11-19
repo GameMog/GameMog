@@ -1,4 +1,4 @@
-# Jensen, the Blender parts (round "Blender", iteration 1)
+# Jensen, the Blender parts (round "Blender", iterations 1 and 2)
 
 The four parts were made in Blender 5.3 (run headless: `Blender -b --python <script.py> -- <args>`), each in its own
 folder here with its README: `face/` (the head re-sculpt and the skin, eye and normal maps), `jacket/` (the leather
@@ -30,3 +30,25 @@ The glasses are refitted to the current head by `glasses/build.py -- --glb <a bu
 Environment (as for the rest of the hand-built cast): `FORGE_TOOLBOX_DIR`, `FORGE_MH_BASE`, `FORGE_MH_TARGETS`; the
 jacket's texture step also reads `JH_MATERIALS` (the CC0 leather downloads), and the Blender scripts read `JH_GLB`
 (the body they fit on, default `storykit/handbuilt/jensen/jensen.glb`).
+
+## Iteration 2 (19 Nov)
+
+The parts' iteration-2 files are in each folder (each README has an "Iteration 2" section). Rebuild:
+
+```
+node scripts/handbuilt/jensen/blender/parts.mjs --jacket <jacket.glb> --hair <hair.glb> --glasses <glasses.glb> \
+  --posture <blender/jacket/clips/cast-clips.posture.glb> --fitOf jacket=it1,hair=r3,glasses=it1
+node scripts/handbuilt/jensen/build.mjs
+```
+
+- face: `face-pass.mjs` adds `holeUvPass` (the build's `holeuv` step, before `morphs`: the neck-hole fill's four
+  triangles that joined different uv islands, the neck streak) and `holePatchMorphs`; the re-sculpt from round 3
+  (`face/sculpt-it2.json`), skin maps from `face/bake-it2.py`; the rest face `grin` and the skin grade (`skinTonePass`)
+  defaults retuned.
+- jacket: cut flat front and back in Blender (fitted on the iteration-1 body, `fit-it1`); `flat` now only pulls the
+  waist in under it (its sim's collider), `teeunder` takes the tee's flared hem out from under it.
+- hair: the layered groom (fitted on round 3); iteration 1's `comb` and `hairlook` steps are gone.
+- glasses: refitted lower and slimmer (fitted on the iteration-1 head).
+- `skirt` (assemble.mjs neckSkirt): the neck's skin hung 5 cm down into the lower collar from the forge's saw-tooth cut.
+- `posture` (assemble.mjs ownClips): his idle, talk, phone, arms, sitTalk and sit, posture-fixed (the owner's plumb line),
+  carried in his own GLB so Mog City plays them in place of Dan's for him only (`parts/clips-posture.glb`).

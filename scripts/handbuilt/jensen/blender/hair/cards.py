@@ -57,29 +57,73 @@ for i in range(len(pts)):
     T = np.gradient(pp, axis=0); T /= np.linalg.norm(T, axis=1)[:, None]
     B = np.cross(nn, T); B /= np.linalg.norm(B, axis=1)[:, None]
     k = str(kind[i]); u = U[i]
-    pool = TILES['line'] if k == 'line' else TILES['top'] if k == 'top' else TILES['inner'] if u < 0.55 else TILES['mid'] if u < 0.85 else TILES['outer']
+    pool = TILES[k]
     tile = int(rng.choice(pool)); col, row = tile % 8, tile // 8
     u0, u1 = col / 8 + 0.002, (col + 1) / 8 - 0.002
     if rng.random() < 0.5: u0, u1 = u1, u0
     vroot = 0.5 if row == 0 else 1.0
-    shade = C['ao'][0] + (C['ao'][1] - C['ao'][0]) * float(np.clip((u - 0.3) / 0.75, 0, 1))
+    shade = C['ao'][0] + (C['ao'][1] - C['ao'][0]) * float(np.clip((u - 0.3) / 0.7, 0, 1))
     if k == 'line': shade = C['aoLine']
-    if k == 'top': shade = C['ao'][1]
+    shade *= rng.uniform(1 - C['cardVary'], 1 + C['cardVary'])
     shade *= C['sideDk'] + (1 - C['sideDk']) * region(pts[i][0])[0]
     base = len(P)
     for r in range(SEG + 1):
-        s = tt[r]; w = W[i] * (1 - C['taper'] * s ** 1.2) * (0.8 + 0.2 * sm(0, 0.15, s))
+        s = tt[r]; w = W[i] * (1 - C['taper'] * s ** 1.2) * (C['rootW'] + (1 - C['rootW']) * sm(0, C['rootWLen'], s))
         vn = volnormal(pp[r], nn[r])
         for j, f in enumerate((-0.5, 0.0, 0.5)):
             q = pp[r] + B[r] * f * w + nn[r] * (C['ridge'] * w if f == 0 else 0)
             P.append(q); N.append(vn)
             UV.append((u0 + (u1 - u0) * (f + 0.5), vroot - (0.012 + 0.975 * s) * 0.5))
-            COL.append(shade * (0.92 + 0.08 * s))
+            COL.append(shade * (C['rootDk'] + (1 - C['rootDk']) * sm(0, C['rootDkLen'], s)))
     for r in range(SEG):
         a0 = base + r * 3
         for j in range(2):
             v00, v01, v10, v11 = a0 + j, a0 + j + 1, a0 + 3 + j, a0 + 3 + j + 1
             IX += [v00, v10, v01, v01, v10, v11]
+
+# ---------------------------------------------------------------- the hairline strip
+# a band of short fine hairs conforming to the skin along the front hairline and temples: sparse at its lower edge, dense
+# into the hair (the fringe tiles' staggered roots, read from the tile's bottom up), so the hairline fades in over ~1 cm
+# instead of ending in card roots. Laid as overlapping segments (no UV seams), each its own little grid.
+HLN = C['hl']
+line = []
+for x in np.linspace(-HLN['xMax'], HLN['xMax'], HLN['bins']):
+    for y in np.arange(EY + 0.01, EY + 0.1, 0.0005):
+        g, _ = scalp(np.array([x, y, EZ + 0.06]))
+        for _ in range(3): g, _ = scalp(np.array([x, g[1], g[2] + 0.004]))
+        if hair_area(*g) > 0.5: line.append(g); break
+line = np.array(line)
+line = np.stack([np.convolve(np.pad(line[:, c], 3, mode='edge'), np.ones(7) / 7, 'valid') for c in range(3)], 1)
+arc = np.concatenate([[0], np.cumsum(np.linalg.norm(np.diff(line, axis=0), axis=1))])
+def at(t):
+    return np.stack([np.interp(t, arc, line[:, c]) for c in range(3)], 1)
+seg, step, NSg, NR = HLN['seg'], HLN['step'], 4, 4
+t0 = 0.0
+while t0 < arc[-1] - 0.004:
+    ts = np.clip(np.linspace(t0, t0 + seg, NSg + 1), 0, arc[-1])
+    base = len(P); tile = int(rng.choice(HLN['tiles'])); col, row = tile % 8, tile // 8
+    u0, u1 = col / 8 + 0.004, (col + 1) / 8 - 0.004
+    if rng.random() < 0.5: u0, u1 = u1, u0
+    vroot = 0.5 if row == 0 else 1.0
+    pts0 = at(ts)
+    for a_ in range(NSg + 1):
+        g0 = pts0[a_]; q, n = scalp(g0)
+        # (up the scalp: world up projected on the tangent plane, and back over the top)
+        upv = np.array([0, 1.0, -0.6]); upv -= n * np.dot(upv, n); upv /= np.linalg.norm(upv)
+        for r_ in range(NR + 1):
+            f = r_ / NR; d = -HLN['below'] + (HLN['below'] + HLN['above']) * f
+            g = g0 + upv * d
+            for _ in range(3):
+                q, n2 = scalp(g); g = g - n2 * np.dot(g - q, n2) + n2 * (HLN['off'] + HLN['offUp'] * f)
+            P.append(g); N.append(volnormal(g, n2))
+            UV.append((u0 + (u1 - u0) * a_ / NSg, vroot - (0.01 + HLN['vSpan'] * f) * 0.5))
+            COL.append(HLN['col'] * (0.85 + 0.15 * f))
+    for a_ in range(NSg):
+        for r_ in range(NR):
+            v00 = base + a_ * (NR + 1) + r_; v01 = v00 + 1; v10 = v00 + NR + 1; v11 = v10 + 1
+            IX += [v00, v10, v01, v01, v10, v11]
+    t0 += step * rng.uniform(0.8, 1.2)
+print('hairline strip', len(line), 'pts, arc %.3f m' % arc[-1])
 mesh['hair'] = dict(P=np.array(P), N=np.array(N), UV=np.array(UV), COL=np.array(COL), IX=np.array(IX))
 print('hair cards', len(pts), 'verts', len(P), 'tris', len(IX) // 3)
 
@@ -117,6 +161,8 @@ for side in (1, -1):
             s = b / NS
             # (the tile's band 0.18..0.82 of its height laid over the old brow's band, a little fuller)
             y_lo, y_hi = lo[b] - C['browGrow'], hi[b] + C['browGrow']
+            ym, th = (y_lo + y_hi) / 2, 1 - C['browTail'] * sm(0.45, 1.0, s)
+            y_lo, y_hi = ym + (y_lo - ym) * th, ym + (y_hi - ym) * th
             for c in range(NA + 1):
                 vt = c / NA
                 y = y_lo + (y_hi - y_lo) * (vt - 0.18) / 0.64

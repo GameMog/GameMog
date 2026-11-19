@@ -70,3 +70,13 @@ if (opt('glasses')) await slim(opt('glasses'), ['glasses'], 'glasses.glb', { eac
   // (in the engine the clear nose pads read as two white discs on the nose: a faint grey silicone, mostly see-through)
   for (const p of m.listPrimitives()) { const mt = p.getMaterial(); if (mt?.getName() === 'glasses-pads') mt.setBaseColorFactor([0.42, 0.44, 0.46, 0.22]).setRoughnessFactor(0.25); }
 } });
+// clips-posture.glb  his six posture-fixed clips (blender/jacket posture.py + s97_clips.mjs write the whole clip pack with
+//                    them fixed; only those six kept here, with the skeleton they drive): --posture <cast-clips.posture.glb>
+if (opt('posture')) { const { doc } = await read(opt('posture')), R = doc.getRoot(), keep = ['idle', 'talk', 'phone', 'arms', 'sitTalk', 'sit'];
+  for (const a of R.listAnimations()) if (!keep.includes(a.getName())) a.dispose();
+  for (const n of R.listNodes()) n.setMesh(null).setSkin(null);
+  await doc.transform(prune({ keepLeaves: true, keepAttributes: false }));
+  for (const e of R.listExtensionsUsed()) if (/meshopt|quantiz/i.test(e.extensionName)) e.dispose();
+  doc.createExtension(EXTMeshoptCompression).setRequired(true).setEncoderOptions({ method: EXTMeshoptCompression.EncoderMethod.FILTER });
+  const glb = patchModes(Buffer.from(await io.writeBinary(doc))); fs.writeFileSync(OUT + 'clips-posture.glb', glb);
+  console.log('clips-posture.glb', R.listAnimations().map((a) => a.getName()).join(' '), (glb.length / 1024 | 0) + 'K'); }

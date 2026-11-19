@@ -34,11 +34,12 @@ const leather = doc.createMaterial('leather').setBaseColorFactor([1, 1, 1, 1]).s
   .setExtras({ ...extras, part: 'shell' });
 const orm = await tex('leather_orm.png', 'leather_orm', 'image/jpeg', 92);
 leather.setMetallicRoughnessTexture(orm).setOcclusionTexture(orm);
-const hardware = doc.createMaterial('hardware').setBaseColorFactor([0.56, 0.56, 0.58, 1]).setMetallicFactor(1).setRoughnessFactor(0.26).setExtras({ ...extras, part: 'hardware', metal: 'nickel' });
+const hardware = doc.createMaterial('hardware').setBaseColorFactor([0.15, 0.15, 0.16, 1]).setMetallicFactor(1).setRoughnessFactor(0.36).setExtras({ ...extras, part: 'hardware', metal: 'gunmetal' });
+const snapsM = doc.createMaterial('snaps').setBaseColorFactor([0.28, 0.27, 0.26, 1]).setMetallicFactor(1).setRoughnessFactor(0.52).setExtras({ ...extras, part: 'snaps', metal: 'dull-nickel' });
 const tape = doc.createMaterial('zip-tape').setBaseColorFactor([0.012, 0.012, 0.013, 1]).setMetallicFactor(0).setRoughnessFactor(0.8).setExtras({ ...extras, part: 'zip-tape' });
 const mesh = doc.createMesh('moto-jacket');
 const info = JSON.parse(fs.readFileSync(X + 'info.json'));
-for (const [name, mat] of [['leather', leather], ['hardware', hardware], ['zip-tape', tape]]) {
+for (const [name, mat] of [['leather', leather], ['hardware', hardware], ['zip-tape', tape], ['snaps', snapsM]]) {
   const idx = rd(name + '.idx.bin', Uint32Array); const nV = info[name].verts;
   const p = doc.createPrimitive().setMaterial(mat)
     .setAttribute('POSITION', acc(rd(name + '.pos.bin', Float32Array), 'VEC3'))
@@ -50,7 +51,7 @@ for (const [name, mat] of [['leather', leather], ['hardware', hardware], ['zip-t
   mesh.addPrimitive(p);
 }
 bodyNode.setName('moto-jacket').setMesh(mesh).setSkin(skin);
-const ax = R.getAsset(); ax.extras = { ...(ax.extras || {}), jacket: { what: "Jensen Heist's black leather moto jacket (Blender build, 18 Nov 2026)", bind: 'jensen.glb skin, same 66 joints / inverse binds', tris: Object.values(info).reduce((a, b) => a + b.tris, 0),
+const ax = R.getAsset(); ax.extras = { ...(ax.extras || {}), jacket: { what: "Jensen Heist's black leather moto jacket (Blender build, it2 19 Nov 2026)", bind: 'jensen.glb skin, same 66 joints / inverse binds', tris: Object.values(info).reduce((a, b) => a + b.tris, 0),
   credits: 'Leather grain: ambientCG Leather026 (CC0), Poly Haven leather_white by Rob Tuytel (CC0). Geometry, pattern, stitching and hardware: original work.' } };
 await doc.transform(prune({ keepLeaves: true }));
 await io.write(H + 'jacket.glb', doc);
