@@ -46,6 +46,13 @@ s82_flat.py, posture2.py; the same CC0 leather), the r2 glasses (`blender/glasse
 
 Still no CC-BY asset, so no credits-page line is needed.
 
+Caricature round 1 (19 Nov 2026, the owner's decision: a stylized, affectionate parody caricature of the public keynote
+persona): `scripts/handbuilt/jensen/caricature.mjs` and build.mjs, no new downloads. Only the signature, non-ethnic
+features are pushed: the head 1.2 x for the body (the head bone's scale), the silver groom lifted off the scalp into a big
+swoop up and back (`hairSwoopPass`), the browline glasses 10% oversized with a thicker gunmetal bar (`glassesBigPass`),
+and a warm open presenter grin with lively brows (MakeHuman Faceunits 01 / Visemes 02, CC0, baked at rest). The eyes,
+nose and skin are as the realistic build made them. The Sketchfab CC-BY downloads in the research folder were not used.
+
 No CC-BY asset is used in this GLB, so it needs no credits-page line of its own. (The CC-BY candidates in the research
 shortlist, e.g. Elvaerwyn's Grump Hair, were not used.)
 

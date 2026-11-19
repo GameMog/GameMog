@@ -119,3 +119,14 @@ node scripts/handbuilt/jensen/build.mjs
 - body: the forge cuts his torso skin away under the jacket (only the throat under the collar is left), so nothing of
   the body can push the jacket's front out; the jacket front measures a flat 138-141 mm ahead of the spine axis from the
   belt to the chest.
+
+## Caricature round 1 (19 Nov: the owner chose a stylized parody caricature)
+
+`node scripts/handbuilt/jensen/build.mjs` (same parts, no new downloads). New steps from `../caricature.mjs`: `swoop`
+(each groom point's height above the scalp t -> t + A(region) * (1 - exp(-t / 7 mm)): the roots stay, the outer layers lift,
+A = 40 mm at the front-top quiff, 22 mm crown, 10 mm back, 3 mm over the ears; the front-top also carried 10 mm back) and
+`bigglasses` (the front 1.1 x about the bridge, blending to 1 at the temples; the browline bar 1.6 x thicker; gunmetal
+0.13 at metallic 0.65). `headsize` now 1.2, and `writeKept` keeps the head bone's scale (before, the write put it back to
+1, so the old 1.08 never shipped). `grin`: smile 0.8, viseme_aa 0.25, upper lip up 0.3, cheek squint and dimples 0.3, the
+outer brows up 0.6, the inner 0.06 (no worried look), eyeWide 0.2; no eye squint baked. Env overrides: `JH_SWOOP`,
+`JH_GLASSES`, `JH_HEAD`, `JH_GRIN`.

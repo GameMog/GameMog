@@ -19,6 +19,7 @@ import { teePass, jeansPass } from './wear.mjs';
 import { bandCollarPass } from './collar.mjs';
 import { motoPass, tailorPass, teeHemPass, teeShoulderPass, teeCrewPass, drapePass } from './moto.mjs';
 import { bakeRest, addMorphs } from '../facekit.mjs';
+import { hairSwoopPass, glassesBigPass } from './caricature.mjs';
 const FACE = process.env.JH_FACE || new URL('../../../.scratch/jensen/face/', import.meta.url).pathname;
 import { holeUvPass, sculptPass, mapsPass, mouthBagPass, teethRigidPass, skinTonePass } from './blender/face-pass.mjs';
 import { keepOrder, stripOld, addParts, writeKept, flatFront, teeUnder, neckSkirt, ownClips, lensPanes, matteFront } from './blender/assemble.mjs';
@@ -46,7 +47,10 @@ const steps = [
   // (Blender round, iteration 2 (blender/face): the alert, open face of his photo: the eyes ~15% more open, the brows 2-3 mm up)
   // (v3 face R12: the corners a touch up over sealed lips: the smile 0.04 -> 0.12; the sculpt assumes jawOpen 0.07 (at 0 the
   // lower teeth poke through the chin in PP))
-  ['grin', () => bakeRest(doc, (JSON.parse(process.env.JH_GRIN || 'null') || [['jawOpen', 0.07], ['mouthSmileLeft', 0.12], ['mouthSmileRight', 0.12], ['browInnerUp', 0.22], ['browOuterUpLeft', 0.38], ['browOuterUpRight', 0.38], ['eyeWideLeft', 0.4], ['eyeWideRight', 0.4]]).map(([n, w]) => [FACE + n + '.target', w]))],
+  // (the caricature, the owner 19 Nov: a big, warm, open presenter grin (the upper teeth showing, the corners well up, the
+  // cheeks lifted with it; no eye squint baked: the eyes stay as made) and lively brows (the outer brows up, the inner
+  // ones almost level: no worried look))
+  ['grin', () => bakeRest(doc, (JSON.parse(process.env.JH_GRIN || 'null') || [['jawOpen', 0.1], ['mouthSmileLeft', 0.8], ['mouthSmileRight', 0.8], ['viseme_aa', 0.25], ['mouthUpperUpLeft', 0.3], ['mouthUpperUpRight', 0.3], ['cheekSquintLeft', 0.3], ['cheekSquintRight', 0.3], ['mouthDimpleLeft', 0.3], ['mouthDimpleRight', 0.3], ['browInnerUp', 0.06], ['browOuterUpLeft', 0.6], ['browOuterUpRight', 0.6], ['eyeWideLeft', 0.2], ['eyeWideRight', 0.2]]).map(([n, w]) => [FACE + n + '.target', w]))],
   // (round 4: his age in the face's shape: MakeHuman's own targets, age.mjs)
   // (likeness round 1: the owner's reference is a lean, taut face: no jowls or heavy cheeks; age.mjs's lean set)
   // (likeness round 2: a broad face (wider cheekbones and temples, a squarer, shorter midface and forehead), the mouth's
@@ -131,7 +135,8 @@ const steps = [
   // (Blender round, iteration 1: 'glasses' replaced by the Blender part, assemble.mjs)
   // (round 4: no extra saturation or warmth for him: the round-3 skin read orange and doll-like)
   ['scatter', () => skinScatterPass(doc, JSON.parse(process.env.JH_SCATTER || '{}'))],
-  ['headsize', () => headSizePass(doc, +(process.env.JH_HEAD || 1.08))],
+  // (the caricature: the head 1.2 x for the body, the head bone's scale, now kept by writeKept (it was written back to 1 before))
+  ['headsize', () => headSizePass(doc, +(process.env.JH_HEAD || 1.2))],
   ['daylight', () => daylightSkinPass(doc, { sat: 1.0, warm: [1.01, 0.995, 0.98], gain: 0.82 })],
   // (likeness round 2b: the tee's crew neck painted in the jacket's open collar, moto.mjs)
   // (Blender round, iteration 1: the face's own skin, MR and normal maps and the eyes (blender/face/bake.py, eyetex.py); the
@@ -165,6 +170,10 @@ const steps = [
   // light the flat front's gentle arc still caught two highlights that read as mounds)
   // (v3c jacket: semi-matte leather made in its own textures and material (roughness 0.52-0.88, clearcoat 0.05 at 0.6,
   // specular 0.3, extras.look): only the front's normals straightened here, its roughness and coat left as made)
+  // (the caricature, the owner 19 Nov: the big silver swoop lifted up and back off the scalp, the browline glasses a
+  // little oversized with a thicker gunmetal bar (caricature.mjs); after the parts, before the waist and lens steps)
+  ['swoop', () => hairSwoopPass(doc, JSON.parse(process.env.JH_SWOOP || '{}'))],
+  ['bigglasses', () => glassesBigPass(doc, JSON.parse(process.env.JH_GLASSES || '{}'))],
   ['matte', () => matteFront(doc, { rough: 0, coat: 0.05, spec: 0.3, ...JSON.parse(process.env.JH_MATTE || '{}') })],
   // (iteration 2: the tee's flared hem out from under the flat front)
   ['teeunder', () => teeUnder(doc)],
@@ -180,4 +189,4 @@ const steps = [
   // layers, its own cut (0.35) and colour made for the engine's strand shader)
 ];
 for (const [k, f] of steps) if (on(k)) { const t = Date.now(); await f(); console.log('step', k, ((Date.now() - t) / 1000).toFixed(1), 's'); }
-const glb = await writeKept(doc, src); fs.writeFileSync(OUT, glb); console.log(OUT, (glb.length / 1048576).toFixed(2), 'MB');
+const glb = await writeKept(doc, src, new Set(on('headsize') ? ['head'] : [])); fs.writeFileSync(OUT, glb); console.log(OUT, (glb.length / 1048576).toFixed(2), 'MB');

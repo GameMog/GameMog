@@ -121,7 +121,7 @@ function writeJson(g, json) {
 }
 // (glb.mjs's encoder writes 'TRIANGLES' index streams as 'INDICES': the JSON said so after the fact)
 export function patchModes(glb) { const json = readJson(glb); let n = 0; for (const bv of json.bufferViews || []) { const e = bv.extensions?.EXT_meshopt_compression; if (e && e.mode === 'TRIANGLES') { e.mode = 'INDICES'; n++; } } return n ? writeJson(glb, json) : glb; }
-export async function writeKept(doc, src) {
+export async function writeKept(doc, src, keep = new Set()) {
   if (!ORIG) throw new Error('writeKept: keepOrder(doc) was not called before the nodes changed');
   for (const e of doc.getRoot().listExtensionsUsed()) if (/meshopt|quantization/i.test(e.extensionName)) e.dispose();
   doc.createExtension(KHRMeshQuantization).setRequired(true);
@@ -130,6 +130,8 @@ export async function writeKept(doc, src) {
   for (const bv of json.bufferViews) { const e = bv.extensions?.EXT_meshopt_compression; if (e && e.mode === 'TRIANGLES') e.mode = 'INDICES'; }
   if (json.nodes.length !== nodes.length) throw new Error('node count changed in writing');
   json.nodes.forEach((nd, i) => { const o = ORIG.get(nodes[i]); if (o === undefined) return; if ((nd.name ?? '') !== (sj.nodes[o].name ?? '')) throw new Error('node order: ' + nd.name);
+    // (the caricature: names in keep (the head) are written as the build left them, e.g. the head bone's scale)
+    if (keep.has(nd.name)) return;
     for (const k of ['translation', 'rotation', 'scale', 'matrix']) { delete nd[k]; if (sj.nodes[o][k]) nd[k] = sj.nodes[o][k]; } });
   return writeJson(glb, json);
 }
