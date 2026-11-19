@@ -83,6 +83,40 @@ end) rewrote the story's spine and its talk; this pack is their scenes merged:
   highlighter) and the headset fight's "Standby... fog?" were cut to fit. Marge's "Not the fog." is `urgent`, not a
   shout: the voice bible gives her one shout (Mission 6).
 
+## The polish round (19 Nov): the stage, the plants, the calls at real pace
+
+Needs a Mog City engine with MogCity `jh-pack` 26a943c (the stage room, `house`, the npc's chair and lanyard, the
+`van` and `greenroom` offices, linger, the call fixes); an older one draws the old dark stage and ignores the rest.
+
+- **The arena lit as a keynote** (needs a Mog City engine with `stage-room.js`): an LED wall the stage's width glowing
+  with the set's sign and lighting the deck and the front rows, the presenter's key from the front-of-house truss and a
+  cool rim from upstage, haze in the cans' beams, and the house: the standing pit packed to the barrier (the city's own
+  people, kept a metre clear of the cast) and the seats behind, phones up. ST3A and ST4A set `house: 'up'`: the house
+  on its feet, cheering. The front row's mahogany chair is in every stage set; Marge walks through the barrier's gap
+  and sits in it.
+- **Every stage line plays over its speaker.** The cameras are placed in the room and written relative to the person
+  they are on (`camAt`, `close`, `shotOn` in gen.mjs); exchanges became shots of their own, a two-shot holds both
+  faces, and a short line from off is kept only as a deliberate interjection (Lola's "Not for sale.", Jensen's "Is that
+  bad?"). ST3A opens on the house standing seen from the stage over the two of them, then the Board's face turned to it
+  (its near-black first frame was a lens inside the wall). ST3W is new: Wesley's line on the wall, ninety metres wide.
+- **The choices stay on the stage:** Mog City's runner holds a set's last frame through the choice or lines after it
+  (they were played on the street outside the arena), and dips to black into the next set. So ST1, ST2 and ST3W end on
+  Jensen (his choice and its reply over him), ST4A and ST4B on Wesley (Chat's verdict).
+- **The chair plant is shown:** at the arena stop Director Grey, in a lanyard, wheels the mahogany chair along the
+  kerb (`npc` with `push`, `lanyard`, `walk`), and a `beat` holds on him for "why is a man in a lanyard wheeling a
+  mahogany chair into my arena?" (C1's span is 5).
+- **C1 at real pace:** a mission line waits for the call's line on screen (it was cut and said twice), the beat keeps
+  the call quiet through the exchange, and the market's video call lets C1 wrap first: Marge's "You're back..." after
+  W1 and "Four o'clock. Then I call it. Copy?" are heard. The seats exchange is the first extra (ST3 pays it off).
+- **W1's switch-over:** Wesley's office is built while he rings, and his picture is the call's one card from the answer
+  (the caller card and the feed were both up for two seconds while it compiled). Marge's feed says "Call waiting ·
+  WESLEY TROUT" while he rings.
+- **Labels match the rooms:** Dex is in a broadcast van (`van`), Mr. Board's pre-show and Jensen's after-show are in
+  the green room (`greenroom`: the mirror's bulbs, the fruit, the jacket on its rail); Marge's tile reads "no headset",
+  Wesley's "row one · live" (a long one now ends in an ellipsis).
+- **Nico stays with the oven:** K1 ends "Nico, keys. Marge, no hold." / "Keys are in her, boss. I'll mind the oven."
+  (Jensen drives all day, as C1's brakes demo has it; BT-3 finds Nico at the house). His card: "the car guy".
+
 ## What changed from the script (draft 2), and why
 
 - **Video calls** (the owner, 18 Nov): the conversation scenes are calls, each person in an office of their own.

@@ -91,7 +91,8 @@ people and places.
   `transition` is a black card for a time skip ("LATER", "3:10 AM").
 - **Video calls.** A `vcall` is a conversation as a video call: 2 to 6 `people`, each in an `office` of their own
   (`exec` a corner office with the skyline, `startup` an open-plan loft, `backstage` a stage manager's room, `boardroom`
-  the long table, `kitchen` a home kitchen, `study` walnut and books), seen head and shoulders on their webcam, in a
+  the long table, `kitchen` a home kitchen, `study` walnut and books, `van` a broadcast van's back, `greenroom` an
+  arena's green room), seen head and shoulders on their webcam, in a
   call's layout: their tiles, their names (`label`, and a `sub` line: a title or an invented company), the one talking
   lit, the subtitles under them. Prefer it to a cutscene for any scene of people talking who are not standing together
   on the street: it is the house style for talk (the street is for action). `lines` is the call in order: spoken lines
@@ -735,6 +736,7 @@ their fields are in the schema (`$defs.step`); speakers (`who`, `say`, `by`, `fr
 | a text | `{ "type": "dm", "from": "ray", "text": "Back door. Two minutes." }` |
 | a timed choice | `{ "type": "choice", "who": "kwon", "prompt": "...", "timeout": 8, "default": 0, "flag": "bag", "options": [ ... 2 to 4 ... ] }` |
 | someone at the kerb | `{ "type": "npc", "who": "kwon", "id": "kwon-kerb", "at": { "rel": "player", "right": 3.4, "fwd": 0.8 } }` |
+| a plant shown: someone wheeling a chair along the kerb | `{ "type": "npc", "who": "grey", "at": { "rel": "player", "right": 6, "fwd": 5 }, "push": "chair", "lanyard": true, "walk": { "fwd": 16, "secs": 15 } }` |
 | a close-up of them talking | `{ "type": "cutscene", "shots": [{ "cam": { "rel": "kwon", "fwd": 1.05, "right": 0.22 }, "look": { "rel": "kwon", "up": -0.04 }, "fov": 30, "dur": 3.8, "say": "kwon", "line": "..." }] }` |
 | Mog City's own set piece (a Mog of Mog City) | `{ "type": "scene", "name": "m1.arrival" }` |
 | a chase to lose | `{ "type": "pursuit", "goal": "lose", "count": 1, "level": 1, "kind": "crew", "loseDist": 150, "loseTime": 3.5, "los": 4 }` |

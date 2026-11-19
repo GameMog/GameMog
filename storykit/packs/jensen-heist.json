@@ -129,7 +129,7 @@
     "card": {
      "who": "nico",
      "is": "ally",
-     "role": "the driver, four days in from back east, fresh paint job"
+     "role": "the car guy, four days in from back east, fresh paint job"
     }
    },
    {
@@ -2040,7 +2040,12 @@
         },
         {
          "who": "player",
-         "line": "Nico, drive. Marge, no hold."
+         "line": "Nico, keys. Marge, no hold."
+        },
+        {
+         "who": "nico",
+         "line": "Keys are in her, boss. I'll mind the oven.",
+         "pre": 0.3
         }
        ]
       },
@@ -2067,7 +2072,7 @@
          "auto": true,
          "inCar": true,
          "at": 2,
-         "span": 4,
+         "span": 5,
          "video": {
           "office": "backstage"
          },
@@ -2132,29 +2137,6 @@
          "extra": [
           [
            {
-            "who": "marge",
-            "text": "Want to hear the run of show? It calms me down."
-           },
-           {
-            "who": "jensen",
-            "text": "Please."
-           },
-           {
-            "who": "marge",
-            "text": "Seven-oh-oh, house to half. Seven-oh-one, the screen does the sunrise. Seven-oh-two, you walk out."
-           },
-           {
-            "who": "jensen",
-            "text": "Seven-oh-one and a half. Half a minute of nothing, then the sunrise, then...",
-            "cut": 0.8
-           },
-           {
-            "who": "marge",
-            "text": "You walked out at seven-nineteen last year. Anticipation built, then it went to get a pretzel."
-           }
-          ],
-          [
-           {
             "who": "jensen",
             "text": "Have you ever watched one from the seats? One of ours?"
            },
@@ -2179,6 +2161,29 @@
             "text": "Tonight I watch the clock. ...Ask me after.",
             "how": "warm",
             "pre": 0.6
+           }
+          ],
+          [
+           {
+            "who": "marge",
+            "text": "Want to hear the run of show? It calms me down."
+           },
+           {
+            "who": "jensen",
+            "text": "Please."
+           },
+           {
+            "who": "marge",
+            "text": "Seven-oh-oh, house to half. Seven-oh-one, the screen does the sunrise. Seven-oh-two, you walk out."
+           },
+           {
+            "who": "jensen",
+            "text": "Seven-oh-one and a half. Half a minute of nothing, then the sunrise, then...",
+            "cut": 0.8
+           },
+           {
+            "who": "marge",
+            "text": "You walked out at seven-nineteen last year. Anticipation built, then it went to get a pretzel."
            }
           ],
           [
@@ -2276,9 +2281,45 @@
        ]
       },
       {
-       "type": "say",
-       "who": "jensen",
-       "text": "Marge, why is a man in a lanyard wheeling a mahogany chair into my arena?"
+       "type": "npc",
+       "who": "director-a",
+       "at": {
+        "rel": "player",
+        "right": 6,
+        "fwd": 5
+       },
+       "push": "chair",
+       "lanyard": true,
+       "walk": {
+        "fwd": 16,
+        "secs": 15
+       }
+      },
+      {
+       "type": "beat",
+       "shot": {
+        "cam": {
+         "rel": "director-a",
+         "right": -4.2,
+         "up": 0.75,
+         "fwd": 7.5
+        },
+        "look": {
+         "rel": "director-a",
+         "up": -0.3
+        },
+        "lookTo": {
+         "rel": "director-a",
+         "up": -0.3,
+         "fwd": 5
+        },
+        "fov": 36
+       },
+       "dur": 6,
+       "say": {
+        "who": "jensen",
+        "text": "Marge, why is a man in a lanyard wheeling a mahogany chair into my arena?"
+       }
       },
       {
        "type": "say",
@@ -3876,7 +3917,7 @@
        "people": [
         {
          "who": "dex",
-         "office": "startup",
+         "office": "van",
          "sub": "Cobalt Circuitry · the van"
         },
         {
@@ -5499,7 +5540,7 @@
         {
          "who": "marge",
          "office": "backstage",
-         "sub": "the dock office · no headset"
+         "sub": "no headset"
         },
         {
          "who": "player",
@@ -5699,19 +5740,19 @@
        "people": [
         {
          "who": "board",
-         "office": "exec",
+         "office": "greenroom",
          "label": "Mr. Board",
          "sub": "Jensen's green room"
         },
         {
          "who": "marge",
          "office": "backstage",
-         "sub": "the dock office · no headset"
+         "sub": "no headset"
         },
         {
          "who": "wesley",
          "office": "kitchen",
-         "sub": "row one · TroutStream LIVE",
+         "sub": "row one · live",
          "blur": true,
          "cam": "low"
         },
@@ -5964,7 +6005,7 @@
           "who": "board",
           "at": [
            0,
-           -2
+           -2.2
           ],
           "face": 0,
           "pose": "talk"
@@ -5972,7 +6013,7 @@
          {
           "who": "jensen",
           "at": [
-           -6,
+           -6.6,
            -3
           ],
           "face": 90,
@@ -5982,10 +6023,10 @@
          {
           "who": "marge",
           "at": [
-           -7.5,
-           -3.5
+           -7.7,
+           -3.4
           ],
-          "face": 90,
+          "face": 80,
           "pose": "arms"
          },
          {
@@ -6001,18 +6042,18 @@
           "who": "lola",
           "at": [
            4.5,
-           4.5
+           4.3
           ],
-          "face": 180,
+          "face": 185,
           "pose": "arms"
          },
          {
           "who": "director-b",
           "at": [
-           5,
+           5.6,
            -3
           ],
-          "face": "board",
+          "face": -90,
           "pose": "idle"
          }
         ]
@@ -6021,15 +6062,18 @@
         {
          "cam": {
           "rel": "board",
-          "right": 0,
-          "up": 1.6,
-          "fwd": 9
+          "right": -2.6,
+          "up": 3.78,
+          "fwd": 16.7
          },
          "look": {
-          "rel": "board"
+          "rel": "board",
+          "right": 0,
+          "up": 0.98,
+          "fwd": -1.8
          },
-         "fov": 50,
-         "dur": 4,
+         "fov": 48,
+         "dur": 5,
          "caption": "THE ARENA · 7:00 PM",
          "say": "board",
          "line": "Good evening, I'm the Board, and I'll be your Jensen tonight. Please hold your applause."
@@ -6037,16 +6081,16 @@
         {
          "cam": {
           "rel": "wesley",
-          "right": 0.5,
-          "up": 0.15,
-          "fwd": 1.4
+          "right": 0.35,
+          "up": 0.04,
+          "fwd": 1.3
          },
          "look": {
           "rel": "wesley"
          },
-         "fov": 36,
+         "fov": 33,
          "dur": 3.5,
-         "caption": "TWENTY THOUSAND SIGNS. EVERY ONE SAYS: no",
+         "caption": "TWENTY THOUSAND FANS. NOT ONE CLAP.",
          "say": "wesley",
          "line": "Nobody clap. Nobody clap.",
          "how": "hushed"
@@ -6054,14 +6098,14 @@
         {
          "cam": {
           "rel": "board",
-          "right": 0.3,
-          "up": 0.05,
-          "fwd": 1.3
+          "right": -0.26,
+          "up": 0.04,
+          "fwd": 1.48
          },
          "look": {
           "rel": "board"
          },
-         "fov": 34,
+         "fov": 33,
          "dur": 4.5,
          "say": "board",
          "line": "...Thank you for holding it. Forever, apparently.",
@@ -6070,14 +6114,14 @@
         {
          "cam": {
           "rel": "marge",
-          "right": 0.4,
-          "up": 0.1,
-          "fwd": 1.3
+          "right": -0.46,
+          "up": 0.04,
+          "fwd": 1.27
          },
          "look": {
           "rel": "marge"
          },
-         "fov": 36,
+         "fov": 33,
          "dur": 3,
          "say": "marge",
          "line": "Sound, can you hear me? Cut his mic.",
@@ -6086,9 +6130,9 @@
         {
          "cam": {
           "rel": "board",
-          "right": -0.4,
+          "right": 1.01,
           "up": 0.1,
-          "fwd": 2.2
+          "fwd": 2.18
          },
          "look": {
           "rel": "board"
@@ -6106,14 +6150,14 @@
         {
          "cam": {
           "rel": "marge",
-          "right": -0.3,
-          "up": 0.05,
+          "right": -0.1,
+          "up": 0.04,
           "fwd": 1.2
          },
          "look": {
           "rel": "marge"
          },
-         "fov": 34,
+         "fov": 33,
          "dur": 3.5,
          "say": "marge",
          "line": "The jacket's in. ...He's coming.",
@@ -6123,69 +6167,113 @@
         {
          "cam": {
           "rel": "jensen",
-          "right": 1,
-          "up": 0.1,
-          "fwd": -2
+          "right": -0.9,
+          "up": 0.23,
+          "fwd": -2.3
          },
          "look": {
-          "rel": "jensen"
+          "rel": "jensen",
+          "right": 1.8,
+          "up": -0.02,
+          "fwd": 6.6
          },
-         "fov": 40,
-         "dur": 4,
+         "fov": 46,
+         "dur": 3.6,
          "act": [
           {
            "who": "jensen",
            "hidden": false,
            "walk": {
             "to": [
-             -1.6,
-             -2
+             -1.1,
+             -2.2
             ],
-            "secs": 3,
+            "secs": 3.2,
             "then": "talk"
            }
-          }
-         ],
-         "lines": [
-          {
-           "who": "wesley",
-           "text": "NOW clap! NOW!",
-           "how": "shout"
           },
           {
            "who": "board",
-           "text": "Jensen. You're not on the run of show."
+           "face": -40,
+           "pose": "idle"
           }
          ]
         },
         {
          "cam": {
-          "rel": "marge",
-          "right": 0.4,
-          "up": 0.1,
-          "fwd": 1.3
+          "rel": "wesley",
+          "right": -0.21,
+          "up": 0.04,
+          "fwd": 1.18
          },
          "look": {
-          "rel": "marge"
+          "rel": "wesley"
          },
-         "fov": 36,
-         "dur": 3,
-         "say": "marge",
-         "line": "He is now. I just wrote him in.",
-         "how": "deadpan"
+         "fov": 33,
+         "dur": 2.2,
+         "say": "wesley",
+         "line": "NOW clap! NOW!",
+         "how": "shout",
+         "act": [
+          {
+           "who": "wesley",
+           "pose": "cheer"
+          }
+         ]
         },
         {
          "cam": {
-          "rel": "jensen",
-          "right": -0.6,
-          "up": 0.15,
-          "fwd": 1.6
+          "rel": "board",
+          "right": -0.35,
+          "up": 0.04,
+          "fwd": 1.3
          },
          "look": {
           "rel": "board"
          },
-         "fov": 38,
-         "dur": 4.5,
+         "fov": 33,
+         "dur": 3,
+         "say": "board",
+         "line": "Jensen. You're not on the run of show."
+        },
+        {
+         "cam": {
+          "rel": "marge",
+          "right": -0.57,
+          "up": 0.04,
+          "fwd": 1.22
+         },
+         "look": {
+          "rel": "marge"
+         },
+         "fov": 33,
+         "dur": 3,
+         "say": "marge",
+         "line": "He is now. I just wrote him in.",
+         "how": "deadpan",
+         "act": [
+          {
+           "who": "jensen",
+           "face": 40,
+           "pose": "talk"
+          }
+         ]
+        },
+        {
+         "cam": {
+          "rel": "board",
+          "right": -2.05,
+          "up": -0.07,
+          "fwd": 3.37
+         },
+         "look": {
+          "rel": "board",
+          "right": 0.46,
+          "up": -0.17,
+          "fwd": 0.39
+         },
+         "fov": 40,
+         "dur": 6,
          "lines": [
           {
            "who": "board",
@@ -6194,31 +6282,28 @@
           {
            "who": "jensen",
            "text": "Ladies and gentlemen. Brisket."
+          },
+          {
+           "who": "board",
+           "text": "That's my keynote."
           }
          ]
         },
         {
          "cam": {
-          "rel": "board",
-          "right": 0.4,
-          "up": 0.05,
-          "fwd": 1.3
+          "rel": "jensen",
+          "right": 0.23,
+          "up": 0.04,
+          "fwd": 1.33
          },
          "look": {
-          "rel": "board"
+          "rel": "jensen"
          },
-         "fov": 34,
-         "dur": 5,
-         "lines": [
-          {
-           "who": "board",
-           "text": "That's my keynote."
-          },
-          {
-           "who": "jensen",
-           "text": "It's a lovely keynote. You have a lovely chair."
-          }
-         ]
+         "fov": 33,
+         "dur": 3.5,
+         "say": "jensen",
+         "line": "It's a lovely keynote. You have a lovely chair.",
+         "how": "warm"
         }
        ]
       },
@@ -6275,29 +6360,28 @@
          {
           "who": "board",
           "at": [
-           0,
-           -2
+           0.1,
+           -2.2
           ],
-          "face": "jensen",
-          "pose": "talk"
+          "face": -40,
+          "pose": "idle"
          },
          {
           "who": "jensen",
           "at": [
-           -1.6,
-           -2
+           -1.1,
+           -2.2
           ],
-          "face": "board",
-          "pose": "talk",
-          "hidden": false
+          "face": 40,
+          "pose": "talk"
          },
          {
           "who": "marge",
           "at": [
-           -7.5,
-           -3.5
+           -7.7,
+           -3.4
           ],
-          "face": 90,
+          "face": 80,
           "pose": "arms"
          },
          {
@@ -6313,18 +6397,18 @@
           "who": "lola",
           "at": [
            4.5,
-           4.5
+           4.3
           ],
-          "face": 180,
+          "face": 185,
           "pose": "arms"
          },
          {
           "who": "director-b",
           "at": [
-           5,
+           5.6,
            -3
           ],
-          "face": "board",
+          "face": -90,
           "pose": "idle"
          }
         ]
@@ -6333,14 +6417,14 @@
         {
          "cam": {
           "rel": "board",
-          "right": 0.3,
-          "up": 0.05,
-          "fwd": 1.2
+          "right": 0.12,
+          "up": 0.04,
+          "fwd": 1.34
          },
          "look": {
           "rel": "board"
          },
-         "fov": 34,
+         "fov": 33,
          "dur": 4.5,
          "lines": [
           {
@@ -6359,29 +6443,36 @@
         {
          "cam": {
           "rel": "jensen",
-          "right": 0,
-          "up": 0.4,
-          "fwd": 5
+          "right": -0.03,
+          "up": -0.17,
+          "fwd": 4.2
          },
          "look": {
           "rel": "jensen"
          },
          "fov": 40,
          "dur": 5,
+         "act": [
+          {
+           "who": "jensen",
+           "face": 12,
+           "pose": "talk"
+          }
+         ],
          "say": "jensen",
          "line": "Let me tell you the real story. Booth three, coffee, a napkin, a pen you had to blow on, and no dog."
         },
         {
          "cam": {
           "rel": "lola",
-          "right": 0.4,
-          "up": 0.1,
-          "fwd": 1.4
+          "right": 0.27,
+          "up": 0.04,
+          "fwd": 1.27
          },
          "look": {
           "rel": "lola"
          },
-         "fov": 36,
+         "fov": 33,
          "dur": 4,
          "act": [
           {
@@ -6396,14 +6487,14 @@
         {
          "cam": {
           "rel": "jensen",
-          "right": 0.2,
-          "up": 0.05,
-          "fwd": 1.2
+          "right": -0.17,
+          "up": 0.04,
+          "fwd": 1.19
          },
          "look": {
           "rel": "jensen"
          },
-         "fov": 34,
+         "fov": 33,
          "dur": 2.5,
          "say": "jensen",
          "line": "...There was a dog.",
@@ -6412,56 +6503,87 @@
         {
          "cam": {
           "rel": "jensen",
-          "right": 0.2,
-          "up": 0.05,
-          "fwd": 1.1
+          "right": 0.21,
+          "up": 0.04,
+          "fwd": 1.49
+         },
+         "look": {
+          "rel": "jensen"
+         },
+         "fov": 33,
+         "dur": 4.5,
+         "say": "jensen",
+         "line": "I drew one square on that napkin. Thirty years, people ask what was in it."
+        },
+        {
+         "cam": {
+          "rel": "wesley",
+          "right": -0.24,
+          "up": 0.04,
+          "fwd": 1.12
          },
          "look": {
           "rel": "wesley"
          },
-         "fov": 34,
-         "dur": 7,
-         "lines": [
+         "fov": 33,
+         "dur": 2.4,
+         "say": "wesley",
+         "line": "What was in it?",
+         "how": "hushed"
+        },
+        {
+         "cam": {
+          "rel": "jensen",
+          "right": -0.08,
+          "up": 0.04,
+          "fwd": 1.1
+         },
+         "look": {
+          "rel": "jensen"
+         },
+         "fov": 33,
+         "dur": 4.5,
+         "say": "jensen",
+         "line": "Nothing. It was a room. I just didn't know who'd be in it yet.",
+         "how": "warm",
+         "pre": 0.5,
+         "act": [
           {
            "who": "jensen",
-           "text": "I drew one square on that napkin. Thirty years, people ask what was in it."
-          },
-          {
-           "who": "wesley",
-           "text": "What was in it?",
-           "how": "hushed"
-          },
-          {
-           "who": "jensen",
-           "text": "Nothing. It was a room. I just didn't know who'd be in it yet.",
-           "how": "warm",
-           "pre": 0.5
+           "face": 40
           }
          ]
         },
         {
          "cam": {
-          "rel": "jensen",
-          "right": 1.2,
-          "up": 0.2,
-          "fwd": 1.8
+          "rel": "board",
+          "right": 0.32,
+          "up": 0.04,
+          "fwd": 1.21
          },
          "look": {
           "rel": "board"
          },
-         "fov": 38,
-         "dur": 4.5,
-         "lines": [
-          {
-           "who": "board",
-           "text": "Is this the part where I lose?",
-           "how": "hushed"
-          },
-          {
-           "who": "jensen",
-           "text": "This is the part where you sign something. You love a signature, and so do I."
-          }
-         ]
+         "fov": 33,
+         "dur": 3,
+         "say": "board",
+         "line": "Is this the part where I lose?",
+         "how": "hushed"
+        },
+        {
+         "cam": {
+          "rel": "jensen",
+          "right": 0.28,
+          "up": 0.04,
+          "fwd": 1.32
+         },
+         "look": {
+          "rel": "jensen"
+         },
+         "fov": 33,
+         "dur": 4,
+         "say": "jensen",
+         "line": "This is the part where you sign something. You love a signature, and so do I."
         }
        ]
       },
@@ -6521,33 +6643,33 @@
         "room": "stage",
         "light": "night",
         "sign": "GREENLIVE",
+        "house": "up",
         "people": [
          {
           "who": "board",
           "at": [
-           0,
-           -2
+           0.1,
+           -2.2
           ],
-          "face": "jensen",
+          "face": 22,
           "pose": "idle"
          },
          {
           "who": "jensen",
           "at": [
-           -1.6,
-           -2
+           -1.1,
+           -2.2
           ],
-          "face": "board",
-          "pose": "idle",
-          "hidden": false
+          "face": 40,
+          "pose": "idle"
          },
          {
           "who": "marge",
           "at": [
-           -7.5,
-           -3.5
+           -7.7,
+           -3.4
           ],
-          "face": 90,
+          "face": 80,
           "pose": "arms"
          },
          {
@@ -6557,24 +6679,15 @@
            3.5
           ],
           "face": 180,
-          "pose": "idle"
+          "pose": "cheer"
          },
          {
           "who": "lola",
           "at": [
            4.5,
-           4.5
+           4.3
           ],
-          "face": 180,
-          "pose": "arms"
-         },
-         {
-          "who": "director-b",
-          "at": [
-           5,
-           -3
-          ],
-          "face": "board",
+          "face": 185,
           "pose": "idle"
          }
         ]
@@ -6583,89 +6696,121 @@
         {
          "cam": {
           "rel": "board",
-          "right": 0,
-          "up": 1.8,
-          "fwd": 10
+          "right": -3.34,
+          "up": 1.78,
+          "fwd": -4.26
          },
          "look": {
-          "rel": "board"
+          "rel": "board",
+          "right": 4.1,
+          "up": 0.58,
+          "fwd": 8.27
          },
-         "fov": 52,
-         "dur": 4,
-         "caption": "TWENTY THOUSAND PEOPLE STAND UP",
+         "fov": 54,
+         "dur": 4.5,
+         "caption": "TWENTY THOUSAND PEOPLE STAND UP"
+        },
+        {
+         "cam": {
+          "rel": "jensen",
+          "right": 0.23,
+          "up": 0.04,
+          "fwd": 1.33
+         },
+         "look": {
+          "rel": "jensen"
+         },
+         "fov": 33,
+         "dur": 2.6,
+         "say": "jensen",
+         "line": "Big fan.",
+         "how": "warm"
+        },
+        {
+         "cam": {
+          "rel": "board",
+          "right": -5.55,
+          "up": 0.18,
+          "fwd": 3.04
+         },
+         "look": {
+          "rel": "board",
+          "right": 2.13,
+          "up": -0.12,
+          "fwd": 1.66
+         },
+         "fov": 44,
+         "dur": 3.4,
          "act": [
           {
-           "who": "wesley",
-           "pose": "cheer"
-          },
-          {
-           "who": "lola",
-           "pose": "idle"
-          }
-         ]
-        },
-        {
-         "cam": {
-          "rel": "board",
-          "right": 0.3,
-          "up": 0.05,
-          "fwd": 1.2
-         },
-         "look": {
-          "rel": "board"
-         },
-         "fov": 34,
-         "dur": 4,
-         "lines": [
-          {
-           "who": "jensen",
-           "text": "Big fan.",
-           "how": "warm"
-          },
-          {
            "who": "board",
-           "text": "...Regards.",
-           "pre": 0.5
+           "face": 50
           }
-         ]
+         ],
+         "say": "board",
+         "line": "...Regards.",
+         "pre": 0.5
         },
         {
          "cam": {
           "rel": "board",
-          "right": -0.5,
-          "up": 0.2,
-          "fwd": 2.4
+          "right": 0.19,
+          "up": 0.04,
+          "fwd": 1.39
          },
          "look": {
           "rel": "board"
          },
-         "fov": 40,
-         "dur": 6,
+         "fov": 33,
+         "dur": 5,
+         "say": "board",
+         "line": "...It's louder than I thought. Is it always this loud?",
+         "how": "hushed",
+         "pre": 1
+        },
+        {
+         "cam": {
+          "rel": "jensen",
+          "right": -0.13,
+          "up": 0.04,
+          "fwd": 1.24
+         },
+         "look": {
+          "rel": "jensen"
+         },
+         "fov": 33,
+         "dur": 3,
+         "say": "jensen",
+         "line": "Only indoors.",
+         "how": "warm"
+        },
+        {
+         "cam": {
+          "rel": "board",
+          "right": 6.03,
+          "up": 1.48,
+          "fwd": 6.5
+         },
+         "look": {
+          "rel": "board",
+          "right": -2.43,
+          "up": -0.12,
+          "fwd": 2.27
+         },
+         "fov": 46,
+         "dur": 4.5,
          "act": [
           {
            "who": "board",
            "walk": {
             "to": [
-             9,
-             -2.5
+             9.5,
+             -2.6
             ],
-            "secs": 6,
+            "secs": 5,
             "clip": "walk",
             "then": "idle"
            }
-          }
-         ],
-         "lines": [
-          {
-           "who": "board",
-           "text": "...It's louder than I thought. Is it always this loud?",
-           "how": "hushed",
-           "pre": 1
-          },
-          {
-           "who": "jensen",
-           "text": "Only indoors.",
-           "how": "warm"
           }
          ]
         }
@@ -6683,29 +6828,28 @@
          {
           "who": "board",
           "at": [
-           0,
-           -2
+           0.1,
+           -2.2
           ],
-          "face": "jensen",
+          "face": -40,
           "pose": "idle"
          },
          {
           "who": "jensen",
           "at": [
-           -1.6,
-           -2
+           -1.1,
+           -2.2
           ],
-          "face": "board",
-          "pose": "idle",
-          "hidden": false
+          "face": 40,
+          "pose": "idle"
          },
          {
           "who": "marge",
           "at": [
-           -7.5,
-           -3.5
+           -7.7,
+           -3.4
           ],
-          "face": 90,
+          "face": 80,
           "pose": "arms"
          },
          {
@@ -6721,18 +6865,18 @@
           "who": "lola",
           "at": [
            4.5,
-           4.5
+           4.3
           ],
-          "face": 180,
-          "pose": "arms"
+          "face": 185,
+          "pose": "idle"
          },
          {
           "who": "director-b",
           "at": [
-           5,
+           5.6,
            -3
           ],
-          "face": "board",
+          "face": -90,
           "pose": "idle"
          }
         ]
@@ -6741,14 +6885,17 @@
         {
          "cam": {
           "rel": "board",
-          "right": 0.3,
-          "up": 0.05,
-          "fwd": 1.2
+          "right": -2.05,
+          "up": -0.07,
+          "fwd": 3.37
          },
          "look": {
-          "rel": "board"
+          "rel": "board",
+          "right": 0.46,
+          "up": -0.17,
+          "fwd": 0.39
          },
-         "fov": 34,
+         "fov": 38,
          "dur": 6,
          "lines": [
           {
@@ -6772,22 +6919,25 @@
         {
          "cam": {
           "rel": "board",
-          "right": -0.5,
-          "up": 0.2,
-          "fwd": 2.4
+          "right": -6.5,
+          "up": 1.48,
+          "fwd": 6.03
          },
          "look": {
-          "rel": "board"
+          "rel": "board",
+          "right": -2.27,
+          "up": -0.12,
+          "fwd": -2.43
          },
-         "fov": 40,
-         "dur": 4,
+         "fov": 46,
+         "dur": 4.5,
          "act": [
           {
            "who": "board",
            "walk": {
             "to": [
-             9,
-             -2.5
+             9.5,
+             -2.6
             ],
             "secs": 5,
             "clip": "walkCool",
@@ -6809,20 +6959,19 @@
          {
           "who": "jensen",
           "at": [
-           -0.5,
-           -2
+           -0.6,
+           -2.2
           ],
           "face": 0,
-          "pose": "talk",
-          "hidden": false
+          "pose": "talk"
          },
          {
           "who": "marge",
           "at": [
-           -7.5,
-           -3.5
+           -3.4,
+           0.1
           ],
-          "face": 90,
+          "face": 60,
           "pose": "arms"
          },
          {
@@ -6837,28 +6986,28 @@
          {
           "who": "dex",
           "at": [
-           -3.5,
-           5
+           -3.6,
+           4.7
           ],
-          "face": 180,
+          "face": 175,
           "pose": "idle"
          },
          {
           "who": "director-a",
           "at": [
-           6.2,
+           5.4,
            -2.6
           ],
-          "face": "jensen",
+          "face": -110,
           "pose": "idle"
          },
          {
           "who": "director-b",
           "at": [
-           5,
+           6.4,
            -3
           ],
-          "face": "jensen",
+          "face": -100,
           "pose": "idle"
          }
         ]
@@ -6867,12 +7016,15 @@
         {
          "cam": {
           "rel": "director-a",
-          "right": 0.8,
-          "up": 0.1,
-          "fwd": 2.2
+          "right": -1.45,
+          "up": -0.02,
+          "fwd": 1.07
          },
          "look": {
-          "rel": "director-a"
+          "rel": "director-a",
+          "right": 0.49,
+          "up": -0.07,
+          "fwd": -0.46
          },
          "fov": 38,
          "dur": 3.5,
@@ -6891,44 +7043,51 @@
         {
          "cam": {
           "rel": "dex",
-          "right": 0.5,
-          "up": 0.2,
-          "fwd": 1.6
+          "right": 0.24,
+          "up": 0.04,
+          "fwd": 1.38
          },
          "look": {
           "rel": "dex"
          },
-         "fov": 36,
-         "dur": 6,
+         "fov": 33,
+         "dur": 3,
          "act": [
           {
            "who": "dex",
            "pose": "wave"
           }
          ],
-         "lines": [
-          {
-           "who": "dex",
-           "text": "Dex! Present!",
-           "how": "shout"
-          },
-          {
-           "who": "jensen",
-           "text": "Ladies and gentlemen: Dex. Present."
-          }
-         ]
+         "say": "dex",
+         "line": "Dex! Present!",
+         "how": "shout"
+        },
+        {
+         "cam": {
+          "rel": "jensen",
+          "right": 0.29,
+          "up": 0.04,
+          "fwd": 1.37
+         },
+         "look": {
+          "rel": "jensen"
+         },
+         "fov": 33,
+         "dur": 3.2,
+         "say": "jensen",
+         "line": "Ladies and gentlemen: Dex. Present."
         },
         {
          "cam": {
           "rel": "marge",
-          "right": 0.4,
-          "up": 0.1,
+          "right": -0.35,
+          "up": 0.04,
           "fwd": 1.3
          },
          "look": {
           "rel": "marge"
          },
-         "fov": 36,
+         "fov": 33,
          "dur": 6,
          "lines": [
           {
@@ -6950,43 +7109,70 @@
         {
          "cam": {
           "rel": "jensen",
-          "right": -0.8,
-          "up": 0.2,
-          "fwd": 1.6
+          "right": -0.23,
+          "up": 0.04,
+          "fwd": 1.33
          },
          "look": {
-          "rel": "marge"
+          "rel": "jensen"
          },
-         "fov": 38,
-         "dur": 6,
-         "lines": [
+         "fov": 33,
+         "dur": 4.5,
+         "act": [
           {
            "who": "jensen",
-           "text": "Marge. Front row. Watch one from the seats. I'll call my own cues: sunrise, walk, chip."
-          },
-          {
-           "who": "marge",
-           "text": "The only empty seat is his chair."
-          },
-          {
-           "who": "jensen",
-           "text": "It swivels.",
-           "how": "tease"
+           "face": -35
           }
-         ]
+         ],
+         "say": "jensen",
+         "line": "Marge. Front row. Watch one from the seats. I'll call my own cues: sunrise, walk, chip."
         },
         {
          "cam": {
           "rel": "marge",
-          "right": 0,
-          "up": 1.2,
-          "fwd": 4.5
+          "right": -0.11,
+          "up": 0.04,
+          "fwd": 1.25
          },
          "look": {
           "rel": "marge"
          },
-         "fov": 42,
-         "dur": 5,
+         "fov": 33,
+         "dur": 3,
+         "say": "marge",
+         "line": "The only empty seat is his chair."
+        },
+        {
+         "cam": {
+          "rel": "jensen",
+          "right": 0.13,
+          "up": 0.04,
+          "fwd": 1.19
+         },
+         "look": {
+          "rel": "jensen"
+         },
+         "fov": 33,
+         "dur": 2.4,
+         "say": "jensen",
+         "line": "It swivels.",
+         "how": "tease"
+        },
+        {
+         "cam": {
+          "rel": "marge",
+          "right": 4.7,
+          "up": -0.02,
+          "fwd": -0.1
+         },
+         "look": {
+          "rel": "marge",
+          "right": 2.1,
+          "up": -0.57,
+          "fwd": -2.8
+         },
+         "fov": 44,
+         "dur": 6,
          "caption": "FRONT ROW, IN THE MAHOGANY CHAIR",
          "act": [
           {
@@ -6994,53 +7180,141 @@
            "walk": {
             "to": [
              -1,
-             3.5
+             3.85
             ],
-            "secs": 3.5,
+            "secs": 3.6,
             "then": "sit"
            },
-           "face": 0
+           "face": 180,
+           "seat": 0.56
           }
          ],
          "say": "marge",
          "line": "Standby, sunrise.",
          "how": "hushed",
-         "pre": 0.6
+         "pre": 1.2
+        }
+       ]
+      },
+      {
+       "type": "cutscene",
+       "id": "st3w",
+       "set": {
+        "room": "stage",
+        "light": "night",
+        "sign": "TO WESLEY TROUT, MY EYES. LOVE, JENSEN",
+        "people": [
+         {
+          "who": "jensen",
+          "at": [
+           -0.6,
+           -2.2
+          ],
+          "face": 8,
+          "pose": "talk"
+         },
+         {
+          "who": "wesley",
+          "at": [
+           1.5,
+           3.5
+          ],
+          "face": 190,
+          "pose": "phone",
+          "prop": "phone"
+         },
+         {
+          "who": "marge",
+          "at": [
+           -1,
+           3.85
+          ],
+          "face": 180,
+          "pose": "sit",
+          "seat": 0.56
+         },
+         {
+          "who": "lola",
+          "at": [
+           4.5,
+           4.3
+          ],
+          "face": 185,
+          "pose": "idle"
+         },
+         {
+          "who": "dex",
+          "at": [
+           -3.6,
+           4.7
+          ],
+          "face": 175,
+          "pose": "idle"
+         }
+        ]
+       },
+       "shots": [
+        {
+         "cam": {
+          "rel": "wesley",
+          "right": 0.29,
+          "up": 0.04,
+          "fwd": 1.16
+         },
+         "look": {
+          "rel": "wesley"
+         },
+         "fov": 33,
+         "dur": 3.5,
+         "say": "wesley",
+         "line": "Can you... would you... just once more?"
+        },
+        {
+         "cam": {
+          "rel": "jensen",
+          "right": 0.02,
+          "up": 0.28,
+          "fwd": 5.15
+         },
+         "look": {
+          "rel": "jensen",
+          "right": -1.02,
+          "up": 1.58,
+          "fwd": -3.69
+         },
+         "fov": 54,
+         "dur": 5.5,
+         "say": "jensen",
+         "line": "\"To Wesley Trout, my eyes. Love, Jensen.\" It's on the screen."
         },
         {
          "cam": {
           "rel": "wesley",
-          "right": -0.4,
-          "up": 0.1,
-          "fwd": 1.2
+          "right": -0.19,
+          "up": 0.04,
+          "fwd": 1.08
+         },
+         "look": {
+          "rel": "wesley"
+         },
+         "fov": 33,
+         "dur": 3.5,
+         "say": "wesley",
+         "line": "He knows my LAST name.",
+         "how": "hushed"
+        },
+        {
+         "cam": {
+          "rel": "jensen",
+          "right": 0.15,
+          "up": 0.04,
+          "fwd": 1.39
          },
          "look": {
           "rel": "jensen"
          },
-         "fov": 36,
-         "dur": 7,
-         "act": [
-          {
-           "who": "wesley",
-           "prop": "phone",
-           "pose": "phone"
-          }
-         ],
-         "lines": [
-          {
-           "who": "wesley",
-           "text": "Can you... would you... just once more?"
-          },
-          {
-           "who": "jensen",
-           "text": "\"To Wesley Trout, my eyes. Love, Jensen.\" It's on the screen."
-          },
-          {
-           "who": "wesley",
-           "text": "He knows my LAST name.",
-           "how": "hushed"
-          }
-         ]
+         "fov": 33,
+         "dur": 1.6
         }
        ]
       },
@@ -7086,16 +7360,16 @@
         "room": "stage",
         "light": "night",
         "sign": "GREENLIVE",
+        "house": "up",
         "people": [
          {
           "who": "jensen",
           "at": [
-           -0.5,
-           -2
+           -0.6,
+           -2.2
           ],
           "face": 0,
-          "pose": "cheer",
-          "hidden": false
+          "pose": "cheer"
          },
          {
           "who": "wesley",
@@ -7104,34 +7378,35 @@
            3.5
           ],
           "face": 180,
-          "pose": "idle"
+          "pose": "cheer"
          },
          {
           "who": "lola",
           "at": [
            4.5,
-           4.5
+           4.3
           ],
-          "face": 180,
-          "pose": "arms"
+          "face": 185,
+          "pose": "idle"
          },
          {
           "who": "dex",
           "at": [
-           -3.5,
-           5
+           -3.6,
+           4.7
           ],
-          "face": 180,
+          "face": 175,
           "pose": "idle"
          },
          {
           "who": "marge",
           "at": [
            -1,
-           3.5
+           3.85
           ],
-          "face": 0,
-          "pose": "sit"
+          "face": 180,
+          "pose": "sit",
+          "seat": 0.56
          }
         ]
        },
@@ -7139,43 +7414,84 @@
         {
          "cam": {
           "rel": "jensen",
-          "right": 0,
-          "up": 1.8,
-          "fwd": 10
+          "right": -2,
+          "up": 1.58,
+          "fwd": -5.4
          },
          "look": {
-          "rel": "jensen"
+          "rel": "jensen",
+          "right": -0.2,
+          "up": 0.58,
+          "fwd": 9.2
          },
-         "fov": 52,
-         "dur": 4.5,
+         "fov": 54,
+         "dur": 5,
          "caption": "TWENTY THOUSAND PEOPLE: \"...THE MORE YOU SAVE!\""
         },
         {
          "cam": {
           "rel": "lola",
-          "right": 0.4,
-          "up": 0.1,
-          "fwd": 1.4
+          "right": 0.27,
+          "up": 0.04,
+          "fwd": 1.27
          },
          "look": {
           "rel": "lola"
          },
-         "fov": 36,
-         "dur": 7,
-         "lines": [
+         "fov": 33,
+         "dur": 3.5,
+         "say": "lola",
+         "line": "...See? You let them tell you.",
+         "how": "warm",
+         "pre": 0.6
+        },
+        {
+         "cam": {
+          "rel": "jensen",
+          "right": -0.18,
+          "up": 0.04,
+          "fwd": 1.29
+         },
+         "look": {
+          "rel": "jensen"
+         },
+         "fov": 33,
+         "dur": 2.6,
+         "say": "jensen",
+         "line": "I let them tell me."
+        },
+        {
+         "cam": {
+          "rel": "lola",
+          "right": -0.23,
+          "up": 0.04,
+          "fwd": 1.28
+         },
+         "look": {
+          "rel": "lola"
+         },
+         "fov": 33,
+         "dur": 3.5,
+         "say": "lola",
+         "line": "Here. This one's free. Don't get used to it."
+        },
+        {
+         "cam": {
+          "rel": "wesley",
+          "right": -0.26,
+          "up": 0.04,
+          "fwd": 1.22
+         },
+         "look": {
+          "rel": "wesley"
+         },
+         "fov": 33,
+         "dur": 1.6,
+         "act": [
           {
-           "who": "lola",
-           "text": "...See? You let them tell you.",
-           "how": "warm",
-           "pre": 0.6
-          },
-          {
-           "who": "jensen",
-           "text": "I let them tell me."
-          },
-          {
-           "who": "lola",
-           "text": "Here. This one's free. Don't get used to it."
+           "who": "wesley",
+           "pose": "phone",
+           "prop": "phone"
           }
          ]
         }
@@ -7193,12 +7509,11 @@
          {
           "who": "jensen",
           "at": [
-           -0.5,
-           -2
+           -0.6,
+           -2.2
           ],
           "face": 0,
-          "pose": "cheer",
-          "hidden": false
+          "pose": "cheer"
          },
          {
           "who": "wesley",
@@ -7207,34 +7522,35 @@
            3.5
           ],
           "face": 180,
-          "pose": "idle"
+          "pose": "cheer"
          },
          {
           "who": "lola",
           "at": [
            4.5,
-           4.5
+           4.3
           ],
-          "face": 180,
-          "pose": "arms"
+          "face": 185,
+          "pose": "idle"
          },
          {
           "who": "dex",
           "at": [
-           -3.5,
-           5
+           -3.6,
+           4.7
           ],
-          "face": 180,
+          "face": 175,
           "pose": "idle"
          },
          {
           "who": "marge",
           "at": [
            -1,
-           3.5
+           3.85
           ],
-          "face": 0,
-          "pose": "sit"
+          "face": 180,
+          "pose": "sit",
+          "seat": 0.56
          }
         ]
        },
@@ -7242,29 +7558,67 @@
         {
          "cam": {
           "rel": "lola",
-          "right": 0.4,
-          "up": 0.1,
-          "fwd": 1.4
+          "right": 0.27,
+          "up": 0.04,
+          "fwd": 1.27
          },
          "look": {
           "rel": "lola"
          },
-         "fov": 36,
-         "dur": 6,
-         "lines": [
+         "fov": 33,
+         "dur": 2.6,
+         "say": "lola",
+         "line": "Every time.",
+         "how": "deadpan"
+        },
+        {
+         "cam": {
+          "rel": "jensen",
+          "right": -0.18,
+          "up": 0.04,
+          "fwd": 1.29
+         },
+         "look": {
+          "rel": "jensen"
+         },
+         "fov": 33,
+         "dur": 2.2,
+         "say": "jensen",
+         "line": "Too much?"
+        },
+        {
+         "cam": {
+          "rel": "lola",
+          "right": -0.23,
+          "up": 0.04,
+          "fwd": 1.28
+         },
+         "look": {
+          "rel": "lola"
+         },
+         "fov": 33,
+         "dur": 3.5,
+         "say": "lola",
+         "line": "...Here. This one's free anyway. Don't get used to it.",
+         "pre": 0.5
+        },
+        {
+         "cam": {
+          "rel": "wesley",
+          "right": -0.26,
+          "up": 0.04,
+          "fwd": 1.22
+         },
+         "look": {
+          "rel": "wesley"
+         },
+         "fov": 33,
+         "dur": 1.6,
+         "act": [
           {
-           "who": "lola",
-           "text": "Every time.",
-           "how": "deadpan"
-          },
-          {
-           "who": "jensen",
-           "text": "Too much?"
-          },
-          {
-           "who": "lola",
-           "text": "...Here. This one's free anyway. Don't get used to it.",
-           "pre": 0.5
+           "who": "wesley",
+           "pose": "phone",
+           "prop": "phone"
           }
          ]
         }
@@ -7297,7 +7651,7 @@
         },
         {
          "who": "player",
-         "office": "exec",
+         "office": "greenroom",
          "label": "Jensen",
          "sub": "his green room, finally"
         }

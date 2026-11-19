@@ -103,7 +103,7 @@ const opening = {
   shots: [
     { cam: { rel: 'player', right: -2, up: 60, fwd: -80 }, to: { rel: 'player', right: 0, up: 30, fwd: -45 }, look: '@arena', fov: 55, dur: 6, where: { name: 'San Jose, California', sub: 'South of downtown · 9:04 AM' } },
     // (Nico by the lime roadster: the lens off his right shoulder, the car beyond him; the paint is the car-colour set-up)
-    { cam: { rel: 'nico', right: 4.6, up: 1.0, fwd: 1.4 }, look: { rel: 'nico', up: -0.2, fwd: 2.0 }, fov: 58, dur: 4, card: { who: 'nico', is: 'ally', role: 'the driver, four days in from back east, fresh paint job' } },
+    { cam: { rel: 'nico', right: 4.6, up: 1.0, fwd: 1.4 }, look: { rel: 'nico', up: -0.2, fwd: 2.0 }, fov: 58, dur: 4, card: { who: 'nico', is: 'ally', role: 'the car guy, four days in from back east, fresh paint job' } },
     { set: 'kitchen', cam: { rel: 'jensen', right: 0.2, up: 0.1, fwd: 1.4 }, look: { rel: 'jensen' }, fov: 38, dur: 7, card: { who: 'jensen', is: 'hero', role: 'founder, CEO, owner of one jacket' },
       say: 'jensen', line: "Good morning, San Jose! Tonight, the fastest chip ever made, and because you're family, you see it first, straight out of my oven." },
     { set: 'kitchen', cam: { rel: 'marge', right: 0.4, up: 0.05, fwd: 1.6 }, look: { rel: 'marge' }, fov: 38, dur: 5, card: { who: 'marge', is: 'ally', role: 'stage manager, nineteen keynotes, none on time' },
@@ -122,7 +122,8 @@ const opening = {
 // ── Mission 1: Preheat ──
 // K1: the empty oven. Jobs: the mute gag is his flaw in one joke (he presents to a room that can't hear him, and he
 // didn't hear Marge say "off"); the card is evidence; Nico brings the car in and sets up its colour; Marge plants the
-// jacket's call time (the ST1 payoff line, verbatim); it ends on his first act of will: "Nico, drive. Marge, no hold."
+// jacket's call time (the ST1 payoff line, verbatim); it ends on his first act of will: "Nico, keys. Marge, no hold."
+// (he drives himself all day, Nico's car: Nico stays at the house minding the oven, where BT-3 finds him)
 const K1 = { type: 'vcall', id: 'k1', title: 'Oven Stream: Post-Show', time: 'day', people: [
   { who: P, office: 'kitchen', label: 'Jensen', sub: 'his kitchen · the oven stream', muted: true },
   { who: 'marge', office: 'backstage', sub: 'Stage manager · GreenLive' },
@@ -159,13 +160,17 @@ const K1 = { type: 'vcall', id: 'k1', title: 'Oven Stream: Post-Show', time: 'da
     V('marge', 'I am not launching the jacket. It has a call time, six-thirty, and I tell the crew, "The jacket\'s in, he\'s coming."'),
     V(P, 'It would sell out.'),
     V('marge', 'I\'m putting out a forty-minute hold. "Technical difficulties," nobody panics, we...', { cut: 0.6 }),
-    V(P, 'Nico, drive. Marge, no hold.'),
+    V(P, 'Nico, keys. Marge, no hold.'),
+    V('nico', "Keys are in her, boss. I'll mind the oven.", { pre: 0.3 }),
   ] };
 
 // C1: Marge on the car screen, over both legs (span). The plot is in the first 7 lines (the hold argued, not
 // re-explained; the box of air; the 4 PM deal; the run of show; the fog machine fire); the Board in 8-13. Every
-// joke the brief moves out is an extra. The arena stop between the legs is three `say` steps (the chair plant).
-const C1 = { type: 'call', who: 'marge', auto: true, inCar: true, at: 2, span: 4, video: { office: 'backstage' },
+// joke the brief moves out is an extra; the first extra is the seats exchange (ST3's "Watch one from the seats" pays
+// it off). The arena stop between the legs is the chair plant: the man in the lanyard on the street, a beat on him,
+// two lines (span 5: npc, beat, say, say, drive 2). A scene arriving wraps it first (Mog City runner wrapSpan), so the
+// wrap is heard at the market.
+const C1 = { type: 'call', who: 'marge', auto: true, inCar: true, at: 2, span: 5, video: { office: 'backstage' },
   lines: [
     L('marge', 'You said "no hold" and left the meeting. That\'s not a decision, Jensen, that\'s a door.'),
     L('jensen', 'Here\'s the plan. Lola sees everyone who eats in this city, and everyone eats, so we start at...', { cut: 0.8 }),
@@ -182,13 +187,13 @@ const C1 = { type: 'call', who: 'marge', auto: true, inCar: true, at: 2, span: 4
     L('marge', "That's a creep with a pastry budget."),
   ],
   extra: [
+    [L('jensen', 'Have you ever watched one from the seats? One of ours?'), L('marge', "I've watched nineteen from the wings, one from a catwalk, and one from inside a road case."),
+      L('jensen', 'Why a road case?'), L('marge', 'The headset cable reached the road case. Nothing else did.'), L('jensen', 'Tonight you watch from the seats.'),
+      L('marge', 'Tonight I watch the clock. ...Ask me after.', { how: 'warm', pre: 0.6 })],
     [L('marge', 'Want to hear the run of show? It calms me down.'), L('jensen', 'Please.'),
       L('marge', 'Seven-oh-oh, house to half. Seven-oh-one, the screen does the sunrise. Seven-oh-two, you walk out.'),
       L('jensen', 'Seven-oh-one and a half. Half a minute of nothing, then the sunrise, then...', { cut: 0.8 }),
       L('marge', 'You walked out at seven-nineteen last year. Anticipation built, then it went to get a pretzel.')],
-    [L('jensen', 'Have you ever watched one from the seats? One of ours?'), L('marge', "I've watched nineteen from the wings, one from a catwalk, and one from inside a road case."),
-      L('jensen', 'Why a road case?'), L('marge', 'The headset cable reached the road case. Nothing else did.'), L('jensen', 'Tonight you watch from the seats.'),
-      L('marge', 'Tonight I watch the clock. ...Ask me after.', { how: 'warm', pre: 0.6 })],
     [L('jensen', "How's the screen?"), L('marge', 'Ninety metres. You can see it from the airport, and a pilot called the front office to complain.'),
       L('jensen', 'About the brightness?'), L('marge', 'About your face. He said it looked like it was coming in to land.'), L('jensen', 'That is the dream, Marge.')],
     [L('jensen', "Fans in tents since Tuesday. Tent one, tent two, a little tent for the first tent. That's a platform, Marge..."),
@@ -258,8 +263,9 @@ const L1 = { type: 'vcall', id: 'l1', title: "Lola's Window", time: 'golden', pe
   ] };
 
 // M1: two drive steps (the runner drives a `to` list to its nearest place, runner.js:488), C1 spanning both. The arena
-// stop is three waiting `say` steps (each one a step the span counts: drive 1's end, say, say, say, drive 2's end =
-// span 4); the call waits for each mission line and goes on after it (calls.js:884). W1 rings in leg 2.
+// stop: Director Grey on the street with the chair, the beat on him, two waiting `say` steps (each a step the span
+// counts: npc, beat, say, say, drive 2's end = span 5); a mission line waits for the call's line playing, the call for
+// the mission's line (calls.js:884). W1 rings in leg 2.
 const M1 = { id: 'PH-1', title: 'Preheat', vehicle: 'roadster', start: '@kitchen', time: 'midday', card: 'slam', verbs: ['drive'],
   stakes: 'Ten hours to doors, and the only working prototype is gone.', passLine: 'Blue vests, a blue cooler. Follow the crumbs.',
   steps: [
@@ -268,7 +274,11 @@ const M1 = { id: 'PH-1', title: 'Preheat', vehicle: 'roadster', start: '@kitchen
     { type: 'car', name: 'lolatruck', car: 'van', color: '#E8B23A', at: '@market' },
     { type: 'npc', who: 'lola', at: '@market' },
     { type: 'drive', to: '@stage-run', objective: 'Drop the run of show at **the arena**', during: [C1] },
-    say('jensen', 'Marge, why is a man in a lanyard wheeling a mahogany chair into my arena?'),
+    // (the plant, seen: a man in a lanyard wheels a mahogany chair along the arena's front toward its doors, ahead of
+    // the car; a beat on him from the road as Jensen asks)
+    { type: 'npc', who: 'director-a', at: { rel: 'player', right: 6, fwd: 5 }, push: 'chair', lanyard: true, walk: { fwd: 16, secs: 15 } },
+    { type: 'beat', shot: { cam: { rel: 'director-a', right: -4.2, up: 0.75, fwd: 7.5 }, look: { rel: 'director-a', up: -0.3 }, lookTo: { rel: 'director-a', up: -0.3, fwd: 5 }, fov: 36 }, dur: 6,
+      say: { who: 'jensen', text: 'Marge, why is a man in a lanyard wheeling a mahogany chair into my arena?' } },
     say('marge', "It's on the manifest as \"furniture, executive.\" I assumed it was yours.", { how: 'deadpan' }),
     say('jensen', 'I sit on a stool.'),
     { type: 'drive', to: '@market', objective: "Get to **Lola's truck** at the market square", during: [W1] },
@@ -556,7 +566,7 @@ const W2 = { type: 'call', who: 'wesley', auto: true, inCar: true, video: { offi
 
 // The cable pull froze Dex's stream: X1 opens on his frozen picture; he switches to his phone (unfreeze).
 const X1 = { type: 'vcall', id: 'x1', title: 'COBALT C1: LIVE UPLOAD', time: 'golden', people: [
-  { who: 'dex', office: 'startup', sub: 'Cobalt Circuitry · the van' },
+  { who: 'dex', office: 'van', sub: 'Cobalt Circuitry · the van' },
   { who: P, office: 'exec', label: 'Jensen', sub: 'behind the van', blur: true, cam: 'low' },
   { who: 'wesley', office: 'kitchen', sub: 'behind the recycling bins', blur: true, cam: 'low' },
   { who: 'intern-a', office: 'startup', sub: 'Cobalt · unpaid · the lot', blur: true, cam: 'low', late: true },
@@ -900,7 +910,7 @@ const W4 = { type: 'call', who: 'wesley', interrupts: true, inCar: true, at: 45,
   ] };
 
 const A1 = { type: 'vcall', id: 'a1', title: 'Dock Door', time: 'golden', people: [
-  { who: 'marge', office: 'backstage', sub: 'the dock office · no headset' },
+  { who: 'marge', office: 'backstage', sub: 'no headset' },
   { who: P, office: 'kitchen', label: 'Jensen', sub: "Lola's truck · in the back", cam: 'low' },
   { who: 'lola', office: 'kitchen', sub: 'the dock door · "catering"', blur: true, cam: 'low' },
   { who: 'dex', office: 'startup', sub: 'the lobby, by the coat check', late: true, blur: true }],
@@ -947,9 +957,9 @@ const M7 = { id: 'FL-7', title: 'Fan Line', vehicle: 'roadster', start: '@market
 // H1: the hijack, as the set-up call. The Board's pre-show runs on the arena screen from Jensen's green room; Jensen's
 // calendar joins him to it by itself, on a ninety-metre screen, from the back of Lola's truck.
 const H1 = { type: 'vcall', id: 'h1', title: 'GREENLIVE · PRE-SHOW', time: 'night', layout: 'speaker', people: [
-  { who: 'board', office: 'exec', label: 'Mr. Board', sub: "Jensen's green room" },
-  { who: 'marge', office: 'backstage', sub: 'the dock office · no headset' },
-  { who: 'wesley', office: 'kitchen', sub: 'row one · TroutStream LIVE', blur: true, cam: 'low' },
+  { who: 'board', office: 'greenroom', label: 'Mr. Board', sub: "Jensen's green room" },
+  { who: 'marge', office: 'backstage', sub: 'no headset' },
+  { who: 'wesley', office: 'kitchen', sub: 'row one · live', blur: true, cam: 'low' },
   { who: P, office: 'kitchen', label: 'Jensen', sub: "Lola's truck, the dock", late: true, cam: 'low' }],
   lines: [
     V('board', 'Good evening, San Jose. A short pre-show from the green room, which is mine now. The fruit is excellent.'),
@@ -975,38 +985,52 @@ const H1 = { type: 'vcall', id: 'h1', title: 'GREENLIVE · PRE-SHOW', time: 'nig
     V('marge', 'Four minutes. Go get my voice back.'),
   ] };
 
-// the stage: the arena's stage set room (Mog City wagmi/storyrun/rooms.js stage: the deck at -z, the house at +z, the
-// sign on its screen).
-// Seven people at most: everyone in their place, Jensen in the wings until he walks on (ST1 shot 7).
+// the stage: the arena's stage set room (Mog City wagmi/storyrun/stage-room.js: the LED wall at z -9, the deck to its
+// lip at z 0.6, the barrier at z 2.4 with its gap by the front row's mahogany chair at [-1, 3.5], the standing pit from
+// z 3.3 and the seats rising behind; the house calm, or up on its feet). Blocking: people on the deck stand about z -2.2
+// cheated out to the house (faces toward +z); every camera is placed in the room (at) and written relative to the
+// person it is on (rel, in their frame: the engine's camPt), so each line plays over its speaker. Seven people at most.
 const STAGE_ROOM = 'stage';
-const stage = (people) => ({ room: STAGE_ROOM, light: 'night', sign: 'GREENLIVE', people });
-const ON = { board: { who: 'board', at: [0, -2], face: 0, pose: 'talk' }, jensen: { who: 'jensen', at: [-6, -3], face: 90, pose: 'idle', hidden: true },
-  marge: { who: 'marge', at: [-7.5, -3.5], face: 90, pose: 'arms' }, wesley: { who: 'wesley', at: [1.5, 3.5], face: 180, pose: 'idle' },
-  lola: { who: 'lola', at: [4.5, 4.5], face: 180, pose: 'arms' }, dex: { who: 'dex', at: [-3.5, 5], face: 180, pose: 'idle' },
-  dirB: { who: 'director-b', at: [5, -3], face: 'board', pose: 'idle' }, dirA: { who: 'director-a', at: [6.2, -2.6], face: 'board', pose: 'idle' } };
-const cam = (rel, right, up, fwd) => ({ rel, right, up, fwd });
+const stage = (people, o = {}) => ({ room: STAGE_ROOM, light: 'night', sign: o.sign || 'GREENLIVE', ...(o.house ? { house: o.house } : {}), people });
+const HEAD = 1.62, rad = (d) => (d * Math.PI) / 180, fx = (v) => Math.round(v * 100) / 100;
+// a point in the room [x, y, z] as a camera point relative to someone standing at [x, z] facing `face` degrees
+const camAt = (who, P, p) => { const h = rad(P.face), dx = p[0] - P.at[0], dz = p[2] - P.at[1]; return { rel: who, right: fx(-Math.cos(h) * dx + Math.sin(h) * dz), up: fx(p[1] - HEAD), fwd: fx(Math.sin(h) * dx + Math.cos(h) * dz) }; };
+// a shot of `who` (standing as B[who]) from p, looking at their face (or at `at`, a point in the room, through them)
+const shotOn = (B, who, p, o = {}) => ({ cam: camAt(who, B[who], p), look: o.at ? camAt(who, B[who], o.at) : { rel: who }, fov: o.fov || 34, dur: o.dur || 4 });
+// a close-up: from `dist` m in front of them, `off` degrees round from their nose (+ to their right), at eye height
+const close = (B, who, o = {}) => { const P = B[who], h = rad(P.face + (o.off || 0)), d = o.dist || 1.35; return shotOn(B, who, [P.at[0] + Math.sin(h) * d, HEAD + (o.up ?? 0.04), P.at[1] + Math.cos(h) * d], { fov: o.fov || 33, dur: o.dur }); };
+const pp = (who, B, extra = {}) => ({ who, at: B[who].at, face: B[who].face, ...extra });
 
-// ST1: the quiet launch. The Board's mic dies; Marge has her headset; the jacket's in.
-const ST1 = { type: 'cutscene', id: 'st1', set: stage([ON.board, ON.jensen, ON.marge, ON.wesley, ON.lola, ON.dirB]), shots: [
-  { cam: cam('board', 0, 1.6, 9), look: { rel: 'board' }, fov: 50, dur: 4, caption: 'THE ARENA · 7:00 PM',
+// where everyone stands (each cutscene's own copy changes a few)
+const ST = {
+  board: { at: [0, -2.2], face: 0 }, jensen: { at: [-6.6, -3.0], face: 90 }, marge: { at: [-7.7, -3.4], face: 80 },
+  wesley: { at: [1.5, 3.5], face: 180 }, lola: { at: [4.5, 4.3], face: 185 }, dex: { at: [-3.6, 4.7], face: 175 },
+  'director-b': { at: [5.6, -3.0], face: -90 }, 'director-a': { at: [6.6, -2.7], face: -100 },
+};
+const TWO = { board: { at: [0.1, -2.2], face: -40 }, jensen: { at: [-1.1, -2.2], face: 40 } };
+// (the front row's mahogany chair at [-1, 3.5] facing the stage: sat in, her feet a little behind its middle, the seat's height)
+const SEAT_AT = [-1, 3.85], SEAT_Y = 0.56;
+
+// ST1: the quiet launch. The Board's mic dies; Marge has her headset; the jacket's in; Jensen walks on.
+const B1s = { ...ST, ...{ board: { at: [0.1, -2.2], face: -40 } }, jensen: { ...ST.jensen } };
+const ST1 = { type: 'cutscene', id: 'st1', set: stage([pp('board', ST, { pose: 'talk' }), pp('jensen', ST, { pose: 'idle', hidden: true }), pp('marge', ST, { pose: 'arms' }), pp('wesley', ST, { pose: 'idle' }), pp('lola', ST, { pose: 'arms' }), pp('director-b', ST, { pose: 'idle' })]), shots: [
+  // (the house from its back rows: twenty thousand heads, the phones, the beams, the Board alone on the deck)
+  { ...shotOn(ST, 'board', [2.6, 5.4, 14.5], { at: [0, 2.6, -4], fov: 48, dur: 5 }), caption: 'THE ARENA · 7:00 PM',
     say: 'board', line: "Good evening, I'm the Board, and I'll be your Jensen tonight. Please hold your applause." },
-  { cam: cam('wesley', 0.5, 0.15, 1.4), look: { rel: 'wesley' }, fov: 36, dur: 3.5, caption: "TWENTY THOUSAND SIGNS. EVERY ONE SAYS: no",
-    say: 'wesley', line: 'Nobody clap. Nobody clap.', how: 'hushed' },
-  { cam: cam('board', 0.3, 0.05, 1.3), look: { rel: 'board' }, fov: 34, dur: 4.5,
-    say: 'board', line: '...Thank you for holding it. Forever, apparently.', pre: 0.8 },
-  { cam: cam('marge', 0.4, 0.1, 1.3), look: { rel: 'marge' }, fov: 36, dur: 3,
-    say: 'marge', line: 'Sound, can you hear me? Cut his mic.', how: 'deadpan' },
-  { cam: cam('board', -0.4, 0.1, 2.2), look: { rel: 'board' }, fov: 38, dur: 2.5, caption: '(HIS MIC IS DEAD)', act: [{ who: 'board', pose: 'argue' }] },
-  { cam: cam('marge', -0.3, 0.05, 1.2), look: { rel: 'marge' }, fov: 34, dur: 3.5,
-    say: 'marge', line: "The jacket's in. ...He's coming.", how: 'hushed', pre: 0.4 },
-  { cam: cam('jensen', 1.0, 0.1, -2.0), look: { rel: 'jensen' }, fov: 40, dur: 4, act: [{ who: 'jensen', hidden: false, walk: { to: [-1.6, -2], secs: 3, then: 'talk' } }],
-    lines: [L('wesley', 'NOW clap! NOW!', { how: 'shout' }), L('board', "Jensen. You're not on the run of show.")] },
-  { cam: cam('marge', 0.4, 0.1, 1.3), look: { rel: 'marge' }, fov: 36, dur: 3,
-    say: 'marge', line: 'He is now. I just wrote him in.', how: 'deadpan' },
-  { cam: cam('jensen', -0.6, 0.15, 1.6), look: { rel: 'board' }, fov: 38, dur: 4.5,
-    lines: [L('board', "You brought it. How thoughtful. Hand it here, and I'll thank you by name."), L('jensen', 'Ladies and gentlemen. Brisket.')] },
-  { cam: cam('board', 0.4, 0.05, 1.3), look: { rel: 'board' }, fov: 34, dur: 5,
-    lines: [L('board', "That's my keynote."), L('jensen', "It's a lovely keynote. You have a lovely chair.")] },
+  { ...close(ST, 'wesley', { off: -15 }), dur: 3.5, caption: 'TWENTY THOUSAND FANS. NOT ONE CLAP.', say: 'wesley', line: 'Nobody clap. Nobody clap.', how: 'hushed' },
+  { ...close(ST, 'board', { off: 10, dist: 1.5 }), dur: 4.5, say: 'board', line: '...Thank you for holding it. Forever, apparently.', pre: 0.8 },
+  { ...close(ST, 'marge', { off: 20 }), dur: 3, say: 'marge', line: 'Sound, can you hear me? Cut his mic.', how: 'deadpan' },
+  { ...close(ST, 'board', { off: -25, dist: 2.4, up: 0.1 }), fov: 38, dur: 2.5, caption: '(HIS MIC IS DEAD)', act: [{ who: 'board', pose: 'argue' }] },
+  { ...close(ST, 'marge', { off: 5, dist: 1.2 }), dur: 3.5, say: 'marge', line: "The jacket's in. ...He's coming.", how: 'hushed', pre: 0.4 },
+  // (the walk on, from behind him in the wings: the lit deck, the wall, the house beyond)
+  { ...shotOn(ST, 'jensen', [-8.9, 1.85, -3.9], { at: [0, 1.6, -1.2], fov: 46, dur: 3.6 }), act: [{ who: 'jensen', hidden: false, walk: { to: TWO.jensen.at, secs: 3.2, then: 'talk' } }, { who: 'board', face: -40, pose: 'idle' }] },
+  { ...close(ST, 'wesley', { off: 10, dist: 1.2 }), dur: 2.2, say: 'wesley', line: 'NOW clap! NOW!', how: 'shout', act: [{ who: 'wesley', pose: 'cheer' }] },
+  { ...close(B1s, 'board', { off: 15 }), dur: 3, say: 'board', line: "Jensen. You're not on the run of show." },
+  { ...close(ST, 'marge', { off: 25 }), dur: 3, say: 'marge', line: 'He is now. I just wrote him in.', how: 'deadpan', act: [{ who: 'jensen', face: 40, pose: 'talk' }] },
+  // (the two of them from the front row, both faces: the Board wants the box, Jensen gives the room its name)
+  { ...shotOn(TWO, 'board', [-0.5, 1.55, 1.7], { at: [-0.5, 1.45, -2.2], fov: 40, dur: 6 }),
+    lines: [L('board', "You brought it. How thoughtful. Hand it here, and I'll thank you by name."), L('jensen', 'Ladies and gentlemen. Brisket.'), L('board', "That's my keynote.")] },
+  { ...close(TWO, 'jensen', { off: -10 }), dur: 3.5, say: 'jensen', line: "It's a lovely keynote. You have a lovely chair.", how: 'warm' },
 ] };
 
 const crowd = (n, extra = {}) => ({ meters: { crowd: { add: n } }, ...extra });
@@ -1016,20 +1040,23 @@ const K1C = { type: 'choice', prompt: 'The room is yours. Open with...', who: 'j
   { text: 'A benchmark', set: crowd(10), reply: 'Let me show you something. Ninety-one percent of you are standing, the fastest standing ever measured indoors.' }] };
 
 // ST2: the booth story, told true. The Board's mic is dead, so what he says now only Jensen hears.
-const ST2 = { type: 'cutscene', id: 'st2', set: stage([{ ...ON.board, face: 'jensen' }, { ...ON.jensen, at: [-1.6, -2], face: 'board', hidden: false, pose: 'talk' }, ON.marge, ON.wesley, ON.lola, ON.dirB]), shots: [
-  { cam: cam('board', 0.3, 0.05, 1.2), look: { rel: 'board' }, fov: 34, dur: 4.5,
+const B2s = { ...ST, ...TWO };
+const B2j = { ...B2s, jensen: { at: TWO.jensen.at, face: 12 } };
+const ST2 = { type: 'cutscene', id: 'st2', set: stage([pp('board', B2s, { pose: 'idle' }), pp('jensen', B2s, { pose: 'talk' }), pp('marge', ST, { pose: 'arms' }), pp('wesley', ST, { pose: 'idle' }), pp('lola', ST, { pose: 'arms' }), pp('director-b', ST, { pose: 'idle' })]), shots: [
+  // (Lola cuts in from the pit: a deliberate interjection over the Board, the shot is his)
+  { ...close(B2s, 'board', { off: -5 }), dur: 4.5,
     lines: [L('board', "Off the record, since I'm off the air: name a price for the room. I'll put the brisket on Mahogany.", { cut: 0.85 }), L('lola', 'Not for sale.', { overlap: true, how: 'deadpan' })] },
-  { cam: cam('jensen', 0, 0.4, 5), look: { rel: 'jensen' }, fov: 40, dur: 5,
+  // (to the house, from the pit: the wall behind him)
+  { ...shotOn(B2j, 'jensen', [-0.2, 1.45, 1.9], { fov: 40, dur: 5 }), act: [{ who: 'jensen', face: 12, pose: 'talk' }],
     say: 'jensen', line: 'Let me tell you the real story. Booth three, coffee, a napkin, a pen you had to blow on, and no dog.' },
-  { cam: cam('lola', 0.4, 0.1, 1.4), look: { rel: 'lola' }, fov: 36, dur: 4, act: [{ who: 'lola', pose: 'argue' }],
+  { ...close(ST, 'lola', { off: -12, dist: 1.3 }), dur: 4, act: [{ who: 'lola', pose: 'argue' }],
     say: 'lola', line: 'There was a dog! He followed you from my truck, and he also eats cookies!', how: 'shout' },
-  { cam: cam('jensen', 0.2, 0.05, 1.2), look: { rel: 'jensen' }, fov: 34, dur: 2.5,
-    say: 'jensen', line: '...There was a dog.', pre: 0.4 },
-  { cam: cam('jensen', 0.2, 0.05, 1.1), look: { rel: 'wesley' }, fov: 34, dur: 7,
-    lines: [L('jensen', 'I drew one square on that napkin. Thirty years, people ask what was in it.'), L('wesley', 'What was in it?', { how: 'hushed' }),
-      L('jensen', "Nothing. It was a room. I just didn't know who'd be in it yet.", { how: 'warm', pre: 0.5 })] },
-  { cam: cam('jensen', 1.2, 0.2, 1.8), look: { rel: 'board' }, fov: 38, dur: 4.5,
-    lines: [L('board', 'Is this the part where I lose?', { how: 'hushed' }), L('jensen', 'This is the part where you sign something. You love a signature, and so do I.')] },
+  { ...close(B2j, 'jensen', { off: 8, dist: 1.2 }), dur: 2.5, say: 'jensen', line: '...There was a dog.', pre: 0.4 },
+  { ...close(B2j, 'jensen', { off: -8, dist: 1.5 }), dur: 4.5, say: 'jensen', line: 'I drew one square on that napkin. Thirty years, people ask what was in it.' },
+  { ...close(ST, 'wesley', { off: 12, dist: 1.15 }), dur: 2.4, say: 'wesley', line: 'What was in it?', how: 'hushed' },
+  { ...close(B2j, 'jensen', { off: 4, dist: 1.1 }), dur: 4.5, say: 'jensen', line: "Nothing. It was a room. I just didn't know who'd be in it yet.", how: 'warm', pre: 0.5, act: [{ who: 'jensen', face: 40 }] },
+  { ...close(B2s, 'board', { off: -15, dist: 1.25 }), dur: 3, say: 'board', line: 'Is this the part where I lose?', how: 'hushed' },
+  { ...close(TWO, 'jensen', { off: -12 }), dur: 4, say: 'jensen', line: 'This is the part where you sign something. You love a signature, and so do I.' },
 ] };
 
 const K2C = { type: 'choice', prompt: 'What does the Board sign?', who: 'jensen', timeout: 8, default: 0, options: [
@@ -1038,35 +1065,56 @@ const K2C = { type: 'choice', prompt: 'What does the Board sign?', who: 'jensen'
   { text: 'Give him his applause', set: crowd(30, { flags: { applause: true } }),
     reply: "Ladies and gentlemen, Mr. Board is resigning from our board. He's always wanted a standing ovation indoors. Let's give him one, all the way to the exit." }] };
 
-// ST3: the Board's exit. With the applause, he gets his wish for leaving; without it, a plain exit.
-const ST3A = { type: 'cutscene', id: 'st3a', if: 'applause == true', set: stage([{ ...ON.board, face: 'jensen', pose: 'idle' }, { ...ON.jensen, at: [-1.6, -2], face: 'board', hidden: false }, ON.marge, ON.wesley, ON.lola, ON.dirB]), shots: [
-  { cam: cam('board', 0, 1.8, 10), look: { rel: 'board' }, fov: 52, dur: 4, caption: 'TWENTY THOUSAND PEOPLE STAND UP', act: [{ who: 'wesley', pose: 'cheer' }, { who: 'lola', pose: 'idle' }] },
-  { cam: cam('board', 0.3, 0.05, 1.2), look: { rel: 'board' }, fov: 34, dur: 4,
-    lines: [L('jensen', 'Big fan.', { how: 'warm' }), L('board', '...Regards.', { pre: 0.5 })] },
-  { cam: cam('board', -0.5, 0.2, 2.4), look: { rel: 'board' }, fov: 40, dur: 6, act: [{ who: 'board', walk: { to: [9, -2.5], secs: 6, clip: 'walk', then: 'idle' } }],
-    lines: [L('board', "...It's louder than I thought. Is it always this loud?", { how: 'hushed', pre: 1.0 }), L('jensen', 'Only indoors.', { how: 'warm' })] },
+// ST3A: the Board's exit with the applause he always wanted: the house on its feet (seen from the stage, over the two
+// of them), then his face with it (he turns to it), the line, and out. ST3B: a plain exit.
+const B3a = { ...ST, board: { at: TWO.board.at, face: 22 }, jensen: TWO.jensen };
+const B3b = { ...B3a, board: { at: TWO.board.at, face: 50 } };
+// (his walk off: from the pit's edge over the front heads, the deck and the wall, him going stage right)
+const exitShot = (B, clip) => ({ ...shotOn(B, 'board', [1.2, 3.1, 6.6], { at: [3.4, 1.5, -2.6], fov: 46, dur: 4.5 }), act: [{ who: 'board', walk: { to: [9.5, -2.6], secs: 5, clip, then: 'idle' } }] });
+const ST3A = { type: 'cutscene', id: 'st3a', if: 'applause == true', set: stage([pp('board', B3a, { pose: 'idle' }), pp('jensen', B3a, { pose: 'idle' }), pp('marge', ST, { pose: 'arms' }), pp('wesley', ST, { pose: 'cheer' }), pp('lola', ST, { pose: 'idle' })], { house: 'up' }), shots: [
+  { ...shotOn(B3a, 'board', [1.6, 3.4, -7.4], { at: [-0.6, 2.2, 7], fov: 54, dur: 4.5 }), caption: 'TWENTY THOUSAND PEOPLE STAND UP' },
+  { ...close(B3a, 'jensen', { off: -10 }), dur: 2.6, say: 'jensen', line: 'Big fan.', how: 'warm' },
+  // (his face, turned to the house on its feet: from upstage right, the pit filling the left of the frame behind him)
+  { ...shotOn(B3b, 'board', [6.0, 1.8, -4.5], { at: [0, 1.5, 0.5], fov: 44, dur: 3.4 }), act: [{ who: 'board', face: 50 }], say: 'board', line: '...Regards.', pre: 0.5 },
+  { ...close(B3b, 'board', { off: -8, dist: 1.4 }), dur: 5, say: 'board', line: "...It's louder than I thought. Is it always this loud?", how: 'hushed', pre: 1.0 },
+  { ...close(B3a, 'jensen', { off: 6, dist: 1.25 }), dur: 3, say: 'jensen', line: 'Only indoors.', how: 'warm' },
+  exitShot(B3b, 'walk'),
 ] };
-const ST3B = { type: 'cutscene', id: 'st3b', if: 'applause != true', set: stage([{ ...ON.board, face: 'jensen', pose: 'idle' }, { ...ON.jensen, at: [-1.6, -2], face: 'board', hidden: false }, ON.marge, ON.wesley, ON.lola, ON.dirB]), shots: [
-  { cam: cam('board', 0.3, 0.05, 1.2), look: { rel: 'board' }, fov: 34, dur: 6,
+const ST3B = { type: 'cutscene', id: 'st3b', if: 'applause != true', set: stage([pp('board', B2s, { pose: 'idle' }), pp('jensen', B2s, { pose: 'idle' }), pp('marge', ST, { pose: 'arms' }), pp('wesley', ST, { pose: 'idle' }), pp('lola', ST, { pose: 'idle' }), pp('director-b', ST, { pose: 'idle' })]), shots: [
+  // (the two of them from the front row, both faces)
+  { ...shotOn(TWO, 'board', [-0.5, 1.55, 1.7], { at: [-0.5, 1.45, -2.2], fov: 38, dur: 6 }),
     lines: [L('board', '...Regards.'), L('jensen', 'Close enough.'), L('board', "This isn't over, Jensen. Did you know I'm still on the board of a mattress company?"), L('jensen', 'Get some rest.')] },
-  { cam: cam('board', -0.5, 0.2, 2.4), look: { rel: 'board' }, fov: 40, dur: 4, act: [{ who: 'board', walk: { to: [9, -2.5], secs: 5, clip: 'walkCool', then: 'idle' } }] },
+  exitShot(TWO, 'walkCool'),
 ] };
 
-// ST3: everyone gets a piece of the room. The Directors adjourn, Dex is present, Marge sits in the chair, Wesley's name.
-const ST3 = { type: 'cutscene', id: 'st3', set: stage([{ ...ON.jensen, at: [-0.5, -2], face: 0, hidden: false, pose: 'talk' }, ON.marge, ON.wesley, ON.dex, { ...ON.dirA, face: 'jensen' }, { ...ON.dirB, face: 'jensen' }]), shots: [
-  { cam: cam('director-a', 0.8, 0.1, 2.2), look: { rel: 'director-a' }, fov: 38, dur: 3.5,
+// ST3: everyone gets a piece of the room. The Directors adjourn, Dex is present, Marge sits in the chair.
+const B3 = { ...ST, jensen: { at: [-0.6, -2.2], face: 0 }, marge: { at: [-3.4, 0.1], face: 60 }, 'director-a': { at: [5.4, -2.6], face: -110 }, 'director-b': { at: [6.4, -3.0], face: -100 } };
+const B3j = { ...B3, jensen: { at: B3.jensen.at, face: -35 } }, B3m = { ...B3, marge: { at: B3.marge.at, face: 180 } };
+const ST3 = { type: 'cutscene', id: 'st3', set: stage([pp('jensen', B3, { pose: 'talk' }), pp('marge', B3, { pose: 'arms' }), pp('wesley', B3, { pose: 'idle' }), pp('dex', B3, { pose: 'idle' }), pp('director-a', B3, { pose: 'idle' }), pp('director-b', B3, { pose: 'idle' })]), shots: [
+  { ...shotOn(B3, 'director-a', [3.9, 1.6, -1.6], { at: [6.0, 1.55, -2.9], fov: 38, dur: 3.5 }),
     lines: [L('director-a', 'Motion to adjourn.'), L('director-b', 'Seconded.', { overlap: true })] },
-  { cam: cam('dex', 0.5, 0.2, 1.6), look: { rel: 'dex' }, fov: 36, dur: 6, act: [{ who: 'dex', pose: 'wave' }],
-    lines: [L('dex', 'Dex! Present!', { how: 'shout' }), L('jensen', 'Ladies and gentlemen: Dex. Present.')] },
-  { cam: cam('marge', 0.4, 0.1, 1.3), look: { rel: 'marge' }, fov: 36, dur: 6,
-    lines: [L('marge', 'Seven-oh-four.'), L('jensen', 'Is that bad?'), L('marge', "It's four minutes late. ...It's the earliest we've ever been.", { how: 'warm', pre: 0.6 })] },
-  { cam: cam('jensen', -0.8, 0.2, 1.6), look: { rel: 'marge' }, fov: 38, dur: 6,
-    lines: [L('jensen', "Marge. Front row. Watch one from the seats. I'll call my own cues: sunrise, walk, chip."), L('marge', "The only empty seat is his chair."), L('jensen', 'It swivels.', { how: 'tease' })] },
-  { cam: cam('marge', 0, 1.2, 4.5), look: { rel: 'marge' }, fov: 42, dur: 5, caption: 'FRONT ROW, IN THE MAHOGANY CHAIR',
-    act: [{ who: 'marge', walk: { to: [-1, 3.5], secs: 3.5, then: 'sit' }, face: 0 }],
-    say: 'marge', line: 'Standby, sunrise.', how: 'hushed', pre: 0.6 },
-  { cam: cam('wesley', -0.4, 0.1, 1.2), look: { rel: 'jensen' }, fov: 36, dur: 7, act: [{ who: 'wesley', prop: 'phone', pose: 'phone' }],
-    lines: [L('wesley', 'Can you... would you... just once more?'), L('jensen', '"To Wesley Trout, my eyes. Love, Jensen." It\'s on the screen.'), L('wesley', 'He knows my LAST name.', { how: 'hushed' })] },
+  { ...close(B3, 'dex', { off: -10, dist: 1.4 }), dur: 3, act: [{ who: 'dex', pose: 'wave' }], say: 'dex', line: 'Dex! Present!', how: 'shout' },
+  { ...close(B3, 'jensen', { off: -12, dist: 1.4 }), dur: 3.2, say: 'jensen', line: 'Ladies and gentlemen: Dex. Present.' },
+  // (Jensen's three words are off; the shot is Marge's, at the lip with her headset)
+  { ...close(B3, 'marge', { off: 15 }), dur: 6, lines: [L('marge', 'Seven-oh-four.'), L('jensen', 'Is that bad?'), L('marge', "It's four minutes late. ...It's the earliest we've ever been.", { how: 'warm', pre: 0.6 })] },
+  { ...close(B3j, 'jensen', { off: 10 }), dur: 4.5, act: [{ who: 'jensen', face: -35 }], say: 'jensen', line: "Marge. Front row. Watch one from the seats. I'll call my own cues: sunrise, walk, chip." },
+  { ...close(B3, 'marge', { off: 5, dist: 1.25 }), dur: 3, say: 'marge', line: 'The only empty seat is his chair.' },
+  { ...close(B3j, 'jensen', { off: -6, dist: 1.2 }), dur: 2.4, say: 'jensen', line: 'It swivels.', how: 'tease' },
+  // (down off the lip, through the barrier's gap to the chair: from the deck, the pit standing behind her)
+  { ...shotOn(B3m, 'marge', [1.3, 1.6, 0.2], { at: [-1.3, 1.05, 2.9], fov: 44, dur: 6 }), caption: 'FRONT ROW, IN THE MAHOGANY CHAIR',
+    act: [{ who: 'marge', walk: { to: SEAT_AT, secs: 3.6, then: 'sit' }, face: 180, seat: SEAT_Y }],
+    say: 'marge', line: 'Standby, sunrise.', how: 'hushed', pre: 1.2 },
+] };
+// ST3W: Wesley's name on the wall (the set's sign is his line, the house's ninety metres of it)
+const B3w = { ...ST, jensen: { at: [-0.6, -2.2], face: 8 }, wesley: { at: [1.5, 3.5], face: 190 } };
+const ST3W = { type: 'cutscene', id: 'st3w', set: stage([pp('jensen', B3w, { pose: 'talk' }), pp('wesley', B3w, { pose: 'phone', prop: 'phone' }), pp('marge', { marge: { at: SEAT_AT, face: 180 } }, { pose: 'sit', seat: SEAT_Y }), pp('lola', ST, { pose: 'idle' }), pp('dex', ST, { pose: 'idle' })], { sign: 'TO WESLEY TROUT, MY EYES. LOVE, JENSEN' }), shots: [
+  { ...close(B3w, 'wesley', { off: -14, dist: 1.2 }), dur: 3.5, say: 'wesley', line: 'Can you... would you... just once more?' },
+  // (from the barrier: Jensen on the deck, the wall behind him saying it ninety metres wide)
+  { ...shotOn(B3w, 'jensen', [0.1, 1.9, 2.9], { at: [-0.1, 3.2, -6], fov: 54, dur: 5.5 }), say: 'jensen', line: '"To Wesley Trout, my eyes. Love, Jensen." It\'s on the screen.' },
+  { ...close(B3w, 'wesley', { off: 10, dist: 1.1 }), dur: 3.5, say: 'wesley', line: 'He knows my LAST name.', how: 'hushed' },
+  // (back on Jensen: the frame held while he chooses how to launch it, his line over it: Mog City's runner holds a
+  // set's last frame through the choice after it)
+  { ...close(B3w, 'jensen', { off: -6, dist: 1.4 }), dur: 1.6 },
 ] };
 
 const K3C = { type: 'choice', prompt: 'Launch it.', who: 'jensen', timeout: 6, default: 0, options: [
@@ -1075,19 +1123,26 @@ const K3C = { type: 'choice', prompt: 'Launch it.', who: 'jensen', timeout: 6, d
 
 // ST4: the line. Let them say it, and twenty thousand people finish it for him (a caption: no crowd voices), and Lola
 // sees him do the thing she does; say it, and she groans. Either way, the plate is free.
-const ST4A = { type: 'cutscene', id: 'st4a', if: 'ovation == true', set: stage([{ ...ON.jensen, at: [-0.5, -2], face: 0, hidden: false, pose: 'cheer' }, ON.wesley, ON.lola, ON.dex, { ...ON.marge, at: [-1, 3.5], face: 0, pose: 'sit' }]), shots: [
-  { cam: cam('jensen', 0, 1.8, 10), look: { rel: 'jensen' }, fov: 52, dur: 4.5, caption: 'TWENTY THOUSAND PEOPLE: "...THE MORE YOU SAVE!"' },
-  { cam: cam('lola', 0.4, 0.1, 1.4), look: { rel: 'lola' }, fov: 36, dur: 7,
-    lines: [L('lola', '...See? You let them tell you.', { how: 'warm', pre: 0.6 }), L('jensen', 'I let them tell me.'), L('lola', "Here. This one's free. Don't get used to it.")] },
+const B4 = { ...ST, jensen: { at: [-0.6, -2.2], face: 0 }, marge: { at: SEAT_AT, face: 180 } };
+const ST4P = (house) => stage([pp('jensen', B4, { pose: 'cheer' }), pp('wesley', B4, { pose: 'cheer' }), pp('lola', B4, { pose: 'idle' }), pp('dex', B4, { pose: 'idle' }), pp('marge', B4, { pose: 'sit', seat: SEAT_Y })], house ? { house } : {});
+const ST4A = { type: 'cutscene', id: 'st4a', if: 'ovation == true', set: ST4P('up'), shots: [
+  { ...shotOn(B4, 'jensen', [1.4, 3.2, -7.6], { at: [-0.4, 2.2, 7], fov: 54, dur: 5 }), caption: 'TWENTY THOUSAND PEOPLE: "...THE MORE YOU SAVE!"' },
+  { ...close(B4, 'lola', { off: -12, dist: 1.3 }), dur: 3.5, say: 'lola', line: '...See? You let them tell you.', how: 'warm', pre: 0.6 },
+  { ...close(B4, 'jensen', { off: 8, dist: 1.3 }), dur: 2.6, say: 'jensen', line: 'I let them tell me.' },
+  { ...close(B4, 'lola', { off: 10, dist: 1.3 }), dur: 3.5, say: 'lola', line: "Here. This one's free. Don't get used to it." },
+  // (Wesley at the barrier, his phone up: held for his line after the scene, Chat's verdict)
+  { ...close(B4, 'wesley', { off: 12, dist: 1.25 }), dur: 1.6, act: [{ who: 'wesley', pose: 'phone', prop: 'phone' }] },
 ] };
-const ST4B = { type: 'cutscene', id: 'st4b', if: 'ovation != true', set: stage([{ ...ON.jensen, at: [-0.5, -2], face: 0, hidden: false, pose: 'cheer' }, ON.wesley, ON.lola, ON.dex, { ...ON.marge, at: [-1, 3.5], face: 0, pose: 'sit' }]), shots: [
-  { cam: cam('lola', 0.4, 0.1, 1.4), look: { rel: 'lola' }, fov: 36, dur: 6,
-    lines: [L('lola', 'Every time.', { how: 'deadpan' }), L('jensen', 'Too much?'), L('lola', "...Here. This one's free anyway. Don't get used to it.", { pre: 0.5 })] },
+const ST4B = { type: 'cutscene', id: 'st4b', if: 'ovation != true', set: ST4P(null), shots: [
+  { ...close(B4, 'lola', { off: -12, dist: 1.3 }), dur: 2.6, say: 'lola', line: 'Every time.', how: 'deadpan' },
+  { ...close(B4, 'jensen', { off: 8, dist: 1.3 }), dur: 2.2, say: 'jensen', line: 'Too much?' },
+  { ...close(B4, 'lola', { off: 10, dist: 1.3 }), dur: 3.5, say: 'lola', line: "...Here. This one's free anyway. Don't get used to it.", pre: 0.5 },
+  { ...close(B4, 'wesley', { off: 12, dist: 1.25 }), dur: 1.6, act: [{ who: 'wesley', pose: 'phone', prop: 'phone' }] },
 ] };
 
 const F3 = { type: 'vcall', id: 'f3', title: 'After the Show', time: 'night', end: 'leave', people: [
   { who: 'nico', office: 'kitchen', sub: "Lola's truck, the last plate" },
-  { who: P, office: 'exec', label: 'Jensen', sub: 'his green room, finally' }],
+  { who: P, office: 'greenroom', label: 'Jensen', sub: 'his green room, finally' }],
   lines: [
     V('nico', "Boss. The car's parked, nobody touched her, I'm eating the last plate, and the whole day, start to finish? Eleven out of eleven."),
     V(P, 'I thought nobody gets an eleven.'),
@@ -1118,7 +1173,7 @@ const M8 = { id: 'ST-8', title: 'Showtime', vehicle: 'roadster', start: '@arena'
         SAYAT(22, 'jensen', "Motion denied, and that one's personal.")] },
     say('marge', 'I can hear my headset breathing. Standby, sunrise. ...Spiritually, we\'re on time.', { wait: false }),
     { type: 'timer', name: 'curtain', stop: true },
-    ST1, K1C, ST2, K2C, ST3A, ST3B, ST3, K3C, ST4A, ST4B,
+    ST1, K1C, ST2, K2C, ST3A, ST3B, ST3, ST3W, K3C, ST4A, ST4B,
     say('wesley', "Chat says that's the loudest room in San Jose history. Chat's crying. Kyle's crying.", { if: 'crowd >= 70', how: 'shout' }),
     say('wesley', "Chat says that was a solid nine. Out of eleven. Nico's going to be so proud.", { if: 'crowd < 70' }),
     F3,

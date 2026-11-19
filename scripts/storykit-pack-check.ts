@@ -370,6 +370,17 @@ export function runStoryPackChecks(ok: Ok) {
     const street = talk.filter((x: any) => !x.set || x.set.room !== 'stage');
     ok(`jensen-heist: every conversation scene is a video call (${calls.length} calls; ${talk.length} stage scenes on the arena's stage set, no street cutscene)`, !!P && !street.length && calls.length >= 10);
     ok("jensen-heist: the hero's roadster is the parody company's lime green, paint only", !!P && P.vehicles.find((v: any) => v.stock === 'roadster')?.paint === '#76B900');
+    // (the polish round, 19 Nov: the stage's lines play over their speakers (a camera on the one who says a one-line shot),
+    // the applause on its feet, the chair plant shown at the arena stop, the offices matching their labels, Nico stays)
+    const stageShots = talk.flatMap((x: any) => x.shots);
+    const offSpeaker = stageShots.filter((sh: any) => sh.say && sh.cam && typeof sh.cam === 'object' && sh.cam.rel && sh.cam.rel !== sh.say);
+    ok(`jensen-heist: every one-line stage shot is on its speaker (${stageShots.filter((sh: any) => sh.say).length} shots)`, !!P && !offSpeaker.length, offSpeaker.map((sh: any) => `${sh.say} on ${sh.cam.rel}: ${sh.line}`).slice(0, 3).join(' | '));
+    ok("jensen-heist: the applause and the ovation are played to a house on its feet", !!P && ['st3a', 'st4a'].every((id) => talk.find((x: any) => x.id === id)?.set?.house === 'up'));
+    const m1 = (P?.acts ?? [])[0]?.missions?.[0]?.steps ?? [], plant = m1.find((x: any) => x.type === 'npc' && x.push === 'chair');
+    ok('jensen-heist: the chair plant is seen at the arena stop (a man in a lanyard wheeling it, a beat on him as Jensen asks)', !!plant && plant.lanyard === true && m1.some((x: any) => x.type === 'beat' && /mahogany chair/.test(x.say?.text || '')));
+    const vc = (id: string) => calls.find((x: any) => x.id === id);
+    ok('jensen-heist: the offices match their labels (Dex in the van, the green room is a green room)', !!P && vc('x1')?.people.find((p: any) => p.who === 'dex')?.office === 'van' && vc('h1')?.people.find((p: any) => p.who === 'board')?.office === 'greenroom' && vc('f3')?.people.find((p: any) => p.label === 'Jensen')?.office === 'greenroom');
+    ok('jensen-heist: Jensen drives himself all day; Nico keeps the oven (K1 never says "Nico, drive.")', !!P && !JSON.stringify(vc('k1')?.lines ?? []).includes('Nico, drive') && JSON.stringify(vc('k1')?.lines ?? []).includes("I'll mind the oven"));
     ok('jensen-heist: the hero drives Mog City\'s roadster (stock), never a town fleet car (no heroCar)', !!P && P.ride === 'roadster' && P.vehicles.some((v: any) => v.stock === 'roadster') && !P.heroCar);
     ok('jensen-heist: every seen person but Mr. Board (Mog City\'s own, renamed) has a hand-built body named for the migration', !!P && P.cast.filter((c: any) => !c.model && !c.voiceOnly).every((c: any) => !!BODIES[c.id]) && P.cast.find((c: any) => c.id === 'board')?.model === 'mogcity/mrbig');
     ok(`jensen-heist: its town is San Jose (${town.placeId}), the box on its downtown (the stadium a place of it)`, town.placeId === 'us-0668000' && town.places.some((p: any) => p.kind === 'stadium')); }

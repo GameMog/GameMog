@@ -340,7 +340,9 @@
          "office-backstage",
          "office-boardroom",
          "office-kitchen",
-         "office-study"
+         "office-study",
+         "office-van",
+         "office-greenroom"
         ]
        },
        "light": {
@@ -566,6 +568,13 @@
         },
         "minItems": 0,
         "maxItems": 7
+       },
+       "house": {
+        "enum": [
+         "calm",
+         "up"
+        ],
+        "description": "stage only: the house, calm (standing and watching, a phone up here and there) or up (on its feet and cheering, the phones up)"
        }
       },
       "description": "a set: the room (or closed exterior) the cutscene is staged in, its light (else the mission's time), its people and where they stand"
@@ -3536,7 +3545,9 @@
           "backstage",
           "boardroom",
           "kitchen",
-          "study"
+          "study",
+          "van",
+          "greenroom"
          ]
         },
         "blur": {
@@ -4610,7 +4621,9 @@
           "office-backstage",
           "office-boardroom",
           "office-kitchen",
-          "office-study"
+          "office-study",
+          "office-van",
+          "office-greenroom"
          ]
         },
         "light": {
@@ -4836,6 +4849,13 @@
          },
          "minItems": 0,
          "maxItems": 7
+        },
+        "house": {
+         "enum": [
+          "calm",
+          "up"
+         ],
+         "description": "stage only: the house, calm (standing and watching, a phone up here and there) or up (on its feet and cheering, the phones up)"
         }
        },
        "description": "a set: the room (or closed exterior) the cutscene is staged in, its light (else the mission's time), its people and where they stand"
@@ -4965,7 +4985,9 @@
            "backstage",
            "boardroom",
            "kitchen",
-           "study"
+           "study",
+           "van",
+           "greenroom"
           ],
           "description": "the office they sit in: exec (a corner office, the skyline), startup (an open-plan loft), backstage (a stage manager's room), boardroom (the long table), kitchen (a home kitchen), study (walnut and books, Mr. Big's)"
          },
@@ -8573,6 +8595,44 @@
       },
       "remove": {
        "$ref": "#/$defs/slug"
+      },
+      "push": {
+       "enum": [
+        "chair"
+       ],
+       "description": "a thing they wheel in front of them: chair (an executive chair in mahogany and oxblood leather, on castors), left where they stop"
+      },
+      "lanyard": {
+       "type": "boolean",
+       "description": "a pass on a lanyard round their neck"
+      },
+      "walk": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "right": {
+         "type": "number",
+         "minimum": -20,
+         "maximum": 20
+        },
+        "fwd": {
+         "type": "number",
+         "minimum": -30,
+         "maximum": 30
+        },
+        "secs": {
+         "type": "number",
+         "minimum": 1,
+         "maximum": 20
+        },
+        "after": {
+         "type": "number",
+         "minimum": 0,
+         "maximum": 10
+        }
+       },
+       "description": "a walk as the step starts: from where they stand, fwd m along the player's heading and right m toward the kerb, over secs (a pushing pace), after s"
       }
      }
     }

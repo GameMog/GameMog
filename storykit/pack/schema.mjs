@@ -108,7 +108,7 @@ export const SHOWCASE_PACKS = ['pickup-time', 'jensen-heist'];
 // a video call (Mog City wagmi/storyrun/vcall.js, 18 Nov): every conversation can be one: each person in an office of
 // their own, head and shoulders on their webcam, in a call's layout (tiles, names, the one talking lit, subtitles), with
 // the call's own life between the lines (VCALL_EVENTS). gate.ts vcallProblems holds its rules
-export const VCALL_OFFICES = ['exec', 'startup', 'backstage', 'boardroom', 'kitchen', 'study'];
+export const VCALL_OFFICES = ['exec', 'startup', 'backstage', 'boardroom', 'kitchen', 'study', 'van', 'greenroom'];
 export const VCALL_EVENTS = ['mute', 'unmute', 'join', 'drop', 'freeze', 'unfreeze', 'share', 'unshare', 'blur', 'unblur', 'hand', 'wait'];
 export const VCALL_CAMS = ['close', 'wide', 'low'];
 export const VCALL = { people: [2, 6], items: 40, events: 24 };
@@ -159,7 +159,8 @@ const setPersonProps = {
   hand: O({ side: E(['L', 'R']), at: A(N(-2, 2.5), 3, 3), k: N(0, 1) }, ['at'], { description: 'a hand to a point of their own: [right, up, fwd] m from their feet (a phone held up to look at)' }),
   prop: E(['phone', 'walkie'], { description: 'a thing in the right hand' }), look: { ...R('slug'), description: "where their eyes go: 'lens' (into the camera), 'prop', or someone in the set" }
 };
-const setDef = O({ room: E(SET_ROOMS), light: E(['day', 'golden', 'night']), sign: S(40), people: A(O(setPersonProps, ['who', 'at']), 7) }, ['room'],
+const setDef = O({ room: E(SET_ROOMS), light: E(['day', 'golden', 'night']), sign: S(40), people: A(O(setPersonProps, ['who', 'at']), 7),
+  house: E(['calm', 'up'], { description: "stage only: the house, calm (standing and watching, a phone up here and there) or up (on its feet and cheering, the phones up)" }) }, ['room'],
   { description: "a set: the room (or closed exterior) the cutscene is staged in, its light (else the mission's time), its people and where they stand" });
 const setAct = A(O(setPersonProps, ['who']), 7, 0, { description: "a shot's changes to its set's people as it starts: where they stand, whom they face, their pose, a walk, a hug" });
 // a cutscene shot: `say` + `line` is a cast member's spoken line under the shot (a subtitle until its clip is ready)
@@ -358,7 +359,10 @@ const STEPS = fx(['drive', 'stops', 'pursuit', 'tail', 'tow', 'timer', 'fight', 
   }, ['target', 'to']),
   // one of Mog City's authored set pieces (MOGCITY_SCENES), as the shipped game plays it; mogcity-1 only
   scene: step('scene', { name: E(Object.keys(MOGCITY_SCENES), { description: Object.entries(MOGCITY_SCENES).map(([k, v]) => `${k}: ${v}`).join('; ') }), time: E(TIMES, { description: 'the time of day after it' }) }, ['name']),
-  npc: step('npc', { who: R('beingRef'), at: ONE(R('placeRef'), O({ rel: { const: 'player' }, right: N(-20, 20), fwd: N(-20, 20) }, ['rel'], { description: "beside the player (the kerb is to the right), facing him" })), color: R('colour'), remove: R('slug') })
+  npc: step('npc', { who: R('beingRef'), at: ONE(R('placeRef'), O({ rel: { const: 'player' }, right: N(-20, 20), fwd: N(-20, 20) }, ['rel'], { description: "beside the player (the kerb is to the right), facing him" })), color: R('colour'), remove: R('slug'),
+    push: E(['chair'], { description: 'a thing they wheel in front of them: chair (an executive chair in mahogany and oxblood leather, on castors), left where they stop' }),
+    lanyard: { ...B, description: 'a pass on a lanyard round their neck' },
+    walk: O({ right: N(-20, 20), fwd: N(-30, 30), secs: N(1, 20), after: N(0, 10) }, [], { description: "a walk as the step starts: from where they stand, fwd m along the player's heading and right m toward the kerb, over secs (a pushing pace), after s" }) })
 });
 
 
