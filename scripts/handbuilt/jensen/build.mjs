@@ -21,9 +21,11 @@ import { motoPass, tailorPass, teeHemPass, teeShoulderPass, teeCrewPass, drapePa
 import { bakeRest, addMorphs } from '../facekit.mjs';
 import { hairSwoopPass, glassesBigPass, stylizeFacePass, skinGradePass, hairWhitePass, proportionPass, outfitPass, glassesFitPass, hairDomePass, grinTargets, chinPass, smileChinPass } from './caricature.mjs';
 import { hairClumpsPass } from './clumps.mjs';
-import { chestWeightsPass, slimSleevesPass, crispLeatherPass } from './jacket3.mjs';
+import { chestWeightsPass, slimSleevesPass, crispLeatherPass, leatherWearPass } from './jacket3.mjs';
 import { teethForwardPass, innerLipPass, faceMirrorMapsPass, relaxMorphsPass } from './mouth.mjs';
 import { symFacePass, foldSoftPass, lipTonePass, browSoftPass, rimPass } from './face4.mjs';
+import { ageSculptPass, agePaintPass } from './age5.mjs';
+import { R5 } from './round5.mjs';
 import os from 'node:os';
 const FACE = process.env.JH_FACE || new URL('../../../.scratch/jensen/face/', import.meta.url).pathname;
 import { holeUvPass, sculptPass, mapsPass, mouthBagPass, teethRigidPass, skinTonePass } from './blender/face-pass.mjs';
@@ -61,7 +63,7 @@ const steps = [
   // (round 3, the owner: "a symmetric warm smile, no smirk": both corners at 0.3, the cheeks' lift at 0.15)
   // (round 4, the critic: the rest smile read pursed and flat: both corners ~2 mm higher (0.42), the cheeks' lift 0.2 so the
   // smile reaches the eyes, the inner brows up 0.15 for the presenter's energy; the lips closed at rest (no jaw drop))
-  ['grin', () => bakeRest(doc, (JSON.parse(process.env.JH_GRIN || 'null') || [['jawOpen', 0.0], ['mouthSmileLeft', 0.5], ['mouthSmileRight', 0.5], ['cheekSquintLeft', 0.22], ['cheekSquintRight', 0.22], ['browInnerUp', 0.15], ['browOuterUpLeft', 0.5], ['browOuterUpRight', 0.5], ['eyeWideLeft', 0.12], ['eyeWideRight', 0.12]]).map(([n, w]) => [FACE + n + '.target', w]))],
+  ['grin', () => bakeRest(doc, (JSON.parse(process.env.JH_GRIN || 'null') || R5.grin || [['jawOpen', 0.0], ['mouthSmileLeft', 0.5], ['mouthSmileRight', 0.5], ['cheekSquintLeft', 0.22], ['cheekSquintRight', 0.22], ['browInnerUp', 0.15], ['browOuterUpLeft', 0.5], ['browOuterUpRight', 0.5], ['eyeWideLeft', 0.12], ['eyeWideRight', 0.12]]).map(([n, w]) => [FACE + n + '.target', w]))],
   // (round 4: his age in the face's shape: MakeHuman's own targets, age.mjs)
   // (likeness round 1: the owner's reference is a lean, taut face: no jowls or heavy cheeks; age.mjs's lean set)
   // (likeness round 2: a broad face (wider cheekbones and temples, a squarer, shorter midface and forehead), the mouth's
@@ -92,6 +94,9 @@ const steps = [
   // (caricature round 2: one clean symmetric form on the same points: mirrored, the lumps ironed, apple cheeks; caricature.mjs)
   ['stylize', () => stylizeFacePass(doc, JSON.parse(process.env.JH_STYLE || '{}'))],
   ['chin', () => chinPass(doc)],
+  // (round 5, the owner: "he looks a bit young, he's 63"; the critic: still a soft, round 45-50, the stylize smooth had
+  // ironed the age targets flat: the age's forms sculpted on the smoothed face itself (age5.mjs))
+  ['agesculpt', () => ageSculptPass(doc, JSON.parse(process.env.JH_ASCULPT || '{}'))],
   // (clean-shaven; an older man's skin: the age detail up, lentigines and crow's feet; round 4: less orange)
   // (likeness round 2: smoother: fewer dots, less of the painted age texture)
   // (likeness round 3, the critic: warm light tan, toward olive, not peach-pink; almost no dots)
@@ -163,12 +168,12 @@ const steps = [
   // (assembly, iteration 1: in the game's lights the bake read orange: less saturated, lifted to a warm light tan)
   ['skintone', () => skinTonePass(doc, JSON.parse(process.env.JH_TONE || '{}'))],
   // (caricature round 2, the owner: "skin too orange: lighter, natural, neutral, like the references"; the hands the face's tone)
-  ['grade', () => skinGradePass(doc, JSON.parse(process.env.JH_GRADE || '{}'))],
+  ['grade', () => skinGradePass(doc, { T: [213, 180, 156], ...JSON.parse(process.env.JH_GRADE || '{}') })],
   // (round 2, the owner's standing note "he reads younger than 63": soft creases of a fit man in his sixties painted back on
   // the graded map (the Blender face maps had replaced round 4's): the nose-to-mouth folds, crow's feet, a few forehead
   // lines, the marionette lines faint; no spots, no tone change)
   // (round 3, the critic: "still reads younger": the crow's feet and forehead a touch deeper, the nose-to-mouth folds as before)
-  ['age2', () => ageSkinPass(doc, { depth: 0.7, spots: 0, desat: 0, cool: [1, 1, 1], fore: 0.45, frown: 0.16, folds: 0.62, mar: 0.3, trough: 0.15, jowl: 0.2, neckR: 0.3, ...JSON.parse(process.env.JH_AGE2 || '{}') })],
+  ['age2', () => ageSkinPass(doc, { depth: 0.7, spots: 0, desat: 0, cool: [1, 1, 1], fore: 0.3, frown: 0.16, folds: 0, mar: 0, trough: 0.15, jowl: 0.2, neckR: 0.3, ...JSON.parse(process.env.JH_AGE2 || '{}') })],
   // (caricature round 2: the scalp under the cards silver-white, no dark root band at the hairline)
   ['scalp2', () => scalpPass(doc, { root: [168, 170, 174], tip: [205, 207, 211], grey: [188, 190, 194], area: (x, y, z, n) => hairArea(x, y, z, n, 0.047, 0.006) * scalp2Low(y, z) })],
   // (round 3, the critic: the grin a one-sided sneer, no upper teeth, a pale inner-lip band: the face's normal and
@@ -177,11 +182,16 @@ const steps = [
   ['facemirror', () => faceMirrorMapsPass(doc, JSON.parse(process.env.JH_FMIRROR || '{}'))],
   // (round 4, the critic: the folds hard jagged gouges, extra parallel lines, dark wedges at the lower lip's corners: the
   // maps eased there into one broad soft crease per side; the lips darker, toward the skin (face4.mjs))
-  ['foldsoft', () => foldSoftPass(doc, JSON.parse(process.env.JH_FOLD || '{}'))],
-  ['innerlip', () => innerLipPass(doc, JSON.parse(process.env.JH_INLIP || '{}'))],
+  // (round 5: age2's own folds and marionette lines and foldsoft's crease off: age5.mjs places them on the measured face)
+  ['foldsoft', () => foldSoftPass(doc, { crease: 0, ...JSON.parse(process.env.JH_FOLD || '{}') })],
+  // (round 5: the lips' inner faces coloured out to the grin's corners and the mouth's dark inside wider: pale wedges
+  // showed at the corners of the open grin; the skin's grade a touch less pink (more neutral warmth, not orange))
+  ['innerlip', () => innerLipPass(doc, { half: 0.036, ...JSON.parse(process.env.JH_INLIP || '{}') })],
   ['liptone', () => lipTonePass(doc, JSON.parse(process.env.JH_LIPT || '{}'))],
+  // (round 5: creases that read at a webcam tile's size, living skin variation and pores, the chin's lip-tone smear cleaned (age5.mjs))
+  ['agepaint', () => agePaintPass(doc, { fore: 0.85, ...JSON.parse(process.env.JH_APAINT || '{}') })],
   ['teethfwd', () => teethForwardPass(doc, JSON.parse(process.env.JH_TEETHF || '{}'))],
-  ['mouthbag', () => mouthBagPass(doc, JSON.parse(process.env.JH_MOUTH || '{}'))],
+  ['mouthbag', () => mouthBagPass(doc, { rx: 0.031, ...JSON.parse(process.env.JH_MOUTH || '{}') })],
   ['teecrew', () => teeCrewPass(doc)],
   // (the talking face, last: MakeHuman Faceunits 01 and Visemes 02 (CC0) as glTF morph targets, the names and the set
   // Mog City's face.js plays (FACE-CONTRACT: blinks, jaw, the 15 visemes, the grin and what rides it, brows, spares);
@@ -232,15 +242,18 @@ const steps = [
   ['glassesfit', () => glassesFitPass(doc, { rim: [0.05, 0.052, 0.058, 1], col: [0.1, 0.104, 0.112], metal: 0.8, rough: 0.38, ...JSON.parse(process.env.JH_GFIT || '{}') })],
   // (round 4, the critic: the lower rims so thin the glasses read as one floating bar: the rims 1.5 x, opaque gunmetal;
   // the brows soft clean shapes, not scratchy strands (face4.mjs))
-  ['rims', () => rimPass(doc, JSON.parse(process.env.JH_RIMS || '{}'))],
-  ['browsoft', () => browSoftPass(doc, JSON.parse(process.env.JH_BROWS || '{}'))],
+  ['rims', () => rimPass(doc, { grow: 0.0015, ...JSON.parse(process.env.JH_RIMS || '{}') })],
+  ['browsoft', () => browSoftPass(doc, { ...R5.brows, ...JSON.parse(process.env.JH_BROWS || '{}') })],
   // (round 2: the hair silver-white, the outfit all black with glossy leather and silver hardware, the caricature's proportions)
   ['hairwhite', () => hairWhitePass(doc, JSON.parse(process.env.JH_HAIRW || '{}'))],
   // (round 3, the owner: "hair and mouth need a bit more work"; the critic: a spiky brush of thin cards with paper-shred
   // edges and a hard grey band at the hairline): the cards and cap out, a stylized sculpt in: one smooth dome swept up and
   // back, full at the temples and over the ears, and a dozen smooth rounded clump shells on it (clumps.mjs)
-  ['clumps', () => hairClumpsPass(doc, JSON.parse(process.env.JH_CLUMPS || '{}'))],
+  ['clumps', () => hairClumpsPass(doc, { ...R5.hair, ...JSON.parse(process.env.JH_CLUMPS || '{}') })],
   ['outfit', () => outfitPass(doc, JSON.parse(process.env.JH_OUTFIT || '{}'))],
+  // (round 5, the critic: "too smooth, glossy and plasticky", grey smudges on the shoulders: grain, crease wear at the
+  // elbows and pockets, a rougher leather under a thin soft coat, deeper quilting (jacket3.mjs))
+  ['leatherwear', () => leatherWearPass(doc, JSON.parse(process.env.JH_LEATHER || '{}'))],
   ['proportion', () => proportionPass(doc, JSON.parse(process.env.JH_PROP || '{}'))],
   ['matte', () => matteFront(doc, { rough: 0, coat: 0.05, spec: 0.3, ...JSON.parse(process.env.JH_MATTE || '{}') })],
   // (iteration 2: the tee's flared hem out from under the flat front)

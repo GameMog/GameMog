@@ -163,7 +163,13 @@ export function browSoftPass(doc, K = {}) {
         const h = K.off + K.bulge * prof, a = s * w * 0.5 + K.lift * Math.sin(Math.PI * t) + K.up;
         const p = [0, 1, 2].map((k) => c[k] + out[k] * h + up[k] * a); pos.push(...p);
         const nn = [0, 1, 2].map((k) => out[k] * (0.6 + 0.4 * prof) + up[k] * s * 0.5), nl = Math.hypot(...nn); nrm.push(...nn.map((x) => x / nl));
-        const sh = sm(0.05, 0.95, t) * 0.8 + 0.2 * Math.abs(s); col.push(...K.col.map((x, k) => x + (K.tip[k] - x) * sh), 1);
+        const sh = sm(0.05, 0.95, t) * 0.8 + 0.2 * Math.abs(s); let cc = K.col.map((x, k) => x + (K.tip[k] - x) * sh);
+        // (round 5, the critic: "flat uniform dark-grey slabs like stickers": salt-and-pepper hair strokes that lean along
+        // the brow's growth (up and out at the inner end, flat toward the tail), and the edges eased into the skin's tone)
+        if (K.streak) { const lean = 1.6 * (1 - t) + 0.35, ph = (t * K.NU * 0.9 + s * lean) * Math.PI, st = Math.pow(0.5 + 0.5 * Math.sin(ph * 1.7 + 2.3 * Math.sin(t * 9 + sg)), 3), salt = ((Math.sin(ph * 0.83 + 1.1) * 43758.5453) % 1 + 1) % 1 > 0.62 ? 1 : 0;
+          cc = cc.map((x, k) => x * (1 - K.streak * 0.35 * st) + (K.salt?.[k] ?? x) * salt * K.streak * 0.55); }
+        if (K.edge) { const e = sm(0.45, 1, Math.abs(s)) * K.edge + sm(0.75, 1, t) * K.edge * 0.6; cc = cc.map((x, k) => x + (K.skin[k] - x) * Math.min(1, e)); }
+        col.push(...cc, 1);
         // the nearest three card points (inverse distance) for the weights and the morphs
         const best = []; for (let v = 0; v < n0; v++) { if (P[v * 3] * sg < 0) continue; const d = Math.hypot(P[v * 3] - p[0], P[v * 3 + 1] - p[1], P[v * 3 + 2] - p[2]); if (best.length < 3 || d < best[2][1]) { best.push([v, d]); best.sort((a, b) => a[1] - b[1]); if (best.length > 3) best.pop(); } }
         near.push(best); } }

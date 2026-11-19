@@ -130,13 +130,17 @@ export function hairClumpsPass(doc, K = {}) {
       const cc = cA + (cB - cA) * t + sweep * Math.pow(t, 1.4), ang = cc + s * w;
       const d = chart(ang * D2R, a * D2R), q = dome(d); if (!q || q.e < -0.003) return null;
       const prof = Math.sqrt(Math.max(0, 1 - s * s)), grooveV = nsub > 1 ? Math.pow(Math.sin(Math.PI * sf), 0.6) : 1;
-      const fine = Math.sin(s * fq * Math.PI + fph + 2.2 * Math.sin(t * 3.1 + ph[k + 1])) * 0.5 + 0.5;
+      // (round 5: the strand ridges broken into short runs that start and stop at their own places, so they no longer read
+      // as combed, parallel grooves)
+      const brk = K.breakup ? 1 - K.breakup * (0.5 + 0.5 * Math.sin(t * (13 + 7 * ((k * 0.37) % 1)) + s * 4.7 + ph[k + 1] * 3)) : 1;
+      const fine = (Math.sin(s * fq * Math.PI + fph + 2.2 * Math.sin(t * 3.1 + ph[k + 1])) * 0.5 + 0.5) * brk;
       const lf = front * Math.exp(-(((t - 0.12) / 0.14) ** 2));
       let h = (H * hsub[k] * (0.72 + 0.28 * wt) * (1 - K.groove * (1 - grooveV)) + lift * tipT + lf) * prof * q.f + K.fine * fine * prof * wt * q.f;
       h = h * wt - 0.0016 * (1 - prof) - (q.f < 0.05 ? 0.002 : 0) - (t > te ? 0.003 : 0);
       return { p: [C[0] + d[0] * (q.r + h), C[1] + d[1] * (q.r + h), C[2] + d[2] * (q.r + h)] }; };
     const colour = (u, v) => { const s = -1 + (2 * u) / (NU - 1), t = v / (NV - 1), prof = Math.sqrt(Math.max(0, 1 - s * s)), { k, f: sf } = sub(s, t);
-      const grooveV = nsub > 1 ? Math.pow(Math.sin(Math.PI * sf), 0.6) : 1, fine = Math.sin(s * fq * Math.PI + fph + 2.2 * Math.sin(t * 3.1 + ph[k + 1])) * 0.5 + 0.5;
+      const brk = K.breakup ? 1 - K.breakup * (0.5 + 0.5 * Math.sin(t * (13 + 7 * ((k * 0.37) % 1)) + s * 4.7 + ph[k + 1] * 3)) : 1;
+      const grooveV = nsub > 1 ? Math.pow(Math.sin(Math.PI * sf), 0.6) : 1, fine = (Math.sin(s * fq * Math.PI + fph + 2.2 * Math.sin(t * 3.1 + ph[k + 1])) * 0.5 + 0.5) * brk;
       const tipT = clamp((t - (ends[k] - tipLen * ends[k])) / (tipLen * ends[k]));
       // (bright on the lock's crown, cool silver-grey in the grooves, the underside and toward the tips; a light strand streak)
       let c = lin(K.low, tone, clamp(0.1 + 0.9 * Math.pow(prof, 0.9) * (0.45 + 0.55 * grooveV) * (1 - 0.3 * tipT)));
@@ -158,7 +162,9 @@ export function hairClumpsPass(doc, K = {}) {
   SW.forEach(([p, w, a1, sw, a0, hs, ns]) => clump(dirT, p, p, w, a0, a1, K.clumpH * hs, 0.24, tB(0.97 + 0.04 * rnd()), 0.0012, sw, { nsub: ns, finger: 0.14 }));
   // the front: three big uneven locks lifted off the hairline (the quiff) and laid back over the top, swept toward his right
   const LK = K.locks || [[-30, 15, 118, -14, 0.0035], [-3, 17, 128, -14, 0.0045], [22, 12, 120, -11, 0.003]];
-  LK.forEach(([p, w, a1, sw, fr]) => clump(dirT, p, p, w, 29 + 3 * rnd(), a1, K.lockH ?? 0.0075, 0.32, tB(1.0), 0.0015, sw, { nsub: 3, finger: 0.2, front: fr }));
+  // (round 5: [psi, half-width, end alpha, sweep, front lift, start alpha, tip lift, sub-locks]: the front locks may start
+  // at their own alpha, flick their tips up and out, and split into their own number of sub-locks)
+  LK.forEach(([p, w, a1, sw, fr, a0, tl, ns]) => clump(dirT, p, p, w, a0 ?? 29 + 3 * rnd(), a1, K.lockH ?? 0.0075, 0.32, tB(1.0), tl ?? 0.0015, sw, { nsub: ns ?? 3, finger: K.lockFinger ?? 0.2, front: fr }));
   // (3) a few flyaway wisps: thin tapered tubes leaving the locks' surface and arcing up and back off it
   let nfly = 0;
   const tube = (pts, r0, r1, tone) => { const base = pos.length / 3, ns = 5, m = pts.length;
@@ -176,6 +182,20 @@ export function hairClumpsPass(doc, K = {}) {
   if (K.flyaways) for (const [psi, a0, len, up, side] of K.wisps || [[-8, 70, 30, 0.006, -6], [14, 82, 26, 0.008, 5], [-40, 95, 30, 0.005, -8], [40, 100, 22, 0.006, 6],
     [-18, 120, 26, 0.007, -4], [2, 135, 22, 0.005, 3], [-100, 105, 24, 0.004, -5], [96, 110, 22, 0.0035, 5], [-65, 60, 20, 0.004, -4], [62, 64, 18, 0.0035, 4]])
     wisp(psi, a0, len, up, side, tB(0.98));
+  // (round 5, the critic: "almost pure flat white with no value range": cool silver-grey lowlights pushed into the
+  // grooves (each point's depth under the hair's outer surface along its ray), at the temples, over the ears and at the
+  // nape, the near-white top kept)
+  if (K.sideLow || K.depthLow) { const np = pos.length / 3, rad = new Float32Array(np), dirs = [];
+    for (let i = 0; i < np; i++) { const v = [pos[i * 3] - C[0], pos[i * 3 + 1] - C[1], pos[i * 3 + 2] - C[2]]; rad[i] = Math.hypot(...v); dirs.push(norm(v)); }
+    // the outer surface: the largest radius in each 3-degree direction cell (and its neighbours)
+    const cell = (d) => `${Math.round(Math.acos(clamp(d[1], -1, 1)) / D2R / 3)},${Math.round(Math.atan2(d[0], d[2]) / D2R / 3)}`, top = new Map();
+    for (let i = 0; i < np; i++) { const k = cell(dirs[i]); top.set(k, Math.max(top.get(k) || 0, rad[i])); }
+    const outer = (d) => { const a = Math.round(Math.acos(clamp(d[1], -1, 1)) / D2R / 3), b = Math.round(Math.atan2(d[0], d[2]) / D2R / 3); let m = 0; for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) m = Math.max(m, top.get(`${a + i},${b + j}`) || 0); return m; };
+    for (let i = 0; i < np; i++) { const d = dirs[i], ax = Math.abs(d[0]);
+      const side = sm(0.5, 0.88, ax) * sm(0.55, 0.05, d[1]), nape = sm(-0.25, -0.7, d[2]) * sm(0.45, -0.1, d[1]), temple = sm(0.45, 0.75, ax) * sm(0.1, 0.5, d[2]) * sm(0.6, 0.2, d[1]);
+      const deep = clamp((outer(d) - rad[i]) / 0.006);
+      const f = 1 - (K.sideLow || 0) * Math.max(side, nape, temple) - (K.depthLow || 0) * deep;
+      for (let c = 0; c < 3; c++) col[i * 4 + c] = Math.max(0, col[i * 4 + c] * f * (c === 2 ? 1 + 0.04 * (1 - f) : 1)); } }
   // ---- out with the cards and their cap; the sculpt in the hair mesh, on the head bone
   const hm = R.listMeshes().find((m) => m.listPrimitives().some((p) => /^(hair|hairCap)$/.test(p.getMaterial()?.getName() || '')));
   if (!hm) throw new Error('hairClumps: no hair mesh');
