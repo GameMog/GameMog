@@ -92,7 +92,7 @@ function weld(a) { const n = a.length / 3, key = new Map(), rep = new Int32Array
 const gauss = (d, r) => Math.exp(-(d * d) / (2 * r * r));
 // each MakeHuman base vertex's mirror twin at (-x, y, z) (-1: none within 1 mm); the base mesh is mirror-symmetric
 let TW = null;
-function twins() { if (TW) return TW;
+export function twins() { if (TW) return TW;
   const V = []; for (const l of readFileSync(MH_BASE, 'utf8').split('\n')) if (l.startsWith('v ')) { const p = l.split(/\s+/); V.push(+p[1], +p[2], +p[3]); }
   const G = new Map(), key = (x, y, z) => `${Math.round(x * 200)},${Math.round(y * 200)},${Math.round(z * 200)}`;
   for (let i = 0; i < V.length / 3; i++) { const k = key(V[i * 3], V[i * 3 + 1], V[i * 3 + 2]); (G.get(k) || G.set(k, []).get(k)).push(i); }

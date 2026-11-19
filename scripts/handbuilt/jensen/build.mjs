@@ -23,6 +23,7 @@ import { hairSwoopPass, glassesBigPass, stylizeFacePass, skinGradePass, hairWhit
 import { hairClumpsPass } from './clumps.mjs';
 import { chestWeightsPass, slimSleevesPass, crispLeatherPass } from './jacket3.mjs';
 import { teethForwardPass, innerLipPass, faceMirrorMapsPass, relaxMorphsPass } from './mouth.mjs';
+import { symFacePass, foldSoftPass, lipTonePass, browSoftPass, rimPass } from './face4.mjs';
 import os from 'node:os';
 const FACE = process.env.JH_FACE || new URL('../../../.scratch/jensen/face/', import.meta.url).pathname;
 import { holeUvPass, sculptPass, mapsPass, mouthBagPass, teethRigidPass, skinTonePass } from './blender/face-pass.mjs';
@@ -58,7 +59,9 @@ const steps = [
   // closed, warm slight smile with lively brows; the big open presenter grin is the smile morph (x1.5 below), which the
   // engine drives on warm lines)
   // (round 3, the owner: "a symmetric warm smile, no smirk": both corners at 0.3, the cheeks' lift at 0.15)
-  ['grin', () => bakeRest(doc, (JSON.parse(process.env.JH_GRIN || 'null') || [['jawOpen', 0.07], ['mouthSmileLeft', 0.3], ['mouthSmileRight', 0.3], ['cheekSquintLeft', 0.15], ['cheekSquintRight', 0.15], ['browInnerUp', 0.05], ['browOuterUpLeft', 0.5], ['browOuterUpRight', 0.5], ['eyeWideLeft', 0.12], ['eyeWideRight', 0.12]]).map(([n, w]) => [FACE + n + '.target', w]))],
+  // (round 4, the critic: the rest smile read pursed and flat: both corners ~2 mm higher (0.42), the cheeks' lift 0.2 so the
+  // smile reaches the eyes, the inner brows up 0.15 for the presenter's energy; the lips closed at rest (no jaw drop))
+  ['grin', () => bakeRest(doc, (JSON.parse(process.env.JH_GRIN || 'null') || [['jawOpen', 0.0], ['mouthSmileLeft', 0.5], ['mouthSmileRight', 0.5], ['cheekSquintLeft', 0.22], ['cheekSquintRight', 0.22], ['browInnerUp', 0.15], ['browOuterUpLeft', 0.5], ['browOuterUpRight', 0.5], ['eyeWideLeft', 0.12], ['eyeWideRight', 0.12]]).map(([n, w]) => [FACE + n + '.target', w]))],
   // (round 4: his age in the face's shape: MakeHuman's own targets, age.mjs)
   // (likeness round 1: the owner's reference is a lean, taut face: no jowls or heavy cheeks; age.mjs's lean set)
   // (likeness round 2: a broad face (wider cheekbones and temples, a squarer, shorter midface and forehead), the mouth's
@@ -67,8 +70,10 @@ const steps = [
   // no narrowed chin. An oval face, broad at the cheekbones (gently prominent), a smooth cheek to a firm, moderately wide,
   // slightly squared jaw and a rounded chin; a shorter forehead; eyes open (no lowered lid or fold); full lips; the nose
   // broad at its base, wide rounded wings and a soft wide tip, a little shorter, its bridge lower)
-  ['ageshape', () => ageShapePass(doc, { lean: 1, laugh: 0, laughIn: 0.25, bag: 0.1, bagH: 0, fold: 0.1, brow: 0.3, lipUp: 0, lipLow: 0, lipUpInc: 0.35, bones: 0.55, temple: 0.5, foreV: 0.7, vol: 0.55, fat: 0.4, cheekIn: 0.4, chinW: 0, chinH: 0.3, angUp: 0.7, neckW: 1.0, neckD: 0.6,
-    extra: [['head/head-square', 0.45], ['head/head-oval', 0.3], ['chin/chin-width-incr', 0.45], ['chin/chin-bones-incr', 0.35], ['mouth/mouth-lowerlip-volume-incr', 0.35],
+  // (round 4, the critic: "a soft, doughy, child-like face": gentle under-eye bags, firmer cheekbone and jaw planes, a little
+  // less cheek fat; the upper lip thinner and flatter (it read as a puffy pad); the eyes' shape untouched)
+  ['ageshape', () => ageShapePass(doc, { lean: 1, laugh: 0, laughIn: 0.25, bag: 0.4, bagH: 0.1, fold: 0.1, brow: 0.3, lipUp: 0.3, lipLow: 0, lipUpInc: 0, bones: 0.75, temple: 0.5, foreV: 0.7, vol: 0.55, fat: 0.25, cheekIn: 0.4, chinW: 0, chinH: 0.3, angUp: 0.7, neckW: 1.0, neckD: 0.6,
+    extra: [['head/head-square', 0.45], ['head/head-oval', 0.3], ['chin/chin-width-incr', 0.45], ['chin/chin-bones-incr', 0.5], ['mouth/mouth-lowerlip-volume-incr', 0.35],
       ['nose/nose-nostrils-width-incr', 0.7], ['nose/nose-point-width-incr', 0.6], ['nose/nose-flaring-incr', 0.5], ['nose/nose-scale-vert-decr', 0.35], ['nose/nose-hump-decr', 0.4], ['nose/nose-scale-depth-decr', 0.25], ['nose/nose-width2-incr', 0.3]],
     ...JSON.parse(process.env.JH_SHAPE || '{}') })],
   // (likeness round 3: round 2b's hand sculpt (its kinks) gone; the face's broad planes ironed, age.mjs; the two small holes
@@ -163,14 +168,18 @@ const steps = [
   // the graded map (the Blender face maps had replaced round 4's): the nose-to-mouth folds, crow's feet, a few forehead
   // lines, the marionette lines faint; no spots, no tone change)
   // (round 3, the critic: "still reads younger": the crow's feet and forehead a touch deeper, the nose-to-mouth folds as before)
-  ['age2', () => ageSkinPass(doc, { depth: 0.7, spots: 0, desat: 0, cool: [1, 1, 1], fore: 0.45, frown: 0.16, folds: 0.62, mar: 0.3, trough: 0, jowl: 0.2, neckR: 0.3, ...JSON.parse(process.env.JH_AGE2 || '{}') })],
+  ['age2', () => ageSkinPass(doc, { depth: 0.7, spots: 0, desat: 0, cool: [1, 1, 1], fore: 0.45, frown: 0.16, folds: 0.62, mar: 0.3, trough: 0.15, jowl: 0.2, neckR: 0.3, ...JSON.parse(process.env.JH_AGE2 || '{}') })],
   // (caricature round 2: the scalp under the cards silver-white, no dark root band at the hairline)
   ['scalp2', () => scalpPass(doc, { root: [168, 170, 174], tip: [205, 207, 211], grey: [188, 190, 194], area: (x, y, z, n) => hairArea(x, y, z, n, 0.047, 0.006) * scalp2Low(y, z) })],
   // (round 3, the critic: the grin a one-sided sneer, no upper teeth, a pale inner-lip band: the face's normal and
   // roughness maps mirrored as its albedo is; the lips' inner faces a deep rose to dark red; the upper teeth up and
   // forward behind the lips, so the presenter grin shows them (mouth.mjs))
   ['facemirror', () => faceMirrorMapsPass(doc, JSON.parse(process.env.JH_FMIRROR || '{}'))],
+  // (round 4, the critic: the folds hard jagged gouges, extra parallel lines, dark wedges at the lower lip's corners: the
+  // maps eased there into one broad soft crease per side; the lips darker, toward the skin (face4.mjs))
+  ['foldsoft', () => foldSoftPass(doc, JSON.parse(process.env.JH_FOLD || '{}'))],
   ['innerlip', () => innerLipPass(doc, JSON.parse(process.env.JH_INLIP || '{}'))],
+  ['liptone', () => lipTonePass(doc, JSON.parse(process.env.JH_LIPT || '{}'))],
   ['teethfwd', () => teethForwardPass(doc, JSON.parse(process.env.JH_TEETHF || '{}'))],
   ['mouthbag', () => mouthBagPass(doc, JSON.parse(process.env.JH_MOUTH || '{}'))],
   ['teecrew', () => teeCrewPass(doc)],
@@ -185,6 +194,9 @@ const steps = [
   ['relax', () => relaxMorphsPass(doc, JSON.parse(process.env.JH_RELAX || '{}'))],
   // (Blender round, iteration 1: the lower teeth swing as one piece about the jaw's hinge in every target)
   ['teethrigid', () => teethRigidPass(doc, JSON.parse(process.env.JH_TEETH || '{}'))],
+  // (round 4, the critic: the close-up grin a one-sided smirk: the relax pass and the corners' hole fills had left the smile
+  // pair and jawOpen millimetres out of mirror; the rest shape and every face morph made exact mirror twins (face4.mjs))
+  ['sym', () => symFacePass(doc, JSON.parse(process.env.JH_SYM || '{}'))],
   // (Blender round, iteration 1: the Blender parts (parts.mjs, assemble.mjs) in place of the round-3 hair, brows, glasses and
   // jacket: the leather moto jacket (cloth-draped, a full-length metal zip, a band collar with two snap tabs, quilted
   // shoulders), the groomed hair cards and card brows, the browline glasses)
@@ -218,6 +230,10 @@ const steps = [
   // eyes stay clear; a darker gunmetal, the lower rims dark and opaque)
   ['bigglasses', () => glassesBigPass(doc, { big: 1.12, bar: 1.9, yBarC: 1.6305, col: null, ...JSON.parse(process.env.JH_GLASSES || '{}') })],
   ['glassesfit', () => glassesFitPass(doc, { rim: [0.05, 0.052, 0.058, 1], col: [0.1, 0.104, 0.112], metal: 0.8, rough: 0.38, ...JSON.parse(process.env.JH_GFIT || '{}') })],
+  // (round 4, the critic: the lower rims so thin the glasses read as one floating bar: the rims 1.5 x, opaque gunmetal;
+  // the brows soft clean shapes, not scratchy strands (face4.mjs))
+  ['rims', () => rimPass(doc, JSON.parse(process.env.JH_RIMS || '{}'))],
+  ['browsoft', () => browSoftPass(doc, JSON.parse(process.env.JH_BROWS || '{}'))],
   // (round 2: the hair silver-white, the outfit all black with glossy leather and silver hardware, the caricature's proportions)
   ['hairwhite', () => hairWhitePass(doc, JSON.parse(process.env.JH_HAIRW || '{}'))],
   // (round 3, the owner: "hair and mouth need a bit more work"; the critic: a spiky brush of thin cards with paper-shred

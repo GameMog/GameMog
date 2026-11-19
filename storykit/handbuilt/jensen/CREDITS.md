@@ -60,6 +60,13 @@ and about thirty smooth clump shells, procedural, coloured by vertex, original, 
 mouth morphs relaxed so no triangle folds) and the jacket (`jacket3.mjs`: the chest's arm weights, slimmer sleeves, a
 flatter leather normal) are hand passes on the existing parts. No new downloads.
 
+Caricature round 4 (19 Nov 2026, the owner: "he looks a bit young, he's 63"): the hair sculpt rebuilt as fewer, bigger,
+uneven locks with a slight side part, sub-locks, fine strand ridges, fingered tips and a few flyaway wisps, cool
+lowlights and a soft anisotropic sheen (`clumps.mjs`, procedural, original, CC0); the card brows replaced by two clean
+sculpted brow shapes that carry the card brows' weights and morphs (`face4.mjs`, original, CC0); the face made exactly
+mirror-symmetric, its nose-to-mouth folds softened, the lips toned toward the skin, the glasses' lens rims thicker
+(`face4.mjs`); older face shape via MakeHuman targets (CC0). No new downloads.
+
 No CC-BY asset is used in this GLB, so it needs no credits-page line of its own. (The CC-BY candidates in the research
 shortlist, e.g. Elvaerwyn's Grump Hair, were not used.)
 
