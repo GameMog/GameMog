@@ -53,6 +53,13 @@ swoop up and back (`hairSwoopPass`), the browline glasses 10% oversized with a t
 and a warm open presenter grin with lively brows (MakeHuman Faceunits 01 / Visemes 02, CC0, baked at rest). The eyes,
 nose and skin are as the realistic build made them. The Sketchfab CC-BY downloads in the research folder were not used.
 
+Caricature round 3 (19 Nov 2026, the owner: "hair and mouth need a bit more work"): the hair cards and their cap are
+replaced in the shipped GLB by a stylized sculpt made here (`scripts/handbuilt/jensen/clumps.mjs`: one smooth dome shell
+and about thirty smooth clump shells, procedural, coloured by vertex, original, CC0); the card brows stay. The mouth
+(`mouth.mjs`: the upper teeth set forward, the inner lips painted, the face's normal and roughness maps mirrored, the
+mouth morphs relaxed so no triangle folds) and the jacket (`jacket3.mjs`: the chest's arm weights, slimmer sleeves, a
+flatter leather normal) are hand passes on the existing parts. No new downloads.
+
 No CC-BY asset is used in this GLB, so it needs no credits-page line of its own. (The CC-BY candidates in the research
 shortlist, e.g. Elvaerwyn's Grump Hair, were not used.)
 
