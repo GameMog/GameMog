@@ -13,6 +13,9 @@ W, H, COLS, ROWS = LAY['W'], LAY['H'], LAY['COLS'], LAY['ROWS']
 pts, nrm, hgt, w, kind, tilek = G['pts'].astype(np.float64), G['nrm'].astype(np.float64), G['hgt'], G['w'], G['kind'], G['tile']
 Pl, Nl, UVl, Cl, IXl, KL = [], [], [], [], [], []; base = 0
 KC = {'inner': [0.2, 0.2, 0.9], 'mid': [0.2, 0.8, 0.2], 'outer': [0.9, 0.9, 0.9], 'side': [0.9, 0.5, 0.1], 'fly': [0.9, 0.1, 0.9], 'line': [0.9, 0.1, 0.1], 'front': [0.1, 0.9, 0.9]}
+_pr = np.random.default_rng(CJ['seed'] + 5); _k = _pr.normal(0, 1, (18, 3)); _k /= np.linalg.norm(_k, axis=1, keepdims=True)
+_k *= 2 * np.pi / (CJ.get('pepperWL', 0.02) * _pr.uniform(0.7, 1.4, (18, 1))); _ph = _pr.uniform(0, 6.283, 18); _a = _pr.normal(0, 1, 18) / 3
+PEP = lambda p: np.sin(p @ _k.T + _ph) @ _a
 for i in range(len(pts)):
     P, N, hg = pts[i], nrm[i], hgt[i]
     st = CJ.get('sub', {}).get(kind[i], 1)
@@ -43,6 +46,13 @@ for i in range(len(pts)):
     phi, th = sph(P); side = 1 - (1 - CJ['sideTone']) * (1 - sm(10, 40, th)) * sm(40, 80, np.abs(phi))
     if kind[i] == 'line': occ = np.full(K, CJ['lineTone'])
     c = occ * side * rng.uniform(1 - CJ['jit'], 1 + CJ['jit'])
+    # (it2: salt and pepper as a coherent field over the head (~1.5-2.5 cm patches, smooth across neighbouring cards, so no
+    # card's outline shows), and darker toward the hairline, the temples and the sides above the ears)
+    if kind[i] != 'line':
+        f = np.clip(PEP(P) * 0.5 + 0.5, 0, 1) ** 1.6
+        c = c * (1 - CJ.get('pepper', 0) * f)
+        _, th0 = sph(P[:1]); r0 = region(P[:1])[0]
+        c = c * (1 - CJ.get('lineDark', 0) * (1 - sm(0, 10, r0)))
     C = np.repeat(c[:, None], 3, 1)
     Pl.append(V.reshape(-1, 3)); Nl.append(Nn.reshape(-1, 3)); UVl.append(UV.reshape(-1, 2)); Cl.append(C.reshape(-1))
     ix = []

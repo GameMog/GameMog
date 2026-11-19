@@ -48,13 +48,13 @@ def stitch(doff, a, sel, period=0.0036, duty=0.74, w=0.00065):
     if not s.any(): return
     ph = (a[s] % period) / period; on = ph < duty; dd = doff[s] / w
     prof = np.clip(1 - dd * dd, 0, 1)
-    hh = np.where(on, 0.00026 * prof * np.sqrt(np.clip(np.sin(np.pi * ph / duty), 0, 1)), -0.00012 * np.exp(-dd * dd * 2))
+    hh = np.where(on, 0.00042 * prof * np.sqrt(np.clip(np.sin(np.pi * ph / duty), 0, 1)), -0.00020 * np.exp(-dd * dd * 2))
     h[s] += hh; thread[s] = np.maximum(thread[s], np.where(on, prof, 0))
 def seam(d, a, sel, rows=(0.0036,), groove=True, puff=0.00034):
     s = sel & (np.abs(d) < 0.012)
     if not s.any(): return
     ds = d[s]
-    if groove: h[s] += -0.0005 * np.exp(-(ds / 0.00065) ** 2) + puff * np.exp(-((np.abs(ds) - 0.0034) / 0.0026) ** 2)
+    if groove: h[s] += -0.0009 * np.exp(-(ds / 0.0009) ** 2) + puff * np.exp(-((np.abs(ds) - 0.0034) / 0.0026) ** 2)
     for r in rows:
         stitch(d - r, a, s & True) if True else None
 phi_ = np.arctan2(x, -y); rxy = np.sqrt(x * x + y * y)
@@ -97,11 +97,11 @@ for s_ in ('L', 'R'):
     # v3: fine creases as a few separate, slanted, tapering lines (it3's sine trains read as corrugation)
     for (dt_, a_, w_, sl_, ph0) in ((-0.052, 0.8, 0.0022, 0.012, 0.3), (-0.021, 1.0, 0.0026, -0.010, -0.2), (0.012, 0.9, 0.0024, 0.015, 0.5), (0.041, 0.6, 0.0020, -0.008, 0.0), (0.072, 0.4, 0.0018, 0.010, -0.4)):
         tc_ = E + dt_ + sl_ * np.sin(ph + ph0) + 0.002 * np.sin(5 * ph + dt_ * 100)
-        hcr += (0.00016 * a_ * kel / (np.exp(-((t - E) / 0.05) ** 2) + 1e-6) * np.exp(-((t - E - dt_) / 0.05) ** 2) * (np.exp(-((t - tc_) / w_) ** 2) - 0.45 * np.exp(-((t - tc_) / (w_ * 2.2)) ** 2))).astype(np.float32)
+        hcr += (0.00042 * a_ * kel / (np.exp(-((t - E) / 0.05) ** 2) + 1e-6) * np.exp(-((t - E - dt_) / 0.05) ** 2) * (np.exp(-((t - tc_) / w_) ** 2) - 0.45 * np.exp(-((t - tc_) / (w_ * 2.2)) ** 2))).astype(np.float32)
     kw = np.exp(-((t - (Lt - 0.10)) / 0.05) ** 2) * (side & SLEEVE)
     for (dt_, a_, w_, sl_) in ((-0.086, 0.8, 0.0030, 0.009), (-0.121, 0.55, 0.0026, -0.007), (-0.062, 0.4, 0.0022, 0.012)):
         tc_ = Lt + dt_ + sl_ * np.sin(2 * ph + 1.0)
-        hcr += (0.00014 * a_ * (side & SLEEVE) * (np.exp(-((t - tc_) / w_) ** 2) - 0.45 * np.exp(-((t - tc_) / (w_ * 2.2)) ** 2))).astype(np.float32)
+        hcr += (0.00030 * a_ * (side & SLEEVE) * (np.exp(-((t - tc_) / w_) ** 2) - 0.45 * np.exp(-((t - tc_) / (w_ * 2.2)) ** 2))).astype(np.float32)
     # padded shoulder panel: its outline seam and quilted channels across the arm, every 2.4 cm
     cc, uu, up, ww = shoulder_frame(s_)
     cc, uu, up, ww = [np.array(v, np.float32) for v in (cc, uu, up, ww)]
@@ -112,7 +112,7 @@ for s_ in ('L', 'R'):
     inside = side & SHP & (m < 0.97)
     QP = 0.020; qq = (qa + QP / 2) % QP - QP / 2
     fade = np.clip((0.97 - m) / 0.06, 0, 1)
-    h[inside] += ((0.0013 * np.cos(np.pi * qq / QP) ** 2 - 0.00045 * np.exp(-(qq / 0.0009) ** 2)) * fade)[inside].astype(np.float32)
+    h[inside] += ((0.0021 * np.cos(np.pi * qq / QP) ** 2 - 0.0008 * np.exp(-(qq / 0.0012) ** 2)) * fade)[inside].astype(np.float32)
     stitch(qq, qw, inside)
 log('arms')
 # ---- welted zip pockets: two rounded lips with the chain between, a topstitched box round them
@@ -139,6 +139,26 @@ for k in range(2):
     stitch(aux - 0.0022, aa, near & (aux > 0.0005))
 h[TAB] += (0.0004 * np.clip(aux[TAB] / 0.003, 0, 1)).astype(np.float32)
 log('collar/tabs')
+# ---- v3c (art director it2: "semi-matte with crinkled, embossed texture"): a mid-scale crinkle emboss that survives the
+# game's mip levels (cells ~6-14 mm, 0.25 mm deep: the leather_white relief at a 14 cm tile plus Leather026 at 9 cm), and
+# soft inner-arm drag folds from the armpit (the arm's inner side, upper arm) and fuller inner-elbow folds
+crk = (tri(DWL, 0.14, (0.21, 0.47)) * 0.6 + tri(D26L, 0.09, (0.63, 0.12)) * 0.4)
+crk = (crk - crk.mean()) / (crk.std() + 1e-6)
+h += (0.00025 * np.tanh(crk * 0.8)).astype(np.float32) * (~(COL | TAB))
+for s_ in ('L', 'R'):
+    side = (x > 0) if s_ == 'L' else (x < 0)
+    Aj, Bj, Cj = [np.array(v, np.float32) for v in arm(s_)]
+    u1 = Bj - Aj; L1 = np.linalg.norm(u1); u1 /= L1
+    t = (P - Aj) @ u1; rv = P - Aj - u1 * t[:, None]; rr = np.linalg.norm(rv, axis=1) + 1e-9
+    inner = np.clip(-(rv[:, 0] * (1 if s_ == 'L' else -1)) / rr, 0, 1) ** 1.5      # the side toward the body
+    fr = np.clip(-rv[:, 1] / rr, 0, 1)
+    sel = side & SLEEVE
+    for (t0, a_, sl_) in ((0.05, 1.0, 0.25), (0.085, 0.8, -0.2), (0.12, 0.6, 0.3), (0.155, 0.4, -0.15)):
+        tc = t0 + sl_ * (rv[:, 2] / rr) * 0.03
+        hcr += (0.00045 * a_ * sel * inner * np.exp(-((t - t0) / 0.05) ** 2) * (np.exp(-((t - tc) / 0.0035) ** 2) - 0.4 * np.exp(-((t - tc) / 0.008) ** 2))).astype(np.float32)
+    # a long soft fold down the front of the upper arm (breaks the broad highlight there)
+    hcr += (0.00035 * sel * np.exp(-((t - 0.13) / 0.07) ** 2) * np.exp(-((fr - 0.75) / 0.12) ** 2)).astype(np.float32)
+log('crinkle + inner-arm folds')
 # ---- height -> image, normal map
 Hm = np.zeros((R, R), np.float32); Hm[idx] = h + hcr + grain
 Hstruct = np.zeros((R, R), np.float32); Hstruct[idx] = h
@@ -202,10 +222,10 @@ worn = np.array([0.015, 0.0145, 0.0142], np.float32)
 col = base[None] * np.clip(mott, 0.92, 1.08)[:, None] * (1 + 0.03 * patch)[:, None]
 wear = wear * 0.6
 col = col * (1 - wear[:, None]) + worn[None] * wear[:, None]
-thr = np.array([0.046, 0.045, 0.044], np.float32); tm = np.clip(thread, 0, 1)[:, None] * 0.9   # it2: a slightly lighter dark-grey thread
+thr = np.array([0.070, 0.068, 0.066], np.float32); tm = np.clip(thread, 0, 1)[:, None] * 0.9   # it2: a slightly lighter dark-grey thread
 col = col * (1 - tm) + thr[None] * tm
 high = np.clip(cvx / 0.35, 0, 1); low = np.clip(-cvx / 0.35, 0, 1)
-rough = 0.62 + rough_src * 0.22 + patch * 0.03 - wear * 0.05 - high * 0.04 + low * 0.05 + thread * 0.15   # it3: a dim broad lobe (no tan wash)
+rough = 0.66 + rough_src * 0.22 + patch * 0.06 - wear * 0.04 - high * 0.03 + low * 0.05 + thread * 0.12 + 0.06 * np.tanh(-crk * 0.9)   # v3c: semi-matte, crinkle tops a little glossier, valleys duller   # it3: a dim broad lobe (no tan wash)
 # it3: the clearcoat mask: the grain's plateaus carry a thin glossy coat (narrow dark-grey highlights), its pores and
 # creases and the thread none
 gN = tri(D26, GT26) * 0.6 + tri(DW, GTW) * 0.4; gN = (gN - gN.mean()) / (gN.std() + 1e-6)
@@ -217,7 +237,7 @@ chestm = _sm((0.17 - np.abs(x)) / 0.05) * _sm((1.36 - z) / 0.06) * _sm((z - 0.93
 rough = rough + 0.12 * chestm
 coat = coat * (1 - 0.65 * chestm)
 log('chest sheen cut on', int((chestm > 0.5).sum()), 'texels')
-rough = np.clip(rough, 0.22, 0.85)
+rough = np.clip(rough, 0.52, 0.88)   # v3c: never below 0.52 (no latex)
 AO = np.load(H + '/bake/ao.npy'); AO = np.repeat(np.repeat(AO, 2, 0), 2, 1)[:R, :R]
 ao = np.clip(AO[idx], 0, 1) ** 0.8
 col = col * (0.75 + 0.25 * ao[:, None])

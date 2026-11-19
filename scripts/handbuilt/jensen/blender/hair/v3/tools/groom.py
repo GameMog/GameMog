@@ -71,7 +71,8 @@ def grow(sc, roots, u, Lmul, rng, kind):
         h = np.maximum(0.0016, u * H * rise * tuck) if kind != 'line' else np.clip(u * H * sm(0, 1, arc / 0.01) * (0.5 + 0.5 * s), 0.0005, 0.0022)
         if kind != 'line':
             bump = 1 + TS.get('hgt', 0) * FHGT(roots)[:, 0]
-            flick = TS.get('flick', {}).get(kind, 0) * fl * sm(0.55, 1.0, s) * H
+            ft = TS.get('flickTop'); ftop = sm(ft[0], ft[1], th) if ft else 1.0   # (it2: tips lift over the top only; the sides stay close)
+            flick = TS.get('flick', {}).get(kind, 0) * fl * sm(0.55, 1.0, s) * H * ftop
             h = np.maximum(0.0016, h * bump + flick)
         pts[:, k] = q + n * h[:, None]; nr[:, k] = n; hg[:, k] = h / np.maximum(H, 1e-4)
         if k == K - 1: break
@@ -99,6 +100,8 @@ def main():
             phh, _ = sph(sc.S); cand = np.where((r > 0.3) & (r < 9) & (np.abs(phh) < 58))[0]
         elif c.get('sideOnly'):
             _, thh = sph(sc.S); cand = np.where((r > 1.0) & (thh < 28))[0]
+        elif c.get('topOnly'):
+            _, thh = sph(sc.S); cand = np.where((r > 0.4) & (thh > c['topOnly']))[0]
         else:
             cand = np.where(r > 0.4)[0]
         idx = rng.choice(cand, c['n'], replace=False)

@@ -85,3 +85,37 @@ node scripts/handbuilt/jensen/build.mjs
   this build: it is for a rebuilt body or another outfit (`node apply_bodyflat.mjs in.glb out.glb`).
 - glasses (`glasses/build.py`, round r2): a thicker straight satin gunmetal browline bar, taller rimless lenses, a fine
   straight bridge; `--hairglb` fits the temples over the new hair's short sides. Fitted on the 07:00 v3-face head (`fit-v3f1`).
+
+## v3 iteration 2 (19 Nov: a fuller face, salt-and-pepper hair, semi-matte leather, slimmer glasses fit)
+
+Rebuild (env as above):
+
+```
+<blender/glasses> Blender -b --python build.py -- --glb <a build with the R12 face> --hairglb <blender/hair/v3 hair.glb> --out r12
+node scripts/handbuilt/jensen/blender/parts.mjs --jacket <blender/jacket export jacket.glb> --hair <blender/hair/v3 hair.glb> \
+  --glasses <r12/glasses.glb> --fit r12=<the R12-face build the glasses were fitted on> --fitOf jacket=r3,hair=h12,glasses=r12
+node scripts/handbuilt/jensen/build.mjs
+```
+
+- face (`face/v3/`, pass R12): `detail2.py` applies `detail-R11.json` on top of R2 (cheekbone arch out 5.5 mm, the
+  cheek hollows and the jaw side filled, a broader, rounder chin, the mouth 2 mm wider with its corners up 0.9 mm, wider
+  nose wings and a rounder tip, a fuller upper lid; the lips sealed over the rest pose's jawOpen 0.07); `ratios.py`
+  measures face width/height (0.925 against the references' 0.94) and mouth/eye-corner width (0.63-0.66 against
+  0.64-0.66) on MediaPipe landmarks only. `skinmaps2.py`: the wrinkle relief out of the cheeks, eyes and mouth corners,
+  a warmer, lighter, less saturated tone with a soft flush, an oily T-zone, the jaw-to-neck colour break smoothed. The
+  build's rest grin's smile 0.04 -> 0.12 (build.mjs `grin`).
+- hair (`hair/v3/`, iteration 2): a lower, warm-grey silver value with more dark strands, salt-and-pepper patches from a
+  smooth noise field (no card blocks), darker at the hairline; the front lifted higher, tighter shorter sides, flyaways
+  only on top; the temples raised a little; the `hair` material roughness 0.8 and `KHR_materials_specular` 0.5.
+- jacket (`jacket/`, v3c): `s84_arms.py` (after `s82_flat`) takes the sleeves in 10-16% at the upper arm (>= 6 mm off the
+  body); `s61_tex.py` semi-matte leather (roughness 0.52-0.88 with a mid-scale crinkle, deeper quilting, seams and
+  stitches), clearcoat 0.05 at 0.6 and specular 0.3 (`mats.py`, `s90_glb.mjs`, the material's `extras.look`). The
+  build's `matte` step now leaves the leather's roughness and coat as made (build.mjs). Its normal map ships at 3072
+  (parts.mjs). `engine/polish-leather-look.patch` (optional, for Mog City's `wagmi/storyrun/polish.js`) lets the
+  engine's leather weave honour `extras.look`; not applied by this build.
+- glasses (`glasses/build.py`, r3, refitted on the R12 head): a dark faint lower lens edge, a #404349 gunmetal bar
+  raised 1.5 mm, 54.9 x 26.5 mm lenses with softer lower corners, straight temples with one shallow outward bow, a
+  slim flush hinge.
+- body: the forge cuts his torso skin away under the jacket (only the throat under the collar is left), so nothing of
+  the body can push the jacket's front out; the jacket front measures a flat 138-141 mm ahead of the spine axis from the
+  belt to the chest.

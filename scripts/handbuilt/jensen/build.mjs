@@ -44,7 +44,9 @@ const steps = [
   // little raised)
   // (Blender round, iteration 1 (blender/face): "grin B": less smirk, the lips parted as in his photo, the brows up a touch)
   // (Blender round, iteration 2 (blender/face): the alert, open face of his photo: the eyes ~15% more open, the brows 2-3 mm up)
-  ['grin', () => bakeRest(doc, (JSON.parse(process.env.JH_GRIN || 'null') || [['jawOpen', 0.07], ['mouthSmileLeft', 0.04], ['mouthSmileRight', 0.04], ['browInnerUp', 0.22], ['browOuterUpLeft', 0.38], ['browOuterUpRight', 0.38], ['eyeWideLeft', 0.4], ['eyeWideRight', 0.4]]).map(([n, w]) => [FACE + n + '.target', w]))],
+  // (v3 face R12: the corners a touch up over sealed lips: the smile 0.04 -> 0.12; the sculpt assumes jawOpen 0.07 (at 0 the
+  // lower teeth poke through the chin in PP))
+  ['grin', () => bakeRest(doc, (JSON.parse(process.env.JH_GRIN || 'null') || [['jawOpen', 0.07], ['mouthSmileLeft', 0.12], ['mouthSmileRight', 0.12], ['browInnerUp', 0.22], ['browOuterUpLeft', 0.38], ['browOuterUpRight', 0.38], ['eyeWideLeft', 0.4], ['eyeWideRight', 0.4]]).map(([n, w]) => [FACE + n + '.target', w]))],
   // (round 4: his age in the face's shape: MakeHuman's own targets, age.mjs)
   // (likeness round 1: the owner's reference is a lean, taut face: no jowls or heavy cheeks; age.mjs's lean set)
   // (likeness round 2: a broad face (wider cheekbones and temples, a squarer, shorter midface and forehead), the mouth's
@@ -153,13 +155,17 @@ const steps = [
   ['strip', () => stripOld(doc)],
   // (v3: the tousled groom (hair/v3, fitted on 12464129: fit-h12), the flat-front jacket v3b (fitted on round 3's body:
   // fit-r3, the torso the same in every head since), the r2 glasses (fitted on the 07:00 v3 face: fit-v3f1))
+  // (v3 iteration 2: the salt-and-pepper groom (fit-h12), the semi-matte jacket v3c with slimmer sleeves (fit-r3), the r3
+  // glasses refitted on the R12 face (fit-r12))
   ['parts', () => addParts(doc, PARTS)],
   // (the owner, 18 Nov: no humps: the jacket's front flat from the chest to the hem, the waist under it pulled in behind it)
   // (iteration 2: the jacket cut flat in Blender itself; here only the waist under its hem pulled in, as its sim saw it)
   ['flat', () => flatFront(doc, JSON.parse(process.env.JH_FLAT || '{}'))],
   // (v3 assembly: the front's shading normals turned straight ahead and the leather's coat calmer: in the game's bright
   // light the flat front's gentle arc still caught two highlights that read as mounds)
-  ['matte', () => matteFront(doc, JSON.parse(process.env.JH_MATTE || '{}'))],
+  // (v3c jacket: semi-matte leather made in its own textures and material (roughness 0.52-0.88, clearcoat 0.05 at 0.6,
+  // specular 0.3, extras.look): only the front's normals straightened here, its roughness and coat left as made)
+  ['matte', () => matteFront(doc, { rough: 0, coat: 0.05, spec: 0.3, ...JSON.parse(process.env.JH_MATTE || '{}') })],
   // (iteration 2: the tee's flared hem out from under the flat front)
   ['teeunder', () => teeUnder(doc)],
   // (iteration 2: the neck's skin hung down into the lower collar: the forge's saw-tooth cut showed over it at the sides)

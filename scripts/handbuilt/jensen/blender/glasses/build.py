@@ -19,13 +19,15 @@ OUTDIR = arg('--out', HERE)
 # ---------------------------------------------------------------- parameters (metres)
 K = dict(
     # v3: a real-size frame (about 139 mm across the endpieces), slim wide rimless lenses, a straight browline
-    W=None, H=0.0285,            # r2: 28.5 mm (the reference's lens is a touch deeper than 27)
+    W=None, H=0.0265,            # r3: shallower (art director: 28.5 read tall and boxy)
+               # r2: 28.5 mm (the reference's lens is a touch deeper than 27)
                # lens box (A x B): W is solved from the frame width target; H 27 mm (slim and wide)
     FW=0.1400,                   # v3: frame width across the hinges' outsides (retail 138-142 mm)
-    endpiece=0.0080,             # the lens's outer end sits this far inside FW/2 (the endpiece's run to the hinge)
+    endpiece=0.0068,             # r3: a touch wider lens (the outer end nearer the hinge)
+                # the lens's outer end sits this far inside FW/2 (the endpiece's run to the hinge)
     DBL=0.0180,                  # distance between lenses (bridge)
     rTN=0.0022, rTT=0.0030,      # corner radii: top-nasal, top-temporal (crisp browline corners)
-    rBN=0.0095, rBT=0.0115,      # rounded lower corners (a gently rounded lower rim)
+    rBN=0.0090, rBT=0.0105,      # rounded lower corners (a gently rounded lower rim)
     botBow=0.0010,               # the bottom edge bows down a little at its middle
     nasalSlant=0.0018,           # the nasal side leans in toward the top
     topRise=0.0,                 # v3: the top is dead straight (the lens is also levelled in world space, see CORR)
@@ -33,15 +35,18 @@ K = dict(
     wrap=math.radians(9.0), tilt=math.radians(7.0),
     vertex=None,
     vertexMin=0.0105, lashClear=0.0015, skinClear=0.0025,
-    topAboveLid=0.0006,          # the lens top sits just above the eye opening's top (the bar just above the eyes)
+    topAboveLid=0.0021,          # r3: lifted 1.5 mm so the bar seats just under the brows (r2: 0.6)
+             # the lens top sits just above the eye opening's top (the bar just above the eyes)
     barH0=0.0031, barH1=0.0034, barD0=0.0025, barD1=0.0028, barOverlap=0.0008,   # r2: the browline must read at game scale   # v3: near-uniform, straight
     bridgeH=0.0026, bridgeD=0.0021, bridgeNoseClear=0.0018,   # v3: a fine straight bridge, bowed FORWARD (plan) only
-    bevel=0.0011,                # the polished front bevel round each lens (the in-game edge highlight)
+    bevel=0.0007,                # r3: a faint thin dark edge, not a bright outline (was 1.1)
+                   # the polished front bevel round each lens (the in-game edge highlight)
     templeW=0.00175, templeH0=0.0032, templeH1=0.0023, tipR=0.00150,   # r2: temples read as the reference's dark arms
     clear=0.0022,                # temple to skin clearance
     padArmR=0.00038,             # v3: fine gunmetal pad arms
 )
-GUNMETAL = tuple(((c / 255 + 0.055) / 1.055) ** 2.4 for c in (0x33, 0x36, 0x3b))   # r2: #33363b   # v3: #3a3d42 (sRGB) as linear: a darker gunmetal (#4b4e52 read as chrome under bright light)
+GUNMETAL = tuple(((c / 255 + 0.055) / 1.055) ** 2.4 for c in (0x40, 0x43, 0x49))   # r3: #404349, metallic 0.8, rough 0.35 (r2's #33363b metal 1 read black in-game)
+#   # r2: #33363b   # v3: #3a3d42 (sRGB) as linear: a darker gunmetal (#4b4e52 read as chrome under bright light)
 
 # ---------------------------------------------------------------- the head
 o = S.load_head(GLB); me = o.data; mats = [m.name for m in me.materials]
@@ -106,6 +111,28 @@ for ob_ in bpy.data.objects:
         if 'hair' in hn_:
             HV_ = [ob_.matrix_world @ v.co for v in ob_.data.vertices]
             hairBVH = BVHTree.FromPolygons(HV_, [list(p.vertices) for p in ob_.data.polygons if p.material_index == hn_.index('hair')])
+
+# r3: seat the bar just under the brows: find the brows' underside above the lens and lift the lens top so the bar's
+# top sits BROWGAP under it (never lower than just above the eye opening)
+BROWGAP = float(arg('--browgap', '0.0003'))
+browBot = None
+_bz = []
+for ob_ in bpy.data.objects:
+    if ob_.type != 'MESH': continue
+    bn_ = [m.name for m in ob_.data.materials]
+    if 'brows' not in bn_: continue
+    bi_ = bn_.index('brows')
+    vs_ = {v for p in ob_.data.polygons if p.material_index == bi_ for v in p.vertices}
+    for i in vs_:
+        q = ob_.matrix_world @ ob_.data.vertices[i].co
+        if 0.016 < abs(q.x) < 0.046 and q.z > pupilZ: _bz.append(q.z)
+if _bz: browBot = float(np.percentile(_bz, 4))
+barAboveLensTop = K['barH1'] - K['barOverlap']
+if browBot is not None and browBot > pupilZ + 0.0115:   # (rest-pose brow cards can sit below their posed place: trust only a plausible underside)
+    want = browBot - BROWGAP - barAboveLensTop - lidTopZ
+    K['topAboveLid'] = float(np.clip(want, 0.0006, 0.0050))
+print('FIT r3 brows underside %s (pupil +%s mm): lens top %.1f mm above the eye opening' % (
+    None if browBot is None else round(browBot, 4), None if browBot is None else round((browBot - pupilZ) * 1000, 1), K['topAboveLid'] * 1000))
 
 # ---------------------------------------------------------------- the lens outline (2D, u outward from nose, v up)
 def outline(n=160):
@@ -372,8 +399,8 @@ for s in (1, -1):
     # the hinge barrel: a short vertical cylinder at the lug's end, with a screw head on top
     bc = Hn + T * 0.0003
     axis = upv
-    sweep('glasses-metal', catmull([bc - axis * 0.0020, bc + axis * 0.0020], 6), lambda t: (0.00130, 0.00130), Vector((s, 0, 0)), m=14, p=2.0, hintMode='side')
-    sweep('glasses-metal', catmull([bc + axis * 0.0020, bc + axis * 0.0024], 3), lambda t: (0.0009, 0.0009), Vector((s, 0, 0)), m=12, p=2.0, hintMode='side')
+    # r3: a slim barrel flush with the lug (r2's 1.3 mm barrel + screw head read as a knot in-game)
+    sweep('glasses-metal', catmull([bc - axis * 0.0017, bc + axis * 0.0017], 6), lambda t: (0.00105, 0.00105), Vector((s, 0, 0)), m=14, p=2.0, hintMode='side')
 bL, bR = NL, NR
 
 # ---------------------------------------------------------------- nose pads on adjustable arms, seated on the nose's sides
@@ -473,35 +500,36 @@ for s in (1, -1):
             z = zAt(y); pts.append(Vector((s * inX(y, z), y, z - 0.0005)))
         TEMPLE_TUCK = dict(hair_y=round(float(yHair), 4))
     else:
-        ys = np.linspace(hp2.y + 0.016, ey - 0.002, 7)
-        # v3 --overhair: where the hair's cards stand out past the clear line, the temple rides ON them, pressed
-        # PRESS into the hair (a smoothed hair surface, so the cards' tufts never make it wobble)
-        hx_ = None
-        if hairBVH and '--nooverhair' not in argv:   # v3 default: ride on the hair
-            yy, xx = [], []
-            for y in np.linspace(hp2.y + 0.010, ey + 0.004, 24):
-                z = zAt(y); xs_ = []
-                for dz in (-0.0015, 0, 0.0015):
-                    r = hairBVH.ray_cast(Vector((s * 0.25, y, z + dz)), Vector((-s, 0, 0)))
-                    if r[0] is not None: xs_.append(abs(r[0].x))
-                if xs_: yy.append(y); xx.append(float(np.median(xs_)))
-            if len(yy) >= 4:
-                hx_ = np.polyfit(yy, xx, 2); hy0 = min(yy)
-        PRESS = 0.0003
-        for i, y in enumerate(ys):
-            f = (y - ys[0]) / (ys[-1] - ys[0]); z = zAt(y)
-            x = max(clearX(y, z), abs(hp2.x) + 0.0035 * f)
-            if hx_ is not None:   # (fades in over 8 mm where the hair starts, so there is no step)
-                g_ = float(np.clip((y - hy0) / 0.008, 0, 1)); x = max(x, x + g_ * (float(np.polyval(hx_, y)) - PRESS - x))
-            pts.append(Vector((s * x, y, z)))
-        # (no hair over the temple: it2's tuck behind the pinna, into the crease between ear and skull)
+        # r3: ONE temple, hinge to the top of the ear: a straight line in side view, one smooth shallow bow in plan
+        # (no kink at the hinge or anywhere); the side hair covers its last part at the ear, as in the photo.
+        yE, zE = ey - 0.002, zA
+        # The head widens behind the hinge (a convex side), so a dead-straight plan line would flare 6 mm off the ear.
+        # Instead: straight in side view, and in plan one smooth, shallow outward bow (a real temple's spring curve),
+        # no kink anywhere; it ends at skin clearance over the ear.
+        x0 = abs(hp2.x)
+        F_ = np.linspace(0.12, 0.88, 39); NEED = []
+        for f in F_:
+            y = hp2.y + (yE - hp2.y) * f; z = hp2.z + (zE - hp2.z) * f
+            NEED.append(clearX(y, z))
+        NEED = np.array(NEED)
+        xE = max(x0, float(NEED[F_ >= 0.74].max()) + 0.0004)
+        bowT = float(max(0.0, ((NEED - x0 - (xE - x0) * F_) / (F_ * (1 - F_))).max()))
+        def planX(f): return x0 + (xE - x0) * f + bowT * f * (1 - f)
+        def lineP(f): return Vector((s * planX(f), hp2.y + (yE - hp2.y) * f, hp2.z + (zE - hp2.z) * f))
+        Pe = lineP(1.0)
+        for f in np.linspace(0, 1, 13)[1:]: pts.append(lineP(f))
+        pts = [pts[0]] + pts[2:]   # (drop r2's hinge-normal stub: it bent the temple at the hinge)
+        TEMPLE_BOW = dict(end_x_mm=round(xE * 1000, 1), bow_peak_mm=round(bowT * 250, 2))
         def tuckX(z):
             x = skullX(ey + 0.0165, z, s) or skullX(ey + 0.02, z, s) or 0.078
             return x + 0.0008 + K['templeW'] / 2
+        Tdir = (lineP(1.0) - lineP(0.95)).normalized()
         for (dy, dz, w) in ((0.0036, -0.0004, 0.30), (0.0064, -0.0030, 0.80), (0.0080, -0.0080, 1.0), (0.0088, -0.0150, 1.0),
                             (0.0086, -0.0235, 1.0), (0.0074, -0.0315, 1.0)):
             y, z = ey + dy, zA + dz
-            pts.append(Vector((s * (clearX(y, z) * (1 - w) + tuckX(z) * w), y, z)))
+            xl = xE + (y - yE) * (Tdir.x * s) / max(1e-6, Tdir.y)   # the straight line continued
+            pts.append(Vector((s * (xl * (1 - w) + tuckX(z) * w), y, z)))
+        TEMPLE_XE = round(xE, 4)
         TEMPLE_TUCK = dict(hair_y=None)
     path = catmull(pts, 120)
     # length along, for the tip sleeve
@@ -561,9 +589,9 @@ def ar(b):  # anti-reflection coating: a faint thin-film sheen (exports as KHR_m
     try:
         b.inputs['Thin Film Thickness'].default_value = 280; b.inputs['Thin Film IOR'].default_value = 1.38
     except Exception as ex: print('thin film', ex)
-setp(M['glasses-metal'], GUNMETAL, 1.0, 0.40)   # r2: satin (0.33 read as chrome)   # it3: gunmetal #4b4e52 (sRGB), metallic 1, roughness 0.3
+setp(M['glasses-metal'], GUNMETAL, 0.8, 0.35)   # r2: satin (0.33 read as chrome)   # it3: gunmetal #4b4e52 (sRGB), metallic 1, roughness 0.3
 setp(M['glasses-lens'], (0.08, 0.085, 0.09), 0.0, 0.03, 0.10, ar)
-setp(M['glasses-lens-edge'], (0.86, 0.90, 0.92), 0.0, 0.06, 0.60)   # it3: the polished bevel: a faint fresnel-like edge highlight
+setp(M['glasses-lens-edge'], (0.045, 0.048, 0.052), 0.0, 0.32, 0.38)   # r3: dark-tinted, low-spec: a faint thin lower line (r2's pale edge glowed white in-game)   # it3: the polished bevel: a faint fresnel-like edge highlight
 setp(M['glasses-pads'], (0.42, 0.44, 0.46), 0.0, 0.25, 0.22)   # (as parts.mjs sets them: faint grey, mostly clear)
 setp(M['glasses-tips'], (0.035, 0.036, 0.04), 0.0, 0.38)
 
@@ -597,7 +625,7 @@ fit = dict(
              lens_top_above_pupil_mm=round((max(L2W(1, q[0], q[1], 0).z for q in OL) - pupilZ) * 1000, 1),
              bar_top_above_pupil_mm=round((mv[:, 2].max() - pupilZ) * 1000, 1) if len(mv) else None,
              lens_W_mm=round(K['W'] * 1000, 1), lens_H_mm=round(K['H'] * 1000, 1), vertex_mm=round(K['vertex'] * 1000, 2),
-             lens_lash_clear_mm=round(la * 1000, 2), temple_tuck=TEMPLE_TUCK, gunmetal_linear=[round(c, 4) for c in GUNMETAL]),
+             lens_lash_clear_mm=round(la * 1000, 2), temple_tuck=TEMPLE_TUCK, temple_bow=TEMPLE_BOW if 'TEMPLE_BOW' in globals() else None, gunmetal_linear=[round(c, 4) for c in GUNMETAL]),
 )
 print('FIT', json.dumps(fit, default=str))
 json.dump(fit, open(os.path.join(OUTDIR, 'fit.json'), 'w'), indent=1, default=str)
@@ -618,10 +646,11 @@ if RENDER:
     out = nt.nodes['Material Output']; lp = nt.nodes.new('ShaderNodeLightPath'); tr = nt.nodes.new('ShaderNodeBsdfTransparent'); mx = nt.nodes.new('ShaderNodeMixShader')
     nt.links.new(lp.outputs['Is Shadow Ray'], mx.inputs['Fac']); nt.links.new(b.outputs[0], mx.inputs[1]); nt.links.new(tr.outputs[0], mx.inputs[2]); nt.links.new(mx.outputs[0], out.inputs['Surface'])
     em = bpy.data.materials.new('render-edge'); em.use_nodes = True; be = em.node_tree.nodes['Principled BSDF']
-    be.inputs['Base Color'].default_value = (0.82, 0.86, 0.87, 1); be.inputs['Transmission Weight'].default_value = 0.9; be.inputs['Roughness'].default_value = 0.05; be.inputs['IOR'].default_value = 1.5
+    be.inputs['Base Color'].default_value = (0.06, 0.065, 0.07, 1); be.inputs['Transmission Weight'].default_value = 0.45; be.inputs['Roughness'].default_value = 0.3; be.inputs['IOR'].default_value = 1.5
     pm = bpy.data.materials.new('render-pads'); pm.use_nodes = True; bp_ = pm.node_tree.nodes['Principled BSDF']
     bp_.inputs['Base Color'].default_value = (0.95, 0.95, 0.9, 1); bp_.inputs['Transmission Weight'].default_value = 1.0; bp_.inputs['Roughness'].default_value = 0.18; bp_.inputs['IOR'].default_value = 1.4
-    gl.data.materials[1] = lm; gl.data.materials[2] = em; gl.data.materials[3] = pm
+    if '--gamemats' not in argv:   # r3: --gamemats renders the EXPORTED (engine) materials, as the game shows them
+        gl.data.materials[1] = lm; gl.data.materials[2] = em; gl.data.materials[3] = pm
     if '--hide' in argv: gl.hide_render = True   # (debug: the head alone)
     if '--nopanes' in argv:   # (as in-game: the assembler takes the clear panes out; only the polished edges stay)
         nm = bpy.data.materials.new('render-none'); nm.use_nodes = True; nn = nm.node_tree

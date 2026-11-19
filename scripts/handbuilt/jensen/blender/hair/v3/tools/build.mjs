@@ -24,7 +24,10 @@ doc.createExtension(EXTTextureWebP).setRequired(true);
 const tex = (f, name) => doc.createTexture(name).setImage(fs.readFileSync(f)).setMimeType('image/webp').setURI(name + '.webp');
 const CJ = JSON.parse(fs.readFileSync(`${R}/cards.json`));
 const hairMat = doc.createMaterial('hair').setBaseColorTexture(tex(`${R}/atlas/hair_basecolor.webp`, 'hair_basecolor')).setAlphaMode('MASK').setAlphaCutoff(CJ.cut ?? 0.4)
-  .setDoubleSided(true).setRoughnessFactor(0.72).setMetallicFactor(0).setExtras({ hairTone: 'light', hairNormals: 'volume', atlas: 'v3/hair 32 tiles 128x1024' });
+  .setDoubleSided(true).setRoughnessFactor(CJ.rough ?? 0.72).setMetallicFactor(0).setExtras({ hairTone: 'light', hairNormals: 'volume', atlas: 'v3/hair 32 tiles 128x1024' });
+// (it2: the sky's specular on the cards cut (KHR_materials_specular): no white bloom in bright scenes; the sheen is the engine's KK bands)
+{ const { KHRMaterialsSpecular } = require('@gltf-transform/extensions'); const ext = doc.createExtension(KHRMaterialsSpecular);
+  hairMat.setExtension('KHR_materials_specular', ext.createSpecular().setSpecularFactor(CJ.spec ?? 1)); }
 const capMat = doc.createMaterial('hairCap').setBaseColorFactor([1, 1, 1, 1]).setRoughnessFactor(0.85).setMetallicFactor(0);
 const md = `${R}/work/mesh`;
 const hm = doc.createMesh('hair'); hm.addPrimitive(prim(md, 'hair', hairMat)); hm.addPrimitive(prim(md, 'hairCap', capMat));

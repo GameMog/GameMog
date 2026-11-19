@@ -3,7 +3,7 @@ import bpy, os
 H = os.path.dirname(os.path.abspath(__file__))
 # it2 hardware: the zips gunmetal (dark, slight specular), the snaps dull nickel (glTF linear base colour factors)
 GUNMETAL, GUN_ROUGH = (0.15, 0.15, 0.16, 1), 0.36
-COAT, COAT_ROUGH, SPEC = 0.35, 0.28, 0.5
+COAT, COAT_ROUGH, SPEC = 0.05, 0.6, 0.3   # v3c: semi-matte (was 0.35 / 0.28 / 0.5)
 NICKEL, NICKEL_ROUGH = (0.17, 0.165, 0.16, 1), 0.48   # v3: duller, darker nickel (it3 read as chrome discs)
 def leather_mat():
     m = bpy.data.materials.get('leather') or bpy.data.materials.new('leather'); m.use_nodes = True; nt = m.node_tree
@@ -16,7 +16,7 @@ def leather_mat():
     nm = tex('leather_normal.png', 'Non-Color'); nmn = nt.nodes.new('ShaderNodeNormalMap'); nt.links.new(nm.outputs[0], nmn.inputs[1]); nt.links.new(nmn.outputs[0], bs.inputs['Normal'])
     # it3: specular halved (glTF KHR_materials_specular 0.5) and a thin clearcoat on the grain's plateaus (KHR_materials_clearcoat
     # 0.35 x leather_coat, roughness 0.28): narrow dark-grey highlights instead of a broad tan wash
-    bs.inputs['Specular IOR Level'].default_value = 0.25
+    bs.inputs['Specular IOR Level'].default_value = SPEC * 0.5
     ct = tex('leather_coat.png', 'Non-Color'); mth = nt.nodes.new('ShaderNodeMath'); mth.operation = 'MULTIPLY'; mth.inputs[1].default_value = COAT
     nt.links.new(ct.outputs[0], mth.inputs[0]); nt.links.new(mth.outputs[0], bs.inputs['Coat Weight'])
     bs.inputs['Coat Roughness'].default_value = COAT_ROUGH; bs.inputs['Coat IOR'].default_value = 1.5

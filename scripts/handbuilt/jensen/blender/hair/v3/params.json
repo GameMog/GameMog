@@ -2,27 +2,27 @@
  "seed": 11,
  "segs": 11,
  "H": {
-  "side": 0.0085,
-  "low": 0.005,
-  "top": 0.023,
-  "back": 0.013,
+  "side": 0.0055,
+  "low": 0.0032,
+  "top": 0.019,
+  "back": 0.0095,
   "nape": 0.0055,
-  "quiff": 0.028,
+  "quiff": 0.04,
   "quiffPhi": 50,
   "quiffTh0": 7,
-  "quiffTh1": 30,
-  "upper": 0.005
+  "quiffTh1": 34,
+  "upper": 0.002
  },
  "L": {
-  "front": 0.105,
+  "front": 0.115,
   "top": 0.085,
   "crown": 0.06,
-  "side": 0.034,
+  "side": 0.026,
   "back": 0.045,
   "nape": 0.03
  },
  "rise": {
-  "front": 0.032,
+  "front": 0.036,
   "base": 0.007
  },
  "tuck": 0.15,
@@ -132,7 +132,8 @@
     0.4,
     0.8
    ],
-   "tiles": "wisp"
+   "tiles": "wisp",
+   "topOnly": 22
   },
   {
    "kind": "line",
@@ -165,11 +166,16 @@
   "hgt": 0.35,
   "hgtWL": 0.035,
   "flick": {
-   "outer": 0.35,
+   "outer": 0.28,
    "fly": 0.3,
    "mid": 0.2,
    "front": 0.1,
-   "side": 0.05
-  }
+   "side": 0.0
+  },
+  "flickTop": [
+   12,
+   38
+  ],
+  "clumpTone": 0.0
  }
 }

@@ -57,7 +57,9 @@ async function slim(file, keep, out, K = {}) {
 const setFit = (tag) => (doc, m) => m.setExtras({ ...m.getExtras(), fit: `fit-${tag}.bin.gz` });
 if (opt('jacket')) await slim(opt('jacket'), ['moto-jacket'], 'jacket.glb', { each: setFit(fitOf.jacket),
   // (the leather's normal carries the seams, stitching and grain at 0.35 mm a texel: kept at 4096; colour and ORM 2048)
-  tex: (n) => (/normal/.test(n) ? { q: +(process.env.JH_NQ || 86), size: +(process.env.JH_NS || 4096) } : { q: 88, size: 2048 }) });
+  // (v3c: the crinkle emboss made the 4096 normal 4.9 MB of webp: 3072 at q82 keeps the stitching and crinkle at game
+  // distance in 2.1 MB, the whole body under ~12 MB)
+  tex: (n) => (/normal/.test(n) ? { q: +(process.env.JH_NQ || 82), size: +(process.env.JH_NS || 3072) } : { q: 88, size: 2048 }) });
 if (opt('hair')) await slim(opt('hair'), ['hair', 'brows'], 'hair.glb', { each: setFit(fitOf.hair), tex: () => ({ q: 92, alpha: true }) });
 if (opt('glasses')) await slim(opt('glasses'), ['glasses'], 'glasses.glb', { each: (doc, m, node) => {
   // (rigid on the head joint: the node's offset into the points, JOINTS_0 = head, WEIGHTS_0 = 1)

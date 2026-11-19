@@ -13,8 +13,8 @@ sm = lambda a, b, x: np.clip((x - a) / (b - a), 0, 1) ** 2 * (3 - 2 * np.clip((x
 def strands(kind, rng):
     w, h = W * SS, H * SS
     if kind == 'dense': n, Lr, wid, clumps, xs = 170, (0.45, 1.0), (2.0, 2.8), 0, (1.15, 1.15)
-    elif kind == 'body': n, Lr, wid, clumps, xs = 130, (0.4, 1.0), (1.8, 2.6), 5, (1.35, 1.35)
-    elif kind == 'outer': n, Lr, wid, clumps, xs = 100, (0.35, 1.0), (1.6, 2.4), 6, (1.5, 1.5)
+    elif kind == 'body': n, Lr, wid, clumps, xs = 130, (0.4, 1.0), (1.8, 2.6), 3, (1.35, 1.35)
+    elif kind == 'outer': n, Lr, wid, clumps, xs = 100, (0.35, 1.0), (1.6, 2.4), 3, (1.5, 1.5)
     elif kind == 'wisp': n, Lr, wid, clumps, xs = 26, (0.4, 1.0), (1.3, 1.9), 3, (1.8, 1.8)
     else: n, Lr, wid, clumps, xs = 80, (0.5, 1.0), (1.4, 2.0), 0, (1.3, 1.3)
     out = []
@@ -25,7 +25,7 @@ def strands(kind, rng):
         y0 += rng.uniform(0, 0.04) if kind == 'line' else rng.uniform(0, 0.16) ** 1.2   # roots staggered (no hard card edge)
         L = rng.uniform(*Lr)
         y1 = min(0.985, y0 + (1 - y0) * L * (1 - 0.35 * abs(x0 - 0.5) * 2) ** 1) if kind != 'line' else min(1.0, y0 + rng.uniform(0.4, 1.0) * (1 - y0))
-        pull = rng.uniform(0.05, 0.3) if clumps else 0; c = cc[rng.integers(len(cc))]
+        pull = rng.uniform(0.15, 0.5) if clumps else 0; c = cc[rng.integers(len(cc))]
         drift = rng.normal(0, 0.03); amp = rng.uniform(0, 0.006); fq = rng.uniform(1, 3); ph = rng.uniform(0, 6.3)
         r = rng.random()
         tone = TONE['dark'] * rng.uniform(0.7, 1.3) if r < TONE['darkFrac'] else (TONE['white'] if r > 1 - TONE['whiteFrac'] else TONE['silver'] * rng.uniform(0.85, 1.18))

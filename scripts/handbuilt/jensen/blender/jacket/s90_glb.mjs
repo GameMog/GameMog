@@ -32,15 +32,18 @@ async function tex(file, name, mime = 'image/jpeg', q = 92, size = null) {
 const extras = { layer: 5, kind: 'cloth', garment: 'leather-moto-jacket' };
 const leather = doc.createMaterial('leather').setBaseColorFactor([1, 1, 1, 1]).setMetallicFactor(0).setRoughnessFactor(1).setDoubleSided(true)
   .setBaseColorTexture(await tex('leather_basecolor.png', 'leather_basecolor', 'image/jpeg', 92))
-  .setNormalTexture(await tex('leather_normal.png', 'leather_normal', 'image/jpeg', 94))
+  .setNormalTexture(await tex('leather_normal.png', 'leather_normal', 'image/jpeg', 86))
   .setExtras({ ...extras, part: 'shell' });
 const orm = await tex('leather_orm.png', 'leather_orm', 'image/jpeg', 92);
 leather.setMetallicRoughnessTexture(orm).setOcclusionTexture(orm);
 // it3: near-black leather that reads black under bright warm IBL: specular halved, a thin clearcoat on the grain's plateaus
 const ccExt = doc.createExtension(KHRMaterialsClearcoat), spExt = doc.createExtension(KHRMaterialsSpecular);
-leather.setExtension('KHR_materials_clearcoat', ccExt.createClearcoat().setClearcoatFactor(0.35).setClearcoatRoughnessFactor(0.28)
+// v3c (art director it2: "glossy black latex in game"): semi-matte leather: clearcoat 0.05 at roughness 0.6, specular 0.3;
+// the engine flag extras.look (storyrun/polish.js leather branch, patch in v3/jacket/engine/) also caps the env light at 0.4
+leather.setExtension('KHR_materials_clearcoat', ccExt.createClearcoat().setClearcoatFactor(0.05).setClearcoatRoughnessFactor(0.6)
   .setClearcoatTexture(await tex('leather_coat.png', 'leather_coat', 'image/jpeg', 90, 1024)));
-leather.setExtension('KHR_materials_specular', spExt.createSpecular().setSpecularFactor(0.5));
+leather.setExtension('KHR_materials_specular', spExt.createSpecular().setSpecularFactor(0.3));
+leather.setExtras({ ...leather.getExtras(), look: { leather: 'matte', roughMin: 0.55, roughMax: 0.9, spec: 0.3, env: 0.4, coat: 0.05, coatRough: 0.6 } });
 const hardware = doc.createMaterial('hardware').setBaseColorFactor([0.15, 0.15, 0.16, 1]).setMetallicFactor(1).setRoughnessFactor(0.36).setExtras({ ...extras, part: 'hardware', metal: 'gunmetal' });
 const snapsM = doc.createMaterial('snaps').setBaseColorFactor([0.17, 0.165, 0.16, 1]).setMetallicFactor(1).setRoughnessFactor(0.48).setExtras({ ...extras, part: 'snaps', metal: 'dull-nickel' });
 // it3: the centre zip is one textured strip: tape + interlocking gunmetal teeth (tiling in v, mip-mapped)
@@ -62,7 +65,7 @@ for (const [name, mat] of [['leather', leather], ['hardware', hardware], ['zip-t
   mesh.addPrimitive(p);
 }
 bodyNode.setName('moto-jacket').setMesh(mesh).setSkin(skin);
-const ax = R.getAsset(); ax.extras = { ...(ax.extras || {}), jacket: { what: "Jensen Heist's black leather moto jacket (Blender build, it3 19 Nov 2026)", bind: 'jensen.glb skin, same 66 joints / inverse binds', tris: Object.values(info).reduce((a, b) => a + b.tris, 0),
+const ax = R.getAsset(); ax.extras = { ...(ax.extras || {}), jacket: { what: "Jensen Heist's black leather moto jacket (Blender build, v3c 19 Nov 2026)", bind: 'jensen.glb skin, same 66 joints / inverse binds', tris: Object.values(info).reduce((a, b) => a + b.tris, 0),
   credits: 'Leather grain: ambientCG Leather026 (CC0), Poly Haven leather_white by Rob Tuytel (CC0). Geometry, pattern, stitching and hardware: original work.' } };
 await doc.transform(prune({ keepLeaves: true }));
 await io.write(H + 'jacket.glb', doc);
