@@ -209,6 +209,7 @@ const STEPS = fx(['drive', 'stops', 'pursuit', 'tail', 'tow', 'timer', 'fight', 
     // the car phone (Mog City's): it answers itself, talks only while the hero is at the wheel (on hold when he gets out,
     // with the hold lines), plays its extra blocks while the leg it rides on lasts, and wraps up when that leg ends
     auto: { ...B, description: 'answers itself (no ring, no decline): a call the hero always takes, on the car phone' },
+    video: O({ office: E(VCALL_OFFICES), blur: B, light: E(['day', 'golden', 'night']) }, ['office'], { description: "a car-phone call as a video call: the caller in their office, on webcam, in a small picture at the top of the screen while it talks (auto or inCar; the caller has a body)" }),
     inCar: { ...B, description: 'talks only while the hero is in a car; on foot it holds (hold.pause), back in it resumes (hold.resume)' },
     extra: A(A(R('spoken'), 12, 1), 8, 0, { description: 'more talk, block by block, after the lines and while the step it rides on still runs (a long drive)' }),
     wrap: A(R('spoken'), 6, 0, { description: 'when the step it rides on ends (he arrived), the line being said finishes, then these, then the call ends' }),

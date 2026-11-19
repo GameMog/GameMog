@@ -619,6 +619,8 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
           for (const k of ['pause', 'resume'] as const) (s.hold?.[k] || []).forEach((l: Json, j: number) => { who(l.who, `${at}.hold.${k}[${j}].who`); line(`${lid}.h${k[0]}.l${j}`, l.who, l.text, l); });
           // its react pools (W11): voiced like its other lines (ids <step>.rclose, .rhit, .rlost, .rspot)
           for (const [k, tag] of REACT_IDS) (s.react?.[k] || []).forEach((l: Json, j: number) => { who(l.who, `${at}.react.${k}[${j}].who`); line(`${lid}.${tag}.l${j}`, l.who, l.text, l); });
+          // (a video call on the car's screen: the caller seen in their office, so a body, and on the car phone)
+          if (s.video) { const c = cast.get(s.who); if (c?.voiceOnly) refuse(`${at}.video: "${s.who}" is voiceOnly (heard, never seen); a video call shows the caller.`); if (s.who === pack.hero) refuse(`${at}.video: the hero calling shows nobody; the video is the far end's (who: the caller).`); if (!s.inCar && !s.auto) refuse(`${at}.video: a video call on the car's screen is a car-phone call (auto or inCar).`); if (!mc) refuse(`${at}.video: plays on Mog City's engine (base.engine "mogcity-1").`); }
           if (s.react && !s.inCar && !s.auto) warnings.push(`${at}: react pools play on a car-phone call (auto or inCar), while the player drives.`);
           if (s.hold && !s.inCar) warnings.push(`${at}: hold lines only play on a call with inCar: true.`);
           if (s.interrupts && !side) warnings.push(`${at}: interrupts (call waiting) only waits on a live car-phone call; as a step of its own it is an ordinary call unless one is on.`);

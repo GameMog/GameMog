@@ -105,6 +105,8 @@ people and places.
   on mute and then someone's "You're on mute."; the rival who joins late; the screen share that shows too much; the
   connection that freezes on the worst word. `title` is the call's name ("Q3 Board Sync"); `end` is `leave` or `drop`.
   At most 40 lines and events, 24 events. Nobody talks before they join or after they drop.
+  A car-phone `call` (auto or inCar) can be a video call too: `"video": { "office": "backstage" }` shows the caller in
+  their office, on webcam, in a small picture at the top of the screen while it talks; the drive goes on under it.
   ```json
   { "type": "vcall", "title": "Morning Sync", "people": [{ "who": "rae", "office": "kitchen" }, { "who": "player", "office": "study", "muted": true },
     { "who": "nico", "office": "exec", "sub": "Okafor Gallery", "late": true }],

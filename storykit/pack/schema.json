@@ -3467,6 +3467,36 @@
        "type": "boolean",
        "description": "answers itself (no ring, no decline): a call the hero always takes, on the car phone"
       },
+      "video": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [
+        "office"
+       ],
+       "properties": {
+        "office": {
+         "enum": [
+          "exec",
+          "startup",
+          "backstage",
+          "boardroom",
+          "kitchen",
+          "study"
+         ]
+        },
+        "blur": {
+         "type": "boolean"
+        },
+        "light": {
+         "enum": [
+          "day",
+          "golden",
+          "night"
+         ]
+        }
+       },
+       "description": "a car-phone call as a video call: the caller in their office, on webcam, in a small picture at the top of the screen while it talks (auto or inCar; the caller has a body)"
+      },
       "inCar": {
        "type": "boolean",
        "description": "talks only while the hero is in a car; on foot it holds (hold.pause), back in it resumes (hold.resume)"

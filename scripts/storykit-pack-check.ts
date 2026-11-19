@@ -187,6 +187,9 @@ export function runStoryPackChecks(ok: Ok) {
       ok('a Mog may play its parent\'s cutscene as a video call', g0.ok && !r5.problems.some((x) => /mission structure/.test(x)), g0.problems.concat(r5.problems).join(' | '));
       const g1 = gatePack(onMc()), kid2 = clone(g1.pack); m1(kid2).steps.splice(1, 0, CALL()); const r6 = gatePack(kid2, { parent: g1.pack });
       ok('a Mog of a world with no scene of talk adds no video call (its structure kept)', r6.problems.some((x) => /'vcall'.*mission structure/.test(x)), r6.problems.join(' | ')); }
+    { const r7 = gatePack(onMc((p) => { const c = m1(p).steps.find((x: any) => x.type === 'call') || m1(p).steps.flatMap((x: any) => x.during || []).find((x: any) => x.type === 'call'); c.who = 'rae'; c.inCar = true; c.video = { office: 'backstage' }; }));
+      ok('a car-phone call may be a video call on the car\'s screen (video: { office })', r7.ok, r7.problems.join(' | ')); }
+    bad('a video call on the car\'s screen from a voice-only caller', onMc(), (p) => { const c = m1(p).steps.flatMap((x: any) => [x, ...(x.during || [])]).find((x: any) => x.type === 'call'); c.who = 'dispatch'; c.inCar = true; c.video = { office: 'exec' }; }, /voiceOnly .* a video call shows the caller/);
     bad('a video call off Mog City\'s engine', NY, (p) => { m1(p).steps.splice(1, 0, CALL()); }, /video call plays on Mog City's engine/);
   }
 
