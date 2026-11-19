@@ -380,6 +380,16 @@ export function runStoryPackChecks(ok: Ok) {
     ok('jensen-heist: the chair plant is seen at the arena stop (a man in a lanyard wheeling it, a beat on him as Jensen asks)', !!plant && plant.lanyard === true && m1.some((x: any) => x.type === 'beat' && /mahogany chair/.test(x.say?.text || '')));
     const vc = (id: string) => calls.find((x: any) => x.id === id);
     ok('jensen-heist: the offices match their labels (Dex in the van, the green room is a green room)', !!P && vc('x1')?.people.find((p: any) => p.who === 'dex')?.office === 'van' && vc('h1')?.people.find((p: any) => p.who === 'board')?.office === 'greenroom' && vc('f3')?.people.find((p: any) => p.label === 'Jensen')?.office === 'greenroom');
+    // (every tile, 19 Nov: the sub says where they are, so it must be the office drawn behind them: the first rule its sub
+    // matches names that office, and a sub no rule knows is a problem too. "Lola's truck" is the truck, not a home kitchen;
+    // "behind the van" is the lot, "the van" is the van; Marge wears her headset, so no tile says she has none)
+    const SUB_OFFICE: [RegExp, string][] = [[/green room/i, 'greenroom'], [/truck/i, 'truck'], [/diner|booth/i, 'diner'], [/\bcar\b|black cars/i, 'car'],
+      [/behind|\blot\b|dock|bins|in line/i, 'lot'], [/\bvan\b/i, 'van'], [/\bgreen\b|grass|lawn/i, 'green'], [/row one|seats|the house/i, 'house'],
+      [/kitchen|oven/i, 'kitchen'], [/stage manager|headset/i, 'backstage'], [/remote|study/i, 'study'], [/loft|startup/i, 'startup'], [/office|tower/i, 'exec']];
+    const tiles = calls.flatMap((x: any) => x.people.map((p: any) => ({ call: x.id, who: p.label || p.who, office: p.office, sub: p.sub || '' })));
+    const offTile = tiles.filter((t: any) => { const r = SUB_OFFICE.find(([re]) => re.test(t.sub)); return !r || r[1] !== t.office || /no headset/i.test(t.sub); });
+    ok(`jensen-heist: every call tile's sub names the office drawn behind it (${tiles.length} tiles)`, !!P && tiles.length > 0 && !offTile.length, offTile.map((t: any) => `${t.call} ${t.who}: "${t.sub}" in ${t.office}`).slice(0, 4).join(' | '));
+    ok('jensen-heist: Nico is the car guy, not the driver (his card and TP-6\'s welcome agree)', !!P && !JSON.stringify(P).includes('Nico. Driver.') && JSON.stringify(P).includes('Nico. The car guy.'));
     ok('jensen-heist: Jensen drives himself all day; Nico keeps the oven (K1 never says "Nico, drive.")', !!P && !JSON.stringify(vc('k1')?.lines ?? []).includes('Nico, drive') && JSON.stringify(vc('k1')?.lines ?? []).includes("I'll mind the oven"));
     ok('jensen-heist: the hero drives Mog City\'s roadster (stock), never a town fleet car (no heroCar)', !!P && P.ride === 'roadster' && P.vehicles.some((v: any) => v.stock === 'roadster') && !P.heroCar);
     ok('jensen-heist: every seen person but Mr. Board (Mog City\'s own, renamed) has a hand-built body named for the migration', !!P && P.cast.filter((c: any) => !c.model && !c.voiceOnly).every((c: any) => !!BODIES[c.id]) && P.cast.find((c: any) => c.id === 'board')?.model === 'mogcity/mrbig');

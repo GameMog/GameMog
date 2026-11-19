@@ -108,7 +108,7 @@ export const SHOWCASE_PACKS = ['pickup-time', 'jensen-heist'];
 // a video call (Mog City wagmi/storyrun/vcall.js, 18 Nov): every conversation can be one: each person in an office of
 // their own, head and shoulders on their webcam, in a call's layout (tiles, names, the one talking lit, subtitles), with
 // the call's own life between the lines (VCALL_EVENTS). gate.ts vcallProblems holds its rules
-export const VCALL_OFFICES = ['exec', 'startup', 'backstage', 'boardroom', 'kitchen', 'study', 'van', 'greenroom'];
+export const VCALL_OFFICES = ['exec', 'startup', 'backstage', 'boardroom', 'kitchen', 'study', 'van', 'greenroom', 'truck', 'diner', 'lot', 'green', 'car', 'house'];
 export const VCALL_EVENTS = ['mute', 'unmute', 'join', 'drop', 'freeze', 'unfreeze', 'share', 'unshare', 'blur', 'unblur', 'hand', 'wait'];
 export const VCALL_CAMS = ['close', 'wide', 'low'];
 export const VCALL = { people: [2, 6], items: 40, events: 24 };
@@ -236,7 +236,7 @@ const STEPS = fx(['drive', 'stops', 'pursuit', 'tail', 'tow', 'timer', 'fight', 
     title: S(40, { description: "the call's name in its top bar ('Q3 Board Sync')" }), layout: E(['grid', 'speaker'], { description: 'grid: equal tiles; speaker: whoever talks fills the stage, the rest in a strip' }),
     end: E(['leave', 'drop'], { description: 'how it ends: you leave the meeting, or the call drops' }), time: E(['day', 'golden', 'night'], { description: "the light through every office's window (else the mission's time)" }),
     people: A(O({
-      who: { ...R('slug'), description: "a cast id with a body, or 'player'" }, office: E(VCALL_OFFICES, { description: "the office they sit in: exec (a corner office, the skyline), startup (an open-plan loft), backstage (a stage manager's room), boardroom (the long table), kitchen (a home kitchen), study (walnut and books, Mr. Big's)" }),
+      who: { ...R('slug'), description: "a cast id with a body, or 'player'" }, office: E(VCALL_OFFICES, { description: "the office they sit in: exec (a corner office, the skyline), startup (an open-plan loft), backstage (a stage manager's room), boardroom (the long table), kitchen (a home kitchen), study (walnut and books, Mr. Big's), van (a broadcast van's back), greenroom (an arena's green room); away from a desk: truck (a food truck's kitchen), diner (a diner booth), lot (a lot out back, a loading dock), green (a lawn by a station, a bench), car (a car's front seat), house (row one of an arena's seats). The tile's sub says where they are, so it names the office drawn behind them" }),
       label: S(24, { description: 'the name on their tile (else the cast name)' }), sub: S(32, { description: 'a second line on the tag: a title or a company (invented names only)' }),
       blur: { ...B, description: 'background blur on from the start' }, muted: { ...B, description: 'starts muted (the red mic): their lines are heard by nobody until they unmute' },
       late: { ...B, description: 'not in the call at the start: their tile reads Waiting to join until a join event' }, light: E(['day', 'golden', 'night']), cam: E(VCALL_CAMS, { description: "the webcam's framing: close (head and shoulders), wide (down to the desk), low (a laptop below the eyes)" })

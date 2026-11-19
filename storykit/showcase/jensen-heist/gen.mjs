@@ -127,7 +127,7 @@ const opening = {
 const K1 = { type: 'vcall', id: 'k1', title: 'Oven Stream: Post-Show', time: 'day', people: [
   { who: P, office: 'kitchen', label: 'Jensen', sub: 'his kitchen · the oven stream', muted: true },
   { who: 'marge', office: 'backstage', sub: 'Stage manager · GreenLive' },
-  { who: 'nico', office: 'kitchen', sub: 'out front, by the car', late: true, blur: true, cam: 'low' }],
+  { who: 'nico', office: 'car', sub: 'in the car, out front', late: true, cam: 'low' }],
   lines: [
     V(P, 'Marge? Marge, can you hear me? Are we off?'),
     V('marge', 'I said "we\'re off" at "Marge." You\'ve been on mute since the logo spin.', { how: 'deadpan' }),
@@ -210,7 +210,7 @@ const C1 = { type: 'call', who: 'marge', auto: true, inCar: true, at: 2, span: 5
 
 // W1: call waiting in leg 2. The blur has a job: Wesley won't show the cam because Pruitt is asleep on him in the
 // line (Pruitt's set-up, in main).
-const W1 = { type: 'call', who: 'wesley', interrupts: true, inCar: true, at: 6, video: { office: 'kitchen', blur: true },
+const W1 = { type: 'call', who: 'wesley', interrupts: true, inCar: true, at: 6, video: { office: 'green', blur: true },
   lines: [
     L('wesley', "Oh my gosh, it's actually you, Chat, it's actually him, and he picked up, and I'm not even crying yet, and...", { cut: 0.9 }),
     L('jensen', 'Who is this?', { overlap: true }),
@@ -228,8 +228,8 @@ const W1 = { type: 'call', who: 'wesley', interrupts: true, inCar: true, at: 6, 
 // here (C pays it off in LO3: "You forgot." / "I forgot."); his answer is the flaw: he presents over it and changes
 // the subject.
 const L1 = { type: 'vcall', id: 'l1', title: "Lola's Window", time: 'golden', people: [
-  { who: 'lola', office: 'kitchen', sub: "Lola's · the truck kitchen", cam: 'wide' },
-  { who: P, office: 'exec', label: 'Jensen', sub: "in the line at Lola's", blur: true, cam: 'low' }],
+  { who: 'lola', office: 'truck', sub: "Lola's · the truck kitchen", cam: 'wide' },
+  { who: P, office: 'lot', label: 'Jensen', sub: "ninth in line at Lola's", blur: true, cam: 'low' }],
   lines: [
     V(P, "Lola! I'm ninth in line. I can see you, you can see me, so why are we on a...", { cut: 0.8 }),
     V('lola', 'No.', { overlap: true }),
@@ -337,9 +337,9 @@ const D1 = { type: 'call', who: 'dex', auto: true, inCar: true, at: 4, video: { 
 // Intern Two joins late just to correct the count. The Board bought them something small first (61 coffees). It ends
 // on a choice Jensen makes: no police for unpaid interns; they take Lola's cooler back, with a tip.
 const I1 = { type: 'vcall', id: 'i1', title: 'Quick Sync (Intern)', time: 'day', people: [
-  { who: 'intern-a', office: 'startup', label: 'Intern One', sub: 'the green by the station', blur: true, cam: 'low' },
-  { who: P, office: 'exec', label: 'Jensen', sub: 'the green by the station', blur: true, cam: 'low' },
-  { who: 'intern-b', office: 'startup', label: 'Intern Two', sub: 'the green, still on the grass', blur: true, cam: 'low', late: true }],
+  { who: 'intern-a', office: 'green', label: 'Intern One', sub: 'the green by the station', blur: true, cam: 'low' },
+  { who: P, office: 'green', label: 'Jensen', sub: 'the green by the station', blur: true, cam: 'low' },
+  { who: 'intern-b', office: 'green', label: 'Intern Two', sub: 'the green, still on the grass', blur: true, cam: 'low', late: true }],
   lines: [
     V('intern-a', 'Thanks for joining my quick sync, sir. I like things documented. For my reference.'),
     V(P, "I'm standing right next to you."),
@@ -422,12 +422,12 @@ const N1 = { type: 'call', who: 'nico', auto: true, inCar: true, video: { office
   hold: { pause: [L('nico', "Out of the car? Don't leave the keys on the seat. The kid left the keys on the seat once and look what happened. Me.")],
     resume: [L('nico', 'Back. Good. I was talking to the oven and lost my thread.')] } };
 
-// The Board is a tablet propped in booth three; his two Directors stand at the counter, on the call from their phones.
+// The Board is a tablet propped in booth three; his two Directors sit in the next booths, on the call from their phones.
 // Speaker layout: every line here is <= 120 characters.
 const B1 = { type: 'vcall', id: 'b1', title: 'Booth Three', time: 'day', layout: 'speaker', people: [
   { who: 'board', office: 'study', label: 'Mr. Board', sub: 'Mahogany Partners · remote' },
-  { who: P, office: 'kitchen', label: 'Jensen', sub: 'booth three · the corner diner', blur: true, cam: 'low' },
-  { who: 'director-a', office: 'boardroom', sub: 'the counter, corner diner', blur: true, cam: 'low', muted: true }],
+  { who: P, office: 'diner', label: 'Jensen', sub: 'booth three · the corner diner', blur: true, cam: 'low' },
+  { who: 'director-a', office: 'diner', sub: 'booth four · the corner diner', blur: true, cam: 'low', muted: true }],
   lines: [
     V('board', 'Jensen, big fan, please sit. I saved your booth, which took some doing, because there was a family in it.'),
     V(P, "You're a tablet. You're a tablet propped against the syrup."),
@@ -469,9 +469,9 @@ const BC = { type: 'choice', prompt: "Sign the Board's letter?", who: 'jensen', 
 
 const B2 = { type: 'vcall', id: 'b2', title: 'Booth Three', time: 'day', people: [
   { who: 'board', office: 'study', label: 'Mr. Board', sub: 'Mahogany Partners · remote' },
-  { who: P, office: 'kitchen', label: 'Jensen', sub: 'booth three · the corner diner', blur: true, cam: 'low' },
-  { who: 'director-a', office: 'boardroom', sub: 'the counter, corner diner', blur: true, cam: 'low' },
-  { who: 'director-b', office: 'boardroom', sub: 'the door, corner diner', blur: true, cam: 'low', late: true }],
+  { who: P, office: 'diner', label: 'Jensen', sub: 'booth three · the corner diner', blur: true, cam: 'low' },
+  { who: 'director-a', office: 'diner', sub: 'booth four · the corner diner', blur: true, cam: 'low' },
+  { who: 'director-b', office: 'diner', sub: 'the booth by the door, the diner', blur: true, cam: 'low', late: true }],
   lines: [
     V('board', 'You signed it "love."'),
     V(P, 'I sign everything "love." Hoodies, phones, a cooler this morning. Legally it\'s a greeting card.'),
@@ -537,7 +537,7 @@ const LO1 = { type: 'call', who: 'lola', ring: 6, lines: [
 ] };
 
 // Wesley's feed is blurred on purpose: he is hiding that he left the line, and Jensen catches it.
-const W2 = { type: 'call', who: 'wesley', auto: true, inCar: true, video: { office: 'kitchen', blur: true },
+const W2 = { type: 'call', who: 'wesley', auto: true, inCar: true, video: { office: 'lot', blur: true },
   lines: [
     L('wesley', "Okay don't be mad, but I left the line, and Pruitt's holding my spot lying down in it full length, which is very legal."),
     L('jensen', 'Wesley, why is there a dome behind your blur?'),
@@ -567,10 +567,10 @@ const W2 = { type: 'call', who: 'wesley', auto: true, inCar: true, video: { offi
 // The cable pull froze Dex's stream: X1 opens on his frozen picture; he switches to his phone (unfreeze).
 const X1 = { type: 'vcall', id: 'x1', title: 'COBALT C1: LIVE UPLOAD', time: 'golden', people: [
   { who: 'dex', office: 'van', sub: 'Cobalt Circuitry · the van' },
-  { who: P, office: 'exec', label: 'Jensen', sub: 'behind the van', blur: true, cam: 'low' },
-  { who: 'wesley', office: 'kitchen', sub: 'behind the recycling bins', blur: true, cam: 'low' },
-  { who: 'intern-a', office: 'startup', sub: 'Cobalt · unpaid · the lot', blur: true, cam: 'low', late: true },
-  { who: 'intern-b', office: 'startup', sub: 'Cobalt · unpaid · the lot', blur: true, cam: 'low', late: true }],
+  { who: P, office: 'lot', label: 'Jensen', sub: 'behind the van', blur: true, cam: 'low' },
+  { who: 'wesley', office: 'lot', sub: 'behind the recycling bins', blur: true, cam: 'low' },
+  { who: 'intern-a', office: 'lot', sub: 'Cobalt · unpaid · the lot', blur: true, cam: 'low', late: true },
+  { who: 'intern-b', office: 'lot', sub: 'Cobalt · unpaid · the lot', blur: true, cam: 'low', late: true }],
   lines: [
     Ev('freeze', 'dex'),
     V('dex', 'No no no no, not now, it was at ninety-four percent!'),
@@ -644,7 +644,7 @@ const M3C = { type: 'call', who: 'marge', ring: 6, lines: [
   L('marge', "I know what I said. ...I haven't called it. Go get the delivery before I remember how to.", { pre: 0.5 }),
 ] };
 
-const LO2 = { type: 'call', who: 'lola', auto: true, inCar: true, video: { office: 'kitchen' },
+const LO2 = { type: 'call', who: 'lola', auto: true, inCar: true, video: { office: 'truck' },
   lines: [
     L('lola', 'The suits were at my window. A whole tray of black coffees, to go, to the convention hall, and they voted on the lids.'),
     L('jensen', "I know. I'm on my way there."),
@@ -682,9 +682,9 @@ const LO2 = { type: 'call', who: 'lola', auto: true, inCar: true, video: { offic
 // The Directors don't walk up: their black cars hold the dock and they join Jensen's call to read a statement,
 // raising a hand before each line, because procedure.
 const S1 = { type: 'vcall', id: 's1', title: 'Delivery for the Board', time: 'golden', people: [
-  { who: P, office: 'exec', label: 'Jensen', sub: 'the convention hall dock', blur: true, cam: 'low' },
-  { who: 'director-a', office: 'boardroom', sub: 'the black cars, outside', blur: true, late: true },
-  { who: 'director-b', office: 'boardroom', sub: 'the black cars, outside', blur: true, late: true }],
+  { who: P, office: 'lot', label: 'Jensen', sub: 'the convention hall dock', blur: true, cam: 'low' },
+  { who: 'director-a', office: 'car', sub: 'the black cars, outside', blur: true, late: true },
+  { who: 'director-b', office: 'car', sub: 'the black cars, outside', blur: true, late: true }],
   lines: [
     V(P, 'Velvet, very soft, and warm. Okay. Okay. ...Why is it shaped like a cone?'),
     Ev('share', P, { slide: { title: 'THE CASE', lines: ['A velvet bag. Warm. Shaped wrong.', 'Inside: a traffic cone.', "In marker: 'To Wesley. Love, Jensen.'"] } }),
@@ -753,7 +753,7 @@ const BD1 = { type: 'call', who: 'board', auto: true, inCar: true, at: 3, video:
     resume: [L('board', 'Back? Was that a fan? How quaint. Where was I. Ah, yes: threatening you.')] } };
 
 // Wesley's confession (the car, "hypothetically") and his new job paying off: the grey SUV, set up for M6.
-const W3 = { type: 'call', who: 'wesley', interrupts: true, inCar: true, at: 50, video: { office: 'kitchen', blur: true },
+const W3 = { type: 'call', who: 'wesley', interrupts: true, inCar: true, at: 50, video: { office: 'green', blur: true },
   lines: [
     L('wesley', 'Hi. Hi. Before you say anything, I know, I know, I know.'),
     L('jensen', 'You sold my cone.'),
@@ -786,7 +786,7 @@ const M5 = { id: 'SS-5', title: 'Signed, Sealed', vehicle: 'roadster', start: '@
 
 
 // ── Mission 6: Take Private ──
-const N2 = { type: 'call', who: 'nico', auto: true, inCar: true, video: { office: 'kitchen' },
+const N2 = { type: 'call', who: 'nico', auto: true, inCar: true, video: { office: 'truck' },
   lines: [
     L('nico', "Boss, I'm in Lola's truck watching the kid's stream. Grey SUV, northbound on the 87, signal on, doing thirty. You on him?"),
     L('jensen', "I'm on him. Not too close."),
@@ -803,7 +803,7 @@ const N2 = { type: 'call', who: 'nico', auto: true, inCar: true, video: { office
     L('nico', 'A new everything. Sun. Brisket. A boss who says please.'),
     L('jensen', 'I say please!', { overlap: true }),
     L('nico', 'You say "please welcome." It\'s different.'),
-    L('jensen', '...Please welcome, to the Greenlight family: Nico. Driver. Pothole namer. Out-of-eleven guy.', { cut: 0.85 }),
+    L('jensen', '...Please welcome, to the Greenlight family: Nico. The car guy. Pothole namer. Out-of-eleven guy.', { cut: 0.85 }),
     L('nico', "See, that's nice. That's a nine."),
     L('jensen', 'Out of eleven?'),
     L('nico', "Don't push it."),
@@ -869,7 +869,7 @@ const M6 = { id: 'TP-6', title: 'Take Private', vehicle: 'roadster', start: '@vi
   ] };
 
 // ── Mission 7: Fan Line ──
-const LO3 = { type: 'call', who: 'lola', auto: true, inCar: true, at: 2, video: { office: 'kitchen' },
+const LO3 = { type: 'call', who: 'lola', auto: true, inCar: true, at: 2, video: { office: 'car' },
   lines: [
     L('lola', "Stay behind me. Don't pass me. Nobody passes the truck."),
     L('jensen', 'Copy.'),
@@ -894,7 +894,7 @@ const LO3 = { type: 'call', who: 'lola', auto: true, inCar: true, at: 2, video: 
   wrap: [L('lola', 'Dock\'s blocked. Black cars. You shove, I yell.'), L('jensen', 'What do you yell?'), L('lola', '"Catering!" It opens every door in this city.')],
   hold: { pause: [L('lola', "Who's calling you in a convoy? Take it. Stay behind me.")], resume: [L('lola', 'You done? Good. Still behind me? Good.')] } };
 
-const W4 = { type: 'call', who: 'wesley', interrupts: true, inCar: true, at: 45, video: { office: 'kitchen', blur: true },
+const W4 = { type: 'call', who: 'wesley', interrupts: true, inCar: true, at: 45, video: { office: 'house', blur: true },
   lines: [
     L('wesley', "I'm in! Row one! There's twenty thousand people in here, and like nine thousand of them watch me!"),
     L('jensen', 'Nine thousand?'),
@@ -910,10 +910,10 @@ const W4 = { type: 'call', who: 'wesley', interrupts: true, inCar: true, at: 45,
   ] };
 
 const A1 = { type: 'vcall', id: 'a1', title: 'Dock Door', time: 'golden', people: [
-  { who: 'marge', office: 'backstage', sub: 'no headset' },
-  { who: P, office: 'kitchen', label: 'Jensen', sub: "Lola's truck · in the back", cam: 'low' },
-  { who: 'lola', office: 'kitchen', sub: 'the dock door · "catering"', blur: true, cam: 'low' },
-  { who: 'dex', office: 'startup', sub: 'the lobby, by the coat check', late: true, blur: true }],
+  { who: 'marge', office: 'backstage', sub: 'headset: a spare, no channel' },
+  { who: P, office: 'truck', label: 'Jensen', sub: "Lola's truck · in the back", cam: 'low' },
+  { who: 'lola', office: 'lot', sub: 'the dock door · "catering"', blur: true, cam: 'low' },
+  { who: 'dex', office: 'van', sub: 'Cobalt · the van, pivoting', late: true, blur: true }],
   lines: [
     V('marge', "You're late."),
     V(P, "It's six fifty-one."),
@@ -958,9 +958,9 @@ const M7 = { id: 'FL-7', title: 'Fan Line', vehicle: 'roadster', start: '@market
 // calendar joins him to it by itself, on a ninety-metre screen, from the back of Lola's truck.
 const H1 = { type: 'vcall', id: 'h1', title: 'GREENLIVE · PRE-SHOW', time: 'night', layout: 'speaker', people: [
   { who: 'board', office: 'greenroom', label: 'Mr. Board', sub: "Jensen's green room" },
-  { who: 'marge', office: 'backstage', sub: 'no headset' },
-  { who: 'wesley', office: 'kitchen', sub: 'row one · live', blur: true, cam: 'low' },
-  { who: P, office: 'kitchen', label: 'Jensen', sub: "Lola's truck, the dock", late: true, cam: 'low' }],
+  { who: 'marge', office: 'backstage', sub: 'headset: a spare, no channel' },
+  { who: 'wesley', office: 'house', sub: 'row one · live', blur: true, cam: 'low' },
+  { who: P, office: 'truck', label: 'Jensen', sub: "Lola's truck, the dock", late: true, cam: 'low' }],
   lines: [
     V('board', 'Good evening, San Jose. A short pre-show from the green room, which is mine now. The fruit is excellent.'),
     Ev('share', 'board', { slide: { title: 'THE MAHOGANY ONE', lines: ['Formerly Brisket, which sounded edible', 'On a velvet stand of anticipation', 'Available: never'], big: 'SOLD OUT' } }),
@@ -1100,8 +1100,10 @@ const ST3 = { type: 'cutscene', id: 'st3', set: stage([pp('jensen', B3, { pose: 
   { ...close(B3j, 'jensen', { off: 10 }), dur: 4.5, act: [{ who: 'jensen', face: -35 }], say: 'jensen', line: "Marge. Front row. Watch one from the seats. I'll call my own cues: sunrise, walk, chip." },
   { ...close(B3, 'marge', { off: 5, dist: 1.25 }), dur: 3, say: 'marge', line: 'The only empty seat is his chair.' },
   { ...close(B3j, 'jensen', { off: -6, dist: 1.2 }), dur: 2.4, say: 'jensen', line: 'It swivels.', how: 'tease' },
-  // (down off the lip, through the barrier's gap to the chair: from the deck, the pit standing behind her)
-  { ...shotOn(B3m, 'marge', [1.3, 1.6, 0.2], { at: [-1.3, 1.05, 2.9], fov: 44, dur: 6 }), caption: 'FRONT ROW, IN THE MAHOGANY CHAIR',
+  // (down off the lip, through the barrier's gap to the chair, the pit standing behind her)
+  // (the lens low on the floor before the lip, in line with the barrier's gap and clear of her way to it: the chair seen
+  // through the gap, not over the barrier's top rail, so she is in it to the knees, not a head behind the barrier: 19 Nov)
+  { ...shotOn(B3m, 'marge', [-0.3, 1.3, 1.0], { at: [-1.0, 1.0, 3.6], fov: 46, dur: 6 }), caption: 'FRONT ROW, IN THE MAHOGANY CHAIR',
     act: [{ who: 'marge', walk: { to: SEAT_AT, secs: 3.6, then: 'sit' }, face: 180, seat: SEAT_Y }],
     say: 'marge', line: 'Standby, sunrise.', how: 'hushed', pre: 1.2 },
 ] };
@@ -1141,7 +1143,7 @@ const ST4B = { type: 'cutscene', id: 'st4b', if: 'ovation != true', set: ST4P(nu
 ] };
 
 const F3 = { type: 'vcall', id: 'f3', title: 'After the Show', time: 'night', end: 'leave', people: [
-  { who: 'nico', office: 'kitchen', sub: "Lola's truck, the last plate" },
+  { who: 'nico', office: 'truck', sub: "Lola's truck, the last plate" },
   { who: P, office: 'greenroom', label: 'Jensen', sub: 'his green room, finally' }],
   lines: [
     V('nico', "Boss. The car's parked, nobody touched her, I'm eating the last plate, and the whole day, start to finish? Eleven out of eleven."),

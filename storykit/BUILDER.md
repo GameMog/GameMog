@@ -92,8 +92,11 @@ people and places.
 - **Video calls.** A `vcall` is a conversation as a video call: 2 to 6 `people`, each in an `office` of their own
   (`exec` a corner office with the skyline, `startup` an open-plan loft, `backstage` a stage manager's room, `boardroom`
   the long table, `kitchen` a home kitchen, `study` walnut and books, `van` a broadcast van's back, `greenroom` an
-  arena's green room), seen head and shoulders on their webcam, in a
-  call's layout: their tiles, their names (`label`, and a `sub` line: a title or an invented company), the one talking
+  arena's green room; away from a desk: `truck` a food truck's kitchen, `diner` a diner booth, `lot` a lot out back
+  with a loading dock, `green` a lawn by a station with a bench, `car` a car's front seat, `house` row one of an arena's
+  seats), seen head and shoulders on their webcam, in a
+  call's layout: their tiles, their names (`label`, and a `sub` line: a title, an invented company or where they are,
+  which must be the office drawn behind them: a truck's cook in `truck`, not `kitchen`), the one talking
   lit, the subtitles under them. Prefer it to a cutscene for any scene of people talking who are not standing together
   on the street: it is the house style for talk (the street is for action). `lines` is the call in order: spoken lines
   `{ "who", "line", "how", "pre", "post", "overlap" }` (`who` one of its people or `player`), plus `cut` (0.3 to 0.95:

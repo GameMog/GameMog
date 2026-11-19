@@ -117,6 +117,25 @@ Needs a Mog City engine with MogCity `jh-pack` 26a943c (the stage room, `house`,
 - **Nico stays with the oven:** K1 ends "Nico, keys. Marge, no hold." / "Keys are in her, boss. I'll mind the oven."
   (Jensen drives all day, as C1's brakes demo has it; BT-3 finds Nico at the house). His card: "the car guy".
 
+## The second polish round (19 Nov)
+
+- **Every tile's sub is the office behind it.** Mog City now has offices for calls taken away from a desk: `truck`
+  (Lola's food-truck kitchen: the flat-top and hood, the serving window, the ticket rail, the blue cooler, her OPEN
+  door), `diner` (a booth in red vinyl, the counter and its stools behind), `lot` (a lot out back: a loading dock, a
+  van, the dumpster and the blue recycling bins), `green` (a bench on the green by the station, tents on the grass),
+  `car` (a car's front seat) and `house` (row one of the arena's seats). Lola, Nico's last plate and Jensen "in the
+  back" of the truck are in `truck`; booth three and the Directors' booths in `diner`; X1, S1's dock and A1's dock door
+  in `lot`; I1 on the `green`; Nico out front and the Directors' black cars in `car`; Wesley's row one in `house`; his
+  car-screen calls from the fan line on the `green` (W1, W3) and from behind the museum's bins in the `lot` (W2).
+  Dex's A1 tile is the van, pivoting. Marge wears her headset on every body, so her tile now says "headset: a spare, no
+  channel" (her own was taken). The pack check reads every tile's sub against its office.
+- **TP-6:** "Nico. The car guy. Pothole namer." (was "Driver."), matching his card.
+- **The stage:** the pit's cheering is made by hand in the engine (arms up, clapping, a fist pumped, a phone held up to
+  film, each person on their own beat), no capture data; on WebGL2 the pit is a lighter crowd of its own, cheering the
+  same. Marge sits in the mahogany chair at the seat's height, seen through the barrier's gap. The fight's help card
+  is cleared before a set's dip to black. Director Grey pushes the chair with both hands on its back, and his lanyard
+  comes off when the mission ends.
+
 ## What changed from the script (draft 2), and why
 
 - **Video calls** (the owner, 18 Nov): the conversation scenes are calls, each person in an office of their own.

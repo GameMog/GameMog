@@ -342,7 +342,13 @@
          "office-kitchen",
          "office-study",
          "office-van",
-         "office-greenroom"
+         "office-greenroom",
+         "office-truck",
+         "office-diner",
+         "office-lot",
+         "office-green",
+         "office-car",
+         "office-house"
         ]
        },
        "light": {
@@ -3547,7 +3553,13 @@
           "kitchen",
           "study",
           "van",
-          "greenroom"
+          "greenroom",
+          "truck",
+          "diner",
+          "lot",
+          "green",
+          "car",
+          "house"
          ]
         },
         "blur": {
@@ -4623,7 +4635,13 @@
           "office-kitchen",
           "office-study",
           "office-van",
-          "office-greenroom"
+          "office-greenroom",
+          "office-truck",
+          "office-diner",
+          "office-lot",
+          "office-green",
+          "office-car",
+          "office-house"
          ]
         },
         "light": {
@@ -4987,9 +5005,15 @@
            "kitchen",
            "study",
            "van",
-           "greenroom"
+           "greenroom",
+           "truck",
+           "diner",
+           "lot",
+           "green",
+           "car",
+           "house"
           ],
-          "description": "the office they sit in: exec (a corner office, the skyline), startup (an open-plan loft), backstage (a stage manager's room), boardroom (the long table), kitchen (a home kitchen), study (walnut and books, Mr. Big's)"
+          "description": "the office they sit in: exec (a corner office, the skyline), startup (an open-plan loft), backstage (a stage manager's room), boardroom (the long table), kitchen (a home kitchen), study (walnut and books, Mr. Big's), van (a broadcast van's back), greenroom (an arena's green room); away from a desk: truck (a food truck's kitchen), diner (a diner booth), lot (a lot out back, a loading dock), green (a lawn by a station, a bench), car (a car's front seat), house (row one of an arena's seats). The tile's sub says where they are, so it names the office drawn behind them"
          },
          "label": {
           "type": "string",
