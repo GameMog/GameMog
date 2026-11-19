@@ -84,6 +84,9 @@ if (q.get('ids')) { const pal = ['#3AA0FF', '#FFB000', '#22CC66', '#FF5050', '#A
   for (const [p, b] of backs) p.add(b); window.__legend = legend; }
 // (?hide=a,b: those materials' meshes hidden, to find which part draws a fleck)
 if (q.get('hide')) { const hs = new Set(q.get('hide').split(',')); M.traverse((o) => { if (o.isMesh && hs.has(o.material?.name)) o.visible = false; }); }
+// (?polish=1: Mog City's story-runner finish on the body, as the game draws it (wagmi/storyrun/polish.js: the strand hair
+// shader, the skin's light, wet eyes, the cloth's weave), so a studio shot shows what a player sees)
+let polished = null; if (q.get('polish')) { try { const { polishBody } = await import('/wagmi/storyrun/polish.js'); polished = polishBody(M); } catch (e) { polished = { error: String(e) }; } }
 const holder = new THREE.Group(); holder.add(M); scene.add(holder);
 { const r = M.getObjectByName('root'); if (r && r.parent && r.parent !== M && q.get('straight') !== '0') r.parent.quaternion.identity(); }
 const body = []; let skin = null; M.traverse((o) => { if (o.isSkinnedMesh && o.material.name === 'skin') skin = o; });
@@ -245,7 +248,7 @@ window.__shot = ({ mode = 'turn', yaw = 0, cam = 'eye', clip = 'idle', t = 1.2, 
   return { floor: +box.min.y.toFixed(3), height: +ht.toFixed(3), spineLeanDeg: +(Math.acos(Math.min(1, (b.y - a.y) / b.distanceTo(a))) * 180 / Math.PI).toFixed(1) };
 };
 { const hm = new Set(); M.traverse((o) => { if (o.isMesh && /^(hair|curls|braids|locs)/.test(o.material?.name || '')) hm.add(o.material.name); }); info.hairMats = [...hm]; } // (G7b: the hair gate's rope rule)
-info.clips = CLIPS.length; info.clipSource = pack ? 'pack' : 'baked'; info.extras = { mouth: extras.landmarks?.below, hands: extras.post?.hands };
+info.polish = polished; info.clips = CLIPS.length; info.clipSource = pack ? 'pack' : 'baked'; info.extras = { mouth: extras.landmarks?.below, hands: extras.post?.hands };
 window.__dur = (n) => (THREE.AnimationClip.findByName(CLIPS, n) || CLIPS[0]).duration;
 window.__info = info; window.__ready = true;
 </script>

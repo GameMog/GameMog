@@ -23,6 +23,22 @@ features at the forge's defaults, no exaggeration), then by hand (`scripts/handb
 | the resting grin and the 33 talking-face morph targets (blinks, jaw, 14 visemes, smile, squints, brows, spares) | MakeHuman Faceunits 01 and Visemes 02 by Mika Suominen, makehumancommunity.org asset packs | CC0 1.0 |
 | semi-rimless browline glasses (geometry, `scripts/handbuilt/frames.mjs`: a thin gunmetal top bar, rimless lenses' edges, wire bridge and temples), plain zips, the jacket's yokes, quilted shoulder panels, stitching and collar snaps, skin (creases, age spots), scalp and hair paint | made here | original |
 
+### Blender round, iteration 1 (18 Nov 2026): the parts in `storykit/handbuilt/jensen/parts/`
+
+Made in Blender 5.3 by the scripts in `scripts/handbuilt/jensen/blender/` (each part's README says how) and put on his
+body by `build.mjs` (`assemble.mjs`, `face-pass.mjs`). No photo-derived pixels: the owner's reference photo was only
+looked at, never sampled, projected or traced.
+
+| Part | Source | Licence |
+|---|---|---|
+| the head re-sculpt (`parts/face/head-sculpt.target`), the skin's albedo, roughness and normal maps (pores, fine lines, tone), the eyes' irises, the mouth's dark inside, the lower teeth's rigid jaw swing | made here (`blender/face/`: sculpt.py, bake.py, eyetex.py; procedural, on MakeHuman's CC0 UVs) | original, CC0 |
+| the leather moto jacket (`parts/jacket.glb`): pattern, cloth drape, full-length metal zip, band collar with two snap tabs, quilted shoulder panels, seams and topstitching, chest and hand-warmer zip pockets | made here (`blender/jacket/`) | original |
+| the jacket leather's colour and grain | ambientCG Leather026 (Lennart Demes, ambientcg.com) and Poly Haven `leather_white` (Rob Tuytel, polyhaven.com) | CC0 1.0 |
+| the groomed hair cards, cap and card brows (`parts/hair.glb`) and their strand atlas | made here (`blender/hair/`: Blender hair curves, the atlas baked from original strand clumps) | original, CC0 |
+| the browline glasses (`parts/glasses.glb`): gunmetal top bar, rimless lenses, wire bridge, pad arms, hinges, temples | made here (`blender/glasses/build.py`, procedural) | original, CC0 |
+
+Still no CC-BY asset, so no credits-page line is needed.
+
 No CC-BY asset is used in this GLB, so it needs no credits-page line of its own. (The CC-BY candidates in the research
 shortlist, e.g. Elvaerwyn's Grump Hair, were not used.)
 

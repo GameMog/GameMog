@@ -4,7 +4,7 @@ import http from 'node:http'; import { MOGCITY } from '../forge/paths.mjs'; impo
 const HERE = path.resolve(new URL('.', import.meta.url).pathname), FORGE = path.resolve(HERE, '../forge');
 const MC = MOGCITY, OUT = path.resolve(process.env.FORGE_OUT || '.'), PORT = +(process.argv[2] || 4982);
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json', '.glb': 'model/gltf-binary', '.webp': 'image/webp', '.jpg': 'image/jpeg', '.png': 'image/png' };
-const roots = [['/f/', OUT], ['/hb/', HERE], ['/forge/', FORGE], ['/wagmi/', MC + '/wagmi'], ['/cast/', FORGE]];
+const roots = [['/f/', OUT], ['/hb/', HERE], ['/forge/', FORGE], ['/wagmi/', MC + '/wagmi'], ['/cast/', FORGE], ['/assets/', MC + '/assets']]; // (/assets/: Mog City's people detail tiles, for the studio's ?polish=1)
 http.createServer((req, res) => {
   const u = decodeURIComponent(new URL(req.url, 'http://x').pathname), r = roots.find(([p]) => u.startsWith(p));
   const f = r && path.join(r[1], u.slice(r[0].length));
