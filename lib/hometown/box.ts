@@ -20,8 +20,9 @@
  *   0.14.0  and when that box misses the place's core (tools/hometown/cores.json: the OSM / Overture locality point of
  *           1,580 big places whose internal point is too far off, San Jose's 8 km), centred on the strongest downtown
  *           centre round the core. Every other town keeps the 0.8.0 box. The rule is the compiler's (its version is in
- *           the buildId), so a town already built keeps its build and box; a story pinned to it stays on it unless every
- *           place it names is the same place in the new build (lib/storykit-upgrade.ts).
+ *           the buildId), so a town already built keeps its build and box. A story pinned to an older build moves to the
+ *           new one only when the frame (FRAME_KEYS), the box (boxMoved: the frame's playBox at both builds, else its
+ *           tile set) and every place it names are the same (lib/storykit-upgrade.ts); a moved box holds it on its pin.
  * The builder re-tiles a town to its frame when the frame lands (lib/hometown-build/towns.ts retileToFrame).
  */
 import type { Place } from '../places/types.ts';

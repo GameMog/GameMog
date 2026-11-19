@@ -34,7 +34,13 @@ export type TownFrame = {
   roads?: { streets: number; km: number; main: string[] }; far?: string[]; refused?: string[];
   /** the district bundle's variant as the compiler names it (`district-{c}-{r}`, the spawn tile) */
   variant?: string;
+  /** the box the compiler built the town over (stage 1's playBox, grid cm of the domain; compiler 0.14.0 may move a
+   *  capped town's box onto its downtown core), when the stored frame carries it */
+  playBox?: FrameBox;
 };
+export type FrameBox = { gx0: number; gs0: number; gx1: number; gs1: number };
+const boxOf = (b: any): FrameBox | null =>
+  b && typeof b === 'object' && ['gx0', 'gs0', 'gx1', 'gs1'].every((k) => Number.isFinite(b[k])) ? { gx0: b.gx0, gs0: b.gs0, gx1: b.gx1, gs1: b.gs1 } : null;
 
 /**
  * The compiler's frame as it is stored (MogCity tools/hometown/frame.py, compiler 0.7.0) -> TownFrame. The compiler
@@ -67,6 +73,7 @@ export function normalizeFrame(raw: unknown): TownFrame | null {
     roads: { streets: streets.length, km: Math.round(streets.reduce((a, s) => a + (Number(s.m) || 0), 0) / 100) / 10, main: streets.slice(0, 8).map((s) => String(s.name ?? '')).filter(Boolean) },
     far: Array.isArray(f.far) ? f.far : undefined, refused: Array.isArray(f.refused) ? f.refused : undefined,
     ...(typeof d.variant === 'string' ? { variant: d.variant } : {}),
+    ...(boxOf(f.playBox) ? { playBox: boxOf(f.playBox)! } : {}),
   } as TownFrame;
 }
 
