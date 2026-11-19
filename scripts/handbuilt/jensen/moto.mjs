@@ -26,7 +26,11 @@ export async function motoPass(doc, K = {}) {
   // the buttons off
   for (const { m, p } of prims) if (/buttons/.test(p.getMaterial().getName())) { m.removePrimitive(p); if (!m.listPrimitives().length) for (const n of R.listNodes()) if (n.getMesh() === m) n.setMesh(null); }
   const parts = prims.filter(({ p }) => !/buttons/.test(p.getMaterial().getName()));
-  const body = parts.find(({ p }) => p.getMaterial().getName() === 'suit-db')?.p; if (!body) throw new Error('moto: no jacket body (suit-db)');
+  const body = parts.find(({ p }) => /^(suit-db|uniform)$/.test(p.getMaterial().getName()))?.p; if (!body) throw new Error('moto: no jacket body (suit-db | uniform)');
+  // (likeness round 1: the stand-collar cut (forge-base.mjs, the library's coat): its front edge at x = +0.055, over to
+  // his left, the zip run up to the collar's foot; round 4's lapelled cut had its edge at -0.034 and stopped at the lapels)
+  const band = body.getMaterial().getName() === 'uniform';
+  if (band) { K.edgeX = 0.0485; K.closeTop ??= 1.425; }
   const BA = body.getAttribute('POSITION').getArray(), BV = [...new Set(body.getIndices().getArray())];
   // the hem's height and the V's bottom (the highest point of the closure edge's line on the front below the lapels)
   let hem = 9; for (const v of BV) if (BA[v * 3 + 2] > 0.05) hem = Math.min(hem, BA[v * 3 + 1]);
@@ -39,7 +43,7 @@ export async function motoPass(doc, K = {}) {
   { let prev = null; for (let y = hem + 0.006; y <= yTop + 1e-6; y += 0.03) { const P = front(K.edgeX + 0.0035, Math.min(y, yTop)); if (prev && P) zips.push({ A: prev, B: P, kind: 'close' }); prev = P; } }
   // the pockets: two slanted hand-warmers, a slanted chest zip on his left (+x)
   for (const s of [1, -1]) add([s * 0.072, hem + 0.035], [s * 0.128, hem + 0.135]);
-  add([0.08, 1.325], [0.145, 1.36]);
+  if (band) add([0.085, 1.318], [0.15, 1.322]); else add([0.08, 1.325], [0.145, 1.36]);
   // the cuffs: from each sleeve's end, on its outer side (the top of the arm in the bind pose), 7 cm toward the elbow
   for (const s of [1, -1]) { const sl = BV.filter((v) => Math.sign(BA[v * 3]) === s && Math.abs(BA[v * 3]) > 0.25); if (!sl.length) continue;
     const end = sl.reduce((m, v) => (Math.abs(BA[v * 3]) > Math.abs(BA[m * 3]) ? v : m), sl[0]), ex = Math.abs(BA[end * 3]);
@@ -52,6 +56,29 @@ export async function motoPass(doc, K = {}) {
     return { d: Math.hypot(q[0] - A[0] - ab[0] * t, q[1] - A[1] - ab[1] * t, q[2] - A[2] - ab[2] * t), t, L: Math.sqrt(L2) }; };
   // (the closure as one chain: its distance along from the hem, so its teeth run on without a break between segments)
   const closeLen = []; { let acc = 0; for (const z of zips) if (z.kind === 'close') { closeLen.push(acc); acc += Math.hypot(z.B[0] - z.A[0], z.B[1] - z.A[1], z.B[2] - z.A[2]); } }
+  // (likeness round 1, the owner's reference: a moto jacket's own construction, painted (colour, roughness, relief) from
+  // where each texel is on him: a yoke seam across each front and the back, double-stitched; a padded panel on each
+  // shoulder's cap, quilted in rows with a stitched border; the collar's tab fastened by two snaps on his left, and a
+  // second snap tab where the zip ends under the collar. Stitch thread a dark grey, the snaps gunmetal)
+  const snapsC = [[0.03, 1.468, 'uniform-collar'], [0.047, 1.465, 'uniform-collar'], [0.068, 1.405, 'uniform'], [0.087, 1.401, 'uniform']];
+  const stitch = (d, along, w = 0.0028) => { const r = Math.abs(Math.abs(d) - w); return r < 0.0005 && (Math.floor(along / 0.0035) % 3) !== 0; };
+  const detail = (q, part) => {
+    const [x, y, z] = q, ax = Math.abs(x), sx = Math.sign(x) || 1;
+    for (const [cx, cy, pn] of snapsC) { if (pn !== part || z < 0) continue; const d = Math.hypot(x - cx, y - cy); if (d < 0.0042) { const t = d / 0.0042;
+        return { col: [lin(92), lin(92), lin(96)].map((k) => k * (t > 0.78 ? 0.55 : 0.85 + 0.35 * (1 - t))), metal: 1, rough: 0.32, n: [((x - cx) / 0.0042) * 0.8, ((y - cy) / 0.0042) * 0.8] }; }
+      if (d < 0.0055) return { k: 0.6, n: [0, 0] }; }
+    // the snap tabs' outlines: a strap 15 mm tall round each pair, stitched
+    if (part === 'uniform' && z > 0.04) { const tx0 = 0.056, tx1 = 0.099, ty = 1.403 + (0.084 - x) * 0.2, dy = y - ty; if (x > tx0 && x < tx1 && Math.abs(dy) < 0.0085) { const e = Math.min(x - tx0, tx1 - x, 0.0085 - Math.abs(dy)); if (e < 0.0009) return { k: 0.45, n: [0, 0.4 * Math.sign(dy)] }; if (Math.abs(e - 0.0025) < 0.0004) return { k: 1.9 }; return { k: 1.05 }; } }
+    if (part !== 'uniform') return null;
+    // the yokes: across the front at 1.37 (rising a little to the shoulder) and across the back at 1.395
+    if (y > 1.3 && y < 1.47 && ax < 0.2) { const front = z > 0.03, yl = front ? 1.372 + 0.12 * Math.max(0, ax - 0.06) : 1.395, d = y - yl;
+      if ((front ? ax > 0.012 && !(x > 0.04 && x < 0.06) : true) && Math.abs(d) < 0.0045) { if (Math.abs(d) < 0.0007) return { k: 0.4, n: [0, 0.5 * Math.sign(d)], rough: 0.06 }; if (stitch(d, x, 0.0026)) return { k: 2.1 }; if (d > 0 && d < 0.0035) return { k: 1.08, n: [0, -0.15] }; } }
+    // the shoulders' padded panels: an oval on each cap, quilted across in 11 mm rows, its border stitched
+    { const C = [sx * 0.215, 1.405, 0.02], u = (ax - 0.215) / 0.06, v = (y - 1.405 - (ax - 0.215) * -0.55) / 0.04, w = (z - 0.02) / 0.075, r = Math.hypot(u, v * 0.0 + w);
+      if (y > 1.36 - (ax - 0.17) * 0.6 && r < 1 && ax > 0.15) { const e = 1 - r; if (e < 0.04) return { k: 0.5, n: [0, 0] }; if (Math.abs(e - 0.085) < 0.018) return { k: 1.8 };
+        const ph = (z + (ax - 0.215) * 0.15) / 0.011, f = ph - Math.floor(ph), seam = Math.abs(f - 0.5) > 0.44; if (seam) return { k: 0.62, n: [0, 0] };
+        return { k: 0.9 + 0.22 * Math.sin(f * Math.PI), n: [0, Math.cos(f * Math.PI) * 0.45] }; } }
+    return null; };
   const LC = await tile(MATS + 'Leather026_Color.jpg', 1024), LR = await tile(MATS + 'leather_white_rough.jpg', 1024);
   const lin = (c) => Math.pow(c / 255, 2.2), enc = (l) => Math.min(255, Math.max(0, Math.round(255 * Math.pow(Math.max(0, l), 1 / 2.2))));
   let nz = 0;
@@ -78,8 +105,9 @@ export async function motoPass(doc, K = {}) {
         const along = (Z.kind === 'close' ? closeLen[ci - 1] : 0) + z.t * z.L, w = W * 0.85;
         if (z.d >= w) { col = col.map((c0) => c0 * 0.55); nAdd = [0, ((z.d - w) / (W * 0.85)) * 0.6]; rough += 0.08; continue; }
         const tooth = (Math.floor(along / 0.0024) % 2) === 0, inTeeth = z.d < w * 0.5, pull = Z.kind !== 'close' && z.t < 0.1 && z.d < w * 0.95;
-        if (pull || (inTeeth && tooth)) { col = [lin(178), lin(178), lin(180)].map((k) => k * (0.72 + 0.3 * (1 - z.d / w))); metal = 1; rough = 0.3; nAdd = [0, pull ? 0 : (along % 0.0024) / 0.0024 - 0.5]; }
+        if (pull || (inTeeth && tooth)) { col = (band ? [lin(74), lin(74), lin(78)] : [lin(178), lin(178), lin(180)]).map((k) => k * (0.72 + 0.3 * (1 - z.d / w))); metal = band ? 0.7 : 1; rough = band ? 0.45 : 0.3; nAdd = [0, pull ? 0 : (along % 0.0024) / 0.0024 - 0.5]; }
         else { col = [lin(11), lin(11), lin(12)]; rough = 0.72; nAdd = [0, 0]; } nz++; break; }
+      if (band && !metal) { const D = detail(q, mat.getName()); if (D) { if (D.col) col = D.col; else col = col.map((c0) => c0 * D.k); if (D.metal != null) { metal = D.metal; rough = D.rough; } else rough += D.rough || 0; if (D.n) nAdd = D.n; } }
       base[i * 4] = enc(col[0]); base[i * 4 + 1] = enc(col[1]); base[i * 4 + 2] = enc(col[2]);
       mr[i * 4 + 1] = Math.round(clamp(rough, 0.22, 0.95) * 255); mr[i * 4 + 2] = Math.round(metal * 255);
       if (nm && nAdd) { const X = Math.min(NS - 1, Math.floor(u * NS)), Y = Math.min(NS - 1, Math.floor(v * NS)), j = (Y * NS + X) * 4; let nx = nAdd[0], ny = nAdd[1], nz2 = 1; const l = Math.hypot(nx, ny, nz2); nm[j] = Math.round((nx / l * 0.5 + 0.5) * 255); nm[j + 1] = Math.round((ny / l * 0.5 + 0.5) * 255); nm[j + 2] = Math.round((nz2 / l * 0.5 + 0.5) * 255); }
@@ -105,4 +133,31 @@ export function teeHemPass(doc, K = {}) {
     for (const v of used) { const y = a[v * 3 + 1]; if (y >= K.from) continue; let arm = 0; for (let q = 0; q < 4; q++) if (/^(upperarm|lowerarm|wrist|finger)/.test(jn[J[v * 4 + q]] || '')) arm += Wa[v * 4 + q] / sc; const t = 1 - Math.min(1, arm * 2); if (t <= 0) continue;
       a[v * 3 + 1] = y + (K.from - (K.from - y) * k - y) * t; n++; }
     P.setArray(a); console.log('tee hem:', lo.toFixed(3), '->', K.hem, 'points', n); }
+}
+
+// (likeness round 1) the stand collar made a moto jacket's band: the library's uniform collar (about 1.5 cm) raised to
+// k times its height, each point by its share of the band's height at its angle round the neck (so the foot stays
+// sewn into the neckline), the top drawn in a little toward the neck's middle so it stands close, not flared
+export function collarPass(doc, K = {}) {
+  K = { k: 1.9, inT: 0.12, ...K };
+  for (const p of doc.getRoot().listMeshes().flatMap((m) => m.listPrimitives())) { if (p.getMaterial()?.getName() !== 'uniform-collar') continue;
+    const P = p.getAttribute('POSITION'), a = P.getArray().slice(), n = a.length / 3; let cx = 0, cz = 0; for (let v = 0; v < n; v++) { cx += a[v * 3]; cz += a[v * 3 + 2]; } cx /= n; cz /= n;
+    const NB = 36, lo = new Float32Array(NB).fill(9), hi = new Float32Array(NB).fill(-9), bin = (v) => Math.floor(((Math.atan2(a[v * 3] - cx, a[v * 3 + 2] - cz) + Math.PI) / (2 * Math.PI)) * NB) % NB;
+    for (let v = 0; v < n; v++) { const b = bin(v); lo[b] = Math.min(lo[b], a[v * 3 + 1]); hi[b] = Math.max(hi[b], a[v * 3 + 1]); }
+    for (let v = 0; v < n; v++) { const b = bin(v), H = hi[b] - lo[b]; if (H <= 0.002) continue; const f = (a[v * 3 + 1] - lo[b]) / H;
+      a[v * 3 + 1] = lo[b] + f * H * K.k; const pull = K.inT * f * f; a[v * 3] += (cx - a[v * 3]) * pull * 0.25; a[v * 3 + 2] += (cz - a[v * 3 + 2]) * pull * 0.25; }
+    P.setArray(a); console.log('collar: raised x', K.k); }
+}
+
+// (likeness round 1) under the stand-collar jacket, the tee and its bound neckline are cut away over the shoulders'
+// tops (more than 5.5 cm out from the neck's middle, above 1.38 m): the jacket covers them there, and in the idle and
+// talk clips their edges came up through the jacket's shoulders beside the collar as black shards
+export function teeShoulderPass(doc, K = {}) {
+  K = { x: 0.055, y: 1.38, ...K };
+  for (const p of doc.getRoot().listMeshes().flatMap((m) => m.listPrimitives())) { const m = p.getMaterial(), e = m?.getExtras() || {};
+    if (!(m?.getName() === 'neckline' || (e.garment === 'male_casualsuit06' && e.layer === 2))) continue;
+    const a = p.getAttribute('POSITION').getArray(), I = p.getIndices(), ia = I.getArray(), keep = [];
+    const out = (v) => Math.abs(a[v * 3]) > K.x && a[v * 3 + 1] > K.y;
+    for (let t = 0; t < ia.length; t += 3) { if (out(ia[t]) && out(ia[t + 1]) && out(ia[t + 2])) continue; keep.push(ia[t], ia[t + 1], ia[t + 2]); }
+    console.log('tee shoulders:', m.getName(), (ia.length - keep.length) / 3, 'triangles cut'); I.setArray(new ia.constructor(keep)); }
 }

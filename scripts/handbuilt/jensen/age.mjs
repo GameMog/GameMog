@@ -22,7 +22,12 @@ import { LM } from './landmarks.mjs';
 const MHT = () => { const d = process.env.FORGE_MH_TARGETS; if (!d || !fs.existsSync(d)) throw new Error('FORGE_MH_TARGETS: the MakeHuman targets folder'); return d; };
 
 export function ageShapePass(doc, K = {}) {
-  K = { laugh: 0.6, sag: 0.4, bag: 0.75, bagH: 0.35, fold: 0.35, brow: 0.25, lipUp: 0.55, lipLow: 0.45, neck: 0.22, ...K };
+  // (likeness round 1, K.lean: the owner's reference shows a lean, taut face, defined cheekbones and a slightly tapered
+  // jaw; round 4's sag, jowls and soft neck read puffy. The lean set: no sag or double chin, less cheek over the fold,
+  // lighter bags; and the face drawn in a little: MakeHuman's head-fat-decr, cheek volume down, the cheekbones up, the
+  // jaw's width at the chin a touch narrower)
+  K = K.lean ? { laugh: 0.15, sag: 0, bag: 0.35, bagH: 0.1, fold: 0.3, brow: 0.15, lipUp: 0.4, lipLow: 0.3, neck: 0, fat: 0.25, vol: 0.25, bones: 0.7, chinW: 0, chinH: 0.6, ...K }
+    : { laugh: 0.6, sag: 0.4, bag: 0.75, bagH: 0.35, fold: 0.35, brow: 0.25, lipUp: 0.55, lipLow: 0.45, neck: 0.22, ...K };
   const T = (f) => path.join(MHT(), f + '.target');
   const list = [
     [T('mouth/mouth-laugh-lines-out'), K.laugh],
@@ -33,6 +38,11 @@ export function ageShapePass(doc, K = {}) {
     [T('eyebrows/eyebrows-trans-down'), K.brow],
     [T('mouth/mouth-upperlip-volume-decr'), K.lipUp], [T('mouth/mouth-lowerlip-volume-decr'), K.lipLow],
     [T('neck/neck-double-incr'), K.neck],
+    [T('head/head-fat-decr'), K.fat || 0],
+    [T('cheek/l-cheek-volume-decr'), K.vol || 0], [T('cheek/r-cheek-volume-decr'), K.vol || 0],
+    [T('cheek/l-cheek-bones-incr'), K.bones || 0], [T('cheek/r-cheek-bones-incr'), K.bones || 0],
+    [T('chin/chin-width-decr'), K.chinW || 0],
+    [T('chin/chin-height-decr'), K.chinH || 0],
   ].filter(([, w]) => w);
   bakeRest(doc, list);
 }

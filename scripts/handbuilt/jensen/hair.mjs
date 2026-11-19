@@ -16,7 +16,8 @@ export async function silverPass(doc, K = {}) {
     await setWebp(tex, data, w, h, 92); }
   // (round 4: no scattered dark dashes (they ran across the strands' flow as straw); the silver ramp alone, its darker
   // strands the cards' own shadows)
-  return hairTonePass(doc, { root: [66, 65, 64], mid: [150, 148, 145], hi: [214, 212, 207], grey: [58, 57, 56], temple: 0, top: 0, greyMix: 0, rough: 0.45, spec: 0.42, ...K });
+  // (likeness round 1: silver-grey, not white: the middle and highlights a step down, the roots a darker grey)
+  return hairTonePass(doc, { root: [66, 65, 64], mid: [100, 98, 97], hi: [154, 152, 151], grey: [62, 61, 60], temple: 0, top: 0, greyMix: 0, rough: 0.52, spec: 0.28, ...K });
 }
 // the cut's front edge feathered: the cap's last 12 mm at the forehead thinned out by a dithered alpha (its hard rim read
 // as a helmet's edge in the close-ups), so the hairline grades into the silver painted on the scalp under it
@@ -38,13 +39,17 @@ export function volumePass(doc, K = {}) {
   for (const p of prim(doc, 'hair')) { const P = p.getAttribute('POSITION'), a = P.getArray().slice(); let n = 0;
     for (const v of new Set(p.getIndices().getArray())) { const x = a[v * 3], y = a[v * 3 + 1], z = a[v * 3 + 2], d = [x - c[0], y - c[1], z - c[2]], L = Math.hypot(...d) || 1;
       const up = sm(EY + 0.03, EY + 0.1, y), fr = sm(EZ - 0.09, EZ - 0.01, z), side = sm(0.04, 0.07, Math.abs(x));
-      const k = (K.front * fr + K.crown * (1 - fr)) * up * (1 - 0.6 * side) + K.side * side * sm(EY - 0.01, EY + 0.04, y);
+      const k = (K.front * fr + K.crown * (1 - fr)) * up * (1 - 0.6 * side) + K.side * side * sm(EY + 0.01, EY + 0.05, y) * (1 - 0.6 * sm(EY + 0.09, EY + 0.12, y));
       // (the very edge of the cut at the forehead held: the lift starts 1 cm back)
       const edge = sm(EZ - 0.0, EZ - 0.02, z) + (1 - fr);
       // (the back of the head: the cut's crown and nape cards drawn in by up to 4 mm, so his profile ends in a short taper,
       // not a tail standing off the head)
       const back = K.back * sm(EZ - 0.11, EZ - 0.16, z) * sm(EY - 0.05, EY + 0.02, y);
-      const s = k * clamp(edge) - back; if (!s) continue; for (let q = 0; q < 3; q++) a[v * 3 + q] += (d[q] / L) * s; n++; }
+      const s = k * clamp(edge) - back;
+      // (likeness round 1, K.lift: the front's sweep stands UP off the forehead, then back: over the front top the cards
+      // raised by up to lift (most 1-4 cm behind the hairline's edge), not only pushed out from the skull)
+      const lf = (K.lift || 0) * up * sm(EZ - 0.11, EZ - 0.035, z) * sm(EZ + 0.01, EZ - 0.03, z) * (1 - side) * clamp(edge);
+      if (!s && !lf) continue; for (let q = 0; q < 3; q++) a[v * 3 + q] += (d[q] / L) * s; a[v * 3 + 1] += lf; n++; }
     P.setArray(a); console.log('hair volume points', n); }
 }
 // (round 4, owner: "the hair should be thicker and swept back, not flat") a second layer of the cut's cards over the
@@ -62,7 +67,8 @@ export async function layerPass(doc, K = {}) {
     used.forEach((v, k) => { for (let q = 0; q < e; q++) out[k * e + q] = src[v * e + q]; });
     if (sem === 'POSITION') used.forEach((v, k) => { const x = out[k * 3], y = out[k * 3 + 1], z = out[k * 3 + 2], dd = [x - c[0], y - c[1], z - c[2]], L = Math.hypot(...dd) || 1;
       const up = sm(EY + 0.035, EY + 0.1, y), fr = sm(EZ - 0.1, EZ - 0.02, z), side = sm(0.045, 0.072, Math.abs(x)), nape = sm(EZ - 0.13, EZ - 0.17, z) * sm(EY + 0.05, EY - 0.02, y);
-      const s = (K.front * fr + K.crown * (1 - fr)) * up * (1 - 0.85 * side) * (1 - nape); for (let q = 0; q < 3; q++) out[k * 3 + q] += (dd[q] / L) * s; out[k * 3 + 2] -= K.back * up * fr; });
+      const s = (K.front * fr + K.crown * (1 - fr)) * up * (1 - 0.85 * side) * (1 - nape); for (let q = 0; q < 3; q++) out[k * 3 + q] += (dd[q] / L) * s; out[k * 3 + 2] -= K.back * up * fr;
+      out[k * 3 + 1] += (K.lift || 0) * up * fr * (1 - side); });
     np.setAttribute(sem, doc.createAccessor().setType(A.getType()).setArray(out).setNormalized(A.getNormalized()).setBuffer(buf)); }
   mesh.addPrimitive(np); console.log('hair layer: points', used.length, 'triangles', I.length / 3);
 }

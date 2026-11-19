@@ -20,12 +20,18 @@ import { post } from '../../forge/post.mjs';
 import { diet } from '../../forge/diet.mjs';
 import { loadFaceKit } from '../../forge/targets.mjs';
 import { uncoveredGlb } from '../../forge/uncovered.mjs';
-import { GARMENTS, FABRIC } from '../../forge/library.mjs';
+import { GARMENTS, FABRIC, coat } from '../../forge/library.mjs';
 const [sheetF, out] = process.argv.slice(2), S = JSON.parse(fs.readFileSync(sheetF, 'utf8'));
 // (the moto jacket: the library's double-breasted jacket on a body whose 'crotch' (the jacket's hem reference: the hem is
 // 5 cm over it) is moved up to just over the hips, so it ends at the belt)
 const HEM = +(process.env.JH_HEM ?? 0.015);
-GARMENTS['moto-jacket'] = (ctx, o) => { const c2 = Object.create(ctx); c2.crotch = ctx.hip + HEM; return GARMENTS['suit-jacket-db'](c2, o); };
+// (likeness round 1, the owner's reference: his moto jacket has no lapels; a stand-up band collar fastened by snap tabs.
+// Now the library's coat with its stand collar (the uniform jacket's cut: hip length, natural shoulders, full sleeves),
+// double-breasted only for its front edge, which runs off to his left (the asymmetric zip), no buttons (it zips; the
+// hand pass adds the zips, snaps, yokes and stitching). JH_JACKET=lapel keeps round 4's lapelled cut)
+GARMENTS['moto-jacket'] = process.env.JH_JACKET === 'lapel'
+  ? (ctx, o) => { const c2 = Object.create(ctx); c2.crotch = ctx.hip + HEM; return GARMENTS['suit-jacket-db'](c2, o); }
+  : (ctx, o) => coat(ctx, { ...o, kind: 'uniform', hem: ctx.hip + HEM, cloth: 'leather', fabric: 'leather', rough: 0.6, thick: 0.008, collar: 'stand', db: true, trim: false, buttonsN: 0, chestMax: 0.025, chestTaper: 0.12 });
 FABRIC['moto-jacket'] = 'leather';
 const env = await nodeEnv(), { cfg } = compile(S);
 cfg.lib = [...(cfg.lib || []), { item: 'moto-jacket', color: '#141416', accent: null, accent2: '#141416', layer: 5, collarGap: +(process.env.JH_COLLAR ?? 0.006) }];

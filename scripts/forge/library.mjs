@@ -667,7 +667,7 @@ export const GARMENTS = {
   vest: (ctx, o) => westernVest(ctx, o),
   duster: (ctx, o) => duster(ctx, o),
 };
-function coat(ctx, o) {
+export function coat(ctx, o) {
   const col = hexRGB(o.color, o.kind === 'chef' ? [238, 238, 234] : [60, 60, 66]), acc = hexRGB(o.accent, o.kind === 'doorman' ? [176, 140, 58] : o.kind === 'chef' ? [228, 226, 220] : [24, 22, 22]);
   const hem = o.hemTop ?? o.hem, field = torsoArmField(ctx, { ...o, hem, neckBase: o.neckBase ?? (o.collar === 'stand' ? 0.022 : 0.026), neckFront: o.neckFront ?? (o.collar === 'turn' ? 0.03 : 0.02), neckBack: o.collar === 'stand' ? 0.014 : 0, hugNeck: o.collar === 'stand' ? { margin: o.kind === 'chef' ? 0.009 : 0.006, up: 0.015 } : o.hug ?? null, vee: o.vee ?? (o.collar === 'turn' ? 0.07 : 0) });
   const weave = CLOTH[o.cloth] || CLOTH.cotton, overlapX = o.db ? 0.055 : 0.0, ribBand = 0.05;

@@ -15,7 +15,7 @@
   }
  },
  "heritage": {
-  "note": "parody of a public persona; realistic features at forge defaults, no exaggeration",
+  "note": "parody of a public persona; realistic features at forge defaults, no exaggeration; a lean, taut face (likeness round 1: high cheekbones, no full cheeks or jowls, a slightly tapered jaw)",
   "blend": {
    "african": 0.0,
    "asian": 0.85,
@@ -29,8 +29,8 @@
   }
  },
  "face": {
-  "jaw": "average",
-  "cheeks": "full",
+  "jaw": "soft",
+  "cheeks": "average",
   "cheekbones": "high",
   "faceWidth": "average",
   "nose": {
