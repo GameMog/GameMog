@@ -2,7 +2,7 @@
 // storykit/handbuilt/jensen-cast/ forged in Node with the forge's own modules (scripts/forge is not changed), Mr. Big's
 // shoulder fix on the men (the arm joints in along the clavicles, a little more slope: no pad look, as John's base), then
 // the light finish every hand-built person gets: wet eyes, the iris pass (no black-hole irises), the fingers slimmed, the
-// daylight skin pass (the story plays in sun). Marge's headset is baked onto her head bone (headset.mjs: props are never
+// daylight skin pass (the story plays in sun), and the jeans a dark rinse at the sheet's colour. Marge's headset is baked onto her head bone (headset.mjs: props are never
 // drawn in game).
 //   node scripts/handbuilt/jensen-cast/forge.mjs [id,id,...]      -> storykit/handbuilt/jensen-cast/<id>.glb
 import fs from 'node:fs';
@@ -18,6 +18,7 @@ import { fingerPass } from '../young-hero/p2.mjs';
 import { irisPass } from '../old-boss/eyes.mjs';
 import { daylightSkinPass } from '../daylight.mjs';
 import { headsetPass } from './headset.mjs';
+import { jeansPass } from '../jensen/wear.mjs';
 const DIR = new URL('../../../storykit/handbuilt/jensen-cast/', import.meta.url).pathname;
 const want = process.argv[2]?.split(',');
 const env = await nodeEnv(); await loadFaceKit(env);
@@ -31,6 +32,8 @@ for (const f of fs.readdirSync(DIR).filter((x) => x.endsWith('.sheet.json')).sor
   const src = Buffer.from(glb0), doc = await io.readBinary(src); doc.setLogger({ debug() {}, info() {}, warn() {}, error: console.error });
   eyesPass(doc); await irisPass(doc, { base: IRIS[S.face.eyes] || IRIS.brown }); fingerPass(doc, { slim: 0.06 });
   if (S.id === 'marge') headsetPass(doc);
+  // (the pack's jeans are a light stone-wash whatever the sheet's colour: a dark rinse at the sheet's colour, Jensen's pass)
+  if (/jeans/.test(S.wardrobe.bottom.item)) { const c = S.wardrobe.bottom.color.match(/\w\w/g).map((x) => parseInt(x, 16)); await jeansPass(doc, { tgt: c }); }
   await daylightSkinPass(doc, {});
   const out = await write(doc, src); fs.writeFileSync(DIR + S.id + '.glb', out);
   console.log(S.id, (out.length / 1048576).toFixed(2), 'MB', ((Date.now() - t0) / 1000).toFixed(1), 's', (log || []).filter((l) => /left off|guard|cap/.test(l)).join(' | '));

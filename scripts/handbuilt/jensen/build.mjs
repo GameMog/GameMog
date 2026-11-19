@@ -13,7 +13,7 @@ import { fingerPass } from '../young-hero/p2.mjs';
 import { irisPass } from '../old-boss/eyes.mjs';
 import { scalpPass } from './scalp.mjs';
 import { paintSkin } from './skin.mjs';
-import { silverPass, volumePass } from './hair.mjs';
+import { silverPass, volumePass, hairlinePass } from './hair.mjs';
 import { jacketPass, teePass, teeClearPass, jeansPass } from './wear.mjs';
 import { bakeRest, addMorphs } from '../facekit.mjs';
 const FACE = process.env.JH_FACE || new URL('../../../.scratch/jensen/face/', import.meta.url).pathname;
@@ -35,6 +35,7 @@ const steps = [
   ['scalp', () => scalpPass(doc, { root: [120, 118, 116], tip: [196, 194, 190], grey: [80, 78, 76] })],
   ['hair', () => silverPass(doc)],
   ['volume', () => volumePass(doc)],
+  ['hairline', () => hairlinePass(doc)],
   ['fingers', () => fingerPass(doc, { slim: 0.07 })],
   ['eyes', () => eyesPass(doc)],
   ['iris', () => irisPass(doc, { base: [70, 46, 32] })],

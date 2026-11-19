@@ -8,37 +8,87 @@
   "body": "male",
   "presentation": "man",
   "heightCm": 175,
-  "build": { "frame": "medium", "weight": "average", "muscle": "average" }
+  "build": {
+   "frame": "medium",
+   "weight": "average",
+   "muscle": "average"
+  }
  },
  "heritage": {
   "note": "parody of a public persona; realistic features at forge defaults, no exaggeration",
-  "blend": { "african": 0.0, "asian": 0.85, "european": 0.15 },
-  "skin": { "tone": "light-medium", "undertone": "warm", "makeup": "none", "lipTint": "natural" }
+  "blend": {
+   "african": 0.0,
+   "asian": 0.85,
+   "european": 0.15
+  },
+  "skin": {
+   "tone": "light-medium",
+   "undertone": "warm",
+   "makeup": "none",
+   "lipTint": "natural"
+  }
  },
  "face": {
   "jaw": "average",
-  "cheeks": "average",
-  "cheekbones": "average",
+  "cheeks": "full",
+  "cheekbones": "high",
   "faceWidth": "average",
-  "nose": { "width": "average", "length": "average", "tip": "average", "bridge": "straight" },
+  "nose": {
+   "width": "average",
+   "length": "average",
+   "tip": "average",
+   "bridge": "straight"
+  },
   "browRidge": "average",
-  "chin": { "projection": "average", "length": "average", "width": "average" },
+  "chin": {
+   "projection": "average",
+   "length": "average",
+   "width": "average"
+  },
   "eyes": "brown",
-  "brows": { "color": "dark-brown", "weight": "average" },
+  "brows": {
+   "color": "dark-brown",
+   "weight": "average"
+  },
   "eyeShape": "average",
   "eyeBags": "light",
-  "mouth": { "lips": "average", "width": "average", "cupidsBow": "average", "corners": "up" },
-  "ears": { "size": "average", "angle": "flat" },
-  "skull": { "shape": "oval" },
+  "mouth": {
+   "lips": "average",
+   "width": "average",
+   "cupidsBow": "average",
+   "corners": "up"
+  },
+  "ears": {
+   "size": "average",
+   "angle": "flat"
+  },
+  "skull": {
+   "shape": "oval"
+  },
   "forehead": "average",
   "faceLength": "average"
  },
- "hair": { "style": "swept-back", "color": "silver", "greying": 0.9 },
- "facialHair": { "style": "none" },
+ "hair": {
+  "style": "swept-back",
+  "color": "silver",
+  "greying": 0.9
+ },
+ "facialHair": {
+  "style": "none"
+ },
  "wardrobe": {
-  "top": { "item": "tee", "color": "#141416" },
-  "bottom": { "item": "jeans", "color": "#1E2330" },
-  "shoes": { "item": "dress", "color": "#141210" }
+  "top": {
+   "item": "tee",
+   "color": "#141416"
+  },
+  "bottom": {
+   "item": "jeans",
+   "color": "#1E2330"
+  },
+  "shoes": {
+   "item": "dress",
+   "color": "#141210"
+  }
  },
  "posture": {
   "stance": "upright",
@@ -48,7 +98,12 @@
   "walk": "walk"
  },
  "personality": {
-  "traits": ["delighted", "generous", "showman", "relentless"],
+  "traits": [
+   "delighted",
+   "generous",
+   "showman",
+   "relentless"
+  ],
   "wants": "his chip back on his stage by seven",
   "speech": "lists that build into a pitch, a showman's lift at the ends"
  },

@@ -2,7 +2,7 @@
  "id": "dex",
  "name": "Dex Varga",
  "role": "rival CEO of Cobalt Circuitry: Jensen Heist",
- "logline": "Puffer over a hoodie; wants one real keynote in his life.",
+ "logline": "Cobalt-blue puffer over a grey tee; wants one real keynote in his life.",
  "identity": {
   "age": 34,
   "body": "male",
@@ -80,9 +80,9 @@
  },
  "wardrobe": {
   "top": {
-   "item": "hoodie",
-   "color": "#6E727B",
-   "accent": "#E4E1DA"
+   "item": "puffer-coat",
+   "color": "#2F5FD0",
+   "accent": "#6E727B"
   },
   "bottom": {
    "item": "jeans",
@@ -91,13 +91,7 @@
   "shoes": {
    "item": "white-sneakers",
    "color": "#E2DFD8"
-  },
-  "over": [
-   {
-    "item": "puffer-coat",
-    "color": "#2F5FD0"
-   }
-  ]
+  }
  },
  "posture": {
   "stance": "guarded",

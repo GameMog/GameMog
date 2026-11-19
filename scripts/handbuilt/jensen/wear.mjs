@@ -102,10 +102,10 @@ export async function jacketPass(doc, K = {}) {
 // the jacket's fit: (1) short: the torso's hem raised to 5 cm over the jeans' waistband, the cloth from the chest down
 // compressed into the shorter length (the sleeves left as they are); (2) close: every point standing more than tmax off
 // the tee under it (8 mm on the chest and arms, 6 mm round the waist and hips, 5 mm at the shoulder's top: the boxy pad
-// look) drawn in along the tee's normal, and every point closer than 6.5 mm (or inside it) pushed out; the moves smoothed
+// look) drawn in along the tee's normal, and every point closer than 7.5 mm (or inside it) pushed out; the moves smoothed
 // over the garment's neighbours so no dents are left
 function fitJacket(doc, p, a, used, K) {
-  K = { cap: +(process.env.JH_CAP ?? 0.014), hemOver: 0.05, from: 1.18, torso: 0.008, arm: 0.008, top: 0.006, low: 0.006, minOff: 0.0065, pull: 0.85, smooth: 4, ...K };
+  K = { cap: +(process.env.JH_CAP ?? 0.014), hemOver: 0.05, from: 1.18, torso: 0.008, arm: 0.008, top: 0.007, low: 0.006, minOff: 0.0075, pull: 0.85, smooth: 4, ...K };
   const R = doc.getRoot(), joints = R.listSkins()[0].listJoints().map((j) => j.getName()), J = p.getAttribute('JOINTS_0').getArray(), W = p.getAttribute('WEIGHTS_0'), Wa = W.getArray(), sc = W.getNormalized() ? (Wa instanceof Uint8Array ? 255 : 65535) : 1;
   const armW = (v) => { let s = 0; for (let k = 0; k < 4; k++) if (/^(upperarm|lowerarm|wrist|finger)/.test(joints[J[v * 4 + k]] || '')) s += Wa[v * 4 + k] / sc; return s; };
   // the jeans' waistband top
@@ -113,6 +113,9 @@ function fitJacket(doc, p, a, used, K) {
   let yLow = 9; for (const v of used) if (armW(v) < 0.3) yLow = Math.min(yLow, a[v * 3 + 1]);
   const hem = jt - K.hemOver, k = (K.from - hem) / (K.from - yLow); let nh = 0;
   if (jt > 0 && yLow < hem) for (const v of used) { const y = a[v * 3 + 1]; if (y >= K.from) continue; const t = 1 - armW(v); if (t <= 0) continue; a[v * 3 + 1] = y + (K.from - (K.from - y) * k - y) * t; nh++; }
+  // (first, the sleeve head's top corner, where the cloth bunches as the arm comes down from the bind pose: dropped and drawn in
+  // toward the neck, so the shoulder rounds off instead of standing up as a pad)
+  if (K.cap) for (const v of used) { const x = a[v * 3], y = a[v * 3 + 1], w = sm(0.13, 0.19, Math.abs(x)) * sm(0.3, 0.24, Math.abs(x)) * sm(1.33, 1.41, y); if (w <= 0) continue; a[v * 3 + 1] -= K.cap * w; a[v * 3] -= Math.sign(x) * K.cap * 0.6 * w; }
   // what the jacket is worn over: the tee (its torso and short sleeves) and the skin still drawn (forearms, neck); the
   // forge's diet took the skin under the tee out of the GLB, so the tee stands in for the body there. Each with its normal:
   // a jacket point's offset is measured along the nearest one's normal (signed: below zero it is inside the tee)
@@ -137,16 +140,13 @@ function fitJacket(doc, p, a, used, K) {
   let F = new Map(); for (const v of list) { const kx = pk(v); if (!F.has(kx)) F.set(kx, D.get(v) || [0, 0, 0]); }
   for (let it = 0; it < K.smooth; it++) { const F2 = new Map(); for (const [kx, d] of F) { const s = [...d]; let c = 1; for (const ky of nb.get(kx) || []) { const e = F.get(ky); if (!e) continue; for (let q = 0; q < 3; q++) s[q] += e[q]; c++; } F2.set(kx, s.map((x) => x / c)); } F = F2; }
   const keys = list.map(pk); list.forEach((v, i) => { const d = F.get(keys[i]); for (let q = 0; q < 3; q++) a[v * 3 + q] += d[q]; });
-  // (the sleeve head's top corner, where the cloth bunches as the arm comes down from the bind pose: dropped and drawn in
-  // toward the neck, so the shoulder rounds off instead of standing up as a pad)
-  if (K.cap) for (const v of list) { const x = a[v * 3], y = a[v * 3 + 1], w = sm(0.13, 0.19, Math.abs(x)) * sm(0.3, 0.24, Math.abs(x)) * sm(1.33, 1.41, y); if (w <= 0) continue; a[v * 3 + 1] -= K.cap * w; a[v * 3] -= Math.sign(x) * K.cap * 0.6 * w; }
   console.log('jacket fit: hem', yLow.toFixed(3), '->', hem.toFixed(3), '(waistband', jt.toFixed(3) + ')', nh, 'points; pulled in', np, 'mean mm', ((mm / Math.max(1, np)) * 1000).toFixed(1), '; pushed out over the tee', nout);
 }
 
 // the jeans: a dark rinse (raw indigo, the wash's fades taken out: the pack's are light stone-wash), the folds kept
 export async function jeansPass(doc, K = {}) {
   K = { tgt: [30, 34, 46], flat: 0.7, ...K };
-  const m = doc.getRoot().listMaterials().find((x) => { const e = x.getExtras() || {}; return e.garment === 'male_casualsuit06' && e.layer === 1; }), tex = m.getBaseColorTexture(), { data, w, h } = await rgba(tex);
+  const m = doc.getRoot().listMaterials().find((x) => { const e = x.getExtras() || {}; return /casualsuit/.test(e.garment || '') && e.layer === 1; }), tex = m.getBaseColorTexture(), { data, w, h } = await rgba(tex);
   const blur = await sharp(data, { raw: { width: w, height: h, channels: 4 } }).blur(14).raw().toBuffer(), mask = new Uint8Array(w * h);
   for (let i = 0; i < w * h; i++) { if (!(data[i * 4 + 2] > data[i * 4] + 4)) continue; mask[i] = 1; for (let c = 0; c < 3; c++) data[i * 4 + c] = Math.round(data[i * 4 + c] * (1 - K.flat) + blur[i * 4 + c] * K.flat); }
   const acc = [0, 0, 0]; let n = 0; for (let i = 0; i < w * h; i++) if (mask[i]) { for (let c = 0; c < 3; c++) acc[c] += (data[i * 4 + c] / 255) ** 2.2; n++; }
@@ -155,9 +155,10 @@ export async function jeansPass(doc, K = {}) {
 }
 
 // the tee under the fitted jacket moves as the jacket over it does: each covered point takes the jacket's skin weights at
-// its nearest point (weighted apart, the arms' coming down lifted the tee through the jacket's back as matte black patches)
+// its nearest point (weighted apart, the arms' coming down lifted the tee through the jacket's back as matte black patches),
+// and is drawn in along its own normal wherever the jacket is closer over it than 6 mm
 export function teeClearPass(doc, K = {}) {
-  K = { gap: 0.004, min: 0.0015, max: 0.0035, ...K };
+  K = { gap: 0.007, ...K };
   const R = doc.getRoot(), jp = jacketPrim(doc), ja = jp.getAttribute('POSITION').getArray(), jv = [...new Set(jp.getIndices().getArray())];
   const sk = prim(doc, 'skin').sort((x, y) => y.getIndices().getCount() - x.getIndices().getCount())[0], bp = sk.getAttribute('POSITION').getArray();
   const grid = (pts, cell) => { const G = new Map(); for (const i of pts) { const k = `${Math.floor(i[1] / cell)},${Math.floor(i[2] / cell)},${Math.floor(i[3] / cell)}`; (G.get(k) || G.set(k, []).get(k)).push(i); } return G; };
@@ -166,17 +167,22 @@ export function teeClearPass(doc, K = {}) {
   const cell = 0.015, BG = grid(Array.from({ length: bp.length / 3 }, (_, i) => [i, bp[i * 3], bp[i * 3 + 1], bp[i * 3 + 2]]).filter((q) => q[2] < 1.5), cell);
   // the jacket's offset off the body at each of its points
   const JG = grid(jv.map((v) => { const b = nearIn(BG, cell, ja[v * 3], ja[v * 3 + 1], ja[v * 3 + 2]); return [v, ja[v * 3], ja[v * 3 + 1], ja[v * 3 + 2], b.d]; }), cell);
-  let n = 0;
+  let n = 0, nin = 0; const jn = R.listSkins()[0].listJoints().map((j) => j.getName());
+  // (the arms' share of a point's weights: the tee's short sleeves and the jacket's sleeves keep their own (arm) weights)
+  const armOf = (J4, W4, v) => { let s = 0, t = 0; for (let k = 0; k < 4; k++) { t += W4[v * 4 + k]; if (/^(upperarm|lowerarm|shoulder|clavicle)/.test(jn[J4[v * 4 + k]] || '')) s += W4[v * 4 + k]; } return t ? s / t : 0; };
   for (const p of R.listMeshes().flatMap((m) => m.listPrimitives())) { const e = p.getMaterial()?.getExtras() || {}; if (!(e.garment === 'male_casualsuit06' && e.layer >= 2)) continue;
-    const P = p.getAttribute('POSITION'), a = P.getArray().slice(), TJ = p.getAttribute('JOINTS_0'), TW = p.getAttribute('WEIGHTS_0'), tj = TJ.getArray().slice(), tw = TW.getArray().slice();
+    const P = p.getAttribute('POSITION'), a = P.getArray().slice(), na = p.getAttribute('NORMAL').getArray(), TJ = p.getAttribute('JOINTS_0'), TW = p.getAttribute('WEIGHTS_0'), tj = TJ.getArray().slice(), tw = TW.getArray().slice();
     const JJ = jp.getAttribute('JOINTS_0').getArray(), JW = jp.getAttribute('WEIGHTS_0'), jw = JW.getArray(), wk = (TW.getNormalized() ? (tw instanceof Uint8Array ? 255 : 65535) : 1) / (JW.getNormalized() ? (jw instanceof Uint8Array ? 255 : 65535) : 1);
     for (const v of new Set(p.getIndices().getArray())) { const x = a[v * 3], y = a[v * 3 + 1], z = a[v * 3 + 2], b = nearIn(BG, cell, x, y, z); if (!b.q) continue; const jq = nearIn(JG, cell, x, y, z, 4); if (!jq.q || jq.d > 0.04) continue;
       // (and it moves as the jacket over it does: the jacket's skin weights at its nearest point; with the two weighted
       // apart, the arms' coming down lifted the tee through the jacket's back)
-      if (y < 1.45) for (let k = 0; k < 4; k++) { tj[v * 4 + k] = JJ[jq.q[0] * 4 + k]; tw[v * 4 + k] = Math.round(jw[jq.q[0] * 4 + k] * wk * 1e6) / 1e6; }
+      if (y < 1.52 && !(Math.abs(x) < 0.09 && y > 1.42) && armOf(tj, tw, v) < 0.25 && armOf(JJ, jw, jq.q[0]) < 0.25) for (let k = 0; k < 4; k++) { tj[v * 4 + k] = JJ[jq.q[0] * 4 + k]; tw[v * 4 + k] = Math.round(jw[jq.q[0] * 4 + k] * wk * 1e6) / 1e6; }
+      // (and where the jacket over it is closer than K.gap along the tee's own normal, the tee is drawn in, at most 8 mm)
+      const nl = Math.hypot(na[v * 3], na[v * 3 + 1], na[v * 3 + 2]) || 1, nn = [na[v * 3] / nl, na[v * 3 + 1] / nl, na[v * 3 + 2] / nl], q = jq.q;
+      const sj = (q[1] - x) * nn[0] + (q[2] - y) * nn[1] + (q[3] - z) * nn[2]; if (jq.d < 0.02 && sj < K.gap) { const mv = Math.min(0.008, K.gap - sj); for (let c = 0; c < 3; c++) a[v * 3 + c] -= nn[c] * mv; nin++; }
       n++; }
     P.setArray(a); TJ.setArray(tj); TW.setArray(tw); }
-  console.log('tee weights from the jacket:', n, 'points');
+  console.log('tee weights from the jacket:', n, 'points; drawn in under it', nin);
 }
 
 // the tee: the forge's black tee a soft jersey black (not a dead flat black: a faint knit sheen and lift, so it reads as
