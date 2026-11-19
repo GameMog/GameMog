@@ -57,6 +57,9 @@ export function ageShapePass(doc, K = {}) {
     // read as a doll's))
     [T('head/head-diamond'), K.diamond || 0], [T('head/head-invertedtriangular'), K.invTri || 0], [T('cheek/l-cheek-inner-decr'), K.cheekIn || 0], [T('cheek/r-cheek-inner-decr'), K.cheekIn || 0],
     [T('neck/neck-scale-horiz-incr'), K.neckW || 0], [T('neck/neck-scale-depth-incr'), K.neckD || 0],
+    // (likeness round 3: any further MakeHuman targets by their path under the targets folder, K.extra = [[path, w], ...]:
+    // the nose (broad base, wide soft tip, lower bridge), the eyes' lids, the jaw's corners and the chin)
+    ...(K.extra || []).map(([f, w]) => [T(f), w]),
   ].filter(([, w]) => w);
   bakeRest(doc, list);
 }
@@ -92,7 +95,7 @@ export async function ageSkinPass(doc, K = {}) {
             h += K.fore * fh * (-0.0002 * ln + 0.00005 * bump); dk += K.fore * fh * 0.09 * ln; } } }
       // the frown lines between the brows
       { const gl = Math.exp(-(((x - 0.0065 - 0.002 * (y - EY - 0.012) / 0.02) / 0.0011) ** 2)) * sm(EY + 0.004, EY + 0.012, y) * sm(EY + 0.04, EY + 0.026, y) * sm(EYEFRONT - 0.03, EYEFRONT - 0.012, z);
-        h -= 0.00022 * gl; dk += 0.08 * gl; }
+        h -= 0.00022 * gl * (K.frown ?? 1); dk += 0.08 * gl * (K.frown ?? 1); } // (likeness round 3, K.frown: they read as a scowl)
       // crow's feet: rays from the outer corner, 4 of them, 5 to 16 mm out
       { const cx = x - (EYEX + 0.019), cy = y - (EY - 0.001); if (cx > -0.002 && cx < 0.022 && Math.abs(cy) < 0.016 && z > EZ - 0.06) {
           const an = Math.atan2(cy, cx), r = Math.hypot(cx, cy), rays = Math.exp(-((Math.sin((an + 0.25 * n1) * 4.2) / 0.16) ** 2)) * (Math.abs(an) < 1.1 ? 1 : 0);
@@ -161,26 +164,83 @@ export async function ageSkinPass(doc, K = {}) {
 export async function browAgePass(doc, K = {}) {
   K = { col: [70, 68, 66], mix: 0.35, alpha: 0.9, ...K };
   const m = matOf(doc, 'brows'); if (!m) return; const t = m.getBaseColorTexture();
-  if (t) { const { data, w, h } = await rgba(t); for (let i = 0; i < w * h; i++) { for (let c = 0; c < 3; c++) data[i * 4 + c] = Math.round(data[i * 4 + c] * (1 - K.mix) + K.col[c] * K.mix); data[i * 4 + 3] = Math.round(data[i * 4 + 3] * K.alpha); } await setWebp(t, data, w, h, 92); }
+  if (t) { const { data, w, h } = await rgba(t); for (let i = 0; i < w * h; i++) { for (let c = 0; c < 3; c++) data[i * 4 + c] = Math.round(data[i * 4 + c] * (1 - K.mix) + K.col[c] * K.mix); data[i * 4 + 3] = Math.round(data[i * 4 + 3] * K.alpha); }
+    // (likeness round 3, K.grow: fuller brows: each hair's alpha spread K.grow texels across (vertically in the strip's
+    // texture), at K.growK of its own strength, so the brow reads thicker and denser without new hairs' shapes)
+    if (K.grow) { const A = new Uint8Array(w * h); for (let i = 0; i < w * h; i++) A[i] = data[i * 4 + 3];
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { let m = A[y * w + x]; for (let d = -K.grow; d <= K.grow; d++) { const yy = y + d, xx = x + Math.round(d * 0.3); if (yy < 0 || yy >= h || xx < 0 || xx >= w) continue; m = Math.max(m, A[yy * w + xx] * (K.growK ?? 0.8) * (1 - Math.abs(d) / (K.grow + 1) * 0.4)); }
+        data[(y * w + x) * 4 + 3] = Math.min(255, Math.round(m)); } }
+    await setWebp(t, data, w, h, 92); }
   const l = matOf(doc, 'lashes'); if (l) l.setBaseColorFactor([0.5, 0.49, 0.48, 1]);
   console.log('brows: greyer, thinner');
 }
 
-// (likeness round 2b: the face's outline sculpted by hand where MakeHuman's head targets could not reach it: the owner's
-// reference is broad at the cheekbones and tapers to a short jaw; ours stayed pear-shaped, as wide at the mouth as at the
-// cheekbones. The skin's points scaled toward the face's middle line by height: the lower cheeks and jaw in by up to
-// K.jaw, the cheekbones (beside and under the eyes, outside their corners) out by K.bones; only the face's front (the
-// ears and the back of the head kept), feathered so no edge shows)
-export function sculptPass(doc, K = {}) {
-  K = { jaw: 0.07, bones: 0.045, ...K };
-  const { EY, EZ, MOUTHY, CHINY } = LM, bump = (y, c, h) => { const t = (y - c) / h; return Math.abs(t) >= 1 ? 0 : (1 - t * t) ** 2; };
+// (likeness round 3, the critic: round 2b's hand sculpt left hard kinks at the outer cheek and the zygoma and a pointed
+// chin. It is gone; the outline now comes from MakeHuman's own targets alone, and this pass irons the face's broad
+// planes: Taubin smoothing (a shrink-free Laplacian: lambda in, mu out) of the skin's points over the cheeks, the jaw,
+// the temples and under the chin, masked off the eyes, the nose, the mouth and the ears, the mask itself soft-edged)
+export function smoothFacePass(doc, K = {}) {
+  K = { iters: 10, lam: 0.5, mu: -0.53, ...K };
+  const { EY, EZ, EYEX, MOUTHY, CHINY } = LM;
   const sk = doc.getRoot().listMeshes().flatMap((m) => m.listPrimitives()).filter((p) => p.getMaterial()?.getName() === 'skin');
-  const seen = new Set(); let n = 0, peak = 0;
-  for (const p of sk) { const P = p.getAttribute('POSITION'); if (seen.has(P)) continue; seen.add(P); const a = P.getArray().slice();
-    for (let v = 0; v < a.length / 3; v++) { const x = a[v * 3], y = a[v * 3 + 1], z = a[v * 3 + 2], ax = Math.abs(x); if (y < CHINY - 0.03 || y > EY + 0.01 || ax < 0.015) continue;
-      const w = sm(0.015, 0.045, ax) * sm(EZ - 0.11, EZ - 0.065, z);
-      const s = -K.jaw * bump(y, MOUTHY - 0.014, 0.05) + K.bones * bump(y, EY - 0.028, 0.036) * sm(0.03, 0.055, ax); if (!w || !s) continue;
-      const dx = x * s * w; a[v * 3] = x + dx; n++; peak = Math.max(peak, Math.abs(dx)); }
-    P.setArray(a); }
-  console.log('sculpt: points', n, 'peak mm', (peak * 1000).toFixed(1));
+  const P = sk[0].getAttribute('POSITION'), a = P.getArray().slice(), n = a.length / 3;
+  // the points welded by position (uv seams split them)
+  const key = new Map(), rep = new Int32Array(n); for (let v = 0; v < n; v++) { const k = `${Math.round(a[v * 3] * 1e5)},${Math.round(a[v * 3 + 1] * 1e5)},${Math.round(a[v * 3 + 2] * 1e5)}`; if (!key.has(k)) key.set(k, v); rep[v] = key.get(k); }
+  const mask = new Float32Array(n);
+  for (let v = 0; v < n; v++) { if (rep[v] !== v) continue; const x = a[v * 3], y = a[v * 3 + 1], z = a[v * 3 + 2], ax = Math.abs(x);
+    if (y < CHINY - 0.05 || y > EY + 0.03 || z < EZ - 0.14) continue;
+    let m = sm(CHINY - 0.05, CHINY - 0.02, y) * sm(EY + 0.03, EY + 0.012, y) * sm(EZ - 0.14, EZ - 0.1, z) * sm(0.075, 0.066, ax);
+    const de = Math.hypot(ax - EYEX, y - EY, (z - EZ) * 0.7); m *= sm(0.018, 0.03, de);
+    m *= 1 - (1 - sm(0.016, 0.026, ax)) * sm(MOUTHY + 0.004, MOUTHY + 0.012, y) * sm(EY, EY - 0.01, y); // the nose
+    m *= 1 - (1 - sm(0.026, 0.036, ax)) * (1 - sm(0.012, 0.02, Math.abs(y - MOUTHY))); // the mouth
+    mask[v] = m; }
+  const nb = new Map(); for (const p of sk) { const I = p.getIndices().getArray(); for (let t = 0; t < I.length; t += 3) for (let e = 0; e < 3; e++) { const A = rep[I[t + e]], B = rep[I[t + (e + 1) % 3]]; if (!mask[A] && !mask[B]) continue;
+    for (const [u, w] of [[A, B], [B, A]]) (nb.get(u) || nb.set(u, new Set()).get(u)).add(w); } }
+  const step = (f) => { const o = a.slice(); for (const [v, s] of nb) { const m = mask[v]; if (!m) continue; let cx = 0, cy = 0, cz = 0; for (const w of s) { cx += o[w * 3]; cy += o[w * 3 + 1]; cz += o[w * 3 + 2]; } const k = s.size;
+      for (const [c, q] of [[0, cx], [1, cy], [2, cz]]) a[v * 3 + c] = o[v * 3 + c] + f * m * (q / k - o[v * 3 + c]); } };
+  const a0 = a.slice(); for (let i = 0; i < K.iters; i++) { step(K.lam); step(K.mu); }
+  let peak = 0, moved = 0; for (let v = 0; v < n; v++) { const r = rep[v]; if (r !== v) for (let c = 0; c < 3; c++) a[v * 3 + c] = a[r * 3 + c]; const d = Math.hypot(a[v * 3] - a0[v * 3], a[v * 3 + 1] - a0[v * 3 + 1], a[v * 3 + 2] - a0[v * 3 + 2]); if (d > 1e-6) { moved++; peak = Math.max(peak, d); } }
+  P.setArray(a); console.log('face smooth: points', moved, 'peak mm', (peak * 1000).toFixed(2));
+}
+
+// (likeness round 3, the critic: the head read too small and narrow for his shoulders. The head bone's scale (the forge's
+// own headScale, kept for children at 1.015): everything it carries (skin, eyes, teeth, brows, hair, glasses) grows
+// about the neck's top together, so the eyes stay in their sockets and the glasses on the nose)
+export function headSizePass(doc, s = 1.08) {
+  const h = doc.getRoot().listNodes().find((n) => n.getName() === 'head'); if (!h) throw new Error('no head node');
+  const s0 = h.getScale()[0]; h.setScale([s, s, s]); console.log('head scale', s0, '->', s);
+}
+
+// (likeness round 3, the critic: the face read flat and waxy, no depth under the surface. glTF has no subsurface
+// scattering; KHR_materials_sheen gives the skin a faint warm-red glow toward the light's grazing edge (where light
+// scattered in skin comes back out reddened), the wrap-lighting tint Mog City's three.js draws natively; and the
+// roughness map's spread widened a little round its own middle (skin is shinier on the nose and forehead, drier on the
+// cheeks), so the sheen breaks up instead of a plastic sheet)
+export async function skinScatterPass(doc, K = {}) {
+  K = { col: [0.2, 0.07, 0.045], rough: 0.55, spread: 1.35, ...K };
+  const { require } = await import('../young-hero/glb.mjs'); const { KHRMaterialsSheen } = require('@gltf-transform/extensions');
+  const mat = matOf(doc, 'skin'), ext = doc.createExtension(KHRMaterialsSheen);
+  mat.setExtension('KHR_materials_sheen', ext.createSheen().setSheenColorFactor(K.col).setSheenRoughnessFactor(K.rough));
+  const mr = mat.getMetallicRoughnessTexture(); if (mr && K.spread !== 1) { const { data, w, h } = await rgba(mr); let s = 0, n = 0; for (let i = 0; i < w * h; i++) { s += data[i * 4 + 1]; n++; } const m = s / n;
+    for (let i = 0; i < w * h; i++) data[i * 4 + 1] = Math.max(0, Math.min(255, Math.round(m + (data[i * 4 + 1] - m) * K.spread))); await setWebp(mr, data, w, h, 90); }
+  console.log('skin scatter: sheen', K.col.join(','), 'rough spread', K.spread);
+}
+
+// (likeness round 3, the critic: a dark spot on the neck in the webcam's 3/4 talk and the back views. It is the inside of
+// the skin seen through two small holes each side of the neck behind the ears (4 and 7 points round), left where the
+// forge's diet cut the skin under its stand collar. Each small boundary loop of the skin there (welded by position)
+// closed with a fan, wound as its neighbours are)
+export function neckHolesPass(doc, K = {}) {
+  K = { y0: 1.45, y1: 1.58, maxLoop: 12, ...K };
+  const ps = doc.getRoot().listMeshes().flatMap((m) => m.listPrimitives()).filter((p) => p.getMaterial()?.getName() === 'skin');
+  const main = ps.sort((a, b) => b.getIndices().getCount() - a.getIndices().getCount())[0], a = main.getAttribute('POSITION').getArray(), n = a.length / 3;
+  const key = new Map(), rep = new Int32Array(n); for (let v = 0; v < n; v++) { const k = `${Math.round(a[v * 3] * 1e5)},${Math.round(a[v * 3 + 1] * 1e5)},${Math.round(a[v * 3 + 2] * 1e5)}`; if (!key.has(k)) key.set(k, v); rep[v] = key.get(k); }
+  const cnt = new Map(), dir = new Map(); for (const p of ps) { const I = p.getIndices().getArray(); for (let t = 0; t < I.length; t += 3) for (let e = 0; e < 3; e++) { const A = rep[I[t + e]], B = rep[I[t + (e + 1) % 3]], k = A < B ? A + ',' + B : B + ',' + A; cnt.set(k, (cnt.get(k) || 0) + 1); dir.set(k, [A, B]); } }
+  const next = new Map(); for (const [k, c] of cnt) if (c === 1) { const [A, B] = dir.get(k); next.set(B, A); } // (the fill runs each open edge backwards)
+  const seen = new Set(), add = []; let loops = 0;
+  for (const s of next.keys()) { if (seen.has(s)) continue; const L = []; let v = s; while (v != null && !seen.has(v) && L.length < 400) { seen.add(v); L.push(v); v = next.get(v); }
+    if (v !== s || L.length > K.maxLoop || L.length < 3) continue; const cy = L.reduce((q, w) => q + a[w * 3 + 1], 0) / L.length; if (cy < K.y0 || cy > K.y1) continue;
+    for (let i = 1; i + 1 < L.length; i++) add.push(L[0], L[i], L[i + 1]); loops++; }
+  if (add.length) { const I = main.getIndices(), old = I.getArray(), out = new old.constructor(old.length + add.length); out.set(old); out.set(add, old.length); I.setArray(out); }
+  console.log('neck holes: loops closed', loops, 'triangles', add.length / 3);
 }

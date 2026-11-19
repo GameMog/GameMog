@@ -22,7 +22,7 @@ const samp = (T, u, v, c) => { const x = ((Math.floor(u * T.S) % T.S) + T.S) % T
 const isMoto = (m) => m?.getExtras()?.garment === 'moto-jacket' || m?.getExtras()?.garment === 'leather-moto-jacket';
 
 export async function motoPass(doc, K = {}) {
-  K = { black: [24, 23, 24], tileM: 0.2, rough: 0.5, zipW: 0.0058, edgeX: -0.034, ...K };
+  K = { black: [15, 15, 16], tileM: 0.2, rough: 0.46, zipW: 0.0058, edgeX: -0.034, ...K }; // (likeness round 3: near-black, a firmer sheen)
   const R = doc.getRoot(), prims = R.listMeshes().flatMap((m) => m.listPrimitives().map((p) => ({ m, p }))).filter(({ p }) => isMoto(p.getMaterial()));
   // the buttons off
   for (const { m, p } of prims) if (/buttons/.test(p.getMaterial().getName())) { m.removePrimitive(p); if (!m.listPrimitives().length) for (const n of R.listNodes()) if (n.getMesh() === m) n.setMesh(null); }
@@ -62,7 +62,9 @@ export async function motoPass(doc, K = {}) {
   // shoulder's cap, quilted in rows with a stitched border; the collar's tab fastened by two snaps on his left, and a
   // second snap tab where the zip ends under the collar. Stitch thread a dark grey, the snaps gunmetal)
   const snapsC = [[0.03, 1.468, 'uniform-collar'], [0.047, 1.465, 'uniform-collar'], [0.068, 1.405, 'uniform'], [0.087, 1.401, 'uniform']];
-  const stitch = (d, along, w = 0.0028) => { const r = Math.abs(Math.abs(d) - w); return r < 0.0005 && (Math.floor(along / 0.0035) % 3) !== 0; };
+  // (likeness round 3, the critic: the seams read as dashed tape: now a fine stitch, 0.35 mm thread, 2.4 mm stitches with
+  // 0.8 mm gaps, beside a thin recessed seam line)
+  const stitch = (d, along, w = 0.0028) => { const r = Math.abs(Math.abs(d) - w); return r < 0.00035 && (along % 0.0032) < 0.0024; };
   const detail = (q, part) => {
     const [x, y, z] = q, ax = Math.abs(x), sx = Math.sign(x) || 1;
     for (const [cx, cy, pn] of snapsC) { if (pn !== part || z < 0) continue; const d = Math.hypot(x - cx, y - cy); if (d < 0.0042) { const t = d / 0.0042;
@@ -73,22 +75,23 @@ export async function motoPass(doc, K = {}) {
     if (part !== 'uniform') return null;
     // the yokes: across the front at 1.37 (rising a little to the shoulder) and across the back at 1.395
     if (y > 1.3 && y < 1.47 && ax < 0.2) { const front = z > 0.03, yl = front ? 1.372 + 0.12 * Math.max(0, ax - 0.06) : 1.395, d = y - yl;
-      if ((front ? ax > 0.012 && !(x > 0.04 && x < 0.06) : true) && Math.abs(d) < 0.0045) { if (Math.abs(d) < 0.0007) return { k: 0.4, n: [0, 0.5 * Math.sign(d)], rough: 0.06 }; if (stitch(d, x, 0.0026)) return { k: 3.2 }; if (d > 0 && d < 0.0035) return { k: 1.08, n: [0, -0.15] }; } }
+      if ((front ? ax > 0.012 && !(x > 0.04 && x < 0.06) : true) && Math.abs(d) < 0.0045) { if (Math.abs(d) < 0.0009) return { k: 0.22, n: [0, 0.7 * Math.sign(d)], rough: 0.1 }; if (stitch(d, x, 0.0024)) return { k: 2.4 }; if (d > 0 && d < 0.0045) return { k: 1.1, n: [0, -0.3], rough: -0.04 }; } }
     // (likeness round 2b, the owner's reference: the fronts' horizontal panel seams across the chest and over the waist,
     // a raised welt with a double row of stitching each side, readable at a webcam's distance)
     if (z > 0.03 && ax > 0.012 && ax < 0.2 && !(x > 0.04 && x < 0.06)) for (const yl0 of [1.288, 1.168]) { const d = y - (yl0 + 0.02 * Math.max(0, ax - 0.1));
-      if (Math.abs(d) < 0.006) { if (Math.abs(d) < 0.0008) return { k: 0.35, n: [0, 0.6 * Math.sign(d)], rough: 0.08 }; if (stitch(d, x, 0.0024) || stitch(d, x, 0.0042)) return { k: 3.2 }; if (Math.abs(d) < 0.0035) return { k: 1.1, n: [0, -0.25 * Math.sign(d)] }; } }
-    // the shoulders' padded panels: an oval on each cap, quilted across in 11 mm rows, its border stitched
-    { const C = [sx * 0.215, 1.405, 0.02], u = (ax - 0.215) / 0.06, v = (y - 1.405 - (ax - 0.215) * -0.55) / 0.04, w = (z - 0.02) / 0.075, r = Math.hypot(u, v * 0.0 + w);
-      if (y > 1.36 - (ax - 0.17) * 0.6 && r < 1 && ax > 0.15) { const e = 1 - r; if (e < 0.04) return { k: 0.45, n: [0, 0] }; if (Math.abs(e - 0.085) < 0.018) return { k: 3.0 };
-        const ph = (z + (ax - 0.215) * 0.15) / 0.011, f = ph - Math.floor(ph), seam = Math.abs(f - 0.5) > 0.42; if (seam) return { k: 0.4, n: [0, 0] };
-        return { k: 0.8 + 0.45 * Math.sin(f * Math.PI), n: [0, Math.cos(f * Math.PI) * 0.8], rough: -0.12 * Math.sin(f * Math.PI) }; } }
+      if (Math.abs(d) < 0.006) { if (Math.abs(d) < 0.0009) return { k: 0.22, n: [0, 0.7 * Math.sign(d)], rough: 0.1 }; if (stitch(d, x, 0.0024) || stitch(d, x, 0.0038)) return { k: 2.4 }; if (Math.abs(d) < 0.0045) return { k: 1.1, n: [0, -0.3 * Math.sign(d)], rough: -0.04 }; } }
+    // the shoulders' padded panels (likeness round 3: on tailorPass's raised pads, the same ellipsoid): a recessed seam
+    // round each, a fine stitch inside it, the panel's leather a little smoother (rubbed), two soft quilting lines across
+    { const d = Math.hypot((ax - 0.2) / 0.055, (y - 1.4) / 0.05, (z - 0.03) / 0.07);
+      if (d < 1.02) { if (d > 0.95) return { k: 0.35, n: [0, 0] }; const ed = (0.95 - d) * 0.055; if (Math.abs(ed - 0.0028) < 0.00035 && (Math.abs(z * 1.3 + y) % 0.0032) < 0.0024) return { k: 2.2 };
+        const ph = (z - 0.03) / 0.022 + 0.5, f = ph - Math.floor(ph); if (Math.abs(f - 0.5) > 0.47 && d < 0.85) return { k: 0.55, n: [0, 0.3] };
+        return { k: 1.02 + 0.04 * Math.sin(f * Math.PI), n: [0, Math.cos(f * Math.PI) * 0.25], rough: -0.05 }; } }
     return null; };
   const LC = await tile(MATS + 'Leather026_Color.jpg', 1024), LR = await tile(MATS + 'leather_white_rough.jpg', 1024);
   const lin = (c) => Math.pow(c / 255, 2.2), enc = (l) => Math.min(255, Math.max(0, Math.round(255 * Math.pow(Math.max(0, l), 1 / 2.2))));
   let nz = 0;
   for (const { p } of parts) {
-    const mat = p.getMaterial(), tex = mat.getBaseColorTexture(); if (!tex) continue; const { data: O, w: S } = await rgba(tex);
+    const mat = p.getMaterial(), tex = mat.getBaseColorTexture(); if (!tex || mat.getExtras()?.bandPainted) continue; const { data: O, w: S } = await rgba(tex); // (round 3: collar.mjs paints its own band)
     const nt = mat.getNormalTexture(), N = nt ? await rgba(nt) : null, NS = N?.w || 0;
     const a = p.getAttribute('POSITION').getArray(), uv = p.getAttribute('TEXCOORD_0').getArray(), I = p.getIndices().getArray();
     // metres per uv unit (median), for the leather tile's size on the body
@@ -100,11 +103,11 @@ export async function motoPass(doc, K = {}) {
     const nm = N ? Buffer.from(N.data) : null;
     raster(I, (v) => [uv[v * 2] * S, uv[v * 2 + 1] * S], S, (x, y, l1, l2, l3, A, B, C) => {
       const i = y * S + x, q = [0, 1, 2].map((c) => l1 * a[A * 3 + c] + l2 * a[B * 3 + c] + l3 * a[C * 3 + c]);
-      const L0 = (O[i * 4] + O[i * 4 + 1] + O[i * 4 + 2]) / 3, shade = Math.pow(clamp(L0 / Lmid, 0.5, 1.6), 0.9);
+      const L0 = (O[i * 4] + O[i * 4 + 1] + O[i * 4 + 2]) / 3, shade = Math.pow(clamp(L0 / Lmid, 0.75, 1.25), 0.5); // (round 3: the library's painted folds a third as strong: they read as lumps)
       const u = x / S, v = y / S, gu = u * rep, gv = v * rep, lcL = (samp(LC, gu, gv, 0) + samp(LC, gu, gv, 1) + samp(LC, gu, gv, 2)) / 3;
-      const mott = 0.92 + 0.16 * fbm(q[0], q[1], q[2], 9), grain = clamp(0.85 + 0.3 * (lcL / 60), 0.75, 1.25);
+      const mott = 0.96 + 0.08 * fbm(q[0], q[1], q[2], 9), grain = clamp(0.94 + 0.12 * (lcL / 60), 0.9, 1.1); // (round 3: no grey-brown mottle)
       let col = K.black.map((k, c) => lin(k) * shade * mott * grain * (c === 0 ? 1.02 : c === 2 ? 0.98 : 1));
-      let rough = K.rough + (samp(LR, gu, gv, 1) / 255 - 0.5) * 0.25 + (shade < 0.8 ? 0.06 : 0), metal = 0, nAdd = null;
+      let rough = K.rough + (samp(LR, gu, gv, 1) / 255 - 0.5) * 0.2 + (shade < 0.9 ? 0.05 : 0), metal = 0, nAdd = null;
       // (likeness round 2: worn leather, not vinyl: a broad sheen variation (rubbed smooth over the shoulders and chest,
       // drier elsewhere) and soft creases, mostly across the body and the sleeves, from a ridged noise; its slope tilts the
       // normal map's own grain)
@@ -208,4 +211,48 @@ export function drapePass(doc, K = {}) {
     for (const v of vs) { const y = a[v * 3 + 1], z = a[v * 3 + 2], h = hull(y); if (h == null) continue; const fe = sm(K.y0, K.y0 + 0.04, y) * sm(K.y1, K.y1 - 0.04, y);
       let nz = z + (h - z) * fe; nz -= K.flat * Math.max(0, nz - (zMax - 0.012)) * fe; if (Math.abs(nz - z) > 1e-5) { moved++; peak = Math.max(peak, Math.abs(nz - z)); a[v * 3 + 2] = nz; } } }
   P.setArray(a); console.log('drape: points', moved, 'peak mm', (peak * 1000).toFixed(1));
+}
+
+// (likeness round 3, the critic: the jacket read as a lumpy, rounded, crumpled rubber shell with a barrel chest; the
+// reference is a fitted moto cut: a flat chest, straight sides, defined shoulders, padded shoulder caps. On the body
+// piece ('uniform'), its points welded by position:
+//  smooth   Taubin smoothing (no shrink) over the torso, its open edges held, so the library's and the drape's lumps go
+//  flat     the front's depth over the chest drawn K.flat of the way toward its own smoothed plane (no barrel)
+//  pads     each shoulder cap's padded panel raised K.pad (a soft dome, its border sharper, as a sewn-in pad is), so it
+//           shows from the front as a rounded panel over the cap)
+export function tailorPass(doc, K = {}) {
+  K = { iters: 14, lam: 0.5, mu: -0.53, flat: 0.35, pad: 0.0045, padC: [0.2, 1.4, 0.03], padR: [0.055, 0.05, 0.07], ...K };
+  const p = doc.getRoot().listMeshes().flatMap((m) => m.listPrimitives()).find((q) => q.getMaterial()?.getName() === 'uniform'); if (!p) return;
+  const P = p.getAttribute('POSITION'), a = P.getArray().slice(), n = a.length / 3, I = p.getIndices().getArray();
+  const key = new Map(), rep = new Int32Array(n); for (let v = 0; v < n; v++) { const k = `${Math.round(a[v * 3] * 1e5)},${Math.round(a[v * 3 + 1] * 1e5)},${Math.round(a[v * 3 + 2] * 1e5)}`; if (!key.has(k)) key.set(k, v); rep[v] = key.get(k); }
+  const edges = new Map(), nb = new Map(); for (let t = 0; t < I.length; t += 3) for (let e = 0; e < 3; e++) { const A = rep[I[t + e]], B = rep[I[t + (e + 1) % 3]]; if (A === B) continue; const k = A < B ? A + ',' + B : B + ',' + A; edges.set(k, (edges.get(k) || 0) + 1);
+    for (const [u, w] of [[A, B], [B, A]]) (nb.get(u) || nb.set(u, new Set()).get(u)).add(w); }
+  const open = new Set(); for (const [k, c] of edges) if (c === 1) for (const v of k.split(',')) open.add(+v);
+  let hem = 9; for (let v = 0; v < n; v++) hem = Math.min(hem, a[v * 3 + 1]);
+  const mask = new Float32Array(n); for (const v of nb.keys()) { if (open.has(v)) continue; const x = Math.abs(a[v * 3]), y = a[v * 3 + 1]; mask[v] = sm(0.25, 0.2, x) * sm(hem + 0.01, hem + 0.05, y) * sm(1.5, 1.45, y); }
+  const step = (f) => { const o = a.slice(); for (const [v, s] of nb) { const m = mask[v]; if (!m) continue; let cx = 0, cy = 0, cz = 0; for (const w of s) { cx += o[w * 3]; cy += o[w * 3 + 1]; cz += o[w * 3 + 2]; } const k = s.size;
+      a[v * 3] = o[v * 3] + f * m * (cx / k - o[v * 3]); a[v * 3 + 1] = o[v * 3 + 1] + f * m * (cy / k - o[v * 3 + 1]); a[v * 3 + 2] = o[v * 3 + 2] + f * m * (cz / k - o[v * 3 + 2]); } };
+  const a0 = a.slice(); for (let i = 0; i < K.iters; i++) { step(K.lam); step(K.mu); }
+  // the chest: each front point's depth toward the front's mean depth at its height (1 cm rows), between the chest's
+  // fullest line and the waist, held at the sides
+  { const rows = new Map(); for (const v of nb.keys()) { const x = a[v * 3], y = a[v * 3 + 1], z = a[v * 3 + 2]; if (z < 0.04 || Math.abs(x) > 0.15 || y < 1.12 || y > 1.42) continue; const r = Math.round(y / 0.01); (rows.get(r) || rows.set(r, []).get(r)).push(v); }
+    for (const vs of rows.values()) { const zs = vs.map((v) => a[v * 3 + 2]), zMax = Math.max(...zs); for (const v of vs) { const x = Math.abs(a[v * 3]), y = a[v * 3 + 1], w = K.flat * sm(0.15, 0.08, x) * sm(1.12, 1.18, y) * sm(1.42, 1.36, y) * (open.has(v) ? 0 : 1);
+        const z = a[v * 3 + 2], zT = zMax - 0.004 - 0.5 * (x / 0.15) ** 2 * 0.03; if (z > zT) a[v * 3 + 2] = z + (zT - z) * w; } } }
+  // the pads (normals from the smoothed shape, welded)
+  const nrm = new Float32Array(n * 3); for (let t = 0; t < I.length; t += 3) { const [A, B, C] = [rep[I[t]], rep[I[t + 1]], rep[I[t + 2]]]; const ux = a[B * 3] - a[A * 3], uy = a[B * 3 + 1] - a[A * 3 + 1], uz = a[B * 3 + 2] - a[A * 3 + 2], vx = a[C * 3] - a[A * 3], vy = a[C * 3 + 1] - a[A * 3 + 1], vz = a[C * 3 + 2] - a[A * 3 + 2];
+    const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx; for (const V of [A, B, C]) { nrm[V * 3] += nx; nrm[V * 3 + 1] += ny; nrm[V * 3 + 2] += nz; } }
+  let padded = 0; for (const v of nb.keys()) { const x = a[v * 3], y = a[v * 3 + 1], z = a[v * 3 + 2], sx = Math.sign(x) || 1, [c0, c1, c2] = K.padC, [r0, r1, r2] = K.padR;
+    const d = Math.hypot((Math.abs(x) - c0) / r0, (y - c1) / r1, (z - c2) / r2); if (d >= 1) continue; const h = K.pad * (1 - sm(0.72, 1, d)) * (0.85 + 0.15 * (1 - d * d)); let nx = nrm[v * 3], ny = nrm[v * 3 + 1], nz = nrm[v * 3 + 2];
+    const L = Math.hypot(nx, ny, nz) || 1; // (outward: away from the shoulder joint's middle)
+    const ox = x - sx * (c0 - 0.03), oy = y - (c1 - 0.04), oz = z - c2, s = Math.sign(nx * ox + ny * oy + nz * oz) || 1; a[v * 3] += (nx / L) * h * s; a[v * 3 + 1] += (ny / L) * h * s; a[v * 3 + 2] += (nz / L) * h * s; padded++; }
+  let peak = 0; for (let v = 0; v < n; v++) { const r = rep[v]; if (r !== v) for (let c = 0; c < 3; c++) a[v * 3 + c] = a[r * 3 + c]; peak = Math.max(peak, Math.hypot(a[v * 3] - a0[v * 3], a[v * 3 + 1] - a0[v * 3 + 1], a[v * 3 + 2] - a0[v * 3 + 2])); }
+  P.setArray(a); p.getAttribute('NORMAL') && recomputeNormals(p, rep); console.log('tailor: smoothed + flat + pads', padded, 'peak mm', (peak * 1000).toFixed(1));
+}
+// the body piece's normals again after its points moved (welded, so the uv seams do not show)
+function recomputeNormals(p, rep) {
+  const a = p.getAttribute('POSITION').getArray(), I = p.getIndices().getArray(), n = a.length / 3, acc = new Float32Array(n * 3);
+  for (let t = 0; t < I.length; t += 3) { const A = I[t], B = I[t + 1], C = I[t + 2]; const ux = a[B * 3] - a[A * 3], uy = a[B * 3 + 1] - a[A * 3 + 1], uz = a[B * 3 + 2] - a[A * 3 + 2], vx = a[C * 3] - a[A * 3], vy = a[C * 3 + 1] - a[A * 3 + 1], vz = a[C * 3 + 2] - a[A * 3 + 2];
+    const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx; for (const V of [A, B, C]) { const r = rep[V]; acc[r * 3] += nx; acc[r * 3 + 1] += ny; acc[r * 3 + 2] += nz; } }
+  const N = p.getAttribute('NORMAL'), out = new Float32Array(n * 3); for (let v = 0; v < n; v++) { const r = rep[v], L = Math.hypot(acc[r * 3], acc[r * 3 + 1], acc[r * 3 + 2]) || 1; out[v * 3] = acc[r * 3] / L; out[v * 3 + 1] = acc[r * 3 + 1] / L; out[v * 3 + 2] = acc[r * 3 + 2] / L; }
+  if (N.getArray() instanceof Float32Array) N.setArray(out); else { const q = new Int8Array(n * 3); for (let i = 0; i < n * 3; i++) q[i] = Math.round(out[i] * 127); N.setArray(q); }
 }

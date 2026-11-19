@@ -20,11 +20,11 @@ import { prim, matOf, sharp, sm, clamp, h3, fbm } from '../young-hero/glb.mjs';
 import { LM } from './landmarks.mjs';
 
 // the hair's area on the scalp (scalp.mjs's hairOf with the front hairline at front (m over the eyes))
-export function hairArea(x0, y, z, n = 0, front = 0.055) {
+export function hairArea(x0, y, z, n = 0, front = 0.055, temple = 0) {
   const { EY, EZ } = LM, x = Math.abs(x0);
   const yf = EY + front + 0.008 * sm(0.015, 0.045, x) + n * 0.002, f = sm(yf - 0.003, yf + 0.004, y);
   // (the temples covered: the side's front line well forward at the top, back to the ear's front at its top)
-  const zt = EZ - 0.038 - 0.03 * sm(EY + 0.05, EY - 0.005, y) + n * 0.002;
+  const zt = EZ - 0.038 + temple - 0.03 * sm(EY + 0.05, EY - 0.005, y) + n * 0.002;
   const ysb = EY - 0.012 - 0.05 * sm(0.03, -0.02, z) + n * 0.002;
   const side = sm(zt + 0.004, zt - 0.004, z) * sm(ysb - 0.003, ysb + 0.004, y) * sm(0.03, 0.05, x + 0.04 * sm(0.0, -0.05, z));
   // (round 2b: the ear's keep-out smaller (it took the temple above the ear: a bare patch between the hair and the ear))
@@ -36,10 +36,10 @@ async function atlas(K) {
   const S = 1024, CW = 256, acc = new Float32Array(S * S * 2); let s = 9; const R = () => ((s = (s * 16807) % 2147483647) / 2147483647);
   for (let col = 0; col < 4; col++) for (let k = 0; k < K.perCard; k++) {
     const u0 = R(), edge = Math.min(u0, 1 - u0); if (R() > sm(0.0, 0.22, edge) * 0.9 + 0.1) continue; // fewer at the edges
-    const x0 = col * CW + 6 + u0 * (CW - 12), len = (0.62 + 0.38 * R()) * S, th = 1.4 + 1.8 * R(), amp = 1 + 4 * R(), fq = 1 + 2.5 * R(), ph = R() * 6.28, lum = 0.62 + 0.38 * R() * R() + (R() < 0.12 ? -0.25 : 0);
-    for (let y = 0; y < len; y++) { const t = y / len, x = x0 + amp * Math.sin(ph + (y / S) * fq * 6.28), w = th * (1 - 0.65 * sm(0.6, 1, t)), a0 = 1 - sm(0.82, 1, t);
+    const x0 = col * CW + 6 + u0 * (CW - 12), len = (0.62 + 0.38 * R()) * S, th = (K.th0 ?? 1.4) + (K.th1 ?? 1.8) * R(), amp = 1 + 4 * R(), fq = 1 + 2.5 * R(), ph = R() * 6.28, lum = 0.62 + 0.38 * R() * R() + (R() < 0.12 ? -0.25 : 0);
+    for (let y = 0; y < len; y++) { const t = y / len, x = x0 + amp * Math.sin(ph + (y / S) * fq * 6.28), w = th * (1 - 0.65 * sm(0.6, 1, t)), a0 = 1 - sm(K.tipA ?? 0.82, 1, t);
       for (let X = Math.floor(x - w - 1); X <= Math.ceil(x + w + 1); X++) { if (X < col * CW || X >= (col + 1) * CW) continue; const dd = Math.abs(X - x) / w; if (dd > 1.3) continue; const a = a0 * clamp(1.3 - dd);
-        const i = y * S + X, L = lum * (1 - 0.45 * sm(0.32, 0.0, t)); acc[i * 2] += a * L; acc[i * 2 + 1] += a; } } }
+        const i = y * S + X, L = lum * (1 - (K.rootA ?? 0.45) * sm(K.rootL ?? 0.32, 0.0, t)) * (1 + (K.tipL ?? 0) * sm(0.55, 1, t)); acc[i * 2] += a * L; acc[i * 2 + 1] += a; } } }
   const d = Buffer.alloc(S * S * 4), [r0, g0, b0] = K.tone;
   for (let i = 0; i < S * S; i++) { const sa = acc[i * 2 + 1], y = Math.floor(i / S) / S, L = sa > 0 ? acc[i * 2] / sa : 0.72 * (1 - 0.4 * sm(0.3, 0, y));
     d[i * 4] = Math.round(clamp(r0 * L / 255) * 255); d[i * 4 + 1] = Math.round(clamp(g0 * L / 255) * 255); d[i * 4 + 2] = Math.round(clamp(b0 * L / 255) * 255); d[i * 4 + 3] = Math.round(clamp(sa * 0.9) * 255); }
@@ -81,7 +81,7 @@ export async function strandsPass(doc, K = {}) {
   let seed = 5; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
   const roots = []; for (let tries = 0; roots.length < K.cards && tries < K.cards * 60; tries++) {
     const th = (rnd() * 2 - 1) * Math.PI, ph = Math.asin(rnd() * (Math.sin(P1) - Math.sin(-0.55)) + Math.sin(-0.55)), d = [Math.sin(th) * Math.cos(ph), Math.sin(ph), Math.cos(th) * Math.cos(ph)], p = onScalp(d);
-    const a = hairArea(p[0], p[1], p[2], 0, K.front); if (a < 0.5 || rnd() > a) continue; if (p[1] < EY - 0.075) continue; roots.push({ d, p }); }
+    const a = hairArea(p[0], p[1], p[2], 0, K.front, K.temple || 0); if (a < 0.5 || rnd() > a) continue; if (p[1] < EY - 0.075) continue; roots.push({ d, p }); }
   const Pv = [], Nv = [], UV = [], CO = [], IX = [];
   for (const [ri, r] of roots.entries()) {
     const [x, y, z] = r.p, ax = Math.abs(x), up = sm(EY + 0.02, EY + 0.08, y), fr = sm(zc, EZ - 0.03, z), side = sm(0.05, 0.075, ax) * (1 - up), back = sm(zc + 0.01, zc - 0.04, z);
@@ -100,11 +100,11 @@ export async function strandsPass(doc, K = {}) {
       const nb = b.map((q, c) => q + t[c] * step); if (nb[1] < EY - 0.085) break; d = norm(nb.map((q, c) => q - C[c])); }
     if (pts.length < 3) continue; const base = Pv.length / 3, m = pts.length;
     for (let k = 0; k < m; k++) { const p = pts[k], tg = norm(pts[Math.min(m - 1, k + 1)].map((q, c) => q - pts[Math.max(0, k - 1)][c])), nn = norm(p.map((q, c) => q - C[c])); let wv = cross(tg, nn); if (Math.hypot(...wv) < 1e-4) wv = [1, 0, 0]; wv = norm(wv);
-      const s = k / (m - 1), w = wid * (1 - 0.55 * s) / 2, curl = 0.0012 * (1 - s);
+      const s = k / (m - 1), w = wid * (1 - (K.taper ?? 0.55) * s) / 2, curl = 0.0012 * (1 - s);
       for (const [q, u] of [[-1, 0], [0, 0.5], [1, 1]]) { const lift = q === 0 ? curl : 0; Pv.push(p[0] + wv[0] * w * q + nn[0] * lift, p[1] + wv[1] * w * q + nn[1] * lift, p[2] + wv[2] * w * q + nn[2] * lift);
         const nq = norm([nn[0] + wv[0] * q * 0.25, nn[1] + wv[1] * q * 0.25 + K.upN * Math.max(0, -nn[1]), nn[2] + wv[2] * q * 0.25]); Nv.push(...nq); UV.push((col + 0.02 + u * 0.96) / 4, s * (L / (K.lenFront * 1.2)) * 0.98 + 0.01);
         // (round 2b, K.upN above: the under-hair at the nape shaded as the mass over it, not lit white by the floor)
-        const rootDk = 1 - 0.25 * sm(0.3, 0, s); CO.push(tint * rootDk, tint * rootDk, tint * rootDk * 1.01, 1); }
+        const rootDk = 1 - (K.rootDk ?? 0.25) * sm(K.rootS ?? 0.3, 0, s); CO.push(tint * rootDk, tint * rootDk, tint * rootDk * 1.01, 1); }
       // (round 2b: wound to face out, along the normals: wound inward, every card was seen from its back, the renderer
       // turned its normal in, and the hair was lit from inside the head: dark on top, the nape glaring white)
       if (k < m - 1) { const a = base + k * 3; IX.push(a, a + 1, a + 3, a + 1, a + 4, a + 3, a + 1, a + 2, a + 4, a + 2, a + 5, a + 4); } }
@@ -112,8 +112,8 @@ export async function strandsPass(doc, K = {}) {
   // the cap: the hair's area as a grid over (azimuth, elevation), at capK of the volume, down to the scalp at the edge
   const CP = [], CN = [], CU = [], CC = [], CI = [], GI = 120, GJ = 70, id = new Int32Array((GI + 1) * (GJ + 1)).fill(-1);
   for (let j = 0; j <= GJ; j++) for (let i = 0; i <= GI; i++) { const th = (i / GI) * 2 * Math.PI - Math.PI, ph = -0.6 + (j / GJ) * (P1 - -0.6), d = [Math.sin(th) * Math.cos(ph), Math.sin(ph), Math.cos(th) * Math.cos(ph)], b = onScalp(d);
-    const a = hairArea(b[0], b[1], b[2], 0, K.front + 0.004); if (a <= 0.02 || b[1] < EY - 0.08) continue; const h = T(b) * K.capK * sm(0.0, 1.0, a) - 0.0015 * (1 - a), p = onScalp(d, h);
-    id[j * (GI + 1) + i] = CP.length / 3; CP.push(...p); CN.push(...d); CU.push(th * 2, ph * 2); const sd = sm(0.05, 0.075, Math.abs(b[0])) * (1 - sm(EY + 0.06, EY + 0.1, b[1])); const g = 0.46 - 0.12 * sd; CC.push(g, g, g * 1.01, 1); }
+    const a = hairArea(b[0], b[1], b[2], 0, K.front + 0.004, K.temple || 0); if (a <= 0.02 || b[1] < EY - 0.08) continue; const h = T(b) * K.capK * sm(0.0, 1.0, a) - 0.0015 * (1 - a), p = onScalp(d, h);
+    id[j * (GI + 1) + i] = CP.length / 3; CP.push(...p); CN.push(...d); CU.push(th * 2, ph * 2); const sd = sm(0.05, 0.075, Math.abs(b[0])) * (1 - sm(EY + 0.06, EY + 0.1, b[1])); const g = (K.capG ?? 0.46) - 0.12 * sd; CC.push(g, g, g * 1.01, 1); }
   for (let j = 0; j < GJ; j++) for (let i = 0; i < GI; i++) { const a = id[j * (GI + 1) + i], b = id[j * (GI + 1) + i + 1], c = id[(j + 1) * (GI + 1) + i], e = id[(j + 1) * (GI + 1) + i + 1]; if (a < 0 || b < 0 || c < 0 || e < 0) continue; CI.push(a, b, c, b, e, c); }
   // the materials and primitives (rigid on the head)
   const buf = R.listBuffers()[0], acc = (type, arr) => doc.createAccessor().setType(type).setArray(arr).setBuffer(buf), mesh = R.listMeshes().find((m) => m.listPrimitives().includes(sk));
@@ -123,6 +123,10 @@ export async function strandsPass(doc, K = {}) {
   const tex = doc.createTexture('hair-strands').setImage(await atlas(K)).setMimeType('image/webp');
   const hm = doc.createMaterial('hair').setBaseColorTexture(tex).setBaseColorFactor([1, 1, 1, 1]).setAlphaMode('MASK').setAlphaCutoff(K.cutoff).setDoubleSided(true).setRoughnessFactor(K.rough).setMetallicFactor(0);
   const cm = doc.createMaterial('hairCap').setBaseColorTexture(tex).setBaseColorFactor([0.95, 0.95, 0.95, 1]).setAlphaMode('OPAQUE').setDoubleSided(false).setRoughnessFactor(0.7).setMetallicFactor(0);
+  // (likeness round 3, the critic: anisotropic highlights: KHR_materials_anisotropy along the strands (the cards' v),
+  // so the sheen runs as a soft band across the hair, not a plastic spot)
+  if (K.aniso) { const { require } = await import('../young-hero/glb.mjs'); const { KHRMaterialsAnisotropy } = require('@gltf-transform/extensions');
+    hm.setExtension('KHR_materials_anisotropy', doc.createExtension(KHRMaterialsAnisotropy).createAnisotropy().setAnisotropyStrength(K.aniso).setAnisotropyRotation(Math.PI / 2)); }
   add(CP, CN, CU, CC, CI, cm); add(Pv, Nv, UV, CO, IX, hm);
   console.log('strands: roots', roots.length, 'card points', Pv.length / 3, 'triangles', IX.length / 3, '; cap points', CP.length / 3, 'triangles', CI.length / 3);
 }
