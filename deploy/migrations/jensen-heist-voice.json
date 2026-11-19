@@ -1,0 +1,3398 @@
+{
+ "v": 1,
+ "model": "Qwen3-TTS-12Hz-1.7B-Base-8bit (mlx-community @e7dd0585, Apache-2.0), each voice cloned from a reference designed with Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit (@f90d6177, Apache-2.0) from a written description; mlx-audio 0.5.8 (MIT); QA by whisper-small.en (MIT), all on the Mac",
+ "loudness": "-16 LUFS integrated + each line's gain_db, -1 dBFS sample peak, Ogg Opus ~32 kb/s mono 24 kHz",
+ "credit": "Voices: Qwen3-TTS by the Qwen team, Alibaba Cloud (Apache-2.0), mlx-community conversions (Apache-2.0), run with mlx-audio (MIT). Every voice was invented from a written description; no real person's voice was used or imitated.",
+ "clips": {
+  "00067a92-e953a6e3": {
+   "secs": 3.95,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "000d2740-24cfebf3": {
+   "secs": 3.145,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "006c4080-24cfebf3": {
+   "secs": 0.857,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "0085c57f-6b37d0e1": {
+   "secs": 5.484,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "00e6f09a-24cfebf3": {
+   "secs": 1.299,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "0218ed2a-24cfebf3": {
+   "secs": 1.222,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "024dc7bc-24cfebf3": {
+   "secs": 4.865,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "030e91b0-24cfebf3": {
+   "secs": 3.847,
+   "who": "jensen",
+   "qa": "listen: recall 0.917; WER 0.167"
+  },
+  "04385445-906de29d": {
+   "secs": 2.53,
+   "who": "intern-a",
+   "qa": "ok"
+  },
+  "053affe9-6606797b": {
+   "secs": 5.113,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "05ec9eca-24cfebf3": {
+   "secs": 6.261,
+   "who": "jensen",
+   "qa": "listen: recall 0.938; WER 0.188"
+  },
+  "0655e555-e953a6e3": {
+   "secs": 1.25,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "06f1a912-e953a6e3": {
+   "secs": 1.53,
+   "who": "marge",
+   "qa": "listen: recall 0.833"
+  },
+  "07abe313-6606797b": {
+   "secs": 7.641,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "07cfb621-e953a6e3": {
+   "secs": 5.27,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "07d72096-24cfebf3": {
+   "secs": 0.578,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "081794fa-6606797b": {
+   "secs": 2.928,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "0872457f-e953a6e3": {
+   "secs": 6.09,
+   "who": "marge",
+   "qa": "listen: recall 0.933"
+  },
+  "0887ee2b-906de29d": {
+   "secs": 2.078,
+   "who": "intern-a",
+   "qa": "ok"
+  },
+  "08a613ed-24cfebf3": {
+   "secs": 1.569,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "09269ef6-e953a6e3": {
+   "secs": 5.55,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "09f95062-fae42ab5": {
+   "secs": 5.892,
+   "who": "board",
+   "qa": "ok"
+  },
+  "0a240e97-6b37d0e1": {
+   "secs": 3.317,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "0a59eea6-6806a8c9": {
+   "secs": 4.83,
+   "who": "board",
+   "qa": "ok"
+  },
+  "0aeb6266-6b8e4f04": {
+   "secs": 7.087,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "0b544704-6606797b": {
+   "secs": 6.993,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "0b7dad92-fae42ab5": {
+   "secs": 5.03,
+   "who": "board",
+   "qa": "ok"
+  },
+  "0bf45bba-6b8e4f04": {
+   "secs": 0.678,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "0c395b0d-24cfebf3": {
+   "secs": 1.665,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "0c869dea-24cfebf3": {
+   "secs": 1.819,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "0d0b67b4-24cfebf3": {
+   "secs": 0.492,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "0f66ff06-24cfebf3": {
+   "secs": 1.992,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "0f9c4720-24cfebf3": {
+   "secs": 3.703,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "1021fcdb-24cfebf3": {
+   "secs": 0.895,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "103c23c3-6b37d0e1": {
+   "secs": 8.511,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "10dd5443-e953a6e3": {
+   "secs": 4.5,
+   "who": "marge",
+   "qa": "listen: recall 0.947"
+  },
+  "1111b977-fce59161": {
+   "secs": 6.797,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "1114810c-24cfebf3": {
+   "secs": 4.52,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "11400476-24cfebf3": {
+   "secs": 1.261,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "11400476-e953a6e3": {
+   "secs": 1.34,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "117abb95-e953a6e3": {
+   "secs": 2.08,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "1183e89b-6b37d0e1": {
+   "secs": 3.891,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "118ae94f-e953a6e3": {
+   "secs": 0.801,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "121aa106-6b37d0e1": {
+   "secs": 7.169,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "1250e20f-24cfebf3": {
+   "secs": 4.799,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "1376292c-24cfebf3": {
+   "secs": 1.126,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "13cd832a-6b8e4f04": {
+   "secs": 1.773,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "145fbe19-6b37d0e1": {
+   "secs": 4.289,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "157a1dd5-24cfebf3": {
+   "secs": 3.107,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "158dad0e-a7884e01": {
+   "secs": 0.739,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "15f107bb-e953a6e3": {
+   "secs": 5.02,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "16179ed9-24cfebf3": {
+   "secs": 1.097,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "162442f7-6606797b": {
+   "secs": 4.419,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "1692d39e-6b8e4f04": {
+   "secs": 1.659,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "16b2b8f2-24cfebf3": {
+   "secs": 3.011,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "16d87d0e-24cfebf3": {
+   "secs": 0.607,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "17781c5b-4954d391": {
+   "secs": 1.261,
+   "who": "director-a",
+   "qa": "ok"
+  },
+  "183397bb-906de29d": {
+   "secs": 3.53,
+   "who": "intern-a",
+   "qa": "ok"
+  },
+  "18438782-e953a6e3": {
+   "secs": 5.06,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "187b27b9-fae42ab5": {
+   "secs": 3.945,
+   "who": "board",
+   "qa": "ok"
+  },
+  "191de08e-24cfebf3": {
+   "secs": 2.934,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "19f89944-24cfebf3": {
+   "secs": 0.424,
+   "who": "jensen",
+   "qa": "listen: WER 1.0"
+  },
+  "1a29db09-e953a6e3": {
+   "secs": 8.15,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "1a314f13-3a9a9427": {
+   "secs": 6.845,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "1a9ef0c5-6b37d0e1": {
+   "secs": 5.224,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "1aa474b0-6c7bb1a7": {
+   "secs": 2.983,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "1ac99194-24cfebf3": {
+   "secs": 1.011,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "1b1639c6-24cfebf3": {
+   "secs": 2.799,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "1b695908-fae42ab5": {
+   "secs": 4.243,
+   "who": "board",
+   "qa": "ok"
+  },
+  "1bd4f0fd-6606797b": {
+   "secs": 3.243,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "1bfc6833-24cfebf3": {
+   "secs": 2.287,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "1c381c42-6b8e4f04": {
+   "secs": 2.687,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "1ca843f0-fae42ab5": {
+   "secs": 11.775,
+   "who": "board",
+   "qa": "ok"
+  },
+  "1d0c5d70-e953a6e3": {
+   "secs": 1.15,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "1d1e355a-6b8e4f04": {
+   "secs": 1.582,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "1e49c329-6b8e4f04": {
+   "secs": 0.864,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "1ed5e0e2-6b37d0e1": {
+   "secs": 2.474,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "1eeb6b3d-fae42ab5": {
+   "secs": 3.924,
+   "who": "board",
+   "qa": "ok"
+  },
+  "1f86f8c0-24cfebf3": {
+   "secs": 1.299,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "204d9944-24cfebf3": {
+   "secs": 2.934,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "206992a1-906de29d": {
+   "secs": 3.886,
+   "who": "intern-a",
+   "qa": "listen: recall 0.909"
+  },
+  "20e9558b-24cfebf3": {
+   "secs": 3.395,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "223be621-e953a6e3": {
+   "secs": 4.69,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "23d0a890-55bdb66a": {
+   "secs": 4.981,
+   "who": "dex",
+   "qa": "ok"
+  },
+  "23dfbbab-24cfebf3": {
+   "secs": 1.011,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "23e9a852-e953a6e3": {
+   "secs": 4.36,
+   "who": "marge",
+   "qa": "listen: recall 0.933"
+  },
+  "24bf96ca-24cfebf3": {
+   "secs": 2.818,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "24ff5876-6b8e4f04": {
+   "secs": 3.544,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "25726e9f-24cfebf3": {
+   "secs": 0.408,
+   "who": "jensen",
+   "qa": "listen: WER 17.0"
+  },
+  "25ccdf0c-55bdb66a": {
+   "secs": 4.069,
+   "who": "dex",
+   "qa": "ok"
+  },
+  "25ce13f5-6606797b": {
+   "secs": 4.771,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "2658fbd3-6b37d0e1": {
+   "secs": 3.789,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "26ae5cab-55bdb66a": {
+   "secs": 7.166,
+   "who": "dex",
+   "qa": "ok"
+  },
+  "26bc907d-0b82b15c": {
+   "secs": 2.834,
+   "who": "wesley",
+   "qa": "listen: recall 0.917"
+  },
+  "275aef8c-24cfebf3": {
+   "secs": 1.453,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "27d70202-e953a6e3": {
+   "secs": 3.57,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "28f17a2a-e953a6e3": {
+   "secs": 3.79,
+   "who": "marge",
+   "qa": "listen: recall 0.923"
+  },
+  "29a2a3f5-24cfebf3": {
+   "secs": 3.549,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "2a47a9f4-fae42ab5": {
+   "secs": 0.663,
+   "who": "board",
+   "qa": "ok"
+  },
+  "2a72767e-24cfebf3": {
+   "secs": 0.492,
+   "who": "jensen",
+   "qa": "listen: recall 0.0; WER 15.0"
+  },
+  "2a7f7dbd-24cfebf3": {
+   "secs": 4.28,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "2b00a4af-e953a6e3": {
+   "secs": 4.45,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "2b3b3b71-0b82b15c": {
+   "secs": 1.63,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "2b70607f-6606797b": {
+   "secs": 5.269,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "2dd4b053-6b8e4f04": {
+   "secs": 4.982,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "2e1933d1-e953a6e3": {
+   "secs": 2.13,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "2e19bea9-24cfebf3": {
+   "secs": 0.636,
+   "who": "jensen",
+   "qa": "listen: WER 1.0"
+  },
+  "2e7de619-6b8e4f04": {
+   "secs": 3.611,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "2e9f06d4-24cfebf3": {
+   "secs": 0.819,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "2ed2a850-24cfebf3": {
+   "secs": 6.088,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "2f139108-24cfebf3": {
+   "secs": 2.92,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "302f5a4e-e953a6e3": {
+   "secs": 5.92,
+   "who": "marge",
+   "qa": "listen: recall 0.8; WER 0.2"
+  },
+  "30356038-24cfebf3": {
+   "secs": 4.809,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "30f47c48-24cfebf3": {
+   "secs": 3.011,
+   "who": "jensen",
+   "qa": "listen: WER 0.286"
+  },
+  "31020321-6b37d0e1": {
+   "secs": 3.4,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "320fce6b-6b37d0e1": {
+   "secs": 1.437,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "33b4f9d9-24cfebf3": {
+   "secs": 0.854,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "3425ed5c-fae42ab5": {
+   "secs": 6.285,
+   "who": "board",
+   "qa": "ok"
+  },
+  "345d01be-24cfebf3": {
+   "secs": 4.761,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "349ea093-24cfebf3": {
+   "secs": 1.011,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "36cd918a-24cfebf3": {
+   "secs": 1.078,
+   "who": "jensen",
+   "qa": "listen: WER 2.0"
+  },
+  "3706b238-24cfebf3": {
+   "secs": 1.069,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "37453718-24cfebf3": {
+   "secs": 3.53,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "37e469a0-e953a6e3": {
+   "secs": 4.99,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "389d6cfd-e953a6e3": {
+   "secs": 7.39,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "3939c4dd-24cfebf3": {
+   "secs": 3.136,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "39bb29b8-24cfebf3": {
+   "secs": 5.386,
+   "who": "jensen",
+   "qa": "listen: recall 0.889"
+  },
+  "3a00c603-24cfebf3": {
+   "secs": 2.99,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "3a50019a-24cfebf3": {
+   "secs": 4.78,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "3af4abbf-6806a8c9": {
+   "secs": 3.711,
+   "who": "board",
+   "qa": "ok"
+  },
+  "3c456667-24cfebf3": {
+   "secs": 1.338,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "3c4a4f8c-e953a6e3": {
+   "secs": 4.99,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "3c9b5718-55bdb66a": {
+   "secs": 4.467,
+   "who": "dex",
+   "qa": "ok"
+  },
+  "3cd0cd03-fae42ab5": {
+   "secs": 1.059,
+   "who": "board",
+   "qa": "ok"
+  },
+  "3d9f58bd-fae42ab5": {
+   "secs": 0.699,
+   "who": "board",
+   "qa": "listen: WER 1.5"
+  },
+  "3dcdfcf3-6606797b": {
+   "secs": 4.947,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "3deb2c2f-a7884e01": {
+   "secs": 1.619,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "3ded1500-24cfebf3": {
+   "secs": 3.453,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "3e25b5bf-55bdb66a": {
+   "secs": 4.312,
+   "who": "dex",
+   "qa": "ok"
+  },
+  "3e87754c-24cfebf3": {
+   "secs": 1.078,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "3ef86c79-6b37d0e1": {
+   "secs": 4.15,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "3efbc90a-e953a6e3": {
+   "secs": 0.65,
+   "who": "marge",
+   "qa": "listen: WER 1.0"
+  },
+  "3fa5f9f2-906de29d": {
+   "secs": 0.85,
+   "who": "intern-a",
+   "qa": "ok"
+  },
+  "3fdc5edb-24cfebf3": {
+   "secs": 1.251,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "4017132e-f1932789": {
+   "secs": 0.715,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "40531c12-24cfebf3": {
+   "secs": 1.905,
+   "who": "jensen",
+   "qa": "listen: recall 0.6; WER 0.4"
+  },
+  "407673ac-fae42ab5": {
+   "secs": 1.541,
+   "who": "board",
+   "qa": "listen: WER 1.0"
+  },
+  "4119f336-24cfebf3": {
+   "secs": 2.232,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "41c73d2a-c3ed5d8e": {
+   "secs": 3.734,
+   "who": "intern-b",
+   "qa": "ok"
+  },
+  "41ce6f38-6806a8c9": {
+   "secs": 3.877,
+   "who": "board",
+   "qa": "ok"
+  },
+  "42999cb6-24cfebf3": {
+   "secs": 0.838,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "42b1c8c3-fae42ab5": {
+   "secs": 5.849,
+   "who": "board",
+   "qa": "ok"
+  },
+  "42de14d1-24cfebf3": {
+   "secs": 0.867,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "43573d7e-24cfebf3": {
+   "secs": 1.54,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "43ac599b-24cfebf3": {
+   "secs": 2.453,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "43cab3fe-6606797b": {
+   "secs": 1.4,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "43ef57c7-fae42ab5": {
+   "secs": 1.051,
+   "who": "board",
+   "qa": "ok"
+  },
+  "43f2a563-55bdb66a": {
+   "secs": 0.399,
+   "who": "dex",
+   "qa": "listen: WER 7.0"
+  },
+  "43f39b93-24cfebf3": {
+   "secs": 0.405,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "44654cad-24cfebf3": {
+   "secs": 3.713,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "447f80d3-6b8e4f04": {
+   "secs": 1.421,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "44c8b52b-906de29d": {
+   "secs": 4.1,
+   "who": "intern-a",
+   "qa": "ok"
+  },
+  "4520e07f-6606797b": {
+   "secs": 4.391,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "452336e9-e953a6e3": {
+   "secs": 5.5,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "454e31da-24cfebf3": {
+   "secs": 1.088,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "45602d4f-24cfebf3": {
+   "secs": 1.222,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "4570c4cb-fae42ab5": {
+   "secs": 1.307,
+   "who": "board",
+   "qa": "ok"
+  },
+  "460692b0-24cfebf3": {
+   "secs": 2.895,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "46415d31-55bdb66a": {
+   "secs": 2.972,
+   "who": "dex",
+   "qa": "ok"
+  },
+  "466a39b3-24cfebf3": {
+   "secs": 0.915,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "4731b786-6b8e4f04": {
+   "secs": 2.777,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "47cabc27-24cfebf3": {
+   "secs": 3.126,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "480e93d3-0b82b15c": {
+   "secs": 1.13,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "482b63f4-24cfebf3": {
+   "secs": 1.203,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "484db434-24cfebf3": {
+   "secs": 5.328,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "4892d394-24cfebf3": {
+   "secs": 1.165,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "48d9830d-e953a6e3": {
+   "secs": 5.83,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "48f71ba7-fae42ab5": {
+   "secs": 2.094,
+   "who": "board",
+   "qa": "ok"
+  },
+  "4922a452-24cfebf3": {
+   "secs": 5.46,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "49618e15-24cfebf3": {
+   "secs": 1.232,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "496ea85f-6606797b": {
+   "secs": 4.641,
+   "who": "nico",
+   "qa": "listen: recall 0.938; WER 0.438"
+  },
+  "49e985a6-24cfebf3": {
+   "secs": 2.222,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "4a16ac69-24cfebf3": {
+   "secs": 1.184,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "4a3aecd1-fae42ab5": {
+   "secs": 2.009,
+   "who": "board",
+   "qa": "listen: WER 0.429"
+  },
+  "4a846af9-24cfebf3": {
+   "secs": 2.318,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "4ade0ed8-24cfebf3": {
+   "secs": 4.857,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "4ae470e9-6606797b": {
+   "secs": 6.73,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "4ae944b4-24cfebf3": {
+   "secs": 1.569,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "4af3a3a8-e953a6e3": {
+   "secs": 3.95,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "4bacd5ef-4954d391": {
+   "secs": 1.63,
+   "who": "director-a",
+   "qa": "ok"
+  },
+  "4bd649fc-fae42ab5": {
+   "secs": 6.551,
+   "who": "board",
+   "qa": "ok"
+  },
+  "4c36329e-6b8e4f04": {
+   "secs": 2.078,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "4c8ec0be-5e812eca": {
+   "secs": 0.735,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "4c9e2de6-6b37d0e1": {
+   "secs": 6.354,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "4cb66940-6b8e4f04": {
+   "secs": 1.887,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "4d63ecd2-24cfebf3": {
+   "secs": 1.915,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "4e4c15f7-55bdb66a": {
+   "secs": 4.399,
+   "who": "dex",
+   "qa": "ok"
+  },
+  "4f09ee53-24cfebf3": {
+   "secs": 3.107,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "4fb007bf-fae42ab5": {
+   "secs": 4.626,
+   "who": "board",
+   "qa": "ok"
+  },
+  "50557d63-e953a6e3": {
+   "secs": 2.4,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "505bf97a-c4d02e31": {
+   "secs": 4.173,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "509a0d45-fae42ab5": {
+   "secs": 3.424,
+   "who": "board",
+   "qa": "listen: recall 0.857; WER 0.286"
+  },
+  "509be4e8-24cfebf3": {
+   "secs": 2.011,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "50a15b48-6b8e4f04": {
+   "secs": 2.459,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "51a1486d-24cfebf3": {
+   "secs": 0.847,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "51d0ff3f-24cfebf3": {
+   "secs": 1.761,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "523d6bdc-6b8e4f04": {
+   "secs": 0.447,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "543f8a39-24cfebf3": {
+   "secs": 3.818,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "5491bcd6-a7884e01": {
+   "secs": 3.934,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "54d4f941-24cfebf3": {
+   "secs": 0.809,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "5546feb4-6b37d0e1": {
+   "secs": 5.808,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "5593e6b7-24cfebf3": {
+   "secs": 0.79,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "567138eb-6b37d0e1": {
+   "secs": 3.734,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "568aaaa5-24cfebf3": {
+   "secs": 5.165,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "56a1c516-3a9a9427": {
+   "secs": 1.778,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "575193aa-6606797b": {
+   "secs": 3.576,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "575fed79-6b37d0e1": {
+   "secs": 6.65,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "57ad9135-24cfebf3": {
+   "secs": 2.905,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "57be976a-24cfebf3": {
+   "secs": 1.376,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "57e9ad90-24cfebf3": {
+   "secs": 1.04,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "595b8cbe-24cfebf3": {
+   "secs": 6.02,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "599a4105-fae42ab5": {
+   "secs": 4.37,
+   "who": "board",
+   "qa": "ok"
+  },
+  "59c39012-55bdb66a": {
+   "secs": 6.38,
+   "who": "dex",
+   "qa": "ok"
+  },
+  "5a14a32c-63c74192": {
+   "secs": 5.48,
+   "who": "jensen",
+   "qa": "listen: head silence 0.32s"
+  },
+  "5a69dcb8-fae42ab5": {
+   "secs": 5.009,
+   "who": "board",
+   "qa": "ok"
+  },
+  "5aabe8db-24cfebf3": {
+   "secs": 2.891,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "5b1eca8e-24cfebf3": {
+   "secs": 1.472,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "5bcd19d8-24cfebf3": {
+   "secs": 1.722,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "5c9579f5-c4d02e31": {
+   "secs": 1.118,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "5d22705b-24cfebf3": {
+   "secs": 1.665,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "5d9ef4e6-fae42ab5": {
+   "secs": 4.519,
+   "who": "board",
+   "qa": "ok"
+  },
+  "5db27138-6b8e4f04": {
+   "secs": 2.62,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "5e6b3ddd-55bdb66a": {
+   "secs": 3.632,
+   "who": "dex",
+   "qa": "ok"
+  },
+  "5ec25283-55bdb66a": {
+   "secs": 6.506,
+   "who": "dex",
+   "qa": "ok"
+  },
+  "5fa75cf9-24cfebf3": {
+   "secs": 4.501,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "5fd763f5-24cfebf3": {
+   "secs": 1.645,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "6029130d-4954d391": {
+   "secs": 1.17,
+   "who": "director-a",
+   "qa": "ok"
+  },
+  "605b2179-24cfebf3": {
+   "secs": 4.242,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "6089670d-24cfebf3": {
+   "secs": 1.126,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "60b3c29b-fae42ab5": {
+   "secs": 4.7,
+   "who": "board",
+   "qa": "ok"
+  },
+  "60e3cb26-24cfebf3": {
+   "secs": 0.891,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "61536bf5-fae42ab5": {
+   "secs": 4.296,
+   "who": "board",
+   "qa": "ok"
+  },
+  "61fdddb5-6b37d0e1": {
+   "secs": 5.28,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "62396a41-24cfebf3": {
+   "secs": 1.28,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "62501ae3-24cfebf3": {
+   "secs": 4.088,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "631a85e7-6b37d0e1": {
+   "secs": 4.919,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "633afef0-6b37d0e1": {
+   "secs": 2.586,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "6376523b-d7c4a47c": {
+   "secs": 4.062,
+   "who": "board",
+   "qa": "ok"
+  },
+  "63e61016-24cfebf3": {
+   "secs": 4.02,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "63f0efca-fae42ab5": {
+   "secs": 4.285,
+   "who": "board",
+   "qa": "listen: WER 0.562"
+  },
+  "6404a545-24cfebf3": {
+   "secs": 0.862,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "646e5fe3-6b37d0e1": {
+   "secs": 1.437,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "6473db20-6b8e4f04": {
+   "secs": 4.535,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "64ea1544-24cfebf3": {
+   "secs": 1.338,
+   "who": "jensen",
+   "qa": "listen: WER 1.0"
+  },
+  "6524b3bb-906de29d": {
+   "secs": 1.25,
+   "who": "intern-a",
+   "qa": "ok"
+  },
+  "665911e0-6b8e4f04": {
+   "secs": 3.516,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "66969404-e953a6e3": {
+   "secs": 6.82,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "685512eb-fae42ab5": {
+   "secs": 2.636,
+   "who": "board",
+   "qa": "ok"
+  },
+  "68c55e9d-6b37d0e1": {
+   "secs": 3.419,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "69190549-24cfebf3": {
+   "secs": 1.401,
+   "who": "jensen",
+   "qa": "listen: head silence 0.28s; recall 0.667; WER 0.333"
+  },
+  "6970fac3-24cfebf3": {
+   "secs": 7.97,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "69a6d15a-24cfebf3": {
+   "secs": 0.722,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "6a23b38e-24cfebf3": {
+   "secs": 3.895,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "6a510564-24cfebf3": {
+   "secs": 6.049,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "6a719bc6-6b8e4f04": {
+   "secs": 6.687,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "6b4256c0-24cfebf3": {
+   "secs": 0.73,
+   "who": "jensen",
+   "qa": "listen: WER 1.0"
+  },
+  "6b7bcba6-6b37d0e1": {
+   "secs": 4.456,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "6bc493a0-e953a6e3": {
+   "secs": 3,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "6be90ef9-24cfebf3": {
+   "secs": 1.03,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "6c001b17-c4d02e31": {
+   "secs": 5.489,
+   "who": "marge",
+   "qa": "listen: recall 0.944; WER 0.167"
+  },
+  "6c14310f-6b8e4f04": {
+   "secs": 0.925,
+   "who": "lola",
+   "qa": "listen: WER 1.0"
+  },
+  "6cb2e65f-24cfebf3": {
+   "secs": 2.472,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "6d353902-6606797b": {
+   "secs": 3.65,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "6d709def-24cfebf3": {
+   "secs": 0.847,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "6db79048-6b37d0e1": {
+   "secs": 7.002,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "6ecbe26f-fae42ab5": {
+   "secs": 2.562,
+   "who": "board",
+   "qa": "ok"
+  },
+  "6f3bc2cc-6b8e4f04": {
+   "secs": 3.506,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "6f6e7611-24cfebf3": {
+   "secs": 1.136,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "6f89c73e-6606797b": {
+   "secs": 4.743,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "6f8d2fa6-24cfebf3": {
+   "secs": 0.655,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "6faa2107-24cfebf3": {
+   "secs": 6.376,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "6fcef288-24cfebf3": {
+   "secs": 4.876,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "7018a931-6b37d0e1": {
+   "secs": 5.465,
+   "who": "wesley",
+   "qa": "listen: WER 0.333"
+  },
+  "70a17499-fb97f214": {
+   "secs": 0.992,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "70bddc11-e953a6e3": {
+   "secs": 2.281,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "70f3a8d5-55bdb66a": {
+   "secs": 5.435,
+   "who": "dex",
+   "qa": "ok"
+  },
+  "7118562d-6b37d0e1": {
+   "secs": 0.642,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "71b52ba3-6b37d0e1": {
+   "secs": 4.447,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "71ff00d1-6606797b": {
+   "secs": 0.683,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "72d76ef9-24cfebf3": {
+   "secs": 0.78,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "72d76ef9-f1932789": {
+   "secs": 0.691,
+   "who": "lola",
+   "qa": "listen: WER 0.5"
+  },
+  "73494cef-d7c4a47c": {
+   "secs": 1.792,
+   "who": "board",
+   "qa": "ok"
+  },
+  "73861f22-6b37d0e1": {
+   "secs": 2.261,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "73e95044-55bdb66a": {
+   "secs": 4.282,
+   "who": "dex",
+   "qa": "ok"
+  },
+  "7435513b-24cfebf3": {
+   "secs": 1.299,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "74c21765-24cfebf3": {
+   "secs": 5.645,
+   "who": "jensen",
+   "qa": "listen: recall 0.895"
+  },
+  "751b7a4d-6b37d0e1": {
+   "secs": 0.453,
+   "who": "wesley",
+   "qa": "listen: WER 1.0"
+  },
+  "75f4d66d-e953a6e3": {
+   "secs": 2.44,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "7655e80a-fae42ab5": {
+   "secs": 2.902,
+   "who": "board",
+   "qa": "ok"
+  },
+  "765fa87d-24cfebf3": {
+   "secs": 2.742,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "77a7245d-fae42ab5": {
+   "secs": 6.732,
+   "who": "board",
+   "qa": "ok"
+  },
+  "77bcaabf-e953a6e3": {
+   "secs": 2.33,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "78068641-24cfebf3": {
+   "secs": 0.569,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "790ebe48-4954d391": {
+   "secs": 1.81,
+   "who": "director-a",
+   "qa": "ok"
+  },
+  "79b16b6b-fae42ab5": {
+   "secs": 6.86,
+   "who": "board",
+   "qa": "ok"
+  },
+  "79bd07b6-24cfebf3": {
+   "secs": 0.515,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "7a638a27-24cfebf3": {
+   "secs": 3.915,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "7a6fbc2c-6606797b": {
+   "secs": 1.752,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "7b1888ca-e953a6e3": {
+   "secs": 5.67,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "7b953291-24cfebf3": {
+   "secs": 2.963,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "7b955e7b-55bdb66a": {
+   "secs": 2.923,
+   "who": "dex",
+   "qa": "ok"
+  },
+  "7bffdff3-4954d391": {
+   "secs": 2.21,
+   "who": "director-a",
+   "qa": "ok"
+  },
+  "7c3d328d-55bdb66a": {
+   "secs": 7.681,
+   "who": "dex",
+   "qa": "ok"
+  },
+  "7ce7bae0-24cfebf3": {
+   "secs": 5.847,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "7d5c3b5b-24cfebf3": {
+   "secs": 1.857,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "7dbdc3d9-fae42ab5": {
+   "secs": 3.892,
+   "who": "board",
+   "qa": "ok"
+  },
+  "7df13e4c-24cfebf3": {
+   "secs": 1.06,
+   "who": "jensen",
+   "qa": "listen: WER 3.0"
+  },
+  "7e2ef234-6606797b": {
+   "secs": 2.558,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "7e6363fc-24cfebf3": {
+   "secs": 2.072,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "7f82b103-55bdb66a": {
+   "secs": 2.2,
+   "who": "dex",
+   "qa": "listen: WER 1.0"
+  },
+  "7fe334b0-24cfebf3": {
+   "secs": 1.299,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "802df262-24cfebf3": {
+   "secs": 0.607,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "807d0ae9-24cfebf3": {
+   "secs": 3.915,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "80870423-24cfebf3": {
+   "secs": 2.626,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "80a0e57a-e953a6e3": {
+   "secs": 1.32,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "80ff186e-24cfebf3": {
+   "secs": 0.703,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "81ebf821-24cfebf3": {
+   "secs": 5.136,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "8261320f-55bdb66a": {
+   "secs": 6.37,
+   "who": "dex",
+   "qa": "ok"
+  },
+  "829d832d-586a7c81": {
+   "secs": 1.236,
+   "who": "dex",
+   "qa": "listen: loudness -15.0 LUFS (want -13.5)"
+  },
+  "833ea622-e953a6e3": {
+   "secs": 7.11,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "8421f773-24cfebf3": {
+   "secs": 6.54,
+   "who": "jensen",
+   "qa": "listen: recall 0.947"
+  },
+  "8434cf50-6b8e4f04": {
+   "secs": 6.011,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "8440282e-24cfebf3": {
+   "secs": 0.47,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "848b1615-24cfebf3": {
+   "secs": 4.078,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "84f699b6-6806a8c9": {
+   "secs": 1.194,
+   "who": "board",
+   "qa": "listen: WER 1.0"
+  },
+  "84f6d2cd-6b8e4f04": {
+   "secs": 1.401,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "8542497d-24cfebf3": {
+   "secs": 1.395,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "856ca79f-fae42ab5": {
+   "secs": 6.839,
+   "who": "board",
+   "qa": "ok"
+  },
+  "857ffe5e-24cfebf3": {
+   "secs": 4.27,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "863749a2-6606797b": {
+   "secs": 5.15,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "87579a7f-24cfebf3": {
+   "secs": 1.184,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "87a7c07e-6b37d0e1": {
+   "secs": 0.982,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "87b41b10-6606797b": {
+   "secs": 3.891,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "87e05e3d-4954d391": {
+   "secs": 1.99,
+   "who": "director-a",
+   "qa": "ok"
+  },
+  "8818073d-55bdb66a": {
+   "secs": 3.36,
+   "who": "dex",
+   "qa": "ok"
+  },
+  "8848bb3a-24cfebf3": {
+   "secs": 2.107,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "88e1d2ae-24cfebf3": {
+   "secs": 5.319,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "89e87b49-125d0b91": {
+   "secs": 3.437,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "8a4015d0-6b8e4f04": {
+   "secs": 2.963,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "8a8c0743-fae42ab5": {
+   "secs": 3.349,
+   "who": "board",
+   "qa": "ok"
+  },
+  "8aab959c-24cfebf3": {
+   "secs": 4.376,
+   "who": "jensen",
+   "qa": "listen: recall 0.933"
+  },
+  "8ab7033b-a7884e01": {
+   "secs": 1.953,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "8bd037fa-24cfebf3": {
+   "secs": 4.222,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "8c50c27a-fae42ab5": {
+   "secs": 1.647,
+   "who": "board",
+   "qa": "ok"
+  },
+  "8c549dcb-24cfebf3": {
+   "secs": 2.665,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "8cca84ac-24cfebf3": {
+   "secs": 1.299,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "8d546c9e-24cfebf3": {
+   "secs": 1.761,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "8dd0d16c-24cfebf3": {
+   "secs": 4.126,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "8dd92fce-24cfebf3": {
+   "secs": 5.309,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "8e32960f-24cfebf3": {
+   "secs": 1.703,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "8e3c76b9-24cfebf3": {
+   "secs": 2.203,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "8e4b9c37-6b8e4f04": {
+   "secs": 6.335,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "8ef38a11-fae42ab5": {
+   "secs": 5.264,
+   "who": "board",
+   "qa": "ok"
+  },
+  "8f1d92e7-6606797b": {
+   "secs": 2.456,
+   "who": "nico",
+   "qa": "listen: recall 0.444; WER 0.556"
+  },
+  "8f50ab5d-6b37d0e1": {
+   "secs": 0.806,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "8fa6df22-6606797b": {
+   "secs": 4.891,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "8fbc35d8-24cfebf3": {
+   "secs": 2.04,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "8fc83ad7-6b8e4f04": {
+   "secs": 3.728,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "9031b4b0-6b8e4f04": {
+   "secs": 0.973,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "906b4fd7-2255eebc": {
+   "secs": 3.453,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "9086413e-24cfebf3": {
+   "secs": 4.838,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "91697658-e953a6e3": {
+   "secs": 1.73,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "91702495-6b37d0e1": {
+   "secs": 2.493,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "920e318b-6606797b": {
+   "secs": 1.539,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "928f5d89-2255eebc": {
+   "secs": 1.37,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "92dcb1fe-6606797b": {
+   "secs": 0.841,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "92f7b555-24cfebf3": {
+   "secs": 1.011,
+   "who": "jensen",
+   "qa": "listen: WER 1.5"
+  },
+  "93287013-ddb22878": {
+   "secs": 1.242,
+   "who": "director-b",
+   "qa": "listen: WER 0.5"
+  },
+  "93cf4e9c-24cfebf3": {
+   "secs": 2.088,
+   "who": "jensen",
+   "qa": "listen: recall 0.8"
+  },
+  "93dd581c-906de29d": {
+   "secs": 1.63,
+   "who": "intern-a",
+   "qa": "ok"
+  },
+  "93e343d5-24cfebf3": {
+   "secs": 1,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "940b9fb5-24cfebf3": {
+   "secs": 1.242,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "942f05af-24cfebf3": {
+   "secs": 3.79,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "9555f902-55bdb66a": {
+   "secs": 5.642,
+   "who": "dex",
+   "qa": "ok"
+  },
+  "95667cda-6b37d0e1": {
+   "secs": 5.73,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "95a15a8d-55bdb66a": {
+   "secs": 4.71,
+   "who": "dex",
+   "qa": "ok"
+  },
+  "95da647b-24cfebf3": {
+   "secs": 0.742,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "960b8a4a-55bdb66a": {
+   "secs": 3.68,
+   "who": "dex",
+   "qa": "ok"
+  },
+  "9621e9de-ddb22878": {
+   "secs": 0.772,
+   "who": "director-b",
+   "qa": "ok"
+  },
+  "964428a4-6b37d0e1": {
+   "secs": 2.9,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "9689da84-6b8e4f04": {
+   "secs": 3.068,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "96a8cedb-24cfebf3": {
+   "secs": 0.53,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "97cb006d-e953a6e3": {
+   "secs": 5.03,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "98157588-24cfebf3": {
+   "secs": 4.549,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "986578ea-24cfebf3": {
+   "secs": 2.395,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "9970aa64-4954d391": {
+   "secs": 2.54,
+   "who": "director-a",
+   "qa": "ok"
+  },
+  "99eac80a-24cfebf3": {
+   "secs": 3.607,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "9a129e0b-c4d02e31": {
+   "secs": 2.01,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "9a27a88e-906de29d": {
+   "secs": 2.78,
+   "who": "intern-a",
+   "qa": "ok"
+  },
+  "9a4557df-24cfebf3": {
+   "secs": 3.77,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "9a5ecef0-6b8e4f04": {
+   "secs": 4.373,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "9a7c477d-6b37d0e1": {
+   "secs": 4.604,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "9abebd3a-55bdb66a": {
+   "secs": 6.564,
+   "who": "dex",
+   "qa": "ok"
+  },
+  "9ad5ab61-a7884e01": {
+   "secs": 5.379,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "9b05786a-6b8e4f04": {
+   "secs": 1.392,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "9b6bd5b3-6b37d0e1": {
+   "secs": 4.308,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "9c2ad8c7-24cfebf3": {
+   "secs": 2.285,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "9d984f68-24cfebf3": {
+   "secs": 1.328,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "9e7743d4-906de29d": {
+   "secs": 1.261,
+   "who": "intern-a",
+   "qa": "ok"
+  },
+  "9e7c548f-e953a6e3": {
+   "secs": 5.98,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "9ea16e53-4954d391": {
+   "secs": 1.472,
+   "who": "director-a",
+   "qa": "listen: WER 0.8"
+  },
+  "9f3cdcbc-6b8e4f04": {
+   "secs": 4.2,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "9f42d4a6-55bdb66a": {
+   "secs": 5.525,
+   "who": "dex",
+   "qa": "ok"
+  },
+  "9f625602-fae42ab5": {
+   "secs": 3.098,
+   "who": "board",
+   "qa": "ok"
+  },
+  "9fcbfa03-55bdb66a": {
+   "secs": 3.059,
+   "who": "dex",
+   "qa": "ok"
+  },
+  "a01171ad-24cfebf3": {
+   "secs": 5.511,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "a0972d50-55bdb66a": {
+   "secs": 7.865,
+   "who": "dex",
+   "qa": "ok"
+  },
+  "a0c00596-6b37d0e1": {
+   "secs": 5.752,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "a0c7794b-6b8e4f04": {
+   "secs": 3.249,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "a16058ea-55bdb66a": {
+   "secs": 3.943,
+   "who": "dex",
+   "qa": "ok"
+  },
+  "a188537d-6606797b": {
+   "secs": 2.993,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "a1abf79e-24cfebf3": {
+   "secs": 4.434,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "a24f4a78-6606797b": {
+   "secs": 2.011,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "a27498e4-fae42ab5": {
+   "secs": 4.243,
+   "who": "board",
+   "qa": "ok"
+  },
+  "a2fd0500-c357899f": {
+   "secs": 0.691,
+   "who": "intern-b",
+   "qa": "listen: WER 0.5"
+  },
+  "a2fd0500-c3ed5d8e": {
+   "secs": 0.806,
+   "who": "intern-b",
+   "qa": "listen: WER 1.0"
+  },
+  "a331ba4e-e953a6e3": {
+   "secs": 2.64,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "a461e362-55bdb66a": {
+   "secs": 4.574,
+   "who": "dex",
+   "qa": "ok"
+  },
+  "a46de963-fae42ab5": {
+   "secs": 2.828,
+   "who": "board",
+   "qa": "ok"
+  },
+  "a4927b9e-4954d391": {
+   "secs": 1.07,
+   "who": "director-a",
+   "qa": "ok"
+  },
+  "a5770f69-55bdb66a": {
+   "secs": 3.778,
+   "who": "dex",
+   "qa": "ok"
+  },
+  "a6182158-e953a6e3": {
+   "secs": 0.78,
+   "who": "marge",
+   "qa": "listen: recall 0.0; WER 1.0"
+  },
+  "a62feadd-6b8e4f04": {
+   "secs": 2.878,
+   "who": "lola",
+   "qa": "listen: WER 0.778"
+  },
+  "a648f3cd-f3671e4c": {
+   "secs": 0.795,
+   "who": "board",
+   "qa": "ok"
+  },
+  "a6b7fae9-906de29d": {
+   "secs": 4.97,
+   "who": "intern-a",
+   "qa": "ok"
+  },
+  "a6e8b1af-24cfebf3": {
+   "secs": 0.713,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "a6e9089c-6606797b": {
+   "secs": 6.243,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "a709924e-fae42ab5": {
+   "secs": 7.253,
+   "who": "board",
+   "qa": "ok"
+  },
+  "a717bded-6606797b": {
+   "secs": 2.623,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "a7a45557-6b8e4f04": {
+   "secs": 0.82,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "a8473c4e-6b37d0e1": {
+   "secs": 0.845,
+   "who": "wesley",
+   "qa": "listen: WER 2.0"
+  },
+  "a8b7549d-24cfebf3": {
+   "secs": 3.16,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "a902a6b1-fae42ab5": {
+   "secs": 7.913,
+   "who": "board",
+   "qa": "ok"
+  },
+  "a926d6bb-e953a6e3": {
+   "secs": 5.77,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "a92e5111-24cfebf3": {
+   "secs": 0.934,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "a99194d9-6b37d0e1": {
+   "secs": 1.808,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "a99800bf-3a9a9427": {
+   "secs": 1.858,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "aa47f10d-6b37d0e1": {
+   "secs": 7.752,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "aa9fd6ed-24cfebf3": {
+   "secs": 0.953,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "aaad5489-e953a6e3": {
+   "secs": 1.74,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "ad1af7c8-24cfebf3": {
+   "secs": 1.203,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "ad66cfea-a7884e01": {
+   "secs": 2.096,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "af318c38-24cfebf3": {
+   "secs": 6.492,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "af4a0cca-24cfebf3": {
+   "secs": 3.011,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "b0010a0b-6b8e4f04": {
+   "secs": 1.582,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "b026d6db-24cfebf3": {
+   "secs": 0.678,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "b02cee4f-24cfebf3": {
+   "secs": 3.799,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "b115643d-24cfebf3": {
+   "secs": 2.94,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "b13397cc-24cfebf3": {
+   "secs": 2.472,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "b164c074-5d39a523": {
+   "secs": 3.654,
+   "who": "dex",
+   "qa": "ok"
+  },
+  "b18a8f09-24cfebf3": {
+   "secs": 5.203,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "b1b59088-24cfebf3": {
+   "secs": 1.166,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "b1f6e350-24cfebf3": {
+   "secs": 0.761,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "b2d866a1-55bdb66a": {
+   "secs": 2.632,
+   "who": "dex",
+   "qa": "ok"
+  },
+  "b2dd6a66-fae42ab5": {
+   "secs": 5.892,
+   "who": "board",
+   "qa": "ok"
+  },
+  "b364669e-c4d02e31": {
+   "secs": 0.691,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "b3aad769-c246e06f": {
+   "secs": 2.532,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "b42ce3ce-c4d02e31": {
+   "secs": 4.122,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "b462df7a-24cfebf3": {
+   "secs": 6.819,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "b4988bbb-24cfebf3": {
+   "secs": 1.395,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "b4ecb342-e953a6e3": {
+   "secs": 5.47,
+   "who": "marge",
+   "qa": "listen: recall 0.944"
+  },
+  "b4f7c07f-24cfebf3": {
+   "secs": 3.875,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "b4f9b824-6b8e4f04": {
+   "secs": 0.755,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "b52119d0-24cfebf3": {
+   "secs": 3.126,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "b53455de-c4d02e31": {
+   "secs": 3.357,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "b54b8434-e953a6e3": {
+   "secs": 5.5,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "b55bff84-fae42ab5": {
+   "secs": 4.232,
+   "who": "board",
+   "qa": "ok"
+  },
+  "b5a9b38f-24cfebf3": {
+   "secs": 2.299,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "b6832849-1f87d34b": {
+   "secs": 2.22,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "b6ccbe2f-24cfebf3": {
+   "secs": 2.318,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "b6ea3582-fae42ab5": {
+   "secs": 4.551,
+   "who": "board",
+   "qa": "ok"
+  },
+  "b7209569-24cfebf3": {
+   "secs": 5.953,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "b7694311-24cfebf3": {
+   "secs": 4.03,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "b86e7ca0-6606797b": {
+   "secs": 4.752,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "b87fddb5-24cfebf3": {
+   "secs": 1.725,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "b8a91047-6606797b": {
+   "secs": 6.817,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "b9299a32-9a719d7b": {
+   "secs": 1.58,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "b9871f19-c4d02e31": {
+   "secs": 3.775,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "b990fb69-e953a6e3": {
+   "secs": 3.35,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "b9c69164-6b8e4f04": {
+   "secs": 2.649,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "ba4fda27-906de29d": {
+   "secs": 2.05,
+   "who": "intern-a",
+   "qa": "ok"
+  },
+  "ba64f3ef-0b82b15c": {
+   "secs": 1.51,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "ba7c6528-6606797b": {
+   "secs": 4.687,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "ba845906-6606797b": {
+   "secs": 0.734,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "ba9b7614-24cfebf3": {
+   "secs": 1.011,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "bae999cb-24cfebf3": {
+   "secs": 2.79,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "bb20eb17-24cfebf3": {
+   "secs": 1.722,
+   "who": "jensen",
+   "qa": "listen: recall 0.8"
+  },
+  "bb2cf693-fae42ab5": {
+   "secs": 6.998,
+   "who": "board",
+   "qa": "ok"
+  },
+  "bb332303-24cfebf3": {
+   "secs": 0.847,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "bb74df83-6606797b": {
+   "secs": 6.549,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "bc65c481-906de29d": {
+   "secs": 3.34,
+   "who": "intern-a",
+   "qa": "ok"
+  },
+  "bcaec400-6b37d0e1": {
+   "secs": 2.64,
+   "who": "wesley",
+   "qa": "listen: WER 0.25"
+  },
+  "bd7ce23b-6b37d0e1": {
+   "secs": 6.002,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "bda8e3e3-6b8e4f04": {
+   "secs": 0.697,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "bdcc9bb7-6b8e4f04": {
+   "secs": 4.04,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "bee80836-e953a6e3": {
+   "secs": 2.62,
+   "who": "marge",
+   "qa": "listen: recall 0.9"
+  },
+  "bf0cb598-6606797b": {
+   "secs": 1.845,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "bf6d839d-24cfebf3": {
+   "secs": 3.751,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "c034c071-24cfebf3": {
+   "secs": 0.703,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "c0cad5ff-e953a6e3": {
+   "secs": 0.649,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "c0d2c27c-24cfebf3": {
+   "secs": 5.145,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "c150d4af-f3671e4c": {
+   "secs": 1.55,
+   "who": "board",
+   "qa": "ok"
+  },
+  "c1825957-24cfebf3": {
+   "secs": 0.472,
+   "who": "jensen",
+   "qa": "listen: WER 1.0"
+  },
+  "c19ac589-2255eebc": {
+   "secs": 4.429,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "c1bc0b90-e953a6e3": {
+   "secs": 6.55,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "c2598cce-24cfebf3": {
+   "secs": 0.665,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "c2b39c03-fae42ab5": {
+   "secs": 4.668,
+   "who": "board",
+   "qa": "ok"
+  },
+  "c35fbc04-24cfebf3": {
+   "secs": 2.998,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "c36c0b86-6b8e4f04": {
+   "secs": 3.04,
+   "who": "lola",
+   "qa": "listen: WER 0.286"
+  },
+  "c40e60a8-24cfebf3": {
+   "secs": 0.689,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "c52ce733-e953a6e3": {
+   "secs": 5,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "c5e45b6a-e953a6e3": {
+   "secs": 0.868,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "c60eee1c-6b8e4f04": {
+   "secs": 6.401,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "c6219a23-24cfebf3": {
+   "secs": 1.761,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "c718d1fe-6606797b": {
+   "secs": 3.002,
+   "who": "nico",
+   "qa": "listen: recall 0.917"
+  },
+  "c76cd3f0-c4d02e31": {
+   "secs": 0.934,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "c7e0a7dd-24cfebf3": {
+   "secs": 1.559,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "c8b56705-6b8e4f04": {
+   "secs": 5.266,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "c8dec8a8-fae42ab5": {
+   "secs": 6.445,
+   "who": "board",
+   "qa": "ok"
+  },
+  "c9b4c895-24cfebf3": {
+   "secs": 1.126,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "c9df472e-24cfebf3": {
+   "secs": 1.559,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "ca07f724-6b8e4f04": {
+   "secs": 0.84,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "caba71bc-24cfebf3": {
+   "secs": 1.895,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "cafc13ed-0b82b15c": {
+   "secs": 4,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "cb1bbffd-e953a6e3": {
+   "secs": 1.21,
+   "who": "marge",
+   "qa": "listen: recall 0.667"
+  },
+  "cb2e727f-6606797b": {
+   "secs": 0.9,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "cb436639-6b8e4f04": {
+   "secs": 5.887,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "cbf2262c-6b8e4f04": {
+   "secs": 3.011,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "cc29dc69-24cfebf3": {
+   "secs": 1.742,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "cc63b8b4-6c7bb1a7": {
+   "secs": 3.244,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "cc9600eb-55bdb66a": {
+   "secs": 5.117,
+   "who": "dex",
+   "qa": "ok"
+  },
+  "ccbaa073-24cfebf3": {
+   "secs": 0.424,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "ccbaa073-6606797b": {
+   "secs": 0.521,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "cdaf5932-6606797b": {
+   "secs": 3.53,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "ce06cad3-e953a6e3": {
+   "secs": 5.35,
+   "who": "marge",
+   "qa": "listen: recall 0.938"
+  },
+  "ce378a06-906de29d": {
+   "secs": 4.23,
+   "who": "intern-a",
+   "qa": "ok"
+  },
+  "ce3f130e-24cfebf3": {
+   "secs": 5.895,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "ce82394a-24cfebf3": {
+   "secs": 0.895,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "cf0a3b61-24cfebf3": {
+   "secs": 2.001,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "cfa62b7f-24cfebf3": {
+   "secs": 1.02,
+   "who": "jensen",
+   "qa": "listen: loudness -18.0 LUFS (want -16.0)"
+  },
+  "cfd26bf8-e953a6e3": {
+   "secs": 4.06,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "cfe7842a-e953a6e3": {
+   "secs": 2.16,
+   "who": "marge",
+   "qa": "listen: recall 0.857; WER 0.286"
+  },
+  "d0ed4c62-55bdb66a": {
+   "secs": 1.981,
+   "who": "dex",
+   "qa": "listen: WER 1.333"
+  },
+  "d19fcaba-6606797b": {
+   "secs": 2.808,
+   "who": "nico",
+   "qa": "listen: WER 0.6"
+  },
+  "d1bef326-6606797b": {
+   "secs": 0.577,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "d1eaab90-a7884e01": {
+   "secs": 4.445,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "d1f6caee-6b8e4f04": {
+   "secs": 1.192,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "d2667d68-24cfebf3": {
+   "secs": 1.261,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "d2667d68-55bdb66a": {
+   "secs": 1.37,
+   "who": "dex",
+   "qa": "ok"
+  },
+  "d27cf405-24cfebf3": {
+   "secs": 1.27,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "d27d70ce-24cfebf3": {
+   "secs": 2.492,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "d2973ab7-6b8e4f04": {
+   "secs": 1.916,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "d2ba75fe-4954d391": {
+   "secs": 5.4,
+   "who": "director-a",
+   "qa": "ok"
+  },
+  "d3070017-24cfebf3": {
+   "secs": 2.011,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "d4adf451-4954d391": {
+   "secs": 0.867,
+   "who": "director-a",
+   "qa": "ok"
+  },
+  "d4f55494-24cfebf3": {
+   "secs": 2.193,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "d4fd20aa-24cfebf3": {
+   "secs": 0.561,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "d5027327-6e4f2d3f": {
+   "secs": 1.152,
+   "who": "lola",
+   "qa": "listen: WER 5.0"
+  },
+  "d549e09c-24cfebf3": {
+   "secs": 1.944,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "d5539a62-6b8e4f04": {
+   "secs": 2.849,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "d58c23e7-24cfebf3": {
+   "secs": 0.819,
+   "who": "jensen",
+   "qa": "listen: WER 1.0"
+  },
+  "d6202137-24cfebf3": {
+   "secs": 4.799,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "d6760d7d-24cfebf3": {
+   "secs": 7.011,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "d68dd2cb-24cfebf3": {
+   "secs": 1.405,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "d697d74b-e953a6e3": {
+   "secs": 1.69,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "d6ee9d7f-c4d02e31": {
+   "secs": 2.01,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "d6f565bd-24cfebf3": {
+   "secs": 0.851,
+   "who": "jensen",
+   "qa": "listen: WER 1.333"
+  },
+  "d7009229-6b37d0e1": {
+   "secs": 7.15,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "d715a812-24cfebf3": {
+   "secs": 1.895,
+   "who": "jensen",
+   "qa": "listen: recall 0.875"
+  },
+  "d73c58e4-24cfebf3": {
+   "secs": 4.501,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "d73f20ab-55bdb66a": {
+   "secs": 2.564,
+   "who": "dex",
+   "qa": "ok"
+  },
+  "d77099fd-24cfebf3": {
+   "secs": 1.155,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "d78895d7-24cfebf3": {
+   "secs": 4.867,
+   "who": "jensen",
+   "qa": "listen: recall 0.846; WER 0.231"
+  },
+  "d9958395-3a9a9427": {
+   "secs": 1.493,
+   "who": "marge",
+   "qa": "listen: recall 0.5; WER 1.0"
+  },
+  "d9a11698-6b37d0e1": {
+   "secs": 3.465,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "d9cd0054-6b8e4f04": {
+   "secs": 3.668,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "da681ba3-24cfebf3": {
+   "secs": 4.222,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "db3fc461-6b8e4f04": {
+   "secs": 0.674,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "db598872-6b37d0e1": {
+   "secs": 4.854,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "dbc5fb78-24cfebf3": {
+   "secs": 1.53,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "dc0989ba-6b37d0e1": {
+   "secs": 3.15,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "dc57e2e9-e953a6e3": {
+   "secs": 2.17,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "dc6c1df9-e953a6e3": {
+   "secs": 2.51,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "dd0e49ab-55bdb66a": {
+   "secs": 5.816,
+   "who": "dex",
+   "qa": "ok"
+  },
+  "dd501f78-e953a6e3": {
+   "secs": 2.01,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "ddfe6fd8-fae42ab5": {
+   "secs": 4.86,
+   "who": "board",
+   "qa": "ok"
+  },
+  "de54e107-6b8e4f04": {
+   "secs": 3.297,
+   "who": "lola",
+   "qa": "listen: recall 0.875"
+  },
+  "defa7046-6b37d0e1": {
+   "secs": 1.326,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "df21f0fd-a7884e01": {
+   "secs": 2.641,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "dfaa5cd7-24cfebf3": {
+   "secs": 5.997,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "dffac597-f1932789": {
+   "secs": 0.817,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "e068731d-24cfebf3": {
+   "secs": 4.444,
+   "who": "jensen",
+   "qa": "listen: recall 0.765; WER 0.235"
+  },
+  "e0a62ee7-55bdb66a": {
+   "secs": 5.37,
+   "who": "dex",
+   "qa": "ok"
+  },
+  "e0e6d853-24cfebf3": {
+   "secs": 1.665,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "e131bc1d-24cfebf3": {
+   "secs": 3.078,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "e1eb3c37-a7884e01": {
+   "secs": 1.184,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "e1fc92a4-24cfebf3": {
+   "secs": 1.338,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "e2233ec0-24cfebf3": {
+   "secs": 2.251,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "e22cfb3b-6b8e4f04": {
+   "secs": 5.706,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "e28057ad-6606797b": {
+   "secs": 6.502,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "e29b1840-24cfebf3": {
+   "secs": 2.386,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "e3b0b007-24cfebf3": {
+   "secs": 0.945,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "e537309b-6b8e4f04": {
+   "secs": 1.23,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "e5d29c80-24cfebf3": {
+   "secs": 0.876,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "e5f956fc-a7884e01": {
+   "secs": 2.277,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "e6c3402d-6606797b": {
+   "secs": 2.456,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "e7305ce6-6606797b": {
+   "secs": 0.706,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "e82e0787-6b37d0e1": {
+   "secs": 4.197,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "e8560773-55bdb66a": {
+   "secs": 5.234,
+   "who": "dex",
+   "qa": "ok"
+  },
+  "e890c86e-c3ed5d8e": {
+   "secs": 2.595,
+   "who": "intern-b",
+   "qa": "ok"
+  },
+  "e97284cd-24cfebf3": {
+   "secs": 2.688,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "ea7247fb-24cfebf3": {
+   "secs": 3.684,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "eb07b325-6606797b": {
+   "secs": 4.974,
+   "who": "nico",
+   "qa": "listen: WER 0.235"
+  },
+  "eb5d4f3b-6b8e4f04": {
+   "secs": 3.154,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "eb9f36d5-55bdb66a": {
+   "secs": 1.25,
+   "who": "dex",
+   "qa": "ok"
+  },
+  "eba1d8b9-6606797b": {
+   "secs": 2.89,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "eba3d5d0-55bdb66a": {
+   "secs": 4.37,
+   "who": "dex",
+   "qa": "ok"
+  },
+  "ebe3687c-fae42ab5": {
+   "secs": 5.647,
+   "who": "board",
+   "qa": "ok"
+  },
+  "ec5f7599-e953a6e3": {
+   "secs": 1.17,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "ecfab58b-24cfebf3": {
+   "secs": 3.184,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "ed75dbd9-cd77a11d": {
+   "secs": 1.912,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "edfd9b14-24cfebf3": {
+   "secs": 0.722,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "ee3c4cb0-e953a6e3": {
+   "secs": 0.99,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "eec6ed8c-6606797b": {
+   "secs": 6.169,
+   "who": "nico",
+   "qa": "ok"
+  },
+  "efc0a3f6-24cfebf3": {
+   "secs": 0.617,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "efff4527-55bdb66a": {
+   "secs": 4.302,
+   "who": "dex",
+   "qa": "ok"
+  },
+  "f194ebba-fae42ab5": {
+   "secs": 3.583,
+   "who": "board",
+   "qa": "ok"
+  },
+  "f1f99f12-fae42ab5": {
+   "secs": 5.285,
+   "who": "board",
+   "qa": "ok"
+  },
+  "f23e9e56-24cfebf3": {
+   "secs": 2.588,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "f2a0899b-24cfebf3": {
+   "secs": 1.617,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "f2bef907-6b37d0e1": {
+   "secs": 4.095,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "f31fe451-24cfebf3": {
+   "secs": 1.472,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "f3e4986e-24cfebf3": {
+   "secs": 1.088,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "f4508d43-fae42ab5": {
+   "secs": 6.573,
+   "who": "board",
+   "qa": "ok"
+  },
+  "f4e9a0d5-24cfebf3": {
+   "secs": 6.799,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "f515ae61-24cfebf3": {
+   "secs": 1.318,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "f649d3c4-24cfebf3": {
+   "secs": 0.434,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "f69b3784-e953a6e3": {
+   "secs": 3.19,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "f6af33e0-24cfebf3": {
+   "secs": 6.4,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "f6c1a348-24cfebf3": {
+   "secs": 7.665,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "f70c9501-6b37d0e1": {
+   "secs": 3.93,
+   "who": "wesley",
+   "qa": "listen: recall 0.933"
+  },
+  "f73bee48-e953a6e3": {
+   "secs": 5.329,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "f73db0e1-55bdb66a": {
+   "secs": 5.632,
+   "who": "dex",
+   "qa": "ok"
+  },
+  "f7b80a2e-6606797b": {
+   "secs": 3.123,
+   "who": "nico",
+   "qa": "listen: WER 0.222"
+  },
+  "f808ddf4-fae42ab5": {
+   "secs": 7.509,
+   "who": "board",
+   "qa": "ok"
+  },
+  "f87672a9-6b8e4f04": {
+   "secs": 6.521,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "f91706b8-24cfebf3": {
+   "secs": 6.088,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "f9284e7f-fae42ab5": {
+   "secs": 2.158,
+   "who": "board",
+   "qa": "listen: recall 0.8"
+  },
+  "f99c8a7e-e953a6e3": {
+   "secs": 6.87,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "f9bb0e26-24cfebf3": {
+   "secs": 7.725,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "f9c66ef9-e953a6e3": {
+   "secs": 5.06,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "f9c9334e-24cfebf3": {
+   "secs": 1.174,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "f9f09a1e-24cfebf3": {
+   "secs": 1.511,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "faab38d3-24cfebf3": {
+   "secs": 4.376,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "fac9365e-24cfebf3": {
+   "secs": 3.222,
+   "who": "jensen",
+   "qa": "listen: recall 0.909"
+  },
+  "fb1aa2a6-6b37d0e1": {
+   "secs": 5.141,
+   "who": "wesley",
+   "qa": "ok"
+  },
+  "fb1fdceb-55bdb66a": {
+   "secs": 5.661,
+   "who": "dex",
+   "qa": "ok"
+  },
+  "fb86ffe5-24cfebf3": {
+   "secs": 2.011,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "fc22712f-4954d391": {
+   "secs": 1.597,
+   "who": "director-a",
+   "qa": "listen: recall 0.833"
+  },
+  "fce43d5b-e953a6e3": {
+   "secs": 6.59,
+   "who": "marge",
+   "qa": "ok"
+  },
+  "fe57466f-24cfebf3": {
+   "secs": 1.107,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "fe94ce59-6b8e4f04": {
+   "secs": 4.201,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "fea061d6-24cfebf3": {
+   "secs": 2.703,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "feb21cd7-6b8e4f04": {
+   "secs": 0.478,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "fee9cc69-6b8e4f04": {
+   "secs": 5.392,
+   "who": "lola",
+   "qa": "ok"
+  },
+  "ff625a5d-24cfebf3": {
+   "secs": 0.876,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "ff69d2ec-24cfebf3": {
+   "secs": 2.626,
+   "who": "jensen",
+   "qa": "ok"
+  },
+  "ff898b3b-6606797b": {
+   "secs": 1.937,
+   "who": "nico",
+   "qa": "ok"
+  }
+ }
+}

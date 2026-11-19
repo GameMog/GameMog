@@ -536,6 +536,16 @@
    "color": "#6B3A2A",
    "name": "Mr. Board",
    "role": "ex-bank boss from back east, collector of board seats",
+   "voice": {
+    "id": "board-v1",
+    "blend": {
+     "am_onyx": 0.8,
+     "am_michael": 0.2
+    },
+    "speed": 0.94,
+    "pitch": -0.6,
+    "description": "a man in his sixties, a deep smooth bass-baritone, unhurried and courteous, a faint smile in it; standard American delivery"
+   },
    "speech": {
     "rhythm": "long smooth corporate clauses, a shareholder letter",
     "habit": "speaks of himself as the Board; \"Big fan.\" \"Regards.\"",
@@ -1823,12 +1833,12 @@
    "voice": {
     "id": "director-b-v1",
     "blend": {
-     "bm_daniel": 0.6,
-     "am_onyx": 0.4
+     "am_onyx": 0.6,
+     "am_echo": 0.4
     },
     "speed": 0.92,
     "pitch": -1.8,
-    "description": "a man in his fifties, slower and lower, a flat baritone that seconds things"
+    "description": "a man in his fifties, slower and lower, a flat baritone that seconds things; standard American delivery"
    },
    "speech": {
     "rhythm": "one word, then the vote",

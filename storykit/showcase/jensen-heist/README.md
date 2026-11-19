@@ -29,8 +29,11 @@ node --import ./scripts/ts-resolve.mjs scripts/storykit-showcase-jensen.ts --exp
 2. **The bodies.** The hand-built cast's GLBs at `public/storykit/cast/hand/jh-<id>.glb`
    (`scripts/storykit-showcase-jensen.ts` `BODIES`). Mr. Board is Mog City's own Mr. Big, renamed (`model:
    mogcity/mrbig`), until his hand-built derivative replaces him: give him a sheet and a body then.
-3. **The voices.** 687 spoken lines, 677 clips to render (Mr. Board's recordings do not match his new words).
-   Render them, then `--export --voice <dir>`.
+3. **The voices.** In: 678 clips for 688 spoken lines in `deploy/migrations/jensen-heist/voice/`, their lengths and
+   provenance in `deploy/migrations/jensen-heist-voice.json` (`--voice <dir>`; licensing in
+   `storykit/voices/LICENSING.md`). Every voice is designed as standard American; Mr. Board has his own American
+   fallback block (`board-v1`), not Mr. Big's. A changed line needs its clip re-rendered and `--voice <dir>` again
+   (the check names a clip no line plays). The record waits for the bodies: then `--export --voice <dir>`.
 4. **The art.** `deploy/migrations/jensen-heist-{cover,wide,icon,sky}.jpg`.
 5. **The credit line** (the owner's to approve): "A parody of a public figure's public keynote persona. Not endorsed.
    Built from CC0 MakeHuman parts." It is in the game's meta (`storykit.credit`).

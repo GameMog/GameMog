@@ -8,7 +8,7 @@ import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { runnerPackOf } from './storykit-pack.ts';
 import { ownRecord, OWN_RECORD } from './storykit-own-world.ts';
 import { showcaseProblems, SHOWCASE_ID, SHOWCASE_RECORD } from './storykit-showcase.ts';
-import { jhProblems, jhGate, JH_RECORD, BODIES } from './storykit-showcase-jensen.ts';
+import { jhProblems, jhGate, JH_RECORD, JH_DIR, BODIES } from './storykit-showcase-jensen.ts';
 import { gatePack, toRunnerPack, lineHash, type GateResult } from '../storykit/pack/gate.ts';
 import { PLACES, CAM_POINTS } from '../storykit/pack/cities.ts';
 import { SCHEMA, SHOWCASE, SHOWCASE_PACKS, MOGCITY_STUBS, HERO_CARS, HERO_CAR_IDS, SET_ROOMS } from '../storykit/pack/schema.mjs';
@@ -362,7 +362,9 @@ export function runStoryPackChecks(ok: Ok) {
   // bodies and the voices (the migration waits with it), and is held current once written
   {
     const jp = jhProblems();
-    ok(`jensen-heist: passes its town's gate as a showcase (San Jose), pinned to that town${existsSync(JH_RECORD) ? `, and ${JH_RECORD} is current` : ' (its record waits for the bodies and the voices)'}`, !jp.length, jp.slice(0, 3).join(' | '));
+    // (the voices are in once deploy/migrations/jensen-heist/voice holds clips: jhVoiceProblems checks them against the plan)
+    const jhClips = existsSync(`${JH_DIR}/voice`) ? readdirSync(`${JH_DIR}/voice`).length : 0;
+    ok(`jensen-heist: passes its town's gate as a showcase (San Jose), pinned to that town${existsSync(JH_RECORD) ? `, and ${JH_RECORD} is current` : jhClips ? ` (${jhClips} voice clips in, each a line of the plan; its record waits for the bodies)` : ' (its record waits for the bodies and the voices)'}`, !jp.length, jp.slice(0, 3).join(' | '));
     const { g, town } = jhGate(), P = g.pack!, steps = (P?.acts ?? []).flatMap((a: any) => a.missions).flatMap((m: any) => m.steps);
     const talk = steps.filter((x: any) => x.type === 'cutscene'), calls = steps.filter((x: any) => x.type === 'vcall');
     // (the owner, 18 Nov: every conversation a video call, the streets for action; the finale is played on the arena's
