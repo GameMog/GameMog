@@ -1,0 +1,9 @@
+{"deformers": [
+ {"name": "jaw angle softened and fuller (rounded, not cut)", "at": [172], "off": [0, 4, 0], "r": 17, "out": 3.8, "z": 1.4},
+ {"name": "mandible body fuller", "at": [136, 150], "r": 15, "out": 3.2, "z": 1.6},
+ {"name": "lower cheek natural fullness", "at": [213], "r": 15, "out": 2.2, "z": 2.0},
+ {"name": "submalar hollow eased (about two thirds)", "at": [207], "off": [0, 3, 0], "r": 11, "out": 1.2, "z": 1.1},
+ {"name": "chin broader, rounder", "at": [176, 148], "r": 11, "out": 1.6, "z": 0.5},
+ {"name": "chin a touch less pointed", "at": 152, "off": [0, 6, 0], "r": 15, "z": -0.6},
+ {"name": "soft under-jaw transition", "at": [150], "off": [0, -6, -10], "r": 14, "out": 1.0, "y": -0.8}
+]}

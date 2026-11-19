@@ -27,9 +27,227 @@ relax(bm.verts[:], 0.35, 3)
 pits = [Vector((s_ * 0.155, -0.04, 1.31)) for s_ in (1, -1)]
 near = [v for v in bm.verts if min((v.co - p).length for p in pits) < 0.10]
 relax(near, 0.5, 12)
-# it2: the draped front back onto one flat plane (the sim lets it sag forward at the belly)
+# it3 (owner: "smooth front surfaces", AD: no pec bulge, no pillows, no melted-wax side folds, slight taper, no flare):
+# the hem edge snapped level, then the whole torso FAIRED as stiff leather: per height its cross-section is made convex
+# (the hull of the draped shell, so no rib or waist hollows and no sim lumps), smoothed up and down, and each column
+# round the body hung as a STRAIGHT line from the chest to the hem band (tapering slightly in, never flaring), held
+# clear of the body, tee and jeans underneath. Then the centre front/back profile is set exactly (flatten_*).
+from mathutils import geometry as _geo
+bm.verts.ensure_lookup_table()
+def _sleeve(P):
+    m = np.zeros(len(P), bool)
+    for s_, sg in (('L', 1), ('R', -1)):
+        pt, nn = armhole(s_); pt = np.array(pt); nn = np.array(nn)
+        A_, B_, C_ = [np.array(q_) for q_ in arm(s_)]
+        # it3: also near the arm's own axis (the plane alone took the waist sides for sleeve in the A-pose)
+        def _segd(P_, a_, b_):
+            ab = b_ - a_; t_ = np.clip((P_ - a_) @ ab / (ab @ ab), 0, 1); return np.linalg.norm(P_ - (a_ + t_[:, None] * ab), axis=1)
+        dax = np.minimum(_segd(P, A_ - (B_ - A_) * 0.15, B_), _segd(P, B_, C_ + (C_ - B_) * 0.2))
+        m |= ((P - pt) @ nn > 0) & (sg * P[:, 0] > 0.08) & ((dax < 0.095) | (sg * P[:, 0] > 0.215))
+    return m
+# hem edge level at HEM (the sim lifts and waves it): boundary points below the waist, carried 3 rings in
+hemb = [v for v in bm.verts if v.is_boundary and v.co.z < HEM + 0.08 and abs(v.co.x) < 0.26 and not _sleeve(np.array([v.co[:]]))[0]]
+dz = {v: HEM - v.co.z for v in hemb}; seen = set(hemb); ring = list(hemb)
+for k, f_ in enumerate((0.6, 0.3, 0.1)):
+    nxt = []
+    for v in ring:
+        for e in v.link_edges:
+            w_ = e.other_vert(v)
+            if w_ in seen: continue
+            seen.add(w_); dz[w_] = dz[v] * f_; nxt.append(w_)
+    ring = nxt
+for v, d_ in dz.items(): v.co.z += d_
+print('hem edge levelled: %d points, max %.1f mm' % (len(hemb), max(abs(x) for x in dz.values()) * 1000 if dz else 0))
+X = np.array([v.co[:] for v in bm.verts]); SL = _sleeve(X)
+TM = (~SL) & (X[:, 2] > HEM - 0.03) & (X[:, 2] < 1.43)
+th = np.arctan2(X[:, 0], -(X[:, 1] - YC_T)); r = np.hypot(X[:, 0], X[:, 1] - YC_T)
+Z0, DZ, NT = HEM - 0.03, 0.01, 120; NZ = int(round((1.44 - Z0) / DZ)) + 1
+zgrid = Z0 + DZ * np.arange(NZ); tgrid = -np.pi + (np.arange(NT) + 0.5) * 2 * np.pi / NT
+def envelope(P, mask, pad):
+    """max radius per (height, angle) bin of points P (Blender), plus pad; 0 where empty"""
+    E = np.zeros((NZ, NT)); P = P[mask]
+    if not len(P): return E
+    zi = np.clip(np.rint((P[:, 2] - Z0) / DZ).astype(int), 0, NZ - 1); ti = ((np.arctan2(P[:, 0], -(P[:, 1] - YC_T)) + np.pi) / (2 * np.pi) * NT).astype(int) % NT
+    np.maximum.at(E, (zi, ti), np.hypot(P[:, 0], P[:, 1] - YC_T) + pad)
+    return E
+def hull_row(E_row):
+    ok = E_row > 0
+    if ok.sum() < 12: return None
+    pts = [(E_row[i] * math.sin(tgrid[i]), -E_row[i] * math.cos(tgrid[i])) for i in np.nonzero(ok)[0]]
+    hi = _geo.convex_hull_2d(pts); hp = [pts[i] for i in hi]; out = np.zeros(NT)
+    for i, t_ in enumerate(tgrid):
+        d = (math.sin(t_), -math.cos(t_)); best = 0.0
+        for k in range(len(hp)):
+            a, b = hp[k], hp[(k + 1) % len(hp)]; ex, ey = b[0] - a[0], b[1] - a[1]; den = d[0] * (-ey) - d[1] * (-ex)
+            if abs(den) < 1e-12: continue
+            tt = (a[0] * (-ey) - a[1] * (-ex)) / den; uu = (d[0] * a[1] - d[1] * a[0]) / den
+            if tt > 0 and -1e-6 <= uu <= 1 + 1e-6: best = max(best, tt)
+        out[i] = best
+    return out
+# the shell's own envelope (bins of the draped torso), its convex hull per height
+E = envelope(X, TM, 0.0); Rh = np.full((NZ, NT), np.nan)
+for i in range(NZ):
+    h_ = hull_row(E[i])
+    if h_ is not None: Rh[i] = h_
+ok = ~np.isnan(Rh[:, 0])
+for j in range(NT): Rh[:, j] = np.interp(zgrid, zgrid[ok], Rh[ok, j])
+def gsm(A, sz, st):
+    k = np.arange(-4, 5); A = A.copy()
+    if sz > 0:
+        w = np.exp(-(k / sz) ** 2 / 2); w /= w.sum(); P_ = np.pad(A, ((4, 4), (0, 0)), mode='edge'); A = sum(P_[4 + kk:4 + kk + NZ] * ww for kk, ww in zip(k, w))
+    if st > 0:
+        w = np.exp(-(k / st) ** 2 / 2); w /= w.sum(); A = sum(np.roll(A, kk, 1) * ww for kk, ww in zip(k, w))
+    return A
+Rs = gsm(Rh, 1.5, 1.5)
+# what lies underneath: the body (bind, the full rebuilt skin), the tee and the jeans; the jacket held clear of them
+FB = lib.g2b(np.load(lib.D + 'fullbody.npz')['pos']); FBm = (~_sleeve(FB)) & (FB[:, 2] > Z0) & (FB[:, 2] < 1.44)
+UND = envelope(FB, FBm, 0.010)
+for pid_, pad in (('p12', 0.0075), ('p13', 0.004), ('p15', 0.004)):
+    pp = lib.rd(pid_, 'pos', 'Float32Array'); ii = lib.rd(pid_, 'idx', 'Uint16Array')
+    if pp is None: continue
+    PP_ = lib.g2b(pp)[np.unique(ii)] if ii is not None else lib.g2b(pp)
+    if pid_ == 'p13': PP_ = PP_[PP_[:, 2] > 1.05]   # the tee's flared hem is removed under the jacket (assembler: teeunder)
+    UND = np.maximum(UND, envelope(PP_, (~_sleeve(PP_)) & (PP_[:, 2] > Z0) & (PP_[:, 2] < 1.44), pad))
+UND = np.maximum(UND, np.maximum(np.roll(UND, 1, 1), np.roll(UND, -1, 1)))
+UND[1:] = np.maximum(UND[1:], UND[:-1] * 0.5 + UND[1:] * 0.5)
+# straight columns: from the band (zb) up to the chest (zc: 1.22 at the sides, under the armpits; 1.32 at the front and
+# back, so the chest does not bulge out of the line); the hem end 1.5% in from the chest (a slight taper)
+zb = HEM + BAND; RF = Rs.copy()
+side_s = np.clip((np.abs(np.sin(tgrid)) - 0.45) / 0.35, 0, 1)
+for j in range(NT):
+    zc = 1.32 - 0.10 * side_s[j]
+    ib = int(np.argmin(np.abs(zgrid - zb))); ic = int(np.argmin(np.abs(zgrid - zc)))
+    top = Rs[ic, j]
+    tap = lambda i: 1 - 0.015 * (1 - np.clip((zgrid[i] - zgrid[ib]) / (zgrid[ic] - zgrid[ib]), 0, 1))
+    # it3: the column's top is raised so the line clears what is under it all the way down (the hips): the sides
+    # hang straight or taper in, never step out at the hem (no flare)
+    top = max(top, max(UND[i, j] / tap(i) for i in range(0, ic + 1)))
+    for i in range(0, ic + 1): RF[i, j] = top * tap(i)
+RF = np.maximum(RF, np.where(UND > 0, UND, 0))
+RF = gsm(RF, 1.0, 1.2); RF = np.maximum(RF, np.where(UND > 0, UND, 0))
+# weight: full below the chest, fading out toward the armholes (sides) and the yoke/neck (front, back)
+def wfun(zz, tt):
+    s_ = np.clip((np.abs(np.sin(tt)) - 0.45) / 0.35, 0, 1); ztop = 1.40 * (1 - s_) + 1.31 * s_
+    return np.clip((ztop - zz) / 0.07, 0, 1)
+def bil(A, zz, tt):
+    fi = np.clip((zz - Z0) / DZ, 0, NZ - 1.001); i0 = np.floor(fi).astype(int); a = fi - i0
+    fj = (tt + np.pi) / (2 * np.pi) * NT - 0.5; j0 = np.floor(fj).astype(int); b = fj - j0; j0 %= NT; j1 = (j0 + 1) % NT
+    return (A[i0, j0] * (1 - a) * (1 - b) + A[i0 + 1, j0] * a * (1 - b) + A[i0, j1] * (1 - a) * b + A[i0 + 1, j1] * a * b)
+w_ = wfun(X[:, 2], th) * TM * np.clip((0.215 - np.abs(X[:, 0])) / 0.025, 0, 1)
+rn = r + w_ * (bil(RF, X[:, 2], th) - r)
+X2 = X.copy(); X2[:, 0] = rn * np.sin(th); X2[:, 1] = YC_T - rn * np.cos(th)
+for v, p_ in zip(bm.verts, X2): v.co = Vector(p_)
+print('torso faired: %d points, mean move %.1f mm, max %.1f mm' % ((w_ > 0).sum(), np.abs(rn - r)[w_ > 0].mean() * 1000, np.abs(rn - r).max() * 1000))
+# the seam between faired and draped (armpits, yoke) relaxed a little so no ridge shows
+tz = [v for v, ww in zip(bm.verts, w_) if 0.02 < ww < 0.98 or (ww > 0 and ww < 0.98)]
+relax(tz, 0.4, 6)
+# it2: the centre profile front and back set exactly to the plane
 Xa = np.array([v.co[:] for v in bm.verts]); Xb = flatten_back(flatten_front(Xa))
 for v, p in zip(bm.verts, Xb): v.co = Vector(p)
+bm.normal_update()
+
+# ---- v3: a TAPERED, fitted torso (it3 hung every column straight from the widest point of the hips, so the torso was
+# 3.5-5.5 cm per side off the waist: boxy). Target half-widths (Blender |x|, m) per height: snug on the hips at the
+# hem band, ~2.4 cm off the body at the waist, opening back to the chest under the arms. Measured it3: 0.191-0.194.
+TW_Z = np.array([0.920, 0.935, 0.985, 1.050, 1.100, 1.160, 1.200, 1.240])
+TW_W = np.array([0.188, 0.187, 0.184, 0.173, 0.168, 0.171, 0.178, 0.190])
+Xc = np.array([v.co[:] for v in bm.verts])
+tor = TM & (w_ > 0.3)
+zb_ = np.arange(HEM - 0.02, 1.26, 0.01); Wc = np.full(len(zb_), np.nan)
+for i_, z_ in enumerate(zb_):
+    s_ = tor & (np.abs(Xc[:, 2] - z_) < 0.006)
+    if s_.sum() > 5: Wc[i_] = np.abs(Xc[s_, 0]).max()
+ok_ = ~np.isnan(Wc); Wc = np.interp(zb_, zb_[ok_], Wc[ok_])
+sc_ = np.clip(np.interp(zb_, TW_Z, TW_W) / Wc, 0.82, 1.0)
+sc_ = np.where(zb_ > 1.20, sc_ + (1 - sc_) * np.clip((zb_ - 1.20) / 0.05, 0, 1), sc_)
+for it in range(2): sc_[1:-1] = sc_[1:-1] * 0.5 + (sc_[:-2] + sc_[2:]) * 0.25
+wt_ = np.clip(w_ * 1.4, 0, 1) * TM
+f_ = 1 - (1 - np.interp(Xc[:, 2], zb_, sc_)) * wt_
+Xc[:, 0] *= f_
+# held clear of what is underneath (body + 1 cm, tee, jeans), radially from the torso axis
+th2 = np.arctan2(Xc[:, 0], -(Xc[:, 1] - YC_T)); r2 = np.hypot(Xc[:, 0], Xc[:, 1] - YC_T)
+need = bil(UND, np.clip(Xc[:, 2], Z0, Z0 + DZ * (NZ - 1.01)), th2) + 0.002
+push = (wt_ > 0) & (r2 < need) & (need > 0.05)
+r2[push] = need[push]
+Xc[:, 0] = np.where(wt_ > 0, r2 * np.sin(th2), Xc[:, 0]); Xc[:, 1] = np.where(wt_ > 0, YC_T - r2 * np.cos(th2), Xc[:, 1])
+print('v3 taper: half-width at 0.94/1.10/1.20 was %.3f/%.3f/%.3f, scale %.3f/%.3f/%.3f, %d pushed clear' % (
+    np.interp(0.94, zb_, Wc), np.interp(1.10, zb_, Wc), np.interp(1.20, zb_, Wc), np.interp(0.94, zb_, sc_), np.interp(1.10, zb_, sc_), np.interp(1.20, zb_, sc_), push.sum()))
+# ---- v3: slimmer sleeves. it3 stood ~17-20 mm off the arm all the way down and belled at the cuff; a fitted leather
+# sleeve: ~12 mm on the upper arm, 14 at the elbow (bend room), 10 on the forearm, 9 at the cuff. The sim's own fold
+# variation is kept (a shrink per length station, not a re-shape); never closer than 5 mm to the arm.
+FB_ = lib.g2b(np.load(lib.D + 'fullbody.npz')['pos'])
+for s_, sg_ in (('L', 1), ('R', -1)):
+    selJ = np.nonzero(SL & (sg_ * Xc[:, 0] > 0))[0]
+    selB = np.nonzero(sg_ * FB_[:, 0] > 0.17)[0]
+    fj = np.array([arm_frame(s_, Xc[i]) [:3] for i in selJ]); fb = np.array([arm_frame(s_, FB_[i])[:3] for i in selB])
+    Lt_ = arm_frame(s_, Xc[selJ[0]])[3]
+    NTB, NPB = 26, 12
+    tb_ = np.clip((fb[:, 0] / 0.02).astype(int), 0, NTB - 1); pb_ = ((fb[:, 1] + np.pi) / (2 * np.pi) * NPB).astype(int) % NPB
+    keep = (fb[:, 0] > -0.01) & (fb[:, 0] < Lt_ + 0.02) & (fb[:, 2] < 0.10)
+    RB = np.zeros((NTB, NPB)); np.maximum.at(RB, (tb_[keep], pb_[keep]), fb[keep, 2])
+    for j_ in range(NPB):
+        okb = RB[:, j_] > 0
+        if okb.sum() > 2: RB[:, j_] = np.interp(np.arange(NTB), np.nonzero(okb)[0], RB[okb, j_])
+    RB = np.maximum(RB, (np.roll(RB, 1, 1) + np.roll(RB, -1, 1)) * 0.5)
+    tj = np.clip((fj[:, 0] / 0.02).astype(int), 0, NTB - 1); pj = ((fj[:, 1] + np.pi) / (2 * np.pi) * NPB).astype(int) % NPB
+    rb = RB[tj, pj]; ease = fj[:, 2] - rb
+    TT = np.array([0.0, 0.10, 0.20, 0.25, 0.31, Lt_ - 0.07, Lt_ + 0.02]); TE = np.array([0.013, 0.012, 0.013, 0.014, 0.012, 0.010, 0.009])
+    shrink = np.zeros(NTB)
+    for k_ in range(NTB):
+        m_ = tj == k_
+        if m_.sum() > 8: shrink[k_] = max(0.0, np.median(ease[m_]) - np.interp(k_ * 0.02 + 0.01, TT, TE))
+    for it in range(2): shrink[1:-1] = shrink[1:-1] * 0.5 + (shrink[:-2] + shrink[2:]) * 0.25
+    wcap = np.clip((fj[:, 0] - 0.025) / 0.05, 0, 1)
+    sh = np.interp(fj[:, 0], np.arange(NTB) * 0.02 + 0.01, shrink) * wcap
+    rnew = np.maximum(fj[:, 2] - sh, np.minimum(fj[:, 2], rb + 0.005))
+    A_, B_, C_ = arm(s_)
+    for n_, i in enumerate(selJ):
+        p = Vector(Xc[i]); t, ph, r, L = arm_frame(s_, p)
+        if t < (B_ - A_).length: u = (B_ - A_).normalized(); base = A_
+        else: u = (C_ - B_).normalized(); base = B_
+        foot = base + u * (p - base).dot(u); rv = p - foot
+        if rv.length > 1e-6: Xc[i] = (foot + rv.normalized() * rnew[n_])[:]
+    print('v3 sleeve %s: median ease before %.1f mm, shrink max %.1f mm' % (s_, np.median(ease) * 1000, shrink.max() * 1000))
+# ---- v3: no pec bumps. The front's depth field (forward reach per x column and height) smoothed in height with a
+# wide kernel from the waist to the yoke, so the chest flows into the flat front instead of stepping out 8-16 mm
+# at 1.26 m; held clear of the body; then the centre profile set to the plane again.
+GX = np.arange(-0.20, 0.2001, 0.01); GZ = np.arange(0.96, 1.4401, 0.01)
+fr_ = (Xc[:, 1] < -0.02) & (~SL)
+Dm = np.full((len(GZ), len(GX)), np.nan)
+xi_ = np.rint((Xc[:, 0] - GX[0]) / 0.01).astype(int); zi_ = np.rint((Xc[:, 2] - GZ[0]) / 0.01).astype(int)
+okp = fr_ & (xi_ >= 0) & (xi_ < len(GX)) & (zi_ >= 0) & (zi_ < len(GZ))
+Dm_ = np.full((len(GZ), len(GX)), -1.0); np.maximum.at(Dm_, (zi_[okp], xi_[okp]), -Xc[okp, 1])
+Dm = np.where(Dm_ > 0, Dm_, np.nan)
+for j in range(len(GX)):
+    o_ = ~np.isnan(Dm[:, j])
+    Dm[:, j] = np.interp(GZ, GZ[o_], Dm[o_, j]) if o_.sum() > 3 else 0
+# the leather hangs from the chest: below it, each column's forward reach is brought most of the way out to the
+# chest's (less a slight taper toward the hem), so the pec no longer steps out of a hollow below it
+ch_ = (GZ >= 1.24) & (GZ <= 1.34); Tch = Dm[ch_].max(0)
+Tch = np.convolve(np.pad(Tch, 2, mode='edge'), np.ones(5) / 5, mode='valid')
+Dt = Dm.copy()
+for i, z_ in enumerate(GZ):
+    if z_ > 1.34: continue
+    tgt = Tch - 0.004 * np.clip((1.30 - z_) / 0.30, 0, 1)
+    k_ = 0.8 * np.clip((1.31 - z_) / 0.05, 0, 1) if z_ > 1.26 else 0.8
+    Dt[i] = np.maximum(Dm[i], Dm[i] + (tgt - Dm[i]) * k_)
+Dd = Dt - Dm
+for it in range(3): Dd[1:-1] = Dd[1:-1] * 0.5 + (Dd[:-2] + Dd[2:]) * 0.25
+def bil2(A, xx, zz):
+    fx = np.clip((xx - GX[0]) / 0.01, 0, len(GX) - 1.001); fz = np.clip((zz - GZ[0]) / 0.01, 0, len(GZ) - 1.001)
+    x0 = np.floor(fx).astype(int); z0 = np.floor(fz).astype(int); a = fx - x0; b = fz - z0
+    return A[z0, x0] * (1 - a) * (1 - b) + A[z0, x0 + 1] * a * (1 - b) + A[z0 + 1, x0] * (1 - a) * b + A[z0 + 1, x0 + 1] * a * b
+phf = np.arctan2(Xc[:, 0], -Xc[:, 1])
+wfr = fr_ * np.clip(np.cos(phf), 0, 1) ** 0.7 * np.clip((Xc[:, 2] - (HEM + BAND + 0.005)) / 0.05, 0, 1) * np.clip((1.40 - Xc[:, 2]) / 0.05, 0, 1)
+Xc[:, 1] -= bil2(Dd, Xc[:, 0], Xc[:, 2]) * wfr
+th3 = np.arctan2(Xc[:, 0], -(Xc[:, 1] - YC_T)); r3 = np.hypot(Xc[:, 0], Xc[:, 1] - YC_T)
+need3 = bil(UND, np.clip(Xc[:, 2], Z0, Z0 + DZ * (NZ - 1.01)), th3) + 0.002; p3 = (wfr > 0) & (r3 < need3) & (need3 > 0.05)
+r3[p3] = need3[p3]; Xc[:, 0] = np.where(wfr > 0, r3 * np.sin(th3), Xc[:, 0]); Xc[:, 1] = np.where(wfr > 0, YC_T - r3 * np.cos(th3), Xc[:, 1])
+Xc = flatten_front(Xc)
+print('v3 front hung from the chest: max forward %.1f mm, %d held clear' % (Dd.max() * 1000, p3.sum()))
+for v, p in zip(bm.verts, Xc): v.co = Vector(p)
+bm.normal_update()
+relax([v for v, f in zip(bm.verts, f_) if f < 0.999 and not v.is_boundary], 0.3, 2)
 # it2: the hem band clear of the jeans' waistband all round (radially from the hips' axis, 4 mm), so nothing of the
 # jeans shows through the band at the back
 JP = lib.g2b(lib.rd('p12', 'pos', 'Float32Array')); JI = np.unique(lib.rd('p12', 'idx', 'Uint16Array')); JP = JP[JI]
@@ -43,7 +261,7 @@ for v in bm.verts:
     if v.co.z > HEM + 0.17: continue
     zi = int((v.co.z - (HEM - 0.03)) / 0.01)
     if zi < 0 or zi > 19: continue
-    a = math.atan2(v.co.x, v.co.y - YC); r = math.hypot(v.co.x, v.co.y - YC); need = RM2[zi, int((a + math.pi) / (2 * math.pi) * 60) % 60] + 0.004
+    a = math.atan2(v.co.x, v.co.y - YC); r = math.hypot(v.co.x, v.co.y - YC); need = RM[zi, int((a + math.pi) / (2 * math.pi) * 60) % 60] + 0.003   # it3: the fairing already clears the jeans; this only catches leftovers
     if RM2[zi].max() > 0 and r < need: disp[v] = need - r
 for it in range(3):   # spread the push so the band stays smooth
     nd = {}
@@ -57,35 +275,53 @@ for v, dd in disp.items():
     if r_.length > 1e-6: v.co += r_.normalized() * dd; npush += 1
 print('hem band pushed clear of the jeans', npush, 'max %.1f mm' % (max(disp.values()) * 1000 if disp else 0))
 bm.normal_update()
-# ---- 1. creases: compression rings at the inner elbow, stacking above the cuff, soft folds across the small of the back
+# it3: the push blended out so it leaves no dent or lump on the band
+relax([v for v in bm.verts if v.co.z < HEM + 0.14 and not v.is_boundary and abs(v.co.x) < 0.24], 0.5, 6)
+# v3: the hem's bottom edge smoothed in plan along its own loop (the push left it wavy), the rings above follow
+hb_ = [v for v in bm.verts if v.is_boundary and v.co.z < HEM + 0.02 and abs(v.co.x) < 0.26]
+hbs = set(hb_)
+for it in range(25):
+    new_ = {}
+    for v in hb_:
+        nb = [e.other_vert(v) for e in v.link_edges if e.is_boundary and e.other_vert(v) in hbs]
+        if len(nb) == 2:
+            c_ = (nb[0].co + nb[1].co) * 0.5; new_[v] = Vector((v.co.x * 0.5 + c_.x * 0.5, v.co.y * 0.5 + c_.y * 0.5, v.co.z))
+    for v, c_ in new_.items(): v.co = c_
+bm.normal_update()
+relax([v for v in bm.verts if v.co.z < HEM + 0.06 and not v.is_boundary and abs(v.co.x) < 0.24], 0.5, 6)
+# ---- 1. creases (it3): the torso keeps ONLY 2-3 long shallow folds per front panel (stiff leather hanging from the
+# chest; no folds at the waist, ribs or under the arms). The sleeves: a few irregular compression folds at the INNER
+# elbow only (plain leather, the outer elbow smooth), a light stack above the cuff.
+def hat(d, w):  # a soft fold: a rounded ridge with shallow hollows either side
+    q = (d / w) ** 2; return (1 - 2 * q) * math.exp(-q)
+def seg_dist(px, pz, a, b):
+    ax, az = a; bx, bz = b; vx, vz = bx - ax, bz - az; L2 = vx * vx + vz * vz
+    t = max(0.0, min(1.0, ((px - ax) * vx + (pz - az) * vz) / L2)); return math.hypot(px - (ax + t * vx), pz - (az + t * vz)), t
+FOLDS_F = [((0.138, 1.255), (0.112, 0.995), 0.0011, 0.016), ((0.074, 1.20), (0.066, 1.000), 0.0007, 0.014)]
+FOLDS_B = [((0.105, 1.25), (0.094, 1.000), 0.0008, 0.018)]
 for v in bm.verts:
     p = v.co; d = 0.0
     for s in ('L', 'R'):
         if (p.x > 0) != (s == 'L') or abs(p.x) < 0.2: continue
         t, ph, r, L = arm_frame(s, p); E = (J['lowerarm01_' + s] - J['upperarm01_' + s]).length
-        # elbow: rings at ~4.5 cm, strongest on the inner (front) side, a slight twist so they read as folds not rings
-        k = math.exp(-((t - E) / 0.065) ** 2); inner = 0.35 + 0.65 * max(0.0, math.cos(ph))
-        d += 0.0042 * k * inner * math.sin(2 * math.pi * (t + 0.010 * math.sin(2 * ph + 0.7)) / 0.046)
-        # wrist stack: shallow, closer folds just above the cuff band
-        kw = math.exp(-((t - (L - 0.10)) / 0.045) ** 2)
-        d += 0.0022 * kw * math.sin(2 * math.pi * (t + 0.006 * math.sin(3 * ph)) / 0.034)
-        # the sleeve's underside (armpit) gathers a little
-        ka = math.exp(-((t - 0.05) / 0.05) ** 2) * max(0.0, -math.cos(ph - 0.0)) if False else 0.0
-    # it2: broad folds under the arms: they fan from the armpit down and forward over the side of the torso
-    for sg in (1, -1):
-        pit = Vector((sg * 0.150, -0.025, 1.300)); r = (p - pit)
-        if sg * p.x < 0.07: continue
-        k = math.exp(-(r.length / 0.075) ** 2) * (1 - math.exp(-(r.length / 0.02) ** 2))
-        a_ = math.atan2(r.z, -r.y)   # angle round the pit in the side plane
-        d += 0.0026 * k * math.sin(3.2 * a_ + 9.0 * r.length)
-    # it2: broad soft folds at the waist sides (never across the flat front)
-    phw = math.atan2(p.x, -p.y)
-    if 0.95 < abs(phw) < 2.3 and HEM + BAND < p.z < 1.16:
-        ks = math.sin((abs(phw) - 0.95) / 1.35 * math.pi) * math.exp(-((p.z - 1.06) / 0.06) ** 2)
-        d += 0.0020 * ks * math.sin(2 * math.pi * (p.z + 0.015 * math.sin(abs(phw) * 5)) / 0.055)
-    if abs(p.x) < 0.2 and p.y > 0.04:  # back: two soft horizontal folds at the waist
-        kb = math.exp(-((p.z - 1.06) / 0.07) ** 2) * (1 - abs(p.x) / 0.2)
-        d += 0.0018 * kb * math.sin(2 * math.pi * (p.z + 0.02 * math.sin(p.x * 18)) / 0.07)
+        inner = max(0.0, math.cos(ph)) ** 1.5
+        k = math.exp(-((t - E) / 0.055) ** 2)
+        # 3 folds, slanted and of uneven depth, fading round to the outer elbow
+        # v3: discrete, irregular crescent folds at the inner elbow (it3's sine train read as corrugation), each
+        # slanted and fading round the arm; two soft drag folds stacked above the cuff
+        sgn_ = 1 if s == 'L' else -1
+        for (dt_, amp_, wd_, sl_) in ((-0.040, 0.0018, 0.0065, 0.010), (-0.008, 0.0032, 0.0080, -0.012), (0.026, 0.0026, 0.0070, 0.016), (0.060, 0.0013, 0.0060, -0.006)):
+            tc_ = E + dt_ + sl_ * math.sin(ph + 0.4 * sgn_)
+            d += amp_ * hat(t - tc_, wd_) * inner
+        for (dt_, amp_, wd_, sl_) in ((-0.088, 0.0013, 0.0075, 0.009), (-0.122, 0.0009, 0.0065, -0.007)):
+            tc_ = L + dt_ + sl_ * math.sin(2 * ph + 1.0)
+            d += amp_ * hat(t - tc_, wd_) * (0.45 + 0.55 * inner)
+    if p.z < 1.30 and p.z > HEM + BAND - 0.01 and not _sleeve(np.array([p[:]]))[0]:
+        fz = min(1.0, (p.z - (HEM + BAND - 0.01)) / 0.04) * min(1.0, (1.30 - p.z) / 0.05)
+        sg = 1 if p.x > 0 else -1
+        for (a, b, amp, w) in (FOLDS_F if p.y < -0.02 else FOLDS_B if p.y > 0.02 else []):
+            dd, tt = seg_dist(abs(p.x), p.z, a, b)
+            if dd < 3 * w: d += amp * hat(dd, w) * math.sin(math.pi * min(1.0, tt * 1.15)) ** 0.7 * fz
     v.co = p + v.normal * d
 # ---- 2. padded shoulder panels: an oval over each shoulder cap, puffed 3.5 mm, its edge a sewn step
 def shoulder_panel(s):
@@ -104,6 +340,31 @@ for v in bm.verts:
             e = min(1.0, max(0.0, (1.08 - m) / 0.16)); e = e * e * (3 - 2 * e)
             v.co += v.normal * 0.0030 * e
 bm.normal_update()
+# it3: the shell decimated to the hero budget HERE, before the zip opening and the turned edges are built (it2
+# decimated in s50, after the edges: collapses along the hem twisted the rolled lip into a torn-looking edge)
+bm.to_mesh(me); bm.free(); me.update()
+_nt = sum(len(p_.vertices) - 2 for p_ in me.polygons)
+for ob_ in bpy.data.objects: ob_.select_set(False)
+o.select_set(True); bpy.context.view_layer.objects.active = o
+# the open edges (neckline, hem, cuffs) and the ring next to them are kept as they are: a collapse there left a
+# jagged neckline peeking out under the collar
+_bv = set()
+for e_ in me.edges:
+    pass
+_bmk = bmesh.new(); _bmk.from_mesh(me)
+for v_ in _bmk.verts:
+    if v_.is_boundary:
+        _bv.add(v_.index); _bv.update(e_.other_vert(v_).index for e_ in v_.link_edges)
+_bmk.free()
+_vg = o.vertex_groups.new(name='keep'); _vg.add(list(range(len(me.vertices))), 0.0, 'REPLACE'); _vg.add(sorted(_bv), 1.0, 'REPLACE')
+_md = o.modifiers.new('dec', 'DECIMATE'); _md.decimate_type = 'COLLAPSE'; _md.ratio = min(1.0, 16500 / _nt); _md.use_symmetry = True; _md.symmetry_axis = 'X'
+_md.vertex_group = 'keep'; _md.invert_vertex_group = True; _md.vertex_group_factor = 1000.0
+bpy.ops.object.modifier_apply(modifier='dec')
+o.vertex_groups.remove(o.vertex_groups['keep'])
+print('shell decimated (edges kept: %d points)' % len(_bv), _nt, '->', sum(len(p_.vertices) - 2 for p_ in me.polygons))
+bm = bmesh.new(); bm.from_mesh(me); bm.normal_update(); lay = bm.verts.layers.int.get('lip') or bm.verts.layers.int.new('lip')
+# a light relax after the collapse (keeps the boundary): no faceting on the flat front
+relax([v for v in bm.verts if not v.is_boundary], 0.25, 2)
 # ---- 3. the centre-front opening: cut at x = 0 on the front, the two fronts drawn apart for the zip chain
 front = [f for f in bm.faces if f.calc_center_median().y < -0.02 and abs(f.calc_center_median().x) < 0.05]
 fv = set(v for f in front for v in f.verts); fe = set(e for f in front for e in f.edges)
@@ -118,27 +379,40 @@ for v in bm.verts:
         k = max(0.0, 1 - abs(v.co.x) / 0.03); v.co.x += sgn * GAP * (k ** 2 * (3 - 2 * k))
 bmesh.ops.dissolve_degenerate(bm, dist=0.0006, edges=bm.edges[:])
 bm.normal_update()
-# ---- 4. turned edges: the leather's thickness rolled under at the hem, the two fronts and the cuffs (not the neckline,
-# the collar is sewn there); each edge a rounded lip then a 1.2 cm facing on the inside
+# ---- 4. turned edges (it3): the leather rolled under at the hem, the two fronts and the cuffs (not the neckline, the
+# collar is sewn there): a round 1.8 mm roll, then a facing on the inside: 1.5 cm at the hem (the stitched hem band),
+# 1.2 cm elsewhere. The out-direction t of each edge point is taken square to the edge chain itself (both its edge
+# neighbours), so a corner gets the bisector and the roll never twists.
 def is_neck(v): return v.co.z > 1.425 and (v.co.x / 0.09) ** 2 + (v.co.y / 0.1) ** 2 < 1.0 and abs(v.co.x) > GAP * 0.6 + 0.0005 or (v.co.z > 1.44 and abs(v.co.x) > 0.0015)
+bm.normal_update()
 bedges = [e for e in bm.edges if e.is_boundary]
 bverts = set(v for e in bedges for v in e.verts)
 neckv = set(v for v in bverts if is_neck(v))
 lipedges = [e for e in bedges if not (e.verts[0] in neckv and e.verts[1] in neckv)]
 lipverts = set(v for e in lipedges for v in e.verts)
+RO = 0.0018
 LIP = {}
 for v in lipverts:
     n = v.normal.copy()
-    inner = [e.other_vert(v).co for e in v.link_edges if not e.is_boundary]
-    c = sum(inner, Vector()) / max(1, len(inner)) if inner else v.co
-    t = v.co - c; t -= n * t.dot(n); t = t.normalized() if t.length > 1e-9 else Vector((0, 0, -1))
-    rows = [v.co + t * 0.0010 - n * 0.0012, v.co + t * 0.0010 - n * 0.0030, v.co - n * 0.0040, v.co - n * 0.0042 - t * 0.012]
-    LIP[v] = [bm.verts.new(r) for r in rows]
+    be = [e for e in v.link_edges if e.is_boundary]
+    # tangent along the edge chain, then out = in the surface, square to it, pointing away from the faces
+    if len(be) >= 2:
+        a_ = be[0].other_vert(v).co; b_ = be[1].other_vert(v).co; tang = (b_ - a_)
+    else: tang = be[0].other_vert(v).co - v.co
+    tang = (tang - n * tang.dot(n)).normalized()
+    t = n.cross(tang).normalized()
+    fc = sum((f.calc_center_median() for f in v.link_faces), Vector()) / max(1, len(v.link_faces))
+    if (fc - v.co).dot(t) > 0: t = -t
+    is_hem = v.co.z < HEM + 0.03 and abs(v.co.x) < 0.26 and not _sleeve(np.array([v.co[:]]))[0]
+    depth = HEM_ROLL if is_hem else 0.012
+    ro = 0.0027 if is_hem else RO   # v3: the hem's turn is heavier (two layers of leather + the band's stitching): weight in the hem
+    rows = [v.co + t * ro * math.sin(a) - n * ro * (1 - math.cos(a)) for a in (math.pi / 4, math.pi / 2, 3 * math.pi / 4, math.pi)]
+    rows += [v.co - n * (2 * ro + 0.0002) - t * depth * 0.5, v.co - n * (2 * ro + 0.0004) - t * depth]
+    LIP[v] = [bm.verts.new(r_) for r_ in rows]
 for e in lipedges:
     a, b = e.verts
     if a not in LIP or b not in LIP: continue
     f0 = e.link_faces[0]
-    # keep the lip's winding consistent with the face it hangs from
     loop = [l for l in f0.loops if l.edge == e][0]; a, b = (loop.vert, loop.link_loop_next.vert)
     chain_a = [a] + LIP[a]; chain_b = [b] + LIP[b]
     for i in range(len(chain_a) - 1):
@@ -248,14 +522,15 @@ def slab(place, w, h, rad, th, uvoff):
         f = tb.faces.new([rings[-1][i], rings[-1][(i + 1) % n], ctr])
         for l, (xx, yy) in zip(f.loops, [outline[i], outline[(i + 1) % n], (0, 0)]): l[tuv].uv = (uvoff[0] + xx, uvoff[1] + yy)
 # tab A on the band, his right side (the chain's far end is his right front)
-sA0 = Ltot - 0.036; TABY = COL_H0 * 0.5 + 0.001
+sA0 = Ltot - 0.041;   # v3: 5 mm further back, clear of the collar's rounded front corner (it3 crumpled there)
+TABY = COL_H0 * 0.5 + 0.001
 def placeA(x, y, z):
     q, r = collar_pt(sA0 - x, TABY + y, 0.0005 + z); return q, r
 slab(placeA, TAB_W, TAB_H, 0.0065, 0.0022, (10.0, 0.0))
 for x in (-0.0085, 0.0085):
     q, r = placeA(x, 0, 0.0022); snaps.append((q, r))
 # it2: tab B mirrors tab A on his left side of the band (it1 had it floating on the chest)
-sB0 = 0.036
+sB0 = 0.041
 def placeB(x, y, z):
     q, r = collar_pt(sB0 + x, TABY + y, 0.0005 + z); return q, r
 slab(placeB, TAB_W, TAB_H, 0.0065, 0.0022, (12.0, 0.0))

@@ -21,7 +21,7 @@ import { motoPass, tailorPass, teeHemPass, teeShoulderPass, teeCrewPass, drapePa
 import { bakeRest, addMorphs } from '../facekit.mjs';
 const FACE = process.env.JH_FACE || new URL('../../../.scratch/jensen/face/', import.meta.url).pathname;
 import { holeUvPass, sculptPass, mapsPass, mouthBagPass, teethRigidPass, skinTonePass } from './blender/face-pass.mjs';
-import { keepOrder, stripOld, addParts, writeKept, flatFront, teeUnder, neckSkirt, ownClips, lensPanes } from './blender/assemble.mjs';
+import { keepOrder, stripOld, addParts, writeKept, flatFront, teeUnder, neckSkirt, ownClips, lensPanes, matteFront } from './blender/assemble.mjs';
 const MORPHS = ['eyeBlinkLeft', 'eyeBlinkRight', 'jawOpen', ...['sil', 'PP', 'FF', 'TH', 'DD', 'kk', 'CH', 'SS', 'nn', 'RR', 'aa', 'E', 'I', 'O', 'U'].map((v) => 'viseme_' + v),
   'mouthSmileLeft', 'mouthSmileRight', 'cheekSquintLeft', 'cheekSquintRight', 'eyeSquintLeft', 'eyeSquintRight', 'browInnerUp', 'browOuterUpLeft', 'browOuterUpRight', 'mouthClose',
   'eyeWideLeft', 'eyeWideRight', 'mouthFrownLeft', 'mouthFrownRight', 'mouthPucker', 'mouthFunnel'];
@@ -66,6 +66,9 @@ const steps = [
   ['holeuv', () => holeUvPass(doc)],
   // (Blender round, iteration 1: the head re-sculpted on the same points (blender/face/sculpt.py, a MakeHuman-format target):
   // broader, forward cheekbones, wider temples, no jowls, a tapered lower jaw, the chin 6 mm shorter, a wider nose and mouth)
+  // (v3, the owner 19 Nov: "jawline is NOT that lean, cut, more normal and rounded": the landmark-fit head with pass R2
+  // (blender/face/v3): the jaw corner, jaw line and lower cheeks fuller, the cheekbone hollow mostly filled, a broader,
+  // rounder chin; the same points in the same order)
   ['sculpt', () => sculptPass(doc, PARTS + 'face/head-sculpt.target')],
   // (clean-shaven; an older man's skin: the age detail up, lentigines and crow's feet; round 4: less orange)
   // (likeness round 2: smoother: fewer dots, less of the painted age texture)
@@ -148,10 +151,15 @@ const steps = [
   // jacket: the leather moto jacket (cloth-draped, a full-length metal zip, a band collar with two snap tabs, quilted
   // shoulders), the groomed hair cards and card brows, the browline glasses)
   ['strip', () => stripOld(doc)],
+  // (v3: the tousled groom (hair/v3, fitted on 12464129: fit-h12), the flat-front jacket v3b (fitted on round 3's body:
+  // fit-r3, the torso the same in every head since), the r2 glasses (fitted on the 07:00 v3 face: fit-v3f1))
   ['parts', () => addParts(doc, PARTS)],
   // (the owner, 18 Nov: no humps: the jacket's front flat from the chest to the hem, the waist under it pulled in behind it)
   // (iteration 2: the jacket cut flat in Blender itself; here only the waist under its hem pulled in, as its sim saw it)
   ['flat', () => flatFront(doc, JSON.parse(process.env.JH_FLAT || '{}'))],
+  // (v3 assembly: the front's shading normals turned straight ahead and the leather's coat calmer: in the game's bright
+  // light the flat front's gentle arc still caught two highlights that read as mounds)
+  ['matte', () => matteFront(doc, JSON.parse(process.env.JH_MATTE || '{}'))],
   // (iteration 2: the tee's flared hem out from under the flat front)
   ['teeunder', () => teeUnder(doc)],
   // (iteration 2: the neck's skin hung down into the lower collar: the forge's saw-tooth cut showed over it at the sides)
@@ -159,6 +167,8 @@ const steps = [
   // (iteration 2: the clear lens panes out: the engine's shadow from them greyed his eyes; the polished edges stay)
   ['lenses', () => lensPanes(doc, JSON.parse(process.env.JH_LENSES || '{}'))],
   // (iteration 2, the owner's posture notes: his idle, talk, phone, arms and seated clips stacked on the plumb line, his own)
+  // (v3b, the owner: "chest and stomach should NOT protrude": the clips' spine zig-zag folded the torso belly-out, chest-in;
+  // his six clips now turn the trunk as one piece, the seated lean capped at 8 degrees (blender/jacket posture2.py))
   ['posture', () => ownClips(doc, PARTS + 'clips-posture.glb')],
   // (iteration 1's 'comb' and 'hairlook' (assemble.mjs combBack, hairLook) gone: the iteration-2 groom lies up and back in
   // layers, its own cut (0.35) and colour made for the engine's strand shader)

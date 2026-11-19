@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 const require = createRequire(process.env.FORGE_TOOLBOX_DIR.replace(/\/?$/, '/') + 'node_modules/');
-const { NodeIO } = require('@gltf-transform/core'); const { ALL_EXTENSIONS } = require('@gltf-transform/extensions'); const { prune } = require('@gltf-transform/functions');
+const { NodeIO } = require('@gltf-transform/core'); const { ALL_EXTENSIONS, KHRMaterialsClearcoat, KHRMaterialsSpecular } = require('@gltf-transform/extensions'); const { prune } = require('@gltf-transform/functions');
 const { MeshoptDecoder } = require('meshoptimizer'); const sharp = require('sharp');
 await MeshoptDecoder.ready;
 const H = new URL('.', import.meta.url).pathname, X = H + 'export/';
@@ -18,6 +18,8 @@ for (const n of meshNodes) if (n !== bodyNode) n.dispose();
 for (const m of R.listMeshes()) m.dispose();
 for (const m of R.listMaterials()) m.dispose();
 for (const t of R.listTextures()) t.dispose();
+for (const a of R.listAnimations()) a.dispose();   // v3: jensen.glb now carries the clips (posture); the jacket must not
+
 await doc.transform(prune({ keepLeaves: true }));
 const buf = R.listBuffers()[0] || doc.createBuffer();
 const rd = (f, T) => { const b = fs.readFileSync(X + f); return new T(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength)); };
@@ -34,9 +36,18 @@ const leather = doc.createMaterial('leather').setBaseColorFactor([1, 1, 1, 1]).s
   .setExtras({ ...extras, part: 'shell' });
 const orm = await tex('leather_orm.png', 'leather_orm', 'image/jpeg', 92);
 leather.setMetallicRoughnessTexture(orm).setOcclusionTexture(orm);
+// it3: near-black leather that reads black under bright warm IBL: specular halved, a thin clearcoat on the grain's plateaus
+const ccExt = doc.createExtension(KHRMaterialsClearcoat), spExt = doc.createExtension(KHRMaterialsSpecular);
+leather.setExtension('KHR_materials_clearcoat', ccExt.createClearcoat().setClearcoatFactor(0.35).setClearcoatRoughnessFactor(0.28)
+  .setClearcoatTexture(await tex('leather_coat.png', 'leather_coat', 'image/jpeg', 90, 1024)));
+leather.setExtension('KHR_materials_specular', spExt.createSpecular().setSpecularFactor(0.5));
 const hardware = doc.createMaterial('hardware').setBaseColorFactor([0.15, 0.15, 0.16, 1]).setMetallicFactor(1).setRoughnessFactor(0.36).setExtras({ ...extras, part: 'hardware', metal: 'gunmetal' });
-const snapsM = doc.createMaterial('snaps').setBaseColorFactor([0.28, 0.27, 0.26, 1]).setMetallicFactor(1).setRoughnessFactor(0.52).setExtras({ ...extras, part: 'snaps', metal: 'dull-nickel' });
-const tape = doc.createMaterial('zip-tape').setBaseColorFactor([0.012, 0.012, 0.013, 1]).setMetallicFactor(0).setRoughnessFactor(0.8).setExtras({ ...extras, part: 'zip-tape' });
+const snapsM = doc.createMaterial('snaps').setBaseColorFactor([0.17, 0.165, 0.16, 1]).setMetallicFactor(1).setRoughnessFactor(0.48).setExtras({ ...extras, part: 'snaps', metal: 'dull-nickel' });
+// it3: the centre zip is one textured strip: tape + interlocking gunmetal teeth (tiling in v, mip-mapped)
+const zorm = await tex('zip_orm.png', 'zip_orm', 'image/png');
+const tape = doc.createMaterial('zip-tape').setBaseColorFactor([1, 1, 1, 1]).setMetallicFactor(1).setRoughnessFactor(1)
+  .setBaseColorTexture(await tex('zip_basecolor.png', 'zip_basecolor', 'image/png')).setMetallicRoughnessTexture(zorm).setOcclusionTexture(zorm)
+  .setNormalTexture(await tex('zip_normal.png', 'zip_normal', 'image/png')).setExtras({ ...extras, part: 'zip-strip', metal: 'gunmetal teeth on black tape' });
 const mesh = doc.createMesh('moto-jacket');
 const info = JSON.parse(fs.readFileSync(X + 'info.json'));
 for (const [name, mat] of [['leather', leather], ['hardware', hardware], ['zip-tape', tape], ['snaps', snapsM]]) {
@@ -51,7 +62,7 @@ for (const [name, mat] of [['leather', leather], ['hardware', hardware], ['zip-t
   mesh.addPrimitive(p);
 }
 bodyNode.setName('moto-jacket').setMesh(mesh).setSkin(skin);
-const ax = R.getAsset(); ax.extras = { ...(ax.extras || {}), jacket: { what: "Jensen Heist's black leather moto jacket (Blender build, it2 19 Nov 2026)", bind: 'jensen.glb skin, same 66 joints / inverse binds', tris: Object.values(info).reduce((a, b) => a + b.tris, 0),
+const ax = R.getAsset(); ax.extras = { ...(ax.extras || {}), jacket: { what: "Jensen Heist's black leather moto jacket (Blender build, it3 19 Nov 2026)", bind: 'jensen.glb skin, same 66 joints / inverse binds', tris: Object.values(info).reduce((a, b) => a + b.tris, 0),
   credits: 'Leather grain: ambientCG Leather026 (CC0), Poly Haven leather_white by Rob Tuytel (CC0). Geometry, pattern, stitching and hardware: original work.' } };
 await doc.transform(prune({ keepLeaves: true }));
 await io.write(H + 'jacket.glb', doc);

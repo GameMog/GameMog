@@ -27,6 +27,35 @@ def weights(o):
         for g in v.groups: W[v.index, gi[g.group]] = g.weight
     return W
 W = weights(L)
+# it3: no thigh weights on the jacket: the hem rides the pelvis. Seated, the thighs turn 90 degrees and their weights
+# dragged the back hem out into a lower-back bulge (it2 sitTalk)
+for s_ in ('L', 'R'):
+    for b_ in ('upperleg01_', 'upperleg02_'):
+        W[:, JN.index('pelvis_' + s_)] += W[:, JN.index(b_ + s_)]; W[:, JN.index(b_ + s_)] = 0
+print('thigh weight moved to the pelvis')
+# v3: the pelvis_L/R joints are the hip sockets (children of root, parents of the thighs) and turn with the thighs
+# when seated: their weight on the back and sides dragged the lower back out into the seated bulge. The jacket rides
+# root (the hips' own frame) instead.
+if not os.environ.get('KEEP_PELVIS'):
+    for s_ in ('L', 'R'):
+        W[:, JN.index('root')] += W[:, JN.index('pelvis_' + s_)]; W[:, JN.index('pelvis_' + s_)] = 0
+    # and above the hem band the lower torso follows the spine (the leather hangs from the shoulder blades), only the
+    # band keeps half of the hips: seated, the hips' backward tilt no longer kinks the lower back out
+    zz_ = np.array([v.co.z for v in L.data.vertices]); fr_ = np.clip((zz_ - 0.975) / 0.06, 0, 1) * 0.85 + 0.15
+    mv_ = W[:, JN.index('root')] * fr_; W[:, JN.index('root')] -= mv_; W[:, JN.index('spine05')] += mv_
+# v3: the torso below the armpits and the chest front ride the spine, not the arms. Their shoulder/upper-arm weights
+# (taken from the A-pose body) swung the sides out into a box and raised pec bumps when the arms came down in the idle.
+from common import armhole
+co0 = np.array([v.co[:] for v in L.data.vertices])
+for s_ in ('L', 'R'):
+    pt_, nn_ = armhole(s_); sg_ = 1 if s_ == 'L' else -1
+    tor_ = (((co0 - np.array(pt_)) @ np.array(nn_)) < 0) & (sg_ * co0[:, 0] > -0.01)
+    fside = np.clip((1.29 - co0[:, 2]) / 0.08, 0, 1)
+    ffront = np.clip((1.37 - co0[:, 2]) / 0.08, 0, 1) * (co0[:, 1] < -0.03) * np.clip((0.15 - np.abs(co0[:, 0])) / 0.04, 0, 1)
+    f_ = np.maximum(fside, ffront) * tor_
+    for b_ in ('shoulder01_', 'upperarm01_', 'upperarm02_'):
+        j_ = JN.index(b_ + s_); m_ = W[:, j_] * f_; W[:, j_] -= m_; W[:, JN.index('spine02')] += m_
+    print('v3 arm weight off the torso', s_, int((f_ > 0).sum()), 'points')
 # smooth over the mesh (garment stiffness): leather spans joints more evenly than skin; more on the torso than the sleeves
 me = L.data; E = np.array([e.vertices[:] for e in me.edges]); nV = len(me.vertices)
 co = np.array([v.co[:] for v in me.vertices])

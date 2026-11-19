@@ -14,6 +14,24 @@ def rd(pid, name, typ):
     if not os.path.exists(f): return None
     return np.fromfile(f, dtype={'Float32Array': np.float32, 'Int8Array': np.int8, 'Uint16Array': np.uint16, 'Uint32Array': np.uint32, 'Uint8Array': np.uint8}[typ])
 
+
+# v3b: the owner's flat chest/stomach (b10_bodyflat.py): body_flat.npz moves torso-front skin vertices forward/back in
+# the bind (glTF z). Applied by exact position match to the skin primitives and the merged full body; BODYFLAT=0 skips.
+_BF = None
+def bodyflat(pos_b):
+    """pos_b: (N,3) Blender-space bind positions; returns them with the flat-torso delta applied where they match"""
+    global _BF
+    if os.environ.get('BODYFLAT', '1') == '0': return pos_b
+    f = os.path.dirname(os.path.abspath(__file__)) + '/body_flat.npz'
+    if not os.path.exists(f): return pos_b
+    if _BF is None:
+        Z = np.load(f); _BF = {tuple(np.round(p, 5)): dz for p, dz in zip(Z['pos'].astype(np.float64), Z['dz'])}
+    g = b2g(pos_b); out = pos_b.copy(); n = 0
+    for i, p in enumerate(np.round(g, 5)):
+        dz = _BF.get(tuple(p))
+        if dz is not None: out[i, 1] -= dz; n += 1   # glTF +z forward = Blender -y
+    return out
+
 def make_armature():
     ad = bpy.data.armatures.new('rig'); ao = bpy.data.objects.new('rig', ad); bpy.context.scene.collection.objects.link(ao)
     bpy.context.view_layer.objects.active = ao; bpy.ops.object.mode_set(mode='EDIT')
@@ -47,6 +65,7 @@ def mat_from(p, name=None):
 
 def build_prim(p, arm=None, name=None):
     ty = p['types']; pos = g2b(rd(p['id'], 'pos', ty['pos']))
+    if p['mat'] == 'skin': pos = bodyflat(pos)
     idx = rd(p['id'], 'idx', ty['idx']) if ty['idx'] else np.arange(len(pos))
     tri = idx.reshape(-1, 3).astype(np.int64)
     used = np.unique(tri); remap = -np.ones(len(pos), np.int64); remap[used] = np.arange(len(used))
@@ -137,7 +156,7 @@ def shoot(co, loc, at, lens, out):
     bpy.context.scene.render.filepath = out; bpy.ops.render.render(write_still=True)
 
 def load_fullbody(arm, name='fullbody', mat=None):
-    Z = np.load(D + 'fullbody.npz'); pos = g2b(Z['pos'])
+    Z = np.load(D + 'fullbody.npz'); pos = bodyflat(g2b(Z['pos']))
     me = bpy.data.meshes.new(name); me.from_pydata(pos.tolist(), [], Z['tri'].tolist()); me.polygons.foreach_set('use_smooth', [True] * len(me.polygons))
     o = bpy.data.objects.new(name, me); bpy.context.scene.collection.objects.link(o)
     if mat: me.materials.append(mat)

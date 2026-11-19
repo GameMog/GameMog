@@ -11,7 +11,7 @@
 import fs from 'node:fs';
 import zlib from 'node:zlib';
 import path from 'node:path';
-import { read, io, require, prim, PropertyType } from '../../young-hero/glb.mjs';
+import { read, io, require, prim, PropertyType, sharp } from '../../young-hero/glb.mjs';
 const { EXTMeshoptCompression, KHRMeshQuantization } = require('@gltf-transform/extensions');
 const { copyToDocument, prune } = require('@gltf-transform/functions');
 
@@ -296,4 +296,35 @@ export function lensPanes(doc, K = {}) {
   if (K.keep) return; let n = 0;
   for (const m of doc.getRoot().listMeshes()) for (const p of m.listPrimitives()) if (p.getMaterial()?.getName() === 'glasses-lens') { m.removePrimitive(p); p.dispose(); n++; }
   console.log('lens panes out:', n);
+}
+
+// The jacket's front lit flat (v3 assembly, the owner 19 Nov: "chest and stomach should NOT protrude"): the panels hang
+// flat from the chest to the hem (blender/jacket s82_flat.py), but in the game's bright kitchen and window light the
+// front's gentle side-to-side arc and the upper chest's upward tilt still caught two broad highlights left and right of
+// the zip that read as two mounds. Here the shading normals across the front (chest to hem, out to the side seams) are
+// turned most of the way to straight ahead (the geometry stays: its silhouette is already flat), and the leather's coat
+// and specular taken down a little, so the light no longer paints mounds.
+export async function matteFront(doc, K = {}) {
+  K = { xIn: 0.1, xOut: 0.21, rough: 0.25, y0: 0.93, yTop: 1.33, yFade: 1.41, side: 0.75, up: 0.85, coat: 0.22, spec: 0.38, ...K };
+  const R = doc.getRoot(), jm = R.listMeshes().find((m) => m.getName() === 'moto-jacket'); if (!jm) throw new Error('matteFront: no moto-jacket');
+  const sm = (t) => { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); };
+  let n = 0; const seen = new Set();
+  for (const p of jm.listPrimitives()) { const mat = p.getMaterial()?.getName(); if (mat !== 'leather' && mat !== 'zip-tape') continue;
+    const PA = p.getAttribute('POSITION'), NA = p.getAttribute('NORMAL'); if (!NA || seen.has(NA)) continue; seen.add(NA);
+    const P = PA.getArray(), N0 = NA.getArray(), N = N0.slice(), q = N0 instanceof Int8Array ? 127 : N0 instanceof Int16Array ? 32767 : 1;
+    for (let i = 0; i < P.length / 3; i++) { const x = P[i * 3], y = P[i * 3 + 1], z = P[i * 3 + 2]; if (z < 0.05 || y < K.y0 || y > K.yFade) continue;
+      let nx = N0[i * 3] / q, ny = N0[i * 3 + 1] / q, nz = N0[i * 3 + 2] / q; if (nz < 0.25) continue;
+      const w = (1 - sm((Math.abs(x) - K.xIn) / (K.xOut - K.xIn))) * (1 - sm((y - K.yTop) / (K.yFade - K.yTop))); if (w <= 0) continue;
+      nx *= 1 - K.side * w; ny *= 1 - K.up * w; const l = Math.hypot(nx, ny, nz);
+      const r = (v) => (q === 1 ? v : Math.round(v * q)); N[i * 3] = r(nx / l); N[i * 3 + 1] = r(ny / l); N[i * 3 + 2] = r(nz / l); n++; }
+    NA.setArray(N); }
+  const lm = R.listMaterials().find((m) => m.getName() === 'leather');
+  for (const e of lm ? lm.listExtensions() : []) { if (e.setClearcoatFactor) e.setClearcoatFactor(K.coat); if (e.setSpecularFactor) e.setSpecularFactor(K.spec); }
+  // (the engine's leather keeps only the roughness map (storyrun/polish.js weave: no clearcoat): its gloss calmed a little all
+  // over, so the shoulders' fronts pushed forward by the arms in the seated talk don't flash as two mounds)
+  const mr = lm?.getMetallicRoughnessTexture(); let rb = 0;
+  if (mr && K.rough) { const img = sharp(Buffer.from(mr.getImage())), { width: w, height: h } = await img.metadata(), raw = await img.removeAlpha().raw().toBuffer();
+    for (let i = 1; i < raw.length; i += 3) raw[i] = Math.round(raw[i] + (255 - raw[i]) * K.rough);
+    const out = await sharp(raw, { raw: { width: w, height: h, channels: 3 } }).webp({ quality: 90 }).toBuffer(); mr.setImage(out).setMimeType('image/webp'); rb = out.length; }
+  console.log('matte front: normals turned', n, '; leather coat', K.coat, 'specular', K.spec, '; roughness lifted', K.rough, (rb / 1024 | 0) + 'K');
 }

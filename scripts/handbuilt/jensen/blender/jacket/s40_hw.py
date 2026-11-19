@@ -55,7 +55,7 @@ def teeth(bmx, Pf, Ff, L0, L1, pitch=0.0015, w=0.0040, h=0.0019, lt=0.0012, lift
         box(bmx, c, t, b, n, lt, w * 0.9, h, taper=0.78)
         s += pitch; k += 1
     return k
-nt = teeth(mb, P, frame_c, 0.006, LZ - 0.012)
+nt = 0   # it3: the centre chain is no longer separate boxes (they aliased into a printed-looking strip): see the strip below
 # tape: a black band each side under the chain, tucked under the leather edges
 def ribbon(bmx, Pf, Ff, L0, L1, b0, b1, depth, step=0.004):
     rows = []; s = L0
@@ -65,11 +65,26 @@ def ribbon(bmx, Pf, Ff, L0, L1, b0, b1, depth, step=0.004):
         if s >= L1: break
         s += step
     for i in range(len(rows) - 1): bmx.faces.new([rows[i][0], rows[i][1], rows[i + 1][1], rows[i + 1][0]])
-SNECK = float(S[np.searchsorted(path[:, 2], 1.445)]) if path[:, 2].max() > 1.445 else LZ
-for sgn in (1, -1):
-    ribbon(tbm, P, frame_c, 0.0, SNECK, sgn * 0.0010, sgn * (GAP + 0.0012), -0.0005)
-    ribbon(tbm, P, frame_c, SNECK - 0.004, LZ - 0.002, sgn * 0.0010, sgn * 0.0034, -0.0010)  # narrower between the collar's ends
-ribbon(tbm, P, frame_c, 0.0, LZ - 0.002, -0.0011, 0.0011, -0.0002)  # the gap under the teeth
+# it3: the centre-front zip as ONE strip, tape and chain: a rounded chain (5.8 mm wide, 1.5 mm proud) on dark tape
+# tucked under the leather edges, UV u across the strip (0..1 over 10.4 mm), v along it in chain periods (one period =
+# 6 mm = a tooth from each side), so a small tiling texture set (tex/zip_*: interlocking teeth as normal + metal mask,
+# mip-mapped) draws the teeth: no aliasing at game distances, and the line follows the (straight) front exactly
+SNECK = LZ
+PER = 0.004   # v3: finer chain
+XS = [(-6.6, -3.4), (-4.2, -2.6), (-3.6, -0.35), (-3.0, 0.40), (-2.5, 1.05), (-1.4, 1.40), (0.0, 1.50), (1.4, 1.40), (2.5, 1.05), (3.0, 0.40), (3.6, -0.35), (4.2, -2.6), (6.6, -3.4)]   # the tape dives under the rolled edges (no jagged tape showing past them)
+ZW = 13.2   # strip width, mm (u 0..1)
+uvl = tbm.loops.layers.uv.new('UV0')
+rows = []; svals = []; s_ = 0.0
+while True:
+    sc_ = min(s_, LZ - 0.002); t, b, n = frame_c(sc_); p0 = P(sc_)
+    rows.append([tbm.verts.new(p0 + b * (bx * 0.001) + n * (hh * 0.001 - 0.0004)) for (bx, hh) in XS]); svals.append(sc_)
+    if sc_ >= LZ - 0.002: break
+    s_ += 0.003
+for i in range(len(rows) - 1):
+    for k in range(len(XS) - 1):
+        f = tbm.faces.new([rows[i][k], rows[i][k + 1], rows[i + 1][k + 1], rows[i + 1][k]])
+        for l, (ii, kk) in zip(f.loops, [(i, k), (i, k + 1), (i + 1, k + 1), (i + 1, k)]):
+            l[uvl].uv = ((XS[kk][0] + ZW / 2) / ZW, svals[ii] / PER)
 # bottom stop (retainer box) at the hem
 t, b, n = frame_c(0.004); box(mb, P(0.004) + n * 0.0015, t, b, n, 0.008, 0.0062, 0.0026, taper=0.8)
 box(mb, P(LZ - 0.0025) + frame_c(LZ - 0.0025)[2] * 0.0013, *frame_c(LZ - 0.0025), 0.0025, 0.0048, 0.0020, taper=0.8)  # top stops
@@ -127,7 +142,19 @@ def surf_path(p0, p1, step=0.001):
 pk = {}
 for name, (p0, p1) in POCKETS.items():
     Pf, Ff, Lp = surf_path(p0, p1); pk[name] = (p0, p1, Lp)
-    teeth(mb, Pf, Ff, 0.004, Lp - 0.004, pitch=0.0014, w=0.0034, h=0.0015, lt=0.0011, lift=-0.0003)
+    # v3: the pocket zips use the centre zip's textured strip (scaled 0.8: a finer chain), not separate boxes (they
+    # read as a sparkling picket fence)
+    rows_ = []; sv_ = []; s2 = 0.004; SCL = 0.8
+    while True:
+        sc2 = min(s2, Lp - 0.004); t, b, n = Ff(sc2); p0_ = Pf(sc2)
+        rows_.append([tbm.verts.new(p0_ + b * (bx * 0.001 * SCL) + n * (hh * 0.001 * SCL - 0.0006)) for (bx, hh) in XS]); sv_.append(sc2)
+        if sc2 >= Lp - 0.004: break
+        s2 += 0.003
+    for i in range(len(rows_) - 1):
+        for k in range(len(XS) - 1):
+            f = tbm.faces.new([rows_[i][k], rows_[i][k + 1], rows_[i + 1][k + 1], rows_[i + 1][k]])
+            for l, (ii, kk) in zip(f.loops, [(i, k), (i, k + 1), (i + 1, k + 1), (i + 1, k)]):
+                l[uvl].uv = ((XS[kk][0] + ZW / 2) / ZW, sv_[ii] / (PER * SCL))
     s_sl = Lp - 0.010
     t, b, n = Ff(s_sl); slider(mb, Pf(s_sl) + n * 0.0003, t, b, n, L=0.010, W=0.0064, Hh=0.0032)
     dn = Vector((0, 0, -1)); dn = (dn - n * dn.dot(n)).normalized()

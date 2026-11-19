@@ -1,0 +1,1 @@
+{"seed": 3, "twist": {"inner": 6, "mid": 12, "outer": 18, "fly": 30, "line": 10, "side": 10, "front": 8}, "rootW": 0.6, "tipW": 0.3, "bulge": 0.12, "occ0": 0.42, "occA": 0.1, "occB": 0.95, "sideTone": 0.8, "lineTone": 0.6, "jit": 0.04, "capIn": 0.5, "capLift": 0.0005, "capTone": 0.1, "sub": {"line": 3, "side": 2, "fly": 2}}

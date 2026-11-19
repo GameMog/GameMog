@@ -6,7 +6,7 @@ from mathutils import Vector
 from mathutils.bvhtree import BVHTree
 H = os.path.dirname(os.path.abspath(__file__))
 a = sys.argv[sys.argv.index('--') + 1:]
-bpy.ops.wm.open_mainfile(filepath=H + '/skin.blend')
+bpy.ops.wm.open_mainfile(filepath=H + '/' + os.environ.get('SKIN', 'skin.blend'))
 import lib
 rig = bpy.data.objects['rig']; L = bpy.data.objects['leather']
 m = bpy.data.materials.new('sk'); m.diffuse_color = (0.8, 0.55, 0.42, 1)
@@ -22,6 +22,7 @@ test_all = np.where(cov & insidez)[0]
 kept = set(np.concatenate([lib.rd('p0', 'idx', 'Uint16Array'), lib.rd('p6', 'idx', 'Uint16Array')]).tolist())
 hid = Z['hisid']; vis = np.array([h in kept for h in hid])
 test = np.where(cov & insidez & vis)[0]
+if os.environ.get('ALL'): test = test_all
 print('test points: covered', len(test_all), 'of them still visible skin in the GLB', len(test))
 sc = bpy.context.scene; sc.render.engine = 'BLENDER_WORKBENCH'; sc.display.shading.light = 'STUDIO'; sc.display.shading.color_type = 'MATERIAL'
 sc.render.resolution_x = 640; sc.render.resolution_y = 720

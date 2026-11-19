@@ -10,17 +10,7 @@ bpy.ops.wm.open_mainfile(filepath=H + '/hw.blend')
 import lib
 from common import *
 jk = bpy.data.objects['jk']; collar = bpy.data.objects['collar']; tabs = bpy.data.objects['tabs']
-# decimate the shell (not its turned edges) toward ~17k triangles
-lipattr = jk.data.attributes.get('lip')
-vg = jk.vertex_groups.new(name='keep')
-lipv = [i for i, d in enumerate(lipattr.data) if d.value] if lipattr else []
-vg.add(list(range(len(jk.data.vertices))), 0.0, 'REPLACE'); vg.add(lipv, 1.0, 'REPLACE')
-ntri = sum(len(p.vertices) - 2 for p in jk.data.polygons)
-bpy.context.view_layer.objects.active = jk; jk.select_set(True)
-md = jk.modifiers.new('dec', 'DECIMATE'); md.decimate_type = 'COLLAPSE'; md.ratio = min(1.0, 17000 / ntri); md.use_symmetry = True; md.symmetry_axis = 'X'
-md.vertex_group = 'keep'; md.invert_vertex_group = True; md.vertex_group_factor = 1.0
-bpy.ops.object.modifier_apply(modifier='dec')
-print('shell tris', ntri, '->', sum(len(p.vertices) - 2 for p in jk.data.polygons))
+# it3: the shell is decimated in s30 (before its turned edges are built); nothing to do here
 # panel ids
 PANELS = ['front_L', 'front_R', 'back', 'yoke_front_L', 'yoke_front_R', 'yoke_back', 'band', 'sleeve_top_L', 'sleeve_under_L', 'sleeve_top_R',
           'sleeve_under_R', 'cuff_L', 'cuff_R', 'shoulder_L', 'shoulder_R', 'facing', 'collar', 'tab']

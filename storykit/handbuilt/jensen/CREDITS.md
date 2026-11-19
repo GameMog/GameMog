@@ -39,6 +39,11 @@ looked at, never sampled, projected or traced.
 | his posture-fixed idle, talk, phone, arms and seated clips (`parts/clips-posture.glb`) | Dan's clips (the cast's shared clip pack) re-posed here on the plumb line (`blender/jacket/posture.py`, `s97_clips.mjs`) | as the clip pack; the change original |
 | the neck's skin skirt under the collar, the tee's hem out from under the jacket (`blender/assemble.mjs` neckSkirt, teeUnder) | made here from his own MakeHuman skin points | original, CC0 |
 
+v3 (19 Nov 2026), the owner's corrections, no new downloads: the head's landmark fit and rounder jaw (`blender/face/v3/`,
+MakeHuman CC0 targets; the reference photo's landmarks measured, never its pixels), the tousled groom and its code-made
+strand atlas (`blender/hair/v3/`, original), the jacket's flat front and its rigid-trunk posture clips (`blender/jacket/`
+s82_flat.py, posture2.py; the same CC0 leather), the r2 glasses (`blender/glasses/build.py`, procedural, original).
+
 Still no CC-BY asset, so no credits-page line is needed.
 
 No CC-BY asset is used in this GLB, so it needs no credits-page line of its own. (The CC-BY candidates in the research

@@ -61,14 +61,17 @@ phi_ = np.arctan2(x, -y); rxy = np.sqrt(x * x + y * y)
 # ---- torso seams
 seam((np.abs(phi_) - SIDE_PHI) * rxy, z, TORSO, rows=(0.0034, -0.0034))
 front = np.abs(phi_) < SIDE_PHI
-seam(z - YOKE_F, phi_ * rxy, TORSO & front & (z > YOKE_F - 0.03), rows=(0.0034, -0.0034))
-seam(z - YOKE_B, phi_ * rxy, TORSO & ~front & (z > YOKE_B - 0.03), rows=(0.0034, -0.0034))
+seam(z - YOKE_F, phi_ * rxy, TORSO & front & (z > YOKE_F - 0.03), rows=(0.0034, -0.0034), puff=0.00010)   # it3: flat, no pillows
+seam(z - YOKE_B, phi_ * rxy, TORSO & ~front & (z > YOKE_B - 0.03), rows=(0.0034, -0.0034), puff=0.00010)
 seam(z - (HEM + BAND), phi_ * rxy, TORSO, rows=(0.0034,))
-stitch(z - (HEM + 0.0075), phi_ * rxy, TORSO | FAC)
+# it3: the rolled 1.5 cm hem: the turn-up's top edge a soft step, one clean row of topstitching 1 cm above the edge
+hb = (TORSO | FAC) & (np.abs(z - (HEM + HEM_ROLL)) < 0.006) & (z > HEM - 0.002)
+h[hb] += (-0.00028 * np.exp(-((z[hb] - (HEM + HEM_ROLL)) / 0.0012) ** 2) + 0.00012 * np.clip((HEM + HEM_ROLL - z[hb]) / 0.004, 0, 1)).astype(np.float32)
+stitch(z - (HEM + 0.0095), phi_ * rxy, TORSO | FAC)
 stitch(np.abs(x) - (GAP + 0.0068), z, (TORSO) & (y < 0) & (np.abs(x) < 0.03))
 # it2: princess seams, front (yoke to band, clear of the pockets) and back; lapped, one row of topstitching outboard
 zb_ = HEM + BAND; NOBAND = TORSO & (pid != 6)
-seam(np.abs(x) - princess_x(z, True), z, NOBAND & front & (y < 0) & (z < YOKE_F) & (z > zb_ - 0.002), rows=(0.0034,))
+seam(np.abs(x) - princess_x(z, True), z, NOBAND & front & (y < 0) & (z < YOKE_F) & (z > zb_ - 0.002), rows=(0.0034,), puff=0.00015)
 seam(np.abs(x) - princess_x(z, False), z, NOBAND & ~front & (y > 0) & (z < YOKE_B) & (z > zb_ - 0.002), rows=(0.0034,))
 log('torso seams')
 # ---- arm-related: armhole, two-piece sleeve seams, cuff, shoulder panel + quilting, elbow fine creases
@@ -90,10 +93,15 @@ for s_ in ('L', 'R'):
     seam(t - (Lt - CUFF), ph * rr, side & (SLEEVE), rows=(0.0034, -0.0034))
     stitch(t - (Lt + 0.0005), ph * rr, side & (SLEEVE | FAC) & (t > Lt - 0.03))
     # elbow: fine compression creases on the inner side
-    E = L1; kel = np.exp(-((t - E) / 0.06) ** 2) * (0.25 + 0.75 * np.clip(np.cos(ph), 0, 1)) * (side & (SLEEVE | SHP))
-    hcr += (0.00034 * kel * np.sin(2 * np.pi * (t + 0.004 * np.sin(5 * ph + 1.3) + 0.002 * np.sin(17 * ph)) / 0.0125)).astype(np.float32)
+    E = L1; kel = np.exp(-((t - E) / 0.05) ** 2) * np.clip(np.cos(ph), 0, 1) ** 1.5 * (side & SLEEVE)   # it3: inner elbow only, plain leather
+    # v3: fine creases as a few separate, slanted, tapering lines (it3's sine trains read as corrugation)
+    for (dt_, a_, w_, sl_, ph0) in ((-0.052, 0.8, 0.0022, 0.012, 0.3), (-0.021, 1.0, 0.0026, -0.010, -0.2), (0.012, 0.9, 0.0024, 0.015, 0.5), (0.041, 0.6, 0.0020, -0.008, 0.0), (0.072, 0.4, 0.0018, 0.010, -0.4)):
+        tc_ = E + dt_ + sl_ * np.sin(ph + ph0) + 0.002 * np.sin(5 * ph + dt_ * 100)
+        hcr += (0.00016 * a_ * kel / (np.exp(-((t - E) / 0.05) ** 2) + 1e-6) * np.exp(-((t - E - dt_) / 0.05) ** 2) * (np.exp(-((t - tc_) / w_) ** 2) - 0.45 * np.exp(-((t - tc_) / (w_ * 2.2)) ** 2))).astype(np.float32)
     kw = np.exp(-((t - (Lt - 0.10)) / 0.05) ** 2) * (side & SLEEVE)
-    hcr += (0.00022 * kw * np.sin(2 * np.pi * (t + 0.003 * np.sin(7 * ph)) / 0.011)).astype(np.float32)
+    for (dt_, a_, w_, sl_) in ((-0.086, 0.8, 0.0030, 0.009), (-0.121, 0.55, 0.0026, -0.007), (-0.062, 0.4, 0.0022, 0.012)):
+        tc_ = Lt + dt_ + sl_ * np.sin(2 * ph + 1.0)
+        hcr += (0.00014 * a_ * (side & SLEEVE) * (np.exp(-((t - tc_) / w_) ** 2) - 0.45 * np.exp(-((t - tc_) / (w_ * 2.2)) ** 2))).astype(np.float32)
     # padded shoulder panel: its outline seam and quilted channels across the arm, every 2.4 cm
     cc, uu, up, ww = shoulder_frame(s_)
     cc, uu, up, ww = [np.array(v, np.float32) for v in (cc, uu, up, ww)]
@@ -189,14 +197,26 @@ ridge = np.clip(-lap[idx] / 2.5e-6, 0, 1)
 edge = np.clip((cvx - 0.12) / 0.5, 0, 1)
 wear = np.clip(ridge * 0.45 + edge * 0.45 + (FAC * 0.1), 0, 1) * np.clip(0.55 + patch * 0.5, 0, 1.2)
 wear = np.clip(wear, 0, 1)
-base = np.array([0.0082, 0.0077, 0.0074], np.float32)           # warm near-black (linear)
-worn = np.array([0.026, 0.023, 0.021], np.float32)
-col = base[None] * np.clip(mott, 0.85, 1.18)[:, None] * (1 + 0.05 * patch)[:, None]
+base = np.array([0.0066, 0.0065, 0.0066], np.float32)   # it3: neutral near-black, sRGB #141414 (it2 read olive/tan)           # warm near-black (linear)
+worn = np.array([0.015, 0.0145, 0.0142], np.float32)
+col = base[None] * np.clip(mott, 0.92, 1.08)[:, None] * (1 + 0.03 * patch)[:, None]
+wear = wear * 0.6
 col = col * (1 - wear[:, None]) + worn[None] * wear[:, None]
 thr = np.array([0.046, 0.045, 0.044], np.float32); tm = np.clip(thread, 0, 1)[:, None] * 0.9   # it2: a slightly lighter dark-grey thread
 col = col * (1 - tm) + thr[None] * tm
 high = np.clip(cvx / 0.35, 0, 1); low = np.clip(-cvx / 0.35, 0, 1)
-rough = 0.54 + rough_src * 0.30 + patch * 0.03 - wear * 0.08 - high * 0.10 + low * 0.06 + thread * 0.20   # it2: sheen on the high points
+rough = 0.62 + rough_src * 0.22 + patch * 0.03 - wear * 0.05 - high * 0.04 + low * 0.05 + thread * 0.15   # it3: a dim broad lobe (no tan wash)
+# it3: the clearcoat mask: the grain's plateaus carry a thin glossy coat (narrow dark-grey highlights), its pores and
+# creases and the thread none
+gN = tri(D26, GT26) * 0.6 + tri(DW, GTW) * 0.4; gN = (gN - gN.mean()) / (gN.std() + 1e-6)
+coat = np.clip(0.62 + 0.22 * gN - low * 0.35 - thread * 0.8 - wear * 0.2 + patch * 0.08, 0, 1)
+# v3b (owner 19 Nov): cut the sheen on the chest and stomach panels so the light cannot paint mounds there: rougher
+# leather and almost no clearcoat across the torso front (sternum to hem band), fading out toward the side seams/yoke
+def _sm(t): t = np.clip(t, 0, 1); return t * t * (3 - 2 * t)
+chestm = _sm((0.17 - np.abs(x)) / 0.05) * _sm((1.36 - z) / 0.06) * _sm((z - 0.93) / 0.03) * (y < 0) * _sm((-N[:, 1] - 0.2) / 0.3)
+rough = rough + 0.12 * chestm
+coat = coat * (1 - 0.65 * chestm)
+log('chest sheen cut on', int((chestm > 0.5).sum()), 'texels')
 rough = np.clip(rough, 0.22, 0.85)
 AO = np.load(H + '/bake/ao.npy'); AO = np.repeat(np.repeat(AO, 2, 0), 2, 1)[:R, :R]
 ao = np.clip(AO[idx], 0, 1) ** 0.8
@@ -221,4 +241,5 @@ save(NM, 'leather_normal')
 save(lin2s(down2(BC)), 'leather_basecolor', srgb=True)
 ORM = np.stack([down2(AOm), down2(RG), np.zeros((R // 2, R // 2), np.float32)], 2)
 save(ORM, 'leather_orm')
+CO = dilate(to_img(coat, 1, 0.5)[:, :, 0]); save(np.stack([down2(CO)] * 3, 2), 'leather_coat')
 log('saved')

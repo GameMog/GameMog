@@ -22,6 +22,8 @@ for o in ('leather', 'tape'):
 eng = os.environ.get('ENG', 'CYCLES')
 co = lib.studio(engine=eng, bg=(0.035, 0.035, 0.04))
 sc = bpy.context.scene
+if os.environ.get('WARM'):   # it3: a warm brown room like the game's interiors (the it2 tan wash showed there)
+    sc.world.node_tree.nodes['Background'].inputs[0].default_value = (0.30, 0.20, 0.13, 1); sc.world.node_tree.nodes['Background'].inputs[1].default_value = 1.2
 if eng == 'CYCLES':
     sc.cycles.samples = int(os.environ.get('SPP', 64)); sc.cycles.device = 'CPU'; sc.render.threads_mode = 'FIXED'; sc.render.threads = 6; sc.cycles.use_denoising = True
 sc.view_settings.view_transform = 'AgX'
@@ -36,8 +38,12 @@ SHOTS = {
   'side':    ('idle', 1.2, lambda: (bone('spine01') + Vector((2.5, 0.0, 0.0)), bone('spine01') + Vector((0, 0, -0.10)), 50), (1280, 720)),
   'sidefull': ('idle', 1.2, lambda: (Vector((4.6, bone('spine01').y, 0.95)), Vector((0, bone('spine01').y, 0.92)), 50), (720, 1280)),
   'sitside': ('sitTalk', 1.0, lambda: (bone('spine01') + Vector((2.3, 0.0, 0.05)), bone('spine01') + Vector((0, 0, 0.0)), 50), (1280, 720)),
+  'sitfront': ('sitTalk', 1.0, lambda: (bone('spine01') + Vector((0, -2.4, 0.05)), bone('spine01') + Vector((0, 0, -0.12)), 50), (1280, 720)),
+  'sitq34':  ('sitTalk', 1.0, lambda: (bone('spine01') + Vector((1.5, -1.9, 0.1)), bone('spine01') + Vector((0, 0, -0.12)), 50), (1280, 720)),
   'hem':     ('idle', 1.2, lambda: (bone('spine03') + Vector((0.35, -0.85, -0.02)), bone('spine03') + Vector((0.03, 0, -0.10)), 55), (1280, 720)),
   'shoulder': ('idle', 1.2, lambda: (bone('upperarm01_L') + Vector((0.45, -0.55, 0.22)), bone('upperarm01_L') + Vector((-0.03, 0, -0.04)), 55), (1280, 720)),
+  'hemcorner': ('idle', 1.2, lambda: (bone('spine03') + Vector((0.55, -0.45, -0.12)), bone('spine03') + Vector((0.02, -0.10, -0.15)), 60), (1280, 720)),
+  'zipclose': ('idle', 1.2, lambda: (bone('spine01') + Vector((0.10, -0.42, 0.0)), bone('spine01') + Vector((0.0, -0.12, -0.02)), 60), (1280, 720)),
   'detail':  ('idle', 1.2, lambda: (bone('spine01') + Vector((0.45, -0.8, 0.12)), bone('spine01') + Vector((0.12, 0, 0.0)), 55), (1280, 720)),
 }
 plumb = None

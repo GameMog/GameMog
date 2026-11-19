@@ -1,6 +1,6 @@
 # shared: load Jensen's GLB (rest pose, old glasses faces removed), lights, world, cameras
 import bpy, bmesh, math, mathutils, os
-GLB=os.environ.get('JH_GLB', os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../../../../storykit/handbuilt/jensen/jensen.glb'))
+GLB=os.environ.get("JH_GLB", os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../../../../storykit/handbuilt/jensen/jensen.glb"))
 def load_head(glb=GLB):
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bpy.ops.import_scene.gltf(filepath=glb)
@@ -66,6 +66,8 @@ def views():
       '34': (at(-38,4,0.62,T,85),T,85),
       'profile': (at(-90,2,0.62,T+mathutils.Vector((0,0.0,0)),85),T,85),
       'back34': (at(-135,8,0.62,T+mathutils.Vector((0,0.06,0)),85),T+mathutils.Vector((0,0.06,0)),85),
+      'game': (at(-22,-4,1.25,T+mathutils.Vector((0,0,-0.03)),50),T+mathutils.Vector((0,0,-0.03)),50),
+      'bridge': (at(-28,6,0.20,EYE+mathutils.Vector((0,-0.02,0.006)),100),EYE+mathutils.Vector((0,-0.02,0.006)),100),
       'eyes': (at(-12,3,0.30,EYE+mathutils.Vector((0,0,0.004)),100),EYE+mathutils.Vector((0,0,0.004)),100),
     }
 def render_setup(engine='CYCLES', samples=96, res=(1280,720)):

@@ -4,7 +4,8 @@ from mathutils import Vector
 import lib
 J = {j['name']: Vector(lib.g2b(j['bind'])[0]) for j in lib.JOINTS}
 HEM = 0.935           # it2: 2.7 cm lower, the hem band overlaps the jeans' waistband (it1 0.962 left a band of tee)
-GAP = 0.0040          # half the front opening the zip chain sits in (tape shows ~8 mm in all)
+GAP = 0.0055   # it3 (was 4 mm): the roll stands back so chain + a line of tape show
+GAP_it2 = 0.0040          # half the front opening the zip chain sits in (tape shows ~8 mm in all)
 YOKE_F = 1.372        # chest yoke seam height (front)
 YOKE_B = 1.385        # back yoke seam
 BAND = 0.05           # hem band height
@@ -63,7 +64,8 @@ def flatten_front(X, strength=1.0, zmax=CHEST_Z + 0.02):
     X[:, 1] += np.interp(X[:, 2], zs, d) * w * strength
     return X
 # padded, quilted shoulder panels (it2: bigger, over the shoulder top and down the upper arm)
-SHP_ALONG, SHP_AROUND, SHP_OFF = 0.125, 0.088, 0.045
+# it3: the quilting only on the shoulder cap and the top of the sleeve (it2's 12.5 cm ran down the arm like armour)
+SHP_ALONG, SHP_AROUND, SHP_OFF = 0.080, 0.086, 0.012
 def shoulder_frame(s):
     A, B, C = arm(s); u = (B - A).normalized(); up = (Vector((0, 0, 1)) - u * u.z).normalized(); w = u.cross(up).normalized()
     c = A + u * SHP_OFF + up * 0.03 + Vector((0, -0.006, 0))
@@ -80,7 +82,7 @@ def princess_x(z, front=True):
 POCKETS = {'chest': ((0.030, 0, 1.300), (0.110, 0, 1.311)), 'handL': ((0.074, 0, 1.020), (0.118, 0, 1.145)), 'handR': ((-0.074, 0, 1.020), (-0.118, 0, 1.145))}
 # it2b: the back too hangs as one plane from the shoulder blades to the band (no seat/lumbar bulge, which showed as a
 # hump when seated): glTF z -0.131 at y 1.30 to -0.124 above the band, the band 4 mm more (then cleared of the jeans)
-BACK_TOP, BACK_HEM, BACK_TUCK = 0.131, 0.124, 0.004
+BACK_TOP, BACK_HEM, BACK_TUCK = 0.131, 0.113, 0.004   # v3: the back tapers in to the band (it3 0.124: 5.6 cm off the lumbar, boxy in profile)
 def back_target(z):
     zb = HEM + BAND
     if z >= zb: return BACK_HEM + (BACK_TOP - BACK_HEM) * min(1.0, (z - zb) / (CHEST_Z - zb))
@@ -99,3 +101,7 @@ def flatten_back(X, strength=1.0, zmax=CHEST_Z):
     w = np.clip(np.cos(ph), 0, 1) ** 0.6 * back
     X[:, 1] += np.interp(X[:, 2], zs, d) * w * strength
     return X
+
+# ---- it3: the rolled hem (1.5 cm turned band, stitched), the torso fairing
+HEM_ROLL = 0.015      # the hem turned under 1.5 cm, topstitched ~1 cm above the edge
+YC_T = -0.003         # torso axis (Blender y) for the radial fairing
