@@ -11,7 +11,7 @@ import { showcaseProblems, SHOWCASE_ID, SHOWCASE_RECORD } from './storykit-showc
 import { jhProblems, jhGate, JH_RECORD, BODIES } from './storykit-showcase-jensen.ts';
 import { gatePack, toRunnerPack, lineHash, type GateResult } from '../storykit/pack/gate.ts';
 import { PLACES, CAM_POINTS } from '../storykit/pack/cities.ts';
-import { SCHEMA, SHOWCASE, SHOWCASE_PACKS, MOGCITY_STUBS, HERO_CARS, HERO_CAR_IDS } from '../storykit/pack/schema.mjs';
+import { SCHEMA, SHOWCASE, SHOWCASE_PACKS, MOGCITY_STUBS, HERO_CARS, HERO_CAR_IDS, SET_ROOMS } from '../storykit/pack/schema.mjs';
 import { voiceStatus, saveVoiceClip, readManifest } from '../storykit/pack/voice-store.mjs';
 import { clipBase } from '../storykit/voices/voice-design.js';
 
@@ -157,6 +157,16 @@ export function runStoryPackChecks(ok: Ok) {
     ok('a New York pack on Mog City\'s engine passes, and its world names the engine', r.ok && w?.engine === 'mogcity-1' && w?.city === 'ny', r.problems.join(' | ')); }
   { const r = gatePack(onMc((p) => { m1(p).steps.push({ type: 'patrol', count: 1 }); }));
     ok('a step Mog City has no part for (patrol) is a warning there, never silent', r.warnings.some((x) => /'patrol' has no Mog City part yet/.test(x)), r.warnings.join(' | ')); }
+  // (a stock car's paint: the hero's roadster built in it, paint only; Mog City wagmi/game.js reads the world's carPaint)
+  { const lime = (paint: any) => onMc((p) => { p.vehicles.unshift({ stock: 'roadster', id: 'rides.lime', paint }); p.ride = 'rides.lime'; });
+    const r = gatePack(lime('#76B900')), w = r.ok ? toRunnerPack(r.pack!) as any : null;
+    ok("a stock hero car's paint goes to the world as carPaint, the car still the stock one", r.ok && w?.carPaint === '#76B900' && w?.car === 'roadster', r.problems.join(' | ') + ' ' + JSON.stringify({ car: w?.car, carPaint: w?.carPaint }));
+    ok("a stock car's paint that is not a colour is refused", !gatePack(lime('lime green')).ok);
+    const plain = gatePack(onMc()), wp = plain.ok ? toRunnerPack(plain.pack!) as any : null;
+    ok('a world whose hero car has no paint of its own carries none (the car keeps its own)', plain.ok && wp && !('carPaint' in wp));
+    const white = gatePack(lime('#E7E7E3')), ww = white.ok ? toRunnerPack(white.pack!) as any : null;
+    ok("the roadster's own white is no paint (a world that names it is built as before: Mog City's own)", white.ok && ww && !('carPaint' in ww)); }
+  ok("a set may be an arena's stage or a video call's office as a room (stage, office-kitchen ...)", ['stage', 'office-kitchen', 'office-exec', 'office-study'].every((x) => SET_ROOMS.includes(x)) && JSON.stringify(SCHEMA).includes('"office-kitchen"'));
 
   console.log('\n  a video call (vcall: every person in an office of their own, on webcam, in a call\'s layout; Mog City wagmi/storyrun/vcall.js)');
   { const CALL = () => ({ type: 'vcall', title: 'Gallery Sync', people: [{ who: 'player', office: 'study', muted: true }, { who: 'rae', office: 'kitchen', sub: 'the gallery' }, { who: 'nico', office: 'exec', late: true, blur: true }].slice(0, 2),
@@ -355,7 +365,11 @@ export function runStoryPackChecks(ok: Ok) {
     ok(`jensen-heist: passes its town's gate as a showcase (San Jose), pinned to that town${existsSync(JH_RECORD) ? `, and ${JH_RECORD} is current` : ' (its record waits for the bodies and the voices)'}`, !jp.length, jp.slice(0, 3).join(' | '));
     const { g, town } = jhGate(), P = g.pack!, steps = (P?.acts ?? []).flatMap((a: any) => a.missions).flatMap((m: any) => m.steps);
     const talk = steps.filter((x: any) => x.type === 'cutscene'), calls = steps.filter((x: any) => x.type === 'vcall');
-    ok(`jensen-heist: every conversation scene is a video call (${calls.length} calls, no street cutscene)`, !!P && !talk.length && calls.length >= 10);
+    // (the owner, 18 Nov: every conversation a video call, the streets for action; the finale is played on the arena's
+    // stage, a set of its own (room 'stage'), never a street)
+    const street = talk.filter((x: any) => !x.set || x.set.room !== 'stage');
+    ok(`jensen-heist: every conversation scene is a video call (${calls.length} calls; ${talk.length} stage scenes on the arena's stage set, no street cutscene)`, !!P && !street.length && calls.length >= 10);
+    ok("jensen-heist: the hero's roadster is the parody company's lime green, paint only", !!P && P.vehicles.find((v: any) => v.stock === 'roadster')?.paint === '#76B900');
     ok('jensen-heist: the hero drives Mog City\'s roadster (stock), never a town fleet car (no heroCar)', !!P && P.ride === 'roadster' && P.vehicles.some((v: any) => v.stock === 'roadster') && !P.heroCar);
     ok('jensen-heist: every seen person but Mr. Board (Mog City\'s own, renamed) has a hand-built body named for the migration', !!P && P.cast.filter((c: any) => !c.model && !c.voiceOnly).every((c: any) => !!BODIES[c.id]) && P.cast.find((c: any) => c.id === 'board')?.model === 'mogcity/mrbig');
     ok(`jensen-heist: its town is San Jose (${town.placeId}), the box on its downtown (the stadium a place of it)`, town.placeId === 'us-0668000' && town.places.some((p: any) => p.kind === 'stadium')); }

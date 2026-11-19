@@ -145,7 +145,10 @@ const camRef = R('camRef');
 // a set (Mog City's runner: wagmi/storyrun/sets.js): a cutscene staged in a room or a closed exterior of its own, drawn
 // in place of the street as Mog City's opening draws Mr. Big's study, its people stood in it (x right, z toward the way
 // in, metres from its middle; the hero by his id too), so nobody is on a street with the traffic
-export const SET_ROOMS = ['bank-office', 'school', 'hideout', 'pizzeria', 'apartment', 'garage', 'steps', 'park', 'lobby', 'plaza', 'alley'];
+// (stage: an arena's stage from the floor, the deck at -z, the house's seats facing it from +z, the set's sign on its
+// screen; office-<look>: a video call's offices as rooms of their own, a home kitchen's island in office-kitchen)
+export const SET_ROOMS = ['bank-office', 'school', 'hideout', 'pizzeria', 'apartment', 'garage', 'steps', 'park', 'lobby', 'plaza', 'alley', 'stage',
+  ...VCALL_OFFICES.map((o) => 'office-' + o)];
 export const SET_POSES = ['idle', 'talk', 'phone', 'arms', 'argue', 'shrug', 'wave', 'cheer', 'drink', 'leanBar', 'sit', 'sitTalk', 'kneel', 'crouch', 'walk', 'walkCool', 'jog'];
 const XZ = A(N(-30, 30), 2, 2);
 const setPersonProps = {
@@ -468,7 +471,7 @@ export const SCHEMA = {
       model: E(PET_MODELS, { description: 'a shipped pet from the cast registry (mogcity/moon: Moon, a small white fluffy dog); without one a dog is built the same way in its coat and size' }),
       follows: { ...B, description: 'stays with its owner, the hero, as the player plays: trots after them on foot, rides in the car beside them, sits when they stop' } }, ['id', 'name', 'species']), LIMITS.pets),
     vehicles: A({ oneOf: [
-      O({ stock: E(STOCK_CARS, { description: "one of the stock cars as it is (trailhand and vandal: their sheets in storykit/vehicles; roadster: Mog City's own; gt: Mog City's Vantor GT, a showcase's only)" }), id: R('rideId'), paint: R('colour'),
+      O({ stock: E(STOCK_CARS, { description: "one of the stock cars as it is (trailhand and vandal: their sheets in storykit/vehicles; roadster: Mog City's own; gt: Mog City's Vantor GT, a showcase's only)" }), id: R('rideId'), paint: { ...R('colour'), description: "its paint, as '#76B900': the hero's stock car is built in it (paint only, no livery or logo); the gt's body colour" },
         label: S(32, { description: "gt only: the speed panel's name for it (\"John's car\")" }), plate: S(8, { pattern: '^[A-Z0-9 ]{0,8}$', description: 'gt only: its plate' }) }, ['stock']),
       { $ref: VEHICLE_SHEET }
     ] }, LIMITS.vehicles, 1),

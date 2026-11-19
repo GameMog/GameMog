@@ -48,16 +48,16 @@
   ],
   "sets": {
    "kitchen": {
-    "room": "apartment",
+    "room": "office-kitchen",
     "light": "day",
     "people": [
      {
       "who": "jensen",
       "at": [
-       0,
-       0
+       -0.2,
+       -0.85
       ],
-      "face": 180,
+      "face": 0,
       "pose": "talk",
       "look": "lens"
      },
@@ -115,18 +115,21 @@
    {
     "cam": {
      "rel": "nico",
-     "right": 1.2,
-     "up": 0.3,
-     "fwd": 3.2
+     "right": 4.6,
+     "up": 1,
+     "fwd": 1.4
     },
     "look": {
-     "rel": "nico"
+     "rel": "nico",
+     "up": -0.2,
+     "fwd": 2
     },
+    "fov": 58,
     "dur": 4,
     "card": {
      "who": "nico",
      "is": "ally",
-     "role": "the driver, four days in from back east"
+     "role": "the driver, four days in from back east, fresh paint job"
     }
    },
    {
@@ -221,10 +224,21 @@
      "rel": "jensen"
     },
     "fov": 38,
-    "dur": 4,
-    "say": "jensen",
-    "line": "Ha! Okay. Everybody, quick logo spin. Marge? Logo spin. Marge!",
-    "pre": 0.4
+    "dur": 5,
+    "lines": [
+     {
+      "who": "jensen",
+      "text": "Ha! Okay. Everybody, quick logo spin. Marge? Logo spin. Marge!",
+      "pre": 0.4,
+      "cut": 0.9
+     },
+     {
+      "who": "marge",
+      "text": "Off. We're off.",
+      "overlap": true,
+      "how": "deadpan"
+     }
+    ]
    },
    {
     "cam": {
@@ -690,7 +704,7 @@
     "id": "nico",
     "name": "Nico Brancato",
     "role": "driver and wheelman: Jensen Heist",
-    "logline": "Came west four days ago in the white roadster; names every pothole.",
+    "logline": "Came west four days ago in the lime roadster; names every pothole.",
     "identity": {
      "age": 44,
      "body": "male",
@@ -1830,7 +1844,8 @@
  ],
  "vehicles": [
   {
-   "stock": "roadster"
+   "stock": "roadster",
+   "paint": "#76B900"
   }
  ],
  "acts": [
@@ -1866,7 +1881,7 @@
          "who": "player",
          "office": "kitchen",
          "label": "Jensen",
-         "sub": "Greenlight Silicon",
+         "sub": "his kitchen · the oven stream",
          "muted": true
         },
         {
@@ -1877,8 +1892,9 @@
         {
          "who": "nico",
          "office": "kitchen",
-         "sub": "Out front, in the white car",
+         "sub": "out front, by the car",
          "late": true,
+         "blur": true,
          "cam": "low"
         }
        ],
@@ -1889,7 +1905,7 @@
         },
         {
          "who": "marge",
-         "line": "You're on mute, Jensen. You've been on mute since the logo spin.",
+         "line": "I said \"we're off\" at \"Marge.\" You've been on mute since the logo spin.",
          "how": "deadpan"
         },
         {
@@ -1898,11 +1914,11 @@
         },
         {
          "who": "player",
-         "line": "Are we off the stream? Tell me we're off the stream, because my face is still doing the launch."
+         "line": "Tell me we're off the stream, because my face is still doing the launch."
         },
         {
          "who": "marge",
-         "line": "We cut to the logo spin on \"Marge!\" Forty thousand people watched you shout my name at an oven."
+         "line": "Forty thousand people just watched you shout my name at an oven. Chat thinks I'm the chip."
         },
         {
          "who": "player",
@@ -1942,16 +1958,17 @@
         },
         {
          "who": "player",
-         "line": "Let me show you something. Ninety percent of my best ideas came out of that oven, it has never burned a thing, and it's lucky."
+         "line": "Let me show you something. That oven is lucky, it has never burned a thing, and ninety percent of my best ideas came...",
+         "cut": 0.8
         },
         {
          "who": "marge",
-         "line": "It's unplugged."
+         "line": "It's unplugged.",
+         "overlap": true
         },
         {
          "who": "player",
-         "line": "Luckily unplugged.",
-         "overlap": true
+         "line": "Luckily unplugged."
         },
         {
          "do": "join",
@@ -1959,7 +1976,21 @@
         },
         {
          "who": "nico",
-         "line": "Car's out front, boss. Why's everybody got a died face?"
+         "line": "Car's out front, boss. I had her painted for you, and the guy called the colour \"keynote.\""
+        },
+        {
+         "who": "marge",
+         "line": "It's a highlighter.",
+         "overlap": true,
+         "how": "deadpan"
+        },
+        {
+         "who": "player",
+         "line": "It's perfect."
+        },
+        {
+         "who": "nico",
+         "line": "Why's everybody got a funeral face?"
         },
         {
          "who": "marge",
@@ -1996,11 +2027,20 @@
         },
         {
          "who": "marge",
-         "line": "I am not launching the jacket."
+         "line": "I am not launching the jacket. It has a call time, six-thirty, and I tell the crew, \"The jacket's in, he's coming.\""
         },
         {
          "who": "player",
          "line": "It would sell out."
+        },
+        {
+         "who": "marge",
+         "line": "I'm putting out a forty-minute hold. \"Technical difficulties,\" nobody panics, we...",
+         "cut": 0.6
+        },
+        {
+         "who": "player",
+         "line": "Nico, drive. Marge, no hold."
         }
        ]
       },
@@ -2018,11 +2058,8 @@
       },
       {
        "type": "drive",
-       "to": [
-        "@stage-run",
-        "@market"
-       ],
-       "objective": "Drop the run of show at the arena, then get to Lola's truck",
+       "to": "@stage-run",
+       "objective": "Drop the run of show at **the arena**",
        "during": [
         {
          "type": "call",
@@ -2030,37 +2067,23 @@
          "auto": true,
          "inCar": true,
          "at": 2,
+         "span": 4,
          "video": {
           "office": "backstage"
          },
          "lines": [
           {
            "who": "marge",
-           "text": "You're in the car, and you're humming the walk-out music a half step sharp, so you've decided this is fine."
+           "text": "You said \"no hold\" and left the meeting. That's not a decision, Jensen, that's a door."
           },
           {
            "who": "jensen",
-           "text": "It is fine. Lola sees everyone who eats in this city, and everyone eats. We start at her window."
+           "text": "Here's the plan. Lola sees everyone who eats in this city, and everyone eats, so we start at...",
+           "cut": 0.8
           },
           {
            "who": "marge",
-           "text": "Jensen, I'm calling it. I'll send the run of show out with a forty-minute hold and say \"technical difficulties.\""
-          },
-          {
-           "who": "jensen",
-           "text": "No hold. We don't hold."
-          },
-          {
-           "who": "marge",
-           "text": "We have nothing for the stand. You want twenty thousand people watching you open a box of air?"
-          },
-          {
-           "who": "jensen",
-           "text": "Marge, the fans have been in tents since Tuesday. You don't tell a man in a tent the show starts late. That's cruel."
-          },
-          {
-           "who": "marge",
-           "text": "It's cruel to show him an empty box at seven. Copy that."
+           "text": "Her window, I know. And at seven you open a box of air in front of twenty thousand people."
           },
           {
            "who": "jensen",
@@ -2068,8 +2091,18 @@
           },
           {
            "who": "marge",
-           "text": "...Four. Copy. Drop the run of show at the stage door on your way, I'm not sending an intern, I've seen our interns.",
+           "text": "...Four. Copy. Drop the run of show at the stage door on your way, and nobody says the word \"fog.\"",
            "pre": 0.4
+          },
+          {
+           "who": "jensen",
+           "text": "The fog was beautiful.",
+           "overlap": true
+          },
+          {
+           "who": "marge",
+           "text": "The fog set off the sprinklers over four thousand laptops.",
+           "how": "deadpan"
           },
           {
            "who": "jensen",
@@ -2077,15 +2110,7 @@
           },
           {
            "who": "marge",
-           "text": "Not our board. A man. I looked him up between cues and I want those two minutes back."
-          },
-          {
-           "who": "jensen",
-           "text": "Is he bad?"
-          },
-          {
-           "who": "marge",
-           "text": "He owns point four percent of us and a mattress company. Draw your own picture."
+           "text": "Not our board. A man with point four percent of us and a mattress company, and I want my two minutes back."
           },
           {
            "who": "jensen",
@@ -2097,64 +2122,11 @@
           },
           {
            "who": "jensen",
-           "text": "Here's what we know. Somebody came into my kitchen, took one box, left eight cookies, and wrote a P.S. That's a planner."
+           "text": "Here's what we know. Somebody took one box, left eight cookies and wrote a P.S. That's a planner."
           },
           {
            "who": "marge",
            "text": "That's a creep with a pastry budget."
-          },
-          {
-           "who": "jensen",
-           "text": "Fans in line since Tuesday. You know what that is? Tent one, tent two, a little tent for the first tent. That's a platform, Marge..."
-          },
-          {
-           "who": "marge",
-           "text": "That's a fire lane. I've had the marshal on the phone twice."
-          },
-          {
-           "who": "jensen",
-           "text": "We said \"limited supply\" and we meant it. We made one Brisket. We are sold out of the one."
-          },
-          {
-           "who": "marge",
-           "text": "And now we're sold out of zero, which is a launch I've never had to write a cue for."
-          },
-          {
-           "who": "jensen",
-           "text": "Write it with better lighting."
-          },
-          {
-           "who": "marge",
-           "text": "\"Product segment under review.\" I wrote that the year of the fog machine fire."
-          },
-          {
-           "who": "jensen",
-           "text": "The fog was beautiful."
-          },
-          {
-           "who": "marge",
-           "text": "The fog set off the sprinklers in a building with four thousand laptops in it.",
-           "how": "deadpan"
-          },
-          {
-           "who": "marge",
-           "text": "And don't eat at Lola's. You'll get garlic on the jacket and I'll be steaming it in the green room for forty minutes."
-          },
-          {
-           "who": "jensen",
-           "text": "The jacket survived a confetti cannon, a pyro cue and a man from a magazine who wanted to try it on."
-          },
-          {
-           "who": "marge",
-           "text": "The jacket has a call time, six-thirty, same as you. Every year it's there on time and you're the one who's late."
-          },
-          {
-           "who": "jensen",
-           "text": "The jacket waits for me. That's our arrangement."
-          },
-          {
-           "who": "marge",
-           "text": "That's what I tell the crew. \"The jacket's in, he's coming.\""
           }
          ],
          "extra": [
@@ -2173,41 +2145,12 @@
            },
            {
             "who": "jensen",
-            "text": "Seven-oh-one and a half. Build anticipation. Half a minute of nothing, then the sunrise, then..."
+            "text": "Seven-oh-one and a half. Half a minute of nothing, then the sunrise, then...",
+            "cut": 0.8
            },
            {
             "who": "marge",
             "text": "You walked out at seven-nineteen last year. Anticipation built, then it went to get a pretzel."
-           },
-           {
-            "who": "jensen",
-            "text": "People stayed!"
-           },
-           {
-            "who": "marge",
-            "text": "People were locked in. That was a fire code thing."
-           }
-          ],
-          [
-           {
-            "who": "jensen",
-            "text": "How's the screen?"
-           },
-           {
-            "who": "marge",
-            "text": "Ninety metres. You can see it from the airport, and a pilot called the front office to complain."
-           },
-           {
-            "who": "jensen",
-            "text": "About the brightness?"
-           },
-           {
-            "who": "marge",
-            "text": "About your face. He said it looked like it was coming in to land."
-           },
-           {
-            "who": "jensen",
-            "text": "That is the dream, Marge."
            }
           ],
           [
@@ -2236,6 +2179,46 @@
             "text": "Tonight I watch the clock. ...Ask me after.",
             "how": "warm",
             "pre": 0.6
+           }
+          ],
+          [
+           {
+            "who": "jensen",
+            "text": "How's the screen?"
+           },
+           {
+            "who": "marge",
+            "text": "Ninety metres. You can see it from the airport, and a pilot called the front office to complain."
+           },
+           {
+            "who": "jensen",
+            "text": "About the brightness?"
+           },
+           {
+            "who": "marge",
+            "text": "About your face. He said it looked like it was coming in to land."
+           },
+           {
+            "who": "jensen",
+            "text": "That is the dream, Marge."
+           }
+          ],
+          [
+           {
+            "who": "jensen",
+            "text": "Fans in tents since Tuesday. Tent one, tent two, a little tent for the first tent. That's a platform, Marge..."
+           },
+           {
+            "who": "marge",
+            "text": "That's a fire lane. I've had the marshal on the phone twice."
+           },
+           {
+            "who": "jensen",
+            "text": "We said \"limited supply\" and we meant it. We made one Brisket. We are sold out of the one."
+           },
+           {
+            "who": "marge",
+            "text": "And now we're sold out of zero, which is a launch I've never had to write a cue for."
            }
           ],
           [
@@ -2279,23 +2262,46 @@
           "pause": [
            {
             "who": "marge",
-            "text": "Who's that? Fine, take it. I held a curtain for eleven minutes once."
+            "text": "Go on, I'll hold. I held a curtain for eleven minutes once."
            }
           ],
           "resume": [
            {
             "who": "marge",
-            "text": "Was that a fan? You're smiling, I can hear it. Where were we? Panic."
+            "text": "You're back, and you're smiling, I can hear it. Where were we? Panic."
            }
           ]
          }
-        },
+        }
+       ]
+      },
+      {
+       "type": "say",
+       "who": "jensen",
+       "text": "Marge, why is a man in a lanyard wheeling a mahogany chair into my arena?"
+      },
+      {
+       "type": "say",
+       "who": "marge",
+       "text": "It's on the manifest as \"furniture, executive.\" I assumed it was yours.",
+       "how": "deadpan"
+      },
+      {
+       "type": "say",
+       "who": "jensen",
+       "text": "I sit on a stool."
+      },
+      {
+       "type": "drive",
+       "to": "@market",
+       "objective": "Get to **Lola's truck** at the market square",
+       "during": [
         {
          "type": "call",
          "who": "wesley",
          "interrupts": true,
          "inCar": true,
-         "at": 45,
+         "at": 6,
          "video": {
           "office": "kitchen",
           "blur": true
@@ -2303,15 +2309,17 @@
          "lines": [
           {
            "who": "wesley",
-           "text": "Oh my gosh, it's actually you, Chat, it's actually him, and he picked up, and I'm not even crying yet!"
+           "text": "Oh my gosh, it's actually you, Chat, it's actually him, and he picked up, and I'm not even crying yet, and...",
+           "cut": 0.9
           },
           {
            "who": "jensen",
-           "text": "Who is this?"
+           "text": "Who is this?",
+           "overlap": true
           },
           {
            "who": "wesley",
-           "text": "Wesley! TroutStream! I've got the jacket-black hoodie and the jacket-black socks and a jacket-black cat, and he was black already but it counts."
+           "text": "Wesley! TroutStream! Jacket-black hoodie, jacket-black socks, and a jacket-black cat, and he was black already but it counts."
           },
           {
            "who": "jensen",
@@ -2323,7 +2331,11 @@
           },
           {
            "who": "jensen",
-           "text": "...That does sound like me."
+           "text": "...That does sound like me. Why is your background blurry?"
+          },
+          {
+           "who": "wesley",
+           "text": "Privacy! Pruitt's asleep on my leg, and he's holding our spot, and if he wakes up we lose row one!"
           },
           {
            "who": "wesley",
@@ -2335,7 +2347,7 @@
           },
           {
            "who": "wesley",
-           "text": "Blink anyway! Okay I gotta go, I'm holding my spot in line with my whole body. Love the jacket, bye, bye!"
+           "text": "Blink anyway! Okay, Pruitt's waking up, I gotta go, love the jacket, bye, bye!"
           }
          ]
         }
@@ -2350,21 +2362,28 @@
         {
          "who": "lola",
          "office": "kitchen",
-         "sub": "Lola's · the market square",
+         "sub": "Lola's · the truck kitchen",
          "cam": "wide"
         },
         {
          "who": "player",
          "office": "exec",
          "label": "Jensen",
-         "sub": "parked behind the market",
+         "sub": "in the line at Lola's",
+         "blur": true,
          "cam": "low"
         }
        ],
        "lines": [
         {
+         "who": "player",
+         "line": "Lola! I'm ninth in line. I can see you, you can see me, so why are we on a...",
+         "cut": 0.8
+        },
+        {
          "who": "lola",
-         "line": "No."
+         "line": "No.",
+         "overlap": true
         },
         {
          "who": "player",
@@ -2372,7 +2391,7 @@
         },
         {
          "who": "lola",
-         "line": "You've got the face. You're going to rate my brisket."
+         "line": "Lunch rush. I don't do VIPs, and ninth is ninth. Also you've got the face, you're going to rate my brisket."
         },
         {
          "do": "hand",
@@ -2380,7 +2399,8 @@
         },
         {
          "who": "player",
-         "line": "Lola, I just want to say, out loud, this is thirty percent more flavour per bite than last quarter..."
+         "line": "Lola, I just want to say, out loud, this is thirty percent more flavour per bite than last quarter...",
+         "cut": 0.85
         },
         {
          "who": "lola",
@@ -2408,7 +2428,24 @@
         },
         {
          "who": "lola",
-         "line": "You ate three ribs and couldn't stand up, so you named a computer and sat on my cooler for an hour."
+         "line": "You ate three ribs, named a computer and sat on my cooler for an hour."
+        },
+        {
+         "who": "player",
+         "line": "Best launch I ever did."
+        },
+        {
+         "who": "lola",
+         "line": "You booked me for the March launch. Sixty plates. Nobody came to get them."
+        },
+        {
+         "who": "player",
+         "line": "March was a learning quarter."
+        },
+        {
+         "who": "lola",
+         "line": "...Mm.",
+         "pre": 0.6
         },
         {
          "who": "player",
@@ -2420,7 +2457,8 @@
         },
         {
          "who": "player",
-         "line": "Somebody carrying something that runs hot. Lola, let me show you. Hold your hand over my laptop vent..."
+         "line": "Somebody carrying something that runs hot. Lola, let me show you. Hold your hand over my laptop vent...",
+         "cut": 0.8
         },
         {
          "who": "lola",
@@ -2456,7 +2494,7 @@
         },
         {
          "who": "lola",
-         "line": "That's eight dollars. Go. They're moving.",
+         "line": "That's eight dollars. You're still ninth. Go, they're moving.",
          "pre": 0.4
         }
        ]
@@ -2512,15 +2550,7 @@
          "lines": [
           {
            "who": "dex",
-           "text": "Jensen! My guy! It's Dex, Dex Varga, from Cobalt, we met at the... we met at all of them."
-          },
-          {
-           "who": "jensen",
-           "text": "Every thing, Dex. You're at every thing."
-          },
-          {
-           "who": "dex",
-           "text": "Networking's a muscle. Hey, saw the oven stream, brutal, and I'm not... we're not happy about it, nobody's happy."
+           "text": "Jensen! My guy! It's Dex, from Cobalt, we met at all of them. Saw the oven stream, brutal, and we're not... nobody's happy about it."
           },
           {
            "who": "jensen",
@@ -2548,7 +2578,7 @@
           },
           {
            "who": "jensen",
-           "text": "Whoever's paying for this, Dex, it isn't the stage."
+           "text": "Somebody's paying for your afternoon, Dex. Who?"
           },
           {
            "who": "dex",
@@ -2556,11 +2586,17 @@
           },
           {
            "who": "jensen",
-           "text": "Let me show you something, Dex. You've got a cooler, an SUV, and eight men in vests. That's not a strategy, that's a picnic."
+           "text": "Let me show you something, Dex. You've got a cooler, an SUV, and eight men in vests, and that's...",
+           "cut": 0.8
           },
           {
            "who": "dex",
-           "text": "It's a... it's a mobile strategy. Quick hypothetical. How hot does a chip run? In a cooler? For no reason?"
+           "text": "It's a mobile strategy!",
+           "overlap": true
+          },
+          {
+           "who": "dex",
+           "text": "Quick hypothetical. How hot does a chip run? In a cooler? For no reason?"
           },
           {
            "who": "jensen",
@@ -2568,35 +2604,28 @@
           },
           {
            "who": "dex",
-           "text": "Totally hypothetical, totally fine. How's the jacket? Still leather? You ever think about a vest?"
+           "text": "Totally hypothetical, totally fine. You know our chip got one review? The whole review was \"a chip.\" You get \"a new era,\" and I get a noun."
           },
           {
            "who": "jensen",
-           "text": "Never once."
+           "text": "A noun is a start, Dex. Nouns are where everything starts."
           },
           {
            "who": "dex",
-           "text": "Vests are the future, man, because your arms are free, and when your arms are... the ideas are free, is the point."
+           "text": "Don't... don't be nice, it's very confusing while I'm doing a crime."
           },
           {
            "who": "jensen",
-           "text": "Can I ask you something real?"
+           "text": "Can I ask you something real? Why do you want my chip?"
           },
           {
            "who": "dex",
-           "text": "Real? Sure. Radical honesty. I do that now."
+           "text": "Okay, radical honesty. I don't want your... I want what happens when you hold it up. Twenty thousand people, man, don't your knees go?"
           },
           {
            "who": "jensen",
-           "text": "Why do you want my chip?"
-          },
-          {
-           "who": "dex",
-           "text": "I don't want your... I want what happens when you hold it up. Twenty thousand people, man. Don't your knees go?"
-          },
-          {
-           "who": "jensen",
-           "text": "Every time."
+           "text": "Every time.",
+           "pre": 0.4
           },
           {
            "who": "dex",
@@ -2623,29 +2652,19 @@
           [
            {
             "who": "dex",
-            "text": "You know our chip? The C1? It got one review. One."
+            "text": "How's the jacket? Still leather? You ever think about a vest?"
            },
            {
             "who": "jensen",
-            "text": "I read it."
+            "text": "Never once."
            },
            {
             "who": "dex",
-            "text": "The whole review was \"a chip.\" That's it. You get \"revolutionary,\" you get \"a new era,\" and I get a noun."
+            "text": "Vests are the future, man, because your arms are free, and when your arms are... the ideas are free, is the point."
            },
            {
             "who": "jensen",
-            "text": "A noun is a start, Dex. Nouns are where everything starts."
-           },
-           {
-            "who": "dex",
-            "text": "Don't... don't be nice, it's very confusing while I'm doing a crime."
-           }
-          ],
-          [
-           {
-            "who": "jensen",
-            "text": "Where do you even buy those vests?"
+            "text": "Where do you even buy those?"
            },
            {
             "who": "dex",
@@ -2663,15 +2682,15 @@
           [
            {
             "who": "dex",
-            "text": "My guys say there's a white car behind them, real shiny, like a refrigerator that won something."
+            "text": "My guys say there's a green car behind them, real shiny, like a lime that got a sports scholarship."
            },
            {
             "who": "jensen",
-            "text": "Lot of white cars in San Jose, Dex."
+            "text": "It's not lime, Dex, the colour's called keynote. ...There's a lot of those in San Jose."
            },
            {
             "who": "dex",
-            "text": "That's true. That's so true. Pivot. Ignore me, I'm a lot today."
+            "text": "Is there? I don't think there... Pivot. Ignore me, I'm a lot today."
            }
           ]
          ],
@@ -2686,7 +2705,7 @@
           },
           {
            "who": "dex",
-           "text": "Wait, is the refrigerator... are you the refrigerator? Pivot! Pivot!",
+           "text": "Wait, is the lime... are you the lime? Pivot! Pivot!",
            "how": "urgent"
           }
          ],
@@ -2694,7 +2713,7 @@
           "tooClose": [
            {
             "who": "dex",
-            "text": "Guys say the white car's really close, like, smelling distance, which is weird, right?"
+            "text": "Guys say the green car's really close, like, smelling distance, which is weird, right?"
            },
            {
             "who": "dex",
@@ -2704,11 +2723,11 @@
           "lost": [
            {
             "who": "dex",
-            "text": "Oh, they lost the shiny car! Huge win for us. Huge. Who even cares."
+            "text": "Oh, they lost the lime! Huge win for us. Huge. Who even cares."
            },
            {
             "who": "dex",
-            "text": "White car's gone. Good. Great. I'm calm. The vest is calm."
+            "text": "Green car's gone. Good. Great. I'm calm. The vest is calm."
            }
           ]
          }
@@ -2796,7 +2815,9 @@
         {
          "who": "intern-a",
          "office": "startup",
-         "sub": "Cobalt Circuitry · unpaid",
+         "label": "Intern One",
+         "sub": "the green by the station",
+         "blur": true,
          "cam": "low"
         },
         {
@@ -2804,13 +2825,31 @@
          "office": "exec",
          "label": "Jensen",
          "sub": "the green by the station",
+         "blur": true,
          "cam": "low"
+        },
+        {
+         "who": "intern-b",
+         "office": "startup",
+         "label": "Intern Two",
+         "sub": "the green, still on the grass",
+         "blur": true,
+         "cam": "low",
+         "late": true
         }
        ],
        "lines": [
         {
          "who": "intern-a",
-         "line": "Sir? Can I put you down as a reference?"
+         "line": "Thanks for joining my quick sync, sir. I like things documented. For my reference."
+        },
+        {
+         "who": "player",
+         "line": "I'm standing right next to you."
+        },
+        {
+         "who": "intern-a",
+         "line": "And it's going really well. Can I put you down as a reference?"
         },
         {
          "who": "player",
@@ -2834,7 +2873,18 @@
         },
         {
          "who": "intern-a",
-         "line": "\"Thank you, intern.\" Like it was my name. I've never felt so seen."
+         "line": "\"Thank you, intern.\" Like it was my name. He bought the whole team coffee first, sixty coffees...",
+         "cut": 0.85
+        },
+        {
+         "do": "join",
+         "who": "intern-b"
+        },
+        {
+         "who": "intern-b",
+         "line": "Sixty-one!",
+         "overlap": true,
+         "how": "urgent"
         },
         {
          "who": "intern-a",
@@ -2853,8 +2903,17 @@
          }
         },
         {
+         "who": "intern-a",
+         "line": "Are you going to call the police?"
+        },
+        {
+         "who": "intern-b",
+         "line": "We're unpaid! Is that a crime? Is it a crime for us or for them?"
+        },
+        {
          "who": "player",
-         "line": "Tell them you've got a strong left and good manners, and take Lola her cooler back. With a tip."
+         "line": "No police. You've got a strong left and good manners. Take Lola her cooler back, with a tip, and tell her I sent you.",
+         "pre": 0.5
         },
         {
          "do": "unshare",
@@ -2899,10 +2958,7 @@
       },
       {
        "type": "drive",
-       "to": [
-        "@santa-clara",
-        "@diner"
-       ],
+       "to": "@diner",
        "objective": "Get to the corner diner. Booth three.",
        "during": [
         {
@@ -2916,27 +2972,11 @@
          "lines": [
           {
            "who": "nico",
-           "text": "Boss, it's me, I'm at the house with the oven, and it's got a vibe now, like a crime show where the oven did it."
+           "text": "Boss, I'm at the house with the oven, and it's got a vibe now, like a crime show where the oven did it."
           },
           {
            "who": "jensen",
-           "text": "Nico. The napkin says booth three."
-          },
-          {
-           "who": "nico",
-           "text": "Your diner? The napkin diner, with the pancakes, the one you tell everybody about?"
-          },
-          {
-           "who": "jensen",
-           "text": "Booth three. That's where it... that's where it started."
-          },
-          {
-           "who": "nico",
-           "text": "So who's waiting in your booth?"
-          },
-          {
-           "who": "jensen",
-           "text": "The Board."
+           "text": "Nico, the napkin says booth three, one o'clock, and it's signed the Board."
           },
           {
            "who": "nico",
@@ -2948,7 +2988,7 @@
           },
           {
            "who": "nico",
-           "text": "...From New York. Big guy, silver hair, talks like a cheque you can't cash, buys you a little something before he asks?",
+           "text": "...Big guy, silver hair, talks like a cheque you can't cash, buys you a little something before he asks?",
            "pre": 0.4
           },
           {
@@ -2961,19 +3001,17 @@
           },
           {
            "who": "jensen",
-           "text": "What do you know about him?"
+           "text": "Let me show you how I'll play it. Warm, open, a little pancake diplomacy, and then...",
+           "cut": 0.8
           },
           {
            "who": "nico",
-           "text": "I know he had a bank, and then a kid with a laptop and his friend with a tracker took the bank apart one Tuesday, and he left town in a coat he didn't pay for."
-          },
-          {
-           "who": "jensen",
-           "text": "Did you find anything at the house?"
+           "text": "Facing the door.",
+           "overlap": true
           },
           {
            "who": "nico",
-           "text": "A cookie with a bite out of it, and it's not a human bite, I'm thinking the dog."
+           "text": "Also there's a cookie on your counter with a bite out of it, and it's not a human bite, I'm thinking the dog."
           },
           {
            "who": "jensen",
@@ -2986,43 +3024,28 @@
           },
           {
            "who": "jensen",
-           "text": "The car is beautiful, Nico. Let me tell you why. The steering, the brakes, and the way the seat holds you like it's proud of you."
+           "text": "Nico, this car. The steering, the brakes, and the way the seat holds you like it's proud of..."
           },
           {
            "who": "nico",
-           "text": "Don't tell me how she drives, tell me you're not riding the curb."
+           "text": "Rate her.",
+           "overlap": true
           },
           {
            "who": "jensen",
-           "text": "I'm not riding the curb."
+           "text": "Ten."
           },
           {
            "who": "nico",
-           "text": "I can hear the curb, boss. The curb is screaming."
+           "text": "Out of eleven. I use eleven so nobody ever gets a ten, and nobody's ever got an eleven, not even me."
           },
           {
            "who": "jensen",
-           "text": "Where did you even get this car? We don't make cars."
+           "text": "People keep pointing at her."
           },
           {
            "who": "nico",
-           "text": "So the banker kid, right, he gets framed for a thing and then unframed for the thing, and there's mustard everywhere, and he says keep it, I'm taking the train a while."
-          },
-          {
-           "who": "jensen",
-           "text": "He gave you a hypercar."
-          },
-          {
-           "who": "nico",
-           "text": "He paid me in hot dogs, twice, good hot dogs, and then he gave me a hypercar, and I don't ask questions about a man's generosity."
-          },
-          {
-           "who": "jensen",
-           "text": "And you drove it across the whole country."
-          },
-          {
-           "who": "nico",
-           "text": "Four days, and I talked to her the whole way, and she doesn't talk back, which is why we get along."
+           "text": "She was white for the kid. For you she's keynote, and keynote is a colour people point at."
           },
           {
            "who": "jensen",
@@ -3034,7 +3057,12 @@
           },
           {
            "who": "jensen",
-           "text": "...There was a dog outside. He was there in his heart."
+           "text": "...There was a dog outside. He was there in his heart.",
+           "pre": 0.4
+          },
+          {
+           "who": "nico",
+           "text": "I can hear the curb, boss. The curb is screaming."
           }
          ],
          "extra": [
@@ -3054,32 +3082,20 @@
           ],
           [
            {
+            "who": "jensen",
+            "text": "Where did you even get this car? We don't make cars."
+           },
+           {
             "who": "nico",
-            "text": "That turn just now. Rate it yourself."
+            "text": "So the banker kid, right, he gets framed for a thing and then unframed for the thing, and there's mustard everywhere, and he says keep it, I'm taking the train a while."
            },
            {
             "who": "jensen",
-            "text": "Nine."
+            "text": "He gave you a hypercar."
            },
            {
             "who": "nico",
-            "text": "Out of eleven?"
-           },
-           {
-            "who": "jensen",
-            "text": "Out of ten."
-           },
-           {
-            "who": "nico",
-            "text": "Then it's a four. I use eleven so nobody ever gets a ten, it keeps people humble, and nobody's ever got an eleven, not even me."
-           },
-           {
-            "who": "jensen",
-            "text": "What did you give yourself?"
-           },
-           {
-            "who": "nico",
-            "text": "A seven, once, in Queens, and I cried in a car wash."
+            "text": "He paid me in hot dogs, twice, good hot dogs, and then he gave me a hypercar, and I don't ask questions about a man's generosity."
            }
           ],
           [
@@ -3106,6 +3122,16 @@
            {
             "who": "jensen",
             "text": "Exactly like a racehorse."
+           }
+          ],
+          [
+           {
+            "who": "jensen",
+            "text": "What did you give yourself? Out of eleven."
+           },
+           {
+            "who": "nico",
+            "text": "A seven, once, in Queens, and I cried in a car wash."
            }
           ]
          ],
@@ -3157,25 +3183,37 @@
          "who": "board",
          "office": "study",
          "label": "Mr. Board",
-         "sub": "Mahogany Partners"
+         "sub": "Mahogany Partners · remote"
         },
         {
          "who": "player",
          "office": "kitchen",
          "label": "Jensen",
-         "sub": "Booth three, the corner diner"
+         "sub": "booth three · the corner diner",
+         "blur": true,
+         "cam": "low"
         },
         {
          "who": "director-a",
          "office": "boardroom",
-         "sub": "Mahogany Partners",
+         "sub": "the counter, corner diner",
+         "blur": true,
+         "cam": "low",
          "muted": true
         }
        ],
        "lines": [
         {
          "who": "board",
-         "line": "Jensen, big fan, please sit, I saved your booth, which took some doing, because there was a family in it."
+         "line": "Jensen, big fan, please sit. I saved your booth, which took some doing, because there was a family in it."
+        },
+        {
+         "who": "player",
+         "line": "You're a tablet. You're a tablet propped against the syrup."
+        },
+        {
+         "who": "board",
+         "line": "I'm a remote-first chairman, Jensen. I never sit in a room I haven't bought."
         },
         {
          "who": "player",
@@ -3187,23 +3225,15 @@
         },
         {
          "who": "player",
-         "line": "You're the Board."
+         "line": "Point four percent of my company. That's not a seat, that's a cushion."
         },
         {
          "who": "board",
-         "line": "You've heard about the mattress company. Everyone has. They call me nightly."
-        },
-        {
-         "who": "player",
-         "line": "And since last month, us."
+         "line": "I'm a large man, Jensen, and I'd like a larger chair."
         },
         {
          "who": "board",
-         "line": "Point four percent, which is a small seat. I'm a large man, Jensen, and I'd like a larger chair."
-        },
-        {
-         "who": "board",
-         "line": "New York and I agreed to see other people. A young man with a laptop, and his friend with a tracker. You'd have liked them."
+         "line": "New York and I agreed to see other people. A young man with a laptop, and his friend with a tracker."
         },
         {
          "who": "player",
@@ -3227,7 +3257,7 @@
         },
         {
          "who": "board",
-         "line": "One signature on one letter that makes me chairman, and tonight I walk out on your stage and launch your Brisket."
+         "line": "One signature on one letter that makes me chairman. Then tonight I walk out on your stage and launch your Brisket."
         },
         {
          "do": "share",
@@ -3255,21 +3285,35 @@
         },
         {
          "who": "player",
-         "line": "Do you know what happened in this booth?"
-        },
-        {
-         "who": "board",
-         "line": "Everyone knows. A napkin, some pancakes. The waitress tells it to tourists, and she adds a dog."
-        },
-        {
-         "who": "player",
-         "line": "The waitress is wrong. Let me tell you the real version. Rainy night, coffee, a napkin, and a pen that only worked if you blew on it...",
+         "line": "Do you know what happened in this booth? A rainy night, eleven friends, a napkin, and a pen you had to blow on...",
          "cut": 0.8
         },
         {
          "who": "board",
          "line": "Please don't.",
+         "how": "deadpan",
+         "overlap": true
+        },
+        {
+         "who": "director-a",
+         "line": "Motion to escort."
+        },
+        {
+         "who": "board",
+         "line": "Gregory, you're on mute.",
          "how": "deadpan"
+        },
+        {
+         "do": "unmute",
+         "who": "director-a"
+        },
+        {
+         "who": "director-a",
+         "line": "Motion to escort."
+        },
+        {
+         "who": "board",
+         "line": "Not yet, Gregory. He hasn't said no."
         },
         {
          "who": "player",
@@ -3279,15 +3323,11 @@
         },
         {
          "who": "board",
-         "line": "Was it raining? The waitress says sunny."
+         "line": "Was it raining? The waitress says sunny, and she tells it with a dog."
         },
         {
          "who": "player",
          "line": "...It was spiritually raining."
-        },
-        {
-         "who": "board",
-         "line": "The last version I heard, you had a dog."
         },
         {
          "who": "board",
@@ -3334,23 +3374,29 @@
          "who": "board",
          "office": "study",
          "label": "Mr. Board",
-         "sub": "Mahogany Partners"
+         "sub": "Mahogany Partners · remote"
         },
         {
          "who": "player",
          "office": "kitchen",
          "label": "Jensen",
-         "sub": "Booth three, the corner diner"
+         "sub": "booth three · the corner diner",
+         "blur": true,
+         "cam": "low"
         },
         {
          "who": "director-a",
          "office": "boardroom",
-         "sub": "Mahogany Partners"
+         "sub": "the counter, corner diner",
+         "blur": true,
+         "cam": "low"
         },
         {
          "who": "director-b",
          "office": "boardroom",
-         "sub": "Mahogany Partners",
+         "sub": "the door, corner diner",
+         "blur": true,
+         "cam": "low",
          "late": true
         }
        ],
@@ -3365,7 +3411,7 @@
         },
         {
          "who": "board",
-         "line": "Then we'll do it the long way. Gentlemen, walk Mr. Jensen to his car, quickly, and then rather less quickly."
+         "line": "Then we do it the long way. Gregory, now."
         },
         {
          "do": "join",
@@ -3373,12 +3419,16 @@
         },
         {
          "who": "director-a",
-         "line": "Motion to escort."
+         "line": "Motion to escort, as moved earlier."
         },
         {
          "who": "director-b",
          "line": "Seconded.",
          "overlap": true
+        },
+        {
+         "who": "board",
+         "line": "Do run, Jensen. You look wonderful running toward things."
         },
         {
          "who": "player",
@@ -3432,23 +3482,30 @@
           },
           {
            "who": "jensen",
-           "text": "How do you know that?"
+           "text": "He wants to do the keynote, Marge. My keynote, on my screen, with my...",
+           "cut": 0.8
           },
           {
            "who": "marge",
-           "text": "Nineteen keynotes. I've been chased by a lot of suits, mostly about invoices."
-          },
-          {
-           "who": "jensen",
-           "text": "He wants to do the keynote, Marge. My keynote, with my screen."
+           "text": "He can't.",
+           "overlap": true
           },
           {
            "who": "marge",
-           "text": "He can't. He's not on the run of show."
+           "text": "He's not on the run of show. Which is odd, because it came back from the printer an hour ago saying 'Presenter: TBC.'"
           },
           {
            "who": "jensen",
-           "text": "He has a letter."
+           "text": "Printer gremlin.",
+           "overlap": true
+          },
+          {
+           "who": "marge",
+           "text": "I didn't write TBC. I don't know anyone called TBC."
+          },
+          {
+           "who": "jensen",
+           "text": "Marge, he has a letter."
           },
           {
            "who": "marge",
@@ -3460,12 +3517,20 @@
            "overlap": true
           },
           {
+           "who": "jensen",
+           "text": "How do you know the side streets?"
+          },
+          {
            "who": "marge",
-           "text": "Did you eat at Lola's?"
+           "text": "Nineteen keynotes. I've been chased by a lot of suits, mostly about invoices."
+          },
+          {
+           "who": "marge",
+           "text": "Did you eat anything he bought you?"
           },
           {
            "who": "jensen",
-           "text": "I had one pancake, at the booth. A Board pancake."
+           "text": "One pancake. A Board pancake."
           },
           {
            "who": "marge",
@@ -3621,19 +3686,29 @@
           },
           {
            "who": "jensen",
-           "text": "Wesley, you've been in that line since Tuesday."
+           "text": "Wesley, why is there a dome behind your blur?"
           },
           {
            "who": "wesley",
-           "text": "But Chat said Cobalt guys were carrying a cooler behind the science museum, so I followed them, for content, and I'm here!"
+           "text": "That's not a dome, that's a very round building I'm standing near, for content!"
           },
           {
            "who": "jensen",
-           "text": "Never follow people with coolers. Is Dex there?"
+           "text": "You're at the science museum."
           },
           {
            "who": "wesley",
-           "text": "The vest guy's in a van with the door open going \"come on, come on\" at a laptop, and there's a cable to the big outdoor screen."
+           "text": "Chat said Cobalt guys were carrying coffees to a van back here, so I followed them, and the vest guy's in the van going 'come on, come on' at a laptop!"
+          },
+          {
+           "who": "jensen",
+           "text": "Wesley, never follow men with coffees, never stream a crime, and never...",
+           "cut": 0.75
+          },
+          {
+           "who": "wesley",
+           "text": "Already streaming!",
+           "overlap": true
           },
           {
            "who": "jensen",
@@ -3641,11 +3716,11 @@
           },
           {
            "who": "wesley",
-           "text": "No box! Just the laptop, and a sticky note that says \"THE NUMBER,\" and a bar that says upload, and it's moving."
+           "text": "No box! Just a laptop, and a sticky note that says \"THE NUMBER,\" and a cable to the big outdoor screen, and an upload bar, and it's moving!"
           },
           {
            "who": "jensen",
-           "text": "So the chip's not there. He's only got the number, and he's putting our number on his screen."
+           "text": "So he hasn't got the chip. He's got our number, and he's putting it on his screen."
           },
           {
            "who": "wesley",
@@ -3660,12 +3735,8 @@
            "text": "Chat says that's exactly what a heist would say."
           },
           {
-           "who": "jensen",
-           "text": "Chat's very sharp today."
-          },
-          {
            "who": "wesley",
-           "text": "Chat's like four thousand people and one of them is my mom, so it's mostly my mom being sharp."
+           "text": "Chat's like four thousand people and one of them is my aunt Deb, so it's mostly Deb being sharp."
           }
          ],
          "extra": [
@@ -3709,7 +3780,7 @@
          "wrap": [
           {
            "who": "wesley",
-           "text": "I see the white car on the cam! Hi! Okay there's two interns, one by the coffee and one on the van."
+           "text": "I see the green car on the cam! Hi! Okay there's two interns, one by the coffee and one on the van."
           },
           {
            "who": "jensen",
@@ -3806,47 +3877,64 @@
         {
          "who": "dex",
          "office": "startup",
-         "sub": "CEO · Cobalt Circuitry"
+         "sub": "Cobalt Circuitry · the van"
         },
         {
          "who": "player",
          "office": "exec",
          "label": "Jensen",
          "sub": "behind the van",
+         "blur": true,
          "cam": "low"
         },
         {
          "who": "wesley",
          "office": "kitchen",
-         "sub": "TroutStream · LIVE",
+         "sub": "behind the recycling bins",
          "blur": true,
          "cam": "low"
         },
         {
          "who": "intern-a",
          "office": "startup",
-         "sub": "Cobalt Circuitry · unpaid",
+         "sub": "Cobalt · unpaid · the lot",
+         "blur": true,
+         "cam": "low",
          "late": true
         },
         {
          "who": "intern-b",
          "office": "startup",
-         "sub": "Cobalt Circuitry · unpaid",
+         "sub": "Cobalt · unpaid · the lot",
+         "blur": true,
+         "cam": "low",
          "late": true
         }
        ],
        "lines": [
+        {
+         "do": "freeze",
+         "who": "dex"
+        },
         {
          "who": "dex",
          "line": "No no no no, not now, it was at ninety-four percent!"
         },
         {
          "who": "player",
-         "line": "Dex. Step away from the van."
+         "line": "Dex. You're frozen. Step away from the van."
         },
         {
          "who": "dex",
-         "line": "You can't unplug a... that's a public screen, man, it belongs to everyone!"
+         "line": "The van's frozen, you froze the... okay, I'm switching to my phone, nobody look at my phone."
+        },
+        {
+         "do": "unfreeze",
+         "who": "dex"
+        },
+        {
+         "who": "dex",
+         "line": "That's a public screen, man, you can't just... it belongs to everyone!"
         },
         {
          "who": "player",
@@ -3887,24 +3975,25 @@
         },
         {
          "who": "player",
-         "line": "Dex. He's not giving you five minutes. He's giving you the lobby."
-        },
-        {
-         "who": "dex",
-         "line": "...How would you know that?",
-         "pre": 0.4
-        },
-        {
-         "who": "player",
          "line": "Did he buy you something first? Something small, so you'd owe him?"
         },
         {
          "who": "dex",
-         "line": "...A muffin. A really good muffin."
+         "line": "...A muffin. A really good muffin.",
+         "pre": 0.4
         },
         {
          "who": "player",
-         "line": "He bought my booth's pancakes, Dex. You're getting the lobby."
+         "line": "He bought my booth's pancakes, Dex. He's not giving you five minutes. You're getting the lobby."
+        },
+        {
+         "who": "dex",
+         "line": "...How would you know that? He even sent me the spot for the van. A pin, with a little gavel on it.",
+         "pre": 0.4
+        },
+        {
+         "who": "player",
+         "line": "He buys you something small, then he gives you an address. He does it to everyone."
         },
         {
          "who": "dex",
@@ -3912,7 +4001,8 @@
         },
         {
          "who": "player",
-         "line": "Dex..."
+         "line": "Dex, wait, you still have a...",
+         "cut": 0.6
         },
         {
          "do": "join",
@@ -3938,6 +4028,10 @@
         {
          "do": "drop",
          "who": "dex"
+        },
+        {
+         "who": "intern-a",
+         "line": "Sir? Is now a good time for that reference?"
         }
        ]
       },
@@ -3963,37 +4057,37 @@
         },
         {
          "type": "say",
-         "at": 12,
-         "who": "jensen",
-         "text": "Seatbelt, Wesley. And no streaming the dashboard, it's a prototype of a feeling.",
-         "wait": false
-        },
-        {
-         "type": "say",
-         "at": 22,
+         "at": 11,
          "who": "wesley",
-         "text": "Can I ask you for something? After? No pressure. Medium pressure.",
+         "text": "Can I ask you something? Hypothetically. If a fan sold a thing you signed, to a collector, for like, rent...",
          "wait": false
         },
         {
          "type": "say",
-         "at": 30,
+         "at": 18,
          "who": "jensen",
          "text": "Wesley, I've signed your phone, your hoodie, your skateboard and something in your driveway.",
          "wait": false
         },
         {
          "type": "say",
-         "at": 38,
+         "at": 26,
          "who": "wesley",
-         "text": "Her car! My mom's car! She won't wash it, it's been three years, and birds avoid it out of respect.",
+         "text": "My aunt Deb's car! She won't wash it, it's been three years, and birds avoid it out of respect.",
          "wait": false
         },
         {
          "type": "say",
-         "at": 50,
+         "at": 34,
          "who": "jensen",
-         "text": "Then after tonight I'll sign the other door. Symmetry. The more you sign...",
+         "text": "Wesley, new job. Whatever he tells me next, he wants me looking at it, so you look at the arena: the dock, the back lot, every car.",
+         "wait": false
+        },
+        {
+         "type": "say",
+         "at": 44,
+         "who": "wesley",
+         "text": "From the fan line? I can see the whole dock from the fan line! I'm your EYES!",
          "wait": false
         }
        ]
@@ -4008,6 +4102,11 @@
        "type": "say",
        "who": "jensen",
        "text": "'Don't come.' He gave me the address. He gives everyone the address."
+      },
+      {
+       "type": "say",
+       "who": "jensen",
+       "text": "So we go. On purpose, this time."
       }
      ]
     }
@@ -4029,7 +4128,7 @@
       "escape"
      ],
      "stakes": "A delivery for the Board, two blocks from the arena.",
-     "passLine": "A decoy cone, eleven Directors, and a mug.",
+     "passLine": "A decoy cone, eleven Directors, and a grey SUV.",
      "steps": [
       {
        "type": "transition",
@@ -4047,7 +4146,8 @@
         },
         {
          "who": "jensen",
-         "text": "A fan?"
+         "text": "A fan?",
+         "overlap": true
         },
         {
          "who": "marge",
@@ -4088,28 +4188,57 @@
          "lines": [
           {
            "who": "lola",
-           "text": "I'm driving the truck to the arena. If I crash, the recipe goes to my cousin."
+           "text": "The suits were at my window. A whole tray of black coffees, to go, to the convention hall, and they voted on the lids."
           },
           {
            "who": "jensen",
-           "text": "Which cousin?"
+           "text": "I know. I'm on my way there."
           },
           {
            "who": "lola",
-           "text": "The one who doesn't put sugar in it. Where are you?"
+           "text": "You know? Then why did I call?"
           },
           {
            "who": "jensen",
-           "text": "The convention hall. The Board's got a delivery."
+           "text": "Because you were worried."
           },
           {
            "who": "lola",
-           "text": "You know what I think? You named that thing wrong, and that's bad luck. Who names a computer after lunch?"
+           "text": "I don't worry. Worry costs extra."
+          },
+          {
+           "who": "lola",
+           "text": "Marge called me. No garlic for you before the keynote."
           },
           {
            "who": "jensen",
-           "text": "Brisket is a perfect name, and let me show you why...",
-           "cut": 0.85
+           "text": "One clove. Spiritually, garlic is a vegetable."
+          },
+          {
+           "who": "lola",
+           "text": "Spiritually. That's new. Last year your jacket smelled like my truck for a month, and a dog followed you onto the stage."
+          },
+          {
+           "who": "jensen",
+           "text": "...So that's where the dog came from.",
+           "pre": 0.4
+          },
+          {
+           "who": "lola",
+           "text": "What dog?"
+          },
+          {
+           "who": "jensen",
+           "text": "The dog in the story! He's been in the story all week, and nobody believed me."
+          },
+          {
+           "who": "lola",
+           "text": "Nobody believes you because you tell it a different way every time."
+          },
+          {
+           "who": "jensen",
+           "text": "Every version is true, Lola. Let me show you why. The rain, the friends, and the...",
+           "cut": 0.8
           },
           {
            "who": "lola",
@@ -4117,48 +4246,12 @@
            "overlap": true
           },
           {
-           "who": "jensen",
-           "text": "Bark, fat, meat. Heat, time, patience. Layers that only work because of what's under them. That's a chip, Lola, that's honestly how a chip works."
-          },
-          {
            "who": "lola",
-           "text": "Is it?"
+           "text": "You want my secret? Eleven years, one burner, and a sign I painted on an old door that said \"open.\" That's all it said."
           },
           {
            "who": "jensen",
-           "text": "Roughly. Spiritually. Don't tell an engineer."
-          },
-          {
-           "who": "lola",
-           "text": "You say \"spiritually\" a lot today. Is it a new thing? Does it cost extra?"
-          },
-          {
-           "who": "jensen",
-           "text": "It's been a spiritual day. Somebody kidnapped my oven's only child."
-          },
-          {
-           "who": "lola",
-           "text": "You know how long I've had this truck?"
-          },
-          {
-           "who": "jensen",
-           "text": "Eleven years. The first day you had one burner."
-          },
-          {
-           "who": "lola",
-           "text": "One burner, and a sign I painted on an old door that said \"open.\" That's all it said. People came anyway."
-          },
-          {
-           "who": "jensen",
-           "text": "That's a great launch. No screen, no fog, no countdown. Just \"open.\""
-          },
-          {
-           "who": "lola",
-           "text": "You want my secret?"
-          },
-          {
-           "who": "jensen",
-           "text": "More than anything."
+           "text": "No screen, no fog, no countdown. Just \"open.\""
           },
           {
            "who": "lola",
@@ -4178,7 +4271,35 @@
           [
            {
             "who": "lola",
-            "text": "The fan line goes round the arena twice. I can see it from the freeway."
+            "text": "You named that thing wrong, you know, and that's bad luck. Who names a computer after lunch?"
+           },
+           {
+            "who": "jensen",
+            "text": "Brisket is a perfect name, and let me show you why...",
+            "cut": 0.85
+           },
+           {
+            "who": "lola",
+            "text": "Here we go.",
+            "overlap": true
+           },
+           {
+            "who": "jensen",
+            "text": "Bark, fat, meat. Heat, time, patience. Layers that only work because of what's under them. That's honestly how a chip works."
+           },
+           {
+            "who": "lola",
+            "text": "Is it?"
+           },
+           {
+            "who": "jensen",
+            "text": "Roughly. Spiritually. Don't tell an engineer."
+           }
+          ],
+          [
+           {
+            "who": "lola",
+            "text": "The fan line goes round the arena twice. I can see it from my window."
            },
            {
             "who": "jensen",
@@ -4195,41 +4316,6 @@
            {
             "who": "lola",
             "text": "That's a guy named Pruitt lying down. He's got a little umbrella now."
-           }
-          ],
-          [
-           {
-            "who": "jensen",
-            "text": "Marge says no garlic before the keynote."
-           },
-           {
-            "who": "lola",
-            "text": "Marge is right. Last year your jacket smelled like my truck for a month."
-           },
-           {
-            "who": "jensen",
-            "text": "People loved it."
-           },
-           {
-            "who": "lola",
-            "text": "A dog followed you onto the stage."
-           },
-           {
-            "who": "jensen",
-            "text": "...So that's where the dog came from.",
-            "pre": 0.4
-           },
-           {
-            "who": "lola",
-            "text": "What dog?"
-           },
-           {
-            "who": "jensen",
-            "text": "The dog in the story! He's been in the story all week, and nobody believed me."
-           },
-           {
-            "who": "lola",
-            "text": "Nobody believes you because you tell it a different way every time."
            }
           ],
           [
@@ -4313,18 +4399,21 @@
          "office": "exec",
          "label": "Jensen",
          "sub": "the convention hall dock",
+         "blur": true,
          "cam": "low"
         },
         {
          "who": "director-a",
          "office": "boardroom",
-         "sub": "Mahogany Partners",
+         "sub": "the black cars, outside",
+         "blur": true,
          "late": true
         },
         {
          "who": "director-b",
          "office": "boardroom",
-         "sub": "Mahogany Partners",
+         "sub": "the black cars, outside",
+         "blur": true,
          "late": true
         }
        ],
@@ -4354,6 +4443,11 @@
          "who": "player"
         },
         {
+         "who": "player",
+         "line": "He knew I would come. ...Good. I knew he knew.",
+         "pre": 0.4
+        },
+        {
          "do": "join",
          "who": "director-a"
         },
@@ -4362,20 +4456,54 @@
          "who": "director-b"
         },
         {
+         "do": "hand",
+         "who": "director-a"
+        },
+        {
+         "who": "player",
+         "line": "...Yes? You, in the black car."
+        },
+        {
          "who": "director-a",
-         "line": "Mr. Jensen. The Board sends his regards, and his Directors."
+         "line": "Mr. Jensen, we have a prepared statement. The Board sends his regards, and his Directors."
         },
         {
          "who": "player",
          "line": "How many of you are there?"
         },
         {
-         "who": "director-b",
+         "who": "director-a",
          "line": "Eleven. We have quorum."
         },
         {
+         "do": "hand",
+         "who": "director-b"
+        },
+        {
+         "who": "director-b",
+         "line": "Seconded."
+        },
+        {
          "who": "player",
-         "line": "I'm keeping the cone."
+         "line": "He sent you a cone and told you it was a chip. Doesn't that bother you?"
+        },
+        {
+         "who": "director-a",
+         "line": "Motion to not be bothered."
+        },
+        {
+         "who": "director-b",
+         "line": "Seconded.",
+         "overlap": true
+        },
+        {
+         "who": "player",
+         "line": "I'm keeping the cone, I'm keeping the velvet, and I'm keeping...",
+         "cut": 0.75
+        },
+        {
+         "do": "hand",
+         "who": "director-a"
         },
         {
          "who": "director-a",
@@ -4414,7 +4542,7 @@
          "lines": [
           {
            "who": "board",
-           "text": "Jensen. Did you enjoy my cone?"
+           "text": "Jensen. You opened my cone."
           },
           {
            "who": "jensen",
@@ -4423,6 +4551,14 @@
           {
            "who": "board",
            "text": "I bought it, and whatever I buy becomes mine, which is the only rule I've ever really understood."
+          },
+          {
+           "who": "jensen",
+           "text": "Then why do you sound annoyed?"
+          },
+          {
+           "who": "board",
+           "text": "People open the cone and sit down on the curb, Jensen. You got back in your car."
           },
           {
            "who": "jensen",
@@ -4442,6 +4578,46 @@
           },
           {
            "who": "jensen",
+           "text": "And what do you give yourself?"
+          },
+          {
+           "who": "board",
+           "text": "A chair. A tasteful one, in mahogany, already on your stage, that swivels toward the money."
+          },
+          {
+           "who": "jensen",
+           "text": "...That was you. The chair in my dock this morning.",
+           "pre": 0.4
+          },
+          {
+           "who": "board",
+           "text": "You sat on a stool and didn't look twice. Big fan.",
+           "how": "smug"
+          },
+          {
+           "who": "jensen",
+           "text": "So you have my stage, my line, and my...",
+           "cut": 0.8
+          },
+          {
+           "who": "board",
+           "text": "Our chip.",
+           "overlap": true
+          },
+          {
+           "who": "board",
+           "text": "And I'm renaming it. \"Brisket\" sounds edible. The Mahogany One."
+          },
+          {
+           "who": "jensen",
+           "text": "It sounds like a dresser."
+          },
+          {
+           "who": "board",
+           "text": "A dresser that could buy a hotel."
+          },
+          {
+           "who": "jensen",
            "text": "Why my stage? You could buy any stage in California."
           },
           {
@@ -4451,7 +4627,7 @@
           },
           {
            "who": "jensen",
-           "text": "And in New York?"
+           "text": "And back in New York?"
           },
           {
            "who": "board",
@@ -4459,7 +4635,8 @@
           },
           {
            "who": "jensen",
-           "text": "That's... that's almost sad."
+           "text": "That's... that's almost sad.",
+           "how": "warm"
           },
           {
            "who": "board",
@@ -4467,7 +4644,7 @@
           },
           {
            "who": "jensen",
-           "text": "Let me show you something. Your Directors are on a freeway, in a convoy, voting on lanes. Four cars, eleven men, one motion. Nobody gains like that..."
+           "text": "Let me show you something. Your Directors are on a freeway, in a convoy, voting on lanes. Four cars, eleven men, one motion."
           },
           {
            "who": "board",
@@ -4504,37 +4681,15 @@
            },
            {
             "who": "board",
-            "text": "Sits higher. That's the job: a taller chair. I had one made, and it's on your stage now, waiting."
+            "text": "Sits higher. That's the whole job: a taller chair, and someone else's applause."
            },
            {
             "who": "jensen",
-            "text": "You put a chair on my stage?"
+            "text": "That's two jobs."
            },
            {
             "who": "board",
-            "text": "A tasteful one, in mahogany, that swivels toward the money."
-           }
-          ],
-          [
-           {
-            "who": "board",
-            "text": "I'm renaming it, by the way. \"Brisket\" sounds edible."
-           },
-           {
-            "who": "jensen",
-            "text": "It's supposed to sound like something you'd wait twelve hours for."
-           },
-           {
-            "who": "board",
-            "text": "The Mahogany One. Doesn't that sound like it could buy a hotel?"
-           },
-           {
-            "who": "jensen",
-            "text": "It sounds like a dresser."
-           },
-           {
-            "who": "board",
-            "text": "A dresser that could buy a hotel."
+            "text": "Not if you're doing it right."
            }
           ]
          ],
@@ -4591,12 +4746,17 @@
            "text": "A guy in a suit offered me a thousand dollars and said he was a collector and he had a velvet bag, and collectors have velvet bags!"
           },
           {
+           "who": "wesley",
+           "text": "I tried to tell you in the car! Hypothetically!"
+          },
+          {
            "who": "jensen",
-           "text": "Wesley, it was a decoy. They swapped it. The real chip's somewhere else."
+           "text": "...You did. I signed a door instead.",
+           "pre": 0.5
           },
           {
            "who": "wesley",
-           "text": "I know! I'm the worst fan, I'm a bad fan, and Chat is being so mean to me right now."
+           "text": "I'm the worst fan, I'm a bad fan, and Chat is being so mean to me right now."
           },
           {
            "who": "jensen",
@@ -4614,7 +4774,8 @@
           },
           {
            "who": "wesley",
-           "text": "Eleven?"
+           "text": "Eleven?",
+           "overlap": true
           },
           {
            "who": "jensen",
@@ -4622,11 +4783,11 @@
           },
           {
            "who": "wesley",
-           "text": "I'm gonna fix it. The suit guy who bought the cone, I've got him on stream, and I'm gonna find his car."
+           "text": "But I did the job! I'm watching the dock like you said, and the cone guy, the collector, just got into a grey SUV behind the arena!"
           },
           {
            "who": "jensen",
-           "text": "Wesley...",
+           "text": "Wesley, which way did it...",
            "cut": 0.7
           },
           {
@@ -4653,7 +4814,7 @@
       "escape",
       "carry"
      ],
-     "stakes": "Wesley found the grey SUV. The Board's having a meeting outside.",
+     "stakes": "Wesley's watching the docks. The cone guy's grey SUV keeps stopping to vote.",
      "passLine": "Brisket is back. The stage is not.",
      "steps": [
       {
@@ -4664,8 +4825,8 @@
       {
        "type": "voicenote",
        "who": "wesley",
-       "secs": 13,
-       "text": "I found him! Grey SUV, off the stack, going north up the 87 to the rose garden in the river park, and Chat says it's a board meeting outside, which is called an offsite. I fixed it!"
+       "secs": 12,
+       "text": "Grey SUV, the cone guy's, off the stack and up the 87, and they keep pulling over to vote, so they're slow! I'm your EYES! Chat says go!"
       },
       {
        "type": "tail",
@@ -4692,7 +4853,7 @@
          "lines": [
           {
            "who": "nico",
-           "text": "I'm watching the kid's stream, grey SUV going north up the 87, you on him?"
+           "text": "Boss, I'm in Lola's truck watching the kid's stream. Grey SUV, northbound on the 87, signal on, doing thirty. You on him?"
           },
           {
            "who": "jensen",
@@ -4700,7 +4861,7 @@
           },
           {
            "who": "nico",
-           "text": "Not too close is the whole art, boss. You tail a guy like you're dating his cousin, interested but not weird."
+           "text": "Not too close is the whole art. You tail a guy like you're dating his cousin, interested but not weird."
           },
           {
            "who": "jensen",
@@ -4708,23 +4869,23 @@
           },
           {
            "who": "nico",
-           "text": "Twenty years tailing guys and every analogy's terrible and they all work."
+           "text": "Twenty years tailing guys, every analogy's terrible, and they all work."
           },
           {
            "who": "jensen",
-           "text": "He's heading for the rose garden."
+           "text": "He pulled over again. Nico, why does he keep pulling over?"
           },
           {
            "who": "nico",
-           "text": "Course he is, that's an offsite guy, and in New York he held a board meeting in a rowboat and made the Directors row, and nobody steered."
+           "text": "Board guys can't turn without a vote, so they stop, they vote, they turn, and you'll catch them at the first big lawn, 'cause a lawn's where you hold a meeting."
           },
           {
            "who": "jensen",
-           "text": "Nobody steered?"
+           "text": "The rose garden."
           },
           {
            "who": "nico",
-           "text": "That was the point. They went in circles for an hour and voted on it."
+           "text": "In New York I watched eleven of them hold a meeting in a rowboat, and nobody steered, and they went in circles for an hour and voted it a success."
           },
           {
            "who": "jensen",
@@ -4745,7 +4906,8 @@
           },
           {
            "who": "jensen",
-           "text": "I say please."
+           "text": "I say please!",
+           "overlap": true
           },
           {
            "who": "nico",
@@ -4753,7 +4915,8 @@
           },
           {
            "who": "jensen",
-           "text": "...Please welcome, to the Greenlight family: Nico. Driver. Pothole namer. Out-of-eleven guy."
+           "text": "...Please welcome, to the Greenlight family: Nico. Driver. Pothole namer. Out-of-eleven guy.",
+           "cut": 0.85
           },
           {
            "who": "nico",
@@ -4768,90 +4931,18 @@
            "text": "Don't push it."
           }
          ],
-         "extra": [
-          [
-           {
-            "who": "nico",
-            "text": "How's she handling?"
-           },
-           {
-            "who": "jensen",
-            "text": "Like a dream."
-           },
-           {
-            "who": "nico",
-            "text": "Whose dream?"
-           },
-           {
-            "who": "jensen",
-            "text": "Mine."
-           },
-           {
-            "who": "nico",
-            "text": "Your dreams got curbs in them, boss."
-           }
-          ],
-          [
-           {
-            "who": "nico",
-            "text": "The Pope's coming up on your right, so hold on to something."
-           },
-           {
-            "who": "jensen",
-            "text": "I'm holding the wheel."
-           },
-           {
-            "who": "nico",
-            "text": "Hold on to something spiritual."
-           },
-           {
-            "who": "jensen",
-            "text": "You're doing my word."
-           },
-           {
-            "who": "nico",
-            "text": "It's a good word. It's going round. Lola says you're wearing it out."
-           }
-          ],
-          [
-           {
-            "who": "jensen",
-            "text": "Does the car have a name?"
-           },
-           {
-            "who": "nico",
-            "text": "The kid called it \"the car.\""
-           },
-           {
-            "who": "jensen",
-            "text": "That's not a name."
-           },
-           {
-            "who": "nico",
-            "text": "He was going through a lot."
-           },
-           {
-            "who": "jensen",
-            "text": "Here's what we do. A name, a little card, and a launch. Tonight, after the keynote, the car gets a keynote."
-           },
-           {
-            "who": "nico",
-            "text": "After tonight you can call her Brisket Two for all I care."
-           }
-          ]
-         ],
          "wrap": [
           {
            "who": "nico",
-           "text": "That's the garden. Park somewhere they'll ticket you, it's more dramatic."
+           "text": "That's the garden. All four of them on the lawn with a flip chart, voting where to stand."
           },
           {
            "who": "jensen",
-           "text": "Is that a real rule?"
+           "text": "Where do I park?"
           },
           {
            "who": "nico",
-           "text": "In New York it's the only rule."
+           "text": "Somewhere they'll ticket you. It's more dramatic."
           }
          ],
          "react": {
@@ -4862,17 +4953,17 @@
            },
            {
             "who": "nico",
-            "text": "Too close! He can read the label on your jacket!"
+            "text": "Too close! You're a lime in his mirror, boss!"
            }
           ],
           "lost": [
            {
             "who": "nico",
-            "text": "Where'd he go? Find him, boss, the meeting doesn't wait."
+            "text": "Where'd he go? Find a lawn, boss. They'll be voting on it."
            },
            {
             "who": "nico",
-            "text": "Lost him? Look for the guy who drives like he owns the road, then look for the road."
+            "text": "Lost him? Look for the only car with its signal on."
            }
           ]
          }
@@ -4910,7 +5001,7 @@
          "type": "say",
          "at": 4,
          "who": "director-b",
-         "text": "Seconded!",
+         "text": "Seconded.",
          "wait": false
         },
         {
@@ -4930,7 +5021,7 @@
         {
          "type": "say",
          "at": 26,
-         "who": "director-b",
+         "who": "director-a",
          "text": "Watch the jacket! The Board wants the jacket!",
          "wait": false
         },
@@ -4951,8 +5042,14 @@
       },
       {
        "type": "say",
+       "who": "jensen",
+       "text": "Wesley. You hold it. Like a baby bird.",
+       "how": "warm"
+      },
+      {
+       "type": "say",
        "who": "wesley",
-       "text": "I'll hold it! I'll hold it like a baby bird!",
+       "text": "You're giving me Brisket? Chat. CHAT. I'm holding a baby bird!",
        "wait": false
       },
       {
@@ -5026,8 +5123,14 @@
       },
       {
        "type": "say",
+       "who": "jensen",
+       "text": "Wesley. Good eyes.",
+       "how": "warm"
+      },
+      {
+       "type": "say",
        "who": "wesley",
-       "text": "I'm going back to the line. Pruitt's been lying there since four.",
+       "text": "Good EYES. Okay. I'm going back to the line, Pruitt's been lying there since four.",
        "wait": false
       },
       {
@@ -5039,7 +5142,7 @@
        "type": "voicemail",
        "who": "board",
        "secs": 12,
-       "text": "Congratulations on the chip. I don't need it any more. I have your stage, your screen and your stage manager's headset. See you at seven. Regards, the Board."
+       "text": "Congratulations on the chip. Keep it; you were never going to reach the stand with it. Men chase what they love, Jensen. I find that very convenient. My Directors have your building. Regards."
       },
       {
        "type": "call",
@@ -5052,7 +5155,8 @@
         },
         {
          "who": "jensen",
-         "text": "Marge?"
+         "text": "Marge? Who took your...",
+         "cut": 0.6
         },
         {
          "who": "marge",
@@ -5065,7 +5169,7 @@
         },
         {
          "who": "marge",
-         "text": "I'm on the loading dock next to a mop. They locked the stage doors, and the Board is in your green room eating our board's fruit."
+         "text": "I'm in the dock office next to a mop. They locked the stage doors, and the Board is in your green room eating our board's fruit."
         },
         {
          "who": "jensen",
@@ -5082,7 +5186,22 @@
         },
         {
          "who": "marge",
-         "text": "Okay. T-minus twenty-two. Doors are open, the fans are in, and our stage belongs to a man with a swivel chair."
+         "text": "Good. Then here's the rest. The \"furniture, executive\" is centre stage, and TBC has a name now. It's his."
+        },
+        {
+         "who": "jensen",
+         "text": "He just left me a voicemail. He never wanted the chip. He wanted me out of the building.",
+         "how": "hesitant"
+        },
+        {
+         "who": "marge",
+         "text": "It worked.",
+         "overlap": true,
+         "how": "deadpan"
+        },
+        {
+         "who": "marge",
+         "text": "T-minus twenty-two. Doors are open, the fans are in, and our stage belongs to a man with a swivel chair."
         },
         {
          "who": "jensen",
@@ -5090,7 +5209,17 @@
         },
         {
          "who": "marge",
-         "text": "You don't get in. You get delivered. Lola's truck has a dock pass. Stay behind Lola."
+         "text": "You don't get in. You get delivered. Lola's truck has a dock pass, so stay behind Lola."
+        },
+        {
+         "who": "jensen",
+         "text": "Marge. I should have looked at the chair.",
+         "pre": 0.6
+        },
+        {
+         "who": "marge",
+         "text": "Yes. ...Get delivered.",
+         "pre": 0.4
         }
        ]
       },
@@ -5106,7 +5235,12 @@
          "label": "Brisket",
          "value": "in a cooler"
         }
-       ]
+       ],
+       "cliff": {
+        "kicker": "T-MINUS 22",
+        "text": "THE BOARD HAS THE BUILDING",
+        "sub": "The chair, the run of show, the dock. And the headset."
+       }
       }
      ]
     }
@@ -5128,7 +5262,7 @@
       "follow",
       "fight"
      ],
-     "stakes": "Lola's truck has a dock pass. Stay behind Lola.",
+     "stakes": "The Board has the building. Lola's truck has a dock pass. Stay behind Lola.",
      "passLine": "Through the dock door, with a busboy in a jacket.",
      "steps": [
       {
@@ -5184,10 +5318,6 @@
            "text": "Don't \"copy\" me. Am I Marge?"
           },
           {
-           "who": "jensen",
-           "text": "...Okay."
-          },
-          {
            "who": "lola",
            "text": "Better. At the dock I say \"catering,\" and you say nothing, because you're a busboy."
           },
@@ -5209,7 +5339,18 @@
           },
           {
            "who": "jensen",
-           "text": "About March. I didn't forget I booked you."
+           "text": "Lola. About March.",
+           "pre": 0.5
+          },
+          {
+           "who": "lola",
+           "text": "Learning quarter.",
+           "overlap": true,
+           "how": "deadpan"
+          },
+          {
+           "who": "jensen",
+           "text": "I've been telling people I didn't forget I booked you."
           },
           {
            "who": "lola",
@@ -5217,7 +5358,12 @@
           },
           {
            "who": "jensen",
-           "text": "I forgot. I'd book you again. Every March."
+           "text": "I forgot.",
+           "pre": 0.4
+          },
+          {
+           "who": "jensen",
+           "text": "I'd book you again. Every March."
           },
           {
            "who": "lola",
@@ -5231,6 +5377,16 @@
            "who": "lola",
            "text": "I know you will. You sign everything \"love.\" It's the one thing about you I'd never change.",
            "pre": 0.6
+          },
+          {
+           "who": "jensen",
+           "text": "Lola. The more you buy...",
+           "cut": 0.8
+          },
+          {
+           "who": "lola",
+           "text": "Don't finish it.",
+           "overlap": true
           }
          ],
          "wrap": [
@@ -5275,7 +5431,7 @@
          "lines": [
           {
            "who": "wesley",
-           "text": "Chat knows everything, and there's twenty thousand people in there, and like nine thousand of them watch me!"
+           "text": "I'm in! Row one! There's twenty thousand people in here, and like nine thousand of them watch me!"
           },
           {
            "who": "jensen",
@@ -5299,7 +5455,8 @@
           },
           {
            "who": "wesley",
-           "text": "You think I'm brilliant?"
+           "text": "You think I'm brilliant?",
+           "overlap": true
           },
           {
            "who": "jensen",
@@ -5342,25 +5499,26 @@
         {
          "who": "marge",
          "office": "backstage",
-         "sub": "the loading dock, beside a mop",
-         "cam": "low"
+         "sub": "the dock office · no headset"
         },
         {
          "who": "player",
-         "office": "exec",
+         "office": "kitchen",
          "label": "Jensen",
-         "sub": "the arena loading dock",
+         "sub": "Lola's truck · in the back",
          "cam": "low"
         },
         {
          "who": "lola",
          "office": "kitchen",
-         "sub": "Lola's · catering"
+         "sub": "the dock door · \"catering\"",
+         "blur": true,
+         "cam": "low"
         },
         {
          "who": "dex",
          "office": "startup",
-         "sub": "CEO · Cobalt Circuitry",
+         "sub": "the lobby, by the coat check",
          "late": true,
          "blur": true
         }
@@ -5380,11 +5538,11 @@
         },
         {
          "who": "lola",
-         "line": "I brought sixty brisket plates and a CEO. Where do you want them?"
+         "line": "I told the suits sixty brisket plates and a busboy. Where do you want them?"
         },
         {
          "who": "marge",
-         "line": "Plates to the green room. CEO to the stage, through about eleven men."
+         "line": "Plates to the green room. Busboy to the stage, through about eleven men."
         },
         {
          "do": "join",
@@ -5417,7 +5575,7 @@
         },
         {
          "who": "dex",
-         "line": "I'll take the side door. My interns are loyal and emotionally unavailable, which is... it's actually perfect."
+         "line": "I'll... okay, what I'll do is take the side door. My interns are loyal and emotionally unavailable, which is... it's actually perfect."
         },
         {
          "who": "player",
@@ -5445,7 +5603,14 @@
         },
         {
          "who": "player",
-         "line": "You could. It would be a very short show."
+         "line": "You could. It would be a very short show.",
+         "cut": 0.7
+        },
+        {
+         "who": "lola",
+         "line": "Down. Suits.",
+         "overlap": true,
+         "how": "hushed"
         }
        ]
       },
@@ -5480,7 +5645,7 @@
          "type": "say",
          "at": 22,
          "who": "marge",
-         "text": "Five minutes! Jensen! Five!",
+         "text": "Five minutes. Jensen. Five.",
          "wait": false
         },
         {
@@ -5522,8 +5687,146 @@
      "steps": [
       {
        "type": "transition",
-       "kicker": "6:56 PM",
-       "text": "THE ARENA · BACKSTAGE"
+       "kicker": "6:52 PM",
+       "text": "THE ARENA · LOADING DOCK"
+      },
+      {
+       "type": "vcall",
+       "id": "h1",
+       "title": "GREENLIVE · PRE-SHOW",
+       "time": "night",
+       "layout": "speaker",
+       "people": [
+        {
+         "who": "board",
+         "office": "exec",
+         "label": "Mr. Board",
+         "sub": "Jensen's green room"
+        },
+        {
+         "who": "marge",
+         "office": "backstage",
+         "sub": "the dock office · no headset"
+        },
+        {
+         "who": "wesley",
+         "office": "kitchen",
+         "sub": "row one · TroutStream LIVE",
+         "blur": true,
+         "cam": "low"
+        },
+        {
+         "who": "player",
+         "office": "kitchen",
+         "label": "Jensen",
+         "sub": "Lola's truck, the dock",
+         "late": true,
+         "cam": "low"
+        }
+       ],
+       "lines": [
+        {
+         "who": "board",
+         "line": "Good evening, San Jose. A short pre-show from the green room, which is mine now. The fruit is excellent."
+        },
+        {
+         "do": "share",
+         "who": "board",
+         "slide": {
+          "title": "THE MAHOGANY ONE",
+          "lines": [
+           "Formerly Brisket, which sounded edible",
+           "On a velvet stand of anticipation",
+           "Available: never"
+          ],
+          "big": "SOLD OUT"
+         }
+        },
+        {
+         "who": "board",
+         "line": "The Mahogany One. So exclusive that nobody can have it, which is the purest form of demand."
+        },
+        {
+         "who": "wesley",
+         "line": "Chat. The stand is empty. Chat, the stand is EMPTY.",
+         "how": "hushed"
+        },
+        {
+         "who": "marge",
+         "line": "He's launching a box of air. I said so at nine this morning.",
+         "how": "deadpan"
+        },
+        {
+         "who": "board",
+         "line": "Marge. You're not on the run of show, I'm afraid. I've had it reprinted."
+        },
+        {
+         "who": "marge",
+         "line": "If I had my headset, you'd be on mute."
+        },
+        {
+         "who": "board",
+         "line": "Then how lucky for us both that a Director of mine is wearing it, and...",
+         "cut": 0.7
+        },
+        {
+         "do": "join",
+         "who": "player"
+        },
+        {
+         "who": "wesley",
+         "line": "JENSEN JOINED! Twenty thousand people just cheered a notification!",
+         "how": "shout"
+        },
+        {
+         "who": "player",
+         "line": "Hi. Sorry. It's on my calendar.",
+         "how": "hushed"
+        },
+        {
+         "who": "player",
+         "line": "And you're in my green room, launching my chip with no chip in it."
+        },
+        {
+         "who": "board",
+         "line": "The chip was never the product. The waiting is the product.",
+         "how": "smug"
+        },
+        {
+         "who": "player",
+         "line": "Brisket isn't a feeling. It's edible. Spiritually."
+        },
+        {
+         "do": "unshare",
+         "who": "board"
+        },
+        {
+         "who": "board",
+         "line": "Then do bring it to the stage door. My Directors would adore a word.",
+         "cut": 0.8
+        },
+        {
+         "who": "wesley",
+         "line": "Chat says, totally unrelated, a navy suit looks great by a barrier. On the back lot."
+        },
+        {
+         "who": "board",
+         "line": "...What?"
+        },
+        {
+         "who": "wesley",
+         "line": "Chat stuff.",
+         "overlap": true
+        },
+        {
+         "who": "player",
+         "line": "Thank you, Chat."
+        },
+        {
+         "who": "marge",
+         "line": "Four minutes. Go get my voice back."
+        }
+       ]
       },
       {
        "type": "timer",
@@ -5573,7 +5876,7 @@
          "type": "say",
          "at": 4,
          "who": "marge",
-         "text": "Channel two. Three suits on the lot. The one with my headset is by the barrier. Go left of the trucks.",
+         "text": "Channel two. Three suits on the lot. Wesley's right, the navy one's by the barrier. Go left of the trucks.",
          "wait": false,
          "how": "hushed"
         },
@@ -5603,20 +5906,35 @@
         {
          "type": "say",
          "at": 2,
-         "who": "director-b",
+         "who": "director-a",
          "text": "Motion to keep the headset!",
          "wait": false
         },
         {
          "type": "say",
-         "at": 5,
-         "who": "director-a",
-         "text": "Seconded!",
+         "at": 4,
+         "who": "director-b",
+         "text": "Seconded.",
          "wait": false
         },
         {
          "type": "say",
          "at": 12,
+         "who": "director-b",
+         "text": "Fog. Go.",
+         "wait": false
+        },
+        {
+         "type": "say",
+         "at": 16,
+         "who": "marge",
+         "text": "Not the fog. Not. The. Fog.",
+         "wait": false,
+         "how": "urgent"
+        },
+        {
+         "type": "say",
+         "at": 22,
          "who": "jensen",
          "text": "Motion denied, and that one's personal.",
          "wait": false
@@ -5626,7 +5944,7 @@
       {
        "type": "say",
        "who": "marge",
-       "text": "I can hear my headset breathing. Bring it to the wings. Standby, sunrise.",
+       "text": "I can hear my headset breathing. Standby, sunrise. ...Spiritually, we're on time.",
        "wait": false
       },
       {
@@ -5635,138 +5953,272 @@
        "stop": true
       },
       {
-       "type": "vcall",
-       "id": "f1",
-       "title": "GREENLIVE · KEYNOTE STREAM",
-       "time": "night",
-       "layout": "speaker",
-       "people": [
+       "type": "cutscene",
+       "id": "st1",
+       "set": {
+        "room": "stage",
+        "light": "night",
+        "sign": "GREENLIVE",
+        "people": [
+         {
+          "who": "board",
+          "at": [
+           0,
+           -2
+          ],
+          "face": 0,
+          "pose": "talk"
+         },
+         {
+          "who": "jensen",
+          "at": [
+           -6,
+           -3
+          ],
+          "face": 90,
+          "pose": "idle",
+          "hidden": true
+         },
+         {
+          "who": "marge",
+          "at": [
+           -7.5,
+           -3.5
+          ],
+          "face": 90,
+          "pose": "arms"
+         },
+         {
+          "who": "wesley",
+          "at": [
+           1.5,
+           3.5
+          ],
+          "face": 180,
+          "pose": "idle"
+         },
+         {
+          "who": "lola",
+          "at": [
+           4.5,
+           4.5
+          ],
+          "face": 180,
+          "pose": "arms"
+         },
+         {
+          "who": "director-b",
+          "at": [
+           5,
+           -3
+          ],
+          "face": "board",
+          "pose": "idle"
+         }
+        ]
+       },
+       "shots": [
         {
-         "who": "board",
-         "office": "study",
-         "label": "Mr. Board",
-         "sub": "on stage · Mahogany Partners"
+         "cam": {
+          "rel": "board",
+          "right": 0,
+          "up": 1.6,
+          "fwd": 9
+         },
+         "look": {
+          "rel": "board"
+         },
+         "fov": 50,
+         "dur": 4,
+         "caption": "THE ARENA · 7:00 PM",
+         "say": "board",
+         "line": "Good evening, I'm the Board, and I'll be your Jensen tonight. Please hold your applause."
         },
         {
-         "who": "wesley",
-         "office": "kitchen",
-         "sub": "front row · TroutStream LIVE",
-         "blur": true,
-         "cam": "low"
-        },
-        {
-         "who": "marge",
-         "office": "backstage",
-         "sub": "Stage manager · GreenLive"
-        },
-        {
-         "who": "player",
-         "office": "exec",
-         "label": "Jensen",
-         "sub": "Greenlight Silicon",
-         "late": true
-        }
-       ],
-       "lines": [
-        {
-         "who": "board",
-         "line": "Good evening. I'm the Board. I'll be your Jensen tonight. Please hold your applause."
-        },
-        {
-         "who": "wesley",
+         "cam": {
+          "rel": "wesley",
+          "right": 0.5,
+          "up": 0.15,
+          "fwd": 1.4
+         },
+         "look": {
+          "rel": "wesley"
+         },
+         "fov": 36,
+         "dur": 3.5,
+         "caption": "TWENTY THOUSAND SIGNS. EVERY ONE SAYS: no",
+         "say": "wesley",
          "line": "Nobody clap. Nobody clap.",
          "how": "hushed"
         },
         {
-         "do": "share",
-         "who": "wesley",
-         "slide": {
-          "title": "THE QUIET LAUNCH",
-          "lines": [
-           "Twenty thousand signs.",
-           "Every one says:"
-          ],
-          "big": "no"
-         }
-        },
-        {
-         "who": "board",
+         "cam": {
+          "rel": "board",
+          "right": 0.3,
+          "up": 0.05,
+          "fwd": 1.3
+         },
+         "look": {
+          "rel": "board"
+         },
+         "fov": 34,
+         "dur": 4.5,
+         "say": "board",
          "line": "...Thank you for holding it. Forever, apparently.",
-         "pre": 0.6
+         "pre": 0.8
         },
         {
-         "who": "wesley",
-         "line": "Chat, he's sweating. He's sweating on a ninety-metre screen."
+         "cam": {
+          "rel": "marge",
+          "right": 0.4,
+          "up": 0.1,
+          "fwd": 1.3
+         },
+         "look": {
+          "rel": "marge"
+         },
+         "fov": 36,
+         "dur": 3,
+         "say": "marge",
+         "line": "Sound, can you hear me? Cut his mic.",
+         "how": "deadpan"
         },
         {
-         "do": "unshare",
-         "who": "wesley"
+         "cam": {
+          "rel": "board",
+          "right": -0.4,
+          "up": 0.1,
+          "fwd": 2.2
+         },
+         "look": {
+          "rel": "board"
+         },
+         "fov": 38,
+         "dur": 2.5,
+         "caption": "(HIS MIC IS DEAD)",
+         "act": [
+          {
+           "who": "board",
+           "pose": "argue"
+          }
+         ]
         },
         {
-         "do": "share",
-         "who": "board",
-         "slide": {
-          "title": "THE MAHOGANY ONE",
-          "lines": [
-           "Formerly Brisket, which sounded edible",
-           "On a velvet stand of anticipation"
-          ],
-          "big": "0.4%"
-         }
+         "cam": {
+          "rel": "marge",
+          "right": -0.3,
+          "up": 0.05,
+          "fwd": 1.2
+         },
+         "look": {
+          "rel": "marge"
+         },
+         "fov": 34,
+         "dur": 3.5,
+         "say": "marge",
+         "line": "The jacket's in. ...He's coming.",
+         "how": "hushed",
+         "pre": 0.4
         },
         {
-         "who": "board",
-         "line": "Tonight, a chip so fast it finishes your sentences: the Mahogany One, formerly Brisket, which sounded edible. It's on a velvet stand of anticipation."
+         "cam": {
+          "rel": "jensen",
+          "right": 1,
+          "up": 0.1,
+          "fwd": -2
+         },
+         "look": {
+          "rel": "jensen"
+         },
+         "fov": 40,
+         "dur": 4,
+         "act": [
+          {
+           "who": "jensen",
+           "hidden": false,
+           "walk": {
+            "to": [
+             -1.6,
+             -2
+            ],
+            "secs": 3,
+            "then": "talk"
+           }
+          }
+         ],
+         "lines": [
+          {
+           "who": "wesley",
+           "text": "NOW clap! NOW!",
+           "how": "shout"
+          },
+          {
+           "who": "board",
+           "text": "Jensen. You're not on the run of show."
+          }
+         ]
         },
         {
-         "do": "join",
-         "who": "player"
-        },
-        {
-         "do": "unshare",
-         "who": "board"
-        },
-        {
-         "who": "player",
-         "line": "It is edible. Spiritually."
-        },
-        {
-         "who": "board",
-         "line": "Jensen. You're not on the run of show."
-        },
-        {
-         "who": "marge",
+         "cam": {
+          "rel": "marge",
+          "right": 0.4,
+          "up": 0.1,
+          "fwd": 1.3
+         },
+         "look": {
+          "rel": "marge"
+         },
+         "fov": 36,
+         "dur": 3,
+         "say": "marge",
          "line": "He is now. I just wrote him in.",
          "how": "deadpan"
         },
         {
-         "who": "board",
-         "line": "You brought it. How thoughtful. Hand it here, and I'll thank you by name."
+         "cam": {
+          "rel": "jensen",
+          "right": -0.6,
+          "up": 0.15,
+          "fwd": 1.6
+         },
+         "look": {
+          "rel": "board"
+         },
+         "fov": 38,
+         "dur": 4.5,
+         "lines": [
+          {
+           "who": "board",
+           "text": "You brought it. How thoughtful. Hand it here, and I'll thank you by name."
+          },
+          {
+           "who": "jensen",
+           "text": "Ladies and gentlemen. Brisket."
+          }
+         ]
         },
         {
-         "who": "player",
-         "line": "Ladies and gentlemen. Brisket."
-        },
-        {
-         "who": "wesley",
-         "line": "NOW clap! NOW!",
-         "how": "shout"
-        },
-        {
-         "who": "board",
-         "line": "That's my keynote."
-        },
-        {
-         "who": "player",
-         "line": "It's a lovely keynote. You have a lovely chair."
-        },
-        {
-         "who": "board",
-         "line": "It swivels."
-        },
-        {
-         "who": "player",
-         "line": "Toward the money. I heard."
+         "cam": {
+          "rel": "board",
+          "right": 0.4,
+          "up": 0.05,
+          "fwd": 1.3
+         },
+         "look": {
+          "rel": "board"
+         },
+         "fov": 34,
+         "dur": 5,
+         "lines": [
+          {
+           "who": "board",
+           "text": "That's my keynote."
+          },
+          {
+           "who": "jensen",
+           "text": "It's a lovely keynote. You have a lovely chair."
+          }
+         ]
         }
        ]
       },
@@ -5786,7 +6238,7 @@
            }
           }
          },
-         "reply": "First, a thank-you to the jacket, which has been on time to every keynote for twenty years. Unlike me."
+         "reply": "First, a thank-you to the jacket. Twenty years, every keynote, on time. Unlike me."
         },
         {
          "text": "The tents",
@@ -5808,93 +6260,208 @@
            }
           }
          },
-         "reply": "Let me show you something. Ninety-one percent of you are standing, which is the fastest standing ever measured indoors."
+         "reply": "Let me show you something. Ninety-one percent of you are standing, the fastest standing ever measured indoors."
         }
        ]
       },
       {
-       "type": "vcall",
-       "id": "f1b",
-       "title": "GREENLIVE · KEYNOTE STREAM",
-       "time": "night",
-       "layout": "speaker",
-       "people": [
+       "type": "cutscene",
+       "id": "st2",
+       "set": {
+        "room": "stage",
+        "light": "night",
+        "sign": "GREENLIVE",
+        "people": [
+         {
+          "who": "board",
+          "at": [
+           0,
+           -2
+          ],
+          "face": "jensen",
+          "pose": "talk"
+         },
+         {
+          "who": "jensen",
+          "at": [
+           -1.6,
+           -2
+          ],
+          "face": "board",
+          "pose": "talk",
+          "hidden": false
+         },
+         {
+          "who": "marge",
+          "at": [
+           -7.5,
+           -3.5
+          ],
+          "face": 90,
+          "pose": "arms"
+         },
+         {
+          "who": "wesley",
+          "at": [
+           1.5,
+           3.5
+          ],
+          "face": 180,
+          "pose": "idle"
+         },
+         {
+          "who": "lola",
+          "at": [
+           4.5,
+           4.5
+          ],
+          "face": 180,
+          "pose": "arms"
+         },
+         {
+          "who": "director-b",
+          "at": [
+           5,
+           -3
+          ],
+          "face": "board",
+          "pose": "idle"
+         }
+        ]
+       },
+       "shots": [
         {
-         "who": "board",
-         "office": "study",
-         "label": "Mr. Board",
-         "sub": "on stage · Mahogany Partners"
+         "cam": {
+          "rel": "board",
+          "right": 0.3,
+          "up": 0.05,
+          "fwd": 1.2
+         },
+         "look": {
+          "rel": "board"
+         },
+         "fov": 34,
+         "dur": 4.5,
+         "lines": [
+          {
+           "who": "board",
+           "text": "Off the record, since I'm off the air: name a price for the room. I'll put the brisket on Mahogany.",
+           "cut": 0.85
+          },
+          {
+           "who": "lola",
+           "text": "Not for sale.",
+           "overlap": true,
+           "how": "deadpan"
+          }
+         ]
         },
         {
-         "who": "player",
-         "office": "exec",
-         "label": "Jensen",
-         "sub": "on stage · Greenlight Silicon"
-        },
-        {
-         "who": "lola",
-         "office": "kitchen",
-         "sub": "aisle seat · catering"
-        },
-        {
-         "who": "wesley",
-         "office": "kitchen",
-         "sub": "front row · TroutStream LIVE",
-         "blur": true,
-         "cam": "low"
-        }
-       ],
-       "lines": [
-        {
-         "who": "board",
-         "line": "They booed me in a parking lot. I only wanted one room to stand up.",
-         "how": "sad",
-         "pre": 0.6
-        },
-        {
-         "who": "player",
-         "line": "Then sit in one first. That's the only way it works."
-        },
-        {
-         "who": "player",
+         "cam": {
+          "rel": "jensen",
+          "right": 0,
+          "up": 0.4,
+          "fwd": 5
+         },
+         "look": {
+          "rel": "jensen"
+         },
+         "fov": 40,
+         "dur": 5,
+         "say": "jensen",
          "line": "Let me tell you the real story. Booth three, coffee, a napkin, a pen you had to blow on, and no dog."
         },
         {
-         "do": "hand",
-         "who": "lola"
-        },
-        {
-         "who": "lola",
-         "line": "There was a dog! He followed you from my truck!",
+         "cam": {
+          "rel": "lola",
+          "right": 0.4,
+          "up": 0.1,
+          "fwd": 1.4
+         },
+         "look": {
+          "rel": "lola"
+         },
+         "fov": 36,
+         "dur": 4,
+         "act": [
+          {
+           "who": "lola",
+           "pose": "argue"
+          }
+         ],
+         "say": "lola",
+         "line": "There was a dog! He followed you from my truck, and he also eats cookies!",
          "how": "shout"
         },
         {
-         "who": "player",
+         "cam": {
+          "rel": "jensen",
+          "right": 0.2,
+          "up": 0.05,
+          "fwd": 1.2
+         },
+         "look": {
+          "rel": "jensen"
+         },
+         "fov": 34,
+         "dur": 2.5,
+         "say": "jensen",
          "line": "...There was a dog.",
          "pre": 0.4
         },
         {
-         "who": "player",
-         "line": "I drew one square on that napkin. Thirty years, people ask what was in it."
+         "cam": {
+          "rel": "jensen",
+          "right": 0.2,
+          "up": 0.05,
+          "fwd": 1.1
+         },
+         "look": {
+          "rel": "wesley"
+         },
+         "fov": 34,
+         "dur": 7,
+         "lines": [
+          {
+           "who": "jensen",
+           "text": "I drew one square on that napkin. Thirty years, people ask what was in it."
+          },
+          {
+           "who": "wesley",
+           "text": "What was in it?",
+           "how": "hushed"
+          },
+          {
+           "who": "jensen",
+           "text": "Nothing. It was a room. I just didn't know who'd be in it yet.",
+           "how": "warm",
+           "pre": 0.5
+          }
+         ]
         },
         {
-         "who": "wesley",
-         "line": "What was in it?",
-         "how": "hushed"
-        },
-        {
-         "who": "player",
-         "line": "Nothing. It was a room. I just didn't know who'd be in it yet.",
-         "how": "warm",
-         "pre": 0.5
-        },
-        {
-         "who": "board",
-         "line": "Is this the part where I lose?"
-        },
-        {
-         "who": "player",
-         "line": "This is the part where you sign something. You love a signature, and so do I."
+         "cam": {
+          "rel": "jensen",
+          "right": 1.2,
+          "up": 0.2,
+          "fwd": 1.8
+         },
+         "look": {
+          "rel": "board"
+         },
+         "fov": 38,
+         "dur": 4.5,
+         "lines": [
+          {
+           "who": "board",
+           "text": "Is this the part where I lose?",
+           "how": "hushed"
+          },
+          {
+           "who": "jensen",
+           "text": "This is the part where you sign something. You love a signature, and so do I."
+          }
+         ]
         }
        ]
       },
@@ -5903,14 +6470,25 @@
        "prompt": "What does the Board sign?",
        "who": "jensen",
        "timeout": 8,
-       "default": 1,
+       "default": 0,
        "options": [
+        {
+         "text": "His resignation",
+         "set": {
+          "meters": {
+           "crowd": {
+            "add": 20
+           }
+          }
+         },
+         "reply": "Your resignation from my board. Point four percent. Sign it 'love'; it's legally a greeting card."
+        },
         {
          "text": "Wesley's cone",
          "set": {
           "meters": {
            "crowd": {
-            "add": 20
+            "add": 15
            }
           },
           "flags": {
@@ -5920,145 +6498,549 @@
          "reply": "Wesley's cone. You paid a thousand dollars for it. Sign it 'sorry,' and he'll sell it for two."
         },
         {
-         "text": "His resignation",
+         "text": "Give him his applause",
          "set": {
           "meters": {
            "crowd": {
-            "add": 25
+            "add": 30
            }
+          },
+          "flags": {
+           "applause": true
           }
          },
-         "reply": "Your resignation from my board. Point four percent. Sign it 'love,' it's legally a greeting card."
+         "reply": "Ladies and gentlemen, Mr. Board is resigning from our board. He's always wanted a standing ovation indoors. Let's give him one, all the way to the exit."
         }
        ]
       },
       {
-       "type": "vcall",
-       "id": "f2",
-       "title": "GREENLIVE · KEYNOTE STREAM",
-       "time": "night",
-       "people": [
+       "type": "cutscene",
+       "id": "st3a",
+       "if": "applause == true",
+       "set": {
+        "room": "stage",
+        "light": "night",
+        "sign": "GREENLIVE",
+        "people": [
+         {
+          "who": "board",
+          "at": [
+           0,
+           -2
+          ],
+          "face": "jensen",
+          "pose": "idle"
+         },
+         {
+          "who": "jensen",
+          "at": [
+           -1.6,
+           -2
+          ],
+          "face": "board",
+          "pose": "idle",
+          "hidden": false
+         },
+         {
+          "who": "marge",
+          "at": [
+           -7.5,
+           -3.5
+          ],
+          "face": 90,
+          "pose": "arms"
+         },
+         {
+          "who": "wesley",
+          "at": [
+           1.5,
+           3.5
+          ],
+          "face": 180,
+          "pose": "idle"
+         },
+         {
+          "who": "lola",
+          "at": [
+           4.5,
+           4.5
+          ],
+          "face": 180,
+          "pose": "arms"
+         },
+         {
+          "who": "director-b",
+          "at": [
+           5,
+           -3
+          ],
+          "face": "board",
+          "pose": "idle"
+         }
+        ]
+       },
+       "shots": [
         {
-         "who": "board",
-         "office": "study",
-         "label": "Mr. Board",
-         "sub": "on stage · Mahogany Partners"
+         "cam": {
+          "rel": "board",
+          "right": 0,
+          "up": 1.8,
+          "fwd": 10
+         },
+         "look": {
+          "rel": "board"
+         },
+         "fov": 52,
+         "dur": 4,
+         "caption": "TWENTY THOUSAND PEOPLE STAND UP",
+         "act": [
+          {
+           "who": "wesley",
+           "pose": "cheer"
+          },
+          {
+           "who": "lola",
+           "pose": "idle"
+          }
+         ]
         },
         {
-         "who": "player",
-         "office": "exec",
-         "label": "Jensen",
-         "sub": "on stage · Greenlight Silicon"
+         "cam": {
+          "rel": "board",
+          "right": 0.3,
+          "up": 0.05,
+          "fwd": 1.2
+         },
+         "look": {
+          "rel": "board"
+         },
+         "fov": 34,
+         "dur": 4,
+         "lines": [
+          {
+           "who": "jensen",
+           "text": "Big fan.",
+           "how": "warm"
+          },
+          {
+           "who": "board",
+           "text": "...Regards.",
+           "pre": 0.5
+          }
+         ]
         },
         {
-         "who": "dex",
-         "office": "startup",
-         "sub": "the lobby · \"also\"",
-         "late": true
-        },
-        {
-         "who": "marge",
-         "office": "backstage",
-         "sub": "front row, for once"
-        },
-        {
-         "who": "lola",
-         "office": "kitchen",
-         "sub": "aisle seat · catering"
-        },
-        {
-         "who": "wesley",
-         "office": "kitchen",
-         "sub": "front row · TroutStream LIVE",
-         "blur": true,
-         "cam": "low"
+         "cam": {
+          "rel": "board",
+          "right": -0.5,
+          "up": 0.2,
+          "fwd": 2.4
+         },
+         "look": {
+          "rel": "board"
+         },
+         "fov": 40,
+         "dur": 6,
+         "act": [
+          {
+           "who": "board",
+           "walk": {
+            "to": [
+             9,
+             -2.5
+            ],
+            "secs": 6,
+            "clip": "walk",
+            "then": "idle"
+           }
+          }
+         ],
+         "lines": [
+          {
+           "who": "board",
+           "text": "...It's louder than I thought. Is it always this loud?",
+           "how": "hushed",
+           "pre": 1
+          },
+          {
+           "who": "jensen",
+           "text": "Only indoors.",
+           "how": "warm"
+          }
+         ]
         }
-       ],
-       "lines": [
+       ]
+      },
+      {
+       "type": "cutscene",
+       "id": "st3b",
+       "if": "applause != true",
+       "set": {
+        "room": "stage",
+        "light": "night",
+        "sign": "GREENLIVE",
+        "people": [
+         {
+          "who": "board",
+          "at": [
+           0,
+           -2
+          ],
+          "face": "jensen",
+          "pose": "idle"
+         },
+         {
+          "who": "jensen",
+          "at": [
+           -1.6,
+           -2
+          ],
+          "face": "board",
+          "pose": "idle",
+          "hidden": false
+         },
+         {
+          "who": "marge",
+          "at": [
+           -7.5,
+           -3.5
+          ],
+          "face": 90,
+          "pose": "arms"
+         },
+         {
+          "who": "wesley",
+          "at": [
+           1.5,
+           3.5
+          ],
+          "face": 180,
+          "pose": "idle"
+         },
+         {
+          "who": "lola",
+          "at": [
+           4.5,
+           4.5
+          ],
+          "face": 180,
+          "pose": "arms"
+         },
+         {
+          "who": "director-b",
+          "at": [
+           5,
+           -3
+          ],
+          "face": "board",
+          "pose": "idle"
+         }
+        ]
+       },
+       "shots": [
         {
-         "who": "board",
-         "line": "...Regards."
+         "cam": {
+          "rel": "board",
+          "right": 0.3,
+          "up": 0.05,
+          "fwd": 1.2
+         },
+         "look": {
+          "rel": "board"
+         },
+         "fov": 34,
+         "dur": 6,
+         "lines": [
+          {
+           "who": "board",
+           "text": "...Regards."
+          },
+          {
+           "who": "jensen",
+           "text": "Close enough."
+          },
+          {
+           "who": "board",
+           "text": "This isn't over, Jensen. Did you know I'm still on the board of a mattress company?"
+          },
+          {
+           "who": "jensen",
+           "text": "Get some rest."
+          }
+         ]
         },
         {
-         "who": "player",
-         "line": "Close enough."
+         "cam": {
+          "rel": "board",
+          "right": -0.5,
+          "up": 0.2,
+          "fwd": 2.4
+         },
+         "look": {
+          "rel": "board"
+         },
+         "fov": 40,
+         "dur": 4,
+         "act": [
+          {
+           "who": "board",
+           "walk": {
+            "to": [
+             9,
+             -2.5
+            ],
+            "secs": 5,
+            "clip": "walkCool",
+            "then": "idle"
+           }
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "type": "cutscene",
+       "id": "st3",
+       "set": {
+        "room": "stage",
+        "light": "night",
+        "sign": "GREENLIVE",
+        "people": [
+         {
+          "who": "jensen",
+          "at": [
+           -0.5,
+           -2
+          ],
+          "face": 0,
+          "pose": "talk",
+          "hidden": false
+         },
+         {
+          "who": "marge",
+          "at": [
+           -7.5,
+           -3.5
+          ],
+          "face": 90,
+          "pose": "arms"
+         },
+         {
+          "who": "wesley",
+          "at": [
+           1.5,
+           3.5
+          ],
+          "face": 180,
+          "pose": "idle"
+         },
+         {
+          "who": "dex",
+          "at": [
+           -3.5,
+           5
+          ],
+          "face": 180,
+          "pose": "idle"
+         },
+         {
+          "who": "director-a",
+          "at": [
+           6.2,
+           -2.6
+          ],
+          "face": "jensen",
+          "pose": "idle"
+         },
+         {
+          "who": "director-b",
+          "at": [
+           5,
+           -3
+          ],
+          "face": "jensen",
+          "pose": "idle"
+         }
+        ]
+       },
+       "shots": [
+        {
+         "cam": {
+          "rel": "director-a",
+          "right": 0.8,
+          "up": 0.1,
+          "fwd": 2.2
+         },
+         "look": {
+          "rel": "director-a"
+         },
+         "fov": 38,
+         "dur": 3.5,
+         "lines": [
+          {
+           "who": "director-a",
+           "text": "Motion to adjourn."
+          },
+          {
+           "who": "director-b",
+           "text": "Seconded.",
+           "overlap": true
+          }
+         ]
         },
         {
-         "who": "board",
-         "line": "This isn't over, Jensen. I'm still on the board of a mattress company."
+         "cam": {
+          "rel": "dex",
+          "right": 0.5,
+          "up": 0.2,
+          "fwd": 1.6
+         },
+         "look": {
+          "rel": "dex"
+         },
+         "fov": 36,
+         "dur": 6,
+         "act": [
+          {
+           "who": "dex",
+           "pose": "wave"
+          }
+         ],
+         "lines": [
+          {
+           "who": "dex",
+           "text": "Dex! Present!",
+           "how": "shout"
+          },
+          {
+           "who": "jensen",
+           "text": "Ladies and gentlemen: Dex. Present."
+          }
+         ]
         },
         {
-         "who": "player",
-         "line": "Get some rest."
+         "cam": {
+          "rel": "marge",
+          "right": 0.4,
+          "up": 0.1,
+          "fwd": 1.3
+         },
+         "look": {
+          "rel": "marge"
+         },
+         "fov": 36,
+         "dur": 6,
+         "lines": [
+          {
+           "who": "marge",
+           "text": "Seven-oh-four."
+          },
+          {
+           "who": "jensen",
+           "text": "Is that bad?"
+          },
+          {
+           "who": "marge",
+           "text": "It's four minutes late. ...It's the earliest we've ever been.",
+           "how": "warm",
+           "pre": 0.6
+          }
+         ]
         },
         {
-         "do": "drop",
-         "who": "board"
+         "cam": {
+          "rel": "jensen",
+          "right": -0.8,
+          "up": 0.2,
+          "fwd": 1.6
+         },
+         "look": {
+          "rel": "marge"
+         },
+         "fov": 38,
+         "dur": 6,
+         "lines": [
+          {
+           "who": "jensen",
+           "text": "Marge. Front row. Watch one from the seats. I'll call my own cues: sunrise, walk, chip."
+          },
+          {
+           "who": "marge",
+           "text": "The only empty seat is his chair."
+          },
+          {
+           "who": "jensen",
+           "text": "It swivels.",
+           "how": "tease"
+          }
+         ]
         },
         {
-         "do": "join",
-         "who": "dex"
-        },
-        {
-         "who": "dex",
-         "line": "Dex! Present!"
-        },
-        {
-         "who": "player",
-         "line": "Ladies and gentlemen: Dex. Present."
-        },
-        {
-         "who": "dex",
-         "line": "He said it on the big screen! Pivot! No, no pivot, I'm staying right here!"
-        },
-        {
-         "who": "marge",
-         "line": "Seven-oh-four."
-        },
-        {
-         "who": "player",
-         "line": "Is that bad?"
-        },
-        {
-         "who": "marge",
-         "line": "It's four minutes late. ...It's the earliest we've ever been.",
-         "how": "warm",
+         "cam": {
+          "rel": "marge",
+          "right": 0,
+          "up": 1.2,
+          "fwd": 4.5
+         },
+         "look": {
+          "rel": "marge"
+         },
+         "fov": 42,
+         "dur": 5,
+         "caption": "FRONT ROW, IN THE MAHOGANY CHAIR",
+         "act": [
+          {
+           "who": "marge",
+           "walk": {
+            "to": [
+             -1,
+             3.5
+            ],
+            "secs": 3.5,
+            "then": "sit"
+           },
+           "face": 0
+          }
+         ],
+         "say": "marge",
+         "line": "Standby, sunrise.",
+         "how": "hushed",
          "pre": 0.6
         },
         {
-         "who": "player",
-         "line": "Front row. Sit. Watch one from the seats. I'll call my own cues: sunrise, walk, chip."
-        },
-        {
-         "who": "marge",
-         "line": "Standby, sunrise.",
-         "how": "hushed"
-        },
-        {
-         "who": "lola",
-         "line": "Sixty brisket plates in the lobby, first come."
-        },
-        {
-         "who": "player",
-         "line": "Lola. The more you buy...",
-         "cut": 0.9
-        },
-        {
-         "who": "lola",
-         "line": "...the more you save. Fine. Just tonight.",
-         "how": "tease"
-        },
-        {
-         "do": "hand",
-         "who": "wesley"
-        },
-        {
-         "who": "wesley",
-         "line": "Can you... would you... just once more?"
-        },
-        {
-         "who": "player",
-         "line": "Give me the phone. \"To Wesley, my favourite fan. Love, Jensen.\" Right on the screen. You'll never read a text again."
+         "cam": {
+          "rel": "wesley",
+          "right": -0.4,
+          "up": 0.1,
+          "fwd": 1.2
+         },
+         "look": {
+          "rel": "jensen"
+         },
+         "fov": 36,
+         "dur": 7,
+         "act": [
+          {
+           "who": "wesley",
+           "prop": "phone",
+           "pose": "phone"
+          }
+         ],
+         "lines": [
+          {
+           "who": "wesley",
+           "text": "Can you... would you... just once more?"
+          },
+          {
+           "who": "jensen",
+           "text": "\"To Wesley Trout, my eyes. Love, Jensen.\" It's on the screen."
+          },
+          {
+           "who": "wesley",
+           "text": "He knows my LAST name.",
+           "how": "hushed"
+          }
+         ]
         }
        ]
       },
@@ -6070,7 +7052,18 @@
        "default": 0,
        "options": [
         {
-         "text": "We made exactly one",
+         "text": "Say the line",
+         "set": {
+          "meters": {
+           "crowd": {
+            "add": 15
+           }
+          }
+         },
+         "reply": "Ladies and gentlemen, the Greenlight Kestrel. We made exactly one. And remember: the more you buy, the more you save!"
+        },
+        {
+         "text": "Let them say it",
          "set": {
           "meters": {
            "crowd": {
@@ -6081,18 +7074,199 @@
            "ovation": true
           }
          },
-         "reply": "Ladies and gentlemen, the Greenlight Kestrel. We made exactly one. It's warm, it's right here, and you can't have it."
+         "reply": "Ladies and gentlemen, the Greenlight Kestrel. We made exactly one. And remember..."
+        }
+       ]
+      },
+      {
+       "type": "cutscene",
+       "id": "st4a",
+       "if": "ovation == true",
+       "set": {
+        "room": "stage",
+        "light": "night",
+        "sign": "GREENLIVE",
+        "people": [
+         {
+          "who": "jensen",
+          "at": [
+           -0.5,
+           -2
+          ],
+          "face": 0,
+          "pose": "cheer",
+          "hidden": false
+         },
+         {
+          "who": "wesley",
+          "at": [
+           1.5,
+           3.5
+          ],
+          "face": 180,
+          "pose": "idle"
+         },
+         {
+          "who": "lola",
+          "at": [
+           4.5,
+           4.5
+          ],
+          "face": 180,
+          "pose": "arms"
+         },
+         {
+          "who": "dex",
+          "at": [
+           -3.5,
+           5
+          ],
+          "face": 180,
+          "pose": "idle"
+         },
+         {
+          "who": "marge",
+          "at": [
+           -1,
+           3.5
+          ],
+          "face": 0,
+          "pose": "sit"
+         }
+        ]
+       },
+       "shots": [
+        {
+         "cam": {
+          "rel": "jensen",
+          "right": 0,
+          "up": 1.8,
+          "fwd": 10
+         },
+         "look": {
+          "rel": "jensen"
+         },
+         "fov": 52,
+         "dur": 4.5,
+         "caption": "TWENTY THOUSAND PEOPLE: \"...THE MORE YOU SAVE!\""
         },
         {
-         "text": "The more you buy",
-         "set": {
-          "meters": {
-           "crowd": {
-            "add": 15
-           }
-          }
+         "cam": {
+          "rel": "lola",
+          "right": 0.4,
+          "up": 0.1,
+          "fwd": 1.4
          },
-         "reply": "The Greenlight Kestrel. And remember, the more you buy... we only made one, so nobody's saving anything tonight."
+         "look": {
+          "rel": "lola"
+         },
+         "fov": 36,
+         "dur": 7,
+         "lines": [
+          {
+           "who": "lola",
+           "text": "...See? You let them tell you.",
+           "how": "warm",
+           "pre": 0.6
+          },
+          {
+           "who": "jensen",
+           "text": "I let them tell me."
+          },
+          {
+           "who": "lola",
+           "text": "Here. This one's free. Don't get used to it."
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "type": "cutscene",
+       "id": "st4b",
+       "if": "ovation != true",
+       "set": {
+        "room": "stage",
+        "light": "night",
+        "sign": "GREENLIVE",
+        "people": [
+         {
+          "who": "jensen",
+          "at": [
+           -0.5,
+           -2
+          ],
+          "face": 0,
+          "pose": "cheer",
+          "hidden": false
+         },
+         {
+          "who": "wesley",
+          "at": [
+           1.5,
+           3.5
+          ],
+          "face": 180,
+          "pose": "idle"
+         },
+         {
+          "who": "lola",
+          "at": [
+           4.5,
+           4.5
+          ],
+          "face": 180,
+          "pose": "arms"
+         },
+         {
+          "who": "dex",
+          "at": [
+           -3.5,
+           5
+          ],
+          "face": 180,
+          "pose": "idle"
+         },
+         {
+          "who": "marge",
+          "at": [
+           -1,
+           3.5
+          ],
+          "face": 0,
+          "pose": "sit"
+         }
+        ]
+       },
+       "shots": [
+        {
+         "cam": {
+          "rel": "lola",
+          "right": 0.4,
+          "up": 0.1,
+          "fwd": 1.4
+         },
+         "look": {
+          "rel": "lola"
+         },
+         "fov": 36,
+         "dur": 6,
+         "lines": [
+          {
+           "who": "lola",
+           "text": "Every time.",
+           "how": "deadpan"
+          },
+          {
+           "who": "jensen",
+           "text": "Too much?"
+          },
+          {
+           "who": "lola",
+           "text": "...Here. This one's free anyway. Don't get used to it.",
+           "pre": 0.5
+          }
+         ]
         }
        ]
       },
@@ -6100,39 +7274,38 @@
        "type": "say",
        "who": "wesley",
        "text": "Chat says that's the loudest room in San Jose history. Chat's crying. Kyle's crying.",
-       "if": "ovation == true",
+       "if": "crowd >= 70",
        "how": "shout"
       },
       {
        "type": "say",
        "who": "wesley",
        "text": "Chat says that was a solid nine. Out of eleven. Nico's going to be so proud.",
-       "if": "ovation != true"
+       "if": "crowd < 70"
       },
       {
        "type": "vcall",
        "id": "f3",
-       "title": "Car Park, After",
+       "title": "After the Show",
        "time": "night",
        "end": "leave",
        "people": [
         {
          "who": "nico",
          "office": "kitchen",
-         "sub": "by the white car, the arena dock",
-         "cam": "low"
+         "sub": "Lola's truck, the last plate"
         },
         {
          "who": "player",
          "office": "exec",
          "label": "Jensen",
-         "sub": "Greenlight Silicon"
+         "sub": "his green room, finally"
         }
        ],
        "lines": [
         {
          "who": "nico",
-         "line": "Boss. The car's parked and nobody touched her, and the whole day, start to finish? Eleven out of eleven."
+         "line": "Boss. The car's parked, nobody touched her, I'm eating the last plate, and the whole day, start to finish? Eleven out of eleven."
         },
         {
          "who": "player",
@@ -6148,7 +7321,22 @@
         },
         {
          "who": "player",
-         "line": "We're naming the car tomorrow. There'll be a keynote."
+         "line": "We're naming the car tomorrow. There'll be a keynote, a little card, and a...",
+         "cut": 0.75
+        },
+        {
+         "who": "nico",
+         "line": "She's got one. The paint guy called the colour \"keynote.\" ...We call her Seven-Oh-Four.",
+         "pre": 0.4
+        },
+        {
+         "who": "player",
+         "line": "...That's a ten."
+        },
+        {
+         "who": "nico",
+         "line": "Out of eleven.",
+         "overlap": true
         }
        ]
       },
@@ -6162,7 +7350,7 @@
        "stats": [
         {
          "label": "Directors",
-         "value": "11, outvoted"
+         "value": "11, adjourned"
         }
        ]
       },
@@ -6176,6 +7364,12 @@
        "type": "dm",
        "from": "board",
        "text": "P.S. The mattress company would like a keynote.",
+       "secs": 6
+      },
+      {
+       "type": "dm",
+       "from": "wesley",
+       "text": "Pruitt got seat one. He's still lying down.",
        "secs": 6
       }
      ]

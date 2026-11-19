@@ -7,7 +7,7 @@ keynote persona; every other person, company, product and place name in it is in
 
 | file | what it is |
 |---|---|
-| `gen.mjs` | the script, as data: cast, places, opening, 8 missions in 4 acts. Every conversation scene is a video call (`vcall`), and every car-phone call that rides a drive shows its caller on the car's screen (`call.video`). |
+| `gen.mjs` | the script, as data: cast, places, opening, 8 missions in 4 acts. Every conversation scene is a video call (`vcall`), every car-phone call that rides a drive shows its caller on the car's screen (`call.video`), and the finale is played on the arena's stage (the `stage` set). |
 | `town.json.gz` | the San Jose CityPackage the pack is gated with and pinned to (`base.hometown`): the frame of a local build of compiler 0.14.0 (the downtown box). |
 | `sheets/` | the seen people's Character Forge sheets, from the hand-built cast's track. |
 
@@ -29,7 +29,7 @@ node --import ./scripts/ts-resolve.mjs scripts/storykit-showcase-jensen.ts --exp
 2. **The bodies.** The hand-built cast's GLBs at `public/storykit/cast/hand/jh-<id>.glb`
    (`scripts/storykit-showcase-jensen.ts` `BODIES`). Mr. Board is Mog City's own Mr. Big, renamed (`model:
    mogcity/mrbig`), until his hand-built derivative replaces him: give him a sheet and a body then.
-3. **The voices.** 650 spoken lines, 649 clips to render (Mr. Board's 4 recordings do not match his new words).
+3. **The voices.** 687 spoken lines, 677 clips to render (Mr. Board's recordings do not match his new words).
    Render them, then `--export --voice <dir>`.
 4. **The art.** `deploy/migrations/jensen-heist-{cover,wide,icon,sky}.jpg`.
 5. **The credit line** (the owner's to approve): "A parody of a public figure's public keynote persona. Not endorsed.
@@ -56,9 +56,36 @@ node --import ./scripts/ts-resolve.mjs scripts/storykit-showcase-jensen.ts --exp
 | arena-approach | `stadium4` | the arena's front, a block short of the dock (the convoy's end) |
 | arena-dock, stage-door, backlot-a/b/c | `parking64` | the arena's back lot, nothing sensitive within 300 m: Missions 7 and 8 |
 
+## The room's rewrite (round 2, 18 Nov)
+
+The writers' room (a head writer's brief, three writers: the opening to Mission 2, Missions 3 to 5, Mission 6 to the
+end) rewrote the story's spine and its talk; this pack is their scenes merged:
+
+- **The chip was always bait.** The Board needs Jensen out of the arena all day while he takes the building: a
+  mahogany chair wheeled in at the arena stop (Mission 1, "furniture, executive"), the run of show back as
+  "Presenter: TBC" (Mission 3), "a delivery for the Board" at the dock (Mission 5), and the voicemail that says it
+  (Mission 6). Jensen sees the pattern at the midpoint ("He buys you something small, then he gives you an address"),
+  goes on purpose and gives Wesley a job (the dock), which is how the grey SUV is found.
+- **Jensen's flaw costs him** (on mute through the logo spin, the founder story told differently every time, Lola's
+  March forgotten, talking over Wesley's confession) and the finale pays it: the booth story told true, the crowd
+  finishing his line, and the Board given his wish ("Give him his applause") for leaving.
+- **Mission 1 stops at the arena:** two drives (the arena's front, then the market) with Marge's call spanning both
+  (`span: 4`), three lines at the stop, Wesley's call waiting 6 s into the second leg. **Mission 3** drives straight
+  to the diner (a `drive.to` list goes to the nearest of its places, never legs).
+- **The finale on the stage:** a pre-show call (H1: the Board launches an empty velvet stand, Jensen's calendar joins
+  him on the arena's screen), the back lot and the headset fight ("Fog. Go." / "Not the fog."), then six stage
+  scenes on the `stage` set and three crowd choices; the ending branches on the crowd (70).
+- **The opening is a kitchen** (the kitchen office as a set room), Nico and the title framed on the car.
+- **The hero's car is lime green** (`#76B900`, paint only, no logo or livery: the stock roadster's `paint`, which
+  the runner world carries as `carPaint`). Every "white car" line is gone; the paint guy called the colour "keynote",
+  and Nico names her "Seven-Oh-Four".
+- 687 spoken lines (the brief's budget 650-690): the two optional extras on Nico's tail call (the Pope, the
+  highlighter) and the headset fight's "Standby... fog?" were cut to fit. Marge's "Not the fog." is `urgent`, not a
+  shout: the voice bible gives her one shout (Mission 6).
+
 ## What changed from the script (draft 2), and why
 
-- **Video calls** (the owner, 18 Nov): the 12 conversation scenes are calls, each person in an office of their own.
+- **Video calls** (the owner, 18 Nov): the conversation scenes are calls, each person in an office of their own.
   Captions became screen shares (the card, the napkin, the letter, the cone, the quiet launch, the Mahogany One).
   K1 opens with Jensen on mute (two new lines: "Marge? Marge, can you hear me? Are we off?" / "You're on mute,
   Jensen..."). W1's "Wesley, this is a phone call." is "Wesley, this is a video call. I can see your cat." F3 has a
@@ -76,7 +103,6 @@ node --import ./scripts/ts-resolve.mjs scripts/storykit-showcase-jensen.ts --exp
   station fight moved to spots well clear of schools and places of worship (see the table).
 - **Mission 6's search of the velvet bag** is gone: the rose garden's lot is drive-up only (its middle is inside a
   structure), and no walk-up place is near. Jensen still says "There you are."
-- **Mission 1's call waiting** (Wesley) rings 45 s into the drive, not 80: the drive is about 1.3 km.
 - **Mission 7's convoy** ends at the arena's front (a block short of the dock) down Santa Clara St: ended on the side
   street by the dock, Lola's truck locked nose to nose with town traffic in a test drive. **Mission 8** starts at the
   arena's front, so the back-lot sneak is a walk past all three Directors.

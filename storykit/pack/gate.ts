@@ -932,6 +932,10 @@ export function toRunnerPack(pack: PackV2, opts: { cast?: Record<string, string>
   // (the Vantor GT, a showcase's: Mog City builds it in code, wagmi/storyrun/gt.js; the runner reads car { model, label, plate, paint })
   const carOf = (rideId: string) => { const v = pack.vehicles.find((x: Json) => (x.id || x.stock) === rideId); return v?.stock === 'gt' ? { model: 'mogcity/gt', ...(v.label ? { label: v.label } : {}), ...(v.plate ? { plate: v.plate } : {}), ...(v.paint ? { paint: v.paint } : {}) } : stockOf(rideId); };
   const heroRide = pack.ride || (pack.vehicles[0].id || pack.vehicles[0].stock);
+  // (a stock hero car's paint, carPaint: Mog City builds its roadster in it, wagmi/game.js; the gt carries its own in car.
+  // The roadster's own white, #E7E7E3, is no change: a world that names it (Mog City's own) is built as before)
+  const heroStock = !sheets.some((v: Json) => v.id === heroRide) ? pack.vehicles.find((x: Json) => (x.id || x.stock) === heroRide) : null;
+  const carPaint = heroStock && heroStock.stock && heroStock.stock !== 'gt' && typeof heroStock.paint === 'string' && !/^#e7e7e3$/i.test(heroStock.paint) ? heroStock.paint : null;
   const heroSheet = sheets.find((v: Json) => v.id === heroRide);
   // a camera point on a cast member ({ rel: id }) names them as the runner does (by name)
   const camRef = (r: Json) => (r && typeof r === 'object' && r.rel && r.rel !== 'player' ? { ...r, rel: name(r.rel) } : r);
@@ -1020,6 +1024,7 @@ export function toRunnerPack(pack: PackV2, opts: { cast?: Record<string, string>
     // town, wagmi/storyrun/pack.js, comparing it field by field with the bundle's lock, compiler = the bundle's buildId)
     ...(town && pack.base.hometown ? { hometown: pack.base.hometown } : {}),
     car: heroSheet ? { sheet: heroSheet } : carOf(heroRide), hud: pack.hud, dressing: pack.dressing,
+    ...(carPaint ? { carPaint } : {}),
     // (the car the creator picked, rule 17: Mog City's wagmi/fleet-picks.js; in a town the player's car is the fleet's
     // realistic model of that name, on the hero ride's sheet; an engine that does not know it plays the sheet as before)
     ...(pack.heroCar ? { fleetCar: pack.heroCar } : {}),

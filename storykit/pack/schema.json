@@ -333,7 +333,14 @@
          "park",
          "lobby",
          "plaza",
-         "alley"
+         "alley",
+         "stage",
+         "office-exec",
+         "office-startup",
+         "office-backstage",
+         "office-boardroom",
+         "office-kitchen",
+         "office-study"
         ]
        },
        "light": {
@@ -1555,7 +1562,8 @@
         "$ref": "#/$defs/rideId"
        },
        "paint": {
-        "$ref": "#/$defs/colour"
+        "$ref": "#/$defs/colour",
+        "description": "its paint, as '#76B900': the hero's stock car is built in it (paint only, no livery or logo); the gt's body colour"
        },
        "label": {
         "type": "string",
@@ -4595,7 +4603,14 @@
           "park",
           "lobby",
           "plaza",
-          "alley"
+          "alley",
+          "stage",
+          "office-exec",
+          "office-startup",
+          "office-backstage",
+          "office-boardroom",
+          "office-kitchen",
+          "office-study"
          ]
         },
         "light": {
