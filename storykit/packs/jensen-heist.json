@@ -7456,6 +7456,12 @@
          },
          "fov": 33,
          "dur": 2.6,
+         "act": [
+          {
+           "who": "jensen",
+           "pose": "talk"
+          }
+         ],
          "say": "jensen",
          "line": "I let them tell me."
         },
@@ -7582,6 +7588,12 @@
          },
          "fov": 33,
          "dur": 2.2,
+         "act": [
+          {
+           "who": "jensen",
+           "pose": "talk"
+          }
+         ],
          "say": "jensen",
          "line": "Too much?"
         },

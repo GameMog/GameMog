@@ -1130,14 +1130,15 @@ const ST4P = (house) => stage([pp('jensen', B4, { pose: 'cheer' }), pp('wesley',
 const ST4A = { type: 'cutscene', id: 'st4a', if: 'ovation == true', set: ST4P('up'), shots: [
   { ...shotOn(B4, 'jensen', [1.4, 3.2, -7.6], { at: [-0.4, 2.2, 7], fov: 54, dur: 5 }), caption: 'TWENTY THOUSAND PEOPLE: "...THE MORE YOU SAVE!"' },
   { ...close(B4, 'lola', { off: -12, dist: 1.3 }), dur: 3.5, say: 'lola', line: '...See? You let them tell you.', how: 'warm', pre: 0.6 },
-  { ...close(B4, 'jensen', { off: 8, dist: 1.3 }), dur: 2.6, say: 'jensen', line: 'I let them tell me.' },
+  // (his close in his talk, not the house's cheer: the cheer's bounce took his head out of a 33-degree close, 19 Nov)
+  { ...close(B4, 'jensen', { off: 8, dist: 1.3 }), dur: 2.6, act: [{ who: 'jensen', pose: 'talk' }], say: 'jensen', line: 'I let them tell me.' },
   { ...close(B4, 'lola', { off: 10, dist: 1.3 }), dur: 3.5, say: 'lola', line: "Here. This one's free. Don't get used to it." },
   // (Wesley at the barrier, his phone up: held for his line after the scene, Chat's verdict)
   { ...close(B4, 'wesley', { off: 12, dist: 1.25 }), dur: 1.6, act: [{ who: 'wesley', pose: 'phone', prop: 'phone' }] },
 ] };
 const ST4B = { type: 'cutscene', id: 'st4b', if: 'ovation != true', set: ST4P(null), shots: [
   { ...close(B4, 'lola', { off: -12, dist: 1.3 }), dur: 2.6, say: 'lola', line: 'Every time.', how: 'deadpan' },
-  { ...close(B4, 'jensen', { off: 8, dist: 1.3 }), dur: 2.2, say: 'jensen', line: 'Too much?' },
+  { ...close(B4, 'jensen', { off: 8, dist: 1.3 }), dur: 2.2, act: [{ who: 'jensen', pose: 'talk' }], say: 'jensen', line: 'Too much?' },
   { ...close(B4, 'lola', { off: 10, dist: 1.3 }), dur: 3.5, say: 'lola', line: "...Here. This one's free anyway. Don't get used to it.", pre: 0.5 },
   { ...close(B4, 'wesley', { off: 12, dist: 1.25 }), dur: 1.6, act: [{ who: 'wesley', pose: 'phone', prop: 'phone' }] },
 ] };
