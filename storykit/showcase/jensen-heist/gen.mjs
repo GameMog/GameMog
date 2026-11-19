@@ -1092,7 +1092,7 @@ const ST3B = { type: 'cutscene', id: 'st3b', if: 'applause != true', set: stage(
 
 // ST3: everyone gets a piece of the room. The Directors adjourn, Dex is present, Marge sits in the chair.
 const B3 = { ...ST, jensen: { at: [-0.6, -2.2], face: 0 }, marge: { at: [-3.4, 0.1], face: 60 }, 'director-a': { at: [5.4, -2.6], face: -110 }, 'director-b': { at: [6.4, -3.0], face: -100 } };
-const B3j = { ...B3, jensen: { at: B3.jensen.at, face: -35 } }, B3m = { ...B3, marge: { at: B3.marge.at, face: 180 } };
+const B3j = { ...B3, jensen: { at: B3.jensen.at, face: -35 } }, B3m = { ...B3, marge: { at: B3.marge.at, face: 180 } }, B3s = { ...B3, marge: { at: SEAT_AT, face: 180 } };
 const ST3 = { type: 'cutscene', id: 'st3', set: stage([pp('jensen', B3, { pose: 'talk' }), pp('marge', B3, { pose: 'arms' }), pp('wesley', B3, { pose: 'idle' }), pp('dex', B3, { pose: 'idle' }), pp('director-a', B3, { pose: 'idle' }), pp('director-b', B3, { pose: 'idle' })]), shots: [
   { ...shotOn(B3, 'director-a', [3.9, 1.6, -1.6], { at: [6.0, 1.55, -2.9], fov: 38, dur: 3.5 }),
     lines: [L('director-a', 'Motion to adjourn.'), L('director-b', 'Seconded.', { overlap: true })] },
@@ -1106,9 +1106,14 @@ const ST3 = { type: 'cutscene', id: 'st3', set: stage([pp('jensen', B3, { pose: 
   // (down off the lip, through the barrier's gap to the chair, the pit standing behind her)
   // (the lens low on the floor before the lip, in line with the barrier's gap and clear of her way to it: the chair seen
   // through the gap, not over the barrier's top rail, so she is in it to the knees, not a head behind the barrier: 19 Nov)
-  { ...shotOn(B3m, 'marge', [-0.3, 1.3, 1.0], { at: [-1.0, 1.0, 3.6], fov: 46, dur: 6 }), caption: 'FRONT ROW, IN THE MAHOGANY CHAIR',
-    act: [{ who: 'marge', walk: { to: SEAT_AT, secs: 3.6, then: 'sit' }, face: 180, seat: SEAT_Y }],
+  // (she comes to the chair from its front with her back to us; the turn and the sit are off the lens: the shot is cut
+  // on her way, a beat on Jensen watching her go covers her arrival, and she is seen again sat facing the stage. Held
+  // to the end, her body went through the chair's back and turned 180 degrees in a frame, 19 Nov)
+  { ...shotOn(B3m, 'marge', [-0.3, 1.3, 1.0], { at: [-1.0, 1.0, 3.6], fov: 46, dur: 3.2 }),
+    act: [{ who: 'marge', walk: { to: SEAT_AT, secs: 4.2, then: 'sit' }, face: 180, seat: SEAT_Y }],
     say: 'marge', line: 'Standby, sunrise.', how: 'hushed', pre: 1.2 },
+  { ...close(B3, 'jensen', { off: 14, dist: 1.6 }), dur: 1.8 },
+  { ...close(B3s, 'marge', { off: -8, dist: 1.3 }), dur: 2.6, caption: 'FRONT ROW, IN THE MAHOGANY CHAIR' },
 ] };
 // ST3W: Wesley's name on the wall (the set's sign is his line, the house's ninety metres of it)
 const B3w = { ...ST, jensen: { at: [-0.6, -2.2], face: 8 }, wesley: { at: [1.5, 3.5], face: 190 } };
