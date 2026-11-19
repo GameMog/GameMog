@@ -5,7 +5,7 @@
 // lenses a thin clear pane just inside each rim. Fitted to the GLB's own eyes (a sphere per side, as face.js and the
 // teeth pass fit them) and to the head's width at the temples (the skin itself, 2 to 6 cm behind the eyes).
 //   framesPass(doc, { style: 'acetate' | 'tortoise' | 'browline', LW, LH, T, D, r, col, rough, tilt, drop, BH, BD })
-import { prim, THREE, sharp } from './young-hero/glb.mjs';
+import { prim, THREE, sharp, sm } from './young-hero/glb.mjs';
 
 // the eyes as face.js fits them: a least-squares sphere per side over the 'eyes' primitive's points
 export function eyeFit(doc) {
@@ -46,29 +46,42 @@ export async function framesPass(doc, K = {}) {
   const lensGeo = new THREE.ShapeGeometry(rr(LW + 0.001, LH + 0.001, r), 8);
   const cx = Math.max(ipd / 2, 0.031) + 0.001, frames = [], lenses = [];
   const put = (geo, list, pos, rotY = 0, look = null) => { const m = new THREE.Mesh(geo); m.position.set(...pos); m.rotation.y = rotY; if (look) m.lookAt(...look); m.updateMatrix(); const g = geo.index ? geo.toNonIndexed() : geo.clone(); g.applyMatrix4(m.matrix); list.push(g); };
-  const browline = K.style === 'browline', edges = [];
+  const browline = K.style === 'browline', edges = [], glints = [];
   if (browline) {
     // (Jensen, likeness round 1: a thin metal semi-rimless frame: a slim dark top bar along each lens's upper edge, the
     // lens's lower edge rimless (its polished edge a faint line), a thin wire bridge and nose pads, round wire temples)
-    const tube = (pts, rad, list, seg = 6) => { const curve = new THREE.CatmullRomCurve3(pts.map((p) => new THREE.Vector3(...p))); list.push(new THREE.TubeGeometry(curve, Math.max(8, pts.length * 6), rad, seg, false)); };
+    const tube = (pts, rad, list, seg = 6) => { const curve = new THREE.CatmullRomCurve3(pts.map((p) => new THREE.Vector3(...p))); list.push(new THREE.TubeGeometry(curve, Math.max(8, pts.length * 6), rad, seg, false).toNonIndexed()); };
+    // (likeness round 2: the tubes un-indexed before the merge, which reads each piece's points as a triangle list: the
+    // indexed tubes came out as broken triangles, the temples, bridge and lens edge a dotted chain off the face)
     const lensPts = (sx, n = 48) => { const s = rr(LW, LH, r).getSpacedPoints(n); return s.map((p) => [p.x, p.y]); };
     for (const sx of [-1, 1]) { const ry = -sx * K.tilt, c = Math.cos(ry), sn = Math.sin(ry), place = (px, py, pz = 0) => [sx * cx + px * c + pz * sn, py, -px * sn + pz * c];
       // the top bar: the lens outline's upper part (above 15 % of its height), a flat bar BH tall and BD deep, the rim a
       // 1.2 mm channel the lens sits in
       const P = lensPts(sx, 96), top = P.filter(([, py]) => py > LH * 0.08).sort((a, b) => a[0] - b[0]);
-      const bar = new THREE.Shape(); bar.moveTo(top[0][0] - 0.0008, top[0][1]); for (const [px, py] of top) bar.lineTo(px, py + K.BH * (0.55 + 0.45 * (1 - Math.abs(px) / (LW / 2)) ** 0.3)); for (const [px, py] of [...top].reverse()) bar.lineTo(px, py - 0.0007); bar.closePath();
+      const bar = new THREE.Shape(); // (likeness round 2, K.sweep: the bar's outer end swept up a little, as his frame's is)
+      const sw = (px) => (K.sweep || 0) * sm(0.35, 1, (px * sx) / (LW / 2)) ** 1.5;
+      bar.moveTo(top[0][0] - 0.0008, top[0][1] + sw(top[0][0])); for (const [px, py] of top) bar.lineTo(px, py + sw(px) + K.BH * (0.55 + 0.45 * (1 - Math.abs(px) / (LW / 2)) ** 0.3)); for (const [px, py] of [...top].reverse()) bar.lineTo(px, py + sw(px) - 0.0007); bar.closePath();
       const bg = new THREE.ExtrudeGeometry(bar, { depth: K.BD, bevelEnabled: true, bevelThickness: 0.0003, bevelSize: 0.0003, bevelSegments: 1, curveSegments: 4 }); bg.translate(0, 0, -K.BD / 2); bg.rotateY(ry); bg.translate(sx * cx, 0, 0); frames.push(bg.index ? bg.toNonIndexed() : bg);
       // (no lens pane: a pane, however clear, cast a lens-shaped shadow across the cheek under every key light; the
       // rimless lens reads from its polished edge alone)
       // the lens's lower edge: its polished rim, a faint line under the bar's ends
       const isLo = (q) => q[1] <= LH * 0.12, k0 = P.findIndex((q, k) => !isLo(q) && isLo(P[(k + 1) % P.length])), lo = []; for (let k = 1; k <= P.length; k++) { const q = P[(k0 + k) % P.length]; if (!isLo(q)) break; lo.push(q); }
-      tube(lo.map(([px, py]) => place(px, py, 0.0002)), 0.0005, edges, 4);
+      tube(lo.map(([px, py]) => place(px, py, 0.0002)), K.edgeR ?? 0.0005, edges, 5);
       // (no nose pads drawn: at a webcam's distance their arms read as cracks across the lens and the pads as two dark
       // dots beside the nose)
       // the temple: a round wire from the bar's outer end back over the ear, its tip bent down into the hair
-      const ox = sx * (cx + (LW / 2) * c + 0.0012), oy = LH / 2 - 0.0035, ex = sx * Math.max(halfW + 0.002, cx + LW / 2 + 0.002), z2 = (eyeMid[2] - 0.062) - gz;
-      tube([[sx * (cx + (LW / 2 - 0.004) * c), oy + 0.0006, -0.0005], [ox, oy, -0.003], [ex, oy, -0.012], [ex + sx * 0.001, oy - 0.001, z2], [ex + sx * 0.0005, oy - 0.012, z2 - 0.022]], K.armW / 2, frames, 8);
+      const ox = sx * (cx + (LW / 2) * c + 0.0012), oy = LH / 2 - 0.0035 + (K.sweep || 0) * 0.8, ex = sx * Math.max(halfW + 0.002, cx + LW / 2 + 0.002), z2 = (eyeMid[2] - 0.062) - gz;
+      // (likeness round 2: the hinge turns the wire straight back along the head, not out sideways first)
+      if (K.style === 'browline') tube([[sx * (cx + (LW / 2 - 0.004) * c), oy + 0.0006, -0.0005], [ox, oy, -0.003], [ox + sx * 0.003, oy, -0.009], [(ox + ex) / 2 + sx * 0.002, oy, z2 * 0.45], [ex + sx * 0.001, oy - 0.001, z2], [ex + sx * 0.0005, oy - 0.012, z2 - 0.022]], K.armW / 2, frames, 8);
+      else tube([[sx * (cx + (LW / 2 - 0.004) * c), oy + 0.0006, -0.0005], [ox, oy, -0.003], [ex, oy, -0.012], [ex + sx * 0.001, oy - 0.001, z2], [ex + sx * 0.0005, oy - 0.012, z2 - 0.022]], K.armW / 2, frames, 8);
     }
+    // (likeness round 2b, the owner: believable lens glints: on each lens two soft diagonal streaks, a broad one and a
+    // thin one beside it, in the lens's plane (a faint white, see-through; at a webcam's distance they read as the clear
+    // lens catching the light, where the rimless lens had no surface at all))
+    if (K.glint) for (const sx of [-1, 1]) { const ry = -sx * K.tilt;
+      for (const [o, w] of [[-0.0045, 0.0026], [0.0006, 0.0009]]) { const sh = new THREE.Shape(), k = 0.55, y0 = -LH / 2 + 0.0015, y1 = LH / 2 - 0.0015, x0 = sx * (LW * 0.12) + o * sx;
+        sh.moveTo(x0 - k * (y0 - 0) * sx, y0); sh.lineTo(x0 + w * sx - k * (y0 - 0) * sx, y0); sh.lineTo(x0 + w * sx - k * y1 * sx, y1); sh.lineTo(x0 - k * y1 * sx, y1); sh.closePath();
+        put(new THREE.ShapeGeometry(sh), glints, [sx * cx, 0, 0.0004], ry); } }
     // the bridge: a thin double-curved wire between the bars, a little over the lenses' middles
     { const bx = cx - (LW / 2) * Math.cos(K.tilt) + 0.0006; tube([[-bx, LH * 0.34, 0.0006], [-bx * 0.45, LH * 0.48, 0.0016], [0, LH * 0.5, 0.0018], [bx * 0.45, LH * 0.48, 0.0016], [bx, LH * 0.34, 0.0006]], 0.00075, frames, 6); }
   }
@@ -94,7 +107,8 @@ export async function framesPass(doc, K = {}) {
   const fm = doc.createMaterial('glasses').setBaseColorFactor([...K.col, 1]).setMetallicFactor(K.metal ?? 0.02).setRoughnessFactor(K.rough).setDoubleSided(true);
   if (K.style === 'tortoise') { fm.setBaseColorFactor([0.72, 0.64, 0.59, 1]).setBaseColorTexture(doc.createTexture('tortoise').setImage(await tortoiseTex()).setMimeType('image/webp')); fm.getBaseColorTextureInfo().setWrapS(10497).setWrapT(10497); }
   addPrim(merge(frames), fm);
-  if (edges.length) addPrim(merge(edges), doc.createMaterial('lens-edges').setBaseColorFactor([0.78, 0.8, 0.83, 0.6]).setMetallicFactor(0).setRoughnessFactor(0.1).setAlphaMode('BLEND').setDoubleSided(true));
+  if (edges.length) addPrim(merge(edges), doc.createMaterial('lens-edges').setBaseColorFactor(K.edgeCol || [0.78, 0.8, 0.83, 0.6]).setMetallicFactor(0).setRoughnessFactor(0.1).setAlphaMode('BLEND').setDoubleSided(true));
+  if (glints.length) addPrim(merge(glints), doc.createMaterial('lens-glints').setBaseColorFactor([1, 1, 1, K.glint]).setEmissiveFactor([0.12, 0.12, 0.13]).setMetallicFactor(0).setRoughnessFactor(0.05).setAlphaMode('BLEND').setDoubleSided(true));
   const lm = doc.createMaterial('lenses').setBaseColorFactor(K.lens).setMetallicFactor(0).setRoughnessFactor(0.05).setAlphaMode('BLEND').setDoubleSided(true);
   if (lenses.length) addPrim(merge(lenses), lm);
   const ex = R.getAsset().extras, fx = ex?.forge || ex; if (fx?.props) fx.props = []; if (fx?.landmarks?.props) fx.landmarks.props = [];

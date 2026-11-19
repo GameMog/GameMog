@@ -13,7 +13,8 @@
 //           each zip a chain of teeth on a black tape, set in a darker welt with a little relief, a pull at its start
 // Sources (CC0, downloaded 18 Nov 2026; see storykit/handbuilt/jensen/CREDITS.md): ambientCG Leather026, Poly Haven
 // leather_white.
-import { rgba, raster, fbm, sm, clamp, sharp } from '../young-hero/glb.mjs';
+import { rgba, raster, fbm, sm, clamp, sharp, setWebp } from '../young-hero/glb.mjs';
+import { texelPos } from '../young-mother/p2.mjs';
 
 const MATS = process.env.JH_MATERIALS || new URL('../../../.scratch/jensen/materials/', import.meta.url).pathname;
 async function tile(file, S) { const { data } = await sharp(file).resize(S, S).removeAlpha().raw().toBuffer({ resolveWithObject: true }); return { d: data, S }; }
@@ -68,16 +69,20 @@ export async function motoPass(doc, K = {}) {
         return { col: [lin(92), lin(92), lin(96)].map((k) => k * (t > 0.78 ? 0.55 : 0.85 + 0.35 * (1 - t))), metal: 1, rough: 0.32, n: [((x - cx) / 0.0042) * 0.8, ((y - cy) / 0.0042) * 0.8] }; }
       if (d < 0.0055) return { k: 0.6, n: [0, 0] }; }
     // the snap tabs' outlines: a strap 15 mm tall round each pair, stitched
-    if (part === 'uniform' && z > 0.04) { const tx0 = 0.056, tx1 = 0.099, ty = 1.403 + (0.084 - x) * 0.2, dy = y - ty; if (x > tx0 && x < tx1 && Math.abs(dy) < 0.0085) { const e = Math.min(x - tx0, tx1 - x, 0.0085 - Math.abs(dy)); if (e < 0.0009) return { k: 0.45, n: [0, 0.4 * Math.sign(dy)] }; if (Math.abs(e - 0.0025) < 0.0004) return { k: 1.9 }; return { k: 1.05 }; } }
+    if (part === 'uniform' && z > 0.04) { const tx0 = 0.056, tx1 = 0.099, ty = 1.403 + (0.084 - x) * 0.2, dy = y - ty; if (x > tx0 && x < tx1 && Math.abs(dy) < 0.0085) { const e = Math.min(x - tx0, tx1 - x, 0.0085 - Math.abs(dy)); if (e < 0.0009) return { k: 0.45, n: [0, 0.4 * Math.sign(dy)] }; if (Math.abs(e - 0.0025) < 0.0004) return { k: 3.0 }; return { k: 1.05 }; } }
     if (part !== 'uniform') return null;
     // the yokes: across the front at 1.37 (rising a little to the shoulder) and across the back at 1.395
     if (y > 1.3 && y < 1.47 && ax < 0.2) { const front = z > 0.03, yl = front ? 1.372 + 0.12 * Math.max(0, ax - 0.06) : 1.395, d = y - yl;
-      if ((front ? ax > 0.012 && !(x > 0.04 && x < 0.06) : true) && Math.abs(d) < 0.0045) { if (Math.abs(d) < 0.0007) return { k: 0.4, n: [0, 0.5 * Math.sign(d)], rough: 0.06 }; if (stitch(d, x, 0.0026)) return { k: 2.1 }; if (d > 0 && d < 0.0035) return { k: 1.08, n: [0, -0.15] }; } }
+      if ((front ? ax > 0.012 && !(x > 0.04 && x < 0.06) : true) && Math.abs(d) < 0.0045) { if (Math.abs(d) < 0.0007) return { k: 0.4, n: [0, 0.5 * Math.sign(d)], rough: 0.06 }; if (stitch(d, x, 0.0026)) return { k: 3.2 }; if (d > 0 && d < 0.0035) return { k: 1.08, n: [0, -0.15] }; } }
+    // (likeness round 2b, the owner's reference: the fronts' horizontal panel seams across the chest and over the waist,
+    // a raised welt with a double row of stitching each side, readable at a webcam's distance)
+    if (z > 0.03 && ax > 0.012 && ax < 0.2 && !(x > 0.04 && x < 0.06)) for (const yl0 of [1.288, 1.168]) { const d = y - (yl0 + 0.02 * Math.max(0, ax - 0.1));
+      if (Math.abs(d) < 0.006) { if (Math.abs(d) < 0.0008) return { k: 0.35, n: [0, 0.6 * Math.sign(d)], rough: 0.08 }; if (stitch(d, x, 0.0024) || stitch(d, x, 0.0042)) return { k: 3.2 }; if (Math.abs(d) < 0.0035) return { k: 1.1, n: [0, -0.25 * Math.sign(d)] }; } }
     // the shoulders' padded panels: an oval on each cap, quilted across in 11 mm rows, its border stitched
     { const C = [sx * 0.215, 1.405, 0.02], u = (ax - 0.215) / 0.06, v = (y - 1.405 - (ax - 0.215) * -0.55) / 0.04, w = (z - 0.02) / 0.075, r = Math.hypot(u, v * 0.0 + w);
-      if (y > 1.36 - (ax - 0.17) * 0.6 && r < 1 && ax > 0.15) { const e = 1 - r; if (e < 0.04) return { k: 0.5, n: [0, 0] }; if (Math.abs(e - 0.085) < 0.018) return { k: 1.8 };
-        const ph = (z + (ax - 0.215) * 0.15) / 0.011, f = ph - Math.floor(ph), seam = Math.abs(f - 0.5) > 0.44; if (seam) return { k: 0.62, n: [0, 0] };
-        return { k: 0.9 + 0.22 * Math.sin(f * Math.PI), n: [0, Math.cos(f * Math.PI) * 0.45] }; } }
+      if (y > 1.36 - (ax - 0.17) * 0.6 && r < 1 && ax > 0.15) { const e = 1 - r; if (e < 0.04) return { k: 0.45, n: [0, 0] }; if (Math.abs(e - 0.085) < 0.018) return { k: 3.0 };
+        const ph = (z + (ax - 0.215) * 0.15) / 0.011, f = ph - Math.floor(ph), seam = Math.abs(f - 0.5) > 0.42; if (seam) return { k: 0.4, n: [0, 0] };
+        return { k: 0.8 + 0.45 * Math.sin(f * Math.PI), n: [0, Math.cos(f * Math.PI) * 0.8], rough: -0.12 * Math.sin(f * Math.PI) }; } }
     return null; };
   const LC = await tile(MATS + 'Leather026_Color.jpg', 1024), LR = await tile(MATS + 'leather_white_rough.jpg', 1024);
   const lin = (c) => Math.pow(c / 255, 2.2), enc = (l) => Math.min(255, Math.max(0, Math.round(255 * Math.pow(Math.max(0, l), 1 / 2.2))));
@@ -100,16 +105,25 @@ export async function motoPass(doc, K = {}) {
       const mott = 0.92 + 0.16 * fbm(q[0], q[1], q[2], 9), grain = clamp(0.85 + 0.3 * (lcL / 60), 0.75, 1.25);
       let col = K.black.map((k, c) => lin(k) * shade * mott * grain * (c === 0 ? 1.02 : c === 2 ? 0.98 : 1));
       let rough = K.rough + (samp(LR, gu, gv, 1) / 255 - 0.5) * 0.25 + (shade < 0.8 ? 0.06 : 0), metal = 0, nAdd = null;
+      // (likeness round 2: worn leather, not vinyl: a broad sheen variation (rubbed smooth over the shoulders and chest,
+      // drier elsewhere) and soft creases, mostly across the body and the sleeves, from a ridged noise; its slope tilts the
+      // normal map's own grain)
+      let crease = null; if (band) { const cr = (X, Y, Z) => 1 - Math.abs(2 * fbm(X * 0.8, Y * 2.6, Z * 0.8, 14, 2) - 1); const c0 = cr(...q), e = 0.004;
+        crease = [(cr(q[0] + e, q[1], q[2]) - c0) / e * 0.0013, (cr(q[0], q[1] + e, q[2]) - c0) / e * 0.0013]; rough += (fbm(q[0], q[1], q[2], 4) - 0.5) * 0.22 - 0.06 * c0 * c0;
+        col = col.map((c1) => c1 * (1.0 + 0.03 * c0 * c0)); } // (round 2b: the creases a third as deep: they read as crumpled paper)
       for (let zi = 0, ci = 0; zi < zips.length; zi++) { const Z = zips[zi], z = segD(q, Z.A, Z.B), W = K.zipW * (Z.kind === 'close' ? 1.15 : 1), tol = Z.tol || 0;
         if (Z.kind === 'close') ci++; if (z.d > W * 1.7 + tol) continue; if (Z.kind === 'cuff' && z.d > W * 1.7) continue;
         const along = (Z.kind === 'close' ? closeLen[ci - 1] : 0) + z.t * z.L, w = W * 0.85;
         if (z.d >= w) { col = col.map((c0) => c0 * 0.55); nAdd = [0, ((z.d - w) / (W * 0.85)) * 0.6]; rough += 0.08; continue; }
-        const tooth = (Math.floor(along / 0.0024) % 2) === 0, inTeeth = z.d < w * 0.5, pull = Z.kind !== 'close' && z.t < 0.1 && z.d < w * 0.95;
-        if (pull || (inTeeth && tooth)) { col = (band ? [lin(74), lin(74), lin(78)] : [lin(178), lin(178), lin(180)]).map((k) => k * (0.72 + 0.3 * (1 - z.d / w))); metal = band ? 0.7 : 1; rough = band ? 0.45 : 0.3; nAdd = [0, pull ? 0 : (along % 0.0024) / 0.0024 - 0.5]; }
-        else { col = [lin(11), lin(11), lin(12)]; rough = 0.72; nAdd = [0, 0]; } nz++; break; }
+        // (likeness round 2: a dark gunmetal chain, fine teeth with a soft highlight on a near-black tape: it read as a white
+        // dashed stripe)
+        const TP = band ? 0.0017 : 0.0024, tooth = (Math.floor(along / TP) % 2) === 0, inTeeth = z.d < w * (band ? 0.42 : 0.5), pull = Z.kind !== 'close' && z.t < 0.1 && z.d < w * 0.95;
+        if (pull || (inTeeth && (tooth || band))) { const f = band ? 0.75 + 0.35 * Math.sin(((along % TP) / TP) * Math.PI) : 0.72 + 0.3 * (1 - z.d / w); col = (band ? [lin(46), lin(46), lin(50)] : [lin(178), lin(178), lin(180)]).map((k) => k * f); metal = band ? 0.85 : 1; rough = band ? 0.38 : 0.3; nAdd = [0, pull ? 0 : (along % TP) / TP - 0.5]; }
+        else { col = [lin(band ? 14 : 11), lin(band ? 14 : 11), lin(band ? 15 : 12)]; rough = 0.72; nAdd = [0, 0]; } nz++; break; }
       if (band && !metal) { const D = detail(q, mat.getName()); if (D) { if (D.col) col = D.col; else col = col.map((c0) => c0 * D.k); if (D.metal != null) { metal = D.metal; rough = D.rough; } else rough += D.rough || 0; if (D.n) nAdd = D.n; } }
       base[i * 4] = enc(col[0]); base[i * 4 + 1] = enc(col[1]); base[i * 4 + 2] = enc(col[2]);
       mr[i * 4 + 1] = Math.round(clamp(rough, 0.22, 0.95) * 255); mr[i * 4 + 2] = Math.round(metal * 255);
+      if (nm && !nAdd && crease) { const X = Math.min(NS - 1, Math.floor(u * NS)), Y = Math.min(NS - 1, Math.floor(v * NS)), j = (Y * NS + X) * 4; let nx = nm[j] / 127.5 - 1 + crease[0] * 0.9, ny = nm[j + 1] / 127.5 - 1 - crease[1] * 0.9, nz2 = nm[j + 2] / 127.5 - 1; const l = Math.hypot(nx, ny, nz2) || 1; nm[j] = Math.round((nx / l * 0.5 + 0.5) * 255); nm[j + 1] = Math.round((ny / l * 0.5 + 0.5) * 255); nm[j + 2] = Math.round((nz2 / l * 0.5 + 0.5) * 255); }
       if (nm && nAdd) { const X = Math.min(NS - 1, Math.floor(u * NS)), Y = Math.min(NS - 1, Math.floor(v * NS)), j = (Y * NS + X) * 4; let nx = nAdd[0], ny = nAdd[1], nz2 = 1; const l = Math.hypot(nx, ny, nz2); nm[j] = Math.round((nx / l * 0.5 + 0.5) * 255); nm[j + 1] = Math.round((ny / l * 0.5 + 0.5) * 255); nm[j + 2] = Math.round((nz2 / l * 0.5 + 0.5) * 255); }
     }, 0.04);
     const mk = async (name, buf, q, w = S) => doc.createTexture(name).setImage(await sharp(buf, { raw: { width: w, height: w, channels: 4 } }).removeAlpha().webp({ quality: q, effort: 5 }).toBuffer()).setMimeType('image/webp');
@@ -160,4 +174,38 @@ export function teeShoulderPass(doc, K = {}) {
     const out = (v) => Math.abs(a[v * 3]) > K.x && a[v * 3 + 1] > K.y;
     for (let t = 0; t < ia.length; t += 3) { if (out(ia[t]) && out(ia[t + 1]) && out(ia[t + 2])) continue; keep.push(ia[t], ia[t + 1], ia[t + 2]); }
     console.log('tee shoulders:', m.getName(), (ia.length - keep.length) / 3, 'triangles cut'); I.setArray(new ia.constructor(keep)); }
+}
+
+// (likeness round 2b: the tee's crew neck in the jacket's open collar. The forge's tee sits under the jacket's front, so
+// the collar's V showed a strip of bare neck down to the jacket (a slit, the neck a long column). The neck's skin there,
+// below a crew line, painted as the tee's black knit with a 9 mm ribbed band at its edge, as his tee shows in the V)
+export async function teeCrewPass(doc, K = {}) {
+  K = { y0: 1.468, curve: 6, rib: 0.009, ...K };
+  const { tex, img, S, N2, pos } = await texelPos(doc), d = img.data; let n = 0;
+  for (let i = 0; i < N2; i++) { const x = pos[i * 3]; if (Number.isNaN(x)) continue; const y = pos[i * 3 + 1], z = pos[i * 3 + 2];
+    if (z < 0.0 || Math.abs(x) > 0.075 || y > K.y0 + 0.03 || y < 1.3) continue;
+    const yc = K.y0 + K.curve * x * x, e = yc - y; if (e < -0.0008) continue; const a = clamp((e + 0.0008) / 0.0012);
+    const inRib = e < K.rib, rib = inRib ? 0.85 + 0.3 * Math.max(0, Math.sin((x / 0.0016) * Math.PI)) : 1, edge = e < 0.0012 ? 1.25 : 1, sh = e > K.rib && e < K.rib + 0.0008 ? 0.7 : 1;
+    const c = [17, 17, 18].map((q) => q * rib * edge * sh);
+    for (let k = 0; k < 3; k++) d[i * 4 + k] = Math.round(d[i * 4 + k] * (1 - a) + c[k] * a); n++; }
+  await setWebp(tex, d, S, S, 90); console.log('tee crew: texels', n);
+}
+
+// (likeness round 2b, the critic and the owner: the jacket's front followed the chest under it, a rounded bust with the
+// leather drawn in under it, a wetsuit's shape. A leather jacket hangs from the chest's fullest line straight to the
+// hem. Each 1 cm column of the body's front (its points by height and depth) let out to the upper hull of its own
+// profile: the hollow under the chest filled, the front falling straight, the chest's top a touch flatter (K.flat))
+export function drapePass(doc, K = {}) {
+  K = { y0: 1.0, y1: 1.43, xMax: 0.17, flat: 0.35, ...K };
+  const p = doc.getRoot().listMeshes().flatMap((m) => m.listPrimitives()).find((q) => q.getMaterial()?.getName() === 'uniform'); if (!p) return;
+  const P = p.getAttribute('POSITION'), a = P.getArray().slice(), n = a.length / 3, cols = new Map();
+  for (let v = 0; v < n; v++) { const x = a[v * 3], y = a[v * 3 + 1], z = a[v * 3 + 2]; if (z < 0.03 || Math.abs(x) > K.xMax || y < K.y0 || y > K.y1) continue; const c = Math.round(x / 0.01); (cols.get(c) || cols.set(c, []).get(c)).push(v); }
+  let moved = 0, peak = 0;
+  for (const vs of cols.values()) { const pts = vs.map((v) => [a[v * 3 + 1], a[v * 3 + 2]]).sort((p1, p2) => p1[0] - p2[0]); const H = [];
+    for (const q of pts) { while (H.length >= 2) { const [o, b] = [H[H.length - 2], H[H.length - 1]]; if ((b[0] - o[0]) * (q[1] - o[1]) - (b[1] - o[1]) * (q[0] - o[0]) >= 0) H.pop(); else break; } H.push(q); }
+    const hull = (y) => { for (let k = 0; k < H.length - 1; k++) if (y >= H[k][0] && y <= H[k + 1][0]) { const t = (y - H[k][0]) / (H[k + 1][0] - H[k][0] || 1); return H[k][1] + t * (H[k + 1][1] - H[k][1]); } return null; };
+    const zs = pts.map((q) => q[1]), zMax = Math.max(...zs);
+    for (const v of vs) { const y = a[v * 3 + 1], z = a[v * 3 + 2], h = hull(y); if (h == null) continue; const fe = sm(K.y0, K.y0 + 0.04, y) * sm(K.y1, K.y1 - 0.04, y);
+      let nz = z + (h - z) * fe; nz -= K.flat * Math.max(0, nz - (zMax - 0.012)) * fe; if (Math.abs(nz - z) > 1e-5) { moved++; peak = Math.max(peak, Math.abs(nz - z)); a[v * 3 + 2] = nz; } } }
+  P.setArray(a); console.log('drape: points', moved, 'peak mm', (peak * 1000).toFixed(1));
 }

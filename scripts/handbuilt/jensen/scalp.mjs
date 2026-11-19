@@ -11,10 +11,13 @@
 import { matOf, setWebp, fbm, h3, sm, clamp, sharp } from '../young-hero/glb.mjs';
 import { texelPos } from '../young-mother/p2.mjs';
 import { LM } from './landmarks.mjs';
+// (likeness round 2: the front hairline's height over the eyes settable, scalpPass K.front: his is lower than John's)
+export const HL = { front: 0.071 };
 export function hairOf(x0, y, z, n = 0) {
+  if (HL.area) return HL.area(x0, y, z, n);
   const { EY, EZ } = LM, x = Math.abs(x0);
   // front hairline: the top of the forehead, a little recession at the temples
-  const yf = EY + 0.071 + 0.006 * sm(0.012, 0.04, x) + n * 0.002;
+  const yf = EY + HL.front + 0.006 * sm(0.012, 0.04, x) + n * 0.002;
   const front = sm(yf - 0.003, yf + 0.004, y);
   // the side: hair behind the temple line (z behind zt), down to the sideburn (in front of the ear) or the nape
   const zt = EZ - 0.068 - 0.012 * sm(EY + 0.06, EY + 0.0, y) + n * 0.002;
@@ -25,7 +28,7 @@ export function hairOf(x0, y, z, n = 0) {
   return clamp(Math.max(front, side) * (1 - ear));
 }
 export async function scalpPass(doc, K = {}) {
-  K = { root: [26, 20, 17], tip: [52, 42, 35], grey: [112, 108, 104], band: 0.006, ...K };
+  K = { root: [26, 20, 17], tip: [52, 42, 35], grey: [112, 108, 104], band: 0.006, ...K }; if (K.front) HL.front = K.front; if (K.area) HL.area = K.area;
   const { EY, EZ } = LM, { tex, img, S, N2, pos, head } = await texelPos(doc), d = img.data;
   const lin = (c) => Math.pow(c / 255, 2.2), enc = (l) => Math.min(255, Math.max(0, Math.round(255 * Math.pow(Math.max(0, l), 1 / 2.2))));
   const blur = await sharp(d, { raw: { width: S, height: S, channels: 4 } }).blur(24).raw().toBuffer();

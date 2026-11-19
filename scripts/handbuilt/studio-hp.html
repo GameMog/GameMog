@@ -178,12 +178,15 @@ function maskMat(o) {
   else { m = flat(0x000000); if (o.material.map && (o.material.alphaTest || o.material.transparent)) { m.opacityNode = TSL.texture(o.material.map).a; m.alphaTest = Math.max(0.3, o.material.alphaTest || 0); } }
   maskMats.set(key, m); return m;
 }
-window.__shot = ({ mode = 'turn', yaw = 0, cam = 'eye', clip = 'idle', t = 1.2, jaw = 0, blink = 0, w = 1, ang = 0.35, mask = false, nospec = false, hide = '', rot = null } = {}) => {
+window.__shot = ({ mode = 'turn', yaw = 0, cam = 'eye', clip = 'idle', t = 1.2, jaw = 0, blink = 0, w = 1, ang = 0.35, mask = false, nospec = false, hide = '', rot = null, morphs = null } = {}) => {
   ROT = rot;
   // (G8b: hide: a regex of material names left out of this frame (the scalp's paint seen without the hair over it))
   { const re = hide ? new RegExp(hide) : null; M.traverse((o) => { if (!o.isMesh) return; if (o.userData.vis0 === undefined) o.userData.vis0 = o.visible; o.visible = o.userData.vis0 && !(re && re.test(o.material?.name || '')); }); }
   if (window.__leather) window.__leather.visible = mode === 'study'; holder.rotation.y = 0; pose(clip, t); holder.rotation.y = yaw; holder.updateMatrixWorld(true);
   setM('jaw', jaw); setM('lip', Math.min(1, jaw * 1.2)); setM('blink', Math.min(1, blink * 2)); setM('blink2', Math.max(0, blink * 2 - 1));
+  // (JH likeness round 2: morphs = { glTF target name: weight } set on top (an expression held for a frame); reset each shot)
+  for (const m of body) { const d = m.morphTargetDictionary; if (d) for (const k of Object.keys(d)) if (k.includes('_') || /^(mouth|cheek|eye|brow|jawOpen)/.test(k)) m.morphTargetInfluences[d[k]] = 0; }
+  if (morphs) for (const [k, x] of Object.entries(morphs)) setM(k, x);
   const box = new THREE.Box3().setFromObject(M), ht = box.max.y, e = eyesWorld();
   if (mode === 'turn') {
     camera.fov = 26; const d = ht * 2.55;

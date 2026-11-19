@@ -43,12 +43,28 @@ export function ageShapePass(doc, K = {}) {
     [T('cheek/l-cheek-bones-incr'), K.bones || 0], [T('cheek/r-cheek-bones-incr'), K.bones || 0],
     [T('chin/chin-width-decr'), K.chinW || 0],
     [T('chin/chin-height-decr'), K.chinH || 0],
+    // (likeness round 2, the broad face: wider cheekbones and temples, a squarer, more compact midface, a shorter
+    // forehead; the mouth's corners level, a fuller upper lip, the cheek's fold over the mouth flatter; narrower, hooded
+    // almond eyes (the upper lid lower, its fold down))
+    [T('forehead/forehead-temple-incr'), K.temple || 0], [T('forehead/forehead-scale-vert-decr'), K.foreV || 0],
+    [T('head/head-scale-horiz-incr'), K.horiz || 0], [T('head/head-scale-vert-decr'), K.vert || 0], [T('head/head-square'), K.square || 0],
+    [T('mouth/mouth-angles-up'), K.angUp || 0], [T('mouth/mouth-upperlip-volume-incr'), K.lipUpInc || 0], [T('mouth/mouth-laugh-lines-in'), K.laughIn || 0],
+    [T('eyes/l-eye-height2-decr'), K.eyeH || 0], [T('eyes/r-eye-height2-decr'), K.eyeH || 0],
+    [T('eyes/l-eye-height1-decr'), K.eyeH1 || 0], [T('eyes/r-eye-height1-decr'), K.eyeH1 || 0],
+    [T('eyebrows/eyebrows-angle-down'), K.browAng || 0],
+    // (likeness round 2b: the face's outline a diamond (broad at the cheekbones, the forehead and jaw narrower), the
+    // cheeks' inner mass beside the mouth lower (no puffy lower cheeks), the neck a little thicker (a long thin column
+    // read as a doll's))
+    [T('head/head-diamond'), K.diamond || 0], [T('head/head-invertedtriangular'), K.invTri || 0], [T('cheek/l-cheek-inner-decr'), K.cheekIn || 0], [T('cheek/r-cheek-inner-decr'), K.cheekIn || 0],
+    [T('neck/neck-scale-horiz-incr'), K.neckW || 0], [T('neck/neck-scale-depth-incr'), K.neckD || 0],
   ].filter(([, w]) => w);
   bakeRest(doc, list);
 }
 
 export async function ageSkinPass(doc, K = {}) {
-  K = { depth: 1, spots: 1, desat: 0.14, cool: [0.99, 1.0, 1.025], gain: 6, ...K };
+  // (likeness round 2: per-feature depths: fore (the forehead's lines), folds (nose-to-mouth), mar (marionette), trough
+  // (the dark under the lower lids), jowl)
+  K = { depth: 1, spots: 1, desat: 0.14, cool: [0.99, 1.0, 1.025], gain: 6, fore: 1, folds: 1, mar: 1, trough: 1, jowl: 1, neckR: 1, ...K };
   const { EY, EYEFRONT, EZ, EYEX, MOUTHY, CHINY } = LM;
   const { tex, img, S, N2, pos, head } = await texelPos(doc), d = img.data;
   const mat = matOf(doc, 'skin'), nt = mat.getNormalTexture();
@@ -73,7 +89,7 @@ export async function ageSkinPass(doc, K = {}) {
       { const fh = sm(EY + 0.026, EY + 0.034, y) * sm(EY + 0.078, EY + 0.066, y) * (1 - sm(0.042, 0.06, x)) * sm(EZ - 0.035, EZ - 0.012, z);
         if (fh > 0) { const ph = (y - EY - 0.031 - 0.004 * (x / 0.05) ** 2) / 0.0095 + 0.35 * n1, k = Math.round(ph), f = ph - k;
           if (k >= 0 && k <= 2) { const len = 1 - sm(0.03 + 0.008 * (k === 1 || k === 2), 0.052, x + 0.01 * n2); const ln = Math.exp(-((f / 0.075) ** 2)) * len, bump = Math.exp(-(((Math.abs(f) - 0.3) / 0.16) ** 2)) * len;
-            h += fh * (-0.0002 * ln + 0.00005 * bump); dk += fh * 0.09 * ln; } } }
+            h += K.fore * fh * (-0.0002 * ln + 0.00005 * bump); dk += K.fore * fh * 0.09 * ln; } } }
       // the frown lines between the brows
       { const gl = Math.exp(-(((x - 0.0065 - 0.002 * (y - EY - 0.012) / 0.02) / 0.0011) ** 2)) * sm(EY + 0.004, EY + 0.012, y) * sm(EY + 0.04, EY + 0.026, y) * sm(EYEFRONT - 0.03, EYEFRONT - 0.012, z);
         h -= 0.00022 * gl; dk += 0.08 * gl; }
@@ -84,26 +100,26 @@ export async function ageSkinPass(doc, K = {}) {
       // under-eye: the bag's lower edge (the tear trough), a curved crease 9-11 mm under the eye's centre
       { const t = seg(x, y, [[EYEX - 0.014, EY - 0.009], [EYEX - 0.004, EY - 0.0175], [EYEX + 0.009, EY - 0.0185], [EYEX + 0.02, EY - 0.013]]);
         if (z > EZ - 0.035) { const f = Math.exp(-((t.d / 0.0016) ** 2)) * sm(0, 0.15, t.t) * sm(1, 0.8, t.t), bag = Math.exp(-((t.d / 0.004) ** 2)) * (t.side > 0 ? 1 : 0) * sm(0, 0.2, t.t) * sm(1, 0.7, t.t);
-          h += -0.0003 * f + 0.00018 * bag; dk += 0.16 * f + 0.1 * Math.exp(-((t.d / 0.006) ** 2)) * (t.side > 0 ? 1 : 0); } }
+          h += K.trough * (-0.0003 * f + 0.00018 * bag); dk += K.trough * (0.16 * f + 0.1 * Math.exp(-((t.d / 0.006) ** 2)) * (t.side > 0 ? 1 : 0)); } }
       // the nose-to-mouth folds: from the nose's wing down and out past the mouth's corner, the cheek bulging over it
       { const t = seg(x, y, [[0.0175, EY - 0.042], [0.0235, MOUTHY + 0.018], [0.031, MOUTHY + 0.004], [0.037, MOUTHY - 0.01]]);
         if (z > EZ - 0.04) { const end = sm(0, 0.04, t.t) * sm(1, 0.8, t.t), f = Math.exp(-((t.d / 0.0026) ** 2)) * end, bulge = Math.exp(-(((t.d - 0.0045) / 0.0045) ** 2)) * (t.side < 0 ? 1 : 0) * end;
-          h += -0.00055 * f + 0.0003 * bulge; dk += 0.24 * f + 0.05 * Math.exp(-((t.d / 0.006) ** 2)) * end; } }
+          h += K.folds * (-0.00055 * f + 0.0003 * bulge); dk += K.folds * (0.24 * f + 0.05 * Math.exp(-((t.d / 0.006) ** 2)) * end); } }
       // marionette lines: from the mouth's corners down toward the chin's sides
       { const t = seg(x, y, [[0.029, MOUTHY - 0.012], [0.031, MOUTHY - 0.024], [0.034, CHINY + 0.016]]);
-        if (z > EZ - 0.05) { const end = sm(0, 0.15, t.t) * sm(1, 0.55, t.t), f = Math.exp(-((t.d / 0.0032) ** 2)) * end; h -= 0.0002 * f; dk += 0.05 * f; } }
+        if (z > EZ - 0.05) { const end = sm(0, 0.15, t.t) * sm(1, 0.55, t.t), f = Math.exp(-((t.d / 0.0032) ** 2)) * end; h -= K.mar * 0.0002 * f; dk += K.mar * 0.05 * f; } }
       // fine vertical lines over the upper lip
       { const a = (1 - sm(0.016, 0.022, x)) * sm(MOUTHY + 0.004, MOUTHY + 0.007, y) * sm(MOUTHY + 0.015, MOUTHY + 0.01, y) * sm(EYEFRONT - 0.01, EYEFRONT, z);
         if (a > 0) { const l = Math.pow(Math.max(0, Math.sin(X * 900 + 3 * n1)), 10); h -= 0.00008 * a * l; dk += 0.04 * a * l; } }
       // the jowl: the jaw's line under the cheek a soft fold
       { const t = seg(x, y, [[0.033, CHINY + 0.004], [0.046, CHINY + 0.014], [0.058, CHINY + 0.03]]);
-        const f = Math.exp(-((t.d / 0.0035) ** 2)) * sm(0, 0.2, t.t) * sm(1, 0.7, t.t); h -= 0.0003 * f; dk += 0.06 * f; }
+        const f = Math.exp(-((t.d / 0.0035) ** 2)) * sm(0, 0.2, t.t) * sm(1, 0.7, t.t); h -= K.jowl * 0.0003 * f; dk += K.jowl * 0.06 * f; }
       // a broad softness: low-frequency unevenness of older skin
       h += 0.00005 * (fbm(X, y, z, 140) - 0.5);
     }
     // the neck: three soft rings across its front
     if (y < CHINY - 0.01 && y > CHINY - 0.11 && z > 0.0 && head[i] < 0.95) { const ph = (y - (CHINY - 0.045)) / 0.016 + 0.4 * n1, k = Math.round(ph), f = ph - k;
-      if (k >= -1 && k <= 1) { const w = sm(0.055, 0.03, x) * sm(0.0, 0.03, z), ln = Math.exp(-((f / 0.09) ** 2)) * w; h -= 0.00025 * ln; dk += 0.06 * ln; } }
+      if (k >= -1 && k <= 1) { const w = sm(0.055, 0.03, x) * sm(0.0, 0.03, z), ln = Math.exp(-((f / 0.09) ** 2)) * w; h -= K.neckR * 0.00025 * ln; dk += K.neckR * 0.06 * ln; } } // (round 2b: K.neckR, the rings' depth)
     // (no crease right at the mouth's corners: the grin and the talk move them, and a line there read as a cut)
     if (face) { const mc = Math.hypot(x - 0.024, y - MOUTHY), keep = sm(0.004, 0.009, mc); h *= keep; dk *= keep; }
     H[i] = h * K.depth; DK[i] = dk * K.depth;
@@ -148,4 +164,23 @@ export async function browAgePass(doc, K = {}) {
   if (t) { const { data, w, h } = await rgba(t); for (let i = 0; i < w * h; i++) { for (let c = 0; c < 3; c++) data[i * 4 + c] = Math.round(data[i * 4 + c] * (1 - K.mix) + K.col[c] * K.mix); data[i * 4 + 3] = Math.round(data[i * 4 + 3] * K.alpha); } await setWebp(t, data, w, h, 92); }
   const l = matOf(doc, 'lashes'); if (l) l.setBaseColorFactor([0.5, 0.49, 0.48, 1]);
   console.log('brows: greyer, thinner');
+}
+
+// (likeness round 2b: the face's outline sculpted by hand where MakeHuman's head targets could not reach it: the owner's
+// reference is broad at the cheekbones and tapers to a short jaw; ours stayed pear-shaped, as wide at the mouth as at the
+// cheekbones. The skin's points scaled toward the face's middle line by height: the lower cheeks and jaw in by up to
+// K.jaw, the cheekbones (beside and under the eyes, outside their corners) out by K.bones; only the face's front (the
+// ears and the back of the head kept), feathered so no edge shows)
+export function sculptPass(doc, K = {}) {
+  K = { jaw: 0.07, bones: 0.045, ...K };
+  const { EY, EZ, MOUTHY, CHINY } = LM, bump = (y, c, h) => { const t = (y - c) / h; return Math.abs(t) >= 1 ? 0 : (1 - t * t) ** 2; };
+  const sk = doc.getRoot().listMeshes().flatMap((m) => m.listPrimitives()).filter((p) => p.getMaterial()?.getName() === 'skin');
+  const seen = new Set(); let n = 0, peak = 0;
+  for (const p of sk) { const P = p.getAttribute('POSITION'); if (seen.has(P)) continue; seen.add(P); const a = P.getArray().slice();
+    for (let v = 0; v < a.length / 3; v++) { const x = a[v * 3], y = a[v * 3 + 1], z = a[v * 3 + 2], ax = Math.abs(x); if (y < CHINY - 0.03 || y > EY + 0.01 || ax < 0.015) continue;
+      const w = sm(0.015, 0.045, ax) * sm(EZ - 0.11, EZ - 0.065, z);
+      const s = -K.jaw * bump(y, MOUTHY - 0.014, 0.05) + K.bones * bump(y, EY - 0.028, 0.036) * sm(0.03, 0.055, ax); if (!w || !s) continue;
+      const dx = x * s * w; a[v * 3] = x + dx; n++; peak = Math.max(peak, Math.abs(dx)); }
+    P.setArray(a); }
+  console.log('sculpt: points', n, 'peak mm', (peak * 1000).toFixed(1));
 }
