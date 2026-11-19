@@ -4704,6 +4704,297 @@
      "additionalProperties": false,
      "required": [
       "type",
+      "people",
+      "lines"
+     ],
+     "properties": {
+      "type": {
+       "const": "vcall"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 600,
+       "description": "a side step only (during, do): seconds in"
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "enum": [
+        "leave",
+        "drop"
+       ],
+       "description": "how it ends: you leave the meeting, or the call drops"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "title": {
+       "type": "string",
+       "maxLength": 40,
+       "description": "the call's name in its top bar ('Q3 Board Sync')"
+      },
+      "layout": {
+       "enum": [
+        "grid",
+        "speaker"
+       ],
+       "description": "grid: equal tiles; speaker: whoever talks fills the stage, the rest in a strip"
+      },
+      "time": {
+       "enum": [
+        "day",
+        "golden",
+        "night"
+       ],
+       "description": "the light through every office's window (else the mission's time)"
+      },
+      "people": {
+       "type": "array",
+       "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+         "who",
+         "office"
+        ],
+        "properties": {
+         "who": {
+          "$ref": "#/$defs/slug",
+          "description": "a cast id with a body, or 'player'"
+         },
+         "office": {
+          "enum": [
+           "exec",
+           "startup",
+           "backstage",
+           "boardroom",
+           "kitchen",
+           "study"
+          ],
+          "description": "the office they sit in: exec (a corner office, the skyline), startup (an open-plan loft), backstage (a stage manager's room), boardroom (the long table), kitchen (a home kitchen), study (walnut and books, Mr. Big's)"
+         },
+         "label": {
+          "type": "string",
+          "maxLength": 24,
+          "description": "the name on their tile (else the cast name)"
+         },
+         "sub": {
+          "type": "string",
+          "maxLength": 32,
+          "description": "a second line on the tag: a title or a company (invented names only)"
+         },
+         "blur": {
+          "type": "boolean",
+          "description": "background blur on from the start"
+         },
+         "muted": {
+          "type": "boolean",
+          "description": "starts muted (the red mic): their lines are heard by nobody until they unmute"
+         },
+         "late": {
+          "type": "boolean",
+          "description": "not in the call at the start: their tile reads Waiting to join until a join event"
+         },
+         "light": {
+          "enum": [
+           "day",
+           "golden",
+           "night"
+          ]
+         },
+         "cam": {
+          "enum": [
+           "close",
+           "wide",
+           "low"
+          ],
+          "description": "the webcam's framing: close (head and shoulders), wide (down to the desk), low (a laptop below the eyes)"
+         }
+        }
+       },
+       "minItems": 2,
+       "maxItems": 6
+      },
+      "lines": {
+       "type": "array",
+       "items": {
+        "oneOf": [
+         {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+           "who",
+           "line"
+          ],
+          "properties": {
+           "who": {
+            "$ref": "#/$defs/slug",
+            "description": "one of the call's people (or 'player')"
+           },
+           "line": {
+            "$ref": "#/$defs/speech"
+           },
+           "how": {
+            "enum": [
+             "warm",
+             "tease",
+             "deadpan",
+             "urgent",
+             "angry",
+             "shout",
+             "scared",
+             "hushed",
+             "hesitant",
+             "sad",
+             "smug"
+            ],
+            "description": "how it is said: warm, tease, deadpan, urgent, angry, shout, scared, hushed, hesitant, sad, smug"
+           },
+           "pre": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1.2,
+            "description": "an authored beat before the line, seconds (the sincere pivot after a joke: 0.6 to 0.8)"
+           },
+           "post": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1.2,
+            "description": "an authored beat after the line, seconds (after a reveal: 0.8 to 1.2)"
+           },
+           "overlap": {
+            "type": "boolean",
+            "description": "a reply of 2 words or fewer that may start just before the last line ends (a cut-in)"
+           },
+           "cut": {
+            "type": "number",
+            "minimum": 0.3,
+            "maximum": 0.95,
+            "description": "cut into: the next speaker talks over it once this share of it is said"
+           },
+           "muted": {
+            "type": "boolean",
+            "description": "said on mute: their mouth moves, nobody hears it, the subtitle reads (muted)"
+           }
+          }
+         },
+         {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+           "do"
+          ],
+          "properties": {
+           "do": {
+            "enum": [
+             "mute",
+             "unmute",
+             "join",
+             "drop",
+             "freeze",
+             "unfreeze",
+             "share",
+             "unshare",
+             "blur",
+             "unblur",
+             "hand",
+             "wait"
+            ]
+           },
+           "who": {
+            "$ref": "#/$defs/slug"
+           },
+           "secs": {
+            "type": "number",
+            "minimum": 0.2,
+            "maximum": 4,
+            "description": "wait only: seconds of nothing"
+           },
+           "slide": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [],
+            "properties": {
+             "title": {
+              "type": "string",
+              "maxLength": 48
+             },
+             "lines": {
+              "type": "array",
+              "items": {
+               "type": "string",
+               "maxLength": 64
+              },
+              "minItems": 0,
+              "maxItems": 4
+             },
+             "big": {
+              "type": "string",
+              "maxLength": 12,
+              "description": "a big number or word"
+             }
+            },
+            "description": "share only: the slide on the stage"
+           }
+          }
+         }
+        ]
+       },
+       "minItems": 1,
+       "maxItems": 40,
+       "description": "the call in order: spoken lines ({ who, line, how, pre, post, overlap, cut, muted }) and the call's events ({ do, who, slide, secs })"
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type",
       "at"
      ],
      "properties": {

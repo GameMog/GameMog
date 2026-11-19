@@ -89,6 +89,29 @@ people and places.
   lines in all, the speakers alternating (or a lineless `react` shot between them), 30 s at most. A `beat` is one quick
   shot while the player keeps control.
   `transition` is a black card for a time skip ("LATER", "3:10 AM").
+- **Video calls.** A `vcall` is a conversation as a video call: 2 to 6 `people`, each in an `office` of their own
+  (`exec` a corner office with the skyline, `startup` an open-plan loft, `backstage` a stage manager's room, `boardroom`
+  the long table, `kitchen` a home kitchen, `study` walnut and books), seen head and shoulders on their webcam, in a
+  call's layout: their tiles, their names (`label`, and a `sub` line: a title or an invented company), the one talking
+  lit, the subtitles under them. Prefer it to a cutscene for any scene of people talking who are not standing together
+  on the street: it is the house style for talk (the street is for action). `lines` is the call in order: spoken lines
+  `{ "who", "line", "how", "pre", "post", "overlap" }` (`who` one of its people or `player`), plus `cut` (0.3 to 0.95:
+  the next person talks over the line once that share of it is said; people interrupt each other on calls) and `muted`
+  (said on mute: their mouth moves, nobody hears it), and between them the call's own life as events `{ "do", "who" }`:
+  `mute` / `unmute`, `join` (a person marked `late: true` comes on), `drop` (they leave, "Reconnecting..."),
+  `freeze` / `unfreeze` (their picture stops), `share` with a `slide` `{ "title", "lines": [up to 4], "big" }` (their
+  screen on the stage: a number, a plan, a list), `unshare`, `blur` / `unblur` (their background), `hand` (a raised
+  hand), `wait` `{ "secs" }` (an awkward silence). One or two touches per call, used for a joke or a turn: the line said
+  on mute and then someone's "You're on mute."; the rival who joins late; the screen share that shows too much; the
+  connection that freezes on the worst word. `title` is the call's name ("Q3 Board Sync"); `end` is `leave` or `drop`.
+  At most 40 lines and events, 24 events. Nobody talks before they join or after they drop.
+  ```json
+  { "type": "vcall", "title": "Morning Sync", "people": [{ "who": "rae", "office": "kitchen" }, { "who": "player", "office": "study", "muted": true },
+    { "who": "nico", "office": "exec", "sub": "Okafor Gallery", "late": true }],
+    "lines": [{ "who": "rae", "line": "Is it on? Can everyone see me?" }, { "who": "player", "line": "It's on your forehead." },
+      { "who": "rae", "line": "You're on mute.", "how": "deadpan" }, { "do": "unmute", "who": "player" }, { "do": "join", "who": "nico" },
+      { "who": "nico", "line": "Sorry, back to back. Is this the van thing?", "cut": 0.7 }, { "who": "rae", "line": "It's the van thing.", "overlap": true }] }
+  ```
 - **Mog City's own set pieces.** A `scene` step plays one of Mog City's authored cutscenes by name (the table after
   this chapter): Mog City's own code, cast, camera and lines. Write one only in a story whose hero is Dan
   (`mogcity/dan`), a Mog of Mog City; any other story writes its own `cutscene`s.

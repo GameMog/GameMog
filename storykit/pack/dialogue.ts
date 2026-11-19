@@ -56,6 +56,11 @@ export function dialogueScenes(pack: Json): Scene[] {
       for (const s of flat([s0])) {
         const at = `${m.id} step ${i + 1}${s === s0 ? '' : ' (during)'}`;
         if (s.type === 'cutscene' && Array.isArray(s.shots)) out.push({ at, kind: 'cutscene', mission: m.id, objectives, lines: s.shots.flatMap(shotLines) });
+        // (a video call: its spoken lines, a call's (3 in a row, 3 sentences); the events between them are not talk)
+        if (s.type === 'vcall' && Array.isArray(s.lines)) {
+          const lines = s.lines.filter((l: Json) => l && l.do == null).map((l: Json) => asLine({ ...l, text: l.text ?? l.line })).filter(Boolean) as SceneLine[];
+          if (lines.length) out.push({ at, kind: 'call', mission: m.id, objectives, lines });
+        }
         if (s.type === 'call') {
           const lines = [...(s.lines ?? []), ...(s.extra ?? []).flat(), ...(s.wrap ?? [])].map(asLine).filter(Boolean) as SceneLine[];
           if (lines.length) out.push({ at, kind: 'call', mission: m.id, objectives, lines });

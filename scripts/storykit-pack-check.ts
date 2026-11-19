@@ -157,6 +157,39 @@ export function runStoryPackChecks(ok: Ok) {
   { const r = gatePack(onMc((p) => { m1(p).steps.push({ type: 'patrol', count: 1 }); }));
     ok('a step Mog City has no part for (patrol) is a warning there, never silent', r.warnings.some((x) => /'patrol' has no Mog City part yet/.test(x)), r.warnings.join(' | ')); }
 
+  console.log('\n  a video call (vcall: every person in an office of their own, on webcam, in a call\'s layout; Mog City wagmi/storyrun/vcall.js)');
+  { const CALL = () => ({ type: 'vcall', title: 'Gallery Sync', people: [{ who: 'player', office: 'study', muted: true }, { who: 'rae', office: 'kitchen', sub: 'the gallery' }, { who: 'nico', office: 'exec', late: true, blur: true }].slice(0, 2),
+      lines: [{ who: 'rae', line: 'Can you hear me? Is it on?' }, { who: 'player', line: 'The camera is on your forehead.', muted: true }, { who: 'rae', line: "You're on mute.", how: 'deadpan' }, { do: 'unmute', who: 'player' },
+        { who: 'player', line: 'The camera is on your forehead.', cut: 0.6 }, { who: 'rae', line: 'Better?', overlap: true },
+        { do: 'share', who: 'rae', slide: { title: 'Tonight', lines: ['Doors at eight', 'The van at nine'], big: '9:00' } }, { do: 'freeze', who: 'rae' }, { do: 'wait', secs: 1 }, { do: 'drop', who: 'rae' }] });
+    const three = () => { const c: any = CALL(); c.people.push({ who: 'dispatch', office: 'backstage' }); return c; };
+    const withCall = (c: any) => onMc((p) => { m1(p).steps.splice(1, 0, c); });
+    const r = gatePack(withCall(CALL())), w = r.ok ? toRunnerPack(r.pack!) as any : null, st = w?.missions[0].steps[1];
+    ok('a video call passes on Mog City\'s engine: its people, its lines and events, voiced as a cutscene\'s', r.ok && r.lines.filter((l) => /\.q\d+$/.test(l.id)).length === 5 && r.lines.some((l) => /\.q1$/.test(l.id) && l.who === 'nico'), r.problems.concat(r.warnings).join(' | '));
+    ok('the runner\'s video call: people and speakers by name, the hero as player, a line\'s text, an event as it was',
+      st?.type === 'vcall' && st.people[1].who === 'Rae Okafor' && st.people[0].who === 'player' && st.lines[0].who === 'Rae Okafor' && st.lines[0].text === 'Can you hear me? Is it on?' && st.lines[0].line === undefined && st.lines[3].do === 'unmute' && st.lines[4].cut === 0.6 && st.lines[6].slide.big === '9:00', JSON.stringify(st?.lines?.slice(0, 5)));
+    { const c: any = CALL(); c.people[1].who = 'nico'; c.lines = c.lines.map((l: any) => ({ ...l, ...(l.who === 'rae' ? { who: 'nico' } : {}) })); const r2 = gatePack(withCall(c)); ok('the hero by id and as player on one call is one person twice', !r2.ok && r2.problems.some((x) => /on this call twice/.test(x)), r2.problems.join(' | ')); }
+    bad('a video call with a voice-only person on it', withCall(three()), () => {}, /voiceOnly .* a video call shows everyone/);
+    bad('a video call of one', withCall({ ...CALL(), people: [{ who: 'rae', office: 'kitchen' }], lines: [{ who: 'rae', line: 'Hello?' }] }), () => {}, /people|2 to 6/);
+    bad('a video call in an office that is not one', withCall(CALL()), (p) => { m1(p).steps[1].people[1].office = 'castle'; }, /office|castle/);
+    bad('a line by someone not on the call', withCall(CALL()), (p) => { m1(p).steps[1].lines.push({ who: 'dispatch', line: 'Copy.' }); }, /"dispatch" is not on this call/);
+    bad('a late person talking before they join', withCall(CALL()), (p) => { const s = m1(p).steps[1]; s.people[1].late = true; }, /talks before joining/);
+    bad('someone talking after they dropped', withCall(CALL()), (p) => { m1(p).steps[1].lines.push({ who: 'rae', line: 'Still here.' }); }, /after dropping/);
+    bad('a share with no slide', withCall(CALL()), (p) => { delete m1(p).steps[1].lines[6].slide; }, /a share shows a slide/);
+    bad('a call event that is not one', withCall(CALL()), (p) => { m1(p).steps[1].lines.push({ do: 'teleport', who: 'rae' }); }, /teleport|do/);
+    bad('a call with only events', withCall(CALL()), (p) => { m1(p).steps[1].lines = [{ do: 'mute', who: 'rae' }]; }, /says something/);
+    bad('markup on a shared slide (its words are read as every on-screen word is)', withCall(CALL()), (p) => { m1(p).steps[1].lines[6].slide.lines = ['Go <b>now</b>']; }, /carries markup/);
+    bad('markup in a slide\'s big number', withCall(CALL()), (p) => { m1(p).steps[1].lines[6].slide.big = '<i>9</i>'; }, /carries markup/);
+    { const c: any = CALL(); c.lines = c.lines.filter((l: any) => l.line !== "You're on mute."); const r3 = gatePack(withCall(c)); ok('a line said on mute that nobody points out is a note, not a refusal', r3.ok && r3.warnings.some((x) => /said on mute/.test(x)), r3.problems.concat(r3.warnings).join(' | ')); }
+    { const c: any = { ...CALL(), people: CALL().people.map((x: any) => ({ who: x.who, office: x.office })), lines: [{ who: 'rae', line: 'Hello?' }, { who: 'player', line: 'Hi.' }] }; const r4 = gatePack(withCall(c)); ok('a call with no call life gets a note', r4.ok && r4.warnings.some((x) => /no call life/.test(x)), r4.problems.concat(r4.warnings).join(' | ')); }
+    { const CUT = { type: 'cutscene', shots: [{ cam: 'player', dur: 3, say: 'rae', line: 'Is it on? Can everyone see me?' }] };
+      const g0 = gatePack(onMc((p) => { m1(p).steps.splice(1, 0, CUT); })), kid = clone(g0.pack); m1(kid).steps[1] = CALL(); const r5 = gatePack(kid, { parent: g0.pack });
+      ok('a Mog may play its parent\'s cutscene as a video call', g0.ok && !r5.problems.some((x) => /mission structure/.test(x)), g0.problems.concat(r5.problems).join(' | '));
+      const g1 = gatePack(onMc()), kid2 = clone(g1.pack); m1(kid2).steps.splice(1, 0, CALL()); const r6 = gatePack(kid2, { parent: g1.pack });
+      ok('a Mog of a world with no scene of talk adds no video call (its structure kept)', r6.problems.some((x) => /'vcall'.*mission structure/.test(x)), r6.problems.join(' | ')); }
+    bad('a video call off Mog City\'s engine', NY, (p) => { m1(p).steps.splice(1, 0, CALL()); }, /video call plays on Mog City's engine/);
+  }
+
   console.log('\n  the play steps a long story needs (Mog City\'s runner plays them: stealth, convoy, ally, roadblock, a passenger\'s ride, timers by name, the money goal)');
   ok('only patrol and wallet are still unplayed on Mog City (the rest are played)', JSON.stringify(MOGCITY_STUBS) === '["patrol","wallet"]', JSON.stringify(MOGCITY_STUBS));
   const play = (edit: (p: any) => void = () => {}) => onMc((p) => {
