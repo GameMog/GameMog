@@ -79,7 +79,7 @@ const places = {
   'rose-lawn': { '@': 'parking63', name: 'the rose garden lawn', offset: { right: 0, fwd: 18 } },
   arena: { '@': 'stadium4', name: 'the arena' },
   'arena-line': { '@': 'park54', name: 'the fan line' },
-  'arena-approach': { '@': 'bank9', name: 'one block short of the dock' },
+  'arena-approach': { '@': 'stadium4', name: "the arena's front, a block short of the dock" },
   'arena-dock': { '@': 'parking64', name: 'the arena loading dock' },
   'stage-door': { '@': 'parking64', name: 'the stage door', offset: { right: 18, fwd: 0 } },
   'backlot-a': { '@': 'parking64', name: 'the back lot', offset: { right: -20, fwd: 10 } },
@@ -972,7 +972,7 @@ const F3 = { type: 'vcall', id: 'f3', title: 'Car Park, After', time: 'night', e
     V(P, "We're naming the car tomorrow. There'll be a keynote."),
   ] };
 
-const M8 = { id: 'ST-8', title: 'Showtime', vehicle: 'roadster', start: '@arena-dock', time: 'twilight', card: 'slam', verbs: ['sneak', 'fight'],
+const M8 = { id: 'ST-8', title: 'Showtime', vehicle: 'roadster', start: '@arena', time: 'twilight', card: 'slam', verbs: ['sneak', 'fight'],
   stakes: 'Seven o\'clock. The Board walks out first unless you do.', passLine: 'Seven-oh-four. The earliest keynote in Greenlight history.',
   steps: [
     { type: 'transition', kicker: '6:56 PM', text: 'THE ARENA · BACKSTAGE' },

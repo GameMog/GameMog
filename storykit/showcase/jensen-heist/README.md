@@ -53,7 +53,7 @@ node --import ./scripts/ts-resolve.mjs scripts/storykit-showcase-jensen.ts --exp
 | north-87 | `park47` | north of downtown, a route mark the tail passes |
 | rose-garden, rose-lawn | `parking63` | the north river park, nothing sensitive within 300 m: Mission 6's fight |
 | arena-line | `park54` | the arena's green: the fan line |
-| arena-approach | `bank9` | one block short of the dock (the convoy's end) |
+| arena-approach | `stadium4` | the arena's front, a block short of the dock (the convoy's end) |
 | arena-dock, stage-door, backlot-a/b/c | `parking64` | the arena's back lot, nothing sensitive within 300 m: Missions 7 and 8 |
 
 ## What changed from the script (draft 2), and why
@@ -77,6 +77,9 @@ node --import ./scripts/ts-resolve.mjs scripts/storykit-showcase-jensen.ts --exp
 - **Mission 6's search of the velvet bag** is gone: the rose garden's lot is drive-up only (its middle is inside a
   structure), and no walk-up place is near. Jensen still says "There you are."
 - **Mission 1's call waiting** (Wesley) rings 45 s into the drive, not 80: the drive is about 1.3 km.
+- **Mission 7's convoy** ends at the arena's front (a block short of the dock) down Santa Clara St: ended on the side
+  street by the dock, Lola's truck locked nose to nose with town traffic in a test drive. **Mission 8** starts at the
+  arena's front, so the back-lot sneak is a walk past all three Directors.
 - Lines ending in "..." are written as cut-ins (`cut`), and short replies over them as `overlap`.
 
 ## A Mog of it

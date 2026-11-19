@@ -329,8 +329,8 @@
    "name": "the fan line"
   },
   "arena-approach": {
-   "@": "bank9",
-   "name": "one block short of the dock"
+   "@": "stadium4",
+   "name": "the arena's front, a block short of the dock"
   },
   "arena-dock": {
    "@": "parking64",
@@ -5510,7 +5510,7 @@
      "id": "ST-8",
      "title": "Showtime",
      "vehicle": "roadster",
-     "start": "@arena-dock",
+     "start": "@arena",
      "time": "twilight",
      "card": "slam",
      "verbs": [
