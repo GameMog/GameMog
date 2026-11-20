@@ -159,3 +159,19 @@ crown, against round 1's upright ones), the mass about 12% lower on top. The in-
 (sRGB), lowlights at the temples and nape. Mouth: the lower teeth's biting edge narrower and in shadow
 (tooth 150,140,124), the cavity a deep red-brown (62,26,22) instead of near-black. Env overrides as before (`JH_CARDS`,
 `JH_CLUMPS`, `JH_CAVITY`).
+
+## Hair round 3 (caricature round 12, 19 Nov: volume, a soft hairline, a taller swoop, fine strands)
+
+`node scripts/handbuilt/jensen/hairatlas.mjs <hair_cards_fbx.glb>` (the atlas again: each clump strip 0-9 now redrawn as
+fine strands inside the source strip's own outline: two depth layers of 1-2 texel strands that wander and end at their own
+lengths (a tapered tip), a solid darker core under them for coverage, a root-to-tip value gradient and a soft alpha fade at
+the root), then `node scripts/handbuilt/jensen/build.mjs`. `round12.mjs`: `R12` feeds `clumps` (the dome thicker, base
+8 -> 12 mm and the top +6 mm, the under-shell at 0.8 of the mass, a softer, gentler hairline roll) and `cards` (1350 cards in
+three stacked layers plus a 240-card inner crown layer; five hero locks of 15 cards in three crossed, section-curved levels
+rooted 11 mm behind the hairline with a ~20 mm lift; the front wall rooted on the hairline's roll rising up; a row of baby
+hairs; wider side cards combed back with tucked tips; four flyaways; per-card root-to-tip gradient). New `haircards.mjs`
+knobs (defaults = round 2): `rootGrad`, `shortK`, `lockInset`, `lockStack`, `lockCross`, `lockArch`, `lockStrips`,
+`lockTaper`, `lockCut`, `frontTone`, `temple.bias`/`biasK`/`taper`, `baby`. `R12x` + the late `r12` step: the lower teeth's
+biting edge darker and narrower, the tongue 4 mm back and 2.8 mm down and darker, the lens rims' top edge arched (3.2 mm)
+with the bar's arch 5 -> 7.2 mm, the frames 1.19 -> 1.25 x, the metal a neutral gunmetal (not blue), the leather x 0.78
+deeper with less clearcoat and specular. Env override `JH_R12`. In game: hair median in the kitchen tile 189 sRGB, 60 fps.

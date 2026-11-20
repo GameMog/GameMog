@@ -120,9 +120,12 @@ export function hairCardsPass(doc, shell, K = {}) {
     // (each card its own value a little: silver strands and greyer ones side by side, the lowlights broken up)
     // (hair round 2: one value jitter per card; round 1 drew it per channel, which tinted cards pink, green and lilac)
     const jv = rr(K.jit[0], K.jit[1]), c0 = lerp(lerp(K.mid, K.top, clamp(0.3 + 0.7 * topK + (o.bright ?? 0))), K.low, lowK * 0.9).map((v) => v * jv);
-    return (t, x) => { const root = 1 - sm(0.0, 0.18, t), tip = sm(0.6, 1, t);
+    // (hair round 3: rootGrad [k, t1]: each card darker at its root, rising to its full value by t1 of its length: the
+    // lowlights blend along the strands instead of sitting in separate dark patches)
+    const [rgK, rgT] = o.rootGrad ?? K.rootGrad ?? [1, 0.2];
+    return (t, x) => { const root = 1 - sm(0.0, 0.18, t), tip = sm(0.6, 1, t), rg = rgK + (1 - rgK) * sm(0, rgT, t);
       // (hair round 2: the card's middle a little darker than its edges, a clump's form across it)
-      return lerp(c0, K.low, 0.35 * root).map((v, i) => Math.min(1, v * (1 + 0.06 * tip) * (1 - K.xDark * (1 - x * x)))); };
+      return lerp(c0, K.low, (o.rootLow ?? 0.35) * root).map((v, i) => Math.min(1, v * rg * (1 + 0.06 * tip) * (1 - K.xDark * (1 - x * x)))); };
   };
   // ---- the roots: a Fibonacci spread of directions over the hair, the inner layers first (drawn under the outer)
   const roots = []; const NF = 9000;
@@ -136,7 +139,7 @@ export function hairCardsPass(doc, shell, K = {}) {
   for (const [l0, l1, n, strips, [w0, w1]] of layers) for (let k = 0; k < n; k++) {
     const d = pick(), layer = rr(l0, l1), front = sm(0.45, 0.9, d[2]) * sm(0.05, 0.5, d[1]);
     const { P, D } = grow(d, lenAt(d) * (1 + 0.25 * front), layer, { lift: K.front * front * (0.6 + 0.4 * layer), liftL: 0.025 });
-    const short = d[1] < 0.1; const st = short && rnd() < 0.5 ? [6, 7, 8, 9][Math.floor(rnd() * 4)] : strips[Math.floor(rnd() * strips.length)];
+    const short = d[1] < 0.1; const st = short && rnd() < (K.shortK ?? 0.5) ? [6, 7, 8, 9][Math.floor(rnd() * 4)] : strips[Math.floor(rnd() * strips.length)];
     card(P, D, st, rr(w0, w1) * (short ? 0.85 : 1), colourOf(d, layer));
   }
   // (2) the front swoop: four big locks off the front hairline, lifted up and back and falling a little to his right,
@@ -145,7 +148,7 @@ export function hairCardsPass(doc, shell, K = {}) {
   let nlock = 0; const tipAng = [];
   for (const [p0, hw, len, sweepX, hk] of LK) {
     // the lock's root line: on the hairline's inner edge at azimuth p0, a few millimetres in
-    let dc = null; for (let el = 70; el > 0; el -= 1) { const a = el * D2R, d = norm([Math.cos(a) * Math.sin(p0 * D2R), Math.sin(a) * 0.98 - 0.02, Math.cos(a) * Math.cos(p0 * D2R)]); const s = scalp(d); if (s && s.e > 0.004) { dc = d; } else if (dc) break; }
+    let dc = null; for (let el = 70; el > 0; el -= 1) { const a = el * D2R, d = norm([Math.cos(a) * Math.sin(p0 * D2R), Math.sin(a) * 0.98 - 0.02, Math.cos(a) * Math.cos(p0 * D2R)]); const s = scalp(d); if (s && s.e > (K.lockInset ?? 0.004)) { dc = d; } else if (dc) break; }
     if (!dc) continue; nlock++;
     // the lock's line: one strand grown from the root's middle, lifted (the swoop) and biased up, back and to his right;
     // its cards ride that line side by side (a bundle), their offsets drawn in toward the line at the tip (the lock
@@ -157,12 +160,18 @@ export function hairCardsPass(doc, shell, K = {}) {
     const Lc = [0]; for (let i = 1; i < m; i++) Lc.push(Lc[i - 1] + Math.hypot(...[0, 1, 2].map((q) => c.P[i][q] - c.P[i - 1][q])));
     const BL = c.P.map((_, i) => { const a = c.P[Math.max(0, i - 1)], b = c.P[Math.min(m - 1, i + 1)]; return norm(cross(norm([b[0] - a[0], b[1] - a[1], b[2] - a[2]]), c.D[i])); });
     const hwm = hw * D2R * 0.1;
+    // (hair round 3: lockStack [levels, depth (m)]: the cards stacked in that many levels through the lock's depth, crossed
+    // by lockCross degrees, alternating, and curved in section (lockArch): a thick clump, not one flat ribbon)
+    const [nLev, depS] = K.lockStack ?? [0, 0];
     for (let k = 0; k < K.lockCards; k++) {
-      const o = rr(-1, 1) * hwm, dep = rr(-0.0045, 0.0012), cut = rr(0.75, 1), layer = clamp(0.55 + (dep + 0.0045) / 0.0057 * 0.45), drift = rr(-0.002, 0.002);
+      const lev = nLev ? k % nLev : 0, o = rr(-1, 1) * hwm * (nLev ? 1 - 0.25 * (lev / Math.max(1, nLev - 1)) : 1);
+      const dep = nLev ? -depS * (1 - lev / Math.max(1, nLev - 1)) + rr(-0.001, 0.001) : rr(-0.0045, 0.0012), cut = rr(K.lockCut ?? 0.75, 1);
+      const layer = nLev ? 0.55 + 0.45 * lev / Math.max(1, nLev - 1) : clamp(0.55 + (dep + 0.0045) / 0.0057 * 0.45), drift = rr(-0.002, 0.002);
       const P = [], D = [];
       for (let i = 0; i < m; i++) { const t = Lc[i] / Lc[m - 1]; if (t > cut) break;
         P.push(add(add(c.P[i], BL[i], o * (1 - 0.6 * t) + drift * t * t), c.D[i], dep * sm(0, 0.15, t))); D.push(c.D[i]); }
-      card(P, D, [3, 4, 5, 0, 1][k % 5], rr(K.lockW[0], K.lockW[1]), colourOf(dc, 1, { bright: 0.12 + 0.12 * layer, dark: (K.lockUnderDark ?? 0.2) * (1 - layer) }), { twist: rr(-8, 8), taper: 0.5 });
+      const tw = K.lockCross ? (k % 2 ? 1 : -1) * K.lockCross * rr(0.6, 1) : rr(-8, 8);
+      card(P, D, (K.lockStrips ?? [3, 4, 5, 0, 1])[k % (K.lockStrips ?? [3, 4, 5, 0, 1]).length], rr(K.lockW[0], K.lockW[1]), colourOf(dc, 1, { bright: 0.12 + 0.12 * layer, dark: (K.lockUnderDark ?? 0.2) * (1 - layer), ...K.frontTone }), { twist: tw, taper: K.lockTaper ?? 0.5, arch: K.lockArch });
     }
   }
   // (2b) the front's wall: cards close along the front hairline rising into the swoop under the locks, so no forehead
@@ -171,7 +180,7 @@ export function hairCardsPass(doc, shell, K = {}) {
     let dc = null; for (let el = 70; el > 0; el -= 1) { const a = el * D2R, d = norm([Math.cos(a) * Math.sin(p0 * D2R), Math.sin(a) * 0.98 - 0.02, Math.cos(a) * Math.cos(p0 * D2R)]); const s = scalp(d); if (s && s.e > inset) dc = d; else if (dc) break; }
     if (!dc) continue; const mid = 1 - sm(25, 60, Math.abs(p0)), layer = rr(0.45, 0.8) * (1 - (K.wallSideLow ?? 0) * (1 - mid));
     const { P, D } = grow(dc, rr(K.wallLen[0], K.wallLen[1]) * (0.7 + 0.3 * mid), layer, { start: Math.min(0.0005, inset), past: Math.max(0.006, -inset + 0.004), bias: [-0.25, K.wallBiasY, -1], biasK: K.wallBiasK != null ? K.wallBiasK * (0.6 + 0.4 * mid) : 0.55 * mid, lift: (K.lockLift * 0.55 + K.front * 0.5) * ((K.wallSideLift ?? 0.35) + (1 - (K.wallSideLift ?? 0.35)) * mid), liftL: 0.025, rise: 0.008, drop: 0.4 });
-    card(P, D, [0, 1, 2, 3][Math.floor(rnd() * 4)], rr(0.01, 0.014), colourOf(dc, 0.35 + 0.65 * layer, { bright: K.wallBright ?? 0.08, dark: K.wallDark ?? 0 }), { twist: rr(-6, 6), taper: 0.4 });
+    card(P, D, [0, 1, 2, 3][Math.floor(rnd() * 4)], rr(0.01, 0.014), colourOf(dc, 0.35 + 0.65 * layer, { bright: K.wallBright ?? 0.08, dark: K.wallDark ?? 0, ...K.frontTone }), { twist: rr(-6, 6), taper: 0.4 });
   }
   // (2c, hair round 2: the critic, "the area over the ear reads as wisps over skin", "a thin grey veil at the side"): a
   // fill of wide clumps over and behind the ear and at the nape, rooted on the side's lower hair and combed back and down
@@ -179,8 +188,18 @@ export function hairCardsPass(doc, shell, K = {}) {
   if (K.temple) { const T = K.temple, side = roots.filter((d) => Math.abs(d[0]) > T.x && d[1] > T.y[0] && d[1] < T.y[1] && d[2] < (T.z ?? 1));
     for (let k = 0; k < T.n && side.length; k++) {
       const d = side[Math.floor(rnd() * side.length)], layer = rr(T.layer[0], T.layer[1]);
-      const { P, D } = grow(d, rr(T.len[0], T.len[1]), layer, { past: T.past, curl: 0, bias: [0.15 * Math.sign(d[0]), -0.8, -0.6], biasK: 0.35 });
-      card(P, D, [0, 1, 2, 3][Math.floor(rnd() * 4)], rr(T.w[0], T.w[1]), colourOf(d, layer, { dark: T.dark }), { twist: rr(-3, 3), arch: 0.03, taper: 0.45 }); } }
+      const { P, D } = grow(d, rr(T.len[0], T.len[1]), layer, { past: T.past, curl: 0, bias: [0.15 * Math.sign(d[0]), ...(T.bias ?? [-0.8, -0.6])], biasK: T.biasK ?? 0.35 });
+      card(P, D, [0, 1, 2, 3][Math.floor(rnd() * 4)], rr(T.w[0], T.w[1]), colourOf(d, layer, { dark: T.dark }), { twist: rr(-3, 3), arch: 0.03, taper: T.taper ?? 0.45 }); } }
+  // (2e, hair round 3: "no card should start ON the forehead skin", "a short row of fine, low-alpha baby-hair cards along
+  // the edge"): short, narrow cards of the single-strand strips just inside the front hairline, rising up and back into the
+  // swoop, lying close (a soft hairline instead of the cards' ends)
+  if (K.baby) { const T = K.baby;
+    for (let p0 = -T.range; p0 <= T.range; p0 += T.step) for (let r = 0; r < (T.rows ?? 1); r++) {
+      const pp = p0 + rr(-T.step / 2, T.step / 2); let dc = null;
+      for (let el = 70; el > 0; el -= 1) { const a = el * D2R, d = norm([Math.cos(a) * Math.sin(pp * D2R), Math.sin(a) * 0.98 - 0.02, Math.cos(a) * Math.cos(pp * D2R)]); const s = scalp(d); if (s && s.e > T.inset + r * 0.002) dc = d; else if (dc) break; }
+      if (!dc) continue; const side = sm(25, 70, Math.abs(pp));
+      const { P, D } = grow(dc, rr(T.len[0], T.len[1]), T.layer, { start: -0.002, past: 0.004, bias: [-0.15 * (1 - side), 0.9 * (1 - side) - 0.3 * side, -1], biasK: 0.8, curl: rr(-4, 4), rise: 0.004 });
+      card(P, D, 10 + Math.floor(rnd() * 3), rr(T.w[0], T.w[1]), colourOf(dc, 0.6, { dark: T.dark ?? 0.2 }), { twist: rr(-20, 20), taper: 0.3, arch: 0 }); } }
   // (2d, hair round 2: "black see-through gaps and a ragged crown"): an inner layer of wide crown clumps between the shell
   // and the top cards, mid grey, so a gap between the top cards shows hair under it, never the stage behind the head
   if (K.crown) { const T = K.crown, top = roots.filter((d) => d[1] > T.y);
