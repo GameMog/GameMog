@@ -52,11 +52,18 @@ function correct(doc, smp, t, K, stand, set) {
     smp.set(nm + '.rotation', () => best.q); set(nm, best.q); F = fk(doc, smp, t); return best.d; };
   if (stand) for (const s of ['L', 'R']) {
     const bendOf = (G) => ang(G.pos('lowerleg01_' + s), G.pos('upperleg01_' + s)) - ang(G.pos('foot_' + s), G.pos('lowerleg01_' + s));
-    const b = bendOf(F); if (Math.abs(b) > K.knee) solve('lowerleg01_' + s, Math.abs(b) - K.knee, (G) => Math.max(0, Math.abs(bendOf(G)) - K.knee));
+    const b = bendOf(F); let dk = 0; if (Math.abs(b) > K.knee) dk = solve('lowerleg01_' + s, Math.abs(b) - K.knee, (G) => Math.max(0, Math.abs(bendOf(G)) - K.knee));
     const leanOf = (G) => ang(G.pos('foot_' + s), G.pos('upperleg01_' + s)), lean = leanOf(F);
     const d = solve('upperleg01_' + s, Math.abs(lean), leanOf);
-    // (the foot turned back by the thigh's turn: flat on the ground as the clip had it)
-    if (d) { const q = turned(F, 'foot_' + s, -d); smp.set('foot_' + s + '.rotation', () => q); set('foot_' + s, q); F = fk(doc, smp, t); }
+    // (the foot turned back by the thigh's and the shin's turns (cast round 4, the critic: the knee's straightening had
+    // pitched the foot toe-down): its world turn exactly the clip's, flat on the ground as the clip had it)
+    if (d || dk) { const q = turned(F, 'foot_' + s, -(d + dk)); smp.set('foot_' + s + '.rotation', () => q); set('foot_' + s, q); F = fk(doc, smp, t); }
+    // (cast round 4, the critic: "solve the ankles so the soles lie flat with toes forward": the shoe's heel and toe (its
+    // foot-bound points farthest back and forward in the bind, K.soles) brought to the bind's own pitch (the mesh as it was
+    // modelled stands flat), the foot turned about the world's left-right axis at the ankle)
+    if (K.soles?.[s]) { const S0 = K.soles[s], at = (G, v) => v.clone().applyMatrix4(S0.ibm).applyMatrix4(G.W.get(G.byName.get('foot_' + s)));
+      const pitchOf = (G) => { const h = at(G, S0.heel), t = at(G, S0.toe); return Math.atan2(t.y - h.y, Math.hypot(t.z - h.z, t.x - h.x)) * 180 / Math.PI - S0.pitch; };
+      const p0 = pitchOf(F); if (Math.abs(p0) > 0.5) solve('foot_' + s, Math.abs(p0), pitchOf); out['sole' + s] = +p0.toFixed(1); }
     out['leg' + s] = +lean.toFixed(1); }
   const mid = (G, a, b) => G.pos(a).add(G.pos(b)).multiplyScalar(0.5);
   const trOf = (G) => { const h = mid(G, 'upperleg01_L', 'upperleg01_R'), sh = mid(G, 'upperarm01_L', 'upperarm01_R'); return Math.atan2(sh.z - h.z - K.sh, sh.y - h.y) * 180 / Math.PI; };
@@ -84,6 +91,15 @@ export function levelArmaturePass(doc) {
 export function plumbClipsPass(doc, K = {}) {
   K = { stand: /^(idle|phone|arms|talk|shrug|wave|shift|sitTalk-no)$/, knee: 4, sh: 0.01, ear: 0.0, maxNeck: 25, chin: 1, spine: 'spine05', ...K };
   const R = doc.getRoot(), rep = [];
+  // (the soles: per side, the shoe's points bound to the foot (weight over 0.8): its farthest back (the heel) and farthest
+  // forward (the toe) low points, and the pitch between them in the bind)
+  if (K.soles !== false) { const sk = R.listSkins()[0], J = sk.listJoints(), shoes = R.listMeshes().flatMap((m) => m.listPrimitives()).filter((p) => /shoe|boot|sneaker|loafer/.test(p.getMaterial()?.getName() || '')); K.soles = {};
+    for (const sd of ['L', 'R']) { const fi = J.findIndex((j) => j.getName() === 'foot_' + sd); if (fi < 0 || !shoes.length) continue; let heel = null, toe = null; const j = [0, 0, 0, 0], w = [0, 0, 0, 0];
+      for (const p of shoes) { const A = p.getAttribute('POSITION').getArray(), JA = p.getAttribute('JOINTS_0'), WA = p.getAttribute('WEIGHTS_0'); if (!JA) continue; let ymin = 9; for (let v = 0; v < A.length / 3; v++) ymin = Math.min(ymin, A[v * 3 + 1]);
+        for (let v = 0; v < A.length / 3; v++) { if (A[v * 3 + 1] > ymin + 0.03) continue; JA.getElement(v, j); WA.getElement(v, w); let fw = 0; for (let k = 0; k < 4; k++) if (j[k] === fi) fw += w[k]; if (fw < 0.8) continue;
+          const q = new THREE.Vector3(A[v * 3], A[v * 3 + 1], A[v * 3 + 2]); if (!heel || q.z < heel.z) heel = q; if (!toe || q.z > toe.z) toe = q; } }
+      if (heel && toe) K.soles[sd] = { heel, toe, pitch: Math.atan2(toe.y - heel.y, Math.hypot(toe.z - heel.z, toe.x - heel.x)) * 180 / Math.PI, ibm: new THREE.Matrix4().fromArray(sk.getInverseBindMatrices().getElement(fi, new Array(16))) }; }
+    rep.push('soles ' + Object.entries(K.soles).map(([k, v]) => k + ' ' + v.pitch.toFixed(1) + ' deg').join(', ')); }
   // (the head's up in its own frame and its bind angle: the head-weighted skin's crown (its highest points) less the head joint)
   { const sk = R.listSkins()[0], J = sk.listJoints(), hi = J.findIndex((j) => j.getName() === 'head'), IB = new THREE.Matrix4().fromArray(sk.getInverseBindMatrices().getElement(hi, new Array(16))), B = new THREE.Matrix4().copy(IB).invert(), jp = new THREE.Vector3().setFromMatrixPosition(B);
     const p = R.listMeshes().flatMap((m) => m.listPrimitives()).find((q) => q.getMaterial()?.getName() === 'skin'), A = p.getAttribute('POSITION').getArray(), JA = p.getAttribute('JOINTS_0'), WA = p.getAttribute('WEIGHTS_0'), j = [0, 0, 0, 0], w = [0, 0, 0, 0], top = [];

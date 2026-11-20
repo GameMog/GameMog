@@ -34,6 +34,7 @@ import { groomPass } from './groom.mjs';
 import { strandGroomPass } from './strandgroom.mjs';
 import { flatFront3Pass, flatGate, layerMaskPass } from './castpass3.mjs';
 import { slimDoc } from './slim.mjs';
+import { faceShapePass, eyeTamePass, dyePass, seatClipsPass, seatedGate } from './castpass4.mjs';
 import { skinTonePass, flatFrontPass, faceRigPass } from './castpass.mjs';
 import { hairBasePass, bodyMaskPass, undershirtPass, posturePass, stubblePaintPass, tailorPass } from './castpass2.mjs';
 // (cast round 1, the owner's standing rules: each person's natural skin tone (sRGB, the cheek under neutral light: varied
@@ -75,6 +76,33 @@ const R3X = {
 };
 for (const [k, v] of Object.entries(ROUND3)) ROUND1[k] = { ...ROUND1[k], ...v };
 for (const [k, v] of Object.entries(R3X)) ROUND1[k] = { ...ROUND1[k], ...v };
+// Cast round 4 (the critic on round 3; castpass4.mjs and the groom's knobs): strand4: over the round-3 groom (no grey cast:
+// greying and the tip's highlight 0 except Marge and Grey; each person's own root-to-tip colour; a lower specular (no wet
+// look); finer, narrower cards and more of them; Lola's layers past the shoulders; Intern Two's full tapered tail);
+// shape: MakeHuman modifier targets baked into the face (Nico's cheek, brow and jaw relief; Dex and Intern Two out of the
+// teen look); dye: a garment's colour by the render; flat3: the flat front carried from the belt down to the crotch;
+// seat: the pack's sit clips carried as the body's own with the slump halved (the call tile's seated front)
+const FINE = { nMul: 1.45, wMul: 0.72, spec: 0.3, hi: 0 };
+const DARK = (u, v, d, i) => d[i * 4] + d[i * 4 + 1] + d[i * 4 + 2] < 3 * 46;
+const MH = (n, w, both = true) => (both ? [['cheek/l-' + n, w], ['cheek/r-' + n, w]] : [[n, w]]);
+const R4 = {
+  marge: { strand4: { ...FINE, hi: 0.03, spec: 0.38, rise: 0.04 }, tone: [160, 120, 92], eyes: {} },
+  lola: { strand4: { ...FINE, nMul: 1.15, seg: 6, col: [22, 18, 16], greying: 0, len: [0.42, 0.38, 0.46], lenFront: 0.3, endY: -0.42 }, dye: [[/^western(-hem|-collar)?$/, [116, 54, 42]]] },
+  nico: { strand4: { ...FINE, col: [62, 45, 33], greying: 0 }, shape: [...MH('cheek-bones-incr', 0.6), ...MH('cheek-volume-decr', 0.45), ['chin/chin-bones-incr', 0.45, 0], ['eyebrows/eyebrows-trans-forward', 0.6], ['chin/chin-prominent-incr', 0.3]], eyes: {} },
+  wesley: { strand4: { ...FINE, col: [100, 70, 47], greying: 0 } },
+  dex: { strand4: { ...FINE, col: [44, 32, 24], greying: 0 }, age: 0.06, shape: [...MH('cheek-volume-decr', 0.5), ...MH('cheek-bones-incr', 0.3), ['chin/chin-bones-incr', 0.4], ['chin/chin-prominent-incr', 0.45]], eyes: {},
+    dye: [[/^puffer(-hem|-collar)?$/, [30, 36, 60]], [/^clothes$/, [52, 53, 56]]] },
+  'intern-a': { eyes: {} },
+  'intern-b': { strand4: { ...FINE, col: [20, 17, 16], greying: 0, tail: { n: 1100, len: 0.3, r: 0.024, swell: 0.6, w: 1.05, taper: 0.62 } }, tone: [150, 110, 80], age: 0.05, shape: [...MH('cheek-volume-decr', 0.45), ['chin/chin-bones-incr', 0.2], ['chin/chin-prominent-incr', 0.3]] },
+  // (the Directors: the suit a smooth worsted (its knit's contrast taken down) in each one's colour; the black inner jacket
+  // of the suit under it (the slab in the V) dyed the suit's colour, so the V reads shirt, tie and lapel; Navy's padded
+  // shoulder crest taken in; Navy's beard thinned off the lips (the vermilion clear))
+  'director-a': { flat3: { below: 0.2 }, strand4: { ...FINE, hi: 0.03, spec: 0.38 }, eyes: {}, dye: [[/^suit(-hem|-collar|-lapels)?$/, [118, 120, 124], { contrast: 0.45 }], [/^clothes$/, [112, 114, 118], { only: DARK }]] },
+  'director-b': { flat3: { below: 0.2 }, eyes: {}, dye: [[/^suit(-hem|-collar|-lapels)?$/, [36, 46, 80], { contrast: 0.45 }], [/^clothes$/, [34, 44, 76], { only: DARK }]], tailor: { k: 0.3, mats: /^suit(-hem|-collar|-lapels)?$/, x0: 0.13, ease: 0.008 },
+    stubble: { col: [28, 25, 24], grey: [120, 116, 110], salt: 0.3, scalp: 0.85, lips: [0.03, 0.0125], lipFade: 1.9, lipThin: 0.45, soft: 0.75 } },
+};
+for (const [k, v] of Object.entries(R4)) { const o = ROUND1[k] || {}; ROUND1[k] = { ...o, ...v, strand: o.strand && v.strand4 ? { ...o.strand, ...v.strand4 } : o.strand, age: (o.age || 0) + (v.age || 0) || undefined };
+  ROUND1[k].flat3 = { below: 0.15, lowEase: 0.03, xLowIn: 0.07, xLowOut: 0.11, ...(o.flat3 || {}), ...(v.flat3 || {}) }; ROUND1[k].seat = ROUND1[k].seat ?? { k: 0.5 }; }
 const SKIP = new Set((process.env.JC_SKIP || '').split(',').filter(Boolean));
 const DIR = new URL('../../../storykit/handbuilt/jensen-cast/', import.meta.url).pathname, OUTDIR = process.env.JC_OUT || DIR;
 const want = process.argv[2]?.split(',');
@@ -93,6 +121,9 @@ for (const f of fs.readdirSync(DIR).filter((x) => x.endsWith('.sheet.json')).sor
   if (/jeans/.test(S.wardrobe.bottom.item)) { const c = S.wardrobe.bottom.color.match(/\w\w/g).map((x) => parseInt(x, 16)); await jeansPass(doc, { tgt: c }); }
   await daylightSkinPass(doc, {});
   const R1 = ROUND1[S.id] || {};
+  if (R1.shape && !SKIP.has('shape')) faceShapePass(doc, R1.shape);
+  if (!SKIP.has('eyes4')) await eyeTamePass(doc, R1.eyes || {});
+  if (R1.dye && !SKIP.has('dye')) for (const [re, col, k] of R1.dye) await dyePass(doc, re, col, k);
   if (!SKIP.has('flat')) flatFrontPass(doc, R1.flat);
   if (!SKIP.has('tone') && R1.tone) await skinTonePass(doc, R1.tone, R1.toneK);
   // (the two ponytails keep the forge's own cut this round: the 'tie' groom read spiky and see-through, worse than the cut)
@@ -119,6 +150,7 @@ for (const f of fs.readdirSync(DIR).filter((x) => x.endsWith('.sheet.json')).sor
   // the build fails if the garment's front stands more than 1 cm forward of the sternum-belt line, castpass3.mjs)
   if (!SKIP.has('flat3')) { flatFront3Pass(doc, R1.flat3); if (!SKIP.has('mask')) bodyMaskPass(doc, R1.mask); }
   flatGate(doc, S.id);
+  if (R1.seat && !SKIP.has('seat')) { await seatClipsPass(doc, R1.seat); await seatedGate(doc, S.id); }
   // (cast round 3, blocker A: every body at most 6 MB: the lossless-looking diet last (slim.mjs))
   if (!SKIP.has('slim')) console.log('slim:', await slimDoc(doc));
   const out = await write(doc, src); if (out.length > 6 * 1048576) throw new Error(`${S.id}: ${(out.length / 1048576).toFixed(2)} MB is over the 6 MB body cap`); fs.writeFileSync(OUTDIR + S.id + '.glb', out);

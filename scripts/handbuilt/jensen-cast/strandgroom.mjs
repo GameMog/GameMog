@@ -19,7 +19,7 @@
 // Every point rides the head bone; a long fall below the jaw blends onto the chest (spine03) so it lies on the shoulders.
 // Original procedural work (the atlas CC BY as credited), CC0.
 import fs from 'node:fs';
-import { prim, sm, clamp, setWebp, fbm, body } from '../young-hero/glb.mjs';
+import { prim, sm, clamp, setWebp, fbm, body, require } from '../young-hero/glb.mjs';
 import { eyeFit } from '../frames.mjs';
 import { texelPos } from '../young-mother/p2.mjs';
 
@@ -68,7 +68,7 @@ export const STYLES = {
 
 export async function strandGroomPass(doc, K = {}) {
   const ST = STYLES[K.style]; if (!ST) throw new Error('strand groom: no style ' + K.style);
-  K = { atlas: 0.31, cut: 0.4, rough: 0.82, seed: 17, ds: 0.004, seg: 2, greying: 0, grey: [168, 166, 162], under: 0.45, rootK: 0.55, shell: 0.0035, curl: 4, ...ST, ...K };
+  K = { atlas: 0.31, cut: 0.4, rough: 0.82, hi: 0.05, spec: null, wMul: 1, nMul: 1, seed: 17, ds: 0.004, seg: 2, greying: 0, grey: [168, 166, 162], under: 0.45, rootK: 0.55, shell: 0.0035, curl: 4, ...ST, ...K };
   const R = doc.getRoot();
   let seed = K.seed; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647), rr = (a, b) => a + (b - a) * rnd();
   const E = eyeFit(doc), ey = (E.L.c[1] + E.R.c[1]) / 2, ez = (E.L.c[2] + E.R.c[2]) / 2, C = [0, ey + 0.02, ez - 0.075];
@@ -158,20 +158,20 @@ export async function strandGroomPass(doc, K = {}) {
       if (o.bias) v = norm(lerp(v, tang(o.bias, nn), o.biasK ?? 0.3));
       f = v; p = add(p, v, K.ds);
       // the layer's height over the body: held there while hugging; while falling only pushed out
-      const h2 = over(p), tgt = H * (1 - 0.35 * sm(0.75, 1, t) * (falling ? 0 : 1));
+      const h2 = over(p), H0 = K.shell + 0.002, Hr = H0 + (H - H0) * sm(0, K.rise ?? 0.03, i * K.ds), tgt = Hr * (1 - 0.35 * sm(0.75, 1, t) * (falling ? 0 : 1));
       // (no body point within ~4 cm (NaN): left where it is, never pulled a metre in toward the skull's centre)
       if (!Number.isNaN(h2.s) && (!falling || h2.s < tgt)) p = add(p, h2.n, tgt - h2.s);
       if (Number.isNaN(h2.s) && !falling) break;
       // (a hugging strand that leaves the hair (past the hairline at its end) stops a little past it)
-      if (!falling && inHair(p, 0.002) < 0.01 && i > 2 && !o.free) { const back = inHair(P[P.length - 1], 0.002); if (back < 0.01) break; }
+      if (!falling && inHair(p, 0.002) < 0.01 && i > 2 && !o.free) { const back = inHair(P[P.length - 1], 0.002); if (back < 0.01) { if (K.hang && p[1] < ey + 0.06 && Math.abs(phiOf(p)) > (K.letGo ?? 60)) falling = true; else break; } }
       if (falling && p[1] < ey + (K.endY ?? -0.1) + rr(-0.01, 0.01) * (o.front ? 2 : 1) && t > 0.5) { P.push(p); Nn.push(h2.n); break; }
       P.push(p); Nn.push(h2.n);
     }
     const keep = P.map((_, i) => i).filter((i) => i % K.seg === 0 || i === P.length - 1); return { P: keep.map((i) => P[i]), N: keep.map((i) => Nn[i]) };
   };
   const colourOf = (layer, o = {}) => {
-    const gk = rnd() < K.greying ** 0.9 ? rr(0.6, 1.0) : rr(0, 0.1), jv = rr(0.88, 1.1), c0 = lerp(base, grey, gk).map((x) => x * jv * (0.8 + 0.2 * layer));
-    return (t) => { const rg = 0.55 + 0.45 * sm(0, 0.3, t); return c0.map((x) => Math.min(1, (x / K.atlas) * rg * (1 + 0.05 * sm(0.6, 1, t)))); }; };
+    const gk = K.greying > 0 ? (rnd() < K.greying ** 0.9 ? rr(0.6, 1.0) : rr(0, 0.1)) : 0, jv = rr(0.9, 1.08), c0 = lerp(base, grey, gk).map((x) => x * jv * (0.8 + 0.2 * layer));
+    return (t) => { const rg = 0.55 + 0.45 * sm(0, 0.3, t); return c0.map((x) => Math.min(1, (x / K.atlas) * rg * (1 + K.hi * sm(0.6, 1, t)))); }; };
   // roots: area-weighted points on the scalp's triangles well inside the hairline
   const tri = []; let area = 0;
   for (const p of prim(doc, 'skin')) { const I = p.getIndices().getArray(); for (let t = 0; t < I.length; t += 3) { const a = I[t], b = I[t + 1], c = I[t + 2], w = (vw[a] + vw[b] + vw[c]) / 3; if (w < 0.6) continue;
@@ -179,7 +179,7 @@ export async function strandGroomPass(doc, K = {}) {
   const pickRoot = () => { const x = rnd() * area; let lo = 0, hi = tri.length - 1; while (lo < hi) { const m = (lo + hi) >> 1; if (tri[m][0] < x) lo = m + 1; else hi = m; }
     const [, A, Bp, Cp] = tri[lo]; let u = rnd(), v = rnd(); if (u + v > 1) { u = 1 - u; v = 1 - v; } const p = add(add(A, sub(Bp, A), u), sub(Cp, A), v); return { p, n: over(p).n }; };
   const lenAt = (p) => { const d = norm(sub(p, C)), top = sm(0.1, 0.7, d[1]), bk = sm(0.1, -0.6, d[2]); const [lt, ls, lb] = K.len; return (ls + (lt - ls) * top) * (1 - bk) + lb * bk; };
-  for (const [l0, l1, f, strips, [w0, w1]] of K.layers) for (let k = 0; k < Math.round(K.n * f); k++) {
+  for (const [l0, l1, f, strips, [w0, w1]] of K.layers) for (let k = 0; k < Math.round(K.n * f * K.nMul); k++) {
     const { p, n } = pickRoot(), layer = rr(l0, l1), d = norm(sub(p, C)), frontK = sm(0.35, 0.8, d[2]) * sm(-0.2, 0.6, d[1]);
     // (layered: each card its own length, the outer layers a little shorter at the ends (the bob's layering))
     const L = lenAt(p) * rr(0.82, 1.12) * (1 - 0.12 * layer * (K.hang ? 1 : 0)) * (frontK > 0.5 && K.lenFront ? K.lenFront / lenAt(p) : 1);
@@ -187,24 +187,28 @@ export async function strandGroomPass(doc, K = {}) {
     // (a root within 1.5 cm of the hairline: a narrow card, half of them single strands, so the hairline is soft strands
     // and not the square ends of wide clumps)
     const edge = p[1] - ey - hlAt(phiOf(p)) < 0.015 && Math.abs(phiOf(p)) < 120;
-    card(P, N, edge && rnd() < 0.5 ? 10 + Math.floor(rnd() * 3) : strips[Math.floor(rnd() * strips.length)], rr(w0, w1) * (edge ? 0.45 : 1), colourOf(layer), {});
+    card(P, N, edge && rnd() < 0.5 ? 10 + Math.floor(rnd() * 3) : strips[Math.floor(rnd() * strips.length)], rr(w0, w1) * K.wMul * (edge ? 0.45 : 1), colourOf(layer), {});
   }
   // the face-framing pieces (K.frame of them): from the front hairline at the temples, falling past the cheekbones
   // (roots drawn from the scalp itself: at the temples (K.frameAz degrees round from the front), within 2 cm of the hairline)
-  for (let k = 0, tries = 0; k < (K.frame || 0) && tries < 20000; tries++) {
+  for (let k = 0, tries = 0; k < Math.round((K.frame || 0) * K.nMul) && tries < 20000; tries++) {
     const { p: r, n: rn } = pickRoot(), ph = phiOf(r), a = Math.abs(ph); if (a < (K.frameAz?.[0] ?? 35) || a > (K.frameAz?.[1] ?? 68)) continue;
     if (r[1] - ey - hlAt(ph) > 0.02) continue; const sgn = Math.sign(ph) || 1; k++; const layer = rr(0.55, 1);
     const { P, N } = grow(r, rn, K.lenFront * rr(0.85, 1.1), layer, { front: true, bias: [sgn * 0.6, -1, -0.2], biasK: 0.3 });
-    card(P, N, [3, 4, 5, 0][Math.floor(rnd() * 4)], rr(0.009, 0.013), colourOf(layer), { taper: 0.5 });
+    card(P, N, [3, 4, 5, 0][Math.floor(rnd() * 4)], rr(0.009, 0.013) * K.wMul, colourOf(layer), { taper: 0.5 });
   }
   // a ponytail's tail: cards from the tie falling down the back, gathered at the tie, a little wider below it
   if (K.tail) { const T = K.tail, tie = add(TI, norm(sub(TI, C)), -0.1 + 0.075);
     const h0 = over(tie); const t0 = add(tie, h0.n, Math.max(0, 0.012 - h0.s));
     for (let k = 0; k < T.n; k++) { const a = rr(0, 6.28), rad = T.r * Math.sqrt(rnd()), off = [Math.cos(a) * rad, Math.sin(a) * rad * 0.6, 0]; let p = add(t0, off), f = [0, -0.4, -1]; const P = [p], Nn = [norm(sub(p, C))];
       const n = Math.round(T.len * rr(0.8, 1.1) / K.ds);
-      for (let i = 1; i <= n; i++) { const t = i / n; let v = norm(lerp(f, [off[0] * 3 * t, -1, -0.12], 0.25)); f = v; p = add(p, v, K.ds); const h = over(p); if (h.s < 0.01) p = add(p, h.n, 0.01 - h.s); P.push(p); Nn.push(norm(add(h.n, [0, 0, -1], 0.5))); }
+      const sw = T.swell ?? 0, ax = add(t0, [0, 0, 0]); for (let i = 1; i <= n; i++) { const t = i / n; let v = norm(lerp(f, [off[0] * 3 * t, -1, -0.12], 0.25)); f = v; p = add(p, v, K.ds);
+        // (the bundle's swell: the strand held at its offset from the bundle's axis scaled by the bundle's radius here: full
+        // below the tie (x (1 + sw)), then tapering to a third at the tip)
+        if (sw) { const k = (1 + sw * Math.sin(Math.PI * Math.min(1, t * 1.8)) * (1 - 0.5 * t)) * (1 - 0.6 * sm(0.5, 1, t)), kp = i > 1 ? (1 + sw * Math.sin(Math.PI * Math.min(1, (i - 1) / n * 1.8)) * (1 - 0.5 * (i - 1) / n)) * (1 - 0.6 * sm(0.5, 1, (i - 1) / n)) : 1; p = add(p, [off[0], off[1], 0], k - kp); }
+        const h = over(p); if (h.s < 0.01) p = add(p, h.n, 0.01 - h.s); P.push(p); Nn.push(norm(add(h.n, [0, 0, -1], 0.5))); } void ax;
       const keep = P.map((_, i) => i).filter((i) => i % 3 === 0 || i === P.length - 1);
-      card(keep.map((i) => P[i]), keep.map((i) => Nn[i]), [0, 1, 2, 3, 4][Math.floor(rnd() * 5)], rr(0.01, 0.015), colourOf(rr(0.3, 1)), { taper: 0.55 }); } }
+      card(keep.map((i) => P[i]), keep.map((i) => Nn[i]), [0, 1, 2, 3, 4][Math.floor(rnd() * 5)], rr(0.01, 0.015) * (T.w ?? 1), colourOf(rr(0.3, 1)), { taper: T.taper ?? 0.55 }); } }
   // ---- out with the forge's cut; in with the under-layer and the cards, in the cut's mesh (no morph targets there)
   const old = prim(doc, 'hair'); const mesh = old.length ? R.listMeshes().find((m) => m.listPrimitives().includes(old[0])) : R.listMeshes().find((m) => !m.listPrimitives().some((p) => p.listTargets().length));
   for (const p of old) { const t = p.getMaterial()?.getBaseColorTexture(); const m = p.getMaterial(); mesh.removePrimitive(p); p.dispose(); if (m && !m.listParents().some((q) => q.propertyType === 'Primitive')) { m.dispose(); if (t && !t.listParents().some((q) => q.propertyType === 'Material')) t.dispose(); } }
@@ -222,6 +226,7 @@ export async function strandGroomPass(doc, K = {}) {
     const tex = doc.createTexture('hair-strands').setImage(fs.readFileSync(ATLAS)).setMimeType('image/webp');
     const mat = doc.createMaterial('hair').setBaseColorFactor([1, 1, 1, 1]).setBaseColorTexture(tex).setAlphaMode('MASK').setAlphaCutoff(K.cut).setDoubleSided(true).setRoughnessFactor(K.rough).setMetallicFactor(0)
       .setExtras({ ...(lum > 0.25 ? { hairTone: 'light' } : {}), hairNormals: 'volume', look: { hair: 'strand-cards', style: K.style, note: 'alpha-tested hair cards from a strand atlas (POLYTRICITY, CC BY 4.0), tinted by vertex colour (cast round 3, strandgroom.mjs)' } });
+    if (K.spec != null) { const { KHRMaterialsSpecular } = require('@gltf-transform/extensions'); const ext = doc.createExtension(KHRMaterialsSpecular); mat.setExtension('KHR_materials_specular', ext.createSpecular().setSpecularFactor(K.spec)); }
     mesh.addPrimitive(doc.createPrimitive().setMaterial(mat).setIndices(acc('SCALAR', n > 65535 ? Uint32Array.from(idx) : Uint16Array.from(idx)))
       .setAttribute('POSITION', acc('VEC3', Float32Array.from(pos))).setAttribute('NORMAL', acc('VEC3', Float32Array.from(nrm))).setAttribute('COLOR_0', acc('VEC4', Float32Array.from(colr)))
       .setAttribute('TEXCOORD_0', acc('VEC2', Float32Array.from(uvs))).setAttribute('JOINTS_0', acc('VEC4', J)).setAttribute('WEIGHTS_0', acc('VEC4', W))); }

@@ -20,26 +20,30 @@ const levels = (doc, K = {}) => { const S = jointPos(doc, 'upperarm01_L'), H = j
 
 // a primitive's per-point weight on the arms (a sleeve or a hand held in front of the body is not the body's front)
 const ARM = /^(clavicle|shoulder|upperarm|lowerarm|wrist|finger|thumb|metacarpal)/;
-export function armW(doc, p) { const J = p.getAttribute('JOINTS_0'), W = p.getAttribute('WEIGHTS_0'), n = p.getAttribute('POSITION').getCount(), out = new Float32Array(n); if (!J || !W) return out;
-  const names = doc.getRoot().listSkins()[0].listJoints().map((j) => j.getName()), arm = names.map((nm) => ARM.test(nm) && !/^clavicle/.test(nm)), j = [0, 0, 0, 0], w = [0, 0, 0, 0];
+const LEG = /^(upperleg|lowerleg|foot|toe)/;
+const y0 = (A, v) => A[v * 3 + 1];
+export function armW(doc, p, RE = null) { const J = p.getAttribute('JOINTS_0'), W = p.getAttribute('WEIGHTS_0'), n = p.getAttribute('POSITION').getCount(), out = new Float32Array(n); if (!J || !W) return out;
+  const names = doc.getRoot().listSkins()[0].listJoints().map((j) => j.getName()), arm = names.map((nm) => (RE ? RE.test(nm) : ARM.test(nm) && !/^clavicle/.test(nm))), j = [0, 0, 0, 0], w = [0, 0, 0, 0];
   for (let i = 0; i < n; i++) { J.getElement(i, j); W.getElement(i, w); for (let k = 0; k < 4; k++) if (arm[j[k]]) out[i] += w[k]; } return out; }
 // every garment triangle sampled every ~4 mm (the arms' triangles left out): cb(x, y, z)
-function sample(prims, cb, doc) {
+function sample(prims, cb, doc, thr = 0.3) {
   for (const p of prims) { const A = p.getAttribute('POSITION').getArray(), I = p.getIndices().getArray(), aw = doc ? armW(doc, p) : null;
-    for (let t = 0; t < I.length; t += 3) { if (aw && Math.max(aw[I[t]], aw[I[t + 1]], aw[I[t + 2]]) > 0.3) continue; const a = I[t] * 3, b = I[t + 1] * 3, c = I[t + 2] * 3, L = Math.max(Math.hypot(A[a] - A[b], A[a + 1] - A[b + 1], A[a + 2] - A[b + 2]), Math.hypot(A[a] - A[c], A[a + 1] - A[c + 1], A[a + 2] - A[c + 2]), Math.hypot(A[b] - A[c], A[b + 1] - A[c + 1], A[b + 2] - A[c + 2])), m = Math.min(16, Math.ceil(L / 0.004));
+    for (let t = 0; t < I.length; t += 3) { if (aw && Math.max(aw[I[t]], aw[I[t + 1]], aw[I[t + 2]]) > thr) continue; const a = I[t] * 3, b = I[t + 1] * 3, c = I[t + 2] * 3, L = Math.max(Math.hypot(A[a] - A[b], A[a + 1] - A[b + 1], A[a + 2] - A[b + 2]), Math.hypot(A[a] - A[c], A[a + 1] - A[c + 1], A[a + 2] - A[c + 2]), Math.hypot(A[b] - A[c], A[b + 1] - A[c + 1], A[b + 2] - A[c + 2])), m = Math.min(16, Math.ceil(L / 0.004));
       for (let i = 0; i <= m; i++) for (let j = 0; j <= m - i; j++) { const u = i / m, v = j / m, w = 1 - u - v; cb(A[a] * w + A[b] * u + A[c] * v, A[a + 1] * w + A[b + 1] * u + A[c + 1] * v, A[a + 2] * w + A[b + 2] * u + A[c + 2] * v); } } }
 }
 
 export function frontProfile(doc, K = {}) {
-  K = { x: 0.13, ...K };
+  // (cast round 4, the critic: the band from the belt down to the crotch too (K.below; its columns the fly's, |x| < K.xLow,
+  // held to the belt's point: the lower belly may not stand forward of the belt))
+  K = { x: 0.13, below: 0, xLow: 0.06, ...K };
   const { ys, yb } = levels(doc, K), C = 0.01, rows = new Map();
   // the clothes, and the skin's front where it is the outermost (a bare torso): the skin is sampled too, the max takes the outer
   const prims = [...torsoPrims(doc), ...doc.getRoot().listMeshes().flatMap((m) => m.listPrimitives()).filter((p) => p.getMaterial()?.getName() === 'skin')];
-  sample(prims, (x, y, z) => { if (Math.abs(x) > K.x || y < yb - 0.02 || y > ys + 0.02) return; const k = Math.round(y / C); rows.set(k, Math.max(rows.get(k) ?? -9, z)); }, doc);
+  sample(prims, (x, y, z) => { if (Math.abs(x) > K.x || y < yb - K.below - 0.02 || y > ys + 0.02) return; if (y < yb - 0.012 && Math.abs(x) > K.xLow) return; const k = Math.round(y / C); rows.set(k, Math.max(rows.get(k) ?? -9, z)); }, doc, K.below ? 0.05 : 0.3);
   const at = (y) => rows.get(Math.round(y / C));
   // (the sternum's point: the chest's forward-most within 3 cm under the sternum's level: the line runs from the chest's front)
   let zs = -9; for (let y = ys - 0.03; y <= ys + 1e-6; y += C) zs = Math.max(zs, at(y) ?? -9); const zb = Math.min(at(yb), zs); let dev = 0, devY = ys; const prof = [];
-  for (let y = yb; y <= ys + 1e-6; y += C) { const z = at(y); if (z === undefined) continue; const line = Math.min(zs, zb + (zs - zb) * (y - yb) / (ys - yb - 0.06)), d = z - line; prof.push([+(y.toFixed(2)), +(d * 1000).toFixed(1)]); if (d > dev) { dev = d; devY = y; } }
+  for (let y = yb - K.below; y <= ys + 1e-6; y += C) { const z = at(y); if (z === undefined) continue; const line = y < yb ? zb : Math.min(zs, zb + (zs - zb) * (y - yb) / (ys - yb - 0.06)), d = z - line; prof.push([+(y.toFixed(2)), +(d * 1000).toFixed(1)]); if (d > dev) { dev = d; devY = y; } }
   return { ys, yb, zs, zb, dev, devY, prof };
 }
 
@@ -60,20 +64,20 @@ export function flatFront3Pass(doc, K = {}) {
   // (the buttons, snaps and zips ride with the front they sit on: moved, never sampled)
   const trim = doc.getRoot().listMeshes().flatMap((m) => m.listPrimitives()).filter((p) => p.getIndices() && /button|snap|zip|hardware/.test(p.getMaterial()?.getName() || ''));
   let n = 0, mx = 0; const seen = new Set();
-  for (const p of [...gar, ...skinP, ...trim]) { const acc = p.getAttribute('POSITION'); if (seen.has(acc)) continue; seen.add(acc); const A = acc.getArray().slice(), aw = armW(doc, p);
-    for (let v = 0; v < A.length / 3; v++) { if (aw[v] > 0.3) continue; const x = A[v * 3], y = A[v * 3 + 1], z = A[v * 3 + 2]; if (y <= yb - K.below || y >= ys || z < 0) continue; const f = fade(x); if (!f) continue;
+  for (const p of [...gar, ...skinP, ...trim]) { const acc = p.getAttribute('POSITION'); if (seen.has(acc)) continue; seen.add(acc); const A = acc.getArray().slice(), aw = armW(doc, p), lw = K.legW ? armW(doc, p, LEG) : null;
+    for (let v = 0; v < A.length / 3; v++) { if (aw[v] > 0.3) continue; if (lw && y0(A, v) < yb - 0.012 && lw[v] > K.legW) continue; const x = A[v * 3], y = A[v * 3 + 1], z = A[v * 3 + 2]; if (y <= yb - K.below || y >= ys || z < 0) continue; const f = fade(x) * (y < yb - 0.012 ? 1 - sm(K.xLowIn ?? 1, K.xLowOut ?? 2, Math.abs(x)) : 1); if (!f) continue;
       const L = line(x, y), front = at(x, y); if (L === undefined || front === undefined) continue; const over = front - (L + K.slack); if (over <= 0) continue;
       const depth = Math.max(0, front - z); if (depth > K.d2) continue; const k = depth <= K.d1 ? 1 : 1 - sm(K.d1, K.d2, depth);
       // (eased in over 4 cm from the sternum and the belt, so the line meets the chest and the hips without a step)
       // (below the belt, K.below more: the waistband and the lower belly held to the belt's point, eased out toward the hips)
-      const w = f * k * (y >= yb ? sm(0, 0.02, ys - y) : sm(yb - K.below, yb - 0.01, y)), mv = over * w; A[v * 3 + 2] = z - mv; mx = Math.max(mx, mv); n++; }
+      const w = f * k * (y >= yb ? sm(0, 0.02, ys - y) : sm(yb - K.below, yb - K.below + (K.lowEase ?? K.below - 0.01), y)), mv = over * w; A[v * 3 + 2] = z - mv; mx = Math.max(mx, mv); n++; }
     acc.setArray(A); }
   console.log('flat front 3: sternum', ys.toFixed(3), 'belt', yb.toFixed(3), '; points drawn back', n, 'up to', (mx * 1000).toFixed(1), 'mm');
 }
 
 export function flatGate(doc, id, K = {}) {
-  const r = frontProfile(doc, K), mm = (r.dev * 1000).toFixed(1), ok = r.dev <= (K.max ?? 0.01);
-  console.log(`flat gate: ${id} standing, the garment's front sternum (${r.ys.toFixed(2)}) to belt (${r.yb.toFixed(2)}): max forward of the line ${mm} mm at y ${r.devY.toFixed(2)} ${ok ? 'PASS' : 'FAIL'} (limit ${((K.max ?? 0.01) * 1000).toFixed(0)} mm)`);
+  const r = frontProfile(doc, { below: 0.13, ...K }), mm = (r.dev * 1000).toFixed(1), ok = r.dev <= (K.max ?? 0.01);
+  console.log(`flat gate: ${id} standing, the garment's front sternum (${r.ys.toFixed(2)}) to belt (${r.yb.toFixed(2)}) and on to the crotch: max forward of the line ${mm} mm at y ${r.devY.toFixed(2)} ${ok ? 'PASS' : 'FAIL'} (limit ${((K.max ?? 0.01) * 1000).toFixed(0)} mm)`);
   if (!ok && !process.env.JC_NOGATE) throw new Error(`flat gate: ${id} front ${mm} mm past the sternum-belt line`);
   return r;
 }

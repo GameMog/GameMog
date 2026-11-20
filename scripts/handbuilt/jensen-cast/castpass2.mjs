@@ -149,7 +149,7 @@ export async function stubblePaintPass(doc, K = {}) {
     // the beard: under the cheek line, in front of the ears, off the lips; the scalp: over the hairline
     const cheekTop = ey - 0.04 - 0.18 * Math.max(0, ax - 0.02), mouthY = ey - 0.083, lipR = K.lips || [0.026, 0.0105], lipE = (x / lipR[0]) ** 2 + ((y - mouthY) / lipR[1]) ** 2, lips = lipE < 1;
     const jn = 0.006 * (fbm(x, y, z, 60) - 0.5);
-    let wb = (1 - sm(cheekTop - 0.008, cheekTop + 0.002, y + jn)) * sm(ez - 0.085, ez - 0.06, z) * sm(ey - 0.2, ey - 0.16, y) * (K.lips ? sm(1, 1.35, lipE) : lips ? 0 : 1);
+    let wb = (1 - sm(cheekTop - 0.008, cheekTop + 0.002, y + jn)) * sm(ez - 0.085, ez - 0.06, z) * sm(ey - 0.2, ey - 0.16, y) * (K.lips ? sm(1, K.lipFade ?? 1.35, lipE) * (K.lipThin ? 1 - K.lipThin * (1 - sm(1, 3.2, lipE)) : 1) : lips ? 0 : 1);
     const t = sm(ez - 0.095, ez - 0.02, z), hl = (z < ez - 0.095 ? ey - 0.075 + 0.1 * sm(ez - 0.17, ez - 0.095, z) : ey + 0.025 + 0.042 * t);
     let ws = sm(hl - 0.004, hl + 0.006, y + jn) * (ax > 0.065 && y < ey + 0.035 && z > ez - 0.12 ? 0 : 1);
     if (wb <= 0 && ws <= 0) continue;

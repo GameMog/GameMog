@@ -19,6 +19,8 @@ import { posturePass, bodyMaskPass, tailorPass } from '../jensen-cast/castpass2.
 import { flatFront3Pass, flatGate } from '../jensen-cast/castpass3.mjs';
 import { slimDoc } from '../jensen-cast/slim.mjs';
 import { plumbClipsPass, bakeRestPass, levelArmaturePass } from '../jensen-cast/plumb.mjs';
+import { faceRigPass } from '../jensen-cast/castpass.mjs';
+import { eyeTamePass, beardCardsPass, beardMorphsPass, seatClipsPass, seatedGate } from '../jensen-cast/castpass4.mjs';
 
 const ROOT = new URL('../../../', import.meta.url).pathname;
 const SRC = ROOT + 'public/storykit/cast/mogcity/mrbig.glb', DIR = ROOT + 'storykit/handbuilt/board/';
@@ -41,7 +43,9 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   const { doc, src } = await read(SRC);
   const steps = [['eyes', () => eyesPass(doc)], ['iris', () => irisPass(doc, { base: [86, 56, 36] })], ['teeth', () => teethPass(doc)],
     // (cast round 3, the critic: clear glasses: a fine dark gunmetal frame, the lenses clear (no white glare panes or glints))
-    ['glasses', () => { framesPass(doc, { style: 'acetate', T: 0.0034, D: 0.0045, BH: 0.002, col: [0.09, 0.085, 0.08], metal: 0.6, rough: 0.35, glint: 0 });
+    // (cast round 4, the critic: "a genuinely thin dark frame": the rims 2.2 mm (were 3.4 plus a 1.2 mm bevel), a near-black
+    // satin with no metal (the 0.6 metal read as a thick silver frame under the study's key))
+    ['glasses', () => { framesPass(doc, { style: 'acetate', T: 0.0022, D: 0.0032, bevel: 0.0005, BH: 0.0016, armH: 0.0036, armW: 0.0018, col: [0.012, 0.011, 0.011], metal: 0, rough: 0.32, glint: 0 });
       // (no lens panes: clear glass is no glass in the game (the panes' shadow greyed the eyes, Jensen's iteration 2))
       for (const p of doc.getRoot().listMeshes().flatMap((m) => m.listPrimitives())) if (/^(lenses|lens-edges|lens-glints)$/.test(p.getMaterial()?.getName() || '')) { const m = p.getMaterial(); p.listParents().filter((x) => x.propertyType === 'Mesh').forEach((x) => x.removePrimitive(p)); p.dispose(); if (!m.listParents().some((x) => x.propertyType === 'Primitive')) m.dispose(); } }], ['tie', () => tiePass(doc)],
     // (Jensen Heist cast round 2, the owner's standing rules: the suit's front flat from the sternum to the belt (no belly),
@@ -53,9 +57,15 @@ if (import.meta.url === 'file://' + process.argv[1]) {
     // (castpass3.mjs: the suit's belly drawn back onto the sternum-belt line), the skin drawn in under it, and the gate)
     ['level', () => levelArmaturePass(doc)], ['plumb', () => plumbClipsPass(doc, JSON.parse(process.env.JC_PLUMB || '{}'))], ['bakerest', () => bakeRestPass(doc, 'idle', 0)],
     // (the critic: "remove the shoulder humps that appear in the call-tile pose": the suit's shoulders taken in to the arm)
-    ['tailor', () => tailorPass(doc, { mats: /^clothes$/, ease: 0.01, x0: 0.14, drop: 0.14, k: 0.16, ...JSON.parse(process.env.JC_TAILOR || '{}') })],
-    ['flat3', () => { flatFront3Pass(doc, { xIn: 0.13, xOut: 0.2, d1: 0.06, d2: 0.14, below: 0.14, bUp: 0.03 }); bodyMaskPass(doc); }],
-    ['gate', () => flatGate(doc, 'board', { bUp: 0.03 })]];
+    ['tailor', () => tailorPass(doc, { mats: /^clothes$/, ease: 0.008, x0: 0.13, drop: 0.14, k: 0.3, ...JSON.parse(process.env.JC_TAILOR || '{}') })],
+    ['flat3', () => { flatFront3Pass(doc, { lean: 0.02, xIn: 0.21, xOut: 0.3, d1: 0.06, d2: 0.14, below: 0.17, lowEase: 0.03, legW: 0.93, bUp: 0.03 }); bodyMaskPass(doc); }], // (cast round 4: on down to the crotch)
+    ['gate', () => flatGate(doc, 'board', { bUp: 0.03, below: 0.1 })], // (his belt sits 3 cm over the hips: the band 10 cm under it, to the trousers' fly seam)
+    // (cast round 4, the critic: his visemes rendered and checked: the cast's baked face targets (castpass.mjs faceRigPass:
+    // blinks, jaw, the 15 visemes, smiles, brows; his skin is MakeHuman's, mapped by uv), the beard as short dense cards that
+    // open with the jaw, the eyes' washout tamed; the pack's sit clips as his own with the slump halved, measured seated)
+    ['eyes4', () => eyeTamePass(doc, {})], ['beard', () => beardCardsPass(doc, JSON.parse(process.env.JC_BEARD || '{}'))],
+    ['face', async () => { await faceRigPass(doc, {}); /* (the tongue in the open visemes a muted dark rose, not a lit red) */ doc.getRoot().listMaterials().find((m) => m.getName() === 'teethLow')?.setBaseColorFactor([0.32, 0.22, 0.21, 1]); }], ['beardmorphs', () => beardMorphsPass(doc)],
+    ['seat', async () => { await seatClipsPass(doc, { k: 0.5 }); await seatedGate(doc, 'board'); }]];
   for (const [k, f] of steps) if (on(k)) { const t = Date.now(); await f(); console.log('step', k, ((Date.now() - t) / 1000).toFixed(1), 's'); }
   fs.mkdirSync(DIR, { recursive: true });
   if (on('slim')) console.log('slim:', await slimDoc(doc));
