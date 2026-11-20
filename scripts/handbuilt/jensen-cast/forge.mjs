@@ -112,7 +112,7 @@ for (const [k, v] of Object.entries(R4)) { const o = ROUND1[k] || {}; ROUND1[k] 
 //   Intern Two: adult (the forge's age up), a natural warm tone (not chalky), a fuller, longer ponytail
 //   Dex: the tee's crew neck up to the collar's zip (no skin strip)
 //   Marge: the crown's cards laid down (a longer rise from the scalp), the headset band on the hair's under-layer
-//   Intern One: the eyes' clear coat down (the pale glow was its reflection), the iris deeper
+//   Intern One: the eyes' clear coat and specular down (the pale glow was the env's sheen off them), the iris deeper
 const R5 = {
   'director-b': { tone: [100, 72, 56], stubble: { ...ROUND1['director-b'].stubble, lips: [0.022, 0.0078], lipFade: 1.12, lipThin: 0 }, worsted: {} },
   'director-a': { worsted: {}, dye: [[/^suit(-hem|-collar|-lapels)?$/, [118, 120, 124], { contrast: 0.2 }], [/^clothes$/, [112, 114, 118], { only: DARK }]] },
@@ -120,7 +120,7 @@ const R5 = {
     strand: { ...ROUND1['intern-b'].strand, tail: { n: 1600, len: 0.32, r: 0.038, swell: 0.8, w: 1.3, taper: 0.55 } } },
   dex: { underK: { crew: { dip: 0.004, rib: 0.008, ribK: 0.72 } } },
   marge: { strand: { ...ROUND1.marge.strand, rise: 0.075, vol: [0.009, 0.007] }, headset: { lay: 0.011 } },
-  'intern-a': { eyes: { coat: 0.08, rough: 0.45, iris: 0.42 } },
+  'intern-a': { eyes: { coat: 0.05, rough: 0.55, iris: 0.42 }, eyeSpec: 0.3 },
 };
 for (const [k, v] of Object.entries(R5)) { const o = ROUND1[k] || {}; ROUND1[k] = { ...o, ...v, age: v.age ? (o.age || 0) + v.age : o.age }; }
 const SKIP = new Set((process.env.JC_SKIP || '').split(',').filter(Boolean));
@@ -144,6 +144,9 @@ for (const f of fs.readdirSync(DIR).filter((x) => x.endsWith('.sheet.json')).sor
   const R1 = ROUND1[S.id] || {};
   if (R1.shape && !SKIP.has('shape')) faceShapePass(doc, R1.shape);
   if (!SKIP.has('eyes4')) await eyeTamePass(doc, R1.eyes || {});
+  // (rules round 1: a dark iris read pale blue-grey in the game's call tile: the env's sheen off the eye; its specular down)
+  if (R1.eyeSpec != null) { const m = doc.getRoot().listMaterials().find((x) => x.getName() === 'eyes'), { KHRMaterialsSpecular } = (await import('../young-hero/glb.mjs')).require('@gltf-transform/extensions');
+    m?.setExtension('KHR_materials_specular', doc.createExtension(KHRMaterialsSpecular).createSpecular().setSpecularFactor(R1.eyeSpec)); }
   if (R1.dye && !SKIP.has('dye')) for (const [re, col, k] of R1.dye) await dyePass(doc, re, col, k);
   if (R1.worsted && !SKIP.has('worsted')) await worstedPass(doc, /^suit(-hem|-collar|-lapels)?$/, R1.worsted);
   if (!SKIP.has('flat')) flatFrontPass(doc, R1.flat);
