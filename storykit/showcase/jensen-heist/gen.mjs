@@ -37,7 +37,7 @@ const cast = [
   { id: 'marge', color: '#C9A227', sheet: sheet('marge'),
     anchor: 'office-worker', voice: { id: 'marge-v1', blend: { af_river: 0.7, af_nova: 0.3 }, speed: 1.0, pitch: -1.4, description: 'a woman in her fifties, dry and low, crisp consonants, even and unhurried until the one time she is not' },
     speech: { rhythm: 'clean full sentences that sound like a run of show', habit: '"Standby." "Copy." "T-minus."', jokes: 'dry, treats the jacket as cast with a call time', never: 'says yes to Jensen just because he asked', motifs: ['nineteen keynotes', 'the fog machine fire', 'the headset', 'watching from the seats'] } },
-  { id: 'nico', color: '#8FB3D9', sheet: { ...sheet('nico'), logline: 'Came west four days ago in the lime roadster; names every pothole.' },
+  { id: 'nico', color: '#8FB3D9', sheet: { ...sheet('nico'), logline: 'Came west four days ago in the lime supercar; names every pothole.' },
     anchor: 'driver', voice: { id: 'nico-v1', blend: { am_fenrir: 0.6, am_santa: 0.4 }, speed: 1.12, pitch: -1.0, description: 'a man in his forties, gravelly and fast, warm underneath, a storyteller who never stops for breath' },
     speech: { rhythm: 'one-breath run-on stories held together with and and so', habit: 'calls Jensen "boss"; rates everything out of eleven', jokes: 'names potholes, talks to the car', never: 'asks about a man\'s generosity', motifs: ['the banker kid', 'the hot dogs', 'the screaming curb', 'Gary and the Pope'] } },
   { id: 'lola', color: '#E8B23A', sheet: sheet('lola'),
@@ -105,7 +105,7 @@ const opening = {
   },
   shots: [
     { cam: { rel: 'player', right: -2, up: 60, fwd: -80 }, to: { rel: 'player', right: 0, up: 30, fwd: -45 }, look: '@arena', fov: 55, dur: 6, where: { name: 'San Jose, California', sub: 'South of downtown · 9:04 AM' } },
-    // (Nico by the lime roadster: the lens off his right shoulder, the car beyond him; the paint is the car-colour set-up)
+    // (Nico by the lime Tensore: the lens off his right shoulder, the car beyond him; the paint is the car-colour set-up)
     { cam: { rel: 'nico', right: 4.6, up: 1.0, fwd: 1.4 }, look: { rel: 'nico', up: -0.2, fwd: 2.0 }, fov: 58, dur: 4, card: { who: 'nico', is: 'ally', role: 'the car guy, four days in from back east, fresh paint job' } },
     { set: 'kitchen', cam: { rel: 'jensen', right: 0.2, up: 0.1, fwd: 1.4 }, look: { rel: 'jensen' }, fov: 38, dur: 7, card: { who: 'jensen', is: 'hero', role: 'founder, CEO, owner of one jacket' },
       say: 'jensen', line: "Good morning, San Jose! Tonight, the fastest chip ever made, and because you're family, you see it first, straight out of my oven." },
@@ -117,7 +117,7 @@ const opening = {
     // (Marge cuts in, and he doesn't hear her: K1 opens on "I said 'we're off' at 'Marge.'")
     { set: 'kitchen', cam: { rel: 'jensen', right: 0.15, up: 0.08, fwd: 1.2 }, look: { rel: 'jensen' }, fov: 38, dur: 5,
       lines: [L('jensen', 'Ha! Okay. Everybody, quick logo spin. Marge? Logo spin. Marge!', { pre: 0.4, cut: 0.9 }), L('marge', "Off. We're off.", { overlap: true, how: 'deadpan' })] },
-    // (the title over the hero by the lime roadster, parked at his side; the pack's vehicles carry the paint)
+    // (the title over the hero by the lime Tensore, parked at his side; the pack's vehicles carry the paint)
     { cam: { rel: 'player', right: -6, up: 4, fwd: -16 }, look: 'player', dur: 5, title: true },
   ],
 };
@@ -269,7 +269,7 @@ const L1 = { type: 'vcall', id: 'l1', title: "Lola's Window", time: 'golden', pe
 // stop: Director Grey on the street with the chair, the beat on him, two waiting `say` steps (each a step the span
 // counts: npc, beat, say, say, drive 2's end = span 5); a mission line waits for the call's line playing, the call for
 // the mission's line (calls.js:884). W1 rings in leg 2.
-const M1 = { id: 'PH-1', title: 'Preheat', vehicle: 'roadster', start: '@kitchen', time: 'midday', card: 'slam', verbs: ['drive'],
+const M1 = { id: 'PH-1', title: 'Preheat', vehicle: 'tensore', start: '@kitchen', time: 'midday', card: 'slam', verbs: ['drive'],
   stakes: 'Ten hours to doors, and the only working prototype is gone.', passLine: 'Blue vests, a blue cooler. Follow the crumbs.',
   steps: [
     { type: 'transition', kicker: '9:06 AM', text: 'THE KITCHEN STUDIO' },
@@ -365,7 +365,7 @@ const I1 = { type: 'vcall', id: 'i1', title: 'Quick Sync (Intern)', time: 'day',
     V(P, 'The more you tip... you know what, just a big one.'),
   ] };
 
-const M2 = { id: 'CB-2', title: 'Cold Box', vehicle: 'roadster', start: '@market', time: 'midday', card: 'slam', verbs: ['drive', 'tail', 'fight'],
+const M2 = { id: 'CB-2', title: 'Cold Box', vehicle: 'tensore', start: '@market', time: 'midday', card: 'slam', verbs: ['drive', 'tail', 'fight'],
   stakes: "Dex's guys have the blue cooler. Don't get spotted.", passLine: "Booth three. One o'clock. Come alone.",
   steps: [
     { type: 'tail', name: 'the Cobalt SUV', car: 'suv', color: '#2F5FD0', route: ['@market', '@santa-clara', '@station', '@station-lot'], ahead: 60, speed: 11, lostDist: 220,
@@ -514,7 +514,7 @@ const M2C = { type: 'call', who: 'marge', auto: true, inCar: true, register: 'fa
   wrap: [L('marge', 'Talk to me. Did you lose them?'), L('jensen', "They're stuck behind a bus. I think they're filling out a form about it."),
     L('marge', 'Good. Three hours to my four o\'clock. Breathe in the car, not on the jacket.')] };
 
-const M3 = { id: 'BT-3', title: 'Booth Three', vehicle: 'roadster', start: '@station', time: 'midday', card: 'slam', verbs: ['drive', 'escape'],
+const M3 = { id: 'BT-3', title: 'Booth Three', vehicle: 'tensore', start: '@station', time: 'midday', card: 'slam', verbs: ['drive', 'escape'],
   stakes: 'The napkin says booth three. Sit facing the door.', passLine: 'He wants your stage. He has a letter. You have a clipboard.',
   steps: [
     { type: 'transition', kicker: '12:41 PM', text: 'THE CORNER DINER' },
@@ -605,7 +605,7 @@ const X1 = { type: 'vcall', id: 'x1', title: 'COBALT C1: LIVE UPLOAD', time: 'go
     V('intern-a', 'Sir? Is now a good time for that reference?'),
   ] };
 
-const M4 = { id: 'DL-4', title: 'Dome Light', vehicle: 'roadster', start: '@santa-clara', time: 'golden', card: 'slam', verbs: ['drive', 'sneak', 'carry'],
+const M4 = { id: 'DL-4', title: 'Dome Light', vehicle: 'tensore', start: '@santa-clara', time: 'golden', card: 'slam', verbs: ['drive', 'sneak', 'carry'],
   stakes: "At 2:30 Dex puts Greenlight's number up as his own.", passLine: 'One number, no chip. A velvet bag went the other way.',
   steps: [
     { type: 'transition', kicker: '2:15 PM', text: 'THE SCIENCE MUSEUM' },
@@ -774,7 +774,7 @@ const W3 = { type: 'call', who: 'wesley', interrupts: true, inCar: true, at: 50,
     L('wesley', "I'm gonna fix it so hard!"),
   ] };
 
-const M5 = { id: 'SS-5', title: 'Signed, Sealed', vehicle: 'roadster', start: '@arena-line', time: 'golden', card: 'slam', verbs: ['drive', 'escape'],
+const M5 = { id: 'SS-5', title: 'Signed, Sealed', vehicle: 'tensore', start: '@arena-line', time: 'golden', card: 'slam', verbs: ['drive', 'escape'],
   stakes: "A delivery for the Board, two blocks from the arena.", passLine: 'A decoy cone, eleven Directors, and a grey SUV.',
   steps: [
     { type: 'transition', kicker: '4:05 PM', text: 'THE CONVENTION HALL' },
@@ -837,7 +837,7 @@ const M4C = { type: 'call', who: 'marge', ring: 4, lines: [
   L('marge', 'Yes. ...Get delivered.', { pre: 0.4 }),
 ] };
 
-const M6 = { id: 'TP-6', title: 'Take Private', vehicle: 'roadster', start: '@viaduct', time: 'golden', card: 'slam', verbs: ['drive', 'tail', 'fight', 'escape', 'carry'],
+const M6 = { id: 'TP-6', title: 'Take Private', vehicle: 'tensore', start: '@viaduct', time: 'golden', card: 'slam', verbs: ['drive', 'tail', 'fight', 'escape', 'carry'],
   stakes: "Wesley's watching the docks. The cone guy's grey SUV keeps stopping to vote.", passLine: 'Brisket is back. The stage is not.',
   steps: [
     { type: 'transition', kicker: '5:20 PM', text: 'THE STACK' },
@@ -941,7 +941,7 @@ const A1 = { type: 'vcall', id: 'a1', title: 'Dock Door', time: 'golden', people
     V('lola', 'Down. Suits.', { overlap: true, how: 'hushed' }),
   ] };
 
-const M7 = { id: 'FL-7', title: 'Fan Line', vehicle: 'roadster', start: '@market', time: 'twilight', card: 'slam', verbs: ['drive', 'follow', 'fight'],
+const M7 = { id: 'FL-7', title: 'Fan Line', vehicle: 'tensore', start: '@market', time: 'twilight', card: 'slam', verbs: ['drive', 'follow', 'fight'],
   stakes: "The Board has the building. Lola's truck has a dock pass. Stay behind Lola.", passLine: 'Through the dock door, with a busboy in a jacket.',
   steps: [
     { type: 'transition', kicker: '6:38 PM', text: 'THE MARKET SQUARE' },
@@ -1165,7 +1165,7 @@ const F3 = { type: 'vcall', id: 'f3', title: 'After the Show', time: 'night', en
     V('nico', 'Out of eleven.', { overlap: true }),
   ] };
 
-const M8 = { id: 'ST-8', title: 'Showtime', vehicle: 'roadster', start: '@arena', time: 'twilight', card: 'slam', verbs: ['sneak', 'fight'],
+const M8 = { id: 'ST-8', title: 'Showtime', vehicle: 'tensore', start: '@arena', time: 'twilight', card: 'slam', verbs: ['sneak', 'fight'],
   stakes: 'Seven o\'clock. The Board walks out first unless you do.', passLine: 'Seven-oh-four. The earliest keynote in Greenlight history.',
   steps: [
     { type: 'transition', kicker: '6:52 PM', text: 'THE ARENA · LOADING DOCK' },
@@ -1200,10 +1200,10 @@ const pack = {
   base: { engine: 'mogcity-1', city: 'hometown', cityBuild: `hometown-${lock.buildId}`.slice(0, 39),
     hometown: { place: lock.place, compiler: lock.buildId, tiles: lock.tiles, formatVersion: lock.formatVersion, grid: lock.grid, domain: lock.domain, origin: lock.origin, k0: lock.k0, gamma0: lock.gamma0, yOffset: lock.yOffset, waterLevel: lock.waterLevel } },
   dressing: { time: 'midday', season: 'autumn', weather: 'clear', holiday: [] },
-  hero: 'jensen', ride: 'roadster', opening,
+  hero: 'jensen', ride: 'tensore', opening,
   hud: { meters: [{ id: 'crowd', label: 'CROWD', kind: 'bar', start: 0, min: 0, max: 100 }] },
-  // (the hero's car: Mog City's roadster in the parody company's lime green, paint only, no logo or livery)
-  places, cast, vehicles: [{ stock: 'roadster', paint: '#76B900' }],
+  // (the hero's car: Mog City's Tensore (stock wedge), the lime supercar, in the parody company's lime green, paint only, no logo or livery)
+  places, cast, vehicles: [{ stock: 'wedge', id: 'tensore', label: 'Tensore', paint: '#76B900' }],
   acts: [
     { id: 'act-1', name: 'Preheat', missions: [M1, M2] },
     { id: 'act-2', name: 'Booth Three', missions: [M3, M4] },

@@ -5,7 +5,7 @@
  * SHOWCASE_PACKS), gated as a showcase, and published by a migration (deploy/migrate.mjs 2026-11-18-jensen-heist) from
  * the record this script writes:
  *
- *   node --import ./scripts/ts-resolve.mjs scripts/storykit-showcase-jensen.ts --export [--voice <dir of rendered clips>]
+ *   node --import ./scripts/ts-resolve.mjs scripts/storykit-showcase-jensen.ts [--bodies] --export [--voice <dir of rendered clips>]
  *   node --import ./scripts/ts-resolve.mjs scripts/storykit-showcase-jensen.ts --draft <out.json> [--cast <id=url,...>]
  *
  * Unlike Pickup Time it plays in a town compiled from open data, so it is gated with the town's table
@@ -23,7 +23,9 @@
  * --export refuses while a body or a clip is missing (the bodies and the voices are their own tracks); --draft writes
  * the runner world with the clips that are in (a line without one is a subtitle) and the bodies at the addresses --cast
  * gives, for a play on the Mac. --voice <dir> alone copies the clips in and writes JH_VOICE (the record waits for the
- * bodies); with --export it does that first.
+ * bodies); with --export it does that first. --bodies copies the hand-built cast's builds (BODY_SOURCES, the jh-hero
+ * track's storykit/handbuilt/...) to BODIES, each inside a body's limits; with --export it does that first, and refuses
+ * while one is not built.
  */
 import { createHash } from 'node:crypto';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
@@ -49,6 +51,17 @@ export const JH_TOWN = `storykit/showcase/${JH_ID}/town.json.gz`;
 /** The seen people's hand-built bodies, by cast id (the hand-built cast's track puts them here). */
 export const BODIES: Record<string, string> = Object.fromEntries(['jensen', 'marge', 'nico', 'lola', 'wesley', 'dex', 'intern-a', 'intern-b', 'director-a', 'director-b']
   .map((id) => [id, `public/storykit/cast/hand/jh-${id}.glb`]));
+/**
+ * Where the hand-built cast's track (branch jh-hero) builds each body: Jensen's own folder and the supporting cast's.
+ * `--bodies` copies each one that is in the checkout to BODIES (the address the record and the migration name), as the
+ * cast registry ships a new build (storykit/cast/README.md: copy its GLB to public/storykit/cast/hand/). Mr. Board stays
+ * Mog City's Mr. Big (cast model mogcity/mrbig) until the owner gives him the hand-built derivative
+ * (storykit/handbuilt/board/board.glb): then a sheet, his cast entry without `model`, and a line here.
+ */
+export const BODY_SOURCES: Record<string, string> = Object.fromEntries(Object.keys(BODIES)
+  .map((id) => [id, id === 'jensen' ? 'storykit/handbuilt/jensen/jensen.glb' : `storykit/handbuilt/jensen-cast/${id}.glb`]));
+/** A body's limits: what a Mog of the showcase may inherit (lib/storykit-store.ts LIMITS.glb.each, SHOWCASE_LIMITS.glb.total). */
+export const BODY_LIMITS = { each: 6 * 1024 * 1024, total: 128 * 1024 * 1024 };
 const BLURB = "Ten hours before the biggest keynote of his life, Jensen opens his oven on a live stream and finds it empty: the only prototype of the fastest chip ever made is gone, and Mr. Board wants his stage. Eight missions across San Jose, every conversation a video call.";
 /** The parody's credit line (PLAN.md decision 3; the owner's to approve). */
 export const JH_CREDIT = "A parody of a public figure's public keynote persona. Not endorsed. Built from CC0 MakeHuman parts.";
@@ -129,6 +142,7 @@ export function jhProblems(): string[] {
   if (!G.g.ok) return G.g.problems.slice(0, 5).map((p) => `${JH_ID}: ${p}`);
   if (JSON.stringify(cityLock(G.town)) !== JSON.stringify(G.g.pack!.base.hometown)) out.push(`${JH_ID}: base.hometown is not ${JH_TOWN}'s pin`);
   out.push(...jhVoiceProblems(G.g.pack!, G.town));
+  out.push(...jhBodyProblems().problems);
   if (!existsSync(JH_RECORD)) return out;
   let w: ReturnType<typeof jhWorld>;
   try { w = jhWorld(); } catch (e) { return [...out, (e as Error).message]; }
@@ -140,6 +154,29 @@ export function jhProblems(): string[] {
   for (const k of ['cover', 'wide', 'icon', 'sky']) if (!existsSync(`deploy/migrations/${JH_ID}-${k}.jpg`)) out.push(`deploy/migrations/${JH_ID}-${k}.jpg is missing`);
   if (rec.world.bytes > 640_000) out.push(`the world is ${rec.world.bytes} bytes: a sealed world is at most 640000`);
   return out;
+}
+
+/**
+ * The bodies before the record: each one at BODIES is a GLB inside a body's limits (BODY_LIMITS), and, where its source
+ * (BODY_SOURCES) is in the checkout, the same bytes as it (a new build of a body means `--bodies` again). Returns the
+ * problems and how many of the bodies are in. None in is not a problem: the record waits for them.
+ */
+export function jhBodyProblems(): { problems: string[]; in: number; sources: number } {
+  const out: string[] = [];
+  let n = 0, src = 0, total = 0;
+  for (const [id, dst] of Object.entries(BODIES)) {
+    const from = BODY_SOURCES[id];
+    if (from && existsSync(from)) src++;
+    if (!existsSync(dst)) continue;
+    n++;
+    const b = readFileSync(dst);
+    total += b.length;
+    if (b.length < 12 || b.readUInt32LE(0) !== 0x46546c67) out.push(`${dst}: not a GLB`);
+    if (b.length > BODY_LIMITS.each) out.push(`${dst}: ${b.length} bytes, over a body's ${BODY_LIMITS.each} (a Mog could not inherit it)`);
+    if (from && existsSync(from) && sha(readFileSync(from)) !== sha(b)) out.push(`${dst} is not ${from} (run --bodies)`);
+  }
+  if (total > BODY_LIMITS.total) out.push(`the bodies are ${total} bytes, over ${BODY_LIMITS.total}`);
+  return { problems: out.slice(0, 8), in: n, sources: src };
 }
 
 /**
@@ -180,7 +217,27 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     process.exit(0);
   }
   const vi = args.indexOf('--voice');
-  if (!args.includes('--export') && vi < 0) { console.error('usage: storykit-showcase-jensen.ts --export [--voice <dir>] | --voice <dir> | --draft <out.json> [--cast id=url,...]'); process.exit(2); }
+  if (!args.includes('--export') && vi < 0 && !args.includes('--bodies')) { console.error('usage: storykit-showcase-jensen.ts [--bodies] [--voice <dir>] --export | --bodies | --voice <dir> | --draft <out.json> [--cast id=url,...]'); process.exit(2); }
+  if (args.includes('--bodies')) {
+    // (the hand-built cast's builds, from jh-hero once it is merged, to the addresses the record names)
+    const missing: string[] = [];
+    let n = 0;
+    for (const [id, dst] of Object.entries(BODIES)) {
+      const from = BODY_SOURCES[id];
+      if (!from || !existsSync(from)) { missing.push(`${id} (${from})`); continue; }
+      const b = readFileSync(from);
+      if (b.length < 12 || b.readUInt32LE(0) !== 0x46546c67) { console.error(`${from}: not a GLB`); process.exit(1); }
+      // (never copied over a body's limit: a Mog inherits every body, so it is slimmed at its source first)
+      if (b.length > BODY_LIMITS.each) { console.error(`${from}: ${b.length} bytes, over a body's ${BODY_LIMITS.each}: not copied`); process.exit(1); }
+      mkdirSync('public/storykit/cast/hand', { recursive: true });
+      copyFileSync(from, dst); n++;
+    }
+    const bp = jhBodyProblems();
+    console.log(`copied ${n} bodies to public/storykit/cast/hand/jh-*.glb${missing.length ? `; ${missing.length} not built yet: ${missing.join(', ')}` : ''}`);
+    if (bp.problems.length) { console.error(bp.problems.join('\n')); process.exit(1); }
+    if (missing.length && args.includes('--export')) { console.error(`--export needs every body: ${missing.length} missing`); process.exit(1); }
+    if (!args.includes('--export') && vi < 0) process.exit(0);
+  }
   let secs: Record<string, number> | undefined;
   if (vi >= 0) {
     const from = args[vi + 1];
