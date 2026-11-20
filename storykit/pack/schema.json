@@ -1569,16 +1569,17 @@
          "trailhand",
          "vandal",
          "roadster",
-         "gt"
+         "gt",
+         "wedge"
         ],
-        "description": "one of the stock cars as it is (trailhand and vandal: their sheets in storykit/vehicles; roadster: Mog City's own; gt: Mog City's Vantor GT, a showcase's only)"
+        "description": "one of the stock cars as it is (trailhand and vandal: their sheets in storykit/vehicles; roadster: Mog City's own; gt: Mog City's Vantor GT, wedge: Mog City's Tensore, a showcase's only)"
        },
        "id": {
         "$ref": "#/$defs/rideId"
        },
        "paint": {
         "$ref": "#/$defs/colour",
-        "description": "its paint, as '#76B900': the hero's stock car is built in it (paint only, no livery or logo); the gt's body colour"
+        "description": "its paint, as '#76B900': the hero's stock car is built in it (paint only, no livery or logo); the gt's or the wedge's body colour"
        },
        "label": {
         "type": "string",

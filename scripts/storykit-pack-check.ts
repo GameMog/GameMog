@@ -264,6 +264,10 @@ export function runStoryPackChecks(ok: Ok) {
     const r = G(true), w = r.ok ? toRunnerPack(r.pack!) as any : null, plain = G(false);
     ok("a showcase drives the Marin GT (stock gt): the runner gets car { model: 'mogcity/gt', label, plate }", r.ok && w?.car?.model === 'mogcity/gt' && w.car.plate === 'JM 0838' && w.car.label === "John's car", r.problems.slice(0, 2).join(' | ') + JSON.stringify(w?.car));
     ok('a Create never drives it', !plain.ok && plain.problems.some((x) => /driven only in GameMog's own showcase worlds/.test(x)), plain.problems.slice(0, 2).join(' | ')); }
+  { const G = (sc: boolean) => { const p = long(SHOWCASE_PACKS[0]); p.vehicles = [{ stock: 'wedge', id: 'tensore', label: 'Tensore', paint: '#76B900' }]; p.ride = 'tensore'; for (const a of p.acts) for (const m of a.missions) m.vehicle = 'tensore'; return gatePack(sc ? p : { ...p, id: 'a-creators-world' }, { showcase: sc }); };
+    const r = G(true), w = r.ok ? toRunnerPack(r.pack!) as any : null, plain = G(false);
+    ok("a showcase drives the Tensore (stock wedge): the runner gets car { model: 'mogcity/wedge', label, paint }, no carPaint", r.ok && w?.car?.model === 'mogcity/wedge' && w.car.paint === '#76B900' && w.car.label === 'Tensore' && w.carPaint == null, r.problems.slice(0, 2).join(' | ') + JSON.stringify(w?.car));
+    ok('a Create never drives the Tensore', !plain.ok && plain.problems.some((x) => /driven only in GameMog's own showcase worlds/.test(x)), plain.problems.slice(0, 2).join(' | ')); }
   // a Mog of a showcase keeps the showcase's limits (the owner, 7 Nov: "DO NOT close Mogs for Pickup Time")
   { const parent = gatePack(long(SHOWCASE_PACKS[0]), { showcase: true }).pack!;
     const mog = { ...long('pt-mog'), parent: SHOWCASE_PACKS[0] }, r = gatePack(mog, { parent });
@@ -369,7 +373,7 @@ export function runStoryPackChecks(ok: Ok) {
     // stage, a set of its own (room 'stage'), never a street)
     const street = talk.filter((x: any) => !x.set || x.set.room !== 'stage');
     ok(`jensen-heist: every conversation scene is a video call (${calls.length} calls; ${talk.length} stage scenes on the arena's stage set, no street cutscene)`, !!P && !street.length && calls.length >= 10);
-    ok("jensen-heist: the hero's roadster is the parody company's lime green, paint only", !!P && P.vehicles.find((v: any) => v.stock === 'roadster')?.paint === '#76B900');
+    ok("jensen-heist: the hero's Tensore is the parody company's lime green, paint only", !!P && P.vehicles.find((v: any) => v.stock === 'wedge')?.paint === '#76B900');
     // (the polish round, 19 Nov: the stage's lines play over their speakers (a camera on the one who says a one-line shot),
     // the applause on its feet, the chair plant shown at the arena stop, the offices matching their labels, Nico stays)
     const stageShots = talk.flatMap((x: any) => x.shots);
@@ -391,7 +395,10 @@ export function runStoryPackChecks(ok: Ok) {
     ok(`jensen-heist: every call tile's sub names the office drawn behind it (${tiles.length} tiles)`, !!P && tiles.length > 0 && !offTile.length, offTile.map((t: any) => `${t.call} ${t.who}: "${t.sub}" in ${t.office}`).slice(0, 4).join(' | '));
     ok('jensen-heist: Nico is the car guy, not the driver (his card and TP-6\'s welcome agree)', !!P && !JSON.stringify(P).includes('Nico. Driver.') && JSON.stringify(P).includes('Nico. The car guy.'));
     ok('jensen-heist: Jensen drives himself all day; Nico keeps the oven (K1 never says "Nico, drive.")', !!P && !JSON.stringify(vc('k1')?.lines ?? []).includes('Nico, drive') && JSON.stringify(vc('k1')?.lines ?? []).includes("I'll mind the oven"));
-    ok('jensen-heist: the hero drives Mog City\'s roadster (stock), never a town fleet car (no heroCar)', !!P && P.ride === 'roadster' && P.vehicles.some((v: any) => v.stock === 'roadster') && !P.heroCar);
+    // (the owner, 19 Nov: Jensen drives the lime supercar, the Tensore (stock wedge, Mog City wagmi/storyrun/wedge.js), not
+    // the stock roadster painted lime; every mission in it, and the runner gets it as car { model: 'mogcity/wedge' })
+    { const w = toRunnerPack(P, { townName: 'San Jose' }) as any, ms = (P?.acts ?? []).flatMap((a: any) => a.missions);
+      ok('jensen-heist: the hero drives the Tensore (stock wedge, the lime supercar), never the roadster or a town fleet car (no heroCar)', !!P && P.ride === 'tensore' && P.vehicles.length === 1 && P.vehicles[0].stock === 'wedge' && !P.heroCar && ms.every((m: any) => m.vehicle === 'tensore') && w.car?.model === 'mogcity/wedge' && w.car.paint === '#76B900' && w.carPaint == null, JSON.stringify(w.car)); }
     ok('jensen-heist: every seen person but Mr. Board (Mog City\'s own, renamed) has a hand-built body named for the migration', !!P && P.cast.filter((c: any) => !c.model && !c.voiceOnly).every((c: any) => !!BODIES[c.id]) && P.cast.find((c: any) => c.id === 'board')?.model === 'mogcity/mrbig');
     ok(`jensen-heist: its town is San Jose (${town.placeId}), the box on its downtown (the stadium a place of it)`, town.placeId === 'us-0668000' && town.places.some((p: any) => p.kind === 'stadium')); }
   // the fight step (Mog City's street fighting, W.combat): test-fight is the worked example

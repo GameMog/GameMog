@@ -56,10 +56,12 @@ export const ANCHORS = ['none', 'old-boss', 'young-hero', 'grandmother', 'grandf
   'young-mother', 'club-promoter', 'veteran'];
 // what a mission asks the player to do; gate.ts VERBS says which ride (or none) can do each
 export const VERBS = ['drive', 'walk', 'boost', 'hop', 'dash', 'ram', 'escape', 'chase', 'tail', 'follow', 'carry', 'sneak', 'deliver', 'pedal', 'lean', 'wheelie', 'tow', 'fight'];
-export const STOCK_CARS = ['trailhand', 'vandal', 'roadster', 'gt'];
+export const STOCK_CARS = ['trailhand', 'vandal', 'roadster', 'gt', 'wedge'];
 // stock cars only GameMog's own showcase worlds drive (gate.ts rule 15): gt, Mog City's Vantor GT (wagmi/storyrun/gt.js: a black
-// rear-engined coupe with the roadster's handling and boost), which the runner gets as car { model: 'mogcity/gt' }
-export const SHOWCASE_CARS = ['gt'];
+// rear-engined coupe with the roadster's handling and boost), which the runner gets as car { model: 'mogcity/gt' }; wedge, Mog
+// City's Tensore (wagmi/storyrun/wedge.js: a lime wedge supercar with scissor doors, no badges, on the same handling;
+// Jensen Heist's), which the runner gets as car { model: 'mogcity/wedge' }
+export const SHOWCASE_CARS = ['gt', 'wedge'];
 // the player's car as the creator picked it on Create (hero-cars.mjs: no imports, so /create's page can read it too)
 export { HERO_CARS, HERO_CAR_IDS } from './hero-cars.mjs';
 import { HERO_CAR_IDS } from './hero-cars.mjs';
@@ -475,7 +477,7 @@ export const SCHEMA = {
       model: E(PET_MODELS, { description: 'a shipped pet from the cast registry (mogcity/moon: Moon, a small white fluffy dog); without one a dog is built the same way in its coat and size' }),
       follows: { ...B, description: 'stays with its owner, the hero, as the player plays: trots after them on foot, rides in the car beside them, sits when they stop' } }, ['id', 'name', 'species']), LIMITS.pets),
     vehicles: A({ oneOf: [
-      O({ stock: E(STOCK_CARS, { description: "one of the stock cars as it is (trailhand and vandal: their sheets in storykit/vehicles; roadster: Mog City's own; gt: Mog City's Vantor GT, a showcase's only)" }), id: R('rideId'), paint: { ...R('colour'), description: "its paint, as '#76B900': the hero's stock car is built in it (paint only, no livery or logo); the gt's body colour" },
+      O({ stock: E(STOCK_CARS, { description: "one of the stock cars as it is (trailhand and vandal: their sheets in storykit/vehicles; roadster: Mog City's own; gt: Mog City's Vantor GT, wedge: Mog City's Tensore, a showcase's only)" }), id: R('rideId'), paint: { ...R('colour'), description: "its paint, as '#76B900': the hero's stock car is built in it (paint only, no livery or logo); the gt's or the wedge's body colour" },
         label: S(32, { description: "gt only: the speed panel's name for it (\"John's car\")" }), plate: S(8, { pattern: '^[A-Z0-9 ]{0,8}$', description: 'gt only: its plate' }) }, ['stock']),
       { $ref: VEHICLE_SHEET }
     ] }, LIMITS.vehicles, 1),

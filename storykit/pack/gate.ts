@@ -130,6 +130,7 @@ export const STOCK: Record<string, Ride> = {
   vandal: { id: 'vandal', label: 'Vandal GT', family: 'car4', abilities: new Set(['boost']), seats: 4, stock: 'vandal' },
   roadster: { id: 'roadster', label: 'Roadster', family: 'car4', abilities: new Set(['boost']), seats: 2, stock: 'roadster' },
   gt: { id: 'gt', label: 'Vantor GT', family: 'car4', abilities: new Set(['boost']), seats: 2, stock: 'gt' },
+  wedge: { id: 'wedge', label: 'Tensore', family: 'car4', abilities: new Set(['boost']), seats: 2, stock: 'wedge' },
 };
 const FOOT: Ride = { id: 'on-foot', label: 'on foot', family: 'foot', abilities: new Set(['dash']), seats: 1 };
 const TWO_WHEEL: Family[] = ['motorbike', 'scooter', 'bicycle'];
@@ -366,7 +367,7 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
       : { id: v.id, label: v.label, family: v.family, abilities: new Set(v.abilities || []), seats: seatsOf(v) };
     if (rides.has(r.id) || r.id === 'on-foot') refuse(`vehicles[${i}]: "${r.id}" is already used.`);
     if (v.stock && SHOWCASE_CARS.includes(v.stock) && !show) refuse(`vehicles[${i}]: the ${STOCK[v.stock].label} is driven only in GameMog's own showcase worlds.`);
-    if (v.stock && !SHOWCASE_CARS.includes(v.stock) && (v.label || v.plate)) refuse(`vehicles[${i}]: a label and a plate are the Vantor GT's (stock "gt") only.`);
+    if (v.stock && !SHOWCASE_CARS.includes(v.stock) && (v.label || v.plate)) refuse(`vehicles[${i}]: a label and a plate are a showcase car's (stock ${SHOWCASE_CARS.map((c) => `"${c}"`).join(' or ')}) only.`);
     // (a tow rig sits on a bed: a wrecker's or a pickup's; storykit/vehicles/sheet.js)
     if (!v.stock && r.abilities.has('tow') && (!TOW_CLASSES.includes(v.class) || (v.body?.rear && v.body.rear !== 'bed'))) refuse(`vehicles[${i}] (${r.id}): "tow" needs a tow rig, which only a ${TOW_CLASSES.join(' or a ')} with its bed carries (this is a ${v.class}).`);
     rides.set(r.id, r);
@@ -929,13 +930,14 @@ export function toRunnerPack(pack: PackV2, opts: { cast?: Record<string, string>
   // a stock car is its engine id; a vehicle sheet is its own id (the engine registers it from car / rides)
   const stockOf = (rideId: string) => { const v = pack.vehicles.find((x: Json) => (x.id || x.stock) === rideId); return v ? (v.stock || v.id) : undefined; };
   const sheets = pack.vehicles.filter((v: Json) => !v.stock);
-  // (the Vantor GT, a showcase's: Mog City builds it in code, wagmi/storyrun/gt.js; the runner reads car { model, label, plate, paint })
-  const carOf = (rideId: string) => { const v = pack.vehicles.find((x: Json) => (x.id || x.stock) === rideId); return v?.stock === 'gt' ? { model: 'mogcity/gt', ...(v.label ? { label: v.label } : {}), ...(v.plate ? { plate: v.plate } : {}), ...(v.paint ? { paint: v.paint } : {}) } : stockOf(rideId); };
+  // (the Vantor GT and the Tensore, a showcase's: Mog City builds them, wagmi/storyrun/gt.js and wedge.js; the runner reads
+  // car { model, label, plate, paint })
+  const carOf = (rideId: string) => { const v = pack.vehicles.find((x: Json) => (x.id || x.stock) === rideId); return v && SHOWCASE_CARS.includes(v.stock) ? { model: `mogcity/${v.stock}`, ...(v.label ? { label: v.label } : {}), ...(v.plate ? { plate: v.plate } : {}), ...(v.paint ? { paint: v.paint } : {}) } : stockOf(rideId); };
   const heroRide = pack.ride || (pack.vehicles[0].id || pack.vehicles[0].stock);
   // (a stock hero car's paint, carPaint: Mog City builds its roadster in it, wagmi/game.js; the gt carries its own in car.
   // The roadster's own white, #E7E7E3, is no change: a world that names it (Mog City's own) is built as before)
   const heroStock = !sheets.some((v: Json) => v.id === heroRide) ? pack.vehicles.find((x: Json) => (x.id || x.stock) === heroRide) : null;
-  const carPaint = heroStock && heroStock.stock && heroStock.stock !== 'gt' && typeof heroStock.paint === 'string' && !/^#e7e7e3$/i.test(heroStock.paint) ? heroStock.paint : null;
+  const carPaint = heroStock && heroStock.stock && !SHOWCASE_CARS.includes(heroStock.stock) && typeof heroStock.paint === 'string' && !/^#e7e7e3$/i.test(heroStock.paint) ? heroStock.paint : null;
   const heroSheet = sheets.find((v: Json) => v.id === heroRide);
   // a camera point on a cast member ({ rel: id }) names them as the runner does (by name)
   const camRef = (r: Json) => (r && typeof r === 'object' && r.rel && r.rel !== 'player' ? { ...r, rel: name(r.rel) } : r);

@@ -32,7 +32,7 @@
   "holiday": []
  },
  "hero": "jensen",
- "ride": "roadster",
+ "ride": "tensore",
  "opening": {
   "place": "@kitchen",
   "time": "midday",
@@ -704,7 +704,7 @@
     "id": "nico",
     "name": "Nico Brancato",
     "role": "driver and wheelman: Jensen Heist",
-    "logline": "Came west four days ago in the lime roadster; names every pothole.",
+    "logline": "Came west four days ago in the lime supercar; names every pothole.",
     "identity": {
      "age": 44,
      "body": "male",
@@ -1844,7 +1844,9 @@
  ],
  "vehicles": [
   {
-   "stock": "roadster",
+   "stock": "wedge",
+   "id": "tensore",
+   "label": "Tensore",
    "paint": "#76B900"
   }
  ],
@@ -1856,7 +1858,7 @@
     {
      "id": "PH-1",
      "title": "Preheat",
-     "vehicle": "roadster",
+     "vehicle": "tensore",
      "start": "@kitchen",
      "time": "midday",
      "card": "slam",
@@ -2550,7 +2552,7 @@
     {
      "id": "CB-2",
      "title": "Cold Box",
-     "vehicle": "roadster",
+     "vehicle": "tensore",
      "start": "@market",
      "time": "midday",
      "card": "slam",
@@ -2980,7 +2982,7 @@
     {
      "id": "BT-3",
      "title": "Booth Three",
-     "vehicle": "roadster",
+     "vehicle": "tensore",
      "start": "@station",
      "time": "midday",
      "card": "slam",
@@ -3627,7 +3629,7 @@
     {
      "id": "DL-4",
      "title": "Dome Light",
-     "vehicle": "roadster",
+     "vehicle": "tensore",
      "start": "@santa-clara",
      "time": "golden",
      "card": "slam",
@@ -4159,7 +4161,7 @@
     {
      "id": "SS-5",
      "title": "Signed, Sealed",
-     "vehicle": "roadster",
+     "vehicle": "tensore",
      "start": "@arena-line",
      "time": "golden",
      "card": "slam",
@@ -4843,7 +4845,7 @@
     {
      "id": "TP-6",
      "title": "Take Private",
-     "vehicle": "roadster",
+     "vehicle": "tensore",
      "start": "@viaduct",
      "time": "golden",
      "card": "slam",
@@ -5293,7 +5295,7 @@
     {
      "id": "FL-7",
      "title": "Fan Line",
-     "vehicle": "roadster",
+     "vehicle": "tensore",
      "start": "@market",
      "time": "twilight",
      "card": "slam",
@@ -5714,7 +5716,7 @@
     {
      "id": "ST-8",
      "title": "Showtime",
-     "vehicle": "roadster",
+     "vehicle": "tensore",
      "start": "@arena",
      "time": "twilight",
      "card": "slam",
