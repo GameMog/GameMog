@@ -71,11 +71,15 @@ const places = {
   kitchen: { '@': 'parking55', name: 'the kitchen studio' },
   'stage-run': { '@': 'stadium4', name: "the arena's front drive" },
   market: { '@': 'parking41', name: 'the market square' },
-  // (FL-7: Lola's truck 22 m on from his car at the market, on his lane and facing his way (104 degrees, the way he
+  // (FL-7: Lola's truck 38 m on from his car at the market, on his lane and facing his way (104 degrees, the way he
   // faces at the market and the planner's first 25 m to the arena): it started on the lot's point with him and drove
-  // off behind him, the RC playtest; at the lot's own facing it stood across his lane)
-  'market-lead': { '@': 'parking41', name: "Lola's truck at the market", heading: 104, offset: { right: 0, fwd: 22 } },
+  // off behind him, the RC playtest; at the lot's own facing it stood across his lane; at 22 m a player who floored it
+  // at once rear-ended it 2.8 s in, the RC review)
+  'market-lead': { '@': 'parking41', name: "Lola's truck at the market", heading: 104, offset: { right: 0, fwd: 38 } },
   'santa-clara': { '@': 'hotel33', name: 'Santa Clara Street' },
+  // (DL-4 starts here, a lot on Santa Clara 115 m from the street's own point: 1.2 km to the museum lot by the planner;
+  // from the street's point it was 1.9 km, 96 to 139 s, the RC review)
+  'santa-clara-lot': { '@': 'parking8', name: 'Santa Clara Street' },
   station: { '@': 'parking32', name: 'the station' },
   // (CB-2's tail ends here: 0.9 km from the market by the planner; the green by the station was 2.0 to 2.8 km of tail,
   // 5.5 minutes, the RC playtest. The SUV's own pace in the city's traffic is about 10.5 m/s, whatever its speed)
@@ -537,7 +541,9 @@ const M2C = { type: 'call', who: 'marge', auto: true, inCar: true, register: 'fa
   wrap: [L('marge', 'Talk to me. Did you lose them?'), L('jensen', "They're stuck behind a bus. I think they're filling out a form about it."),
     L('marge', 'Good. Three hours to my four o\'clock. Breathe in the car, not on the jacket.')] };
 
-const M3 = { id: 'BT-3', title: 'Booth Three', vehicle: 'tensore', start: '@station', time: 'midday', card: 'slam', verbs: ['drive', 'escape'],
+// (BT-3 starts on the arena green, where CB-2's fight ends: 0.9 km to the diner by the planner, about N1's main lines;
+// from the station it was 1.3 km, 87 to 162 s, the RC playtest and review)
+const M3 = { id: 'BT-3', title: 'Booth Three', vehicle: 'tensore', start: '@arena-green', time: 'midday', card: 'slam', verbs: ['drive', 'escape'],
   stakes: 'The napkin says booth three. Sit facing the door.', passLine: 'He wants your stage. He has a letter. You have a clipboard.',
   steps: [
     { type: 'transition', kicker: '12:41 PM', text: 'THE CORNER DINER' },
@@ -635,7 +641,7 @@ const X1 = { type: 'vcall', id: 'x1', title: 'COBALT C1: LIVE UPLOAD', time: 'go
     V('intern-a', 'Sir? Is now a good time for that reference?'),
   ] };
 
-const M4 = { id: 'DL-4', title: 'Dome Light', vehicle: 'tensore', start: '@santa-clara', time: 'golden', card: 'slam', verbs: ['drive', 'sneak', 'carry'],
+const M4 = { id: 'DL-4', title: 'Dome Light', vehicle: 'tensore', start: '@santa-clara-lot', time: 'golden', card: 'slam', verbs: ['drive', 'sneak', 'carry'],
   stakes: "At 2:30 Dex puts Greenlight's number up as his own.", passLine: 'One number, no chip. A velvet bag went the other way.',
   steps: [
     { type: 'transition', kicker: '2:15 PM', text: 'THE SCIENCE MUSEUM' },
@@ -993,7 +999,7 @@ const M7 = { id: 'FL-7', title: 'Fan Line', vehicle: 'tensore', start: '@market'
   steps: [
     { type: 'transition', kicker: '6:38 PM', text: 'THE MARKET SQUARE' },
     { type: 'timer', name: 'show', seconds: 480, label: 'DOORS', fail: 'hard', why: 'Seven o\'clock. Mr. Board walked out on your stage.' },
-    // (Lola's truck 20 m ahead of him on the way, facing along it; Retry starts here)
+    // (Lola's truck 38 m ahead of him on the way, facing along it; Retry starts here)
     { type: 'convoy', checkpoint: true, route: ['@market-lead', '@santa-clara', '@arena-approach'], lead: 'van', color: '#E8B23A', name: "Lola's truck", who: 'lola', band: [8, 40],
       objective: "Stay behind Lola's truck to the arena.", during: [LO3, W4] },
     { type: 'roadblock', at: '@arena-dock', kind: 'crew', cars: 3, crew: 2, ram: true, to: '@arena-dock', objective: 'Clear the dock.' },

@@ -284,11 +284,15 @@
    "heading": 104,
    "offset": {
     "right": 0,
-    "fwd": 22
+    "fwd": 38
    }
   },
   "santa-clara": {
    "@": "hotel33",
+   "name": "Santa Clara Street"
+  },
+  "santa-clara-lot": {
+   "@": "parking8",
    "name": "Santa Clara Street"
   },
   "station": {
@@ -3092,7 +3096,7 @@
      "id": "BT-3",
      "title": "Booth Three",
      "vehicle": "tensore",
-     "start": "@station",
+     "start": "@arena-green",
      "time": "midday",
      "card": "slam",
      "verbs": [
@@ -3751,7 +3755,7 @@
      "id": "DL-4",
      "title": "Dome Light",
      "vehicle": "tensore",
-     "start": "@santa-clara",
+     "start": "@santa-clara-lot",
      "time": "golden",
      "card": "slam",
      "verbs": [
