@@ -101,12 +101,13 @@ export function playerTexts(pack: PackV2): { at: string; text: string }[] {
 export type HometownResult = GateResult & { safety: string[]; plan: Ref[] };
 /**
  * The hometown gate: the package read, gatePack with the town's table (rule 16), then the safety rules. A Mog passes its
- * parent: the town is then its parent's pin exactly (gate.ts), and the package given must be that same town.
+ * parent: the town is then its parent's pin exactly (gate.ts), and the package given must be that same town. A showcase
+ * in a town (GameMog's own, SHOWCASE_PACKS: Jensen Heist) passes showcase: true, the repo's checks only, as gatePack's.
  */
-export function gateHometown(input: unknown, pkg: CityPackage, opts: { parent?: PackV2 | null; meta?: { tagline?: string; blurb?: string } } = {}): HometownResult {
+export function gateHometown(input: unknown, pkg: CityPackage, opts: { parent?: PackV2 | null; meta?: { tagline?: string; blurb?: string }; showcase?: boolean } = {}): HometownResult {
   const bad = packageProblems(pkg);
   if (bad.length) return { ok: false, problems: bad.map((p) => `city package: ${p}`), warnings: [], clamped: [], pack: null, lines: [], safety: [], plan: [] };
-  const gated = gatePack(input, { parent: opts.parent ?? null, city: cityTableOf(pkg) });
+  const gated = gatePack(input, { parent: opts.parent ?? null, city: cityTableOf(pkg), ...(opts.showcase ? { showcase: true } : {}) });
   const pack = (gated.pack ?? input) as PackV2;
   const plan = pack && typeof pack === 'object' ? storyPlan(pack) : [];
   const texts = pack && typeof pack === 'object' ? playerTexts(pack) : [];

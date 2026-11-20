@@ -1,0 +1,115 @@
+{
+ "id": "director-a",
+ "name": "Director",
+ "role": "enemy board director: Jensen Heist",
+ "logline": "One of Mr. Board's eleven men in suits; speaks in motions.",
+ "identity": {
+  "age": 58,
+  "body": "male",
+  "presentation": "man",
+  "heightCm": 181,
+  "build": {
+   "frame": "broad",
+   "weight": "average",
+   "muscle": "average"
+  }
+ },
+ "heritage": {
+  "note": "invented person; no real likeness",
+  "blend": {
+   "african": 0.0,
+   "asian": 0.0,
+   "european": 1.0
+  },
+  "skin": {
+   "tone": "light",
+   "undertone": "cool",
+   "makeup": "none",
+   "lipTint": "natural"
+  }
+ },
+ "face": {
+  "jaw": "heavy",
+  "cheeks": "average",
+  "cheekbones": "average",
+  "faceWidth": "average",
+  "nose": {
+   "width": "average",
+   "length": "average",
+   "tip": "average",
+   "bridge": "straight"
+  },
+  "browRidge": "average",
+  "chin": {
+   "projection": "average",
+   "length": "average",
+   "width": "average"
+  },
+  "eyes": "grey-blue",
+  "brows": {
+   "color": "grey",
+   "weight": "heavy"
+  },
+  "eyeShape": "average",
+  "eyeBags": "light",
+  "mouth": {
+   "lips": "average",
+   "width": "average",
+   "cupidsBow": "average",
+   "corners": "down"
+  },
+  "ears": {
+   "size": "average",
+   "angle": "flat"
+  },
+  "skull": {
+   "shape": "oval"
+  },
+  "forehead": "average",
+  "faceLength": "average"
+ },
+ "hair": {
+  "style": "side-part",
+  "color": "grey",
+  "greying": 0.8
+ },
+ "facialHair": {
+  "style": "none"
+ },
+ "wardrobe": {
+  "top": {
+   "item": "suit-jacket",
+   "color": "#5B5F67",
+   "accent": "#23262C"
+  },
+  "bottom": {
+   "item": "suit-trousers",
+   "color": "#5B5F67"
+  },
+  "shoes": {
+   "item": "dress",
+   "color": "#141210"
+  }
+ },
+ "posture": {
+  "stance": "upright",
+  "pace": "steady",
+  "gestures": "raises one finger to move a motion",
+  "idle": "arms",
+  "walk": "walkHeavy"
+ },
+ "personality": {
+  "traits": [
+   "clipped",
+   "procedural",
+   "humourless"
+  ],
+  "speech": "motions and seconds"
+ },
+ "voice": {
+  "id": "director-a-v1",
+  "description": "flat baritone, clipped",
+  "pitch": "mid-low",
+  "rate": "steady"
+ }
+}

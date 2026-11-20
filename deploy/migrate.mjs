@@ -1837,6 +1837,91 @@ export const MIGRATIONS = [
       return `Colter Land avatar: ${db.prepare('UPDATE games SET art_avatar = ? WHERE id = ?').run(img, g.id).changes}`;
     },
   },
+  {
+    // 18 Nov, the owner: Jensen Heist, GameMog's second showcase story world and the first in a hometown (San Jose,
+    // us-0668000, on Mog City's engine; every conversation a video call). Published as Pickup Time is
+    // (2026-11-07-pickup-time): its record, deploy/migrations/jensen-heist-story.json (scripts/storykit-showcase-jensen.ts
+    // --export; `npm run check` holds it current once written), names the gated pack, the game's meta and every file by
+    // its SHA-256: the hand-built bodies (public/storykit/cast/hand/jh-*.glb), the voice clips
+    // (deploy/migrations/jensen-heist/voice) and the sealed world. It WAITS (unrecorded, tried at the next boot) until the
+    // record is in the build: the bodies and the voices are their own tracks, and the town is built first (an owner
+    // session's POST /api/towns for us-0668000; the pack pins that build). Published HIDDEN: a parody of a real public
+    // figure goes to friends' QA first, and the owner shows it (PLAN.md step 10). Once only, as Pickup Time's
+    id: '2026-11-18-jensen-heist',
+    async: true,
+    async run(db, path) {
+      if (!['on', 'owner'].includes(String(process.env.STORYKIT ?? '').trim().toLowerCase())) throw new Error('waiting: the Story Kit is off on this server (STORYKIT)');
+      const rec = file('jensen-heist-story.json'), worldBytes = file('jensen-heist/world.json');
+      if (!rec || !worldBytes) throw new Error('waiting: deploy/migrations/jensen-heist-story.json and jensen-heist/world.json are not in this build yet (bodies and voices)');
+      const R = JSON.parse(rec.toString('utf8'));
+      if (R.v !== 1 || R.slug !== 'jensen-heist' || R.pack?.id !== 'jensen-heist' || R.pack.storykit !== 2 || R.pack.base?.city !== 'hometown' || R.meta?.mode !== 'storykit' || R.meta.storykit?.showcase !== true || !Array.isArray(R.files)) throw new Error('jensen-heist-story.json is not the Jensen Heist showcase');
+      const sha = (b) => createHash('sha256').update(b).digest('hex');
+      const had = db.prepare("SELECT slug, hidden FROM games WHERE json_extract(meta, '$.mode') = 'storykit' AND json_extract(meta, '$.storykit.packId') = 'jensen-heist' AND json_extract(meta, '$.storykit.showcase') = 1").get();
+      if (had) return `already there: /g/${had.slug} (hidden ${had.hidden})`;
+      if (db.prepare('SELECT 1 FROM games WHERE slug = ?').get(R.slug)) return `left alone: /g/${R.slug} is another game`;
+      if (db.prepare('SELECT 1 FROM games WHERE id = ?').get(R.id)) return 'left alone: its id is taken';
+      const cover = file('jensen-heist-cover.jpg'), icon = file('jensen-heist-icon.jpg'), wide = file('jensen-heist-wide.jpg'), avatar = file('jensen-heist-sky.jpg');
+      if (!cover || !icon || !wide || !avatar) throw new Error('waiting: deploy/migrations/jensen-heist-{cover,icon,wide,sky}.jpg are not in this build yet');
+
+      // every file, read and checked against the record before anything is written
+      if (sha(worldBytes) !== R.world?.hash || worldBytes.length !== R.world.bytes) throw new Error('jensen-heist/world.json is not the record\'s world');
+      const SRC = /^(public\/storykit\/cast\/hand\/jh-[a-z0-9-]+\.glb|deploy\/migrations\/jensen-heist\/voice\/[0-9a-f]{8}-[0-9a-f]{8}\.ogg)$/;
+      const blobs = new Map([[R.world.hash, { ext: 'json', bytes: worldBytes }]]);
+      for (const f of R.files) {
+        if (!['glb', 'voice'].includes(f.kind) || !SRC.test(String(f.src)) || !/^[0-9a-f]{64}$/.test(f.hash) || f.ext !== (f.kind === 'glb' ? 'glb' : 'ogg')) throw new Error(`jensen-heist-story.json: a bad file (${f.kind} ${f.name})`);
+        if (!existsSync(f.src)) throw new Error(`${f.src} is not in this build`);
+        const b = readFileSync(f.src);
+        if (sha(b) !== f.hash || b.length !== f.bytes) throw new Error(`${f.src} is not the file the world names (its SHA-256 differs)`);
+        if (f.kind === 'glb' ? b.readUInt32LE(0) !== 0x46546c67 : b.subarray(0, 4).toString('latin1') !== 'OggS') throw new Error(`${f.src} is not a ${f.kind === 'glb' ? 'GLB' : 'Ogg file'}`);
+        blobs.set(f.hash, { ext: f.ext, bytes: b });
+      }
+      const named = new Set(R.files.map((f) => f.hash));
+      for (const m of worldBytes.toString('utf8').matchAll(/\/storykit\/f\/([0-9a-f]{64})\.([a-z]{3,4})/g)) if (!named.has(m[1])) throw new Error(`the world names /storykit/f/${m[1]}.${m[2]}, which the record does not hold`);
+
+      if (!columns(db, 'games').has('art_avatar')) db.exec('ALTER TABLE games ADD COLUMN art_avatar BLOB');
+      const cols = columns(db, 'games');
+      if (!cols.has('hidden')) throw new Error('the games table has no hidden column');
+      const { StoryStore, LIMITS } = await storykit();
+      const s = new StoryStore(join(dirname(resolve(path)), 'storykit'));
+      const fresh = [...blobs].filter(([h]) => !s.db.prepare('SELECT 1 FROM blobs WHERE hash = ?').get(h));
+      const need = fresh.reduce((n, [, b]) => n + b.bytes.length, 0);
+      if (s.used() + need > LIMITS.disk) throw new Error(`waiting: the Story Kit store has no room for Jensen Heist (${need} bytes more than ${s.used()} used of ${LIMITS.disk})`);
+
+      const storeId = randomUUID(), t = Date.now();
+      for (const [h, b] of fresh) {
+        const p = s.blobPath(h, b.ext);
+        if (existsSync(p) && sha(readFileSync(p)) === h) continue;
+        mkdirSync(dirname(p), { recursive: true });
+        const tmp = `${p}.${process.pid}.${randomBytes(4).toString('hex')}.tmp`;
+        writeFileSync(tmp, b.bytes); renameSync(tmp, p);
+      }
+      s.db.exec('BEGIN');
+      try {
+        const blob = s.db.prepare('INSERT OR IGNORE INTO blobs (hash, ext, bytes, at) VALUES (?, ?, ?, ?)');
+        for (const [h, b] of blobs) blob.run(h, b.ext, b.bytes.length, t);
+        s.db.prepare("INSERT INTO drafts (id, token_hash, pack, parent, state, created_at, touched_at) VALUES (?, ?, ?, NULL, 'draft', ?, ?)")
+          .run(storeId, sha(randomBytes(24)), JSON.stringify(R.pack), t, t);
+        const row = s.db.prepare('INSERT INTO files (draft_id, kind, name, hash, ext, bytes, meta, inherited, at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)');
+        for (const f of R.files) row.run(storeId, f.kind, f.name, f.hash, f.ext, f.bytes, f.meta ? JSON.stringify(f.meta) : null, t);
+        row.run(storeId, 'pack', 'world.json', R.world.hash, 'json', R.world.bytes, null, t);
+        s.db.exec('COMMIT');
+      } catch (e) { s.db.exec('ROLLBACK'); throw e; }
+      try {
+        const meta = { ...R.meta, storykit: { ...R.meta.storykit, pack: storeId, world: R.world.hash } };
+        const code = `GameMog.world({ storykit: ${JSON.stringify(R.pack)} });\n`;
+        const g = { id: R.id, slug: R.slug, title: R.meta.title, tagline: R.meta.tagline, blurb: R.meta.blurb, difficulty: 'endless', spec: '{}',
+          prompt: 'first-party world: jensen-heist', featured: 0, created_at: t, format: 'world', code, meta: JSON.stringify(meta),
+          cover, art_icon: icon, art_wide: wide, art_avatar: avatar, parent_id: null, root_id: null, generation: 0, mog_prompt: null, hidden: 1 };
+        const keys = Object.keys(g).filter((k) => cols.has(k));
+        db.prepare(`INSERT INTO games (${keys.join(', ')}) VALUES (${keys.map(() => '?').join(', ')})`).run(...keys.map((k) => g[k]));
+        if (!s.db.prepare("UPDATE drafts SET state = 'kept', world = ?, game_id = ? WHERE id = ?").run(R.world.hash, R.id, storeId).changes) throw new Error('the store could not keep the world');
+        return `published /g/${R.slug} HIDDEN (store draft ${storeId}, world ${R.world.hash.slice(0, 12)}, ${R.files.length} files, ${need} bytes stored)`;
+      } catch (e) {
+        try { const d = s.db.prepare('SELECT * FROM drafts WHERE id = ?').get(storeId); if (d) { s.release(storeId); s.abandon(s.db.prepare('SELECT * FROM drafts WHERE id = ?').get(storeId)); } } catch { /* swept later */ }
+        throw e;
+      }
+    },
+  },
 ];
 
 /**

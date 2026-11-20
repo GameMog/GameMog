@@ -8,9 +8,10 @@ import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { runnerPackOf } from './storykit-pack.ts';
 import { ownRecord, OWN_RECORD } from './storykit-own-world.ts';
 import { showcaseProblems, SHOWCASE_ID, SHOWCASE_RECORD } from './storykit-showcase.ts';
+import { jhProblems, jhGate, JH_RECORD, BODIES } from './storykit-showcase-jensen.ts';
 import { gatePack, toRunnerPack, lineHash, type GateResult } from '../storykit/pack/gate.ts';
 import { PLACES, CAM_POINTS } from '../storykit/pack/cities.ts';
-import { SCHEMA, SHOWCASE, SHOWCASE_PACKS, MOGCITY_STUBS, HERO_CARS, HERO_CAR_IDS } from '../storykit/pack/schema.mjs';
+import { SCHEMA, SHOWCASE, SHOWCASE_PACKS, MOGCITY_STUBS, HERO_CARS, HERO_CAR_IDS, SET_ROOMS } from '../storykit/pack/schema.mjs';
 import { voiceStatus, saveVoiceClip, readManifest } from '../storykit/pack/voice-store.mjs';
 import { clipBase } from '../storykit/voices/voice-design.js';
 
@@ -156,6 +157,52 @@ export function runStoryPackChecks(ok: Ok) {
     ok('a New York pack on Mog City\'s engine passes, and its world names the engine', r.ok && w?.engine === 'mogcity-1' && w?.city === 'ny', r.problems.join(' | ')); }
   { const r = gatePack(onMc((p) => { m1(p).steps.push({ type: 'patrol', count: 1 }); }));
     ok('a step Mog City has no part for (patrol) is a warning there, never silent', r.warnings.some((x) => /'patrol' has no Mog City part yet/.test(x)), r.warnings.join(' | ')); }
+  // (a stock car's paint: the hero's roadster built in it, paint only; Mog City wagmi/game.js reads the world's carPaint)
+  { const lime = (paint: any) => onMc((p) => { p.vehicles.unshift({ stock: 'roadster', id: 'rides.lime', paint }); p.ride = 'rides.lime'; });
+    const r = gatePack(lime('#76B900')), w = r.ok ? toRunnerPack(r.pack!) as any : null;
+    ok("a stock hero car's paint goes to the world as carPaint, the car still the stock one", r.ok && w?.carPaint === '#76B900' && w?.car === 'roadster', r.problems.join(' | ') + ' ' + JSON.stringify({ car: w?.car, carPaint: w?.carPaint }));
+    ok("a stock car's paint that is not a colour is refused", !gatePack(lime('lime green')).ok);
+    const plain = gatePack(onMc()), wp = plain.ok ? toRunnerPack(plain.pack!) as any : null;
+    ok('a world whose hero car has no paint of its own carries none (the car keeps its own)', plain.ok && wp && !('carPaint' in wp));
+    const white = gatePack(lime('#E7E7E3')), ww = white.ok ? toRunnerPack(white.pack!) as any : null;
+    ok("the roadster's own white is no paint (a world that names it is built as before: Mog City's own)", white.ok && ww && !('carPaint' in ww)); }
+  ok("a set may be an arena's stage or a video call's office as a room (stage, office-kitchen ...)", ['stage', 'office-kitchen', 'office-exec', 'office-study'].every((x) => SET_ROOMS.includes(x)) && JSON.stringify(SCHEMA).includes('"office-kitchen"'));
+
+  console.log('\n  a video call (vcall: every person in an office of their own, on webcam, in a call\'s layout; Mog City wagmi/storyrun/vcall.js)');
+  { const CALL = () => ({ type: 'vcall', title: 'Gallery Sync', people: [{ who: 'player', office: 'study', muted: true }, { who: 'rae', office: 'kitchen', sub: 'the gallery' }, { who: 'nico', office: 'exec', late: true, blur: true }].slice(0, 2),
+      lines: [{ who: 'rae', line: 'Can you hear me? Is it on?' }, { who: 'player', line: 'The camera is on your forehead.', muted: true }, { who: 'rae', line: "You're on mute.", how: 'deadpan' }, { do: 'unmute', who: 'player' },
+        { who: 'player', line: 'The camera is on your forehead.', cut: 0.6 }, { who: 'rae', line: 'Better?', overlap: true },
+        { do: 'share', who: 'rae', slide: { title: 'Tonight', lines: ['Doors at eight', 'The van at nine'], big: '9:00' } }, { do: 'freeze', who: 'rae' }, { do: 'wait', secs: 1 }, { do: 'drop', who: 'rae' }] });
+    const three = () => { const c: any = CALL(); c.people.push({ who: 'dispatch', office: 'backstage' }); return c; };
+    const withCall = (c: any) => onMc((p) => { m1(p).steps.splice(1, 0, c); });
+    const r = gatePack(withCall(CALL())), w = r.ok ? toRunnerPack(r.pack!) as any : null, st = w?.missions[0].steps[1];
+    ok('a video call passes on Mog City\'s engine: its people, its lines and events, voiced as a cutscene\'s', r.ok && r.lines.filter((l) => /\.q\d+$/.test(l.id)).length === 5 && r.lines.some((l) => /\.q1$/.test(l.id) && l.who === 'nico'), r.problems.concat(r.warnings).join(' | '));
+    ok('the runner\'s video call: people and speakers by name, the hero as player, a line\'s text, an event as it was',
+      st?.type === 'vcall' && st.people[1].who === 'Rae Okafor' && st.people[0].who === 'player' && st.lines[0].who === 'Rae Okafor' && st.lines[0].text === 'Can you hear me? Is it on?' && st.lines[0].line === undefined && st.lines[3].do === 'unmute' && st.lines[4].cut === 0.6 && st.lines[6].slide.big === '9:00', JSON.stringify(st?.lines?.slice(0, 5)));
+    { const c: any = CALL(); c.people[1].who = 'nico'; c.lines = c.lines.map((l: any) => ({ ...l, ...(l.who === 'rae' ? { who: 'nico' } : {}) })); const r2 = gatePack(withCall(c)); ok('the hero by id and as player on one call is one person twice', !r2.ok && r2.problems.some((x) => /on this call twice/.test(x)), r2.problems.join(' | ')); }
+    bad('a video call with a voice-only person on it', withCall(three()), () => {}, /voiceOnly .* a video call shows everyone/);
+    bad('a video call of one', withCall({ ...CALL(), people: [{ who: 'rae', office: 'kitchen' }], lines: [{ who: 'rae', line: 'Hello?' }] }), () => {}, /people|2 to 6/);
+    bad('a video call in an office that is not one', withCall(CALL()), (p) => { m1(p).steps[1].people[1].office = 'castle'; }, /office|castle/);
+    bad('a line by someone not on the call', withCall(CALL()), (p) => { m1(p).steps[1].lines.push({ who: 'dispatch', line: 'Copy.' }); }, /"dispatch" is not on this call/);
+    bad('a late person talking before they join', withCall(CALL()), (p) => { const s = m1(p).steps[1]; s.people[1].late = true; }, /talks before joining/);
+    bad('someone talking after they dropped', withCall(CALL()), (p) => { m1(p).steps[1].lines.push({ who: 'rae', line: 'Still here.' }); }, /after dropping/);
+    bad('a share with no slide', withCall(CALL()), (p) => { delete m1(p).steps[1].lines[6].slide; }, /a share shows a slide/);
+    bad('a call event that is not one', withCall(CALL()), (p) => { m1(p).steps[1].lines.push({ do: 'teleport', who: 'rae' }); }, /teleport|do/);
+    bad('a call with only events', withCall(CALL()), (p) => { m1(p).steps[1].lines = [{ do: 'mute', who: 'rae' }]; }, /says something/);
+    bad('markup on a shared slide (its words are read as every on-screen word is)', withCall(CALL()), (p) => { m1(p).steps[1].lines[6].slide.lines = ['Go <b>now</b>']; }, /carries markup/);
+    bad('markup in a slide\'s big number', withCall(CALL()), (p) => { m1(p).steps[1].lines[6].slide.big = '<i>9</i>'; }, /carries markup/);
+    { const c: any = CALL(); c.lines = c.lines.filter((l: any) => l.line !== "You're on mute."); const r3 = gatePack(withCall(c)); ok('a line said on mute that nobody points out is a note, not a refusal', r3.ok && r3.warnings.some((x) => /said on mute/.test(x)), r3.problems.concat(r3.warnings).join(' | ')); }
+    { const c: any = { ...CALL(), people: CALL().people.map((x: any) => ({ who: x.who, office: x.office })), lines: [{ who: 'rae', line: 'Hello?' }, { who: 'player', line: 'Hi.' }] }; const r4 = gatePack(withCall(c)); ok('a call with no call life gets a note', r4.ok && r4.warnings.some((x) => /no call life/.test(x)), r4.problems.concat(r4.warnings).join(' | ')); }
+    { const CUT = { type: 'cutscene', shots: [{ cam: 'player', dur: 3, say: 'rae', line: 'Is it on? Can everyone see me?' }] };
+      const g0 = gatePack(onMc((p) => { m1(p).steps.splice(1, 0, CUT); })), kid = clone(g0.pack); m1(kid).steps[1] = CALL(); const r5 = gatePack(kid, { parent: g0.pack });
+      ok('a Mog may play its parent\'s cutscene as a video call', g0.ok && !r5.problems.some((x) => /mission structure/.test(x)), g0.problems.concat(r5.problems).join(' | '));
+      const g1 = gatePack(onMc()), kid2 = clone(g1.pack); m1(kid2).steps.splice(1, 0, CALL()); const r6 = gatePack(kid2, { parent: g1.pack });
+      ok('a Mog of a world with no scene of talk adds no video call (its structure kept)', r6.problems.some((x) => /'vcall'.*mission structure/.test(x)), r6.problems.join(' | ')); }
+    { const r7 = gatePack(onMc((p) => { const c = m1(p).steps.find((x: any) => x.type === 'call') || m1(p).steps.flatMap((x: any) => x.during || []).find((x: any) => x.type === 'call'); c.who = 'rae'; c.inCar = true; c.video = { office: 'backstage' }; }));
+      ok('a car-phone call may be a video call on the car\'s screen (video: { office })', r7.ok, r7.problems.join(' | ')); }
+    bad('a video call on the car\'s screen from a voice-only caller', onMc(), (p) => { const c = m1(p).steps.flatMap((x: any) => [x, ...(x.during || [])]).find((x: any) => x.type === 'call'); c.who = 'dispatch'; c.inCar = true; c.video = { office: 'exec' }; }, /voiceOnly .* a video call shows the caller/);
+    bad('a video call off Mog City\'s engine', NY, (p) => { m1(p).steps.splice(1, 0, CALL()); }, /video call plays on Mog City's engine/);
+  }
 
   console.log('\n  the play steps a long story needs (Mog City\'s runner plays them: stealth, convoy, ally, roadblock, a passenger\'s ride, timers by name, the money goal)');
   ok('only patrol and wallet are still unplayed on Mog City (the rest are played)', JSON.stringify(MOGCITY_STUBS) === '["patrol","wallet"]', JSON.stringify(MOGCITY_STUBS));
@@ -217,6 +264,10 @@ export function runStoryPackChecks(ok: Ok) {
     const r = G(true), w = r.ok ? toRunnerPack(r.pack!) as any : null, plain = G(false);
     ok("a showcase drives the Marin GT (stock gt): the runner gets car { model: 'mogcity/gt', label, plate }", r.ok && w?.car?.model === 'mogcity/gt' && w.car.plate === 'JM 0838' && w.car.label === "John's car", r.problems.slice(0, 2).join(' | ') + JSON.stringify(w?.car));
     ok('a Create never drives it', !plain.ok && plain.problems.some((x) => /driven only in GameMog's own showcase worlds/.test(x)), plain.problems.slice(0, 2).join(' | ')); }
+  { const G = (sc: boolean) => { const p = long(SHOWCASE_PACKS[0]); p.vehicles = [{ stock: 'wedge', id: 'tensore', label: 'Tensore', paint: '#76B900' }]; p.ride = 'tensore'; for (const a of p.acts) for (const m of a.missions) m.vehicle = 'tensore'; return gatePack(sc ? p : { ...p, id: 'a-creators-world' }, { showcase: sc }); };
+    const r = G(true), w = r.ok ? toRunnerPack(r.pack!) as any : null, plain = G(false);
+    ok("a showcase drives the Tensore (stock wedge): the runner gets car { model: 'mogcity/wedge', label, paint }, no carPaint", r.ok && w?.car?.model === 'mogcity/wedge' && w.car.paint === '#76B900' && w.car.label === 'Tensore' && w.carPaint == null, r.problems.slice(0, 2).join(' | ') + JSON.stringify(w?.car));
+    ok('a Create never drives the Tensore', !plain.ok && plain.problems.some((x) => /driven only in GameMog's own showcase worlds/.test(x)), plain.problems.slice(0, 2).join(' | ')); }
   // a Mog of a showcase keeps the showcase's limits (the owner, 7 Nov: "DO NOT close Mogs for Pickup Time")
   { const parent = gatePack(long(SHOWCASE_PACKS[0]), { showcase: true }).pack!;
     const mog = { ...long('pt-mog'), parent: SHOWCASE_PACKS[0] }, r = gatePack(mog, { parent });
@@ -283,7 +334,10 @@ export function runStoryPackChecks(ok: Ok) {
   const forgeRt = R('scripts/forge/clips-runtime.mjs'), served = R('public/storykit/forge/clips.js');
   ok('the headshots\' clip binder (forge/clips.js) is the forge\'s clips-runtime.mjs', served.endsWith(forgeRt));
   for (const f of readdirSync('storykit/packs').filter((x) => x.endsWith('.json'))) {
-    const id = f.replace(/\.json$/, ''), src = JSON.parse(R(`storykit/packs/${f}`)), g = gatePack(src, { own: id === 'mog-city', showcase: SHOWCASE_PACKS.includes(id) });
+    const id = f.replace(/\.json$/, ''), src = JSON.parse(R(`storykit/packs/${f}`));
+    // (a showcase in a hometown, Jensen Heist: gated with its town's table, below; it has no built fixture here)
+    if (src?.base?.city === 'hometown') continue;
+    const g = gatePack(src, { own: id === 'mog-city', showcase: SHOWCASE_PACKS.includes(id) });
     // (a showcase's story may name another city in its dialogue, as Pickup Time names Miami: the gate notes it, never on screen)
     const warns = g.warnings.filter((w: string) => !(SHOWCASE_PACKS.includes(id) && /\(dialogue, so allowed\)$/.test(w)));
     ok(`${id}: passes the gate with no warnings${SHOWCASE_PACKS.includes(id) ? ' (but another city named in dialogue)' : ''}`, g.ok && !warns.length && !g.clamped.length, g.problems.concat(warns, g.clamped).slice(0, 3).join(' | '));
@@ -308,6 +362,45 @@ export function runStoryPackChecks(ok: Ok) {
     { const ogg = new Uint8Array(80); ogg.set([0x4f, 0x67, 0x67, 0x53]); const r1 = saveVoiceClip('.', id, '00000000-00000000.ogg', ogg), r2 = saveVoiceClip('.', id, '../x.ogg', ogg), r3 = saveVoiceClip('.', id, `${vp.lines[0].clip}.ogg`, new Uint8Array(80));
       ok(`${id}: the voice store takes only a current line's clip, by name and kind (no line, a path, not Ogg: refused)`, !r1.ok && r1.status === 409 && !r2.ok && r2.status === 400 && !r3.ok && r3.status === 415); }
   }
+  // Jensen Heist (18 Nov): a showcase in a hometown (San Jose), gated with its town's table; its record waits for the
+  // bodies and the voices (the migration waits with it), and is held current once written
+  {
+    const jp = jhProblems();
+    ok(`jensen-heist: passes its town's gate as a showcase (San Jose), pinned to that town${existsSync(JH_RECORD) ? `, and ${JH_RECORD} is current` : ' (its record waits for the bodies and the voices)'}`, !jp.length, jp.slice(0, 3).join(' | '));
+    const { g, town } = jhGate(), P = g.pack!, steps = (P?.acts ?? []).flatMap((a: any) => a.missions).flatMap((m: any) => m.steps);
+    const talk = steps.filter((x: any) => x.type === 'cutscene'), calls = steps.filter((x: any) => x.type === 'vcall');
+    // (the owner, 18 Nov: every conversation a video call, the streets for action; the finale is played on the arena's
+    // stage, a set of its own (room 'stage'), never a street)
+    const street = talk.filter((x: any) => !x.set || x.set.room !== 'stage');
+    ok(`jensen-heist: every conversation scene is a video call (${calls.length} calls; ${talk.length} stage scenes on the arena's stage set, no street cutscene)`, !!P && !street.length && calls.length >= 10);
+    ok("jensen-heist: the hero's Tensore is the parody company's lime green, paint only", !!P && P.vehicles.find((v: any) => v.stock === 'wedge')?.paint === '#76B900');
+    // (the polish round, 19 Nov: the stage's lines play over their speakers (a camera on the one who says a one-line shot),
+    // the applause on its feet, the chair plant shown at the arena stop, the offices matching their labels, Nico stays)
+    const stageShots = talk.flatMap((x: any) => x.shots);
+    const offSpeaker = stageShots.filter((sh: any) => sh.say && sh.cam && typeof sh.cam === 'object' && sh.cam.rel && sh.cam.rel !== sh.say);
+    ok(`jensen-heist: every one-line stage shot is on its speaker (${stageShots.filter((sh: any) => sh.say).length} shots)`, !!P && !offSpeaker.length, offSpeaker.map((sh: any) => `${sh.say} on ${sh.cam.rel}: ${sh.line}`).slice(0, 3).join(' | '));
+    ok("jensen-heist: the applause and the ovation are played to a house on its feet", !!P && ['st3a', 'st4a'].every((id) => talk.find((x: any) => x.id === id)?.set?.house === 'up'));
+    const m1 = (P?.acts ?? [])[0]?.missions?.[0]?.steps ?? [], plant = m1.find((x: any) => x.type === 'npc' && x.push === 'chair');
+    ok('jensen-heist: the chair plant is seen at the arena stop (a man in a lanyard wheeling it, a beat on him as Jensen asks)', !!plant && plant.lanyard === true && m1.some((x: any) => x.type === 'beat' && /mahogany chair/.test(x.say?.text || '')));
+    const vc = (id: string) => calls.find((x: any) => x.id === id);
+    ok('jensen-heist: the offices match their labels (Dex in the van, the green room is a green room)', !!P && vc('x1')?.people.find((p: any) => p.who === 'dex')?.office === 'van' && vc('h1')?.people.find((p: any) => p.who === 'board')?.office === 'greenroom' && vc('f3')?.people.find((p: any) => p.label === 'Jensen')?.office === 'greenroom');
+    // (every tile, 19 Nov: the sub says where they are, so it must be the office drawn behind them: the first rule its sub
+    // matches names that office, and a sub no rule knows is a problem too. "Lola's truck" is the truck, not a home kitchen;
+    // "behind the van" is the lot, "the van" is the van; Marge wears her headset, so no tile says she has none)
+    const SUB_OFFICE: [RegExp, string][] = [[/green room/i, 'greenroom'], [/truck/i, 'truck'], [/diner|booth/i, 'diner'], [/\bcar\b|black cars/i, 'car'],
+      [/behind|\blot\b|dock|bins|in line/i, 'lot'], [/\bvan\b/i, 'van'], [/\bgreen\b|grass|lawn/i, 'green'], [/row one|seats|the house/i, 'house'],
+      [/kitchen|oven/i, 'kitchen'], [/stage manager|headset/i, 'backstage'], [/remote|study/i, 'study'], [/loft|startup/i, 'startup'], [/office|tower/i, 'exec']];
+    const tiles = calls.flatMap((x: any) => x.people.map((p: any) => ({ call: x.id, who: p.label || p.who, office: p.office, sub: p.sub || '' })));
+    const offTile = tiles.filter((t: any) => { const r = SUB_OFFICE.find(([re]) => re.test(t.sub)); return !r || r[1] !== t.office || /no headset/i.test(t.sub); });
+    ok(`jensen-heist: every call tile's sub names the office drawn behind it (${tiles.length} tiles)`, !!P && tiles.length > 0 && !offTile.length, offTile.map((t: any) => `${t.call} ${t.who}: "${t.sub}" in ${t.office}`).slice(0, 4).join(' | '));
+    ok('jensen-heist: Nico is the car guy, not the driver (his card and TP-6\'s welcome agree)', !!P && !JSON.stringify(P).includes('Nico. Driver.') && JSON.stringify(P).includes('Nico. The car guy.'));
+    ok('jensen-heist: Jensen drives himself all day; Nico keeps the oven (K1 never says "Nico, drive.")', !!P && !JSON.stringify(vc('k1')?.lines ?? []).includes('Nico, drive') && JSON.stringify(vc('k1')?.lines ?? []).includes("I'll mind the oven"));
+    // (the owner, 19 Nov: Jensen drives the lime supercar, the Tensore (stock wedge, Mog City wagmi/storyrun/wedge.js), not
+    // the stock roadster painted lime; every mission in it, and the runner gets it as car { model: 'mogcity/wedge' })
+    { const w = toRunnerPack(P, { townName: 'San Jose' }) as any, ms = (P?.acts ?? []).flatMap((a: any) => a.missions);
+      ok('jensen-heist: the hero drives the Tensore (stock wedge, the lime supercar), never the roadster or a town fleet car (no heroCar)', !!P && P.ride === 'tensore' && P.vehicles.length === 1 && P.vehicles[0].stock === 'wedge' && !P.heroCar && ms.every((m: any) => m.vehicle === 'tensore') && w.car?.model === 'mogcity/wedge' && w.car.paint === '#76B900' && w.carPaint == null, JSON.stringify(w.car)); }
+    ok('jensen-heist: every seen person but Mr. Board (Mog City\'s own, renamed) has a hand-built body named for the migration', !!P && P.cast.filter((c: any) => !c.model && !c.voiceOnly).every((c: any) => !!BODIES[c.id]) && P.cast.find((c: any) => c.id === 'board')?.model === 'mogcity/mrbig');
+    ok(`jensen-heist: its town is San Jose (${town.placeId}), the box on its downtown (the stadium a place of it)`, town.placeId === 'us-0668000' && town.places.some((p: any) => p.kind === 'stadium')); }
   // the fight step (Mog City's street fighting, W.combat): test-fight is the worked example
   { const FT = JSON.parse(R('storykit/packs/test-fight.json')), fight = (p: any) => p.acts[0].missions[0].steps.find((s: any) => s.type === 'fight');
     bad('a fight against the hero himself', FT, (p) => { fight(p).enemies = ['nico', 'vance']; }, /"nico" is the hero/);

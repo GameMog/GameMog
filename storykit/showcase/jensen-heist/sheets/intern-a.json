@@ -1,0 +1,115 @@
+{
+ "id": "intern-a",
+ "name": "Cobalt intern",
+ "role": "enemy intern: Jensen Heist",
+ "logline": "Unpaid, polite, in the matching cobalt jacket.",
+ "identity": {
+  "age": 23,
+  "body": "male",
+  "presentation": "man",
+  "heightCm": 174,
+  "build": {
+   "frame": "medium",
+   "weight": "slim",
+   "muscle": "average"
+  }
+ },
+ "heritage": {
+  "note": "invented person; no real likeness",
+  "blend": {
+   "african": 0.6,
+   "asian": 0.0,
+   "european": 0.4
+  },
+  "skin": {
+   "tone": "brown",
+   "undertone": "neutral",
+   "makeup": "none",
+   "lipTint": "natural"
+  }
+ },
+ "face": {
+  "jaw": "average",
+  "cheeks": "average",
+  "cheekbones": "average",
+  "faceWidth": "average",
+  "nose": {
+   "width": "average",
+   "length": "average",
+   "tip": "average",
+   "bridge": "straight"
+  },
+  "browRidge": "average",
+  "chin": {
+   "projection": "average",
+   "length": "average",
+   "width": "average"
+  },
+  "eyes": "dark-brown",
+  "brows": {
+   "color": "black",
+   "weight": "average"
+  },
+  "eyeShape": "average",
+  "eyeBags": "none",
+  "mouth": {
+   "lips": "average",
+   "width": "average",
+   "cupidsBow": "average",
+   "corners": "neutral"
+  },
+  "ears": {
+   "size": "average",
+   "angle": "flat"
+  },
+  "skull": {
+   "shape": "oval"
+  },
+  "forehead": "average",
+  "faceLength": "average"
+ },
+ "hair": {
+  "style": "short-twists",
+  "color": "black",
+  "greying": 0
+ },
+ "facialHair": {
+  "style": "none"
+ },
+ "wardrobe": {
+  "top": {
+   "item": "uniform-jacket",
+   "color": "#2F5FD0"
+  },
+  "bottom": {
+   "item": "trousers",
+   "color": "#2A2C33"
+  },
+  "shoes": {
+   "item": "sneakers",
+   "color": "#2B2D31",
+   "accent": "#D8D5CE"
+  }
+ },
+ "posture": {
+  "stance": "upright",
+  "pace": "quick",
+  "gestures": "apologises with his hands",
+  "idle": "idle",
+  "walk": "walk"
+ },
+ "personality": {
+  "traits": [
+   "polite",
+   "eager",
+   "nervous"
+  ],
+  "speech": "polite and quick"
+ },
+ "voice": {
+  "id": "intern-a-v1",
+  "description": "young, clear and polite",
+  "pitch": "mid",
+  "rate": "quick"
+ }
+}

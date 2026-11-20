@@ -333,7 +333,22 @@
          "park",
          "lobby",
          "plaza",
-         "alley"
+         "alley",
+         "stage",
+         "office-exec",
+         "office-startup",
+         "office-backstage",
+         "office-boardroom",
+         "office-kitchen",
+         "office-study",
+         "office-van",
+         "office-greenroom",
+         "office-truck",
+         "office-diner",
+         "office-lot",
+         "office-green",
+         "office-car",
+         "office-house"
         ]
        },
        "light": {
@@ -559,6 +574,13 @@
         },
         "minItems": 0,
         "maxItems": 7
+       },
+       "house": {
+        "enum": [
+         "calm",
+         "up"
+        ],
+        "description": "stage only: the house, calm (standing and watching, a phone up here and there) or up (on its feet and cheering, the phones up)"
        }
       },
       "description": "a set: the room (or closed exterior) the cutscene is staged in, its light (else the mission's time), its people and where they stand"
@@ -635,7 +657,22 @@
        },
        "overlap": {
         "type": "boolean",
-        "description": "a reply of 2 words or fewer that may start just before the last line ends (a cut-in)"
+        "description": "a reply of 4 words or fewer that may start just before the last line ends (a cut-in)"
+       },
+       "cut": {
+        "type": "number",
+        "minimum": 0.3,
+        "maximum": 0.95,
+        "description": "an interruption: the next speaker cuts in once this share of the line is said ('The more you buy, the more you...' / 'Stop.'); the next line is the one that interrupts"
+       },
+       "lines": {
+        "type": "array",
+        "items": {
+         "$ref": "#/$defs/spoken"
+        },
+        "minItems": 2,
+        "maxItems": 4,
+        "description": "an exchange in this one shot, in place of say + line (2 to 4 lines, speakers alternating); each line counts toward the premise's lines"
        },
        "where": {
         "type": "object",
@@ -1389,6 +1426,26 @@
        }
       ]
      },
+     "face": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+       "smile": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 0.4,
+        "description": "a resting smile while they listen (0.18: a warm grin), on a body whose face has its morphs baked in"
+       },
+       "open": {
+        "type": "number",
+        "minimum": 0.2,
+        "maximum": 0.7,
+        "description": "how wide the mouth opens on the loudest syllable (0.45 the default)"
+       }
+      },
+      "description": "the talking face's knobs (Mog City face.js); a body without a baked face uses only open"
+     },
      "speech": {
       "type": "object",
       "additionalProperties": false,
@@ -1512,15 +1569,17 @@
          "trailhand",
          "vandal",
          "roadster",
-         "gt"
+         "gt",
+         "wedge"
         ],
-        "description": "one of the stock cars as it is (trailhand and vandal: their sheets in storykit/vehicles; roadster: Mog City's own; gt: Mog City's Vantor GT, a showcase's only)"
+        "description": "one of the stock cars as it is (trailhand and vandal: their sheets in storykit/vehicles; roadster: Mog City's own; gt: Mog City's Vantor GT, wedge: Mog City's Tensore, a showcase's only)"
        },
        "id": {
         "$ref": "#/$defs/rideId"
        },
        "paint": {
-        "$ref": "#/$defs/colour"
+        "$ref": "#/$defs/colour",
+        "description": "its paint, as '#76B900': the hero's stock car is built in it (paint only, no livery or logo); the gt's or the wedge's body colour"
        },
        "label": {
         "type": "string",
@@ -2026,7 +2085,13 @@
     },
     "overlap": {
      "type": "boolean",
-     "description": "a reply of 2 words or fewer that may start just before the last line ends (a cut-in)"
+     "description": "a reply of 4 words or fewer that may start just before the last line ends (a cut-in)"
+    },
+    "cut": {
+     "type": "number",
+     "minimum": 0.3,
+     "maximum": 0.95,
+     "description": "an interruption: the next speaker cuts in once this share of the line is said ('The more you buy, the more you...' / 'Stop.'); the next line is the one that interrupts"
     }
    }
   },
@@ -2074,7 +2139,13 @@
     },
     "overlap": {
      "type": "boolean",
-     "description": "a reply of 2 words or fewer that may start just before the last line ends (a cut-in)"
+     "description": "a reply of 4 words or fewer that may start just before the last line ends (a cut-in)"
+    },
+    "cut": {
+     "type": "number",
+     "minimum": 0.3,
+     "maximum": 0.95,
+     "description": "an interruption: the next speaker cuts in once this share of the line is said ('The more you buy, the more you...' / 'Stop.'); the next line is the one that interrupts"
     }
    }
   },
@@ -3467,6 +3538,44 @@
        "type": "boolean",
        "description": "answers itself (no ring, no decline): a call the hero always takes, on the car phone"
       },
+      "video": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [
+        "office"
+       ],
+       "properties": {
+        "office": {
+         "enum": [
+          "exec",
+          "startup",
+          "backstage",
+          "boardroom",
+          "kitchen",
+          "study",
+          "van",
+          "greenroom",
+          "truck",
+          "diner",
+          "lot",
+          "green",
+          "car",
+          "house"
+         ]
+        },
+        "blur": {
+         "type": "boolean"
+        },
+        "light": {
+         "enum": [
+          "day",
+          "golden",
+          "night"
+         ]
+        }
+       },
+       "description": "a car-phone call as a video call: the caller in their office, on webcam, in a small picture at the top of the screen while it talks (auto or inCar; the caller has a body)"
+      },
       "inCar": {
        "type": "boolean",
        "description": "talks only while the hero is in a car; on foot it holds (hold.pause), back in it resumes (hold.resume)"
@@ -3526,7 +3635,19 @@
         "tooClose": {
          "type": "array",
          "items": {
-          "$ref": "#/$defs/spoken"
+          "oneOf": [
+           {
+            "$ref": "#/$defs/spoken"
+           },
+           {
+            "type": "array",
+            "items": {
+             "$ref": "#/$defs/spoken"
+            },
+            "minItems": 2,
+            "maxItems": 4
+           }
+          ]
          },
          "minItems": 2,
          "maxItems": 3
@@ -3534,7 +3655,19 @@
         "hit": {
          "type": "array",
          "items": {
-          "$ref": "#/$defs/spoken"
+          "oneOf": [
+           {
+            "$ref": "#/$defs/spoken"
+           },
+           {
+            "type": "array",
+            "items": {
+             "$ref": "#/$defs/spoken"
+            },
+            "minItems": 2,
+            "maxItems": 4
+           }
+          ]
          },
          "minItems": 2,
          "maxItems": 3
@@ -3542,7 +3675,19 @@
         "lost": {
          "type": "array",
          "items": {
-          "$ref": "#/$defs/spoken"
+          "oneOf": [
+           {
+            "$ref": "#/$defs/spoken"
+           },
+           {
+            "type": "array",
+            "items": {
+             "$ref": "#/$defs/spoken"
+            },
+            "minItems": 2,
+            "maxItems": 4
+           }
+          ]
          },
          "minItems": 2,
          "maxItems": 3
@@ -3550,13 +3695,31 @@
         "spotted": {
          "type": "array",
          "items": {
-          "$ref": "#/$defs/spoken"
+          "oneOf": [
+           {
+            "$ref": "#/$defs/spoken"
+           },
+           {
+            "type": "array",
+            "items": {
+             "$ref": "#/$defs/spoken"
+            },
+            "minItems": 2,
+            "maxItems": 4
+           }
+          ]
          },
          "minItems": 2,
          "maxItems": 3
         }
        },
-       "description": "what the caller says when the player does this while the call talks (tooClose: on the bumper of who he tails; hit: a crash; lost: off the route or the target lost; spotted: seen): 2 or 3 variants each, one at a time, never twice in 7 s"
+       "description": "what the caller says when the player does this while the call talks (tooClose: on the bumper of who he tails; hit: a crash; lost: off the route or the target lost; spotted: seen again): 2 or 3 variants each, one at a time, never twice in 7 s. A variant is one line, or an exchange of 2 to 4 ([{ caller }, { hero }])"
+      },
+      "span": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 6,
+       "description": "the car phone: the call goes on over the next span steps (the legs of a long drive, a tail, a chase), its extra blocks and all, and wraps when the last of them ends, instead of at the end of the step it rides on; a cutscene, the mission's end or the next call still end it (the next call after its wrap)"
       },
       "register": {
        "enum": [
@@ -4400,7 +4563,13 @@
          },
          "overlap": {
           "type": "boolean",
-          "description": "a reply of 2 words or fewer that may start just before the last line ends (a cut-in)"
+          "description": "a reply of 4 words or fewer that may start just before the last line ends (a cut-in)"
+         },
+         "cut": {
+          "type": "number",
+          "minimum": 0.3,
+          "maximum": 0.95,
+          "description": "an interruption: the next speaker cuts in once this share of the line is said ('The more you buy, the more you...' / 'Stop.'); the next line is the one that interrupts"
          },
          "lines": {
           "type": "array",
@@ -4458,7 +4627,22 @@
           "park",
           "lobby",
           "plaza",
-          "alley"
+          "alley",
+          "stage",
+          "office-exec",
+          "office-startup",
+          "office-backstage",
+          "office-boardroom",
+          "office-kitchen",
+          "office-study",
+          "office-van",
+          "office-greenroom",
+          "office-truck",
+          "office-diner",
+          "office-lot",
+          "office-green",
+          "office-car",
+          "office-house"
          ]
         },
         "light": {
@@ -4684,6 +4868,13 @@
          },
          "minItems": 0,
          "maxItems": 7
+        },
+        "house": {
+         "enum": [
+          "calm",
+          "up"
+         ],
+         "description": "stage only: the house, calm (standing and watching, a phone up here and there) or up (on its feet and cheering, the phones up)"
         }
        },
        "description": "a set: the room (or closed exterior) the cutscene is staged in, its light (else the mission's time), its people and where they stand"
@@ -4696,6 +4887,305 @@
       },
       "slowmo": {
        "$ref": "#/$defs/slowmo"
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type",
+      "people",
+      "lines"
+     ],
+     "properties": {
+      "type": {
+       "const": "vcall"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 600,
+       "description": "a side step only (during, do): seconds in"
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "enum": [
+        "leave",
+        "drop"
+       ],
+       "description": "how it ends: you leave the meeting, or the call drops"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "title": {
+       "type": "string",
+       "maxLength": 40,
+       "description": "the call's name in its top bar ('Q3 Board Sync')"
+      },
+      "layout": {
+       "enum": [
+        "grid",
+        "speaker"
+       ],
+       "description": "grid: equal tiles; speaker: whoever talks fills the stage, the rest in a strip"
+      },
+      "time": {
+       "enum": [
+        "day",
+        "golden",
+        "night"
+       ],
+       "description": "the light through every office's window (else the mission's time)"
+      },
+      "people": {
+       "type": "array",
+       "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+         "who",
+         "office"
+        ],
+        "properties": {
+         "who": {
+          "$ref": "#/$defs/slug",
+          "description": "a cast id with a body, or 'player'"
+         },
+         "office": {
+          "enum": [
+           "exec",
+           "startup",
+           "backstage",
+           "boardroom",
+           "kitchen",
+           "study",
+           "van",
+           "greenroom",
+           "truck",
+           "diner",
+           "lot",
+           "green",
+           "car",
+           "house"
+          ],
+          "description": "the office they sit in: exec (a corner office, the skyline), startup (an open-plan loft), backstage (a stage manager's room), boardroom (the long table), kitchen (a home kitchen), study (walnut and books, Mr. Big's), van (a broadcast van's back), greenroom (an arena's green room); away from a desk: truck (a food truck's kitchen), diner (a diner booth), lot (a lot out back, a loading dock), green (a lawn by a station, a bench), car (a car's front seat), house (row one of an arena's seats). The tile's sub says where they are, so it names the office drawn behind them"
+         },
+         "label": {
+          "type": "string",
+          "maxLength": 24,
+          "description": "the name on their tile (else the cast name)"
+         },
+         "sub": {
+          "type": "string",
+          "maxLength": 32,
+          "description": "a second line on the tag: a title or a company (invented names only)"
+         },
+         "blur": {
+          "type": "boolean",
+          "description": "background blur on from the start"
+         },
+         "muted": {
+          "type": "boolean",
+          "description": "starts muted (the red mic): their lines are heard by nobody until they unmute"
+         },
+         "late": {
+          "type": "boolean",
+          "description": "not in the call at the start: their tile reads Waiting to join until a join event"
+         },
+         "light": {
+          "enum": [
+           "day",
+           "golden",
+           "night"
+          ]
+         },
+         "cam": {
+          "enum": [
+           "close",
+           "wide",
+           "low"
+          ],
+          "description": "the webcam's framing: close (head and shoulders), wide (down to the desk), low (a laptop below the eyes)"
+         }
+        }
+       },
+       "minItems": 2,
+       "maxItems": 6
+      },
+      "lines": {
+       "type": "array",
+       "items": {
+        "oneOf": [
+         {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+           "who",
+           "line"
+          ],
+          "properties": {
+           "who": {
+            "$ref": "#/$defs/slug",
+            "description": "one of the call's people (or 'player')"
+           },
+           "line": {
+            "$ref": "#/$defs/speech"
+           },
+           "how": {
+            "enum": [
+             "warm",
+             "tease",
+             "deadpan",
+             "urgent",
+             "angry",
+             "shout",
+             "scared",
+             "hushed",
+             "hesitant",
+             "sad",
+             "smug"
+            ],
+            "description": "how it is said: warm, tease, deadpan, urgent, angry, shout, scared, hushed, hesitant, sad, smug"
+           },
+           "pre": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1.2,
+            "description": "an authored beat before the line, seconds (the sincere pivot after a joke: 0.6 to 0.8)"
+           },
+           "post": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1.2,
+            "description": "an authored beat after the line, seconds (after a reveal: 0.8 to 1.2)"
+           },
+           "overlap": {
+            "type": "boolean",
+            "description": "a reply of 4 words or fewer that may start just before the last line ends (a cut-in)"
+           },
+           "cut": {
+            "type": "number",
+            "minimum": 0.3,
+            "maximum": 0.95,
+            "description": "cut into: the next speaker talks over it once this share of it is said"
+           },
+           "muted": {
+            "type": "boolean",
+            "description": "said on mute: their mouth moves, nobody hears it, the subtitle reads (muted)"
+           }
+          }
+         },
+         {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+           "do"
+          ],
+          "properties": {
+           "do": {
+            "enum": [
+             "mute",
+             "unmute",
+             "join",
+             "drop",
+             "freeze",
+             "unfreeze",
+             "share",
+             "unshare",
+             "blur",
+             "unblur",
+             "hand",
+             "wait"
+            ]
+           },
+           "who": {
+            "$ref": "#/$defs/slug"
+           },
+           "secs": {
+            "type": "number",
+            "minimum": 0.2,
+            "maximum": 4,
+            "description": "wait only: seconds of nothing"
+           },
+           "slide": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [],
+            "properties": {
+             "title": {
+              "type": "string",
+              "maxLength": 48
+             },
+             "lines": {
+              "type": "array",
+              "items": {
+               "type": "string",
+               "maxLength": 64
+              },
+              "minItems": 0,
+              "maxItems": 4
+             },
+             "big": {
+              "type": "string",
+              "maxLength": 12,
+              "description": "a big number or word"
+             }
+            },
+            "description": "share only: the slide on the stage"
+           }
+          }
+         }
+        ]
+       },
+       "minItems": 1,
+       "maxItems": 40,
+       "description": "the call in order: spoken lines ({ who, line, how, pre, post, overlap, cut, muted }) and the call's events ({ do, who, slide, secs })"
       }
      }
     },
@@ -4966,7 +5456,13 @@
       },
       "overlap": {
        "type": "boolean",
-       "description": "a reply of 2 words or fewer that may start just before the last line ends (a cut-in)"
+       "description": "a reply of 4 words or fewer that may start just before the last line ends (a cut-in)"
+      },
+      "cut": {
+       "type": "number",
+       "minimum": 0.3,
+       "maximum": 0.95,
+       "description": "an interruption: the next speaker cuts in once this share of the line is said ('The more you buy, the more you...' / 'Stop.'); the next line is the one that interrupts"
       },
       "sting": {
        "$ref": "#/$defs/sting"
@@ -8124,6 +8620,44 @@
       },
       "remove": {
        "$ref": "#/$defs/slug"
+      },
+      "push": {
+       "enum": [
+        "chair"
+       ],
+       "description": "a thing they wheel in front of them: chair (an executive chair in mahogany and oxblood leather, on castors), left where they stop"
+      },
+      "lanyard": {
+       "type": "boolean",
+       "description": "a pass on a lanyard round their neck"
+      },
+      "walk": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "right": {
+         "type": "number",
+         "minimum": -20,
+         "maximum": 20
+        },
+        "fwd": {
+         "type": "number",
+         "minimum": -30,
+         "maximum": 30
+        },
+        "secs": {
+         "type": "number",
+         "minimum": 1,
+         "maximum": 20
+        },
+        "after": {
+         "type": "number",
+         "minimum": 0,
+         "maximum": 10
+        }
+       },
+       "description": "a walk as the step starts: from where they stand, fwd m along the player's heading and right m toward the kerb, over secs (a pushing pace), after s"
       }
      }
     }

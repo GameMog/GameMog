@@ -618,7 +618,7 @@ export function builderProblems(pack: PackV2, input: StorykitInput, meta?: Story
 
 /** What a player does with their hands (the kinds a payoff can be); what may follow it (words, pictures, the score). */
 const PLAYED = new Set(['drive', 'stops', 'walk', 'search', 'tow', 'fight', 'pursuit', 'tail', 'ride', 'mount']);
-const AFTER = new Set(['say', 'cutscene', 'beat', 'scene', 'set', 'dm', 'wait', 'label', 'npc', 'call', 'voicemail', 'voicenote', 'transition', 'actEnd']);
+const AFTER = new Set(['say', 'cutscene', 'vcall', 'beat', 'scene', 'set', 'dm', 'wait', 'label', 'npc', 'call', 'voicemail', 'voicenote', 'transition', 'actEnd']);
 /**
  * Mission 1's payoff (the owner, 4 Nov: it ends in a clear playable payoff, e.g. reaching and towing the ambulance): its
  * last steps are something the player does (reach the place, hold F at the thing, tow the car, win the fight, lose the chase), then
@@ -633,7 +633,7 @@ export function payoffProblem(m: PackV2): string | null {
   if (i < 0) return 'it never asks the player to do anything: it must end on a payoff they play (reach the place and act there, tow the car, win the fight, lose the chase), then show what it won.';
   const last = steps[i];
   if (!PLAYED.has(last?.type) || last?.end || last?.goto) return `it ends on a '${last?.type}' step; end Mission 1 on a payoff the player plays (in a wrecker: a tow of the ambulance to the depot; a drive or walk to the goal, then a search there (hold F: "search the van"); a fight won or a chase lost), then at most the lines and the cutscene of what it won.`;
-  if (!steps.slice(i + 1).some((x) => ['say', 'cutscene', 'beat', 'scene', 'dm', 'call'].includes(x?.type)) && !m.passLine) return 'its payoff is played but never shown: follow it with a reaction to what it won (a line or a short cutscene: a joke, relief, a look; not a description of it), or give it a passLine.';
+  if (!steps.slice(i + 1).some((x) => ['say', 'cutscene', 'vcall', 'beat', 'scene', 'dm', 'call'].includes(x?.type)) && !m.passLine) return 'its payoff is played but never shown: follow it with a reaction to what it won (a line or a short cutscene: a joke, relief, a look; not a description of it), or give it a passLine.';
   return null;
 }
 

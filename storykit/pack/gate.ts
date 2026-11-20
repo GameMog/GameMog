@@ -75,7 +75,7 @@ import FORGE from '../../scripts/forge/character-sheet.schema.json' with { type:
 import VEHICLE_SCHEMA from '../vehicles/vehicle-sheet.schema.json' with { type: 'json' };
 import { Validator, type Schema } from './validate.ts';
 import { PLACES, CAM_POINTS, CITY_NAME, HOMETOWN, LOCK_KEYS, foreignIn, buildsFor, type CityId, type CityTable } from './cities.ts';
-import { MOGCITY_STUBS, OPENING, SHOWCASE, SHOWCASE_PACKS, SHOWCASE_CARS, HERO_CARS, HORSE_STEPS } from './schema.mjs';
+import { MOGCITY_STUBS, OPENING, SHOWCASE, SHOWCASE_PACKS, SHOWCASE_CARS, HERO_CARS, HORSE_STEPS, VCALL, VCALL_OFFICES, VCALL_EVENTS } from './schema.mjs';
 import { lintVoiceBlock, KOKORO_VOICES, lineHash as vdLineHash } from '../voices/voice-design.js';
 import { isBlocked } from '../../lib/names.ts';
 import { modelOf, nearVoice, can as modelCan } from './registry.ts';
@@ -130,6 +130,7 @@ export const STOCK: Record<string, Ride> = {
   vandal: { id: 'vandal', label: 'Vandal GT', family: 'car4', abilities: new Set(['boost']), seats: 4, stock: 'vandal' },
   roadster: { id: 'roadster', label: 'Roadster', family: 'car4', abilities: new Set(['boost']), seats: 2, stock: 'roadster' },
   gt: { id: 'gt', label: 'Vantor GT', family: 'car4', abilities: new Set(['boost']), seats: 2, stock: 'gt' },
+  wedge: { id: 'wedge', label: 'Tensore', family: 'car4', abilities: new Set(['boost']), seats: 2, stock: 'wedge' },
 };
 const FOOT: Ride = { id: 'on-foot', label: 'on foot', family: 'foot', abilities: new Set(['dash']), seats: 1 };
 const TWO_WHEEL: Family[] = ['motorbike', 'scooter', 'bicycle'];
@@ -196,6 +197,8 @@ const FREE_KEYS = new Set(['title', 'kicker', 'tagline', 'name', 'stakes', 'pass
   'alert', 'peelText', 'text', 'prompt', 'defaultText', 'sub', 'caption', 'heading', 'lateLabel', 'silenceLabel', 'reply', 'silenceReply',
   'line', 'missing', 'signed', 'skip', 'date', 'due', 'hint', 'logline', 'presentation', 'gestures', 'wants', 'speech', 'traits', 'story',
   'description', 'nickname', 'oneLine', 'unitLabel', 'zero', 'street', 'note', 'fail', 'value',
+  // (a video call's shared slide: its points and its big number, read as every on-screen word is)
+  'lines', 'big',
   // (a cast member's voice sheet, cast[].speech)
   'rhythm', 'habit', 'jokes', 'never', 'motifs']);
 
@@ -235,7 +238,9 @@ export function frameworkProblems(pack: PackV2, parent: PackV2): string[] {
   if (JSON.stringify(clock(pack)) !== JSON.stringify(clock(parent))) out.push(`hud.clock: a Mog keeps its parent's clock (${JSON.stringify(clock(parent))}); only its words (label, unitLabel, zero) may change.`);
   const used = (p: PackV2) => { const steps = missionsOf(p).flatMap((m: Json) => allSteps(m?.steps)); return { kinds: new Set<string>(steps.map((x) => x?.type)), rules: new Set<string>(steps.filter((x) => x?.type === 'fight').map((x) => x.rules ?? 'full')), wins: new Set<string>(steps.filter((x) => x?.type === 'fight').map((x) => x.win)) }; };
   const P = used(parent), N = used(pack);
-  const extra = [...N.kinds].filter((k) => !P.kinds.has(k));
+  // (a scene of talk may be a cutscene or a video call either way: a Mog may play its parent's cutscene as a call)
+  const TALK = ['cutscene', 'vcall'], talks = TALK.some((k) => P.kinds.has(k));
+  const extra = [...N.kinds].filter((k) => !P.kinds.has(k) && !(talks && TALK.includes(k)));
   if (extra.length) out.push(`${extra.map((k) => `'${k}'`).join(', ')}: a Mog keeps its parent's mission structure, the step kinds it is made of (${[...P.kinds].join(', ')}); it adds no new kind of step. Tell the idea through those, or make a new world (Create).`);
   // (a fight where the parent has none is already the new kind above)
   const fights = P.kinds.has('fight'), rules = fights ? [...N.rules].filter((k) => !P.rules.has(k)) : [], wins = fights ? [...N.wins].filter((k) => !P.wins.has(k)) : [];
@@ -362,7 +367,7 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
       : { id: v.id, label: v.label, family: v.family, abilities: new Set(v.abilities || []), seats: seatsOf(v) };
     if (rides.has(r.id) || r.id === 'on-foot') refuse(`vehicles[${i}]: "${r.id}" is already used.`);
     if (v.stock && SHOWCASE_CARS.includes(v.stock) && !show) refuse(`vehicles[${i}]: the ${STOCK[v.stock].label} is driven only in GameMog's own showcase worlds.`);
-    if (v.stock && !SHOWCASE_CARS.includes(v.stock) && (v.label || v.plate)) refuse(`vehicles[${i}]: a label and a plate are the Vantor GT's (stock "gt") only.`);
+    if (v.stock && !SHOWCASE_CARS.includes(v.stock) && (v.label || v.plate)) refuse(`vehicles[${i}]: a label and a plate are a showcase car's (stock ${SHOWCASE_CARS.map((c) => `"${c}"`).join(' or ')}) only.`);
     // (a tow rig sits on a bed: a wrecker's or a pickup's; storykit/vehicles/sheet.js)
     if (!v.stock && r.abilities.has('tow') && (!TOW_CLASSES.includes(v.class) || (v.body?.rear && v.body.rear !== 'bed'))) refuse(`vehicles[${i}] (${r.id}): "tow" needs a tow rig, which only a ${TOW_CLASSES.join(' or a ')} with its bed carries (this is a ${v.class}).`);
     rides.set(r.id, r);
@@ -598,6 +603,13 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
             else if (sh.on || sh.at) refuse(`${at}.shots[${j}]: on and at belong to a frame.`); }); break;
         case 'vignette': if (s.place) place(s.place, `${at}.place`, 'any'); s.shots.forEach((sh: Json, j: number) => { for (const k of ['cam', 'look', 'to', 'lookTo']) cam(sh[k], `${at}.shots[${j}].${k}`); if (sh.line && !sh.say) refuse(`${at}.shots[${j}]: a line needs a speaker (say).`); if (sh.say) { who(sh.say, `${at}.shots[${j}].say`); line(`${lid}.v${j}`, sh.say, sh.line); } }); break;
         case 'say': who(s.who, `${at}.who`); line(lid, s.who, s.text, s); break;
+        // (a video call: its people, its lines and events in order (vcallProblems); each line voiced as a cutscene's)
+        case 'vcall':
+          for (const p of vcallProblems(s, at, cast, pack.hero, pets)) refuse(p);
+          for (const n of vcallNotes(s, at)) warnings.push(n);
+          if (!mc) refuse(`${at}: a video call plays on Mog City's engine (base.engine "mogcity-1").`);
+          (s.lines || []).forEach((l: Json, j: number) => { if (l && typeof l.line === 'string') line(`${lid}.q${j}`, l.who === 'player' ? pack.hero : l.who, l.line, l); });
+          break;
         case 'voicemail': case 'voicenote': who(s.who, `${at}.who`); line(lid, s.who, s.text); break;
         case 'call':
           who(s.who, `${at}.who`); set(s.answer, `${at}.answer`); set(s.decline, `${at}.decline`);
@@ -607,7 +619,11 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
           (s.wrap || []).forEach((l: Json, j: number) => { who(l.who, `${at}.wrap[${j}].who`); line(`${lid}.w.l${j}`, l.who, l.text, l); });
           for (const k of ['pause', 'resume'] as const) (s.hold?.[k] || []).forEach((l: Json, j: number) => { who(l.who, `${at}.hold.${k}[${j}].who`); line(`${lid}.h${k[0]}.l${j}`, l.who, l.text, l); });
           // its react pools (W11): voiced like its other lines (ids <step>.rclose, .rhit, .rlost, .rspot)
-          for (const [k, tag] of REACT_IDS) (s.react?.[k] || []).forEach((l: Json, j: number) => { who(l.who, `${at}.react.${k}[${j}].who`); line(`${lid}.${tag}.l${j}`, l.who, l.text, l); });
+          // (a variant is a line, or an exchange of lines: <step>.rhit.l1.0, .l1.1)
+          for (const [k, tag] of REACT_IDS) (s.react?.[k] || []).forEach((v: Json, j: number) => { if (Array.isArray(v)) v.forEach((l: Json, i: number) => { who(l.who, `${at}.react.${k}[${j}][${i}].who`); line(`${lid}.${tag}.l${j}.${i}`, l.who, l.text, l); }); else { who(v.who, `${at}.react.${k}[${j}].who`); line(`${lid}.${tag}.l${j}`, v.who, v.text, v); } });
+          if (s.span && !s.inCar && !s.auto) warnings.push(`${at}: span carries a car-phone call (auto or inCar) over the next steps; this call is not one.`);
+          // (a video call on the car's screen: the caller seen in their office, so a body, and on the car phone)
+          if (s.video) { const c = cast.get(s.who); if (c?.voiceOnly) refuse(`${at}.video: "${s.who}" is voiceOnly (heard, never seen); a video call shows the caller.`); if (s.who === pack.hero) refuse(`${at}.video: the hero calling shows nobody; the video is the far end's (who: the caller).`); if (!s.inCar && !s.auto) refuse(`${at}.video: a video call on the car's screen is a car-phone call (auto or inCar).`); if (!mc) refuse(`${at}.video: plays on Mog City's engine (base.engine "mogcity-1").`); }
           if (s.react && !s.inCar && !s.auto) warnings.push(`${at}: react pools play on a car-phone call (auto or inCar), while the player drives.`);
           if (s.hold && !s.inCar) warnings.push(`${at}: hold lines only play on a call with inCar: true.`);
           if (s.interrupts && !side) warnings.push(`${at}: interrupts (call waiting) only waits on a live car-phone call; as a step of its own it is an ordinary call unless one is on.`);
@@ -689,9 +705,13 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
 
   // 14. the opening: the world's own, before Mission 1 (openingProblems); a Mog keeps its parent's unless it writes its own
   if (pack.opening) {
-    for (const p of openingProblems(pack, { cast, pets, placeOf, camPoints, cityName, keys: [...Object.keys(cityPlaces), ...Object.keys(aliases)], secs: show ? SHOWCASE.openingSecs : undefined })) refuse(p);
+    for (const p of openingProblems(pack, { cast, pets, placeOf, camPoints, cityName, keys: [...Object.keys(cityPlaces), ...Object.keys(aliases)], secs: show ? SHOWCASE.openingSecs : undefined, lines: show ? SHOWCASE.openingLines : undefined })) refuse(p);
     collect(pack.opening, 'opening', texts);
-    pack.opening.shots.forEach((sh: Json, j: number) => { if (sh.say && sh.line && cast.has(sh.say)) lines.push({ id: `OPEN.c${j}`, who: sh.say, text: sh.line, hash: lineHash(sh.line), status: 'pending', clip: null, ...(sh.how ? { how: sh.how } : {}) }); });
+    pack.opening.shots.forEach((sh: Json, j: number) => {
+      if (sh.say && sh.line && cast.has(sh.say)) lines.push({ id: `OPEN.c${j}`, who: sh.say, text: sh.line, hash: lineHash(sh.line), status: 'pending', clip: null, ...(sh.how ? { how: sh.how } : {}) });
+      // (an exchange in one of its shots: OPEN.c<j>.l<k>, as a cutscene's)
+      (sh.lines || []).forEach((l: Json, k: number) => { if (l.who && l.text && cast.has(l.who)) lines.push({ id: `OPEN.c${j}.l${k}`, who: l.who, text: l.text, hash: lineHash(l.text), status: 'pending', clip: null, ...(l.how ? { how: l.how } : {}) }); });
+    });
   } else if (opts.parent?.opening) refuse(`opening: the original has an opening (its place card, its people's name cards, its premise). A Mog keeps it: copy the original's "opening" exactly, or, when the idea changes the story or its people, write the Mog's own, by the same rules.`);
 
   // 5, 6, 7: every text
@@ -749,6 +769,66 @@ export function setProblems(def: Json, at: string, cast: Map<string, Json>, hero
   });
   return out;
 }
+/**
+ * A video call (a `vcall` step: Mog City's runner, wagmi/storyrun/vcall.js): 2 to 6 people, each a seen cast member or
+ * the hero ('player' or the hero's id, once), each in one of the offices; its lines and events in order, every `who` one
+ * of its people, nobody talking before they have joined (`late` and no `join` before it) or after they dropped; at most
+ * VCALL.events events; at least one spoken line. Returns the refusals.
+ */
+export function vcallProblems(s: Json, at: string, cast: Map<string, Json>, hero: string, pets: Map<string, Json> | Set<string> = new Set()): string[] {
+  const out: string[] = [], people: Json[] = Array.isArray(s?.people) ? s.people : [], items: Json[] = Array.isArray(s?.lines) ? s.lines : [];
+  const id = (w: Json) => (w === 'player' ? hero : w);
+  if (people.length < VCALL.people[0] || people.length > VCALL.people[1]) out.push(`${at}.people: a video call has ${VCALL.people[0]} to ${VCALL.people[1]} people (it has ${people.length}).`);
+  const state = new Map<string, { in: boolean }>();
+  people.forEach((p: Json, i: number) => {
+    const w = `${at}.people[${i}]`, who = id(p?.who), c = cast.get(who);
+    if (pets.has(who)) out.push(`${w}.who: "${p.who}" is a pet; a pet is not on a call.`);
+    else if (!c) out.push(`${w}.who: "${p?.who}" is not in the cast${suggest(String(p?.who), [...cast.keys()])}.`);
+    else if (c.voiceOnly) out.push(`${w}.who: "${p.who}" is voiceOnly (heard, never seen); a video call shows everyone on it (a voice-only caller is a call step).`);
+    if (state.has(who)) out.push(`${w}.who: "${p.who}" is on this call twice.`);
+    if (p?.office && !VCALL_OFFICES.includes(p.office)) out.push(`${w}.office: "${p.office}" is not an office (${VCALL_OFFICES.join(', ')}).`);
+    state.set(who, { in: !p?.late });
+  });
+  let events = 0, spoken = 0;
+  if (items.length > VCALL.items) out.push(`${at}.lines: at most ${VCALL.items} lines and events in one call (it has ${items.length}).`);
+  items.forEach((l: Json, j: number) => {
+    const w = `${at}.lines[${j}]`;
+    if (!l || typeof l !== 'object') { out.push(`${w}: a line ({ who, line }) or an event ({ do, who }).`); return; }
+    if (l.do != null && l.line != null) { out.push(`${w}: a line or an event, not both.`); return; }
+    if (l.do != null) {
+      events++;
+      if (!VCALL_EVENTS.includes(l.do)) { out.push(`${w}.do: "${l.do}" is not a call event (${VCALL_EVENTS.join(', ')}).`); return; }
+      if (l.do === 'wait') { if (l.who != null) out.push(`${w}: a wait is nobody's.`); return; }
+      const S = state.get(id(l.who));
+      if (!S) { out.push(`${w}.who: "${l.who}" is not on this call.`); return; }
+      if (l.do === 'share' && !l.slide) out.push(`${w}: a share shows a slide ({ title, lines, big }).`);
+      if (l.slide && l.do !== 'share') out.push(`${w}.slide: only a share has a slide.`);
+      if (l.do === 'join') { if (S.in) out.push(`${w}: "${l.who}" is already on the call (join is for someone late: late: true, or after a drop).`); S.in = true; }
+      else if (l.do === 'drop') { if (!S.in) out.push(`${w}: "${l.who}" is not on the call to drop.`); S.in = false; }
+      else if (!S.in) out.push(`${w}: "${l.who}" is not on the call yet (or has dropped).`);
+      return;
+    }
+    const S = state.get(id(l.who));
+    if (!S) { out.push(`${w}.who: "${l.who}" is not on this call.`); return; }
+    if (!S.in) out.push(`${w}: "${l.who}" talks before joining the call (late: a join event first) or after dropping.`);
+    if (l.cut != null && !(l.cut >= 0.3 && l.cut <= 0.95)) out.push(`${w}.cut: 0.3 to 0.95 (the share of the line said before the next one talks over it).`);
+    spoken++;
+  });
+  if (events > VCALL.events) out.push(`${at}.lines: at most ${VCALL.events} call events in one call (it has ${events}).`);
+  if (!spoken) out.push(`${at}.lines: a video call says something (no spoken line).`);
+  return out;
+}
+/** A video call's soft notes: a call with none of a call's life, a line said on mute nobody points out. */
+export function vcallNotes(s: Json, at: string): string[] {
+  const out: string[] = [], items: Json[] = Array.isArray(s?.lines) ? s.lines : [];
+  if (!items.some((l) => l && l.do) && !(s?.people || []).some((p: Json) => p && (p.late || p.muted || p.blur))) out.push(`${at}: a video call with no call life (a mute, someone late, a frozen picture, a shared screen): one touch makes it a call.`);
+  const muted = new Set<string>((s?.people || []).filter((p: Json) => p?.muted).map((p: Json) => p.who));
+  items.forEach((l: Json, j: number) => {
+    if (l?.do === 'mute') muted.add(l.who); if (l?.do === 'unmute') muted.delete(l.who);
+    if (l?.line && (l.muted || muted.has(l.who)) && !items.slice(j + 1, j + 4).some((x) => x?.line && /\bmute/i.test(x.line))) out.push(`${at}.lines[${j}]: said on mute, and nobody says "you're on mute" in the next lines; the joke lands when someone does.`);
+  });
+  return out;
+}
 /** A shot in a set: the people its camera is on, and its act's, stand in that set (the hero as 'player' or by id). */
 export function setShotProblems(def: Json, sh: Json, at: string, hero: string): string[] {
   const out: string[] = [], ids = new Set<string>((def.people || []).map((p: Json) => p.who));
@@ -759,7 +839,8 @@ export function setShotProblems(def: Json, sh: Json, at: string, hero: string): 
 }
 
 /** The seconds an opening's shot is on screen: its dur (3), or its line's reading time when longer (the runner's). */
-export const shotSecs = (sh: Json) => Math.max(sh?.dur ?? 3, sh?.line ? Math.max(1.4, String(sh.line).length / 15) : 0);
+export const shotSecs = (sh: Json) => Math.max(sh?.dur ?? 3, sh?.line ? Math.max(1.4, String(sh.line).length / 15) : 0,
+  Array.isArray(sh?.lines) ? sh.lines.reduce((n: number, l: Json) => n + Math.max(1, String(l?.text || '').length / 15), 0) : 0);
 /**
  * Rule 14, the opening (Mog City's runner plays it before Mission 1, as Mog City's own opening plays before its Mission 1):
  * it opens wide on the city with the place card (never on a close-up of one person); it brings on the hero (the pack's
@@ -768,8 +849,8 @@ export const shotSecs = (sh: Json) => Math.max(sh?.dur ?? 3, sh?.line ? Math.max
  * 'player'), every person a shot looks at or a card names stood on the street (stage) unless they are the hero; it says
  * the premise in OPENING.lines spoken lines (say + line); the title once; OPENING.secs seconds in all.
  */
-export function openingProblems(pack: PackV2, ctx: { cast: Map<string, Json>; pets: Map<string, Json>; placeOf: (k: string) => Json; camPoints: string[]; cityName: string; keys: string[]; secs?: number[] }): string[] {
-  const SECS = ctx.secs || OPENING.secs;
+export function openingProblems(pack: PackV2, ctx: { cast: Map<string, Json>; pets: Map<string, Json>; placeOf: (k: string) => Json; camPoints: string[]; cityName: string; keys: string[]; secs?: number[]; lines?: number[] }): string[] {
+  const SECS = ctx.secs || OPENING.secs, LINES = ctx.lines || OPENING.lines;
   const out: string[] = [], o = pack.opening, at = 'opening', { cast } = ctx;
   const placeOk = (ref: Json, where: string) => { const key = typeof ref === 'string' ? ref.slice(1) : ref?.['@']; if (key && !ctx.placeOf(key)) out.push(`${where}: "@${key}" is not a place in ${ctx.cityName}${suggest(key, ctx.keys)}.`); };
   const body = (id: string, where: string) => { const c = cast.get(id); if (!c) { out.push(`${where}: "${id}" is not in the cast${suggest(id, [...cast.keys()])}.`); return false; } if (c.voiceOnly) { out.push(`${where}: "${id}" is voiceOnly (heard, never seen); they can't be seen in the opening.`); return false; } return true; };
@@ -802,6 +883,11 @@ export function openingProblems(pack: PackV2, ctx: { cast: Map<string, Json>; pe
     else if (sh.act) out.push(`${w}.act: a shot on the street has no set to change.`);
     if (sh.line && !sh.say) out.push(`${w}: a line needs a speaker (say).`);
     if (sh.say) { if (cast.has(sh.say)) lines++; else out.push(`${w}.say: "${sh.say}" is not in the cast.`); }
+    // (an exchange in the shot: each of its lines is one of the premise's)
+    if (sh.lines) {
+      if (sh.say || sh.line) out.push(`${w}: a shot says one line (say + line) or an exchange (lines), not both.`);
+      sh.lines.forEach((l: Json, k: number) => { if (cast.has(l.who)) lines++; else out.push(`${w}.lines[${k}].who: "${l.who}" is not in the cast.`); });
+    }
     if (sh.title) titles++;
     secs += shotSecs(sh);
     const c = sh.card;
@@ -823,7 +909,7 @@ export function openingProblems(pack: PackV2, ctx: { cast: Map<string, Json>; pe
   if (!of('hero').length) out.push(`${at}: the hero ("${pack.hero}") gets a name card (card { "who": "${pack.hero}", "is": "hero", "role": "..." }), on a shot that looks at them.`);
   if (!of('antagonist').length) out.push(`${at}: who is in the hero's way gets a name card too (card { "is": "antagonist" }): the player meets them here, not in a later voicemail.`);
   if (of('ally').length > OPENING.allies) out.push(`${at}: ${of('ally').length} others have name cards; at most ${OPENING.allies} besides the hero and the antagonist (the rest meet the player in the missions).`);
-  if (lines < OPENING.lines[0] || lines > OPENING.lines[1]) out.push(`${at}: ${lines} spoken line${lines === 1 ? '' : 's'}; the premise is said in ${OPENING.lines[0]} to ${OPENING.lines[1]} (say + line): what the hero wants tonight, who is in the way, what is at stake.`);
+  if (lines < LINES[0] || lines > LINES[1]) out.push(`${at}: ${lines} spoken line${lines === 1 ? '' : 's'}; the premise is said in ${LINES[0]} to ${LINES[1]} (say + line, or a shot's lines): what the hero wants tonight, who is in the way, what is at stake.`);
   if (titles !== 1) out.push(`${at}: the world's title is shown once (title: true on one shot, the last is the usual place); this opening has ${titles}.`);
   if (secs < SECS[0] || secs > SECS[1]) out.push(`${at}: ${Math.round(secs)} s; an opening is ${SECS[0]} to ${SECS[1]} s (each shot its dur, or its line's reading time when longer).`);
   return out;
@@ -844,9 +930,14 @@ export function toRunnerPack(pack: PackV2, opts: { cast?: Record<string, string>
   // a stock car is its engine id; a vehicle sheet is its own id (the engine registers it from car / rides)
   const stockOf = (rideId: string) => { const v = pack.vehicles.find((x: Json) => (x.id || x.stock) === rideId); return v ? (v.stock || v.id) : undefined; };
   const sheets = pack.vehicles.filter((v: Json) => !v.stock);
-  // (the Vantor GT, a showcase's: Mog City builds it in code, wagmi/storyrun/gt.js; the runner reads car { model, label, plate, paint })
-  const carOf = (rideId: string) => { const v = pack.vehicles.find((x: Json) => (x.id || x.stock) === rideId); return v?.stock === 'gt' ? { model: 'mogcity/gt', ...(v.label ? { label: v.label } : {}), ...(v.plate ? { plate: v.plate } : {}), ...(v.paint ? { paint: v.paint } : {}) } : stockOf(rideId); };
+  // (the Vantor GT and the Tensore, a showcase's: Mog City builds them, wagmi/storyrun/gt.js and wedge.js; the runner reads
+  // car { model, label, plate, paint })
+  const carOf = (rideId: string) => { const v = pack.vehicles.find((x: Json) => (x.id || x.stock) === rideId); return v && SHOWCASE_CARS.includes(v.stock) ? { model: `mogcity/${v.stock}`, ...(v.label ? { label: v.label } : {}), ...(v.plate ? { plate: v.plate } : {}), ...(v.paint ? { paint: v.paint } : {}) } : stockOf(rideId); };
   const heroRide = pack.ride || (pack.vehicles[0].id || pack.vehicles[0].stock);
+  // (a stock hero car's paint, carPaint: Mog City builds its roadster in it, wagmi/game.js; the gt carries its own in car.
+  // The roadster's own white, #E7E7E3, is no change: a world that names it (Mog City's own) is built as before)
+  const heroStock = !sheets.some((v: Json) => v.id === heroRide) ? pack.vehicles.find((x: Json) => (x.id || x.stock) === heroRide) : null;
+  const carPaint = heroStock && heroStock.stock && !SHOWCASE_CARS.includes(heroStock.stock) && typeof heroStock.paint === 'string' && !/^#e7e7e3$/i.test(heroStock.paint) ? heroStock.paint : null;
   const heroSheet = sheets.find((v: Json) => v.id === heroRide);
   // a camera point on a cast member ({ rel: id }) names them as the runner does (by name)
   const camRef = (r: Json) => (r && typeof r === 'object' && r.rel && r.rel !== 'player' ? { ...r, rel: name(r.rel) } : r);
@@ -861,7 +952,7 @@ export function toRunnerPack(pack: PackV2, opts: { cast?: Record<string, string>
   // keeps `sub` [who, text] (its first line): an engine before shotLines() reads only sub and says that line
   const cutShot = (sh: Json): Json => {
     const c: Json = { ...sh };
-    for (const f of ['how', 'pre', 'post', 'overlap']) delete c[f];
+    for (const f of ['how', 'pre', 'post', 'overlap', 'cut']) delete c[f];
     if (Array.isArray(sh.lines) && sh.lines.length) {
       c.lines = sh.lines.map((l: Json) => ({ who: name(l.who), text: l.text, ...delivery(l) }));
       c.sub = tuple(sh.lines[0].who, sh.lines[0].text);
@@ -886,7 +977,7 @@ export function toRunnerPack(pack: PackV2, opts: { cast?: Record<string, string>
   const tuple = (who: string, text: string, secs?: number) => (secs == null ? [name(who), text] : [name(who), text, secs]);
   // (a line with a delivery (how, pre, post, overlap) goes as an object, which the runner reads as it reads a tuple
   // (runner.js tuple(): an array is [who, text, secs], an object is used as it is); without one, the tuple as before)
-  const delivery = (l: Json) => Object.fromEntries(['how', 'pre', 'post', 'overlap'].filter((k) => l?.[k] != null).map((k) => [k, l[k]]));
+  const delivery = (l: Json) => Object.fromEntries(['how', 'pre', 'post', 'overlap', 'cut'].filter((k) => l?.[k] != null).map((k) => [k, l[k]]));
   const step = (s: Json): Json => {
     const o: Json = { ...s };
     if (o.during) o.during = o.during.map(step);
@@ -898,7 +989,8 @@ export function toRunnerPack(pack: PackV2, opts: { cast?: Record<string, string>
     if (s.type === 'call' && o.extra) o.extra = o.extra.map(callLines);
     if (s.type === 'call' && o.wrap) o.wrap = callLines(o.wrap);
     if (s.type === 'call' && o.hold) o.hold = { pause: callLines(o.hold.pause || []), resume: callLines(o.hold.resume || []) };
-    if (s.type === 'call' && o.react) o.react = Object.fromEntries(Object.entries(o.react as Record<string, Json[]>).map(([k, ls]) => [k, callLines(ls)]));
+    // (a react variant that is an exchange goes as a list of lines: Mog City's talk.js reads either)
+    if (s.type === 'call' && o.react) o.react = Object.fromEntries(Object.entries(o.react as Record<string, Json[]>).map(([k, ls]) => [k, ls.map((v: Json) => (Array.isArray(v) ? callLines(v) : callLines([v])[0]))]));
     if (s.type === 'dm') { o.from = s.from ? name(s.from) : s.name; delete o.name; }
     if (s.type === 'comfort' && o.lines) o.lines = o.lines.map((l: Json) => ({ ...l, who: name(l.who) }));
     if (s.type === 'passenger' && o.comfort?.lines) o.comfort = { ...o.comfort, lines: o.comfort.lines.map((l: Json) => ({ ...l, who: name(l.who) })) };
@@ -912,6 +1004,12 @@ export function toRunnerPack(pack: PackV2, opts: { cast?: Record<string, string>
     if (s.type === 'beat' && o.shot) o.shot = shots([o.shot])[0];
     if (s.type === 'fight') o.enemies = s.enemies.map(name);
     if (s.type === 'actEnd' && o.quote?.by) o.quote = { ...o.quote, by: name(o.quote.by) };
+    // (a video call: people and speakers by display name, the hero as 'player'; lines as the runner reads them)
+    if (s.type === 'vcall') {
+      const nm = (w: Json) => (w === 'player' ? 'player' : name(w));
+      o.people = s.people.map((p: Json) => ({ ...p, who: nm(p.who) }));
+      o.lines = s.lines.map((l: Json) => (l.do != null ? { ...l, ...(l.who != null ? { who: nm(l.who) } : {}) } : (() => { const { line: text, ...rest } = l; return { ...rest, who: nm(l.who), text }; })()));
+    }
     if (s.type === 'vignette') o.shots = shots(o.shots).map((sh: Json) => { const c = { ...sh }; if (c.say) c.say = tuple(c.say, c.line); delete c.line; return c; });
     return o;
   };
@@ -928,6 +1026,7 @@ export function toRunnerPack(pack: PackV2, opts: { cast?: Record<string, string>
     // town, wagmi/storyrun/pack.js, comparing it field by field with the bundle's lock, compiler = the bundle's buildId)
     ...(town && pack.base.hometown ? { hometown: pack.base.hometown } : {}),
     car: heroSheet ? { sheet: heroSheet } : carOf(heroRide), hud: pack.hud, dressing: pack.dressing,
+    ...(carPaint ? { carPaint } : {}),
     // (the car the creator picked, rule 17: Mog City's wagmi/fleet-picks.js; in a town the player's car is the fleet's
     // realistic model of that name, on the hero ride's sheet; an engine that does not know it plays the sheet as before)
     ...(pack.heroCar ? { fleetCar: pack.heroCar } : {}),
@@ -938,7 +1037,7 @@ export function toRunnerPack(pack: PackV2, opts: { cast?: Record<string, string>
     ...(sheets.some((v: Json) => v !== heroSheet) ? { rides: Object.fromEntries(sheets.filter((v: Json) => v !== heroSheet).map((v: Json) => [v.id, v])) } : {}),
     // a seen person's body: their forged GLB (opts.cast: cast id -> path next to the page) and the shared clip pack
     cast: Object.fromEntries([
-      ...pack.cast.map((c: Json) => [name(c.id), { color: c.color, role: c.sheet?.role ?? c.role, ...(bodyOf(c) || (opts.cast?.[c.id] && c.sheet ? { glb: opts.cast[c.id], idle: c.sheet.posture?.idle, walk: c.sheet.posture?.walk } : {})) }]),
+      ...pack.cast.map((c: Json) => [name(c.id), { color: c.color, role: c.sheet?.role ?? c.role, ...(c.face ? { face: c.face } : {}), ...(bodyOf(c) || (opts.cast?.[c.id] && c.sheet ? { glb: opts.cast[c.id], idle: c.sheet.posture?.idle, walk: c.sheet.posture?.walk } : {})) }]),
       // a pet's body: the registry's pet (Mog City's Moon) or a dog built the same way in its coat and size
       ...(pack.pets || []).map((p: Json) => [p.name, { color: p.coat || '#E9E2D6', pet: { species: p.species, breed: p.breed, size: p.size, coat: p.coat, model: p.model, owner: p.owner ? name(p.owner) : null, follows: !!p.follows } }])
     ]),

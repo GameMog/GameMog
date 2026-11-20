@@ -56,17 +56,19 @@ export const ANCHORS = ['none', 'old-boss', 'young-hero', 'grandmother', 'grandf
   'young-mother', 'club-promoter', 'veteran'];
 // what a mission asks the player to do; gate.ts VERBS says which ride (or none) can do each
 export const VERBS = ['drive', 'walk', 'boost', 'hop', 'dash', 'ram', 'escape', 'chase', 'tail', 'follow', 'carry', 'sneak', 'deliver', 'pedal', 'lean', 'wheelie', 'tow', 'fight'];
-export const STOCK_CARS = ['trailhand', 'vandal', 'roadster', 'gt'];
+export const STOCK_CARS = ['trailhand', 'vandal', 'roadster', 'gt', 'wedge'];
 // stock cars only GameMog's own showcase worlds drive (gate.ts rule 15): gt, Mog City's Vantor GT (wagmi/storyrun/gt.js: a black
-// rear-engined coupe with the roadster's handling and boost), which the runner gets as car { model: 'mogcity/gt' }
-export const SHOWCASE_CARS = ['gt'];
+// rear-engined coupe with the roadster's handling and boost), which the runner gets as car { model: 'mogcity/gt' }; wedge, Mog
+// City's Tensore (wagmi/storyrun/wedge.js: a lime wedge supercar with scissor doors, no badges, on the same handling;
+// Jensen Heist's), which the runner gets as car { model: 'mogcity/wedge' }
+export const SHOWCASE_CARS = ['gt', 'wedge'];
 // the player's car as the creator picked it on Create (hero-cars.mjs: no imports, so /create's page can read it too)
 export { HERO_CARS, HERO_CAR_IDS } from './hero-cars.mjs';
 import { HERO_CAR_IDS } from './hero-cars.mjs';
 export const STEP_KINDS = ['drive', 'stops', 'walk', 'pursuit', 'timer', 'call', 'voicemail', 'voicenote', 'choice', 'cutscene',
   'place', 'set', 'say', 'wait', 'goto', 'end', 'label', 'transition', 'vignette', 'wallet', 'actEnd', 'comfort', 'tail',
   'stealth', 'patrol', 'convoy', 'trigger', 'beat', 'roadblock', 'passenger', 'npc', 'fight', 'dm', 'search', 'scene', 'tow', 'ally', 'car',
-  'mount', 'ride', 'dismount'];
+  'mount', 'ride', 'dismount', 'vcall'];
 // the steps on the story's horse (a hometown story on Mog City's engine: its `horse`, saddled alongside the hero's car;
 // Mog City wagmi/game.js the two rides): mount at a place, ride to places, dismount; gate.ts says where they may be used
 export const HORSE_STEPS = ['mount', 'ride', 'dismount'];
@@ -103,8 +105,15 @@ export const LIMITS = { bytes: 160_000, acts: 3, missions: 9, steps: 60, cast: 1
 // repo (storykit/packs/<id>.json, listed in SHOWCASE_PACKS), like Mog City's own story ({ own: true }); never the
 // builder's or the store's. It may be longer than a Create: up to 5 acts of up to 8 missions (15+ in all), longer
 // missions, more lines, a longer opening. Everything else (places, verbs, kinds, words, voices) is gated the same.
-export const SHOWCASE = { bytes: 640_000, acts: 5, missionsPerAct: 8, steps: 120, lines: 2400, cast: 24, openingSecs: [30, 150], openingShots: 24, places: 48 };
-export const SHOWCASE_PACKS = ['pickup-time'];
+export const SHOWCASE = { bytes: 640_000, acts: 5, missionsPerAct: 8, steps: 120, lines: 2400, cast: 24, openingSecs: [30, 150], openingShots: 24, openingLines: [2, 16], places: 48 };
+export const SHOWCASE_PACKS = ['pickup-time', 'jensen-heist'];
+// a video call (Mog City wagmi/storyrun/vcall.js, 18 Nov): every conversation can be one: each person in an office of
+// their own, head and shoulders on their webcam, in a call's layout (tiles, names, the one talking lit, subtitles), with
+// the call's own life between the lines (VCALL_EVENTS). gate.ts vcallProblems holds its rules
+export const VCALL_OFFICES = ['exec', 'startup', 'backstage', 'boardroom', 'kitchen', 'study', 'van', 'greenroom', 'truck', 'diner', 'lot', 'green', 'car', 'house'];
+export const VCALL_EVENTS = ['mute', 'unmute', 'join', 'drop', 'freeze', 'unfreeze', 'share', 'unshare', 'blur', 'unblur', 'hand', 'wait'];
+export const VCALL_CAMS = ['close', 'wide', 'low'];
+export const VCALL = { people: [2, 6], items: 40, events: 24 };
 
 // ── builders ──
 const S = (maxLength, extra = {}) => ({ type: 'string', maxLength, ...extra });
@@ -121,7 +130,8 @@ const DLV = {
   how: E(DELIVERY, { description: 'how it is said: warm, tease, deadpan, urgent, angry, shout, scared, hushed, hesitant, sad, smug' }),
   pre: N(0, 1.2, { description: 'an authored beat before the line, seconds (the sincere pivot after a joke: 0.6 to 0.8)' }),
   post: N(0, 1.2, { description: 'an authored beat after the line, seconds (after a reveal: 0.8 to 1.2)' }),
-  overlap: { ...B, description: 'a reply of 2 words or fewer that may start just before the last line ends (a cut-in)' }
+  overlap: { ...B, description: 'a reply of 4 words or fewer that may start just before the last line ends (a cut-in)' },
+  cut: N(0.3, 0.95, { description: "an interruption: the next speaker cuts in once this share of the line is said ('The more you buy, the more you...' / 'Stop.'); the next line is the one that interrupts" })
 };
 
 // fields every step can carry (missions/README.md "Fields every step can carry"), the during list added per step
@@ -137,7 +147,10 @@ const camRef = R('camRef');
 // a set (Mog City's runner: wagmi/storyrun/sets.js): a cutscene staged in a room or a closed exterior of its own, drawn
 // in place of the street as Mog City's opening draws Mr. Big's study, its people stood in it (x right, z toward the way
 // in, metres from its middle; the hero by his id too), so nobody is on a street with the traffic
-export const SET_ROOMS = ['bank-office', 'school', 'hideout', 'pizzeria', 'apartment', 'garage', 'steps', 'park', 'lobby', 'plaza', 'alley'];
+// (stage: an arena's stage from the floor, the deck at -z, the house's seats facing it from +z, the set's sign on its
+// screen; office-<look>: a video call's offices as rooms of their own, a home kitchen's island in office-kitchen)
+export const SET_ROOMS = ['bank-office', 'school', 'hideout', 'pizzeria', 'apartment', 'garage', 'steps', 'park', 'lobby', 'plaza', 'alley', 'stage',
+  ...VCALL_OFFICES.map((o) => 'office-' + o)];
 export const SET_POSES = ['idle', 'talk', 'phone', 'arms', 'argue', 'shrug', 'wave', 'cheer', 'drink', 'leanBar', 'sit', 'sitTalk', 'kneel', 'crouch', 'walk', 'walkCool', 'jog'];
 const XZ = A(N(-30, 30), 2, 2);
 const setPersonProps = {
@@ -148,7 +161,8 @@ const setPersonProps = {
   hand: O({ side: E(['L', 'R']), at: A(N(-2, 2.5), 3, 3), k: N(0, 1) }, ['at'], { description: 'a hand to a point of their own: [right, up, fwd] m from their feet (a phone held up to look at)' }),
   prop: E(['phone', 'walkie'], { description: 'a thing in the right hand' }), look: { ...R('slug'), description: "where their eyes go: 'lens' (into the camera), 'prop', or someone in the set" }
 };
-const setDef = O({ room: E(SET_ROOMS), light: E(['day', 'golden', 'night']), sign: S(40), people: A(O(setPersonProps, ['who', 'at']), 7) }, ['room'],
+const setDef = O({ room: E(SET_ROOMS), light: E(['day', 'golden', 'night']), sign: S(40), people: A(O(setPersonProps, ['who', 'at']), 7),
+  house: E(['calm', 'up'], { description: "stage only: the house, calm (standing and watching, a phone up here and there) or up (on its feet and cheering, the phones up)" }) }, ['room'],
   { description: "a set: the room (or closed exterior) the cutscene is staged in, its light (else the mission's time), its people and where they stand" });
 const setAct = A(O(setPersonProps, ['who']), 7, 0, { description: "a shot's changes to its set's people as it starts: where they stand, whom they face, their pose, a walk, a hug" });
 // a cutscene shot: `say` + `line` is a cast member's spoken line under the shot (a subtitle until its clip is ready)
@@ -202,11 +216,13 @@ const STEPS = fx(['drive', 'stops', 'pursuit', 'tail', 'tow', 'timer', 'fight', 
     // the car phone (Mog City's): it answers itself, talks only while the hero is at the wheel (on hold when he gets out,
     // with the hold lines), plays its extra blocks while the leg it rides on lasts, and wraps up when that leg ends
     auto: { ...B, description: 'answers itself (no ring, no decline): a call the hero always takes, on the car phone' },
+    video: O({ office: E(VCALL_OFFICES), blur: B, light: E(['day', 'golden', 'night']) }, ['office'], { description: "a car-phone call as a video call: the caller in their office, on webcam, in a small picture at the top of the screen while it talks (auto or inCar; the caller has a body)" }),
     inCar: { ...B, description: 'talks only while the hero is in a car; on foot it holds (hold.pause), back in it resumes (hold.resume)' },
     extra: A(A(R('spoken'), 12, 1), 8, 0, { description: 'more talk, block by block, after the lines and while the step it rides on still runs (a long drive)' }),
     wrap: A(R('spoken'), 6, 0, { description: 'when the step it rides on ends (he arrived), the line being said finishes, then these, then the call ends' }),
     hold: O({ pause: A(R('spoken'), 2), resume: A(R('spoken'), 2) }, [], { description: 'inCar: what is said when he gets out, and when he is back at the wheel' }),
-    react: O(Object.fromEntries(REACT_POOLS.map((k) => [k, A(R('spoken'), 3, 2)])), [], { description: 'what the caller says when the player does this while the call talks (tooClose: on the bumper of who he tails; hit: a crash; lost: off the route or the target lost; spotted: seen): 2 or 3 variants each, one at a time, never twice in 7 s' }),
+    react: O(Object.fromEntries(REACT_POOLS.map((k) => [k, A(ONE(R('spoken'), A(R('spoken'), 4, 2)), 3, 2)])), [], { description: 'what the caller says when the player does this while the call talks (tooClose: on the bumper of who he tails; hit: a crash; lost: off the route or the target lost; spotted: seen again): 2 or 3 variants each, one at a time, never twice in 7 s. A variant is one line, or an exchange of 2 to 4 ([{ caller }, { hero }])' }),
+    span: I(1, 6, { description: "the car phone: the call goes on over the next span steps (the legs of a long drive, a tail, a chase), its extra blocks and all, and wraps when the last of them ends, instead of at the end of the step it rides on; a cutscene, the mission's end or the next call still end it (the next call after its wrap)" }),
     register: E(CALL_REGISTERS, { description: 'how the call is said: normal, whisper (they are hiding), fast (a chase: tight gaps)' }),
     voicemail: O({ text: R('speech'), secs: N(0.5, 20), from: R('castRef'), flag: R('flag'), set: R('set') }, ['text']),
     outgoing: B, pickup: B, tag: R('slug'), duck: B, carry: B,
@@ -217,6 +233,22 @@ const STEPS = fx(['drive', 'stops', 'pursuit', 'tail', 'tow', 'timer', 'fight', 
   voicenote: step('voicenote', { who: R('castRef'), role: S(40), text: R('speech'), secs: N(0.5, 20), time: R('clock'), set: R('set') }, ['who', 'text']),
   choice: step('choice', CHOICE, ['prompt', 'options']),
   cutscene: step('cutscene', { shots: A(shot, 12, 1), place: R('placeRef'), set: setDef }, ['shots']),
+  // a video call (VCALL_*): its people each in an office, its lines and the call's events between them, in order
+  vcall: step('vcall', {
+    title: S(40, { description: "the call's name in its top bar ('Q3 Board Sync')" }), layout: E(['grid', 'speaker'], { description: 'grid: equal tiles; speaker: whoever talks fills the stage, the rest in a strip' }),
+    end: E(['leave', 'drop'], { description: 'how it ends: you leave the meeting, or the call drops' }), time: E(['day', 'golden', 'night'], { description: "the light through every office's window (else the mission's time)" }),
+    people: A(O({
+      who: { ...R('slug'), description: "a cast id with a body, or 'player'" }, office: E(VCALL_OFFICES, { description: "the office they sit in: exec (a corner office, the skyline), startup (an open-plan loft), backstage (a stage manager's room), boardroom (the long table), kitchen (a home kitchen), study (walnut and books, Mr. Big's), van (a broadcast van's back), greenroom (an arena's green room); away from a desk: truck (a food truck's kitchen), diner (a diner booth), lot (a lot out back, a loading dock), green (a lawn by a station, a bench), car (a car's front seat), house (row one of an arena's seats). The tile's sub says where they are, so it names the office drawn behind them" }),
+      label: S(24, { description: 'the name on their tile (else the cast name)' }), sub: S(32, { description: 'a second line on the tag: a title or a company (invented names only)' }),
+      blur: { ...B, description: 'background blur on from the start' }, muted: { ...B, description: 'starts muted (the red mic): their lines are heard by nobody until they unmute' },
+      late: { ...B, description: 'not in the call at the start: their tile reads Waiting to join until a join event' }, light: E(['day', 'golden', 'night']), cam: E(VCALL_CAMS, { description: "the webcam's framing: close (head and shoulders), wide (down to the desk), low (a laptop below the eyes)" })
+    }, ['who', 'office']), VCALL.people[1], VCALL.people[0]),
+    lines: A({ oneOf: [
+      O({ who: { ...R('slug'), description: "one of the call's people (or 'player')" }, line: R('speech'), ...DLV, cut: N(0.3, 0.95, { description: 'cut into: the next speaker talks over it once this share of it is said' }), muted: { ...B, description: 'said on mute: their mouth moves, nobody hears it, the subtitle reads (muted)' } }, ['who', 'line']),
+      O({ do: E(VCALL_EVENTS), who: R('slug'), secs: N(0.2, 4, { description: 'wait only: seconds of nothing' }),
+        slide: O({ title: S(48), lines: A(S(64), 4), big: S(12, { description: 'a big number or word' }) }, [], { description: 'share only: the slide on the stage' }) }, ['do'])
+    ] }, VCALL.items, 1, { description: "the call in order: spoken lines ({ who, line, how, pre, post, overlap, cut, muted }) and the call's events ({ do, who, slide, secs })" })
+  }, ['people', 'lines']),
   place: step('place', { at: R('placeRef'), time: E(TIMES), bonus: N(0, 600) }, ['at']),
   set: step('set', { set: R('set') }, ['set']),
   say: step('say', { who: R('castRef'), text: R('speech'), secs: N(0.5, 12), wait: B, ...DLV }, ['who', 'text']),
@@ -329,7 +361,10 @@ const STEPS = fx(['drive', 'stops', 'pursuit', 'tail', 'tow', 'timer', 'fight', 
   }, ['target', 'to']),
   // one of Mog City's authored set pieces (MOGCITY_SCENES), as the shipped game plays it; mogcity-1 only
   scene: step('scene', { name: E(Object.keys(MOGCITY_SCENES), { description: Object.entries(MOGCITY_SCENES).map(([k, v]) => `${k}: ${v}`).join('; ') }), time: E(TIMES, { description: 'the time of day after it' }) }, ['name']),
-  npc: step('npc', { who: R('beingRef'), at: ONE(R('placeRef'), O({ rel: { const: 'player' }, right: N(-20, 20), fwd: N(-20, 20) }, ['rel'], { description: "beside the player (the kerb is to the right), facing him" })), color: R('colour'), remove: R('slug') })
+  npc: step('npc', { who: R('beingRef'), at: ONE(R('placeRef'), O({ rel: { const: 'player' }, right: N(-20, 20), fwd: N(-20, 20) }, ['rel'], { description: "beside the player (the kerb is to the right), facing him" })), color: R('colour'), remove: R('slug'),
+    push: E(['chair'], { description: 'a thing they wheel in front of them: chair (an executive chair in mahogany and oxblood leather, on castors), left where they stop' }),
+    lanyard: { ...B, description: 'a pass on a lanyard round their neck' },
+    walk: O({ right: N(-20, 20), fwd: N(-30, 30), secs: N(1, 20), after: N(0, 10) }, [], { description: "a walk as the step starts: from where they stand, fwd m along the player's heading and right m toward the kerb, over secs (a pushing pace), after s" }) })
 });
 
 
@@ -337,6 +372,7 @@ const STEPS = fx(['drive', 'stops', 'pursuit', 'tail', 'tow', 'timer', 'fight', 
 // the opening's shots: a cutscene's (camera, a spoken line), plus the place card, a name card and the title
 const openingShot = O({
   cam: camRef, to: camRef, look: camRef, lookTo: camRef, dur: N(0.5, 12), fov: N(20, 90), say: R('castRef'), line: R('speech'), sub: R('line'), ...DLV,
+  lines: A(R('spoken'), 4, 2, { description: 'an exchange in this one shot, in place of say + line (2 to 4 lines, speakers alternating); each line counts toward the premise\'s lines' }),
   where: O({ name: R('label'), sub: R('label') }, ['name'], { description: "the place card (Mog City's 'Murray Hill' / 'E 37th St · Midtown · 5:45 PM'): the name of where we are, and under it the street, the part of town and the time" }),
   card: O({
     who: R('castRef'), role: S(60, { description: 'one line under the name: who they are to this story ("the fall guy", "the fixer running the auction")' }),
@@ -428,6 +464,7 @@ export const SCHEMA = {
       model: E(CAST_MODELS, { description: 'a shipped person from the cast registry (public/storykit/cast/registry.json), as they are: their own body, clips, face and recorded lines. No sheet. anchor and voice default to the registry\'s' }),
       name: S(40, { description: 'a model person\'s name (a sheet carries its own): a rename keeps the body' }), role: S(60, { description: 'a model person\'s role' }),
       sheet: { $ref: FORGE_SHEET }, voice,
+      face: O({ smile: N(0, 0.4, { description: 'a resting smile while they listen (0.18: a warm grin), on a body whose face has its morphs baked in' }), open: N(0.2, 0.7, { description: "how wide the mouth opens on the loudest syllable (0.45 the default)" }) }, [], { description: "the talking face's knobs (Mog City face.js); a body without a baked face uses only open" }),
       speech: O({
         rhythm: S(60, { description: 'fast or slow, long or short lines ("quick, clipped, finishes your sentences")' }),
         habit: S(60, { description: 'one verbal habit or pet name ("babe"; answers a question with a question)' }),
@@ -440,7 +477,7 @@ export const SCHEMA = {
       model: E(PET_MODELS, { description: 'a shipped pet from the cast registry (mogcity/moon: Moon, a small white fluffy dog); without one a dog is built the same way in its coat and size' }),
       follows: { ...B, description: 'stays with its owner, the hero, as the player plays: trots after them on foot, rides in the car beside them, sits when they stop' } }, ['id', 'name', 'species']), LIMITS.pets),
     vehicles: A({ oneOf: [
-      O({ stock: E(STOCK_CARS, { description: "one of the stock cars as it is (trailhand and vandal: their sheets in storykit/vehicles; roadster: Mog City's own; gt: Mog City's Vantor GT, a showcase's only)" }), id: R('rideId'), paint: R('colour'),
+      O({ stock: E(STOCK_CARS, { description: "one of the stock cars as it is (trailhand and vandal: their sheets in storykit/vehicles; roadster: Mog City's own; gt: Mog City's Vantor GT, wedge: Mog City's Tensore, a showcase's only)" }), id: R('rideId'), paint: { ...R('colour'), description: "its paint, as '#76B900': the hero's stock car is built in it (paint only, no livery or logo); the gt's or the wedge's body colour" },
         label: S(32, { description: "gt only: the speed panel's name for it (\"John's car\")" }), plate: S(8, { pattern: '^[A-Z0-9 ]{0,8}$', description: 'gt only: its plate' }) }, ['stock']),
       { $ref: VEHICLE_SHEET }
     ] }, LIMITS.vehicles, 1),

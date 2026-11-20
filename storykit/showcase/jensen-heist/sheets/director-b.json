@@ -1,0 +1,117 @@
+{
+ "id": "director-b",
+ "name": "Director",
+ "role": "enemy board director: Jensen Heist",
+ "logline": "One of Mr. Board's eleven; the one who takes the headset.",
+ "identity": {
+  "age": 55,
+  "body": "male",
+  "presentation": "man",
+  "heightCm": 185,
+  "build": {
+   "frame": "broad",
+   "weight": "stocky",
+   "muscle": "strong"
+  }
+ },
+ "heritage": {
+  "note": "invented person; no real likeness",
+  "blend": {
+   "african": 0.35,
+   "asian": 0.0,
+   "european": 0.65
+  },
+  "skin": {
+   "tone": "medium",
+   "undertone": "warm",
+   "makeup": "none",
+   "lipTint": "natural"
+  }
+ },
+ "face": {
+  "jaw": "square",
+  "cheeks": "full",
+  "cheekbones": "average",
+  "faceWidth": "average",
+  "nose": {
+   "width": "average",
+   "length": "average",
+   "tip": "average",
+   "bridge": "straight"
+  },
+  "browRidge": "average",
+  "chin": {
+   "projection": "average",
+   "length": "average",
+   "width": "average"
+  },
+  "eyes": "brown",
+  "brows": {
+   "color": "black",
+   "weight": "heavy"
+  },
+  "eyeShape": "average",
+  "eyeBags": "light",
+  "mouth": {
+   "lips": "average",
+   "width": "average",
+   "cupidsBow": "average",
+   "corners": "neutral"
+  },
+  "ears": {
+   "size": "average",
+   "angle": "flat"
+  },
+  "skull": {
+   "shape": "oval"
+  },
+  "forehead": "average",
+  "faceLength": "average"
+ },
+ "hair": {
+  "style": "buzz",
+  "color": "salt-and-pepper",
+  "greying": 0.5
+ },
+ "facialHair": {
+  "style": "short-boxed",
+  "color": "salt-and-pepper",
+  "density": 0.8
+ },
+ "wardrobe": {
+  "top": {
+   "item": "suit-jacket",
+   "color": "#222B44",
+   "accent": "#5A1E24"
+  },
+  "bottom": {
+   "item": "suit-trousers",
+   "color": "#222B44"
+  },
+  "shoes": {
+   "item": "dress",
+   "color": "#141210"
+  }
+ },
+ "posture": {
+  "stance": "proud",
+  "pace": "slow",
+  "gestures": "seconds a motion with a nod",
+  "idle": "arms",
+  "walk": "walkHeavy"
+ },
+ "personality": {
+  "traits": [
+   "slow",
+   "heavy",
+   "unbothered"
+  ],
+  "speech": "slow and low, seconds everything"
+ },
+ "voice": {
+  "id": "director-b-v1",
+  "description": "flat baritone, slower and lower",
+  "pitch": "low",
+  "rate": "slow"
+ }
+}

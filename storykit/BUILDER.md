@@ -89,6 +89,35 @@ people and places.
   lines in all, the speakers alternating (or a lineless `react` shot between them), 30 s at most. A `beat` is one quick
   shot while the player keeps control.
   `transition` is a black card for a time skip ("LATER", "3:10 AM").
+- **Video calls.** A `vcall` is a conversation as a video call: 2 to 6 `people`, each in an `office` of their own
+  (`exec` a corner office with the skyline, `startup` an open-plan loft, `backstage` a stage manager's room, `boardroom`
+  the long table, `kitchen` a home kitchen, `study` walnut and books, `van` a broadcast van's back, `greenroom` an
+  arena's green room; away from a desk: `truck` a food truck's kitchen, `diner` a diner booth, `lot` a lot out back
+  with a loading dock, `green` a lawn by a station with a bench, `car` a car's front seat, `house` row one of an arena's
+  seats), seen head and shoulders on their webcam, in a
+  call's layout: their tiles, their names (`label`, and a `sub` line: a title, an invented company or where they are,
+  which must be the office drawn behind them: a truck's cook in `truck`, not `kitchen`), the one talking
+  lit, the subtitles under them. Prefer it to a cutscene for any scene of people talking who are not standing together
+  on the street: it is the house style for talk (the street is for action). `lines` is the call in order: spoken lines
+  `{ "who", "line", "how", "pre", "post", "overlap" }` (`who` one of its people or `player`), plus `cut` (0.3 to 0.95:
+  the next person talks over the line once that share of it is said; people interrupt each other on calls) and `muted`
+  (said on mute: their mouth moves, nobody hears it), and between them the call's own life as events `{ "do", "who" }`:
+  `mute` / `unmute`, `join` (a person marked `late: true` comes on), `drop` (they leave, "Reconnecting..."),
+  `freeze` / `unfreeze` (their picture stops), `share` with a `slide` `{ "title", "lines": [up to 4], "big" }` (their
+  screen on the stage: a number, a plan, a list), `unshare`, `blur` / `unblur` (their background), `hand` (a raised
+  hand), `wait` `{ "secs" }` (an awkward silence). One or two touches per call, used for a joke or a turn: the line said
+  on mute and then someone's "You're on mute."; the rival who joins late; the screen share that shows too much; the
+  connection that freezes on the worst word. `title` is the call's name ("Q3 Board Sync"); `end` is `leave` or `drop`.
+  At most 40 lines and events, 24 events. Nobody talks before they join or after they drop.
+  A car-phone `call` (auto or inCar) can be a video call too: `"video": { "office": "backstage" }` shows the caller in
+  their office, on webcam, in a small picture at the top of the screen while it talks; the drive goes on under it.
+  ```json
+  { "type": "vcall", "title": "Morning Sync", "people": [{ "who": "rae", "office": "kitchen" }, { "who": "player", "office": "study", "muted": true },
+    { "who": "nico", "office": "exec", "sub": "Okafor Gallery", "late": true }],
+    "lines": [{ "who": "rae", "line": "Is it on? Can everyone see me?" }, { "who": "player", "line": "It's on your forehead." },
+      { "who": "rae", "line": "You're on mute.", "how": "deadpan" }, { "do": "unmute", "who": "player" }, { "do": "join", "who": "nico" },
+      { "who": "nico", "line": "Sorry, back to back. Is this the van thing?", "cut": 0.7 }, { "who": "rae", "line": "It's the van thing.", "overlap": true }] }
+  ```
 - **Mog City's own set pieces.** A `scene` step plays one of Mog City's authored cutscenes by name (the table after
   this chapter): Mog City's own code, cast, camera and lines. Write one only in a story whose hero is Dan
   (`mogcity/dan`), a Mog of Mog City; any other story writes its own `cutscene`s.
@@ -367,12 +396,16 @@ DAN   Except the laptop.
     real, I'm tired of being blamed. I'd like to be tired of something else.").
 11. **Gameplay in the fiction.** A call in a chase or a tail has `react` pools for at least two things the player does
     (`tooClose`, `hit`, `lost`, `spotted`), 2 or 3 short variants each; its `hold` lines notice the hero getting out of
-    the car and back in.
+    the car and back in. A variant can be an exchange, a list of 2 to 4 lines (`[{ "who": "ray", "text": "He made
+    you." }, { "who": "dez", "text": "I know.", "overlap": true }]`): the caller says it, the hero answers. `hit` plays
+    when the car hits something hard, `spotted` when a chase gets eyes on him again.
 
 **Delivery.** Give a line its `how` when it is not said plainly: `warm`, `tease`, `deadpan`, `urgent`, `angry`,
 `shout`, `scared`, `hushed`, `hesitant`, `sad`, `smug`. The voice changes its pace, pitch and level for it. `pre` and
 `post` are authored beats in seconds (the sincere beat: 0.6 to 0.8 before; after a reveal: 0.8 to 1.2 after); a reply
-of 2 words or fewer can be `"overlap": true`, cutting in just before the last line ends (at most one in 6 lines). In
+of 4 words or fewer can be `"overlap": true`, cutting in just before the last line ends (at most one in 6 lines). An
+interruption is `"cut"` on the line that gets cut off (0.3 to 0.95, the share of it said before the next speaker cuts
+in: `{ "text": "The more you buy, the more you save, the more you", "cut": 0.7 }` then `{ "text": "Stop." }`). In
 dialogue, `...` is a trail-off or a cut-off ("Don't you...", "...Okay."); still no em dashes.
 
 **Where talk goes.** Exposition, briefings and logistics are calls and radio while the player drives or walks. A
@@ -521,6 +554,10 @@ bodies and the voiced lines carry over. Its reply may be up to 128,000 tokens; s
 - **Call waiting.** A `call` with `"interrupts": true` in a drive's `during`, ringing while a car-phone call is on,
   comes up as CALL WAITING: answered, the car-phone call holds (its `hold.pause` line), this one is said, then the
   car-phone call resumes (its `hold.resume` line) where it was; declined, its `voicemail`, and the call never stopped.
+- **A call across the whole drive.** A car-phone call with `"span": 2` (1 to 6) goes on over the next 2 steps (the
+  legs of a long drive, a tail after it, a chase) with its `extra` blocks, and wraps when the last of them ends, not at
+  the first arrival. A cutscene, the mission's end or the next call still end it (the next one after its `wrap`).
+  Give a spanning call 4 to 8 `extra` blocks that wander off the plot: the drive is where people talk.
 - **Sub-places.** A place alias may carry `"offset": { "right": 24, "fwd": 0 }` (metres, up to 60, along its facing):
   the side door round the corner from its key.
 - **Walkie-talkies.** A `trigger`'s `cue` may be `walkie`, `walkie2` or `walkie3` (one, two, three beeps with a
@@ -702,6 +739,7 @@ their fields are in the schema (`$defs.step`); speakers (`who`, `say`, `by`, `fr
 | a text | `{ "type": "dm", "from": "ray", "text": "Back door. Two minutes." }` |
 | a timed choice | `{ "type": "choice", "who": "kwon", "prompt": "...", "timeout": 8, "default": 0, "flag": "bag", "options": [ ... 2 to 4 ... ] }` |
 | someone at the kerb | `{ "type": "npc", "who": "kwon", "id": "kwon-kerb", "at": { "rel": "player", "right": 3.4, "fwd": 0.8 } }` |
+| a plant shown: someone wheeling a chair along the kerb | `{ "type": "npc", "who": "grey", "at": { "rel": "player", "right": 6, "fwd": 5 }, "push": "chair", "lanyard": true, "walk": { "fwd": 16, "secs": 15 } }` |
 | a close-up of them talking | `{ "type": "cutscene", "shots": [{ "cam": { "rel": "kwon", "fwd": 1.05, "right": 0.22 }, "look": { "rel": "kwon", "up": -0.04 }, "fov": 30, "dur": 3.8, "say": "kwon", "line": "..." }] }` |
 | Mog City's own set piece (a Mog of Mog City) | `{ "type": "scene", "name": "m1.arrival" }` |
 | a chase to lose | `{ "type": "pursuit", "goal": "lose", "count": 1, "level": 1, "kind": "crew", "loseDist": 150, "loseTime": 3.5, "los": 4 }` |
