@@ -140,3 +140,22 @@ groomed flow, a front wall and four lifted front locks, six wavy flyaways; mater
 the atlas's grey times vertex colour, extras hairTone 'light' / hairNormals 'volume' for Mog City's polish.js); `cavity`
 (round10.mjs: the lower teeth's texture a biting edge over a dark warm cavity), `black` (the leather x 0.72); the glasses'
 front 1.19 x and its bar's arch 5 mm (`R10.glassesBig`, `R10.glasses`). Env overrides: `JH_CARDS`, `JH_CAVITY`, `JH_BLACK`.
+
+## Hair round 2 (caricature round 11, 19 Nov: the in-game silhouette, values and the cards' read)
+
+`node scripts/handbuilt/jensen/hairatlas.mjs <hair_cards_fbx.glb>` (the atlas again: its clump strips 0-9 now filled to a
+solid clump inside each strip's own outline, the strand alpha kept only in a broken fringe at the edges and the tip, the
+value a soft gradient across the width, darker middle and root, the streaks at a quarter of their contrast), then
+`node scripts/handbuilt/jensen/build.mjs`. `round11.mjs` (R11) feeds `clumps` (the under-shell higher, shellK 0.72, a cool
+mid-grey), `cards` and `cavity`. `haircards.mjs` takes new knobs (defaults = round 1): `win`, `arch`, `tipSettle`,
+`sideStraight` (no curl at the sides: the temple loops), `xDark` (a card's middle darker than its edges), `lowW`, `layers`,
+the locks' `lockBiasY`/`lockDrop`/`lockFront`/`lockCards`/`lockW`/`lockUnderDark`, the wall's
+`wallRange`/`wallInset` (negative: rooted past the hairline)/`wallBiasY`/`wallBiasK`/`wallLen`/`wallSideLow`/
+`wallSideLift`/`wallBright`/`wallDark`, and two new card sets, `temple` (wide flat clumps over and behind the ear and at
+the nape) and `crown` (an inner layer of wide mid-grey clumps under the top cards). It logs the four locks' tip angles.
+Fixed: the per-card value jitter was drawn per colour channel (pink, green and lilac cards in the game); it is one value
+per card now. The swoop's locks lie back over the crown (tips 100-113 deg from vertical, i.e. back and settling onto the
+crown, against round 1's upright ones), the mass about 12% lower on top. The in-game kitchen tile's hair median 228 -> ~200
+(sRGB), lowlights at the temples and nape. Mouth: the lower teeth's biting edge narrower and in shadow
+(tooth 150,140,124), the cavity a deep red-brown (62,26,22) instead of near-black. Env overrides as before (`JH_CARDS`,
+`JH_CLUMPS`, `JH_CAVITY`).

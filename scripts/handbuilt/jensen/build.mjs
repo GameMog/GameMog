@@ -32,6 +32,7 @@ import { R8, mouthTargets, shape8Pass, glasses8Pass } from './round8.mjs';
 import { R9, skinEvenPass } from './round9.mjs';
 import { R10, mouthCavityPass, leatherBlackPass } from './round10.mjs';
 import { hairCardsPass } from './haircards.mjs';
+import { R11 } from './round11.mjs';
 import os from 'node:os';
 const FACE = process.env.JH_FACE || new URL('../../../.scratch/jensen/face/', import.meta.url).pathname;
 import { holeUvPass, sculptPass, mapsPass, mouthBagPass, teethRigidPass, skinTonePass } from './blender/face-pass.mjs';
@@ -235,7 +236,7 @@ const steps = [
   ['relax', () => relaxMorphsPass(doc, JSON.parse(process.env.JH_RELAX || '{}'))],
   // (Blender round, iteration 1: the lower teeth swing as one piece about the jaw's hinge in every target)
   // (hair round 1 (a): the lower teeth's tall grey wall in the open visemes now a biting edge over a dark warm cavity)
-  ['cavity', () => mouthCavityPass(doc, JSON.parse(process.env.JH_CAVITY || '{}'))],
+  ['cavity', () => mouthCavityPass(doc, { ...R11.cavity, ...JSON.parse(process.env.JH_CAVITY || '{}') })],
   ['teethrigid', () => teethRigidPass(doc, JSON.parse(process.env.JH_TEETH || '{}'))],
   // (round 4, the critic: the close-up grin a one-sided smirk: the relax pass and the corners' hole fills had left the smile
   // pair and jawOpen millimetres out of mirror; the rest shape and every face morph made exact mirror twins (face4.mjs))
@@ -296,11 +297,11 @@ const steps = [
   // (round 3, the owner: "hair and mouth need a bit more work"; the critic: a spiky brush of thin cards with paper-shred
   // edges and a hard grey band at the hairline): the cards and cap out, a stylized sculpt in: one smooth dome swept up and
   // back, full at the temples and over the ears, and a dozen smooth rounded clump shells on it (clumps.mjs)
-  ['clumps', () => { shell = hairClumpsPass(doc, { ...R6.hair, ...R7.hair, ...R9.hair, ...R10.shell, ...JSON.parse(process.env.JH_CLUMPS || '{}') }); }],
+  ['clumps', () => { shell = hairClumpsPass(doc, { ...R6.hair, ...R7.hair, ...R9.hair, ...R10.shell, ...R11.shell, ...JSON.parse(process.env.JH_CLUMPS || '{}') }); }],
   // (hair round 1, the critic: five rounds of grooves on a sculpted shell still read as a helmet: the technique changed.
   // The shell above is now only the dark, low mass under the hair; the hair itself is alpha-tested cards cut from a strand
   // atlas, layered along a groomed flow, a lifted front swoop of four locks, a few flyaways (haircards.mjs))
-  ['cards', () => hairCardsPass(doc, shell, { ...R10.cards, ...JSON.parse(process.env.JH_CARDS || '{}') })],
+  ['cards', () => hairCardsPass(doc, shell, { ...R10.cards, ...R11.cards, ...JSON.parse(process.env.JH_CARDS || '{}') })],
   ['outfit', () => outfitPass(doc, JSON.parse(process.env.JH_OUTFIT || '{}'))],
   // (round 5, the critic: "too smooth, glossy and plasticky", grey smudges on the shoulders: grain, crease wear at the
   // elbows and pockets, a rougher leather under a thin soft coat, deeper quilting (jacket3.mjs))

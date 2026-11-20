@@ -92,7 +92,7 @@ dome only). The atlas (`parts/hair-strands.webp`, made by `scripts/handbuilt/jen
 
 | Part | Source | Licence |
 |---|---|---|
-| the hair cards' strand atlas (strand alpha and occlusion, taken down to 2048, strands gathered into groups, signature text cleared, grey value) | "Hair Cards_FBX" by POLYTRICITY (@PolytricityLtd), Sketchfab, sketchfab.com/3d-models/hair-cards-fbx-ad1ac6f162ff43a3ae175982bf770c3e | CC BY 4.0, modified |
+| the hair cards' strand atlas (strand alpha and occlusion, taken down to 2048, strands gathered into groups, signature text cleared, grey value; from hair round 2 its clump strips filled to solid clumps inside their own outlines with a soft value gradient, the strand alpha kept at the edges and tips) | "Hair Cards_FBX" by POLYTRICITY (@PolytricityLtd), Sketchfab, sketchfab.com/3d-models/hair-cards-fbx-ad1ac6f162ff43a3ae175982bf770c3e | CC BY 4.0, modified |
 | the groom (card placement, flow, the front swoop's locks, flyaways, colours), the darker under-shell, the lower teeth's dark cavity, the larger arched browline, the deeper black leather | made here | original, CC0 |
 
 Credit line (CC BY 4.0 needs it wherever the game lists its asset credits): "Hair Cards_FBX by POLYTRICITY (Sketchfab),
