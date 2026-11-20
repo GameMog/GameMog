@@ -29,19 +29,23 @@ node --import ./scripts/ts-resolve.mjs scripts/storykit-showcase-jensen.ts --exp
 2. **The bodies.** The hand-built cast's GLBs at `public/storykit/cast/hand/jh-<id>.glb`
    (`scripts/storykit-showcase-jensen.ts` `BODIES`), copied there by `--bodies` from where the cast's track (branch
    `jh-hero`) builds them (`BODY_SOURCES`: `storykit/handbuilt/jensen/jensen.glb`,
-   `storykit/handbuilt/jensen-cast/<id>.glb`). Each must be at most 6 MB (a Mog inherits every body:
-   `lib/storykit-store.ts` `LIMITS.glb.each`); `--bodies` refuses a bigger one and `npm run check` holds each copy to
-   its source. Mr. Board is Mog City's own Mr. Big, renamed (`model: mogcity/mrbig`), until his hand-built derivative
-   replaces him: give him a sheet and a body then.
+   `storykit/handbuilt/jensen-cast/<id>.glb`, `storykit/handbuilt/board/board.glb`). Each must be at most 6 MB (a Mog
+   inherits every body: `lib/storykit-store.ts` `LIMITS.glb.each`); `--bodies` refuses a bigger one and `npm run check`
+   holds each copy to its source. Mr. Board is his own body (the owner, 18 Nov: "Mr. Big becomes Mr. Board"): his sheet
+   is Mr. Big's seed renamed (`sheets/board.json`), his body `jh-board.glb`, never Mog City's `mogcity/mrbig`.
 3. **The voices.** In: 678 clips for 688 spoken lines in `deploy/migrations/jensen-heist/voice/`, their lengths and
    provenance in `deploy/migrations/jensen-heist-voice.json` (`--voice <dir>`; licensing in
    `storykit/voices/LICENSING.md`). Every voice is designed as standard American; Mr. Board has his own American
    fallback block (`board-v1`), not Mr. Big's. A changed line needs its clip re-rendered and `--voice <dir>` again
    (the check names a clip no line plays). The record waits for the bodies: then `--bodies --export` (the lengths come
    from the manifest; `--voice <dir>` again only after a re-render).
-4. **The art.** `deploy/migrations/jensen-heist-{cover,wide,icon,sky}.jpg`.
-5. **The credit line** (the owner's to approve): "A parody of a public figure's public keynote persona. Not endorsed.
-   Built from CC0 MakeHuman parts." It is in the game's meta (`storykit.credit`).
+4. **The art.** `deploy/migrations/jensen-heist-{cover,wide,icon,sky}.jpg`: in-game renders on Mog City's engine with
+   the latest Jensen (the cover plain, the wide and icon in the house lockup, `lib/story-art.ts`; the sky his headshot
+   on the light-blue sky, `public/storykit/forge/portrait.html` frame 'avatar' and `lib/portrait-sky-key.ts` onSky).
+5. **The credit line** (the owner's to approve; `JH_CREDIT`, in the game's meta as `storykit.credit`): the parody note,
+   then the CC BY 4.0 credits: the hair cards' atlas ("Hair Cards_FBX" by POLYTRICITY, Sketchfab) in the bodies and the
+   lime supercar adapted from a Sketchfab model by ALIEEEN, credited by its author only (its title names a real car,
+   which the game never does). The full entries: `public/storykit/cast/hand/CREDITS.md`, `THIRD-PARTY-NOTICES.md`.
 
 ## Where it plays (keys of the town's frame; the real names are never shown)
 

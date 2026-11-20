@@ -38,6 +38,12 @@ The GameMog Story Kit: the creator's side of a story world (forge, voices, the s
   idle, phone and talk clips (each clip's glTF `extras.motion` says so). Non-commercial use only: free GameMog only,
   never sold, and not under GameMog's MIT licence (`THIRD-PARTY-NOTICES.md`). Every person a story world draws plays
   this pack.
+- **Jensen Heist's hand-built cast** (`cast/hand/jh-*.glb`): MakeHuman (CC0) bodies finished by hand; their hair cards
+  are cut from an atlas derived from "Hair Cards_FBX" by POLYTRICITY (Sketchfab,
+  https://sketchfab.com/3d-models/hair-cards-fbx-ad1ac6f162ff43a3ae175982bf770c3e), **CC BY 4.0**, modified. Its lime
+  supercar, the Tensore (built by Mog City), is adapted from a Sketchfab model by ALIEEEN
+  (https://sketchfab.com/models/cf52245eb68f48daa909c7ad2a8deaa3), **CC BY 4.0**, modified, with no maker's badges.
+  `cast/hand/CREDITS.md` has each file's.
 - **Mog City's shipped cast** (`cast/mogcity/`, the cast registry `cast/registry.json`): Dan, Jane, Mr. Big, Gears,
   Fiona and the Suits, copied from GameMog's Mog City for their headshots, and the list of their recorded lines (the
   recordings themselves stay in Mog City, which plays them). MakeHuman (CC0), CMU motion capture, Bandai Namco motion

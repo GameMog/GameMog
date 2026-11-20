@@ -8,7 +8,7 @@ import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { runnerPackOf } from './storykit-pack.ts';
 import { ownRecord, OWN_RECORD } from './storykit-own-world.ts';
 import { showcaseProblems, SHOWCASE_ID, SHOWCASE_RECORD } from './storykit-showcase.ts';
-import { jhProblems, jhGate, jhBodyProblems, JH_RECORD, JH_DIR, BODIES } from './storykit-showcase-jensen.ts';
+import { jhProblems, jhGate, jhBodyProblems, JH_RECORD, JH_DIR, BODIES, BODY_SOURCES, JH_CREDIT } from './storykit-showcase-jensen.ts';
 import { gatePack, toRunnerPack, lineHash, type GateResult } from '../storykit/pack/gate.ts';
 import { PLACES, CAM_POINTS } from '../storykit/pack/cities.ts';
 import { SCHEMA, SHOWCASE, SHOWCASE_PACKS, MOGCITY_STUBS, HERO_CARS, HERO_CAR_IDS, SET_ROOMS } from '../storykit/pack/schema.mjs';
@@ -378,6 +378,14 @@ export function runStoryPackChecks(ok: Ok) {
     const street = talk.filter((x: any) => !x.set || x.set.room !== 'stage');
     ok(`jensen-heist: every conversation scene is a video call (${calls.length} calls; ${talk.length} stage scenes on the arena's stage set, no street cutscene)`, !!P && !street.length && calls.length >= 10);
     ok("jensen-heist: the hero's Tensore is the parody company's lime green, paint only", !!P && P.vehicles.find((v: any) => v.stock === 'wedge')?.paint === '#76B900');
+    // (the owner, 18 Nov: "Mr. Big becomes Mr. Board": his own hand-built body, through --bodies like the rest of the cast)
+    { const B = P?.cast.find((c: any) => c.id === 'board');
+      ok('jensen-heist: Mr. Board is his own body (a sheet, jh-board.glb from storykit/handbuilt/board/board.glb), never Mog City\'s Mr. Big',
+        !!B && !B.model && B.sheet?.name === 'Mr. Board' && BODIES.board === 'public/storykit/cast/hand/jh-board.glb' && BODY_SOURCES.board === 'storykit/handbuilt/board/board.glb'
+        && !JSON.stringify(P).includes('mogcity/mrbig'), B ? JSON.stringify({ model: B.model, name: B.sheet?.name }) : 'no board'); }
+    // (its CC BY 4.0 assets credited in its credit line, and the supercar never by the real car's name)
+    ok('jensen-heist: its credit line names its CC BY 4.0 assets (the hair cards, the supercar) and no real car or maker',
+      /POLYTRICITY/.test(JH_CREDIT) && /ALIEEEN/.test(JH_CREDIT) && /CC BY 4\.0/.test(JH_CREDIT) && !/lamborghini|revuelto|nvidia/i.test(JH_CREDIT), JH_CREDIT);
     // (the polish round, 19 Nov: the stage's lines play over their speakers (a camera on the one who says a one-line shot),
     // the applause on its feet, the chair plant shown at the arena stop, the offices matching their labels, Nico stays)
     const stageShots = talk.flatMap((x: any) => x.shots);
@@ -403,7 +411,7 @@ export function runStoryPackChecks(ok: Ok) {
     // the stock roadster painted lime; every mission in it, and the runner gets it as car { model: 'mogcity/wedge' })
     { const w = toRunnerPack(P, { townName: 'San Jose' }) as any, ms = (P?.acts ?? []).flatMap((a: any) => a.missions);
       ok('jensen-heist: the hero drives the Tensore (stock wedge, the lime supercar), never the roadster or a town fleet car (no heroCar)', !!P && P.ride === 'tensore' && P.vehicles.length === 1 && P.vehicles[0].stock === 'wedge' && !P.heroCar && ms.every((m: any) => m.vehicle === 'tensore') && w.car?.model === 'mogcity/wedge' && w.car.paint === '#76B900' && w.carPaint == null, JSON.stringify(w.car)); }
-    ok('jensen-heist: every seen person but Mr. Board (Mog City\'s own, renamed) has a hand-built body named for the migration', !!P && P.cast.filter((c: any) => !c.model && !c.voiceOnly).every((c: any) => !!BODIES[c.id]) && P.cast.find((c: any) => c.id === 'board')?.model === 'mogcity/mrbig');
+    ok('jensen-heist: every seen person, Mr. Board too, has a hand-built body named for the migration (no shipped model)', !!P && P.cast.filter((c: any) => !c.voiceOnly).every((c: any) => !c.model && !!BODIES[c.id] && !!BODY_SOURCES[c.id]));
     ok(`jensen-heist: its town is San Jose (${town.placeId}), the box on its downtown (the stadium a place of it)`, town.placeId === 'us-0668000' && town.places.some((p: any) => p.kind === 'stadium')); }
   // the fight step (Mog City's street fighting, W.combat): test-fight is the worked example
   { const FT = JSON.parse(R('storykit/packs/test-fight.json')), fight = (p: any) => p.acts[0].missions[0].steps.find((s: any) => s.type === 'fight');

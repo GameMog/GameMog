@@ -29,7 +29,10 @@ const cast = [
     anchor: 'old-boss', voice: { id: 'jensen-v1', blend: { am_adam: 0.6, am_eric: 0.4 }, speed: 1.06, pitch: -0.3, description: "an older man, a warm bright baritone, quick and delighted, a showman's lift at the ends of sentences; standard American delivery" },
     face: { smile: 0.18 },
     speech: { rhythm: 'lists of three that build into a pitch, then the product', habit: '"Let me show you something"; "spiritually"', jokes: 'benchmarks things nobody measures, means every superlative', never: 'sarcasm; when he is hurt he gets quieter and simpler', motifs: ['the jacket', 'the lucky oven', 'booth three', 'the one square'] } },
-  { id: 'board', model: 'mogcity/mrbig', color: '#6B3A2A', name: 'Mr. Board', role: 'ex-bank boss from back east, collector of board seats',
+  // (Mr. Board is his own hand-built body, not Mog City's Mr. Big: the owner, 18 Nov, "Mr. Big becomes Mr. Board". His
+  // sheet is Mr. Big's seed renamed (sheets/board.json); his body, the jh-hero track's storykit/handbuilt/board/board.glb,
+  // ships as public/storykit/cast/hand/jh-board.glb like the rest of the cast: scripts/storykit-showcase-jensen.ts --bodies)
+  { id: 'board', color: '#6B3A2A', sheet: sheet('board'), anchor: 'old-boss',
     // (his own voice block, not Mr. Big's British bm_lewis: every Jensen Heist voice is standard American. It names his
     // clips and is the Kokoro fallback for a line with no clip; his shipped voice is the rendered one)
     voice: { id: 'board-v1', blend: { am_onyx: 0.8, am_michael: 0.2 }, speed: 0.94, pitch: -0.6, description: 'a man in his sixties, a deep smooth bass-baritone, unhurried and courteous, a faint smile in it; standard American delivery' },

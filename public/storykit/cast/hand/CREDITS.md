@@ -55,3 +55,40 @@ and hair, CC0 1.0), then polished by hand (skin tone, make-up and maps, a should
 cut with a side part from the long strand cards, brows and lashes, an olive jacket made from her knit top with the
 forge overcoat's sleeves, the knit, dark jeans, leather boots, gold hoops, irises, teeth, hands). Her moves come from
 the Story Kit's clip pack (`cast/cast-clips.glb`), clips from the CMU Graphics Lab Motion Capture Database.
+
+## Jensen Heist (`jh-<id>.glb`)
+
+Built on the hand-built cast's track for Jensen Heist (`scripts/storykit-showcase-jensen.ts` `BODIES`, copied here by
+`--bodies`): `jh-jensen.glb`, `jh-board.glb`, `jh-marge.glb`, `jh-nico.glb`, `jh-lola.glb`, `jh-wesley.glb`, `jh-dex.glb`,
+`jh-intern-a.glb`, `jh-intern-b.glb`, `jh-director-a.glb` and `jh-director-b.glb`. Their moves come from the Story Kit's
+clip pack (`cast/cast-clips.glb`, above).
+
+`jh-jensen.glb` ("Jensen"): a stylized, affectionate parody of a public figure's public keynote persona (the black leather
+jacket, the swept silver hair, the browline glasses, the presenter's grin). Not endorsed. No face here is derived from a
+photograph or a scan. Built by the Character Forge from his sheet (MakeHuman's base body, clothes and hair, CC0 1.0;
+MakeHuman's modelling targets and Mika Suominen's Faceunits 01 and Visemes 02, CC0 1.0), then by hand: the head's
+sculpt, skin, eyes and mouth, the leather moto jacket and the browline glasses (made here, original); the leather's
+colour and grain from ambientCG Leather026 (Lennart Demes) and Poly Haven `leather_white` (Rob Tuytel), both CC0 1.0.
+
+`jh-board.glb` ("Mr. Board"): an original character, an invented person with no real likeness: Mog City's Mr. Big
+(`cast/mogcity/mrbig.glb`, MakeHuman's base body, clothes and hair, CC0 1.0) after New York, changed by hand
+(tortoiseshell glasses, teeth and a tongue, wet eyes and brown irises, the tie re-dyed a boardroom grey).
+
+`jh-marge.glb`, `jh-nico.glb`, `jh-lola.glb`, `jh-wesley.glb`, `jh-dex.glb`, `jh-intern-a.glb`, `jh-intern-b.glb`,
+`jh-director-a.glb`, `jh-director-b.glb` (Marge Tolliver, Nico Brancato, Lola Hart, Wesley Trout, Dex Varga, Intern One
+and Two, Directors Grey and Navy): original Story Kit characters, invented people with no real likeness and no logos,
+forged by the Character Forge from their sheets (MakeHuman CC0 1.0 parts, Faceunits 01 and Visemes 02, CC0 1.0), with a
+hand finish made here (groom, skin tones, mouths, posture).
+
+The hair cards of Jensen and of every one of them who has cards are cut from a strand atlas derived from
+["Hair Cards_FBX"](https://sketchfab.com/3d-models/hair-cards-fbx-ad1ac6f162ff43a3ae175982bf770c3e) by POLYTRICITY
+(@PolytricityLtd) on Sketchfab, licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Changed: taken
+down to 2048 px, strands gathered into groups, the signature text cleared, the clump strips redrawn as fine strands
+inside each strip's outline, greyed; the groom (card placement, flow and colour) is made here. Credit: "Hair Cards_FBX
+by POLYTRICITY (Sketchfab), CC BY 4.0, modified".
+
+The world's ride, the Tensore (a lime supercar), is not a file here: Mog City builds it (its `wedge`). It is adapted from
+a [Sketchfab model](https://sketchfab.com/models/cf52245eb68f48daa909c7ad2a8deaa3) by ALIEEEN, licensed
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), modified (repainted, every badge and maker's lettering
+removed, renamed). It is a look-alike with no connection to any car maker. Credit: "a supercar model by ALIEEEN
+(Sketchfab), CC BY 4.0, modified".

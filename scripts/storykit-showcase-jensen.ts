@@ -16,7 +16,7 @@
  *
  * The record names every file by its SHA-256, as Pickup Time's does:
  *   glb    each seen person's hand-built body (BODIES: public/storykit/cast/hand/jh-<id>.glb, the hand-built cast's
- *          track). Mr. Board is Mog City's own Mr. Big (cast model mogcity/mrbig, renamed): no file.
+ *          track), Mr. Board's too: his own body (the owner, 18 Nov: "Mr. Big becomes Mr. Board"), never Mog City's Mr. Big.
  *   voice  each spoken line's clip, deploy/migrations/jensen-heist/voice/<line hash>-<voice key>.ogg, its length in
  *          JH_VOICE (deploy/migrations/jensen-heist-voice.json: written by --voice, read until the record has them)
  *   world  the sealed runner world, deploy/migrations/jensen-heist/world.json
@@ -49,22 +49,30 @@ export const JH_VOICE = `deploy/migrations/${JH_ID}-voice.json`;
 /** The town the pack is pinned to: the San Jose build's CityPackage (gzipped JSON). */
 export const JH_TOWN = `storykit/showcase/${JH_ID}/town.json.gz`;
 /** The seen people's hand-built bodies, by cast id (the hand-built cast's track puts them here). */
-export const BODIES: Record<string, string> = Object.fromEntries(['jensen', 'marge', 'nico', 'lola', 'wesley', 'dex', 'intern-a', 'intern-b', 'director-a', 'director-b']
+export const BODIES: Record<string, string> = Object.fromEntries(['jensen', 'board', 'marge', 'nico', 'lola', 'wesley', 'dex', 'intern-a', 'intern-b', 'director-a', 'director-b']
   .map((id) => [id, `public/storykit/cast/hand/jh-${id}.glb`]));
 /**
  * Where the hand-built cast's track (branch jh-hero) builds each body: Jensen's own folder and the supporting cast's.
  * `--bodies` copies each one that is in the checkout to BODIES (the address the record and the migration name), as the
- * cast registry ships a new build (storykit/cast/README.md: copy its GLB to public/storykit/cast/hand/). Mr. Board stays
- * Mog City's Mr. Big (cast model mogcity/mrbig) until the owner gives him the hand-built derivative
- * (storykit/handbuilt/board/board.glb): then a sheet, his cast entry without `model`, and a line here.
+ * cast registry ships a new build (storykit/cast/README.md: copy its GLB to public/storykit/cast/hand/). Mr. Board is his
+ * own hand-built body (storykit/handbuilt/board/board.glb, Mr. Big after New York), with his own sheet
+ * (storykit/showcase/jensen-heist/sheets/board.json) and no cast `model`: he is never Mog City's Mr. Big in this world.
  */
+const BODY_DIR: Record<string, string> = { jensen: 'storykit/handbuilt/jensen', board: 'storykit/handbuilt/board' };
 export const BODY_SOURCES: Record<string, string> = Object.fromEntries(Object.keys(BODIES)
-  .map((id) => [id, id === 'jensen' ? 'storykit/handbuilt/jensen/jensen.glb' : `storykit/handbuilt/jensen-cast/${id}.glb`]));
+  .map((id) => [id, `${BODY_DIR[id] || 'storykit/handbuilt/jensen-cast'}/${id}.glb`]));
 /** A body's limits: what a Mog of the showcase may inherit (lib/storykit-store.ts LIMITS.glb.each, SHOWCASE_LIMITS.glb.total). */
 export const BODY_LIMITS = { each: 6 * 1024 * 1024, total: 128 * 1024 * 1024 };
 const BLURB = "Ten hours before the biggest keynote of his life, Jensen opens his oven on a live stream and finds it empty: the only prototype of the fastest chip ever made is gone, and Mr. Board wants his stage. Eight missions across San Jose, every conversation a video call.";
-/** The parody's credit line (PLAN.md decision 3; the owner's to approve). */
-export const JH_CREDIT = "A parody of a public figure's public keynote persona. Not endorsed. Built from CC0 MakeHuman parts.";
+/**
+ * The world's credit line (PLAN.md decision 3; the owner's to approve). Its CC BY 4.0 assets are credited as their
+ * licence asks (public/storykit/cast/hand/CREDITS.md, THIRD-PARTY-NOTICES.md): the hair cards' strand atlas in the bodies,
+ * and the Tensore, Mog City's lime supercar, adapted from a Sketchfab model credited by its author only (the model's
+ * title names a real car, which the game never does).
+ */
+export const JH_CREDIT = "A parody of a public figure's public keynote persona. Not endorsed. People built from CC0 MakeHuman parts, "
+  + 'their hair cards from "Hair Cards_FBX" by POLYTRICITY (Sketchfab), CC BY 4.0, modified. The lime supercar is adapted '
+  + 'from a model by ALIEEEN (Sketchfab), CC BY 4.0, modified, with no maker\'s badges.';
 
 const sha = (b: Uint8Array | string) => createHash('sha256').update(b).digest('hex');
 const blobUrl = (hash: string, ext: string) => `/storykit/f/${hash}.${ext}`;

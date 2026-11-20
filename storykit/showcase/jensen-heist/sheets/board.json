@@ -1,0 +1,104 @@
+{
+ "id": "board",
+ "name": "Mr. Board",
+ "role": "ex-bank boss from back east, collector of board seats",
+ "logline": "An old bank boss from back east, gone west: heavy-set and unhurried, collects board seats, smiles through every threat.",
+ "identity": {
+  "age": 61,
+  "body": "male",
+  "presentation": "man",
+  "heightCm": 178,
+  "build": {
+   "frame": "broad",
+   "weight": "heavy",
+   "muscle": "average"
+  }
+ },
+ "heritage": {
+  "note": "invented person; no real likeness (Mog City's Mr. Big, after the bank)",
+  "blend": {
+   "african": 0.04,
+   "asian": 0.08,
+   "european": 0.88
+  },
+  "skin": {
+   "tone": "light-medium",
+   "undertone": "warm",
+   "weathered": true,
+   "makeup": "none",
+   "lipTint": "natural"
+  }
+ },
+ "face": {
+  "jaw": "heavy",
+  "cheeks": "full",
+  "faceWidth": "wide",
+  "browRidge": "strong",
+  "eyes": "grey-blue",
+  "brows": {
+   "color": "silver",
+   "weight": "heavy"
+  },
+  "eyeShape": "hooded",
+  "eyeBags": "light",
+  "mouth": {
+   "lips": "thin",
+   "width": "wide",
+   "corners": "neutral"
+  }
+ },
+ "hair": {
+  "style": "swept-back",
+  "color": "silver",
+  "greying": 1
+ },
+ "facialHair": {
+  "style": "full-trimmed",
+  "color": "silver",
+  "density": 0.9
+ },
+ "wardrobe": {
+  "top": {
+   "item": "suit-jacket",
+   "color": "#1C2442",
+   "fit": "regular",
+   "accent": "#5B5F67"
+  },
+  "bottom": {
+   "item": "suit-trousers",
+   "color": "#1C2442"
+  },
+  "shoes": {
+   "item": "dress",
+   "color": "#1A120E"
+  }
+ },
+ "props": [
+  {
+   "kind": "glasses"
+  }
+ ],
+ "posture": {
+  "stance": "proud",
+  "pace": "slow",
+  "gestures": "steeples his fingers; never raises a hand",
+  "idle": "idle",
+  "walk": "walkHeavy"
+ },
+ "personality": {
+  "traits": [
+   "smug",
+   "polished",
+   "patient",
+   "ruthless"
+  ],
+  "wants": "Jensen's stage, and a larger chair",
+  "speech": "slow, polished, never raises his voice"
+ },
+ "voice": {
+  "id": "board-v1",
+  "description": "a man in his sixties, a deep smooth bass-baritone, unhurried and courteous; standard American delivery",
+  "pitch": "low",
+  "rate": "slow"
+ }
+}
