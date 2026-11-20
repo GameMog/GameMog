@@ -35,7 +35,7 @@ import { strandGroomPass } from './strandgroom.mjs';
 import { flatFront3Pass, flatGate, layerMaskPass } from './castpass3.mjs';
 import { slimDoc } from './slim.mjs';
 import { faceShapePass, eyeTamePass, dyePass, seatClipsPass, seatedGate } from './castpass4.mjs';
-import { chestWeightPass, flatFront5Pass, seatUprightPass, rulesGate, worstedPass } from './castpass5.mjs';
+import { chestWeightPass, flatFront5Pass, seatUprightPass, rulesGate, worstedPass, armSlimPass, vCutPass } from './castpass5.mjs';
 import { skinTonePass, flatFrontPass, faceRigPass } from './castpass.mjs';
 import { hairBasePass, bodyMaskPass, undershirtPass, posturePass, stubblePaintPass, tailorPass } from './castpass2.mjs';
 // (cast round 1, the owner's standing rules: each person's natural skin tone (sRGB, the cheek under neutral light: varied
@@ -123,6 +123,15 @@ const R5 = {
   'intern-a': { eyes: { coat: 0.05, rough: 0.55, iris: 0.42 }, eyeSpec: 0.3 },
 };
 for (const [k, v] of Object.entries(R5)) { const o = ROUND1[k] || {}; ROUND1[k] = { ...o, ...v, age: v.age ? (o.age || 0) + v.age : o.age }; }
+// Rules round 2 (20 Nov, the critic on rules round 1): the shared cast eye (CAST_EYES, CAST_EYE_SPEC); the five whose
+// irises read pale in the game a natural dark brown (iris)
+const CAST_EYES = { coat: 0.05, rough: 0.55, iris: 0.42 }, CAST_EYE_SPEC = 0.3;
+// the Directors: the suit's V a clean straight lapel edge (vcut: castpass5.mjs vCutPass); Grey's suit a mid-charcoal
+// worsted (not the light knit grey that read as a cardigan) with Navy's tailored shoulder (the crest taken in to a line)
+// Dex: the tee's crew AND the strip up the open zip to the collar's top (the bind still showed skin in the zip)
+const R6 = { lola: { iris: 'dark-brown' }, nico: { iris: 'dark-brown' }, dex: { iris: 'dark-brown', underK: { vneck: /^puffer-collar$/, vx: 0.032, crew: { dip: 0.004, rib: 0.008, ribK: 0.72 } } }, 'intern-b': { iris: 'dark-brown', tone: [112, 78, 56], strandTail: { tube: 0.9, n: 1500, r: 0.03, swell: 0.7, w: 1.1, taper: 0.5 } }, 'director-b': { iris: 'dark-brown', vcut: { inset: 0.018, band: 0.035, hole: 0.2, under: /^clothes$/, back: true } },
+  'director-a': { vcut: { inset: 0.018, band: 0.035, hole: 0.2, under: /^clothes$/, back: true }, dye: [[/^suit(-hem|-collar|-lapels)?$/, [58, 60, 64], { contrast: 0.2 }], [/^clothes$/, [56, 58, 62], { only: DARK }]], tailor: { k: 0.3, mats: /^suit(-hem|-collar|-lapels)?$/, x0: 0.13, ease: 0.008 } } };
+for (const [k, v] of Object.entries(R6)) ROUND1[k] = { ...ROUND1[k], ...v };
 const SKIP = new Set((process.env.JC_SKIP || '').split(',').filter(Boolean));
 const DIR = new URL('../../../storykit/handbuilt/jensen-cast/', import.meta.url).pathname, OUTDIR = process.env.JC_OUT || DIR;
 const want = process.argv[2]?.split(',');
@@ -137,15 +146,17 @@ for (const f of fs.readdirSync(DIR).filter((x) => x.endsWith('.sheet.json')).sor
   const logs = [], env1 = { ...env, log: (...a) => logs.push(a.join(' ')) };
   const a = await core(cfg, env1), b = await post(a.glb, a.lm, env1), glb0 = await diet(b.glb, env1);
   const src = Buffer.from(glb0), doc = await io.readBinary(src); doc.setLogger({ debug() {}, info() {}, warn() {}, error: console.error });
-  eyesPass(doc); await irisPass(doc, { base: IRIS[S.face.eyes] || IRIS.brown }); fingerPass(doc, { slim: 0.06 });
+  eyesPass(doc); await irisPass(doc, { base: IRIS[ROUND1[S.id]?.iris || S.face.eyes] || IRIS.brown }); fingerPass(doc, { slim: 0.06 });
   // (the pack's jeans are a light stone-wash whatever the sheet's colour: a dark rinse at the sheet's colour, Jensen's pass)
   if (/jeans/.test(S.wardrobe.bottom.item)) { const c = S.wardrobe.bottom.color.match(/\w\w/g).map((x) => parseInt(x, 16)); await jeansPass(doc, { tgt: c }); }
   await daylightSkinPass(doc, {});
   const R1 = ROUND1[S.id] || {};
   if (R1.shape && !SKIP.has('shape')) faceShapePass(doc, R1.shape);
-  if (!SKIP.has('eyes4')) await eyeTamePass(doc, R1.eyes || {});
+  // (rules round 2, the shared cast eye: Intern One's fix for everyone (the env's sheen off the eye read as a pale glowing
+  // iris in the call tile): clear coat 0.05, rougher, specular 0.3, the iris deeper; a body's own R1.eyes over it)
+  if (!SKIP.has('eyes4')) await eyeTamePass(doc, { ...CAST_EYES, ...(R1.eyes || {}) });
   // (rules round 1: a dark iris read pale blue-grey in the game's call tile: the env's sheen off the eye; its specular down)
-  if (R1.eyeSpec != null) { const m = doc.getRoot().listMaterials().find((x) => x.getName() === 'eyes'), { KHRMaterialsSpecular } = (await import('../young-hero/glb.mjs')).require('@gltf-transform/extensions');
+  if ((R1.eyeSpec ?? CAST_EYE_SPEC) != null) { R1.eyeSpec = R1.eyeSpec ?? CAST_EYE_SPEC; const m = doc.getRoot().listMaterials().find((x) => x.getName() === 'eyes'), { KHRMaterialsSpecular } = (await import('../young-hero/glb.mjs')).require('@gltf-transform/extensions');
     m?.setExtension('KHR_materials_specular', doc.createExtension(KHRMaterialsSpecular).createSpecular().setSpecularFactor(R1.eyeSpec)); }
   if (R1.dye && !SKIP.has('dye')) for (const [re, col, k] of R1.dye) await dyePass(doc, re, col, k);
   if (R1.worsted && !SKIP.has('worsted')) await worstedPass(doc, /^suit(-hem|-collar|-lapels)?$/, R1.worsted);
@@ -162,7 +173,9 @@ for (const f of fs.readdirSync(DIR).filter((x) => x.endsWith('.sheet.json')).sor
   if (R1.recolor) { const m = doc.getRoot().listMaterials().find((x) => x.getName() === R1.recolor.mat); if (m) { m.setBaseColorTexture(null).setBaseColorFactor([...R1.recolor.col, 1]); console.log('recolor:', R1.recolor.mat); } }
   if (R1.under) await undershirtPass(doc, R1.under, R1.underK);
   if (R1.stubble) await stubblePaintPass(doc, R1.stubble);
-  const ST = process.env.JC_STRAND ? { ...R1.strand, ...JSON.parse(process.env.JC_STRAND) } : R1.strand;
+  let ST = process.env.JC_STRAND ? { ...R1.strand, ...JSON.parse(process.env.JC_STRAND) } : R1.strand;
+  // (rules round 2: Intern Two's tail a round tapered tube of cards (strandgroom.mjs T.tube), not a flat blade)
+  if (ST && R1.strandTail) ST = { ...ST, tail: { ...ST.tail, ...R1.strandTail } };
   if (ST && !SKIP.has('strand')) await strandGroomPass(doc, ST);
   else if (R1.hairBase && !SKIP.has('hairbase')) await hairBasePass(doc, R1.hairBase);
   if (!ST && !SKIP.has('groom') && (R1.groom !== false || process.env.JC_CARDS)) await groomPass(doc, S.hair.style, { greying: S.hair.greying || 0, ...R1.groom, ...(process.env.JC_CARDS ? JSON.parse(process.env.JC_CARDS) : {}) });
@@ -178,7 +191,9 @@ for (const f of fs.readdirSync(DIR).filter((x) => x.endsWith('.sheet.json')).sor
   // brought to the straight sternum-belt line as a smooth offset (castpass5.mjs flatFront5Pass: folds, zips and buttons
   // move with it), the skin drawn in under it again; the seat clips solved upright key by key (seatUprightPass); then the
   // gate: 12 mm standing and seated, the ears within 3 cm of the shoulders seated, or the build fails)
-  if (!SKIP.has('rules')) { chestWeightPass(doc, R1.cw); flatFront5Pass(doc, R1.flat5); if (!SKIP.has('mask')) bodyMaskPass(doc, R1.mask); }
+  // (rules round 2: the upper arms and shoulders slimmed toward their bone lines (the tile's domed outline), first)
+  if (!SKIP.has('rules')) { if (!SKIP.has('armslim')) armSlimPass(doc, R1.armSlim); chestWeightPass(doc, R1.cw); flatFront5Pass(doc, R1.flat5); if (!SKIP.has('mask')) bodyMaskPass(doc, R1.mask); }
+  if (R1.vcut && !SKIP.has('vcut')) vCutPass(doc, R1.vcut);
   // (round 3's gate, its sternum on the bust: logged only now; rulesGate below holds the rule)
   if (SKIP.has('rules')) flatGate(doc, S.id);
   if (R1.seat && !SKIP.has('seat')) { await seatClipsPass(doc, R1.seat); if (!SKIP.has('rules')) seatUprightPass(doc, { pack: PACKDOC, ...R1.upright }); await seatedGate(doc, S.id); }

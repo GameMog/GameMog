@@ -129,6 +129,8 @@ void fs; void sm;
 // nearest skin point (beardMorphsPass, after the face's targets exist).
 const ATLAS = new URL('../../../storykit/handbuilt/jensen/parts/hair-strands.webp', import.meta.url).pathname;
 const STR = [[1252, 1547, 43], [1612, 1897, 54], [1978, 2257, 122], [3756, 3793, 1841], [3830, 3861, 849], [3954, 3978, 1041]];
+// (rules round 2: K.mix [[linear grey, share], ...]: the cards' values drawn from a few greys (light and mid, not one
+// uniform white); K.edge: the boundary's weight, above)
 export async function beardCardsPass(doc, K = {}) {
   K = { n: 4800, len: [0.0035, 0.0065], w: [0.0012, 0.002], lift: 0.0008, a: 0.45, under: 0.78, cut: 0.5, salt: 0.5, fine: 0.8, seed: 7, spec: 0.3, ...K };
   const R = doc.getRoot(), bp = R.listMeshes().flatMap((m) => m.listPrimitives()).find((p) => p.getMaterial()?.getName() === 'beard' && !BEARD_ROOTS.has(p)); if (!bp) return;
@@ -137,9 +139,13 @@ export async function beardCardsPass(doc, K = {}) {
   const tex = (u, v) => { const x = Math.min(tw - 1, Math.max(0, Math.floor(((u % 1) + 1) % 1 * tw))), y = Math.min(th - 1, Math.max(0, Math.floor(((v % 1) + 1) % 1 * th))), i = (y * tw + x) * 4; return [T[i], T[i + 1], T[i + 2], T[i + 3]]; };
   let s = K.seed; const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647), rr = (a, b) => a + (b - a) * rnd();
   const tri = []; let area = 0, cx = 0, cn = 0;
-  for (let t = 0; t < I.length; t += 3) { const [a, b, c] = [I[t], I[t + 1], I[t + 2]]; const e1 = [0, 1, 2].map((k) => P[b * 3 + k] - P[a * 3 + k]), e2 = [0, 1, 2].map((k) => P[c * 3 + k] - P[a * 3 + k]);
+  // (rules round 2, K.edge: the shell's boundary triangles (an edge no other kept triangle shares: the jawline's and the
+  // cheek line's edge) weighted K.edge times, so the cards close the silhouette instead of fraying it)
+  const keepT = new Uint8Array(I.length / 3), eCount = new Map(), ek = (x, y) => (x < y ? x + ',' + y : y + ',' + x);
+  for (let t = 0; t < I.length; t += 3) { const al0 = tex((U[I[t] * 2] + U[I[t + 1] * 2] + U[I[t + 2] * 2]) / 3, (U[I[t] * 2 + 1] + U[I[t + 1] * 2 + 1] + U[I[t + 2] * 2 + 1]) / 3)[3] / 255; if (al0 < K.a) continue; keepT[t / 3] = 1; for (const [x, y] of [[I[t], I[t + 1]], [I[t + 1], I[t + 2]], [I[t + 2], I[t]]]) eCount.set(ek(x, y), (eCount.get(ek(x, y)) || 0) + 1); }
+  for (let t = 0; t < I.length; t += 3) { const [a, b, c] = [I[t], I[t + 1], I[t + 2]]; const edgeW = K.edge && keepT[t / 3] && [[a, b], [b, c], [c, a]].some(([x, y]) => eCount.get(ek(x, y)) === 1) ? K.edge : 1; const e1 = [0, 1, 2].map((k) => P[b * 3 + k] - P[a * 3 + k]), e2 = [0, 1, 2].map((k) => P[c * 3 + k] - P[a * 3 + k]);
     const cr = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]], ar = Math.hypot(...cr) / 2; if (ar < 1e-9) continue;
-    const al = tex((U[a * 2] + U[b * 2] + U[c * 2]) / 3, (U[a * 2 + 1] + U[b * 2 + 1] + U[c * 2 + 1]) / 3)[3] / 255; if (al < K.a) continue; area += ar; tri.push([area, a, b, c]); cx += P[a * 3 + 1]; cn++; }
+    const al = tex((U[a * 2] + U[b * 2] + U[c * 2]) / 3, (U[a * 2 + 1] + U[b * 2 + 1] + U[c * 2 + 1]) / 3)[3] / 255; if (al < K.a) continue; area += ar * edgeW; tri.push([area, a, b, c]); cx += P[a * 3 + 1]; cn++; }
   const ymid = cx / cn; let ztop = -9; for (const [, a] of tri) ztop = Math.max(ztop, P[a * 3 + 2]);
   const pos = [], nrm = [], col = [], uvs = [], idx = [], root = [];
   for (let k = 0; k < K.n; k++) { const x0 = rnd() * area; let lo = 0, hi = tri.length - 1; while (lo < hi) { const m = (lo + hi) >> 1; if (tri[m][0] < x0) lo = m + 1; else hi = m; }
@@ -152,7 +158,7 @@ export async function beardCardsPass(doc, K = {}) {
     const pts = [0, 0.5, 1].map((t) => p.map((x, q) => x + g[q] * L * t + n[q] * (K.lift + 0.0006 * t * t)));
     const [x0s, x1s, ty] = STR[rnd() < K.fine ? 3 + Math.floor(rnd() * 3) : Math.floor(rnd() * 3)], win = x1s - x0s < 100 ? 1 : rr(0.35, 0.6), c0 = x0s + (x1s - x0s) * rr(0, 1 - win), u0 = c0 / 4096, u1 = (c0 + (x1s - x0s) * win) / 4096, vT = ty / 4096, vR = 3988 / 4096;
     // (salt and pepper: the shell's own colour there, a share of the strands lighter, a share darker; dark at the root)
-    const lum = lin(tc[0]) * 0.3 + lin(tc[1]) * 0.6 + lin(tc[2]) * 0.1, salt = rnd() < K.salt, base = K.col != null ? K.col * rr(0.88, 1.08) : salt ? Math.min(0.5, lum * rr(1.0, 1.25)) : lum * rr(0.6, 0.85), tint = K.tint || [1.0, 0.98, 0.95];
+    const lum = lin(tc[0]) * 0.3 + lin(tc[1]) * 0.6 + lin(tc[2]) * 0.1, salt = rnd() < K.salt, base = K.mix ? (() => { let x = rnd(); for (const [cv, sh] of K.mix) { if ((x -= sh) <= 0) return cv * rr(0.9, 1.1); } return K.mix[K.mix.length - 1][0]; })() : K.col != null ? K.col * rr(0.88, 1.08) : salt ? Math.min(0.5, lum * rr(1.0, 1.25)) : lum * rr(0.6, 0.85), tint = K.tint || [1.0, 0.98, 0.95];
     const b0 = pos.length / 3; let nearest = a; { let bd = 9; for (const q of [a, b, c]) { const d = (P[q * 3] - p[0]) ** 2 + (P[q * 3 + 1] - p[1]) ** 2 + (P[q * 3 + 2] - p[2]) ** 2; if (d < bd) { bd = d; nearest = q; } } }
     pts.forEach((pt, i) => { const t = i / 2, w = wd * (1 - 0.45 * t), rk = (K.root ?? 0.6) + (1 - (K.root ?? 0.6)) * sm(0, 0.5, t); for (const xx of [-1, 1]) { pos.push(...pt.map((x, q) => x + side[q] * xx * w / 2)); nrm.push(...n); uvs.push(xx < 0 ? u0 : u1, vR + (vT - vR) * Math.min(1, t * 0.9)); col.push(...tint.map((x) => Math.min(1, x * base * rk / 0.31)), 1); root.push(nearest); } });
     for (let i = 0; i < 2; i++) { const q = b0 + i * 2; idx.push(q, q + 2, q + 1, q + 1, q + 2, q + 3); } }

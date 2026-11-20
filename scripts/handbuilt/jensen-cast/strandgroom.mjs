@@ -200,13 +200,15 @@ export async function strandGroomPass(doc, K = {}) {
   // a ponytail's tail: cards from the tie falling down the back, gathered at the tie, a little wider below it
   if (K.tail) { const T = K.tail, tie = add(TI, norm(sub(TI, C)), -0.1 + 0.075);
     const h0 = over(tie); const t0 = add(tie, h0.n, Math.max(0, 0.012 - h0.s));
-    for (let k = 0; k < T.n; k++) { const a = rr(0, 6.28), rad = T.r * Math.sqrt(rnd()), off = [Math.cos(a) * rad, Math.sin(a) * rad * 0.6, 0]; let p = add(t0, off), f = [0, -0.4, -1]; const P = [p], Nn = [norm(sub(p, C))];
+    for (let k = 0; k < T.n; k++) { const a = rr(0, 6.28), rad = T.r * Math.sqrt(rnd()), off = T.tube ? [Math.cos(a) * rad, 0, Math.sin(a) * rad * T.tube] : [Math.cos(a) * rad, Math.sin(a) * rad * 0.6, 0]; let p = add(t0, off), f = [0, -0.4, -1]; const P = [p], Nn = [norm(sub(p, C))];
+      // (rules round 2, T.tube: the bundle round, its strands spread across the hang (x and z, z by T.tube), each card facing out from the bundle's axis: a tapered tube, not a flat blade)
+      const outN = T.tube ? norm([off[0] || 1e-4, 0, off[2] || 1e-4]) : null;
       const n = Math.round(T.len * rr(0.8, 1.1) / K.ds);
       const sw = T.swell ?? 0, ax = add(t0, [0, 0, 0]); for (let i = 1; i <= n; i++) { const t = i / n; let v = norm(lerp(f, [off[0] * 3 * t, -1, -0.12], 0.25)); f = v; p = add(p, v, K.ds);
         // (the bundle's swell: the strand held at its offset from the bundle's axis scaled by the bundle's radius here: full
         // below the tie (x (1 + sw)), then tapering to a third at the tip)
-        if (sw) { const k = (1 + sw * Math.sin(Math.PI * Math.min(1, t * 1.8)) * (1 - 0.5 * t)) * (1 - 0.6 * sm(0.5, 1, t)), kp = i > 1 ? (1 + sw * Math.sin(Math.PI * Math.min(1, (i - 1) / n * 1.8)) * (1 - 0.5 * (i - 1) / n)) * (1 - 0.6 * sm(0.5, 1, (i - 1) / n)) : 1; p = add(p, [off[0], off[1], 0], k - kp); }
-        const h = over(p); if (h.s < 0.01) p = add(p, h.n, 0.01 - h.s); P.push(p); Nn.push(norm(add(h.n, [0, 0, -1], 0.5))); } void ax;
+        if (sw) { const k = (1 + sw * Math.sin(Math.PI * Math.min(1, t * 1.8)) * (1 - 0.5 * t)) * (1 - 0.6 * sm(0.5, 1, t)), kp = i > 1 ? (1 + sw * Math.sin(Math.PI * Math.min(1, (i - 1) / n * 1.8)) * (1 - 0.5 * (i - 1) / n)) * (1 - 0.6 * sm(0.5, 1, (i - 1) / n)) : 1; p = add(p, T.tube ? [off[0], 0, off[2]] : [off[0], off[1], 0], k - kp); }
+        const h = over(p); if (h.s < 0.01) p = add(p, h.n, 0.01 - h.s); P.push(p); Nn.push(outN ? norm(add(outN, [0, 0, -1], 0.3)) : norm(add(h.n, [0, 0, -1], 0.5))); } void ax;
       const keep = P.map((_, i) => i).filter((i) => i % 3 === 0 || i === P.length - 1);
       card(keep.map((i) => P[i]), keep.map((i) => Nn[i]), [0, 1, 2, 3, 4][Math.floor(rnd() * 5)], rr(0.01, 0.015) * (T.w ?? 1), colourOf(rr(0.3, 1)), { taper: T.taper ?? 0.55 }); } }
   // ---- out with the forge's cut; in with the under-layer and the cards, in the cut's mesh (no morph targets there)

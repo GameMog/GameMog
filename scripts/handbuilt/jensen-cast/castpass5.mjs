@@ -20,16 +20,23 @@
 // Original procedural work, CC0.
 import { THREE, sm } from '../young-hero/glb.mjs';
 import { jointPos } from './castpass2.mjs';
-import { trunkLevels, frontRule, headRule, seatFrames, lowRule } from './rules.mjs';
+import { trunkLevels, frontRule, headRule, seatFrames, lowRule, SINK_MAX } from './rules.mjs';
 
-const CHAIN = ['spine05', 'spine04', 'spine03', 'spine02', 'spine01', 'neck01', 'neck02', 'neck03', 'head', 'clavicle_L', 'clavicle_R', 'shoulder01_L', 'shoulder01_R'];
+const CHAIN = ['spine05', 'spine04', 'spine03', 'spine02', 'spine01', 'neck01', 'neck02', 'neck03', 'head', 'clavicle_L', 'clavicle_R', 'shoulder01_L', 'shoulder01_R', 'upperarm01_L', 'upperarm01_R', 'lowerarm01_L', 'lowerarm01_R'];
 
 export function seatUprightPass(doc, K = {}) {
-  K = { clips: ['sit', 'sitTalk'], lean: 0.0, ear: 0.005, maxSpine: 18, maxNeck: 30, clav: 0, keep: 1, unflex: { spine03: 0.6, spine02: 0.8, spine01: 0.8 }, spine: { spine04: 0.15, spine03: 0.3, spine02: 0.3, spine01: 0.25 }, neck: { neck01: 0.55, neck02: 0.45 }, ...K };
+  // (rules round 2: the chest a rigid board on the waist (rigid: spine03..spine01 at their bind turns on their parents; the
+  // lean and the sway the lower spine's; the clavicles most of the way to theirs: relaxed shoulders, not rolled in over
+  // the table; the ears over the shoulders by the upper neck, so the collar stays put), round 1's unflex toward the idle dropped (the idle's own curl bowed the chest);
+  // hands: sitTalk's hands from in front of the belly to the table's edge (K.hands, below))
+  K = { clips: ['sit', 'sitTalk'], lean: 0.0, ear: 0.005, maxSpine: 18, maxNeck: 30, clav: 0, keep: 1, unflex: {}, rigid: { spine04: 0.6, spine03: 1, spine02: 1, spine01: 1, clavicle_L: 0.7, clavicle_R: 0.7 }, spine: { spine04: 0.3, spine05: 0.7 }, neck: { neck01: 0.15, neck02: 0.45, neck03: 0.4 },
+    hands: { sitTalk: { fwd: 0.36, up: -0.27, side: 0.16, keep: 0.6, pole: 0.8 } }, ...K };
   const R = doc.getRoot(), sk = R.listSkins()[0], J = sk.listJoints(), byName = new Map(J.map((j) => [j.getName(), j])), par = new Map(); for (const n of R.listNodes()) for (const c of n.listChildren()) par.set(c, n);
   const IB = sk.getInverseBindMatrices(), ib = J.map((j, i) => new THREE.Matrix4().fromArray(IB.getElement(i, new Array(16))));
   // (the bind's own turn of each joint (its world rotation in the bind): the clavicles relaxed back toward it)
   const bindRot = new Map(J.map((j, i) => [j.getName(), new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().extractRotation(ib[i].clone().invert()))]));
+  // (each joint's bind turn on its parent: the turn that keeps the skin between them as the bind has it)
+  const bindLocal = new Map(J.map((j) => { const p = par.get(j), qp = p && bindRot.has(p.getName()) ? bindRot.get(p.getName()) : new THREE.Quaternion(); return [j.getName(), qp.clone().invert().multiply(bindRot.get(j.getName()))]; }));
   // (upright: the standing idle's first frame, joint by joint (the body's own idle, else the shared pack's): the clips'
   // turns are in the pack skeleton's frames, not the bind's)
   const idle = R.listAnimations().find((x) => x.getName() === 'idle') || K.pack?.getRoot().listAnimations().find((x) => x.getName() === 'idle'), up = new Map();
@@ -56,7 +63,8 @@ export function seatUprightPass(doc, K = {}) {
       const headW0 = rot(byName.get('head')), earPts = earOf(doc), ear = () => { const hi = J.indexOf(byName.get('head')), m = w(byName.get('head')).clone().multiply(ib[hi]); return earPts.clone().applyMatrix4(m); };
       const lean = () => { const v = mid('upperarm01_L', 'upperarm01_R').sub(mid('upperleg01_L', 'upperleg01_R')); return Math.atan2(v.dot(F), v.y) * 180 / Math.PI; };
       const off = () => ear().sub(mid('upperarm01_L', 'upperarm01_R')).dot(F);
-      if (!pass) { pre.push([lean(), off()]); continue; }
+      const wristRel = (sd) => { const d = pos('wrist_' + sd).sub(mid('upperarm01_L', 'upperarm01_R')), sideV = new THREE.Vector3().crossVectors(F, new THREE.Vector3(0, 1, 0)); return [d.dot(F), d.y, d.dot(sideV)]; };
+      if (!pass) { pre.push([lean(), off(), wristRel('L'), wristRel('R')]); continue; }
       before.push(pre[ti]);
       // (the targets keep the clip's own sway around its mean: only the mean is moved, by K.keep of each key's own swing)
       const tL = K.lean + K.keep * (pre[ti][0] - mL), tE = K.ear + K.keep * (pre[ti][1] - mO);
@@ -68,6 +76,9 @@ export function seatUprightPass(doc, K = {}) {
       // the slump's curl taken out: each upper spine joint's turn on its parent eased toward the standing idle's (K.unflex), so the
       // chest is a straight board over the hips, not a curl (a curl folds the front into a belly)
       for (const [nm, k] of Object.entries(K.unflex)) { const n = byName.get(nm); if (!n || !k || !up.has(nm)) continue; loc.get(n).r = loc.get(n).r.clone().slerp(up.get(nm), k); w = worldOf(); }
+      // (rules round 2: the chest one rigid board: these joints' turns on their parents eased to the rest's (the bind's), so the
+      // trunk from the waist to the collar keeps its standing (flat) front, and the lean is the lower spine's)
+      for (const [nm, k] of Object.entries(K.rigid || {})) { const n = byName.get(nm); if (!n || !k) continue; loc.get(n).r = loc.get(n).r.clone().slerp(bindLocal.get(nm), k); w = worldOf(); }
       // (iterated: a turn low in the spine carries the shoulders further than its angle)
       let spun = 0; for (let k = 0; k < 6; k++) { const dl = lean() - tL; if (Math.abs(dl) < 0.15 || Math.abs(spun) >= K.maxSpine) break; const d = Math.max(-K.maxSpine - spun, Math.min(K.maxSpine - spun, dl)); for (const [nm, f] of Object.entries(K.spine)) { turn(nm, sgn * d * f); w = worldOf(); } spun += d; }
 
@@ -80,6 +91,24 @@ export function seatUprightPass(doc, K = {}) {
         // (more neck turn back: the ear further back; f(deg) falls with deg)
         const flo = at(lo), fhi = at(hi); if (process.env.SEATDBG && ti === 0) console.log('neck', name, 'f(lo)', flo, 'f(hi)', fhi, 'f(0)', at(0)); if (flo * fhi > 0) cur = Math.abs(flo) < Math.abs(fhi) ? lo : hi; else { for (let it = 0; it < 30; it++) { const m = (lo + hi) / 2, fm = at(m); if ((fm > 0) === (flo > 0)) lo = m; else hi = m; } cur = (lo + hi) / 2; }
         at(cur); }
+      // (rules round 2: the hands to the table's edge: each wrist's mean over the clip moved to K.hands' point (fwd ahead of
+      // the shoulders, up, side out), its own gesture kept (K.keep of its swing about the mean), by CCD over the forearm and
+      // the upper arm; then the elbow swung down and in about the shoulder-wrist line (K.pole): the arms no longer bow
+      // round the belly in front of the chest)
+      const H = K.hands?.[name];
+      if (H && byName.get('wrist_L')) for (const [sd, si, sg] of [['L', 2, 1], ['R', 3, -1]]) {
+        const mean = [0, 1, 2].map((q) => pre.reduce((a, x) => a + x[si][q], 0) / pre.length), cur = pre[ti][si];
+        const sideV = new THREE.Vector3().crossVectors(F, new THREE.Vector3(0, 1, 0)), sideOut = sideV.clone().multiplyScalar(Math.sign(mean[2]) || sg);
+        const tgt = [H.fwd + H.keep * (cur[0] - mean[0]), H.up + H.keep * (cur[1] - mean[1]), Math.abs(H.side) + H.keep * Math.abs(cur[2]) - H.keep * Math.abs(mean[2])];
+        const T = mid('upperarm01_L', 'upperarm01_R').add(F.clone().multiplyScalar(tgt[0])).add(new THREE.Vector3(0, tgt[1], 0)).add(sideOut.clone().multiplyScalar(tgt[2]));
+        const wturn = (nm, Q) => { const n = byName.get(nm), qpw = rot(par.get(n)); loc.get(n).r = qpw.clone().invert().multiply(Q).multiply(qpw).multiply(loc.get(n).r); w = worldOf(); };
+        for (let it = 0; it < 8; it++) for (const nm of ['lowerarm01_' + sd, 'upperarm01_' + sd]) { const jp = pos(nm), a = pos('wrist_' + sd).sub(jp).normalize(), b = T.clone().sub(jp).normalize(); if (a.dot(b) > 0.99999) continue; wturn(nm, new THREE.Quaternion().setFromUnitVectors(a, b)); }
+        // (the pole: the elbow toward down and in, about the shoulder-wrist line)
+        const S0 = pos('upperarm01_' + sd), ax = pos('wrist_' + sd).sub(S0).normalize(), el = pos('lowerarm01_' + sd).sub(S0), want = new THREE.Vector3(0, -1, 0).addScaledVector(sideOut, 0.25);
+        const pe = el.clone().addScaledVector(ax, -el.dot(ax)).normalize(), pw = want.clone().addScaledVector(ax, -want.dot(ax)).normalize();
+        if (pe.lengthSq() > 0 && pw.lengthSq() > 0) { const ang = Math.atan2(new THREE.Vector3().crossVectors(pe, pw).dot(ax), pe.dot(pw)) * H.pole; wturn('upperarm01_' + sd, new THREE.Quaternion().setFromAxisAngle(ax, ang)); }
+        if (process.env.SEATDBG && ti === 0) console.log('hands', name, sd, 'target', tgt.map((x) => x.toFixed(2)).join('/'), 'got', wristRel(sd).map((x) => x.toFixed(2)).join('/'));
+      }
       after.push([lean(), off()]);
       for (const nm of CHAIN) { const n = byName.get(nm); if (n) { const q = loc.get(n).r; out.get(nm).push([t, q.x, q.y, q.z, q.w]); } }
     } }
@@ -110,51 +139,60 @@ function earOf(doc) {
 // ---- rule 1
 const OUTER = /^(eyes|brows|lashes|teethUp|teethLow|mouth-inside|tongue|hair|hairUnder|headset|cornea|beard)$/;
 const NOT = /shoe|sneaker|boot|sole|lace|lining|eyelet|glasses|lens/;
-const ARM = /^(shoulder|upperarm|lowerarm|wrist|finger|thumb|metacarpal)/;
+const ARM = /^(shoulder|upperarm|lowerarm|wrist|finger|thumb|metacarpal)/, HEADJ = /^(head|jaw|eye|tongue|special|levator|oris|risorius|temporalis|orbicularis|cheek|nose)/;
 export function flatFront5Pass(doc, K = {}) {
-  K = { xIn: 0.12, xOut: 0.19, d2: 0.1, d1: 0.03, grow: 0.015, blur: 0.02, ease: 0.04, easeLow: 0.05, target: 0.005, iters: 5, below: 0.14, xLow: 0.09, legW: [0.88, 0.99], slack: 0.002, lean: null, ...K };
+  K = { xIn: 0.12, xOut: 0.19, d2: 0.1, d1: 0.03, grow: 0.015, blur: 0.02, ease: 0.04, easeLow: 0.05, target: 0.005, sinkTarget: SINK_MAX - 0.005, fill: 0.002, pin: 2, iters: 8, below: 0.14, xLow: 0.09, legW: [0.88, 0.99], slack: 0.002, lean: null, ...K };
   const R = doc.getRoot(), { ys, yb } = trunkLevels(doc), C = 0.01;
   const prims = R.listMeshes().flatMap((m) => m.listPrimitives()).filter((p) => p.getIndices() && !OUTER.test(p.getMaterial()?.getName() || '') && !NOT.test(p.getMaterial()?.getName() || '') && p.getAttribute('JOINTS_0'));
-  const names = R.listSkins()[0].listJoints().map((j) => j.getName()), isArm = names.map((n) => ARM.test(n)), isLeg = names.map((n) => /^(upperleg|lowerleg|foot|toe)/.test(n));
+  const names = R.listSkins()[0].listJoints().map((j) => j.getName()), isArm = names.map((n) => ARM.test(n)), isLeg = names.map((n) => /^(upperleg|lowerleg|foot|toe)/.test(n)), isHead = names.map((n) => HEADJ.test(n));
   let total = 0, nMoved = 0;
   for (let it = 0; it < K.iters; it++) {
-    const r0 = frontRule(doc); if (r0.dev <= K.target) break;
+    const r0 = frontRule(doc); if (r0.dev <= K.target && r0.sink <= K.sinkTarget) break;
     // the front per (column, row): the outermost sampled point
     const front = new Map(), key = (c, r) => c + ',' + r;
-    for (const p of prims) { const A = p.getAttribute('POSITION').getArray(), I = p.getIndices().getArray(), aw = armW(p, isArm);
-      for (let t = 0; t < I.length; t += 3) { const a = I[t], b = I[t + 1], c = I[t + 2]; if (Math.max(aw[a], aw[b], aw[c]) > 0.3) continue;
+    for (const p of prims) { const A = p.getAttribute('POSITION').getArray(), I = p.getIndices().getArray(), aw = armW(p, isArm), hw = armW(p, isHead);
+      for (let t = 0; t < I.length; t += 3) { const a = I[t], b = I[t + 1], c = I[t + 2]; if (Math.max(aw[a], aw[b], aw[c]) > 0.3 || Math.max(hw[a], hw[b], hw[c]) > 0.3) continue;
         const L = Math.max(Math.hypot(A[a * 3] - A[b * 3], A[a * 3 + 1] - A[b * 3 + 1]), Math.hypot(A[a * 3] - A[c * 3], A[a * 3 + 1] - A[c * 3 + 1])), m = Math.min(12, Math.max(1, Math.ceil(L / 0.004)));
         for (let i = 0; i <= m; i++) for (let j = 0; j <= m - i; j++) { const u = i / m, v = j / m, w = 1 - u - v, x = A[a * 3] * w + A[b * 3] * u + A[c * 3] * v, y = A[a * 3 + 1] * w + A[b * 3 + 1] * u + A[c * 3 + 1] * v, z = A[a * 3 + 2] * w + A[b * 3 + 2] * u + A[c * 3 + 2] * v;
           if (Math.abs(x) > K.xOut + 0.02 || y < yb - K.below - 0.06 || y > ys + 0.04 || z < -0.05) continue; const k = key(Math.round(x / C), Math.round(y / C)); if (!(front.get(k) > z)) front.set(k, z); } } }
-    // each column's line: its own sternum and belt points; the middle column's line caps the others (a mound beside the
-    // middle is no column of its own)
-    const rS = Math.round(ys / C), rB = Math.round(yb / C), cMax = Math.round((K.xOut + 0.02) / C);
-    const m3 = (cc, r0, dir) => { let b; for (let k = 0; k < 3; k++) { const z = front.get(key(cc, r0 + dir * k)); if (z !== undefined && !(b >= z)) b = z; } return b; };
-    const lineOf = (c) => { let cc = c; let zs, zb; for (; ; cc -= Math.sign(cc)) { zs = m3(cc, rS, -1); zb = m3(cc, rB, 1); if ((zs !== undefined && zb !== undefined) || cc === 0) break; } if (zs === undefined || zb === undefined) return null; if (K.lean != null) zb = Math.min(zb, zs + K.lean); return (r) => zb + (zs - zb) * (r - rB) / (rS - rB); };
-    const mid = lineOf(0);
-    const over = new Map();
-    for (let c = -cMax; c <= cMax; c++) { const L = lineOf(c); if (!L) continue; for (let r = rB - (Math.abs(c) * C <= K.xLow ? Math.round(K.below / C) : 0); r <= rS; r++) { const z = front.get(key(c, r)); if (z === undefined) continue; const rr = Math.max(r, rB), line = Math.min(L(rr), mid ? mid(rr) : L(rr)); const o = z - line + K.slack; if (o > 0) over.set(key(c, r), o); } }
+    // (rules round 2) the line as rules.mjs draws it: the row's silhouette (the farthest forward over |x| < 13 cm), each
+    // end the median of its own 3 rows (the sternum's row and the 2 under it, the belt's and the 2 over it); the anchors'
+    // own rows are not moved (the field is eased in over K.pin rows from each), so the line holds still pass to pass
+    const rS = Math.round(ys / C), rB = Math.round(yb / C), cMax = Math.round((K.xOut + 0.02) / C), cSil = 13;
+    const sil = new Map(); for (const [k, z] of front) { const [c, r] = k.split(',').map(Number); if (Math.abs(c) <= cSil && !(sil.get(r) >= z)) sil.set(r, z); }
+    const end = (r0, dir) => { const L = [0, 1, 2].filter((k) => sil.has(r0 + dir * k)).map((k) => [sil.get(r0 + dir * k), r0 + dir * k]).sort((x, y) => x[0] - y[0]); return L.length ? L[(L.length - 1) >> 1] : null; };
+    const eS = end(rS, -1), eB = end(rB, 1); if (!eS || !eB) break;
+    const rTop = eS[1], rBot = eB[1], mid = (r) => eB[0] + (eS[0] - eB[0]) * (r - rBot) / (rTop - rBot);
+    const pinW = (r) => { const a = Math.abs(r - rTop), b = Math.abs(r - rBot); if (r >= rTop - 0.5) return Math.max(0, 1 - (r - (rTop - 0.5)) / 0.5) * Math.min(1, a / K.pin); return Math.min(1, Math.max(0, (a - 0.5) / K.pin), Math.max(0, (b - 0.5) / K.pin)); };
+    const over = new Map(), under = new Map();
+    for (let c = -cMax; c <= cMax; c++) for (let r = rBot - (Math.abs(c) * C <= K.xLow ? Math.round(K.below / C) : 0); r < rTop; r++) { const z = front.get(key(c, r)); if (z === undefined) continue;
+      const o = z - mid(Math.max(r, rBot)) + K.slack; if (o > 0) over.set(key(c, r), o);
+      // (no hollow: a row whose silhouette sinks more than K.fill behind the line has its middle brought forward to it)
+      if (r > rBot && Math.abs(c) * C <= K.xIn) { const u = mid(r) - (sil.get(r) ?? z) - K.fill; if (u > 0) under.set(key(c, r), u); } }
     // grown (a max over +-grow) then blurred (a box over +-blur, twice): one smooth field
     const g = Math.round(K.grow / C), bl = Math.round(K.blur / C), F1 = new Map();
     for (let c = -cMax - bl; c <= cMax + bl; c++) for (let r = rB - Math.round(K.below / C) - bl - 4; r <= rS + bl + 2; r++) { let m = 0; for (let dc = -g; dc <= g; dc++) for (let dr = -g; dr <= g; dr++) m = Math.max(m, over.get(key(c + dc, r + dr)) || 0); if (m) F1.set(key(c, r), m); }
     const box = (Fm) => { const O = new Map(); for (let c = -cMax - 2 * bl; c <= cMax + 2 * bl; c++) for (let r = rB - Math.round(K.below / C) - 2 * bl - 6; r <= rS + 2 * bl + 4; r++) { let s = 0, n = 0; for (let dc = -bl; dc <= bl; dc++) for (let dr = -bl; dr <= bl; dr++) { s += Fm.get(key(c + dc, r + dr)) || 0; n++; } if (s) O.set(key(c, r), s / n); } return O; };
-    const F = box(box(F1));
+    const F = box(box(F1)), U1 = new Map();
+    for (let c = -cMax - bl; c <= cMax + bl; c++) for (let r = rB - bl - 4; r <= rS + bl + 2; r++) { let m = 0; for (let dc = -g; dc <= g; dc++) for (let dr = -g; dr <= g; dr++) m = Math.max(m, under.get(key(c + dc, r + dr)) || 0); if (m) U1.set(key(c, r), m); }
+    const U = box(box(U1)); for (const [k, u] of U) F.set(k, (F.get(k) || 0) - u);
     const fieldAt = (x, y) => { const cx = x / C, cy = y / C, c0 = Math.floor(cx), r0i = Math.floor(cy), fx = cx - c0, fy = cy - r0i, v = (c, r) => F.get(key(c, r)) || 0; return (v(c0, r0i) * (1 - fx) + v(c0 + 1, r0i) * fx) * (1 - fy) + (v(c0, r0i + 1) * (1 - fx) + v(c0 + 1, r0i + 1) * fx) * fy; };
     // every point of the clothes, the skin and the trim moved back by the field (the whole depth of the layers to d1,
     // fading to none at d2 behind the front: the back of the body is not pushed in)
     const all = R.listMeshes().flatMap((m) => m.listPrimitives()).filter((p) => !OUTER.test(p.getMaterial()?.getName() || '') && !NOT.test(p.getMaterial()?.getName() || ''));
     const seen = new Set(); let mx = 0;
-    for (const p of all) { const acc = p.getAttribute('POSITION'); if (seen.has(acc)) continue; seen.add(acc); const A = acc.getArray().slice(), aw = p.getAttribute('JOINTS_0') ? armW(p, isArm) : new Float32Array(A.length / 3), lw = p.getAttribute('JOINTS_0') ? armW(p, isLeg) : new Float32Array(A.length / 3);
+    for (const p of all) { const acc = p.getAttribute('POSITION'); if (seen.has(acc)) continue; seen.add(acc); const A = acc.getArray().slice(), aw = p.getAttribute('JOINTS_0') ? armW(p, isArm) : new Float32Array(A.length / 3), lw = p.getAttribute('JOINTS_0') ? armW(p, isLeg) : new Float32Array(A.length / 3), hwAll = p.getAttribute("JOINTS_0") ? armW(p, isHead) : null;
       for (let v = 0; v < A.length / 3; v++) { const x = A[v * 3], y = A[v * 3 + 1], z = A[v * 3 + 2]; if (y < yb - K.below - K.easeLow - 0.02 || y > ys + K.ease + 0.02 || z < -0.02) continue;
         const ax = Math.abs(x), fx = ax <= K.xIn ? 1 : ax >= K.xOut ? 0 : 1 - sm(K.xIn, K.xOut, ax); if (!fx) continue;
         const yl = yb - K.below, fy = y > ys ? 1 - sm(ys, ys + K.ease, y) : y < yl ? 1 - sm(yl, yl - K.easeLow, y) : 1; if (!fy) continue;
         let o = fieldAt(Math.max(-K.xOut, Math.min(K.xOut, x)), Math.max(yb - K.below, Math.min(ys, y))); if (!o) continue;
+        if (hwAll && hwAll[v] > 0.3) continue; o *= pinW(y / C);
         if (y < yb) o *= 1 - sm(K.legW[0], K.legW[1], lw[v]);
         const fr = front.get(key(Math.round(x / C), Math.round(Math.max(yb - K.below, Math.min(ys, y)) / C))) ?? z, depth = Math.max(0, fr - z), fd = depth <= K.d1 ? 1 : 1 - sm(K.d1, K.d2, depth); if (!fd) continue;
-        const mv = o * fx * fy * fd * (1 - Math.min(1, Math.max(0, (aw[v] - 0.1) / 0.4))); if (mv <= 0) continue; A[v * 3 + 2] = z - mv; mx = Math.max(mx, mv); nMoved++; }
+        const mv = o * fx * fy * fd * (1 - Math.min(1, Math.max(0, (aw[v] - 0.1) / 0.4))); if (!mv) continue; A[v * 3 + 2] = z - mv; mx = Math.max(mx, Math.abs(mv)); nMoved++; }
       acc.setArray(A); }
     total = Math.max(total, mx);
-    const r1 = frontRule(doc); console.log(`flat front 5: pass ${it + 1}: ${(r0.dev * 1000).toFixed(1)} -> ${(r1.dev * 1000).toFixed(1)} mm (moved up to ${(mx * 1000).toFixed(1)} mm)`);
+    const r1 = frontRule(doc); console.log(`flat front 5: pass ${it + 1}: bulge ${(r0.dev * 1000).toFixed(1)} -> ${(r1.dev * 1000).toFixed(1)} mm, sink ${(r0.sink * 1000).toFixed(1)} -> ${(r1.sink * 1000).toFixed(1)} mm (moved up to ${(mx * 1000).toFixed(1)} mm)`);
   }
   return frontRule(doc);
 }
@@ -162,12 +200,12 @@ function armW(p, isArm) { const J = p.getAttribute('JOINTS_0'), W = p.getAttribu
 
 // the gates the build holds (rules.mjs on the built doc): the standing and the seated front, the seated head
 export function rulesGate(doc, id, pack, K = {}) {
-  const fr = seatFrames(doc, pack); const st = frontRule(doc); let seat = 0, head = -9, headMin = 9;
-  for (const [, a, t] of fr) { seat = Math.max(seat, frontRule(doc, a, t).dev); const o = headRule(doc, a, t); head = Math.max(head, o); headMin = Math.min(headMin, o); }
-  const low = lowRule(doc).dev, ok1 = st.dev <= 0.012 && seat <= 0.012 && low <= 0.012, ok2 = Math.max(Math.abs(head), Math.abs(headMin)) <= 0.03;
-  console.log(`rules gate: ${id} front standing ${(st.dev * 1000).toFixed(1)} mm (below the belt ${(low * 1000).toFixed(1)}), seated ${(seat * 1000).toFixed(1)} mm (limit 12) ${ok1 ? 'PASS' : 'FAIL'}; seated ears ${(headMin * 100).toFixed(1)}..${(head * 100).toFixed(1)} cm ahead of the shoulders (limit 3) ${ok2 ? 'PASS' : 'FAIL'}`);
+  const fr = seatFrames(doc, pack); const st = frontRule(doc); let seat = 0, seatSink = 0, head = -9, headMin = 9;
+  for (const [, a, t] of fr) { const r = frontRule(doc, a, t); seat = Math.max(seat, r.dev); seatSink = Math.max(seatSink, r.sink); const o = headRule(doc, a, t); head = Math.max(head, o); headMin = Math.min(headMin, o); }
+  const low = lowRule(doc).dev, ok1 = st.dev <= 0.012 && seat <= 0.012 && low <= 0.012 && st.sink <= SINK_MAX && seatSink <= SINK_MAX, ok2 = Math.max(Math.abs(head), Math.abs(headMin)) <= 0.03;
+  console.log(`rules gate: ${id} front standing ${(st.dev * 1000).toFixed(1)} mm bulge / ${(st.sink * 1000).toFixed(1)} sink (below the belt ${(low * 1000).toFixed(1)}), seated ${(seat * 1000).toFixed(1)} bulge / ${(seatSink * 1000).toFixed(1)} sink (limits 12 / 8) ${ok1 ? 'PASS' : 'FAIL'}; seated ears ${(headMin * 100).toFixed(1)}..${(head * 100).toFixed(1)} cm ahead of the shoulders (limit 3) ${ok2 ? 'PASS' : 'FAIL'}`);
   if ((!ok1 || !ok2) && K.hard && !process.env.JC_NOGATE) throw new Error(`rules gate: ${id} failed`);
-  return { st: st.dev, low, seat, head, headMin };
+  return { st: st.dev, stSink: st.sink, low, seat, seatSink, head, headMin };
 }
 void jointPos;
 
@@ -247,4 +285,93 @@ export async function worstedPass(doc, re, K = {}) {
     const t = m.getBaseColorTexture(); if (!t || seen.has(t) || !K.blur) continue; seen.add(t); const { data, w, h } = await rgba(t);
     const out = await sharp(Buffer.from(data), { raw: { width: w, height: h, channels: 4 } }).blur(K.blur).raw().toBuffer(); await setWebp(t, out, w, h, 90); }
   console.log('worsted:', String(re), n, 'materials, normal x', K.n, 'blur', K.blur);
+}
+
+// rules round 2, rule 1 in the game's call tile: the upper arms and the shoulders read inflated (a domed outline round the
+// chest). Every skinned point (the skin, the sleeves, every layer, the morphs' bases) weighted to an upper arm (and half
+// its shoulder) drawn toward that arm's bone line (the upper arm's joint to the elbow's) by K.k of its distance from it,
+// the forearm's toward its own by K.fore, each by its weight: the layers scale together about the same line, so the
+// sleeve stays over the skin and the folds keep their relief.
+export function armSlimPass(doc, K = {}) {
+  K = { k: 0.14, fore: 0.06, shoulder: 0.5, ...K };
+  const R = doc.getRoot(), names = R.listSkins()[0].listJoints().map((j) => j.getName()), jp = (n) => new THREE.Vector3(...jointPos(doc, n));
+  const seg = {}; for (const sd of ['L', 'R']) seg[sd] = { up: [jp('upperarm01_' + sd), jp('lowerarm01_' + sd)], fo: [jp('lowerarm01_' + sd), jp('wrist_' + sd)] };
+  const role = names.map((n) => { const m = n.match(/^(upperarm0[12]|shoulder01|lowerarm0[12])_([LR])$/); if (!m) return null; return { sd: m[2], fo: /^lower/.test(m[1]), k: /^lower/.test(m[1]) ? K.fore : m[1] === 'shoulder01' ? K.k * K.shoulder : K.k }; });
+  const done = new Set(); let n = 0; const j = [0, 0, 0, 0], w = [0, 0, 0, 0], P = new THREE.Vector3(), Q = new THREE.Vector3();
+  for (const p of R.listMeshes().flatMap((m) => m.listPrimitives())) { const nm = p.getMaterial()?.getName() || ''; if (OUTER.test(nm)) continue; const JA = p.getAttribute('JOINTS_0'), WA = p.getAttribute('WEIGHTS_0'), acc = p.getAttribute('POSITION'); if (!JA || !WA || done.has(acc)) continue; done.add(acc);
+    const A = acc.getArray().slice();
+    for (let i = 0; i < A.length / 3; i++) { JA.getElement(i, j); WA.getElement(i, w); let mv = null;
+      for (let k = 0; k < 4; k++) { const r = role[j[k]]; if (!r || !w[k]) continue; const [a, b] = r.fo ? seg[r.sd].fo : seg[r.sd].up; P.set(A[i * 3], A[i * 3 + 1], A[i * 3 + 2]);
+        const ab = b.clone().sub(a), t = Math.max(-0.3, Math.min(1.05, P.clone().sub(a).dot(ab) / ab.lengthSq())); Q.copy(a).addScaledVector(ab, t); const d = P.clone().sub(Q).multiplyScalar(-r.k * w[k]);
+        mv = mv ? mv.add(d) : d; }
+      if (mv) { A[i * 3] += mv.x; A[i * 3 + 1] += mv.y; A[i * 3 + 2] += mv.z; n++; } }
+    acc.setArray(A); }
+  console.log('arm slim: points', n, 'upper arm x', 1 - K.k, 'forearm x', 1 - K.fore);
+}
+
+// rules round 2, Mr. Board's "cartoon-red inner mouth", found by dumping every primitive inside the lip ring (its skin,
+// beard, teeth, bag: only the skin's texture is red there) and rendering each material alone in the 'aa' pose, then
+// painting the skin's strong-red texels a test green: at r > 1.9 x max(g, b) exactly the mouth's inside turns (the lips,
+// at ~1.45, and the face do not). It is MakeHuman's inner-mouth UV island (~[190, 80, 69]); innerMouthPass's facing test
+// had left it. Every such texel of the skin's texture taken to a dark muted rose (K.col, linear; its own shading kept as a
+// ratio). (The eye sockets' inner lids share the colour and darken too; the eyes cover them.)
+export async function redMouthPass(doc, K = {}) {
+  K = { red: 1.9, col: [0.085, 0.036, 0.033], ...K };
+  const { rgba, setWebp } = await import('../young-hero/glb.mjs'); const lin = (c) => Math.pow(c / 255, 2.2), enc = (l) => Math.min(255, Math.max(0, Math.round(255 * Math.pow(Math.max(0, l), 1 / 2.2))));
+  const m = doc.getRoot().listMaterials().find((x) => x.getName() === 'skin'), t = m?.getBaseColorTexture(); if (!t) return;
+  const { data, w, h } = await rgba(t); let n = 0;
+  for (let i = 0; i < w * h; i++) { const r = data[i * 4], g = data[i * 4 + 1], b = data[i * 4 + 2]; if (r <= 60 || r <= K.red * Math.max(g, b)) continue;
+    const L = (lin(r) + lin(g) + lin(b)) / 3, k = 0.6 + 0.4 * Math.min(1.5, L / 0.2); for (let c = 0; c < 3; c++) data[i * 4 + c] = enc(K.col[c] * k); n++; }
+  await setWebp(t, data, w, h, 92); console.log('red mouth: strong-red skin texels darkened', n);
+}
+
+// rules round 2, the Directors' "jagged lapels": the suit's V opening was the forge's per-triangle cut (a sawtooth edge,
+// and dark shards of the layer under it showing through its notches). The V redrawn as clean geometry: per side a straight
+// edge from the V's top (the median of the opening's half-width over its top 3 rows) to its bottom (the first row up from
+// the buttons where it opens); every front triangle of the suit (K.mats) whose centroid lies inside that V cut away, and
+// every remaining point inside it, or on the suit's open edge within K.band outside it, set onto the line: one smooth
+// lapel edge with no teeth and no notches. K.inset draws the edge that far in from the opening (the open edge stretched
+// over it, K.band): it covers the sawtooth band of the jacket's inner layer showing round the shirt.
+export function vCutPass(doc, K = {}) {
+  K = { mats: /^suit$/, z0: 0.05, xMax: 0.13, band: 0.012, open: 0.006, inset: 0, gap: 0.006, ...K };
+  const R = doc.getRoot(), prims = R.listMeshes().flatMap((m) => m.listPrimitives()).filter((p) => K.mats.test(p.getMaterial()?.getName() || '') && p.getIndices());
+  for (const p of prims) { const A = p.getAttribute('POSITION').getArray().slice(), I0 = p.getIndices().getArray(), rows = new Map();
+    // (first the suit's inside turned to the camera: ray-picking the render showed the dark shards round the V are the
+    // jacket's own back faces (its lining's texels), where the dropped lapel overlay left the front rolled back: every front
+    // triangle whose face looks away (normal z < 0) taken out, so the V's edge is the cloth's outer face)
+    const f0 = []; let nBack = 0; for (let t = 0; t < I0.length; t += 3) { const a = I0[t], b = I0[t + 1], c = I0[t + 2], u = [0, 1, 2].map((k) => A[b * 3 + k] - A[a * 3 + k]), w2 = [0, 1, 2].map((k) => A[c * 3 + k] - A[a * 3 + k]), nz = u[0] * w2[1] - u[1] * w2[0], cz = (A[a * 3 + 2] + A[b * 3 + 2] + A[c * 3 + 2]) / 3, cxa = Math.abs(A[a * 3] + A[b * 3] + A[c * 3]) / 3;
+      if (K.back && nz < 0 && cz > K.z0 && cxa < K.xMax * 0.8) { nBack++; continue; } f0.push(a, b, c); }
+    const I = new I0.constructor(f0), used = new Set(I);
+    for (const v of used) { const x = A[v * 3], y = A[v * 3 + 1], z = A[v * 3 + 2]; if (z < K.z0 || Math.abs(x) > K.xMax) continue; const r = Math.round(y * 100), o = rows.get(r) || [9, 9]; if (x >= 0) o[0] = Math.min(o[0], x); else o[1] = Math.min(o[1], -x); rows.set(r, o); }
+    const rs = [...rows.keys()].sort((a, b) => b - a), half = (r) => { const o = rows.get(r); return o ? Math.min(o[0], o[1]) : 0; };
+    const rT = rs[0], xT = [rT, rT - 1, rT - 2].map(half).sort((a, b) => a - b)[1];
+    let rB = rT; for (const r of rs) { if (r > rT - 3) continue; if (half(r) < K.open && half(r - 1) < K.open && half(r - 2) < K.open) { rB = r; break; } }
+    const yT = rT / 100, yB = rB / 100; if (yT - yB < 0.08 || xT < 0.02) { console.log('v cut: no V on', p.getMaterial().getName()); continue; }
+    const xI = xT - K.inset, line = (y) => (y >= yT ? xI : y <= yB ? 0 : xI * (y - yB) / (yT - yB)), inV = (x, y, z) => z >= K.z0 && y > yB && y < yT + 0.005 && Math.abs(x) < line(y);
+    const keep = []; let cut = 0; for (let t = 0; t < I.length; t += 3) { const a = I[t], b = I[t + 1], c = I[t + 2], cxx = (A[a * 3] + A[b * 3] + A[c * 3]) / 3, cy = (A[a * 3 + 1] + A[b * 3 + 1] + A[c * 3 + 1]) / 3, cz = (A[a * 3 + 2] + A[b * 3 + 2] + A[c * 3 + 2]) / 3; if (inV(cxx, cy, cz)) { cut++; continue; } keep.push(a, b, c); }
+    const ec = new Map(), ek = (x, y) => (x < y ? x + ',' + y : y + ',' + x); for (let t = 0; t < keep.length; t += 3) for (const [x, y] of [[keep[t], keep[t + 1]], [keep[t + 1], keep[t + 2]], [keep[t + 2], keep[t]]]) ec.set(ek(x, y), (ec.get(ek(x, y)) || 0) + 1);
+    const edge = new Set(); for (const [k, n] of ec) if (n === 1) for (const v of k.split(',')) edge.add(+v);
+    // (each kept point's side: the mean x of its kept triangles' centroids, so a point on the middle goes to its own lapel)
+    const sideOf = new Map(); for (let t = 0; t < keep.length; t += 3) { const cxx = (A[keep[t] * 3] + A[keep[t + 1] * 3] + A[keep[t + 2] * 3]) / 3; for (let k = 0; k < 3; k++) sideOf.set(keep[t + k], (sideOf.get(keep[t + k]) || 0) + cxx); }
+    let snapped = 0; for (const v of new Set(keep)) { const x = A[v * 3], y = A[v * 3 + 1], z = A[v * 3 + 2]; if (z < K.z0 || y <= yB || y > yT + 0.005) continue; const L = line(y);
+      if (Math.abs(x) < L || (edge.has(v) && Math.abs(x) < L + K.band)) { A[v * 3] = Math.sign(sideOf.get(v) || x || 1) * L; snapped++; } }
+    // (the holes the forge's cut and the dropped lapel overlay left in the suit's front (dark slits onto the layer under it):
+    // each closed loop of open edges on the front shorter than K.hole, filled as a fan from its own first point)
+    let filled = 0; if (K.hole) { const nb = new Map(); for (const [k, n] of ec) if (n === 1) { const [a, b] = k.split(',').map(Number); (nb.get(a) || nb.set(a, []).get(a)).push(b); (nb.get(b) || nb.set(b, []).get(b)).push(a); }
+      const seenV = new Set(); for (const v0 of nb.keys()) { if (seenV.has(v0)) continue; const loop = [v0]; seenV.add(v0); let prev = -1, cur = v0, ok = true;
+        for (;;) { const nx = (nb.get(cur) || []).filter((x) => x !== prev); if (nx.length !== 1 && !(nx.length === 2 && nx.includes(v0))) { ok = false; break; } const n = nx.includes(v0) && loop.length > 2 ? v0 : nx[0]; if (n === v0) break; if (seenV.has(n)) { ok = false; break; } loop.push(n); seenV.add(n); prev = cur; cur = n; if (loop.length > 200) { ok = false; break; } }
+        if (!ok || loop.length < 3) continue; let per = 0; for (let k = 0; k < loop.length; k++) { const a = loop[k], b = loop[(k + 1) % loop.length]; per += Math.hypot(A[a * 3] - A[b * 3], A[a * 3 + 1] - A[b * 3 + 1], A[a * 3 + 2] - A[b * 3 + 2]); }
+        if (per > K.hole || loop.some((v) => A[v * 3 + 2] < K.z0 || Math.abs(A[v * 3]) > K.xMax)) continue;
+        for (let k = 1; k < loop.length - 1; k++) keep.push(loop[0], loop[k], loop[k + 1]); filled++; } }
+    p.getAttribute('POSITION').setArray(A); p.setIndices(doc.createAccessor().setType('SCALAR').setArray(new I.constructor(keep)).setBuffer(R.listBuffers()[0])); if (filled) console.log('v cut: holes filled', filled);
+    // (the layer under the suit (K.under: the shirt-and-inner-jacket 'clothes') poking through it as dark shards: every
+    // point of it outside the V (under the suit) less than K.gap behind the suit's front there is set K.gap behind it)
+    if (K.under) { const sz = new Map(), kk = (x, y) => Math.round(x / 0.01) + ',' + Math.round(y / 0.01); for (const v of new Set(keep)) { const x = A[v * 3], y = A[v * 3 + 1], z = A[v * 3 + 2]; if (z < K.z0) continue; const k = kk(x, y); if (!(sz.get(k) >= z)) sz.set(k, z); }
+      let pushed = 0; for (const q of R.listMeshes().flatMap((m) => m.listPrimitives()).filter((x) => K.under.test(x.getMaterial()?.getName() || ''))) { const B2 = q.getAttribute('POSITION').getArray().slice();
+        for (let v = 0; v < B2.length / 3; v++) { const x = B2[v * 3], y = B2[v * 3 + 1], z = B2[v * 3 + 2]; if (z < K.z0 || y < yB - 0.12 || y > yT || Math.abs(x) > K.xMax || Math.abs(x) < line(y) + 0.004) continue;
+          let f = -9; for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) { const t = sz.get(kk(x + dx * 0.01, y + dy * 0.01)); if (t !== undefined) f = Math.max(f, t); } if (f < -1) continue;
+          if (z > f - K.gap) { B2[v * 3 + 2] = f - K.gap; pushed++; } }
+        q.getAttribute('POSITION').setArray(B2); }
+      console.log('v cut: under-layer points set behind the suit', pushed); }
+    console.log(`v cut: ${nBack} back faces out; ${p.getMaterial().getName()} V from y ${yT.toFixed(2)} (half-width ${(xT * 100).toFixed(1)} cm) to ${yB.toFixed(2)}: ${cut} triangles cut, ${snapped} points onto the line`); }
 }
