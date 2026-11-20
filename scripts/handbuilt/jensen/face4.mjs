@@ -160,7 +160,7 @@ export function browSoftPass(doc, K = {}) {
       // (the width: full and rounded at the inner end, tapering to a soft point at the tail; the top edge a little arched)
       const w = (K.wOut + (K.wIn - K.wOut) * Math.pow(1 - t, 1.3)) * Math.sqrt(Math.min(1, t * 9 + 0.35)) * (1 - 0.75 * Math.pow(t, 6));
       for (let j = 0; j < K.NV; j++) { const s = -1 + (2 * j) / (K.NV - 1), prof = Math.sqrt(Math.max(0, 1 - s * s));
-        const h = K.off + K.bulge * prof, a = s * w * 0.5 + K.lift * Math.sin(Math.PI * t) + K.up;
+        const h = K.off + K.bulge * prof, a = s * w * 0.5 + K.lift * Math.sin(Math.PI * t) + K.up - (K.droop || 0) * sm(0.5, 1, t); // (round 7: droop lowers the outer third)
         const p = [0, 1, 2].map((k) => c[k] + out[k] * h + up[k] * a); pos.push(...p);
         const nn = [0, 1, 2].map((k) => out[k] * (0.6 + 0.4 * prof) + up[k] * s * 0.5), nl = Math.hypot(...nn); nrm.push(...nn.map((x) => x / nl));
         const sh = sm(0.05, 0.95, t) * 0.8 + 0.2 * Math.abs(s); let cc = K.col.map((x, k) => x + (K.tip[k] - x) * sh);

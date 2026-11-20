@@ -27,6 +27,7 @@ import { symFacePass, foldSoftPass, lipTonePass, browSoftPass, rimPass } from '.
 import { ageSculptPass, agePaintPass } from './age5.mjs';
 import { R5 } from './round5.mjs';
 import { R6, shape6Pass, paint6Pass, glasses6Pass, hem6Pass, mouth6Pass } from './round6.mjs';
+import { R7, shape7Pass, paint7Pass, glasses7Pass, yoke7Pass, mouthRim7Pass } from './round7.mjs';
 import os from 'node:os';
 const FACE = process.env.JH_FACE || new URL('../../../.scratch/jensen/face/', import.meta.url).pathname;
 import { holeUvPass, sculptPass, mapsPass, mouthBagPass, teethRigidPass, skinTonePass } from './blender/face-pass.mjs';
@@ -64,7 +65,7 @@ const steps = [
   // (round 3, the owner: "a symmetric warm smile, no smirk": both corners at 0.3, the cheeks' lift at 0.15)
   // (round 4, the critic: the rest smile read pursed and flat: both corners ~2 mm higher (0.42), the cheeks' lift 0.2 so the
   // smile reaches the eyes, the inner brows up 0.15 for the presenter's energy; the lips closed at rest (no jaw drop))
-  ['grin', () => bakeRest(doc, (JSON.parse(process.env.JH_GRIN || 'null') || R6.grin || R5.grin || [['jawOpen', 0.0], ['mouthSmileLeft', 0.5], ['mouthSmileRight', 0.5], ['cheekSquintLeft', 0.22], ['cheekSquintRight', 0.22], ['browInnerUp', 0.15], ['browOuterUpLeft', 0.5], ['browOuterUpRight', 0.5], ['eyeWideLeft', 0.12], ['eyeWideRight', 0.12]]).map(([n, w]) => [FACE + n + '.target', w]))],
+  ['grin', () => bakeRest(doc, (JSON.parse(process.env.JH_GRIN || 'null') || R7.grin || R6.grin || R5.grin || [['jawOpen', 0.0], ['mouthSmileLeft', 0.5], ['mouthSmileRight', 0.5], ['cheekSquintLeft', 0.22], ['cheekSquintRight', 0.22], ['browInnerUp', 0.15], ['browOuterUpLeft', 0.5], ['browOuterUpRight', 0.5], ['eyeWideLeft', 0.12], ['eyeWideRight', 0.12]]).map(([n, w]) => [FACE + n + '.target', w]))],
   // (round 4: his age in the face's shape: MakeHuman's own targets, age.mjs)
   // (likeness round 1: the owner's reference is a lean, taut face: no jowls or heavy cheeks; age.mjs's lean set)
   // (likeness round 2: a broad face (wider cheekbones and temples, a squarer, shorter midface and forehead), the mouth's
@@ -103,6 +104,10 @@ const steps = [
   // fold deep at the nostril, an upper-lid fold, rounded bags, softness under the jaw's corners); round 5's soft skin down
   // the neck's front halved (its lower edge read as a hard ring crease above the collar))
   ['shape6', () => shape6Pass(doc, JSON.parse(process.env.JH_SHAPE6 || '{}'))],
+  // (round 7, the critic: at tile size still late 40s to mid 50s, the painted marks vanish there: the age in the face's
+  // shape (jowls breaking the jaw line, a real nose-to-mouth trough down to the corners, heavier outer upper lids, lower
+  // bags with a crisp step, sunken temples, less under-cheek fullness, a looser under-chin and neck cords; round7.mjs))
+  ['shape7', () => shape7Pass(doc, JSON.parse(process.env.JH_SHAPE7 || '{}'))],
   // (clean-shaven; an older man's skin: the age detail up, lentigines and crow's feet; round 4: less orange)
   // (likeness round 2: smoother: fewer dots, less of the painted age texture)
   // (likeness round 3, the critic: warm light tan, toward olive, not peach-pink; almost no dots)
@@ -199,6 +204,9 @@ const steps = [
   // (round 6: shadows under the bags and the lid fold, soft broken neck bands, a T-zone sheen, a feathered hairline tint,
   // a little warmth back; the hands the face's tone with redder knuckles and shaded webs (round6.mjs))
   ['paint6', () => paint6Pass(doc, JSON.parse(process.env.JH_PAINT6 || '{}'))],
+  // (round 7: living skin (redder cheeks and nose tip, darker under the eyes and in the creases, a cooler jaw and neck,
+  // pores), an even shadow in both mouth corners, the pale V under the lower lip gone (round7.mjs))
+  ['paint7', () => paint7Pass(doc, JSON.parse(process.env.JH_PAINT7 || '{}'))],
   ['teethfwd', () => teethForwardPass(doc, JSON.parse(process.env.JH_TEETHF || '{}'))],
   ['mouthbag', () => mouthBagPass(doc, { rx: 0.031, ...JSON.parse(process.env.JH_MOUTH || '{}') })],
   ['teecrew', () => teeCrewPass(doc)],
@@ -218,6 +226,8 @@ const steps = [
   ['sym', () => symFacePass(doc, JSON.parse(process.env.JH_SYM || '{}'))],
   // (round 6, the critic: the open 'aa' a dark gaping hole with floating lower teeth: less jaw, a tongue, a graded inside)
   ['mouth6', () => mouth6Pass(doc, JSON.parse(process.env.JH_MOUTH6 || '{}'))],
+  // (round 7, the critic: the open mouth's inner edges flat black cut-outs: a rose inside fading back (round7.mjs))
+  ['mouthrim7', () => mouthRim7Pass(doc, JSON.parse(process.env.JH_MRIM7 || '{}'))],
   // (Blender round, iteration 1: the Blender parts (parts.mjs, assemble.mjs) in place of the round-3 hair, brows, glasses and
   // jacket: the leather moto jacket (cloth-draped, a full-length metal zip, a band collar with two snap tabs, quilted
   // shoulders), the groomed hair cards and card brows, the browline glasses)
@@ -253,23 +263,29 @@ const steps = [
   ['glassesfit', () => glassesFitPass(doc, { rim: [0.05, 0.052, 0.058, 1], col: [0.1, 0.104, 0.112], metal: 0.8, rough: 0.38, ...JSON.parse(process.env.JH_GFIT || '{}') })],
   // (round 4, the critic: the lower rims so thin the glasses read as one floating bar: the rims 1.5 x, opaque gunmetal;
   // the brows soft clean shapes, not scratchy strands (face4.mjs))
-  ['rims', () => rimPass(doc, { grow: 0.0015, ...JSON.parse(process.env.JH_RIMS || '{}') })],
+  // (round 7, the critic: thinner lower rims, as his browline frames have: 0.7 mm)
+  ['rims', () => rimPass(doc, { grow: 0.0007, ...JSON.parse(process.env.JH_RIMS || '{}') })],
   // (round 6, the critic: the bar sat high, above the brows in places, the lenses tall: the frame 3.5 mm lower, the lenses
   // shallower with rounded lower corners (round6.mjs); the bar ~30% thicker (R6.glassesBig))
   ['glasses6', () => glasses6Pass(doc, JSON.parse(process.env.JH_GLASSES6 || '{}'))],
-  ['browsoft', () => browSoftPass(doc, { ...R5.brows, ...JSON.parse(process.env.JH_BROWS || '{}') })],
+  // (round 7, the critic: the frame floated in front of the face: 3.5 mm back, the pads on the bridge, the temple arms into
+  // the hair over the ears, a gunmetal with a highlight (round7.mjs))
+  ['glasses7', () => glasses7Pass(doc, JSON.parse(process.env.JH_GLASSES7 || '{}'))],
+  ['browsoft', () => browSoftPass(doc, { ...R5.brows, ...R7.brows, ...JSON.parse(process.env.JH_BROWS || '{}') })],
   // (round 2: the hair silver-white, the outfit all black with glossy leather and silver hardware, the caricature's proportions)
   ['hairwhite', () => hairWhitePass(doc, JSON.parse(process.env.JH_HAIRW || '{}'))],
   // (round 3, the owner: "hair and mouth need a bit more work"; the critic: a spiky brush of thin cards with paper-shred
   // edges and a hard grey band at the hairline): the cards and cap out, a stylized sculpt in: one smooth dome swept up and
   // back, full at the temples and over the ears, and a dozen smooth rounded clump shells on it (clumps.mjs)
-  ['clumps', () => hairClumpsPass(doc, { ...R6.hair, ...JSON.parse(process.env.JH_CLUMPS || '{}') })],
+  ['clumps', () => hairClumpsPass(doc, { ...R6.hair, ...R7.hair, ...JSON.parse(process.env.JH_CLUMPS || '{}') })],
   ['outfit', () => outfitPass(doc, JSON.parse(process.env.JH_OUTFIT || '{}'))],
   // (round 5, the critic: "too smooth, glossy and plasticky", grey smudges on the shoulders: grain, crease wear at the
   // elbows and pockets, a rougher leather under a thin soft coat, deeper quilting (jacket3.mjs))
   ['leatherwear', () => leatherWearPass(doc, JSON.parse(process.env.JH_LEATHER || '{}'))],
   // (round 6, the critic: the hem flared stiffly at the hips: tapered in to the waist, as a moto jacket's is)
   ['hem6', () => hem6Pass(doc, JSON.parse(process.env.JH_HEM6 || '{}'))],
+  // (round 7, the critic: the shoulder yoke bulky in the A-pose: flatter (round7.mjs))
+  ['yoke7', () => yoke7Pass(doc, JSON.parse(process.env.JH_YOKE7 || '{}'))],
   ['proportion', () => proportionPass(doc, JSON.parse(process.env.JH_PROP || '{}'))],
   ['matte', () => matteFront(doc, { rough: 0, coat: 0.05, spec: 0.3, ...JSON.parse(process.env.JH_MATTE || '{}') })],
   // (iteration 2: the tee's flared hem out from under the flat front)

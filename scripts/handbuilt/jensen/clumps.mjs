@@ -71,6 +71,8 @@ export function hairClumpsPass(doc, K = {}) {
     // (round 4: the sides and the back closer to the head: the volume in the lifted front and top)
     t *= 1 - K.sideTrim * sm(0.5, 0.9, ax) * sm(0.45, 0.0, d[1]);
     t *= 1 - K.backTrim * sm(-0.2, -0.7, d[2]) * sm(0.7, 0.2, d[1]);
+    // (round 7: an irregular, lumpy outer silhouette: a low-frequency swell and dip over the mass)
+    if (K.domeLump) { const ps = Math.atan2(d[0], d[2]), al = Math.acos(clamp(d[1], -1, 1)); t *= 1 + K.domeLump * (0.55 * Math.sin(ps * 5 + 0.7) * Math.sin(al * 4 + 1.3) + 0.45 * Math.sin(ps * 9 + 2.2 + al * 3)); }
     return t * (1 - K.nape * sm(-0.15, -0.65, d[1])); };
   // the edge's roll: the dome rises off the hairline in a rounded bullnose (wider at the front, where the swoop lifts)
   const edgeW = (d) => K.edgeWSide + (K.edgeW - K.edgeWSide) * sm(0.1, 0.6, d[2]) * sm(0.0, 0.5, d[1]);
@@ -82,7 +84,12 @@ export function hairClumpsPass(doc, K = {}) {
     return w > 0.05 ? s / w : NaN; };
   // the dome's outer radius and its local relief scale (0 at and outside the hairline, 1 inside the roll)
   const wob = (d) => { const a = Math.atan2(d[0], d[2]); return K.edgeJit * (0.55 * Math.sin(a * 7 + 0.6) + 0.3 * Math.sin(a * 13 + 2.1) + 0.15 * Math.sin(a * 23 + 4.0)) * sm(-0.2, 0.4, d[2]); };
-  const dome = (d) => { const r = look(Rs, d), e0 = look(E, d); if (Number.isNaN(r) || Number.isNaN(e0)) return null; const e = e0 + wob(d);
+  // (round 7: a scalp ray that missed (a small hole in the skin's mesh) left a hole in the lock over it: such a direction
+  // takes the mean of its neighbours 2.5 degrees round it)
+  const lookN = (A, d) => { let v = look(A, d); if (!Number.isNaN(v) || !K.fillHoles) return v; const a = norm([d[1], -d[0], 0.0001]), b = norm([d[1] * a[2] - d[2] * a[1], d[2] * a[0] - d[0] * a[2], d[0] * a[1] - d[1] * a[0]]); let s = 0, w = 0;
+    for (let k = 0; k < 8; k++) { const th = (k / 8) * Math.PI * 2, e = 0.044, q = norm([0, 1, 2].map((c) => d[c] + e * (a[c] * Math.cos(th) + b[c] * Math.sin(th)))), u = look(A, q); if (!Number.isNaN(u)) { s += u; w++; } }
+    return w >= 3 ? s / w : NaN; };
+  const dome = (d) => { const r = lookN(Rs, d), e0 = lookN(E, d); if (Number.isNaN(r) || Number.isNaN(e0)) return null; const e = e0 + wob(d);
     const f = roll(e, edgeW(d)); return { r: e > 0 ? r + thick(d) * f : r - K.sinkOut * clamp(-e / 0.003), f, e }; };
 
   // ---- the geometry, gathered into one primitive
@@ -122,7 +129,7 @@ export function hairClumpsPass(doc, K = {}) {
   const clump = (chart, cA, cB, w0, a0, a1, H, tipLen, tone, lift = 0, sweep = 0, o = {}) => {
     const nsub = o.nsub ?? 3, NU = 12 * nsub + 5, NV = Math.max(16, Math.round(Math.abs(a1 - a0) / 0.8)), span = a1 - a0;
     const ends = Array.from({ length: nsub }, () => 1 - (o.finger ?? 0.16) * rnd()), ph = Array.from({ length: nsub + 1 }, () => rnd() * 6.28);
-    const fph = rnd() * 6.28, fq = 9 + 5 * rnd(), front = o.front ?? 0, hsub = Array.from({ length: nsub }, () => 0.8 + 0.4 * rnd());
+    const fph = rnd() * 6.28, fq = 9 + 5 * rnd(), front = o.front ?? 0, hsub = Array.from({ length: nsub }, () => 0.8 + 0.4 * rnd()), lph = rnd() * 6.28, lfq = 3 + 3 * rnd();
     const sub = (s, t) => { const x = ((s + 1) / 2) * nsub + 0.18 * Math.sin(t * 5 + ph[0]); const k = Math.max(0, Math.min(nsub - 1, Math.floor(x))); return { k, f: x - Math.floor(x) }; };
     const at = (u, v) => { const s = -1 + (2 * u) / (NU - 1), t = v / (NV - 1), a = a0 + span * t;
       const { k, f: sf } = sub(s, t), te = ends[k], tl = tipLen * te;
@@ -135,7 +142,8 @@ export function hairClumpsPass(doc, K = {}) {
       const brk = K.breakup ? 1 - K.breakup * (0.5 + 0.5 * Math.sin(t * (13 + 7 * ((k * 0.37) % 1)) + s * 4.7 + ph[k + 1] * 3)) : 1;
       const fine = (Math.sin(s * fq * Math.PI + fph + 2.2 * Math.sin(t * 3.1 + ph[k + 1])) * 0.5 + 0.5) * brk;
       const lf = front * Math.exp(-(((t - 0.12) / 0.14) ** 2));
-      let h = (H * hsub[k] * (0.72 + 0.28 * wt) * (1 - K.groove * (1 - grooveV)) + lift * tipT + lf) * prof * q.f + K.fine * fine * prof * wt * q.f;
+      const lump = K.lump ? 1 + K.lump * Math.sin(t * lfq * Math.PI + lph + k * 1.9) : 1;
+      let h = (H * hsub[k] * lump * (0.72 + 0.28 * wt) * (1 - K.groove * (1 - grooveV)) + lift * tipT + lf) * prof * q.f + K.fine * fine * prof * wt * q.f;
       h = h * wt - 0.0016 * (1 - prof) - (q.f < 0.05 ? 0.002 : 0) - (t > te ? 0.003 : 0);
       return { p: [C[0] + d[0] * (q.r + h), C[1] + d[1] * (q.r + h), C[2] + d[2] * (q.r + h)] }; };
     const colour = (u, v) => { const s = -1 + (2 * u) / (NU - 1), t = v / (NV - 1), prof = Math.sqrt(Math.max(0, 1 - s * s)), { k, f: sf } = sub(s, t);
@@ -197,7 +205,9 @@ export function hairClumpsPass(doc, K = {}) {
       const side = sm(0.5, 0.88, ax) * sm(0.55, 0.05, d[1]), nape = sm(-0.25, -0.7, d[2]) * sm(0.45, -0.1, d[1]), temple = sm(0.45, 0.75, ax) * sm(0.1, 0.5, d[2]) * sm(0.6, 0.2, d[1]);
       const deep = clamp((outer(d) - rad[i]) / 0.006);
       const f = 1 - (K.sideLow || 0) * Math.max(side, nape, temple) - (K.depthLow || 0) * deep;
-      for (let c = 0; c < 3; c++) col[i * 4 + c] = Math.max(0, col[i * 4 + c] * f * (c === 2 ? 1 + 0.04 * (1 - f) : 1)); } }
+      // (round 7: near-white on top, where the light falls; the front quiff's gaps dark inside)
+      const hi = 1 + (K.topHi || 0) * sm(0.35, 0.9, d[1]) * (1 - deep), qd = 1 - (K.quiffDark || 0) * deep * sm(0.2, 0.6, d[2]) * sm(0.0, 0.5, d[1]);
+      for (let c = 0; c < 3; c++) col[i * 4 + c] = Math.min(1, Math.max(0, col[i * 4 + c] * f * hi * qd * (c === 2 ? 1 + 0.04 * (1 - f) : 1))); } }
   // ---- out with the cards and their cap; the sculpt in the hair mesh, on the head bone
   const hm = R.listMeshes().find((m) => m.listPrimitives().some((p) => /^(hair|hairCap)$/.test(p.getMaterial()?.getName() || '')));
   if (!hm) throw new Error('hairClumps: no hair mesh');
