@@ -89,7 +89,7 @@ const R4 = {
   marge: { strand4: { ...FINE, hi: 0.03, spec: 0.38, rise: 0.04 }, tone: [160, 120, 92], eyes: {} },
   lola: { strand4: { ...FINE, nMul: 1.15, seg: 6, col: [22, 18, 16], greying: 0, len: [0.42, 0.38, 0.46], lenFront: 0.3, endY: -0.42 }, dye: [[/^western(-hem|-collar)?$/, [116, 54, 42]]] },
   nico: { strand4: { ...FINE, col: [62, 45, 33], greying: 0 }, shape: [...MH('cheek-bones-incr', 0.6), ...MH('cheek-volume-decr', 0.45), ['chin/chin-bones-incr', 0.45, 0], ['eyebrows/eyebrows-trans-forward', 0.6], ['chin/chin-prominent-incr', 0.3]], eyes: {} },
-  wesley: { strand4: { ...FINE, col: [100, 70, 47], greying: 0 } },
+  wesley: { strand4: { ...FINE, col: [78, 54, 36], greying: 0, spec: 0.22 } }, // (darker than round 3's: under a set's overhead key the engine's sheen read [100,70,47] as grey)
   dex: { strand4: { ...FINE, col: [44, 32, 24], greying: 0 }, age: 0.06, shape: [...MH('cheek-volume-decr', 0.5), ...MH('cheek-bones-incr', 0.3), ['chin/chin-bones-incr', 0.4], ['chin/chin-prominent-incr', 0.45]], eyes: {},
     dye: [[/^puffer(-hem|-collar)?$/, [30, 36, 60]], [/^clothes$/, [52, 53, 56]]] },
   'intern-a': { eyes: {} },
