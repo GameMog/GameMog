@@ -130,3 +130,13 @@ A = 40 mm at the front-top quiff, 22 mm crown, 10 mm back, 3 mm over the ears; t
 1, so the old 1.08 never shipped). `grin`: smile 0.8, viseme_aa 0.25, upper lip up 0.3, cheek squint and dimples 0.3, the
 outer brows up 0.6, the inner 0.06 (no worried look), eyeWide 0.2; no eye squint baked. Env overrides: `JH_SWOOP`,
 `JH_GLASSES`, `JH_HEAD`, `JH_GRIN`.
+
+## Hair round 1 (caricature round 10, 19 Nov: hair cards, not a sculpt)
+
+`node scripts/handbuilt/jensen/hairatlas.mjs <hair_cards_fbx.glb>` (once: the CC BY strand atlas, `parts/hair-strands.webp`),
+then `node scripts/handbuilt/jensen/build.mjs`. New steps: `clumps` now makes only the low, darker dome (`R10.shell`:
+shellK 0.55, no locks or wisps) and hands its scalp to `cards` (`haircards.mjs`: inner, mid and outer card layers along a
+groomed flow, a front wall and four lifted front locks, six wavy flyaways; material `hair`, alpha MASK 0.5, double-sided,
+the atlas's grey times vertex colour, extras hairTone 'light' / hairNormals 'volume' for Mog City's polish.js); `cavity`
+(round10.mjs: the lower teeth's texture a biting edge over a dark warm cavity), `black` (the leather x 0.72); the glasses'
+front 1.19 x and its bar's arch 5 mm (`R10.glassesBig`, `R10.glasses`). Env overrides: `JH_CARDS`, `JH_CAVITY`, `JH_BLACK`.

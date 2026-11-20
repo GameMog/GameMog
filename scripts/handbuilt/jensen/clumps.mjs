@@ -73,7 +73,7 @@ export function hairClumpsPass(doc, K = {}) {
     t *= 1 - K.backTrim * sm(-0.2, -0.7, d[2]) * sm(0.7, 0.2, d[1]);
     // (round 7: an irregular, lumpy outer silhouette: a low-frequency swell and dip over the mass)
     if (K.domeLump) { const ps = Math.atan2(d[0], d[2]), al = Math.acos(clamp(d[1], -1, 1)); t *= 1 + K.domeLump * (0.55 * Math.sin(ps * 5 + 0.7) * Math.sin(al * 4 + 1.3) + 0.45 * Math.sin(ps * 9 + 2.2 + al * 3)); }
-    return t * (1 - K.nape * sm(-0.15, -0.65, d[1])); };
+    return t * (1 - K.nape * sm(-0.15, -0.65, d[1])) * (K.shellK ?? 1); };
   // the edge's roll: the dome rises off the hairline in a rounded bullnose (wider at the front, where the swoop lifts)
   const edgeW = (d) => K.edgeWSide + (K.edgeW - K.edgeWSide) * sm(0.1, 0.6, d[2]) * sm(0.0, 0.5, d[1]);
   const roll = (e, w) => (e <= 0 ? 0 : e >= w ? 1 : Math.sin((e / w) * Math.PI / 2) ** K.roll);
@@ -229,4 +229,8 @@ export function hairClumpsPass(doc, K = {}) {
   hm.addPrimitive(p);
   let ins = 0, cells = 0; for (let g = 0; g < G; g++) if (!Number.isNaN(E[g])) { cells++; if (E[g] > 0) ins++; }
   console.log('hair clumps: scalp rays', cells, 'in the hair', ins, '; locks', nclump, '; wisps', nfly, '; points', n, 'triangles', ntri, '; anisotropy', K.aniso);
+  // (hair round 1: the scalp and the mass's shape for the hair cards laid over this shell (haircards.mjs): the skull's
+  // centre, the scalp's radius, the hairline's signed distance and the roll, by direction; the mass's thickness unscaled)
+  const shellK = K.shellK ?? 1;
+  return { C, mesh: hm, shellK, scalp: (d) => { const r = lookN(Rs, d), e = lookN(E, d); if (Number.isNaN(r) || Number.isNaN(e)) return null; const ew = e + wob(d); return { r, e: ew, f: roll(ew, edgeW(d)), T: thick(d) / shellK }; } };
 }

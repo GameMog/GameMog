@@ -83,3 +83,18 @@ Marge Tolliver, Nico Brancato, Lola Hart, Wesley Trout, Dex Varga, two Cobalt in
 Kit characters, invented people with no real likeness. Forged by the Character Forge from their sheets (MakeHuman
 CC0 1.0 parts) with a light hand finish (`scripts/handbuilt/jensen-cast/forge.mjs`: natural shoulders, wet eyes, irises,
 fingers, daylight skin). Marge's headset is geometry made here (`headset.mjs`), plain black, no lettering.
+
+### Hair round 1 (caricature round 10, 19 Nov 2026): hair cards, the first CC-BY asset in his build
+
+The sculpted clump hair (rounds 3-9) is replaced by alpha-tested hair cards (`scripts/handbuilt/jensen/haircards.mjs`,
+`round10.mjs`): about 1,300 cards cut from a strand atlas and groomed over a low, darker shell (`clumps.mjs`, the old
+dome only). The atlas (`parts/hair-strands.webp`, made by `scripts/handbuilt/jensen/hairatlas.mjs`) is derived from:
+
+| Part | Source | Licence |
+|---|---|---|
+| the hair cards' strand atlas (strand alpha and occlusion, taken down to 2048, strands gathered into groups, signature text cleared, grey value) | "Hair Cards_FBX" by POLYTRICITY (@PolytricityLtd), Sketchfab, sketchfab.com/3d-models/hair-cards-fbx-ad1ac6f162ff43a3ae175982bf770c3e | CC BY 4.0, modified |
+| the groom (card placement, flow, the front swoop's locks, flyaways, colours), the darker under-shell, the lower teeth's dark cavity, the larger arched browline, the deeper black leather | made here | original, CC0 |
+
+Credit line (CC BY 4.0 needs it wherever the game lists its asset credits): "Hair Cards_FBX by POLYTRICITY (Sketchfab),
+CC BY 4.0, modified". Where the game's credits page takes it is the owner's call; the earlier note "Still no CC-BY asset"
+no longer holds from this round on.
