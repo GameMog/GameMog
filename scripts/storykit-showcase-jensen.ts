@@ -17,13 +17,16 @@
  * The record names every file by its SHA-256, as Pickup Time's does:
  *   glb    each seen person's hand-built body (BODIES: public/storykit/cast/hand/jh-<id>.glb, the hand-built cast's
  *          track). Mr. Board is Mog City's own Mr. Big (cast model mogcity/mrbig, renamed): no file.
- *   voice  each spoken line's clip, deploy/migrations/jensen-heist/voice/<line hash>-<voice key>.ogg
+ *   voice  each spoken line's clip, deploy/migrations/jensen-heist/voice/<line hash>-<voice key>.ogg, its length in
+ *          JH_VOICE (deploy/migrations/jensen-heist-voice.json: written by --voice, read until the record has them)
  *   world  the sealed runner world, deploy/migrations/jensen-heist/world.json
  * --export refuses while a body or a clip is missing (the bodies and the voices are their own tracks); --draft writes
- * the runner world without them (subtitles, and the bodies at the addresses --cast gives) for a play on the Mac.
+ * the runner world with the clips that are in (a line without one is a subtitle) and the bodies at the addresses --cast
+ * gives, for a play on the Mac. --voice <dir> alone copies the clips in and writes JH_VOICE (the record waits for the
+ * bodies); with --export it does that first.
  */
 import { createHash } from 'node:crypto';
-import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { join } from 'node:path';
 import { toRunnerPack } from '../storykit/pack/gate.ts';
@@ -39,6 +42,8 @@ export const JH_GAME = 'c4a1e7d2-6b3f-4f0a-9d58-3e2b71a90f6c';
 export const JH_RECORD = `deploy/migrations/${JH_ID}-story.json`;
 export const JH_DIR = `deploy/migrations/${JH_ID}`;
 export const JH_PACK = `storykit/packs/${JH_ID}.json`;
+/** The clips' lengths and how they were made (written by --voice <dir>, from that folder's manifest.json). */
+export const JH_VOICE = `deploy/migrations/${JH_ID}-voice.json`;
 /** The town the pack is pinned to: the San Jose build's CityPackage (gzipped JSON). */
 export const JH_TOWN = `storykit/showcase/${JH_ID}/town.json.gz`;
 /** The seen people's hand-built bodies, by cast id (the hand-built cast's track puts them here). */
@@ -71,7 +76,9 @@ export function jhWorld(o: { secs?: Record<string, number>; draft?: boolean; cas
   const pin = JSON.stringify(cityLock(town)), base = JSON.stringify(pack.base.hometown);
   if (pin !== base) throw new Error(`${JH_ID}: base.hometown is not ${JH_TOWN}'s pin (re-pin the pack to the town)`);
   const old = existsSync(JH_RECORD) ? JSON.parse(readFileSync(JH_RECORD, 'utf8')) : null;
-  const lengths: Record<string, number> = o.secs ?? Object.fromEntries((old?.files ?? []).filter((f: FileRec) => f.kind === 'voice').map((f: FileRec) => [f.name.replace(/\.ogg$/, ''), f.meta?.secs as number]));
+  const man = existsSync(JH_VOICE) ? JSON.parse(readFileSync(JH_VOICE, 'utf8')).clips as Record<string, { secs: number }> : null;
+  const lengths: Record<string, number> = o.secs ?? (man ? Object.fromEntries(Object.entries(man).map(([k, v]) => [k, v.secs]))
+    : Object.fromEntries((old?.files ?? []).filter((f: FileRec) => f.kind === 'voice').map((f: FileRec) => [f.name.replace(/\.ogg$/, ''), f.meta?.secs as number])));
   const files: FileRec[] = [];
   for (const c of pack.cast) {
     if (c.voiceOnly || c.model) continue;
@@ -82,10 +89,11 @@ export function jhWorld(o: { secs?: Record<string, number>; draft?: boolean; cas
   }
   const plan = voicePlanOf(pack, '', cityTableOf(town));
   const seen = new Set<string>();
-  if (!o.draft) for (const l of plan.lines as any[]) {
+  for (const l of plan.lines as any[]) {
     if (l.rec || seen.has(l.clip)) continue;
     seen.add(l.clip);
     const src = `${JH_DIR}/voice/${l.clip}.ogg`;
+    if (o.draft && (!existsSync(src) || !(lengths[l.clip] > 0))) continue;
     if (!existsSync(src)) throw new Error(`${src}: no clip for ${l.id} ("${l.text.slice(0, 40)}")`);
     const b = readFileSync(src);
     if (String.fromCharCode(...b.subarray(0, 4)) !== 'OggS') throw new Error(`${src}: not an Ogg file`);
@@ -120,6 +128,7 @@ export function jhProblems(): string[] {
   try { G = jhGate(); } catch (e) { return [(e as Error).message]; }
   if (!G.g.ok) return G.g.problems.slice(0, 5).map((p) => `${JH_ID}: ${p}`);
   if (JSON.stringify(cityLock(G.town)) !== JSON.stringify(G.g.pack!.base.hometown)) out.push(`${JH_ID}: base.hometown is not ${JH_TOWN}'s pin`);
+  out.push(...jhVoiceProblems(G.g.pack!, G.town));
   if (!existsSync(JH_RECORD)) return out;
   let w: ReturnType<typeof jhWorld>;
   try { w = jhWorld(); } catch (e) { return [...out, (e as Error).message]; }
@@ -131,6 +140,31 @@ export function jhProblems(): string[] {
   for (const k of ['cover', 'wide', 'icon', 'sky']) if (!existsSync(`deploy/migrations/${JH_ID}-${k}.jpg`)) out.push(`deploy/migrations/${JH_ID}-${k}.jpg is missing`);
   if (rec.world.bytes > 640_000) out.push(`the world is ${rec.world.bytes} bytes: a sealed world is at most 640000`);
   return out;
+}
+
+/**
+ * The voices before the record (the bodies are their own track): every clip in deploy/migrations/jensen-heist/voice is
+ * one a line of the plan plays, a real Ogg under the store's clip limit, with its length in JH_VOICE; all of them inside
+ * a world's voice limits (lib/storykit-store.ts LIMITS.voice). A line with no clip yet is not a problem (a subtitle).
+ */
+export function jhVoiceProblems(pack: any, town: CityPackage): string[] {
+  const dir = `${JH_DIR}/voice`, out: string[] = [];
+  if (!existsSync(dir)) return out;
+  if (!existsSync(JH_VOICE)) return [`${dir} has clips but ${JH_VOICE} is missing (run --voice <dir>)`];
+  const man = JSON.parse(readFileSync(JH_VOICE, 'utf8')).clips as Record<string, { secs: number }>;
+  const want = new Set((voicePlanOf(pack, '', cityTableOf(town)).lines as any[]).filter((l) => !l.rec).map((l) => l.clip));
+  let bytes = 0, n = 0;
+  for (const f of readdirSync(dir)) {
+    const base = f.replace(/\.ogg$/, '');
+    if (!want.has(base)) { out.push(`${dir}/${f}: no line of the plan plays it`); continue; }
+    const b = readFileSync(`${dir}/${f}`);
+    if (String.fromCharCode(...b.subarray(0, 4)) !== 'OggS') out.push(`${dir}/${f}: not an Ogg file`);
+    if (b.length > 2 * 1024 * 1024) out.push(`${dir}/${f}: ${b.length} bytes, over the 2 MB clip limit`);
+    if (!(man[base]?.secs > 0 && man[base].secs <= 120)) out.push(`${dir}/${f}: no length in ${JH_VOICE}`);
+    bytes += b.length; n++;
+  }
+  if (bytes > 24 * 1024 * 1024 || n > 1500) out.push(`${dir}: ${n} clips, ${bytes} bytes: a world's voice is at most 1500 clips and 24 MB`);
+  return out.slice(0, 8);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
@@ -145,24 +179,32 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     console.log(`wrote ${args[di + 1]}: ${w.world.length} bytes, ${ls.length} spoken lines (${new Set(ls.filter((l) => !l.rec).map((l) => l.clip)).size} clips to record)`);
     process.exit(0);
   }
-  if (!args.includes('--export')) { console.error('usage: storykit-showcase-jensen.ts --export [--voice <dir>] | --draft <out.json> [--cast id=url,...]'); process.exit(2); }
   const vi = args.indexOf('--voice');
+  if (!args.includes('--export') && vi < 0) { console.error('usage: storykit-showcase-jensen.ts --export [--voice <dir>] | --voice <dir> | --draft <out.json> [--cast id=url,...]'); process.exit(2); }
   let secs: Record<string, number> | undefined;
   if (vi >= 0) {
     const from = args[vi + 1];
-    const man = JSON.parse(readFileSync(join(from, 'manifest.json'), 'utf8')).clips as Record<string, { secs: number }>;
+    const M = JSON.parse(readFileSync(join(from, 'manifest.json'), 'utf8')), man = M.clips as Record<string, { secs: number }>;
     const { town, g } = jhGate();
     if (!g.ok || !g.pack) { console.error(g.problems.join('\n')); process.exit(1); }
     mkdirSync(`${JH_DIR}/voice`, { recursive: true });
     secs = {};
     let n = 0;
-    for (const l of voicePlanOf(g.pack, '', cityTableOf(town)).lines as any[]) {
-      if (l.rec || secs[l.clip]) continue;
+    const lines = voicePlanOf(g.pack, '', cityTableOf(town)).lines as any[], want = new Set(lines.map((l) => l.clip));
+    const missing: string[] = [], keep: Record<string, unknown> = {};
+    for (const l of lines) {
+      if (l.rec || secs[l.clip] || missing.includes(l.clip)) continue;
       const src = join(from, `${l.clip}.ogg`);
-      if (!existsSync(src)) { console.error(`no clip ${l.clip}.ogg for ${l.id}`); process.exit(1); }
-      copyFileSync(src, `${JH_DIR}/voice/${l.clip}.ogg`); secs[l.clip] = man[l.clip]?.secs; n++;
+      if (!existsSync(src) || !(man[l.clip]?.secs > 0)) { missing.push(l.clip); continue; }
+      copyFileSync(src, `${JH_DIR}/voice/${l.clip}.ogg`); secs[l.clip] = man[l.clip].secs; keep[l.clip] = man[l.clip]; n++;
     }
-    console.log(`copied ${n} clips into ${JH_DIR}/voice`);
+    // (a clip of a line that changed or went: its line plays no more, so it goes)
+    for (const f of readdirSync(`${JH_DIR}/voice`)) if (!want.has(f.replace(/\.ogg$/, ''))) unlinkSync(`${JH_DIR}/voice/${f}`);
+    const sorted = Object.fromEntries(Object.entries(keep).sort(([a], [b]) => (a < b ? -1 : 1)));
+    writeFileSync(JH_VOICE, JSON.stringify({ v: 1, model: M.model, loudness: M.loudness, credit: M.credit, clips: sorted }, null, 1) + '\n');
+    console.log(`copied ${n} clips into ${JH_DIR}/voice and wrote ${JH_VOICE}${missing.length ? `; ${missing.length} lines have no clip yet (subtitles): ${missing.slice(0, 3).join(' ')}` : ''}`);
+    if (!args.includes('--export')) process.exit(0);
+    if (missing.length) { console.error(`--export needs every clip: ${missing.length} missing`); process.exit(1); }
   }
   const w = jhWorld({ secs });
   mkdirSync(JH_DIR, { recursive: true });

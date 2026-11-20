@@ -30,6 +30,9 @@ const cast = [
     face: { smile: 0.18 },
     speech: { rhythm: 'lists of three that build into a pitch, then the product', habit: '"Let me show you something"; "spiritually"', jokes: 'benchmarks things nobody measures, means every superlative', never: 'sarcasm; when he is hurt he gets quieter and simpler', motifs: ['the jacket', 'the lucky oven', 'booth three', 'the one square'] } },
   { id: 'board', model: 'mogcity/mrbig', color: '#6B3A2A', name: 'Mr. Board', role: 'ex-bank boss from back east, collector of board seats',
+    // (his own voice block, not Mr. Big's British bm_lewis: every Jensen Heist voice is standard American. It names his
+    // clips and is the Kokoro fallback for a line with no clip; his shipped voice is the rendered one)
+    voice: { id: 'board-v1', blend: { am_onyx: 0.8, am_michael: 0.2 }, speed: 0.94, pitch: -0.6, description: 'a man in his sixties, a deep smooth bass-baritone, unhurried and courteous, a faint smile in it; standard American delivery' },
     speech: { rhythm: 'long smooth corporate clauses, a shareholder letter', habit: 'speaks of himself as the Board; "Big fan." "Regards."', jokes: 'courteous menace; buys something small first', never: 'raises his voice', motifs: ['the mahogany chair', 'the velvet bag', 'the mug', 'a parking lot in New York'] } },
   { id: 'marge', color: '#C9A227', sheet: sheet('marge'),
     anchor: 'office-worker', voice: { id: 'marge-v1', blend: { af_river: 0.7, af_nova: 0.3 }, speed: 1.0, pitch: -1.4, description: 'a woman in her fifties, dry and low, crisp consonants, even and unhurried until the one time she is not' },
@@ -56,7 +59,7 @@ const cast = [
     anchor: 'office-worker', voice: { id: 'director-a-v1', blend: { am_onyx: 0.7, am_michael: 0.3 }, speed: 1.0, pitch: -0.8, description: 'a man in his fifties, a flat clipped baritone, every sentence a motion' },
     speech: { rhythm: 'motions', habit: '"Motion to..."', jokes: 'procedure in a fistfight', never: 'acts without a vote', motifs: ['quorum', 'the lanyard'] } },
   { id: 'director-b', color: '#2C3442', sheet: { ...sheet('director-b'), name: 'Director Navy' },
-    anchor: 'office-worker', voice: { id: 'director-b-v1', blend: { bm_daniel: 0.6, am_onyx: 0.4 }, speed: 0.92, pitch: -1.8, description: 'a man in his fifties, slower and lower, a flat baritone that seconds things' },
+    anchor: 'office-worker', voice: { id: 'director-b-v1', blend: { am_onyx: 0.6, am_echo: 0.4 }, speed: 0.92, pitch: -1.8, description: 'a man in his fifties, slower and lower, a flat baritone that seconds things; standard American delivery' },
     speech: { rhythm: 'one word, then the vote', habit: '"Seconded."', jokes: 'deadpan quorum', never: 'makes a motion of his own', motifs: ["Marge's headset", 'eleven'] } },
 ];
 

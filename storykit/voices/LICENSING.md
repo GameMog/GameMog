@@ -43,3 +43,24 @@ lot, and check each dictionary's own licence before adopting it.
 
 Audio: neither licence claims the generated clips. Every world's NOTICE keeps "synthetic voices, invented; no real
 person's voice was used".
+
+## Jensen Heist's voices (rendered offline on the Mac, shipped as clips)
+
+The showcase's clips (`deploy/migrations/jensen-heist/voice/`, lengths and provenance in
+`deploy/migrations/jensen-heist-voice.json`) were rendered locally on the owner's Mac, never through a paid or cloud
+service. Only the finished Ogg Opus clips ship; no model, runtime or reference recording does.
+
+| Part | Licence | Used for |
+|---|---|---|
+| Qwen3-TTS-12Hz-1.7B-VoiceDesign (Qwen team, Alibaba Cloud; mlx-community 8-bit conversion, revision `f90d6177`) | Apache-2.0 | designing each character's voice once, from a written description (sex, age, "American", timbre, manner) |
+| Qwen3-TTS-12Hz-1.7B-Base (mlx-community 8-bit, revision `e7dd0585`, `model.safetensors` SHA-256 matching the Hugging Face LFS record) | Apache-2.0 | every line, cloned from that character's designed reference clip |
+| mlx-audio 0.5.8, mlx 0.32.4 | MIT | the runtime |
+| whisper-small.en (mlx conversion) | MIT | the QA ear only (word error rate against the script); never shipped |
+
+No real person's voice was recorded, cloned or imitated: every voice was invented from a description and a seed, so
+there is no speaker whose licence or consent applies. Jensen's voice is an original warm presenter baritone, not a
+sound-alike. Every design is written as a standard American voice (each names the speaker "American"; none asks for
+an accent, a dialect or a heritage cue), and each speaker's Kokoro fallback block (what would speak a line that has no
+clip) is an American stock blend too. Credit line: "Voices: Qwen3-TTS by the Qwen team, Alibaba Cloud
+(Apache-2.0), mlx-community conversions (Apache-2.0), run with mlx-audio (MIT). Every voice was invented from a
+written description; no real person's voice was used or imitated."
