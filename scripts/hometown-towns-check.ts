@@ -26,7 +26,7 @@ import { TileStore, GB } from '../lib/hometown-tiles/store.ts';
 import { bundleKey } from '../lib/hometown-tiles/keys.ts';
 import { StoryStore } from '../lib/storykit-store.ts';
 import { placeById } from '../lib/places/search.ts';
-import { storyUpgradeWith, checkPlaces, worldPlaces, frameMoved, upgradedWorld, sha256, worldBytes, outsideDistrict, MOVE_M, type UpgradeDeps } from '../lib/storykit-upgrade.ts';
+import { storyUpgradeWith, checkPlaces, worldPlaces, frameMoved, boxMoved, upgradedWorld, sha256, worldBytes, outsideDistrict, MOVE_M, type UpgradeDeps } from '../lib/storykit-upgrade.ts';
 
 type Ok = (name: string, cond: boolean, detail?: string) => void;
 const F = 'storykit/hometown/fixtures/';
@@ -115,8 +115,10 @@ export async function runTownChecks(ok: Ok) {
       [...wp.ids.keys()].sort().join() === 'bar,cafe,gas_station,hotel,pkg_downtown' && [...wp.ids.get('bar')!.via].join() === 'hideout' && [...wp.ids.get('hotel')!.missions].join() === 'M1' && wp.marks.join() === 'mark', [...wp.ids.keys()].join());
     const W = 'a'.repeat(64);
     let derived: Uint8Array | null = null;
-    const deps = (o: Partial<UpgradeDeps> & { cur?: string | null; fullAt?: boolean; newPkg?: CityPackage | null; oldPkg?: CityPackage | null } = {}): UpgradeDeps => ({
+    const BOX = { playBox: { gx0: 100000, gs0: 200000, gx1: 600000, gs1: 700000 }, tiles: ['hg1-conus/0/1/2', 'hg1-conus/0/2/2'] };
+    const deps = (o: Partial<UpgradeDeps> & { cur?: string | null; fullAt?: boolean; newPkg?: CityPackage | null; oldPkg?: CityPackage | null; newBox?: typeof BOX | null } = {}): UpgradeDeps => ({
       current: () => (o.cur === undefined ? NB : o.cur),
+      box: (_p, b) => (b === NB ? (o.newBox === undefined ? BOX : o.newBox) : BOX),
       full: (_p, b) => (o.fullAt === false || b !== NB ? null : { tilesId: NT, lock: toLock }),
       pkg: (l) => (l.compiler === NB ? (o.newPkg === undefined ? NEW : o.newPkg) : (o.oldPkg === undefined ? OK : o.oldPkg)),
       world: (h) => (h === W ? (o.world ? o.world(h) : world) : null),
@@ -149,6 +151,21 @@ export async function runTownChecks(ok: Ok) {
     const moved = storyUpgradeWith({ ...deps(), full: () => ({ tilesId: NT, lock: { ...toLock, origin: { c0: toLock.origin!.c0 + 1, r0: toLock.origin!.r0 } } }) }, W);
     ok('the frame moved (origin, k0, gamma0, yOffset, waterLevel, domain): held, whatever the places', moved?.state === 'held' && /frame moved between the builds \(origin\)/.test(moved.why.join()), JSON.stringify(moved));
     ok('frameMoved compares the coordinate fields only (the build and tiles may differ)', frameMoved(lock, toLock) === '' && frameMoved(lock, { ...toLock, k0: 1 }) === 'k0' && frameMoved(lock, { ...toLock, place: 'us-0000001' }) === 'place');
+    // (18 Nov: compiler 0.14.0 keeps the origin and moves a capped town's box onto its downtown core, Oakland 5.6 km; a
+    // story naming only marks of its own passes every place check, so the box is compared on its own)
+    const marksOnly = { storykit: 1, id: 'sk-marks', city: 'hometown', hometown: lock, places: { corner: { at: [10, 20, 0], name: 'a corner' } },
+      missions: [{ id: 'M1', steps: [{ type: 'drive', to: '@corner' }, { type: 'goto', to: { at: [40, -30, 0] } }] }] };
+    const mk = (o: Parameters<typeof deps>[0]) => storyUpgradeWith(deps({ ...o, world: () => marksOnly }), W);
+    ok('a story of marks only on the same box: it plays the current whole town', mk({})?.state === 'upgrade', JSON.stringify(mk({})).slice(0, 300));
+    const shifted = mk({ newBox: { ...BOX, playBox: { gx0: BOX.playBox.gx0 + 560000, gs0: BOX.playBox.gs0, gx1: BOX.playBox.gx1 + 560000, gs1: BOX.playBox.gs1 } } });
+    ok('the town\'s box moved (same frame, no place named): held, and it says how far', shifted?.state === 'held' && /box moved between the builds \(its centre 5\.6 km\)/.test(shifted.why.join()), JSON.stringify(shifted));
+    ok('...the same for a story that names places', /box moved/.test(held({ newBox: { ...BOX, playBox: { ...BOX.playBox, gx1: BOX.playBox.gx1 + 1 } } })));
+    const retiled = mk({ newBox: { playBox: null as any, tiles: ['hg1-conus/0/1/2', 'hg1-conus/0/3/2'] } });
+    ok('no playBox at one build: the tile sets are compared (other tiles: held)', retiled?.state === 'held' && /tiles changed between the builds/.test(retiled.why.join()), JSON.stringify(retiled));
+    ok('...the same tiles in another order: the same box', mk({ newBox: { playBox: null as any, tiles: [...BOX.tiles].reverse() } })?.state === 'upgrade');
+    ok('the same playBox, other tiles (a tiling rule changed): the box is the truth', mk({ newBox: { ...BOX, tiles: ['hg1-conus/0/9/9'] } })?.state === 'upgrade');
+    ok('the box unreadable at either build: held (nothing to compare)', /box at the current build cannot be read/.test(held({ newBox: null })) && /box at the pinned build cannot be read/.test(boxMoved(null, BOX))
+      && /cannot be read/.test(boxMoved({}, BOX)) && boxMoved(BOX, { ...BOX }) === '');
     ok('the store could not keep the upgraded world: held, never an address that is not there', storyUpgradeWith({ ...deps(), derive: () => null }, W, { derive: true })?.state === 'held');
     ok('a world that is not a hometown world, or not stored: no upgrade', storyUpgradeWith(deps({ world: () => ({ ...world, city: 'ny' }) }), W) === null && storyUpgradeWith(deps(), 'b'.repeat(64)) === null && storyUpgradeWith(deps(), 'nope') === null);
     const homes = checkPlaces(world, OK, { ...NEW, places: NEW.places.map((p) => (p.id === 'bar' ? { ...p, kind: 'house', name: 'a house', tags: ['building=house'] } : p)) });

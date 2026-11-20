@@ -9,8 +9,8 @@ import { storyKeyArt } from './story-art';
 import type { HometownLock } from '../storykit/pack/cities.ts';
 import { builderMode } from './hometown-build/access.ts';
 import { builderDeps } from './hometown-build/server.ts';
-import { bestVariant, servingBuild } from './hometown-build/towns.ts';
-import { bundleKey } from './hometown-tiles/keys.ts';
+import { bestVariant, readFrame, servingBuild } from './hometown-build/towns.ts';
+import { bundleKey, frameKey } from './hometown-tiles/keys.ts';
 import { storyLock } from './hometown/ids.ts';
 import { cityPackageByLock } from './hometown/towns.ts';
 import { storyUpgradeWith, upgradeWords, frameMoved, outsideDistrict, type StoryUpgrade, type UpgradeDeps } from './storykit-upgrade.ts';
@@ -239,6 +239,7 @@ export function storyUpgrade(world: string, opts: { derive?: boolean; fresh?: bo
         try { lock = g ? storyLock(JSON.parse(g.body.toString('utf8'))) : null; } catch { lock = null; }
         return lock && lock.tiles === v.tilesId ? { tilesId: v.tilesId, lock } : null;
       },
+      box: (place, build) => { const f = readFrame(d.store, frameKey(build, place)); return f ? { playBox: f.playBox ?? null, tiles: f.tiles ?? null } : null; },
       pkg: (lock) => cityPackageByLock(lock),
       world: (h) => { const r = store.read(`${h}.json`); try { return r ? JSON.parse(r.bytes.toString('utf8')) : null; } catch { return null; } },
       derive: (from, body) => store.derive(from, body),

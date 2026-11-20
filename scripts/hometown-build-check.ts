@@ -183,6 +183,19 @@ function g1(ok: Ok) {
   }
   ok(`THE play box equals fetch.py's own cap (Python, the real compiler) on all ${sample.length} places`, sample.length === 1000 && boxBad === 0 && fx.maxSideM === 4500, first);
   ok(`stage 1 in TS (tile range, frame origin, k0, gamma0, play box) equals assemble.py stage1 on all ${sample.length} places`, s1Bad === 0, first);
+  // (compiler 0.14.0: the core table, tools/hometown/cores.py, is cut from this repo's index by the compiler's own reading
+  // of it; that reading must be THE boxes this repo sends (search.ts toPlace, box.ts playBox), or the table's gate drifts)
+  if ('cores' in fx) {
+    let coreBad = 0, firstCore = '';
+    for (const p of sample) {
+      const py = by.get(p.placeId) as { coreInput?: { searchBbox: number[]; bbox: number[] } | null } | undefined;
+      const ci = py?.coreInput;
+      if (!ci || JSON.stringify(ci.searchBbox) !== JSON.stringify(p.bbox) || JSON.stringify(ci.bbox) !== JSON.stringify(playBox(p))) { coreBad++; firstCore ||= `${p.placeId} ${JSON.stringify(ci)}`; }
+    }
+    const sj = by.get('us-0668000') as { core?: number[] | null } | undefined, boz = by.get('us-3008950') as { core?: number[] | null } | undefined;
+    ok(`the compiler's core table reads the search box and play box GameMog sends on all ${sample.length} places (cores.py census_rows)`, coreBad === 0, firstCore);
+    ok('the core table moves San Jose onto its downtown and leaves Bozeman (Colter Land) on the 0.8.0 rule', Array.isArray(sj?.core) && Math.abs(sj!.core![0] + 121.8906) < 0.01 && Math.abs(sj!.core![1] - 37.3362) < 0.01 && (boz === undefined || boz.core == null), JSON.stringify(sj?.core));
+  }
   const domains = new Set(fx.places.map((p) => p.domain));
   ok('the sample covers the lower 48 and the other domains', domains.has('conus') && domains.has('ak') && domains.has('hi') && domains.has('pr'), [...domains].join(','));
   const okemah = placeById('us-4054200')!;
@@ -576,6 +589,8 @@ function g7(ok: Ok) {
     streets: [{ name: 'MAIN ST', m: 1500 }, { name: 'ELM ST', m: 700 }] };
   const nf = normalizeFrame(raw)!;
   ok('the compiler\'s frame shape normalises: spawn tile and district from district {}, spawns/places with inDistrict, roads from streets', !!(frameProblems(nf).length === 0 && nf.spawn.tile[0] === s.origin.c0 && nf.spawnDistrict[0] === s.origin.c0 - 2 && nf.spawns[0].id === 'pkg_downtown' && nf.spawns[0].inDistrict && !nf.spawns[1].inDistrict && nf.places.bank.inDistrict && !nf.places.bar.inDistrict && nf.roads!.streets === 2 && nf.roads!.km === 2.2 && nf.variant === raw.district.variant && normalizeFrame(frame) === frame), frameProblems(nf).join('; '));
+  ok('the compiler\'s frame keeps the box it built the town over (stage 1\'s playBox: lib/storykit-upgrade.ts boxMoved holds a story whose town\'s box moved)',
+    !nf.playBox && JSON.stringify(normalizeFrame({ ...raw, playBox: s.playBox })!.playBox) === JSON.stringify(s.playBox) && !normalizeFrame({ ...raw, playBox: { gx0: 1 } })!.playBox);
   ok('a frame whose lock is not its tiles\' is refused', frameProblems({ ...frame, tiles: s.tiles.slice(1) }).length > 0);
   const pkg = cityPackageOfFrame(frame, { placeId: 'us-4054200', name: okemah.name, stateName: okemah.stateName });
   ok('cityPackageOfFrame: a valid CityPackage whose lock is v3, pinning the frame', packageProblems(pkg).length === 0 && cityLock(pkg).formatVersion === 3 && cityLock(pkg).tiles === L.tiles && cityLock(pkg).yOffset === L.yOffset, packageProblems(pkg).slice(0, 3).join('; '));

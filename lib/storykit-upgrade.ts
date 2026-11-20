@@ -13,6 +13,9 @@ import { classify } from '../storykit/hometown/safety.ts';
  * build, the story plays the current whole town, but only when that is safe:
  *   - the frame is the same (place, grid, domain, origin, k0, gamma0, yOffset, waterLevel: the lock fields that place a
  *     coordinate), so a mark of the story's own ({ at: [x, z] }) and every place stand where they stood;
+ *   - the town's box is the same (boxMoved: its frame's playBox at both builds, else its tile set): the frame can stay
+ *     while the box moves (compiler 0.14.0 keeps the origin and moves a capped town onto its downtown core, Oakland
+ *     5.6 km), and no place check covers a mark of the story's own, which a moved box could leave off the map;
  *   - every place the world names ("@key" directly or through one of its aliases, world.places) is on the new map: the
  *     same id, the same kind, within MOVE_M of where the pinned build had it, and not a home. A place's id is the
  *     compiler's (kind + a counter), so a recompile may hand an id to another place: the kind and the spot say it is
@@ -108,6 +111,30 @@ export function frameMoved(a: HometownLock | null | undefined, b: HometownLock |
   return '';
 }
 
+/** A town's box at one build: the box the compiler built it over (its frame's playBox) and the tiles it pinned. */
+export type TownBox = { playBox?: { gx0: number; gs0: number; gx1: number; gs1: number } | null; tiles?: string[] | null };
+/**
+ * '' when the town was built over the same box at both builds, else what differs. The frame (FRAME_KEYS) can stay while
+ * the box moves (compiler 0.14.0 keeps the origin and moves a capped town's box onto its downtown core: Oakland 5.6 km),
+ * and a mark of the story's own ({ at }) is checked by no place: a moved box could leave it off the map. The playBoxes
+ * are compared when both builds carry one, else the tile sets; neither readable at either build: moved (nothing to compare).
+ */
+export function boxMoved(a: TownBox | null | undefined, b: TownBox | null | undefined): string {
+  if (!a || !b) return `the town's box at the ${!a ? 'pinned' : 'current'} build cannot be read, so no spot of the story can be checked to be on the map`;
+  if (a.playBox && b.playBox) {
+    const k = (['gx0', 'gs0', 'gx1', 'gs1'] as const).find((x) => a.playBox![x] !== b.playBox![x]);
+    if (!k) return '';
+    const cx = (p: NonNullable<TownBox['playBox']>) => [(p.gx0 + p.gx1) / 2, (p.gs0 + p.gs1) / 2];
+    const [ax, az] = cx(a.playBox), [bx, bz] = cx(b.playBox);
+    return `the town's box moved between the builds (its centre ${(Math.hypot(ax - bx, az - bz) / 100000).toFixed(1)} km): a spot of the story's own could be off the new map`;
+  }
+  if (Array.isArray(a.tiles) && Array.isArray(b.tiles) && a.tiles.length && b.tiles.length) {
+    const A = new Set(a.tiles), same = A.size === new Set(b.tiles).size && b.tiles.every((t) => A.has(t));
+    return same ? '' : `the town's tiles changed between the builds (${A.size} -> ${new Set(b.tiles).size}): its box moved, and a spot of the story's own could be off the new map`;
+  }
+  return `the town's box at the ${a.playBox || a.tiles?.length ? 'current' : 'pinned'} build cannot be read, so no spot of the story can be checked to be on the map`;
+}
+
 export type PlaceCheck = { ok: boolean; why: string[]; notes: string[]; ids: string[] };
 const said = (id: string, via: Set<string>) => (via.size ? `@${[...via].sort().join(', @')} (${id})` : `@${id}`);
 /**
@@ -151,6 +178,8 @@ export type UpgradeDeps = {
   current(place: string): string | null;
   /** the whole town's bundle at a build, by its stored lock (a 'full' bundle only), or null */
   full(place: string, build: string): { tilesId: string; lock: HometownLock } | null;
+  /** the town's box at a build (its frame's playBox and tiles: lib/hometown-build/frame.ts), or null */
+  box(place: string, build: string): TownBox | null;
   /** a lock's CityPackage (lib/hometown/towns.ts cityPackageByLock) */
   pkg(lock: HometownLock): CityPackage | null;
   /** a sealed world by its SHA-256 */
@@ -177,6 +206,8 @@ export function storyUpgradeWith(deps: UpgradeDeps, worldHash: string, opts: { d
   if (to.place !== from.place || to.compiler !== build) return { state: 'held', from, to: null, build, why: ['the current whole town\'s lock does not name this town and build'], notes: [], ids: [] };
   const moved = frameMoved(from, to);
   if (moved) return { state: 'held', from, to, build, why: [`the town's frame moved between the builds (${moved}): every spot of the story would move with it`], notes: [], ids: [] };
+  const boxed = boxMoved(deps.box(from.place, from.compiler), deps.box(to.place, build));
+  if (boxed) return { state: 'held', from, to, build, why: [boxed], notes: [], ids: [] };
   const c = checkPlaces(w, deps.pkg(from), deps.pkg(to));
   if (!c.ok) return { state: 'held', from, to, build, why: c.why, notes: c.notes, ids: c.ids };
   let world: string | null = null;

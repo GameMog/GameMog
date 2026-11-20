@@ -21,7 +21,8 @@ import { gatherPins } from '../lib/hometown-tiles/pins.ts';
 import { publicResponse, adminResponse, allowedOrigin, verifyObject, currentBuilds, askable, type Deps } from '../lib/hometown-tiles/http.ts';
 import { hometownConfig } from '../lib/hometown-tiles/config.ts';
 import { createCompiler, childEnv, CompileError } from '../lib/hometown-tiles/compiler.ts';
-import { prewarmList, playBox, NAMED, PLAY_SIDE_M } from '../lib/hometown-tiles/prewarm-list.ts';
+import { prewarmList, playBox, placeById, NAMED, PLAY_SIDE_M } from '../lib/hometown-tiles/prewarm-list.ts';
+import { gazetteerOf } from '../lib/hometown-build/towns.ts';
 import { loadIndex } from '../lib/places/search.ts';
 
 type Ok = (name: string, cond: boolean, detail?: string) => void;
@@ -272,6 +273,11 @@ async function checks(ok: Ok, dir: string) {
   ok(`every play box is a square of at most ${PLAY_SIDE_M} m round the Census internal point`, l.order.every((id) => { const p = l.places[id]; const s = side(p.bbox, p.anchor[1]); return s <= PLAY_SIDE_M + 1 && Math.abs((p.bbox[0] + p.bbox[2]) / 2 - p.anchor[0]) < 1e-5 && Math.abs((p.bbox[1] + p.bbox[3]) / 2 - p.anchor[1]) < 1e-5; }));
   ok('a small town keeps its own smaller box', side(playBox({ lat: 35, lon: -96, bbox: [-96.01, 34.99, -95.99, 35.01] }), 35) < 2300);
   ok('the list is deterministic', JSON.stringify(prewarmList(100)) === JSON.stringify(l));
+  // (the compiler moves a capped town's box onto its downtown (0.8.0) and its core (0.14.0) only from the search box: a
+  // pre-warmed town must hand it the same input as the same town asked on demand, or it is built over another box)
+  const sameInput = l.order.every((id) => { const g = gazetteerOf(placeById(id)!), p = l.places[id]; return JSON.stringify([p.anchor, p.bbox, p.searchBbox]) === JSON.stringify([g.anchor, g.bbox, g.searchBbox]); });
+  ok('every pre-warm entry hands the compiler the on-demand ask\'s anchor, play box and search box (San Jose\'s search box holds its downtown)', sameInput
+    && l.places['us-0668000'].searchBbox[0] < -121.8906 && l.places['us-0668000'].searchBbox[3] > 37.3362);
 }
 
 const createCompilerWithBuild = (cfg: ReturnType<typeof hometownConfig>, store: TileStore, run: Parameters<typeof createCompiler>[2], build: string) => createCompiler(cfg, store, run, () => build);
