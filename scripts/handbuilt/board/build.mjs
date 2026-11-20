@@ -9,7 +9,8 @@
 // Face, silver hair and beard, suit, rig, his own ten clips, texture sizes: Mr. Big's.
 //   node scripts/handbuilt/board/build.mjs [out.glb] [--only=eyes,...] [--skip=...]
 import fs from 'node:fs';
-import { read, write, matOf, rgba, setWebp } from '../young-hero/glb.mjs';
+import { read, write, matOf, rgba, setWebp, io } from '../young-hero/glb.mjs';
+import { chestWeightPass, flatFront5Pass, seatUprightPass, rulesGate, mouthTamePass, innerMouthPass } from '../jensen-cast/castpass5.mjs';
 import { eyesPass } from '../young-hero/look.mjs';
 import { irisPass } from '../old-boss/eyes.mjs';
 import { teethPass } from '../pedro/build.mjs';
@@ -41,6 +42,8 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   const only = args.find((a) => a.startsWith('--only='))?.slice(7).split(','), skip = new Set(args.find((a) => a.startsWith('--skip='))?.slice(7).split(',') || []);
   const on = (k) => (!only || only.includes(k)) && !skip.has(k);
   const { doc, src } = await read(SRC);
+  // (rules round 1: his trousers' belt sits 3 cm over his hip joints, not 7: the rule's belt there (rules.mjs trunkLevels))
+  doc.getRoot().setExtras({ ...(doc.getRoot().getExtras() || {}), rules: { beltUp: 0.03 } });
   const steps = [['eyes', () => eyesPass(doc)], ['iris', () => irisPass(doc, { base: [86, 56, 36] })], ['teeth', () => teethPass(doc)],
     // (cast round 3, the critic: clear glasses: a fine dark gunmetal frame, the lenses clear (no white glare panes or glints))
     // (cast round 4, the critic: "a genuinely thin dark frame": the rims 2.2 mm (were 3.4 plus a 1.2 mm bevel), a near-black
@@ -63,9 +66,19 @@ if (import.meta.url === 'file://' + process.argv[1]) {
     // (cast round 4, the critic: his visemes rendered and checked: the cast's baked face targets (castpass.mjs faceRigPass:
     // blinks, jaw, the 15 visemes, smiles, brows; his skin is MakeHuman's, mapped by uv), the beard as short dense cards that
     // open with the jaw, the eyes' washout tamed; the pack's sit clips as his own with the slump halved, measured seated)
-    ['eyes4', () => eyeTamePass(doc, {})], ['beard', () => beardCardsPass(doc, JSON.parse(process.env.JC_BEARD || '{}'))],
+    ['eyes4', () => eyeTamePass(doc, {})], // (rules round 1, the critic: "steel-wool noise: a soft, groomed grey beard": the cards one soft grey with little spread,
+    // no dark roots, finer and laid flatter; the shell under them blurred to an even grey (no speckle))
+    ['beard', () => beardCardsPass(doc, { col: 0.3, tint: [1.0, 0.99, 0.97], root: 0.93, salt: 0, lift: 0.0004, len: [0.004, 0.007], w: [0.0010, 0.0016], fine: 1, under: 0.95, shell: { blur: 5, col: [0.27, 0.265, 0.26], k: 0.75 }, ...JSON.parse(process.env.JC_BEARD || '{}') })],
     ['face', async () => { await faceRigPass(doc, {}); /* (the tongue in the open visemes a muted dark rose, not a lit red) */ doc.getRoot().listMaterials().find((m) => m.getName() === 'teethLow')?.setBaseColorFactor([0.32, 0.22, 0.21, 1]); }], ['beardmorphs', () => beardMorphsPass(doc)],
-    ['seat', async () => { await seatClipsPass(doc, { k: 0.5 }); await seatedGate(doc, 'board'); }]];
+    // (rules round 1, the critic: "his cartoon-red inner mouth": the gums, the tongue and the cavity a muted dark rose, after the face's cavity is painted)
+    ['mouth', async () => { await mouthTamePass(doc, { col: [0.2, 0.09, 0.085], max: 0.55 }); await innerMouthPass(doc); }],
+    // (rules round 1: the owner's hard rules measured and held (jensen-cast/rules.mjs, castpass5.mjs): his chest's front off
+    // the arms' weights (wider: a broad chest), the suit's front on the straight sternum-belt line, the skin under it; his
+    // seat clips solved upright (the pack's sit hunched his rig 14 cm head-forward: his upper spine, neck and shoulders
+    // taken to his own idle's turns, then the chest and the ears solved over the hips and the shoulders); the gate)
+    ['rules', () => { chestWeightPass(doc, { xOut: 0.2 }); flatFront5Pass(doc); bodyMaskPass(doc); }],
+    ['seat', async () => { await seatClipsPass(doc, { k: 0.5 }); if (on('rules')) seatUprightPass(doc, { pack: await io.read(ROOT + 'public/storykit/cast/cast-clips.glb'), clav: 1, unflex: { spine05: 1, spine04: 1, spine03: 1, spine02: 1, spine01: 1, neck01: 1, neck02: 1, neck03: 1 }, ...JSON.parse(process.env.JC_UPRIGHT || '{}') }); await seatedGate(doc, 'board'); }],
+    ['rulesgate', async () => rulesGate(doc, 'board', await io.read(ROOT + 'public/storykit/cast/cast-clips.glb'), { hard: true })]];
   for (const [k, f] of steps) if (on(k)) { const t = Date.now(); await f(); console.log('step', k, ((Date.now() - t) / 1000).toFixed(1), 's'); }
   fs.mkdirSync(DIR, { recursive: true });
   if (on('slim')) console.log('slim:', await slimDoc(doc));

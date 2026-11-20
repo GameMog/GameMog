@@ -9,12 +9,14 @@ export function headsetPass(doc, K = {}) {
   const R = doc.getRoot(), skinP = prim(doc, 'skin').sort((a, b) => b.getIndices().getCount() - a.getIndices().getCount())[0], HEADI = R.listSkins()[0].listJoints().findIndex((j) => j.getName() === 'head');
   const E = eyeFit(doc), ey = (E.L.c[1] + E.R.c[1]) / 2, ez = (E.L.c[2] + E.R.c[2]) / 2;
   // the head's outline (skin and hair) in the ear's plane (z = eye centre - 85 mm): its top and its half width at the ears
-  const pts = []; for (const p of [...prim(doc, 'skin'), ...prim(doc, 'hair')]) { const a = p.getAttribute('POSITION').getArray(); for (const v of new Set(p.getIndices().getArray())) pts.push([a[v * 3], a[v * 3 + 1], a[v * 3 + 2]]); }
+  // (rules round 1, the critic: "the band floating above her skull": the outline from the skin and the hair's under-layer
+  // (the scalp's own lifted shell), not the cards' tips, and the band K.lay over it: it sits down in the hair)
+  const pts = []; for (const p of [...prim(doc, 'skin'), ...prim(doc, K.over || 'hairUnder')]) { const a = p.getAttribute('POSITION').getArray(); for (const v of new Set(p.getIndices().getArray())) pts.push([a[v * 3], a[v * 3 + 1], a[v * 3 + 2]]); }
   const zE = ez - 0.085; let top = 0, half = 0; for (const [x, y, z] of pts) { if (Math.abs(z - zE) < 0.012 && Math.abs(x) < 0.01) top = Math.max(top, y); if (Math.abs(z - zE) < 0.015 && Math.abs(y - (ey - 0.015)) < 0.01) half = Math.max(half, Math.abs(x)); }
   if (!top) top = ey + 0.11; if (!half) half = 0.075;
   const geos = [], put = (g, m) => { g = g.index ? g.toNonIndexed() : g; g.applyMatrix4(m); geos.push(g); };
   // the band: a half-ellipse from ear to ear over the crown
-  const curve = new THREE.CatmullRomCurve3(Array.from({ length: 13 }, (_, i) => { const t = Math.PI * (i / 12); return new THREE.Vector3(Math.cos(t) * (half + 0.006), ey - 0.01 + Math.sin(t) * (top + 0.006 - (ey - 0.01)), zE); }));
+  const curve = new THREE.CatmullRomCurve3(Array.from({ length: 13 }, (_, i) => { const t = Math.PI * (i / 12); return new THREE.Vector3(Math.cos(t) * (half + 0.006), ey - 0.01 + Math.sin(t) * (top + (K.lay ?? 0.006) - (ey - 0.01)), zE); }));
   put(new THREE.TubeGeometry(curve, 40, K.band, 8, false), new THREE.Matrix4());
   // the cups: left (her left, +x) the speaker cup, right a small pad
   for (const [s, r, d] of [[1, K.cup / 2, 0.016], [-1, 0.012, 0.008]]) { const g = new THREE.CylinderGeometry(r, r, d, 24); g.rotateZ(Math.PI / 2); put(g, new THREE.Matrix4().makeTranslation(s * (half + 0.004 + d / 2), ey - 0.016, zE)); }

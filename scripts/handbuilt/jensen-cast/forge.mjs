@@ -35,6 +35,7 @@ import { strandGroomPass } from './strandgroom.mjs';
 import { flatFront3Pass, flatGate, layerMaskPass } from './castpass3.mjs';
 import { slimDoc } from './slim.mjs';
 import { faceShapePass, eyeTamePass, dyePass, seatClipsPass, seatedGate } from './castpass4.mjs';
+import { chestWeightPass, flatFront5Pass, seatUprightPass, rulesGate, worstedPass } from './castpass5.mjs';
 import { skinTonePass, flatFrontPass, faceRigPass } from './castpass.mjs';
 import { hairBasePass, bodyMaskPass, undershirtPass, posturePass, stubblePaintPass, tailorPass } from './castpass2.mjs';
 // (cast round 1, the owner's standing rules: each person's natural skin tone (sRGB, the cheek under neutral light: varied
@@ -103,10 +104,30 @@ const R4 = {
 };
 for (const [k, v] of Object.entries(R4)) { const o = ROUND1[k] || {}; ROUND1[k] = { ...o, ...v, strand: o.strand && v.strand4 ? { ...o.strand, ...v.strand4 } : o.strand, age: (o.age || 0) + (v.age || 0) || undefined };
   ROUND1[k].flat3 = { below: 0.15, lowEase: 0.03, xLowIn: 0.07, xLowOut: 0.11, ...(o.flat3 || {}), ...(v.flat3 || {}) }; ROUND1[k].seat = ROUND1[k].seat ?? { k: 0.5 }; }
+// Rules round 1 (20 Nov, the owner's hard rules measured: rules.mjs, castpass5.mjs): flat5 / cw / upright are the shared
+// rule passes' knobs (none needed per person so far); R5 the critic's worst defects per person, over round 4:
+//   Director Navy: the lip halo (the stubble's cleared ring round the lips eased to a 15% fade, no thinning ring) and one
+//     natural brown, less orange (the tone by the render); his suit and Grey's a matte worsted (worstedPass)
+//   Director Grey: the suit's knit (the normal map at 0.18, the colour softened, matte): a tailored worsted
+//   Intern Two: adult (the forge's age up), a natural warm tone (not chalky), a fuller, longer ponytail
+//   Dex: the tee's crew neck up to the collar's zip (no skin strip)
+//   Marge: the crown's cards laid down (a longer rise from the scalp), the headset band on the hair's under-layer
+//   Intern One: the eyes' clear coat down (the pale glow was its reflection), the iris deeper
+const R5 = {
+  'director-b': { tone: [100, 72, 56], stubble: { ...ROUND1['director-b'].stubble, lips: [0.022, 0.0078], lipFade: 1.12, lipThin: 0 }, worsted: {} },
+  'director-a': { worsted: {}, dye: [[/^suit(-hem|-collar|-lapels)?$/, [118, 120, 124], { contrast: 0.2 }], [/^clothes$/, [112, 114, 118], { only: DARK }]] },
+  'intern-b': { age: 0.12, tone: [128, 90, 66], shape: [...MH('cheek-volume-decr', 0.85), ...MH('cheek-bones-incr', 0.5), ['chin/chin-bones-incr', 0.45], ['chin/chin-prominent-incr', 0.5], ['eyebrows/eyebrows-trans-forward', 0.3]],
+    strand: { ...ROUND1['intern-b'].strand, tail: { n: 1600, len: 0.32, r: 0.038, swell: 0.8, w: 1.3, taper: 0.55 } } },
+  dex: { underK: { crew: { dip: 0.004, rib: 0.008, ribK: 0.72 } } },
+  marge: { strand: { ...ROUND1.marge.strand, rise: 0.075, vol: [0.009, 0.007] }, headset: { lay: 0.011 } },
+  'intern-a': { eyes: { coat: 0.08, rough: 0.45, iris: 0.42 } },
+};
+for (const [k, v] of Object.entries(R5)) { const o = ROUND1[k] || {}; ROUND1[k] = { ...o, ...v, age: v.age ? (o.age || 0) + v.age : o.age }; }
 const SKIP = new Set((process.env.JC_SKIP || '').split(',').filter(Boolean));
 const DIR = new URL('../../../storykit/handbuilt/jensen-cast/', import.meta.url).pathname, OUTDIR = process.env.JC_OUT || DIR;
 const want = process.argv[2]?.split(',');
 const env = await nodeEnv(); await loadFaceKit(env);
+const PACKDOC = await io.read(new URL('../../../public/storykit/cast/cast-clips.glb', import.meta.url).pathname);
 const IRIS = { 'dark-brown': [52, 36, 26], brown: [86, 58, 38], hazel: [110, 86, 52], blue: [70, 96, 126], 'grey-blue': [92, 104, 116] };
 for (const f of fs.readdirSync(DIR).filter((x) => x.endsWith('.sheet.json')).sort()) {
   const S = JSON.parse(fs.readFileSync(DIR + f, 'utf8')); if (want && !want.includes(S.id)) continue;
@@ -124,6 +145,7 @@ for (const f of fs.readdirSync(DIR).filter((x) => x.endsWith('.sheet.json')).sor
   if (R1.shape && !SKIP.has('shape')) faceShapePass(doc, R1.shape);
   if (!SKIP.has('eyes4')) await eyeTamePass(doc, R1.eyes || {});
   if (R1.dye && !SKIP.has('dye')) for (const [re, col, k] of R1.dye) await dyePass(doc, re, col, k);
+  if (R1.worsted && !SKIP.has('worsted')) await worstedPass(doc, /^suit(-hem|-collar|-lapels)?$/, R1.worsted);
   if (!SKIP.has('flat')) flatFrontPass(doc, R1.flat);
   if (!SKIP.has('tone') && R1.tone) await skinTonePass(doc, R1.tone, R1.toneK);
   // (the two ponytails keep the forge's own cut this round: the 'tie' groom read spiky and see-through, worse than the cut)
@@ -142,17 +164,24 @@ for (const f of fs.readdirSync(DIR).filter((x) => x.endsWith('.sheet.json')).sor
   else if (R1.hairBase && !SKIP.has('hairbase')) await hairBasePass(doc, R1.hairBase);
   if (!ST && !SKIP.has('groom') && (R1.groom !== false || process.env.JC_CARDS)) await groomPass(doc, S.hair.style, { greying: S.hair.greying || 0, ...R1.groom, ...(process.env.JC_CARDS ? JSON.parse(process.env.JC_CARDS) : {}) });
   // (the headset over the new hair's outer surface, before the face's targets: it rides the skin's mesh)
-  if (S.id === 'marge') headsetPass(doc);
+  if (S.id === 'marge') headsetPass(doc, R1.headset || {});
   if (!SKIP.has('face')) await faceRigPass(doc, R1.face || {});
   // (last: the rest correction carries the face's targets with the head)
   const PC = process.env.JC_POSTURE ? JSON.parse(process.env.JC_POSTURE) : (R1.posture ?? 'auto'); if (!SKIP.has('posture')) posturePass(doc, PC);
   // (cast round 3, rule 1 that lands: the flat front on the final rest pose, the skin drawn in under it again, then the gate:
   // the build fails if the garment's front stands more than 1 cm forward of the sternum-belt line, castpass3.mjs)
   if (!SKIP.has('flat3')) { flatFront3Pass(doc, R1.flat3); if (!SKIP.has('mask')) bodyMaskPass(doc, R1.mask); }
-  flatGate(doc, S.id);
-  if (R1.seat && !SKIP.has('seat')) { await seatClipsPass(doc, R1.seat); await seatedGate(doc, S.id); }
+  // (rules round 1: the owner's hard rules MEASURED (rules.mjs) and held: the chest's front off the arms' weights, the front
+  // brought to the straight sternum-belt line as a smooth offset (castpass5.mjs flatFront5Pass: folds, zips and buttons
+  // move with it), the skin drawn in under it again; the seat clips solved upright key by key (seatUprightPass); then the
+  // gate: 12 mm standing and seated, the ears within 3 cm of the shoulders seated, or the build fails)
+  if (!SKIP.has('rules')) { chestWeightPass(doc, R1.cw); flatFront5Pass(doc, R1.flat5); if (!SKIP.has('mask')) bodyMaskPass(doc, R1.mask); }
+  // (round 3's gate, its sternum on the bust: logged only now; rulesGate below holds the rule)
+  if (SKIP.has('rules')) flatGate(doc, S.id);
+  if (R1.seat && !SKIP.has('seat')) { await seatClipsPass(doc, R1.seat); if (!SKIP.has('rules')) seatUprightPass(doc, { pack: PACKDOC, ...R1.upright }); await seatedGate(doc, S.id); }
+  if (!SKIP.has('rules')) rulesGate(doc, S.id, PACKDOC, { hard: true });
   // (cast round 3, blocker A: every body at most 6 MB: the lossless-looking diet last (slim.mjs))
   if (!SKIP.has('slim')) console.log('slim:', await slimDoc(doc));
-  const out = await write(doc, src); if (out.length > 6 * 1048576) throw new Error(`${S.id}: ${(out.length / 1048576).toFixed(2)} MB is over the 6 MB body cap`); fs.writeFileSync(OUTDIR + S.id + '.glb', out);
+  const out = await write(doc, src); if (out.length > 6e6) throw new Error(`${S.id}: ${(out.length / 1e6).toFixed(2)} MB is over the 6 MB body cap (6,000,000 bytes)`); fs.writeFileSync(OUTDIR + S.id + '.glb', out);
   console.log(S.id, (out.length / 1048576).toFixed(2), 'MB', ((Date.now() - t0) / 1000).toFixed(1), 's', (log || []).filter((l) => /left off|guard|cap/.test(l)).join(' | '));
 }

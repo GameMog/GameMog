@@ -15,7 +15,7 @@
 //                             deviation from the chest-belt line (m)
 // Original procedural work, CC0.
 import fs from 'node:fs';
-import { matOf, rgba, setWebp, sm, io, THREE } from '../young-hero/glb.mjs';
+import { matOf, rgba, setWebp, sm, io, THREE, sharp } from '../young-hero/glb.mjs';
 import { bakeRest } from '../facekit.mjs';
 import { armW } from './castpass3.mjs';
 
@@ -152,13 +152,19 @@ export async function beardCardsPass(doc, K = {}) {
     const pts = [0, 0.5, 1].map((t) => p.map((x, q) => x + g[q] * L * t + n[q] * (K.lift + 0.0006 * t * t)));
     const [x0s, x1s, ty] = STR[rnd() < K.fine ? 3 + Math.floor(rnd() * 3) : Math.floor(rnd() * 3)], win = x1s - x0s < 100 ? 1 : rr(0.35, 0.6), c0 = x0s + (x1s - x0s) * rr(0, 1 - win), u0 = c0 / 4096, u1 = (c0 + (x1s - x0s) * win) / 4096, vT = ty / 4096, vR = 3988 / 4096;
     // (salt and pepper: the shell's own colour there, a share of the strands lighter, a share darker; dark at the root)
-    const lum = lin(tc[0]) * 0.3 + lin(tc[1]) * 0.6 + lin(tc[2]) * 0.1, salt = rnd() < K.salt, base = salt ? Math.min(0.5, lum * rr(1.0, 1.25)) : lum * rr(0.6, 0.85), tint = [1.0, 0.98, 0.95];
+    const lum = lin(tc[0]) * 0.3 + lin(tc[1]) * 0.6 + lin(tc[2]) * 0.1, salt = rnd() < K.salt, base = K.col != null ? K.col * rr(0.88, 1.08) : salt ? Math.min(0.5, lum * rr(1.0, 1.25)) : lum * rr(0.6, 0.85), tint = K.tint || [1.0, 0.98, 0.95];
     const b0 = pos.length / 3; let nearest = a; { let bd = 9; for (const q of [a, b, c]) { const d = (P[q * 3] - p[0]) ** 2 + (P[q * 3 + 1] - p[1]) ** 2 + (P[q * 3 + 2] - p[2]) ** 2; if (d < bd) { bd = d; nearest = q; } } }
-    pts.forEach((pt, i) => { const t = i / 2, w = wd * (1 - 0.45 * t), rk = 0.6 + 0.4 * sm(0, 0.5, t); for (const xx of [-1, 1]) { pos.push(...pt.map((x, q) => x + side[q] * xx * w / 2)); nrm.push(...n); uvs.push(xx < 0 ? u0 : u1, vR + (vT - vR) * Math.min(1, t * 0.9)); col.push(...tint.map((x) => Math.min(1, x * base * rk / 0.31)), 1); root.push(nearest); } });
+    pts.forEach((pt, i) => { const t = i / 2, w = wd * (1 - 0.45 * t), rk = (K.root ?? 0.6) + (1 - (K.root ?? 0.6)) * sm(0, 0.5, t); for (const xx of [-1, 1]) { pos.push(...pt.map((x, q) => x + side[q] * xx * w / 2)); nrm.push(...n); uvs.push(xx < 0 ? u0 : u1, vR + (vT - vR) * Math.min(1, t * 0.9)); col.push(...tint.map((x) => Math.min(1, x * base * rk / 0.31)), 1); root.push(nearest); } });
     for (let i = 0; i < 2; i++) { const q = b0 + i * 2; idx.push(q, q + 2, q + 1, q + 1, q + 2, q + 3); } }
   void ymid; void ztop;
   // the shell under them: darker and thinner
   bm.setAlphaCutoff(Math.max(bm.getAlphaCutoff(), K.cut)); bm.setBaseColorFactor(bm.getBaseColorFactor().map((x, i) => (i < 3 ? x * K.under : x)));
+  // (rules round 1, the critic: "steel-wool noise": K.shell, the shell's texture a soft even grey, its own alpha kept, its
+  // colour blurred (K.shell.blur px) and pulled toward K.shell.col (linear) by K.shell.k: no salt-and-pepper speckle under the cards)
+  if (K.shell) { const bt = bm.getBaseColorTexture(), { data: D, w: W0, h: H0 } = await rgba(bt), al = new Uint8Array(W0 * H0); for (let i = 0; i < W0 * H0; i++) al[i] = D[i * 4 + 3];
+    const bl = await sharp(Buffer.from(D), { raw: { width: W0, height: H0, channels: 4 } }).removeAlpha().blur(K.shell.blur || 6).raw().toBuffer();
+    for (let i = 0; i < W0 * H0; i++) for (let c = 0; c < 3; c++) D[i * 4 + c] = enc(lin(bl[i * 3 + c]) * (1 - K.shell.k) + K.shell.col[c] * K.shell.k);
+    await setWebp(bt, D, W0, H0, 90); void al; }
   const sk = R.listSkins()[0], HJ = sk.listJoints().findIndex((j) => j.getName() === 'head'), buf = R.listBuffers()[0], acc = (type, arr) => doc.createAccessor().setType(type).setArray(arr).setBuffer(buf), n = pos.length / 3;
   const J = new Uint16Array(n * 4), W = new Float32Array(n * 4); for (let i = 0; i < n; i++) { J[i * 4] = HJ; W[i * 4] = 1; }
   const t = doc.createTexture('beard-strands').setImage(fs.readFileSync(ATLAS)).setMimeType('image/webp');
