@@ -20,3 +20,18 @@ Built by `node scripts/handbuilt/jensen-cast/forge.mjs [id,...]` (the forge, the
 Credit line (CC BY 4.0 needs it wherever the game lists its asset credits): "Hair Cards_FBX by POLYTRICITY (Sketchfab),
 CC BY 4.0, modified". The same line as Jensen's; Intern One and Director Navy keep the forge's own twists and buzz cut
 (no cards).
+
+## Cast round 3 (19 Nov 2026): strand hair, a measured flat front, Mr. Board on the plumb line, 6 MB bodies
+
+Built by `node scripts/handbuilt/jensen-cast/forge.mjs [id,...]` (adds `strandgroom.mjs`, `castpass3.mjs`, `slim.mjs`)
+and `node scripts/handbuilt/board/build.mjs` (adds `plumb.mjs`). No new third-party asset.
+
+| Part | Source | Licence |
+|---|---|---|
+| the shared strand groom (Marge's bob, Lola's long layers, Nico's, Dex's and Director Grey's side parts, Wesley's curls, Intern Two's ponytail): the forge's cut taken off, a hairline painted on the scalp, a lifted under-layer, 1,500 to 3,000 alpha-tested cards grown from the scalp to the style's length, collided with the body | made here (`strandgroom.mjs`), cut from the same strand atlas as Jensen's | original, CC0; the atlas CC BY 4.0, modified |
+| the flat front and its build gate (1 cm), the shirt drawn in under the Directors' suits, Dex's crew-neck tee, Intern Two's painted collar, Director Navy's beard over the lip ring | made here (`castpass3.mjs`, `castpass2.mjs`) | original, CC0 |
+| Mr. Board's clips and rest pose on the plumb line, his flat suit front, his clear (pane-less) glasses | made here (`plumb.mjs`, `board/build.mjs`) over Mog City's Mr. Big | original, CC0 |
+| the size diet (texture caps, resampled clips, rounded floats, byte weights) on every body and on Jensen | made here (`slim.mjs`) | original, CC0 |
+
+Credit line unchanged: "Hair Cards_FBX by POLYTRICITY (Sketchfab), CC BY 4.0, modified". Intern One and Director Navy
+keep the forge's own twists and painted buzz (no cards).

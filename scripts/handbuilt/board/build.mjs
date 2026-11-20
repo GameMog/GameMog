@@ -15,7 +15,10 @@ import { irisPass } from '../old-boss/eyes.mjs';
 import { teethPass } from '../pedro/build.mjs';
 import { framesPass } from '../frames.mjs';
 import { flatFrontPass } from '../jensen-cast/castpass.mjs';
-import { posturePass, bodyMaskPass } from '../jensen-cast/castpass2.mjs';
+import { posturePass, bodyMaskPass, tailorPass } from '../jensen-cast/castpass2.mjs';
+import { flatFront3Pass, flatGate } from '../jensen-cast/castpass3.mjs';
+import { slimDoc } from '../jensen-cast/slim.mjs';
+import { plumbClipsPass, bakeRestPass, levelArmaturePass } from '../jensen-cast/plumb.mjs';
 
 const ROOT = new URL('../../../', import.meta.url).pathname;
 const SRC = ROOT + 'public/storykit/cast/mogcity/mrbig.glb', DIR = ROOT + 'storykit/handbuilt/board/';
@@ -37,11 +40,24 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   const on = (k) => (!only || only.includes(k)) && !skip.has(k);
   const { doc, src } = await read(SRC);
   const steps = [['eyes', () => eyesPass(doc)], ['iris', () => irisPass(doc, { base: [86, 56, 36] })], ['teeth', () => teethPass(doc)],
-    ['glasses', () => framesPass(doc, { style: 'tortoise', rough: 0.28 })], ['tie', () => tiePass(doc)],
+    // (cast round 3, the critic: clear glasses: a fine dark gunmetal frame, the lenses clear (no white glare panes or glints))
+    ['glasses', () => { framesPass(doc, { style: 'acetate', T: 0.0034, D: 0.0045, BH: 0.002, col: [0.09, 0.085, 0.08], metal: 0.6, rough: 0.35, glint: 0 });
+      // (no lens panes: clear glass is no glass in the game (the panes' shadow greyed the eyes, Jensen's iteration 2))
+      for (const p of doc.getRoot().listMeshes().flatMap((m) => m.listPrimitives())) if (/^(lenses|lens-edges|lens-glints)$/.test(p.getMaterial()?.getName() || '')) { const m = p.getMaterial(); p.listParents().filter((x) => x.propertyType === 'Mesh').forEach((x) => x.removePrimitive(p)); p.dispose(); if (!m.listParents().some((x) => x.propertyType === 'Primitive')) m.dispose(); } }], ['tie', () => tiePass(doc)],
     // (Jensen Heist cast round 2, the owner's standing rules: the suit's front flat from the sternum to the belt (no belly),
     // the skin drawn in under it, and the rest correction under his clips (the head and shoulders back to the plumb line))
-    ['flat', () => flatFrontPass(doc, { max: 0.08, depth: 0.12, waist: 0.12, beltMax: 0.04, yb: 0.93, xIn: 0.13, xOut: 0.19 })], ['mask', () => bodyMaskPass(doc)], ['posture', () => posturePass(doc, process.env.JC_POSTURE ? JSON.parse(process.env.JC_POSTURE) : 'auto')]];
+    ['flat', () => flatFrontPass(doc, { max: 0.08, depth: 0.12, waist: 0.12, beltMax: 0.04, yb: 0.93, xIn: 0.13, xOut: 0.19 })], ['mask', () => bodyMaskPass(doc)],
+    // (cast round 3, the critic: "fix Mr. Board first": his rest pose and his standing clips put on the plumb line frame by
+    // frame (plumb.mjs: the ankle under the hip, the knees straight, the shoulders over the hips, the head over the
+    // shoulders, the chin's line kept), in place of round 2's mesh correction; then the flat front on the plumb rest pose
+    // (castpass3.mjs: the suit's belly drawn back onto the sternum-belt line), the skin drawn in under it, and the gate)
+    ['level', () => levelArmaturePass(doc)], ['plumb', () => plumbClipsPass(doc, JSON.parse(process.env.JC_PLUMB || '{}'))], ['bakerest', () => bakeRestPass(doc, 'idle', 0)],
+    // (the critic: "remove the shoulder humps that appear in the call-tile pose": the suit's shoulders taken in to the arm)
+    ['tailor', () => tailorPass(doc, { mats: /^clothes$/, ease: 0.01, x0: 0.14, drop: 0.14, k: 0.16, ...JSON.parse(process.env.JC_TAILOR || '{}') })],
+    ['flat3', () => { flatFront3Pass(doc, { xIn: 0.13, xOut: 0.2, d1: 0.06, d2: 0.14, below: 0.14, bUp: 0.03 }); bodyMaskPass(doc); }],
+    ['gate', () => flatGate(doc, 'board', { bUp: 0.03 })]];
   for (const [k, f] of steps) if (on(k)) { const t = Date.now(); await f(); console.log('step', k, ((Date.now() - t) / 1000).toFixed(1), 's'); }
   fs.mkdirSync(DIR, { recursive: true });
-  const glb = await write(doc, src); fs.writeFileSync(OUT, glb); console.log(OUT, glb.length, 'bytes', (glb.length / 1048576).toFixed(2), 'MB');
+  if (on('slim')) console.log('slim:', await slimDoc(doc));
+  const glb = await write(doc, src, { ownTRS: on('level') || on('plumb') || on('bakerest') }); fs.writeFileSync(OUT, glb); console.log(OUT, glb.length, 'bytes', (glb.length / 1048576).toFixed(2), 'MB');
 }

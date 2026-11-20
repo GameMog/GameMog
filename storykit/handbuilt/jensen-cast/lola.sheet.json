@@ -30,9 +30,9 @@
  },
  "face": {
   "jaw": "soft",
-  "cheeks": "full",
+  "cheeks": "average",
   "cheekbones": "high",
-  "faceWidth": "average",
+  "faceWidth": "narrow",
   "nose": {
    "width": "average",
    "length": "average",
@@ -79,7 +79,7 @@
  "wardrobe": {
   "top": {
    "item": "western-shirt",
-   "color": "#4C6C90"
+   "color": "#6B3328"
   },
   "bottom": {
    "item": "loose-trousers",

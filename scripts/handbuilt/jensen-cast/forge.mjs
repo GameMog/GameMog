@@ -31,6 +31,9 @@ import { daylightSkinPass } from '../daylight.mjs';
 import { headsetPass } from './headset.mjs';
 import { jeansPass } from '../jensen/wear.mjs';
 import { groomPass } from './groom.mjs';
+import { strandGroomPass } from './strandgroom.mjs';
+import { flatFront3Pass, flatGate, layerMaskPass } from './castpass3.mjs';
+import { slimDoc } from './slim.mjs';
 import { skinTonePass, flatFrontPass, faceRigPass } from './castpass.mjs';
 import { hairBasePass, bodyMaskPass, undershirtPass, posturePass, stubblePaintPass, tailorPass } from './castpass2.mjs';
 // (cast round 1, the owner's standing rules: each person's natural skin tone (sRGB, the cheek under neutral light: varied
@@ -49,6 +52,29 @@ const ROUND2 = {
   marge: { tone: [161, 119, 103], groom: false, hairBase: { dark: [24, 23, 22], light: [86, 83, 80], salt: 0.34 }, flat: { max: 0.04, depth: 0.07, waist: 0.14 } },
 };
 for (const [k, v] of Object.entries(ROUND2)) ROUND1[k] = { ...ROUND1[k], ...v };
+// Cast round 3 (the critic on round 2; strandgroom.mjs, castpass3.mjs): strand: the shared strand-card groom in place of the
+// forge's cut (the style, the hair's colour sRGB, its grey and greying, the forehead's hairline height over the eyes)
+const ROUND3 = {
+  marge: { strand: { style: 'bob', col: [50, 45, 41], grey: [132, 130, 127], greying: 0.38 } },
+  lola: { strand: { style: 'long', col: [27, 23, 21], grey: [118, 116, 113], greying: 0.18 } },
+  nico: { strand: { style: 'side-part', col: [50, 38, 30], grey: [118, 114, 108], greying: 0.22, seed: 23 } },
+  dex: { strand: { style: 'side-part', col: [56, 41, 30], grey: [118, 114, 108], greying: 0, seed: 31, part: [-0.42, 0.88, 0.2] } },
+  'director-a': { strand: { style: 'side-part', col: [96, 95, 94], grey: [156, 155, 153], greying: 0.6, seed: 41, hf: 0.072, hl: { recede: 0.012 } } },
+  'intern-b': { strand: { style: 'ponytail', col: [25, 21, 20], grey: [90, 88, 86], greying: 0, seed: 53 } },
+  wesley: { strand: { style: 'short-curly', col: [112, 80, 54], grey: [120, 116, 110], greying: 0, seed: 61 } },
+
+};
+// (age: the forge's age blend raised for the face only (Marge reads 57, Nico 47); drop: garment parts taken off (the
+// Directors' shattered lapel overlay, Intern Two's spiky collar band); under/underK: Dex's tee as a crew neck; stubble:
+// Navy's beard carried onto the lip and chin ring (a lip ellipse eased, not cut) in softer strokes; tone: by the render)
+const R3X = {
+  marge: { age: 0.1 }, nico: { age: 0.08, tone: [150, 110, 90] }, lola: { tone: [98, 72, 60] }, wesley: { tone: [156, 114, 90] },
+  dex: { tone: [178, 134, 108], under: [70, 72, 76], underK: { crew: { dip: 0.022, rib: 0.008, ribK: 0.72 } } },
+  'intern-b': { tone: [156, 112, 84], recolor: { mat: 'uniform-collar', col: [0.105, 0.165, 0.34] }, under: [138, 160, 202], underK: { top: -0.014, crew: { dip: 0.012, rib: 0.012, ribK: 0.78 } } },
+  'director-a': { drop: /^suit-(lapels|collar)$/, layer: {} }, 'director-b': { drop: /^suit-(lapels|collar)$/, layer: {}, stubble: { col: [28, 25, 24], grey: [120, 116, 110], salt: 0.3, scalp: 0.85, lips: [0.024, 0.0075], soft: 0.75 } },
+};
+for (const [k, v] of Object.entries(ROUND3)) ROUND1[k] = { ...ROUND1[k], ...v };
+for (const [k, v] of Object.entries(R3X)) ROUND1[k] = { ...ROUND1[k], ...v };
 const SKIP = new Set((process.env.JC_SKIP || '').split(',').filter(Boolean));
 const DIR = new URL('../../../storykit/handbuilt/jensen-cast/', import.meta.url).pathname, OUTDIR = process.env.JC_OUT || DIR;
 const want = process.argv[2]?.split(',');
@@ -57,6 +83,7 @@ const IRIS = { 'dark-brown': [52, 36, 26], brown: [86, 58, 38], hazel: [110, 86,
 for (const f of fs.readdirSync(DIR).filter((x) => x.endsWith('.sheet.json')).sort()) {
   const S = JSON.parse(fs.readFileSync(DIR + f, 'utf8')); if (want && !want.includes(S.id)) continue;
   const t0 = Date.now(), { cfg, log } = compile(S);
+  if (ROUND1[S.id]?.age) cfg.age = Math.min(0.9, cfg.age + ROUND1[S.id].age);
   if (S.identity.body === 'male') { cfg.shoulder = 0.76; cfg.slope = { ...(cfg.slope || {}), drop: 0.015 }; }
   const logs = [], env1 = { ...env, log: (...a) => logs.push(a.join(' ')) };
   const a = await core(cfg, env1), b = await post(a.glb, a.lm, env1), glb0 = await diet(b.glb, env1);
@@ -70,16 +97,30 @@ for (const f of fs.readdirSync(DIR).filter((x) => x.endsWith('.sheet.json')).sor
   if (!SKIP.has('tone') && R1.tone) await skinTonePass(doc, R1.tone, R1.toneK);
   // (the two ponytails keep the forge's own cut this round: the 'tie' groom read spiky and see-through, worse than the cut)
   if (R1.tailor && !SKIP.has('tailor')) tailorPass(doc, R1.tailor);
+  if (R1.drop && !SKIP.has('drop')) for (const p of doc.getRoot().listMeshes().flatMap((m) => m.listPrimitives())) if (R1.drop.test(p.getMaterial()?.getName() || '')) {
+    // (its triangles reduced to one empty one: the node and its mesh stay (the node order is the forge's), nothing is drawn)
+    p.setIndices(doc.createAccessor().setType('SCALAR').setArray(new Uint16Array([0, 0, 0])).setBuffer(doc.getRoot().listBuffers()[0])); console.log('drop:', p.getMaterial().getName()); }
   if (!SKIP.has('mask')) bodyMaskPass(doc, R1.mask);
+  if (R1.layer && !SKIP.has('layer')) layerMaskPass(doc, R1.layer);
+  // (Intern Two: her black collar band's spikes read as a jagged black ruff: the band dyed the jacket's own blue, plain)
+  if (R1.recolor) { const m = doc.getRoot().listMaterials().find((x) => x.getName() === R1.recolor.mat); if (m) { m.setBaseColorTexture(null).setBaseColorFactor([...R1.recolor.col, 1]); console.log('recolor:', R1.recolor.mat); } }
   if (R1.under) await undershirtPass(doc, R1.under, R1.underK);
   if (R1.stubble) await stubblePaintPass(doc, R1.stubble);
-  if (R1.hairBase && !SKIP.has('hairbase')) await hairBasePass(doc, R1.hairBase);
-  if (!SKIP.has('groom') && (R1.groom !== false || process.env.JC_CARDS)) await groomPass(doc, S.hair.style, { greying: S.hair.greying || 0, ...R1.groom, ...(process.env.JC_CARDS ? JSON.parse(process.env.JC_CARDS) : {}) });
+  const ST = process.env.JC_STRAND ? { ...R1.strand, ...JSON.parse(process.env.JC_STRAND) } : R1.strand;
+  if (ST && !SKIP.has('strand')) await strandGroomPass(doc, ST);
+  else if (R1.hairBase && !SKIP.has('hairbase')) await hairBasePass(doc, R1.hairBase);
+  if (!ST && !SKIP.has('groom') && (R1.groom !== false || process.env.JC_CARDS)) await groomPass(doc, S.hair.style, { greying: S.hair.greying || 0, ...R1.groom, ...(process.env.JC_CARDS ? JSON.parse(process.env.JC_CARDS) : {}) });
   // (the headset over the new hair's outer surface, before the face's targets: it rides the skin's mesh)
   if (S.id === 'marge') headsetPass(doc);
   if (!SKIP.has('face')) await faceRigPass(doc, R1.face || {});
   // (last: the rest correction carries the face's targets with the head)
   const PC = process.env.JC_POSTURE ? JSON.parse(process.env.JC_POSTURE) : (R1.posture ?? 'auto'); if (!SKIP.has('posture')) posturePass(doc, PC);
-  const out = await write(doc, src); fs.writeFileSync(OUTDIR + S.id + '.glb', out);
+  // (cast round 3, rule 1 that lands: the flat front on the final rest pose, the skin drawn in under it again, then the gate:
+  // the build fails if the garment's front stands more than 1 cm forward of the sternum-belt line, castpass3.mjs)
+  if (!SKIP.has('flat3')) { flatFront3Pass(doc, R1.flat3); if (!SKIP.has('mask')) bodyMaskPass(doc, R1.mask); }
+  flatGate(doc, S.id);
+  // (cast round 3, blocker A: every body at most 6 MB: the lossless-looking diet last (slim.mjs))
+  if (!SKIP.has('slim')) console.log('slim:', await slimDoc(doc));
+  const out = await write(doc, src); if (out.length > 6 * 1048576) throw new Error(`${S.id}: ${(out.length / 1048576).toFixed(2)} MB is over the 6 MB body cap`); fs.writeFileSync(OUTDIR + S.id + '.glb', out);
   console.log(S.id, (out.length / 1048576).toFixed(2), 'MB', ((Date.now() - t0) / 1000).toFixed(1), 's', (log || []).filter((l) => /left off|guard|cap/.test(l)).join(' | '));
 }

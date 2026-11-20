@@ -37,6 +37,7 @@ import { R12, R12x, r12Pass } from './round12.mjs';
 import os from 'node:os';
 const FACE = process.env.JH_FACE || new URL('../../../.scratch/jensen/face/', import.meta.url).pathname;
 import { holeUvPass, sculptPass, mapsPass, mouthBagPass, teethRigidPass, skinTonePass } from './blender/face-pass.mjs';
+import { slimDoc } from '../jensen-cast/slim.mjs';
 import { keepOrder, stripOld, addParts, writeKept, flatFront, teeUnder, neckSkirt, ownClips, lensPanes, matteFront } from './blender/assemble.mjs';
 const MORPHS = ['eyeBlinkLeft', 'eyeBlinkRight', 'jawOpen', ...['sil', 'PP', 'FF', 'TH', 'DD', 'kk', 'CH', 'SS', 'nn', 'RR', 'aa', 'E', 'I', 'O', 'U'].map((v) => 'viseme_' + v),
   'mouthSmileLeft', 'mouthSmileRight', 'cheekSquintLeft', 'cheekSquintRight', 'eyeSquintLeft', 'eyeSquintRight', 'browInnerUp', 'browOuterUpLeft', 'browOuterUpRight', 'mouthClose',
@@ -326,6 +327,10 @@ const steps = [
   // (v3b, the owner: "chest and stomach should NOT protrude": the clips' spine zig-zag folded the torso belly-out, chest-in;
   // his six clips now turn the trunk as one piece, the seated lean capped at 8 degrees (blender/jacket posture2.py))
   ['posture', () => ownClips(doc, PARTS + 'clips-posture.glb')],
+  // (cast round 3, blocker A: the platform's 6 MB body cap: textures to their caps, clips resampled, floats rounded,
+  // weights as bytes (scripts/handbuilt/jensen-cast/slim.mjs): his look, morphs and hair unchanged; the shipped GLB was
+  // slimmed from the 15.5 MB build with `node scripts/handbuilt/jensen-cast/slim.mjs storykit/handbuilt/jensen/jensen.glb`)
+  ['slim', async () => console.log('slim:', await slimDoc(doc))],
   // (iteration 1's 'comb' and 'hairlook' (assemble.mjs combBack, hairLook) gone: the iteration-2 groom lies up and back in
   // layers, its own cut (0.35) and colour made for the engine's strand shader)
 ];

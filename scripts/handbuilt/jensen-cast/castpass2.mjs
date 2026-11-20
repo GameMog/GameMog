@@ -78,9 +78,13 @@ export async function undershirtPass(doc, col, K = {}) {
   // (K.vneck: an open collar's V up the neck's front too: the strip |x| < vx in front of the neck, up to the collar's top
   // (the highest point of the garment's collar near the middle, less 4 mm), so an open zip shows the undershirt's neck)
   let vTop = -9; if (K.vneck) { for (const p of doc.getRoot().listMeshes().flatMap((m) => m.listPrimitives())) { if (!K.vneck.test(p.getMaterial()?.getName() || '')) continue; const A = p.getAttribute('POSITION').getArray(); for (let v = 0; v < A.length / 3; v++) if (Math.abs(A[v * 3]) < 0.03 && A[v * 3 + 2] > nk[2]) vTop = Math.max(vTop, A[v * 3 + 1]); } vTop -= 0.004; }
-  for (let i = 0; i < N2; i++) { const x = pos[i * 3], y = pos[i * 3 + 1]; if (Number.isNaN(y) || Math.abs(x) > 0.2) continue;
-    const inV = K.vneck && Math.abs(x) < (K.vx ?? 0.035) && pos[i * 3 + 2] > nk[2] && y < vTop; if (!inV && (head[i] > 0.2 || y > yTop + 0.01)) continue;
-    const w = inV ? 1 - sm(vTop - 0.006, vTop, y) * 0 : 1 - sm(yTop - 0.01, yTop + 0.01, y); if (w <= 0) continue; const l = (0.2126 * lin(d[i * 4]) + 0.7152 * lin(d[i * 4 + 1]) + 0.0722 * lin(d[i * 4 + 2])), k = clamp(0.85 + 0.3 * (l / 0.25 - 1), 0.7, 1.1);
+  // (cast round 3, K.crew: a crew neck instead: the tee's edge dipping K.crew.dip in front, a ribbed band K.crew.rib wide
+  // along it a little darker (K.crew.ribK), the edge sharp (2 mm), no V up the neck)
+  const CR = K.crew, topAt = (x, z) => CR ? nk[1] - K.top + 0.012 - CR.dip * sm(nk[2] - 0.02, nk[2] + 0.06, z) * Math.max(0, 1 - (x / 0.075) ** 2) : yTop;
+  for (let i = 0; i < N2; i++) { const x = pos[i * 3], y = pos[i * 3 + 1]; if (Number.isNaN(y) || Math.abs(x) > 0.2) continue; const yT = topAt(x, pos[i * 3 + 2]);
+    const inV = K.vneck && Math.abs(x) < (K.vx ?? 0.035) && pos[i * 3 + 2] > nk[2] && y < vTop; if (!inV && (head[i] > 0.2 || y > yT + 0.01)) continue;
+    const w = inV ? 1 : CR ? 1 - sm(yT - 0.001, yT + 0.001, y) : 1 - sm(yTop - 0.01, yTop + 0.01, y); if (w <= 0) continue; const l = (0.2126 * lin(d[i * 4]) + 0.7152 * lin(d[i * 4 + 1]) + 0.0722 * lin(d[i * 4 + 2]));
+    const k = clamp(0.85 + 0.3 * (l / 0.25 - 1), 0.7, 1.1) * (CR && y > yT - CR.rib ? CR.ribK * (0.92 + 0.08 * Math.sin(x * 2200)) : 1);
     for (let ch = 0; ch < 3; ch++) d[i * 4 + ch] = enc(lin(d[i * 4 + ch]) * (1 - w) + c[ch] * k * w); n++; }
   await setWebp(tex, d, S, S, 90, 4);
   console.log('undershirt: texels', n, 'below y', yTop.toFixed(3), 'V to', vTop.toFixed(3), 'colour', col.join(','));
@@ -143,14 +147,14 @@ export async function stubblePaintPass(doc, K = {}) {
     return { on: h > 0.35 ? 1 : 0, root: fy, grey: h3(gx + 11, gy, gz) < K.salt }; };
   for (let i = 0; i < N2; i++) { const x = pos[i * 3], y = pos[i * 3 + 1], z = pos[i * 3 + 2]; if (Number.isNaN(y) || head[i] < 0.5) continue; const ax = Math.abs(x);
     // the beard: under the cheek line, in front of the ears, off the lips; the scalp: over the hairline
-    const cheekTop = ey - 0.04 - 0.18 * Math.max(0, ax - 0.02), mouthY = ey - 0.083, lips = ((x / 0.026) ** 2 + ((y - mouthY) / 0.0105) ** 2) < 1;
+    const cheekTop = ey - 0.04 - 0.18 * Math.max(0, ax - 0.02), mouthY = ey - 0.083, lipR = K.lips || [0.026, 0.0105], lipE = (x / lipR[0]) ** 2 + ((y - mouthY) / lipR[1]) ** 2, lips = lipE < 1;
     const jn = 0.006 * (fbm(x, y, z, 60) - 0.5);
-    let wb = (1 - sm(cheekTop - 0.008, cheekTop + 0.002, y + jn)) * sm(ez - 0.085, ez - 0.06, z) * sm(ey - 0.2, ey - 0.16, y) * (lips ? 0 : 1);
+    let wb = (1 - sm(cheekTop - 0.008, cheekTop + 0.002, y + jn)) * sm(ez - 0.085, ez - 0.06, z) * sm(ey - 0.2, ey - 0.16, y) * (K.lips ? sm(1, 1.35, lipE) : lips ? 0 : 1);
     const t = sm(ez - 0.095, ez - 0.02, z), hl = (z < ez - 0.095 ? ey - 0.075 + 0.1 * sm(ez - 0.17, ez - 0.095, z) : ey + 0.025 + 0.042 * t);
     let ws = sm(hl - 0.004, hl + 0.006, y + jn) * (ax > 0.065 && y < ey + 0.035 && z > ez - 0.12 ? 0 : 1);
     if (wb <= 0 && ws <= 0) continue;
     const s1 = strand(x, y, z, 1400, 260), s2 = strand(x + 0.37, y + 0.11, z, 1700, 330), on = Math.max(s1.on, s2.on * 0.8), s = s1.on ? s1 : s2;
-    const cov = Math.min(1, (wb * K.beard + ws * K.scalp)) * (0.55 + 0.45 * on), col = s.grey ? G : D, rootK = 0.75 + 0.25 * s.root;
+    const cov = Math.min(1, (wb * K.beard + ws * K.scalp)) * ((K.soft ?? 0.55) + (1 - (K.soft ?? 0.55)) * on), col = s.grey ? G : D, rootK = 0.75 + 0.25 * s.root;
     for (let c = 0; c < 3; c++) { const sk = lin(d[i * 4 + c]); d[i * 4 + c] = enc(sk * (1 - cov) + col[c] * rootK * cov); }
     if (wb > 0) nb++; else ns++; }
   await setWebp(tex, d, S, S, 92, 4);

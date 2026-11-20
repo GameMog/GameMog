@@ -21,14 +21,15 @@ function writeJson(g, json) {
   return Buffer.concat([head, s, rest]);
 }
 export async function read(file) { const fs = await import('node:fs'); const src = fs.readFileSync(file); const doc = await io.readBinary(src); doc.setLogger({ debug() {}, info() {}, warn() {}, error: console.error }); return { doc, src }; }
-export async function write(doc, src) {
+export async function write(doc, src, K = {}) {
   for (const e of doc.getRoot().listExtensionsUsed()) if (/meshopt|quantization/i.test(e.extensionName)) e.dispose();
   doc.createExtension(KHRMeshQuantization).setRequired(true);
   doc.createExtension(EXTMeshoptCompression).setRequired(true).setEncoderOptions({ method: EXTMeshoptCompression.EncoderMethod.FILTER });
   const glb = Buffer.from(await io.writeBinary(doc)), json = readJson(glb), sj = readJson(src);
   for (const bv of json.bufferViews) { const e = bv.extensions?.EXT_meshopt_compression; if (e && e.mode === 'TRIANGLES') e.mode = 'INDICES'; }
   if (sj.nodes.length !== json.nodes.length || sj.nodes.some((nd, i) => (nd.name ?? '') !== (json.nodes[i].name ?? ''))) throw new Error('node order changed');
-  json.nodes.forEach((nd, i) => { for (const k of ['translation', 'rotation', 'scale', 'matrix']) { delete nd[k]; if (sj.nodes[i][k]) nd[k] = sj.nodes[i][k]; } });
+  // (K.ownTRS: a pass that set the rest pose on purpose (jensen-cast/plumb.mjs bakeRestPass) keeps the document's TRS)
+  if (!K.ownTRS) json.nodes.forEach((nd, i) => { for (const k of ['translation', 'rotation', 'scale', 'matrix']) { delete nd[k]; if (sj.nodes[i][k]) nd[k] = sj.nodes[i][k]; } });
   return writeJson(glb, json);
 }
 // the body: the skin primitive (largest skin-material one), its arrays, and per-vertex weight on a set of bones
