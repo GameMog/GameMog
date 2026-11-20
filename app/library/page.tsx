@@ -70,6 +70,15 @@ export default function Library() {
           They are look-alikes with no connection to any car maker.
         </p>
         <p>
+          Jensen Heist is a parody of a public figure&apos;s public keynote persona, not endorsed by him or anyone
+          else. Its people are built from CC0 MakeHuman parts, their hair cards from{' '}
+          <a href="https://sketchfab.com/3d-models/hair-cards-fbx-ad1ac6f162ff43a3ae175982bf770c3e">&ldquo;Hair Cards_FBX&rdquo;</a>{' '}
+          by POLYTRICITY (Sketchfab), licensed CC BY 4.0, modified. The lime supercar is adapted from a{' '}
+          <a href="https://sketchfab.com/models/cf52245eb68f48daa909c7ad2a8deaa3">model</a> by ALIEEEN (Sketchfab),
+          licensed CC BY 4.0, modified, with no maker&apos;s badges; it is a look-alike with no connection to any car
+          maker.
+        </p>
+        <p>
           A hometown town&apos;s map is built from open data: map data &copy;{' '}
           <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> (ODbL 1.0), via{' '}
           <a href="https://overturemaps.org">Overture Maps</a> (whose building footprints also include Microsoft&apos;s
