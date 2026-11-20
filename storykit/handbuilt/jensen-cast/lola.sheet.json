@@ -1,0 +1,115 @@
+{
+ "id": "lola",
+ "name": "Lola Hart",
+ "role": "brisket truck owner: Jensen Heist",
+ "logline": "Eleven years at the market square window; started with one burner; knows everything.",
+ "identity": {
+  "age": 52,
+  "body": "female",
+  "presentation": "woman",
+  "heightCm": 163,
+  "build": {
+   "frame": "medium",
+   "weight": "stocky",
+   "muscle": "average"
+  }
+ },
+ "heritage": {
+  "note": "invented person; no real likeness",
+  "blend": {
+   "african": 0.55,
+   "asian": 0,
+   "european": 0.45
+  },
+  "skin": {
+   "tone": "brown",
+   "undertone": "warm",
+   "makeup": "lipstick",
+   "lipTint": "berry"
+  }
+ },
+ "face": {
+  "jaw": "soft",
+  "cheeks": "average",
+  "cheekbones": "high",
+  "faceWidth": "narrow",
+  "nose": {
+   "width": "average",
+   "length": "average",
+   "tip": "average",
+   "bridge": "straight"
+  },
+  "browRidge": "average",
+  "chin": {
+   "projection": "average",
+   "length": "average",
+   "width": "narrow"
+  },
+  "eyes": "dark-brown",
+  "brows": {
+   "color": "black",
+   "weight": "fine"
+  },
+  "eyeShape": "almond",
+  "eyeBags": "light",
+  "mouth": {
+   "lips": "full",
+   "width": "average",
+   "cupidsBow": "defined",
+   "corners": "neutral"
+  },
+  "ears": {
+   "size": "average",
+   "angle": "flat"
+  },
+  "skull": {
+   "shape": "oval"
+  },
+  "forehead": "average",
+  "faceLength": "average"
+ },
+ "hair": {
+  "style": "long",
+  "color": "black",
+  "greying": 0.25
+ },
+ "facialHair": {
+  "style": "none"
+ },
+ "wardrobe": {
+  "top": {
+   "item": "western-shirt",
+   "color": "#6B3328"
+  },
+  "bottom": {
+   "item": "loose-trousers",
+   "color": "#3B3530"
+  },
+  "shoes": {
+   "item": "work-boots",
+   "color": "#3A2A20"
+  }
+ },
+ "posture": {
+  "stance": "proud",
+  "pace": "steady",
+  "gestures": "points with the tongs, wipes her hands on the apron",
+  "idle": "arms",
+  "walk": "walk"
+ },
+ "personality": {
+  "traits": [
+   "unimpressed",
+   "generous",
+   "sharp",
+   "proud"
+  ],
+  "speech": "short questions and prices"
+ },
+ "voice": {
+  "id": "lola-v1",
+  "description": "bright alto, unimpressed, quick to the price",
+  "pitch": "mid",
+  "rate": "quick"
+ }
+}

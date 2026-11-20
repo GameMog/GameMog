@@ -1,0 +1,123 @@
+{
+ "id": "marge",
+ "name": "Marge Tolliver",
+ "role": "keynote stage manager: Jensen Heist",
+ "logline": "Nineteen keynotes, none started on time; headset, clipboard, stage blacks.",
+ "identity": {
+  "age": 57,
+  "body": "female",
+  "presentation": "woman",
+  "heightCm": 166,
+  "build": {
+   "frame": "medium",
+   "weight": "average",
+   "muscle": "average"
+  }
+ },
+ "heritage": {
+  "note": "invented person; no real likeness",
+  "blend": {
+   "african": 0.1,
+   "asian": 0.05,
+   "european": 0.85
+  },
+  "skin": {
+   "tone": "light",
+   "undertone": "neutral",
+   "makeup": "natural",
+   "lipTint": "natural"
+  }
+ },
+ "face": {
+  "jaw": "square",
+  "cheeks": "hollow",
+  "cheekbones": "high",
+  "faceWidth": "average",
+  "nose": {
+   "width": "average",
+   "length": "long",
+   "tip": "average",
+   "bridge": "straight"
+  },
+  "browRidge": "average",
+  "chin": {
+   "projection": "strong",
+   "length": "average",
+   "width": "average"
+  },
+  "eyes": "grey-blue",
+  "brows": {
+   "color": "brown",
+   "weight": "average"
+  },
+  "eyeShape": "hooded",
+  "eyeBags": "light",
+  "mouth": {
+   "lips": "thin",
+   "width": "average",
+   "cupidsBow": "average",
+   "corners": "neutral"
+  },
+  "ears": {
+   "size": "average",
+   "angle": "flat"
+  },
+  "skull": {
+   "shape": "oval"
+  },
+  "forehead": "average",
+  "faceLength": "long",
+  "jawWidth": "wide"
+ },
+ "hair": {
+  "style": "bob-tucked",
+  "color": "salt-and-pepper",
+  "greying": 0.55
+ },
+ "facialHair": {
+  "style": "none"
+ },
+ "wardrobe": {
+  "top": {
+   "item": "uniform-jacket",
+   "color": "#19191B",
+   "accent": "#19191B"
+  },
+  "bottom": {
+   "item": "trousers",
+   "color": "#1B1B1E"
+  },
+  "shoes": {
+   "item": "work-shoes",
+   "color": "#151414"
+  }
+ },
+ "posture": {
+  "stance": "upright",
+  "pace": "quick",
+  "gestures": "counts down on her fingers, taps the headset",
+  "idle": "arms",
+  "walk": "walk"
+ },
+ "personality": {
+  "traits": [
+   "dry",
+   "exact",
+   "unflappable",
+   "loyal"
+  ],
+  "speech": "cue-speak in clean full sentences"
+ },
+ "voice": {
+  "id": "marge-v1",
+  "description": "dry and low, crisp consonants",
+  "pitch": "mid-low",
+  "rate": "steady"
+ },
+ "props": [
+  {
+   "kind": "earpiece",
+   "color": "#1A1A1A"
+  }
+ ]
+}

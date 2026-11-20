@@ -667,7 +667,7 @@ export const GARMENTS = {
   vest: (ctx, o) => westernVest(ctx, o),
   duster: (ctx, o) => duster(ctx, o),
 };
-function coat(ctx, o) {
+export function coat(ctx, o) {
   const col = hexRGB(o.color, o.kind === 'chef' ? [238, 238, 234] : [60, 60, 66]), acc = hexRGB(o.accent, o.kind === 'doorman' ? [176, 140, 58] : o.kind === 'chef' ? [228, 226, 220] : [24, 22, 22]);
   const hem = o.hemTop ?? o.hem, field = torsoArmField(ctx, { ...o, hem, neckBase: o.neckBase ?? (o.collar === 'stand' ? 0.022 : 0.026), neckFront: o.neckFront ?? (o.collar === 'turn' ? 0.03 : 0.02), neckBack: o.collar === 'stand' ? 0.014 : 0, hugNeck: o.collar === 'stand' ? { margin: o.kind === 'chef' ? 0.009 : 0.006, up: 0.015 } : o.hug ?? null, vee: o.vee ?? (o.collar === 'turn' ? 0.07 : 0) });
   const weave = CLOTH[o.cloth] || CLOTH.cotton, overlapX = o.db ? 0.055 : 0.0, ribBand = 0.05;
@@ -730,7 +730,7 @@ function coat(ctx, o) {
   // (NK: a stand collar fitted to the neck as a closed band whose foot is tucked into this coat's neckline, open at the
   // front (necklines.mjs); the hoodie's rib the same, closed round, low on the neck)
   if ((o.collar === 'stand' || o.collar === 'stand-tall') && !(o.scarf && o.collar === 'stand-tall')) { const tall = o.collar === 'stand-tall';
-    const cm = standCollar(ctx, { name: o.kind, sh, nearestNeck, field, top: tall ? 0.03 : o.kind === 'chef' ? 0.002 : 0.011, smoothTop: o.kind === 'chef', dropFront: tall ? 0.012 : o.kind === 'chef' ? -0.002 : 0.007, gap: tall ? 0.006 : 0.0025, th: tall ? 0.011 : 0.0035, open: o.kind === 'chef' ? 0.09 : tall ? 0.08 : 0, round: o.kind === 'chef' ? 0.012 : 0.007, minH: tall ? 0.04 : 0.018 }); for (const t of cm.hide) sh.hide.add(t);
+    const cm = standCollar(ctx, { name: o.kind, sh, nearestNeck, field, top: tall ? 0.03 : o.kind === 'chef' ? 0.002 : 0.011, smoothTop: o.kind === 'chef', dropFront: tall ? 0.012 : o.kind === 'chef' ? -0.002 : 0.007, gap: tall ? 0.006 : 0.0025, th: tall ? 0.011 : 0.0035, open: o.kind === 'chef' ? 0.09 : tall ? 0.08 : 0, round: o.kind === 'chef' ? 0.012 : 0.007, minH: tall ? 0.04 : 0.018, ...(o.stand || {}) }); for (const t of cm.hide) sh.hide.add(t);
     extras.push({ name: o.kind + '-collar', mesh: cm, S: 512, base: col,
       paint: (p, n, f, c, ao, uv) => { const roll = uv[1] > 0.4 && uv[1] < 0.64; return shade(o.trim && roll ? acc : col, weave(p) * (roll ? 0.92 : 1) * (uv[1] < 0.05 ? 0.8 : 1) * (o.kind !== 'chef' && !tall && (uv[0] < 0.005 || uv[0] > 0.995) ? 0.45 : 1)); } }); }
   if (o.collar === 'turn' && o.turn) extras.push(westCollar(ctx, o, col, weave, sh, field));

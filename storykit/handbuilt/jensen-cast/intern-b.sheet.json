@@ -1,0 +1,114 @@
+{
+ "id": "intern-b",
+ "name": "Cobalt intern",
+ "role": "enemy intern: Jensen Heist",
+ "logline": "Unpaid, polite, in the matching cobalt jacket.",
+ "identity": {
+  "age": 22,
+  "body": "female",
+  "presentation": "woman",
+  "heightCm": 165,
+  "build": {
+   "frame": "small",
+   "weight": "slim",
+   "muscle": "average"
+  }
+ },
+ "heritage": {
+  "note": "invented person; no real likeness",
+  "blend": {
+   "african": 0,
+   "asian": 0.75,
+   "european": 0.25
+  },
+  "skin": {
+   "tone": "light",
+   "undertone": "neutral",
+   "makeup": "natural",
+   "lipTint": "natural"
+  }
+ },
+ "face": {
+  "jaw": "average",
+  "cheeks": "average",
+  "cheekbones": "average",
+  "faceWidth": "average",
+  "nose": {
+   "width": "average",
+   "length": "average",
+   "tip": "average",
+   "bridge": "straight"
+  },
+  "browRidge": "average",
+  "chin": {
+   "projection": "average",
+   "length": "average",
+   "width": "average"
+  },
+  "eyes": "dark-brown",
+  "brows": {
+   "color": "black",
+   "weight": "fine"
+  },
+  "eyeShape": "average",
+  "eyeBags": "none",
+  "mouth": {
+   "lips": "average",
+   "width": "average",
+   "cupidsBow": "average",
+   "corners": "neutral"
+  },
+  "ears": {
+   "size": "average",
+   "angle": "flat"
+  },
+  "skull": {
+   "shape": "oval"
+  },
+  "forehead": "average",
+  "faceLength": "average"
+ },
+ "hair": {
+  "style": "ponytail",
+  "color": "black",
+  "greying": 0
+ },
+ "facialHair": {
+  "style": "none"
+ },
+ "wardrobe": {
+  "top": {
+   "item": "uniform-jacket",
+   "color": "#2F5FD0"
+  },
+  "bottom": {
+   "item": "trousers",
+   "color": "#2E3038"
+  },
+  "shoes": {
+   "item": "loafers",
+   "color": "#1A1918"
+  }
+ },
+ "posture": {
+  "stance": "upright",
+  "pace": "quick",
+  "gestures": "holds a tablet to her chest",
+  "idle": "idle",
+  "walk": "walk"
+ },
+ "personality": {
+  "traits": [
+   "polite",
+   "precise",
+   "nervous"
+  ],
+  "speech": "polite and quick"
+ },
+ "voice": {
+  "id": "intern-b-v1",
+  "description": "young, bright and polite",
+  "pitch": "mid-high",
+  "rate": "quick"
+ }
+}

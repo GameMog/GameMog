@@ -1,0 +1,19 @@
+--- a/wagmi/storyrun/polish.js	2026-11-19 09:53:25
++++ b/wagmi/storyrun/polish.js	2026-11-19 09:53:25
+@@ -514,7 +514,15 @@
+   if (m.normalMap) { const b = texture(m.normalMap).rgb.mul(2).sub(1); n.normalNode = normalMap(vec3(b.xy.add(dxy), b.z).normalize().mul(0.5).add(0.5), m.normalScale.clone()); }
+   else n.normalNode = normalMap(vec3(dxy, 1).normalize().mul(0.5).add(0.5), vec2(1, -1));
+   const r0 = m.roughnessMap ? texture(m.roughnessMap).g.mul(m.roughness ?? 1) : float(m.roughness ?? 0.9);
+-  n.roughnessNode = r0.mul(d.b.sub(0.5).mul(F.rough).add(1)).clamp(0.2, 1);
++  // (Jensen Heist: a garment that asks for semi-matte leather (its material's extras.look, the hand-built moto jacket): its
++  // roughness held in the look's range, its coat thin and soft, its specular and the sky's light on it down, so the leather
++  // reads crinkled and semi-matte, not as glossy latex with round highlights on the chest and arms)
++  const look = fab === 'leather' && m.userData?.look?.leather === 'matte' ? m.userData.look : null;
++  n.roughnessNode = r0.mul(d.b.sub(0.5).mul(F.rough).add(1)).clamp(look ? look.roughMin ?? 0.55 : 0.2, look ? look.roughMax ?? 0.9 : 1);
++  if (look) {
++    n.specularIntensity = look.spec ?? 0.3; n.envMapIntensity = look.env ?? 0.4;
++    n.clearcoat = look.coat ?? 0; n.clearcoatRoughness = look.coatRough ?? 0.6;
++  }
+   n.userData = { ...m.userData, fabric: fab, weaveRepeat: +rep.toFixed(2) };
+   return n;
+ }

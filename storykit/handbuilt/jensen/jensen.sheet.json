@@ -1,0 +1,116 @@
+{
+ "id": "jensen",
+ "name": "Jensen",
+ "role": "hero: Jensen Heist, founder-CEO of Greenlight Silicon in his black leather jacket",
+ "logline": "A parody of a public keynote persona: the black leather jacket, the swept-back silver hair, the big delighted grin; ten hours to win back his stage.",
+ "identity": {
+  "age": 63,
+  "body": "male",
+  "presentation": "man",
+  "heightCm": 175,
+  "build": {
+   "frame": "medium",
+   "weight": "average",
+   "muscle": "average"
+  }
+ },
+ "heritage": {
+  "note": "parody of a public persona; realistic features at forge defaults, no exaggeration; a lean, taut face (likeness round 1: high cheekbones, no full cheeks or jowls, a slightly tapered jaw)",
+  "blend": {
+   "african": 0.0,
+   "asian": 0.85,
+   "european": 0.15
+  },
+  "skin": {
+   "tone": "light-medium",
+   "undertone": "warm",
+   "makeup": "none",
+   "lipTint": "natural"
+  }
+ },
+ "face": {
+  "jaw": "soft",
+  "cheeks": "average",
+  "cheekbones": "high",
+  "faceWidth": "average",
+  "nose": {
+   "width": "average",
+   "length": "average",
+   "tip": "average",
+   "bridge": "straight"
+  },
+  "browRidge": "average",
+  "chin": {
+   "projection": "average",
+   "length": "average",
+   "width": "average"
+  },
+  "eyes": "brown",
+  "brows": {
+   "color": "dark-brown",
+   "weight": "average"
+  },
+  "eyeShape": "average",
+  "eyeBags": "light",
+  "mouth": {
+   "lips": "average",
+   "width": "average",
+   "cupidsBow": "average",
+   "corners": "up"
+  },
+  "ears": {
+   "size": "average",
+   "angle": "flat"
+  },
+  "skull": {
+   "shape": "oval"
+  },
+  "forehead": "average",
+  "faceLength": "average"
+ },
+ "hair": {
+  "style": "swept-back",
+  "color": "silver",
+  "greying": 0.9
+ },
+ "facialHair": {
+  "style": "none"
+ },
+ "wardrobe": {
+  "top": {
+   "item": "tee",
+   "color": "#141416"
+  },
+  "bottom": {
+   "item": "jeans",
+   "color": "#1E2330"
+  },
+  "shoes": {
+   "item": "dress",
+   "color": "#141210"
+  }
+ },
+ "posture": {
+  "stance": "upright",
+  "pace": "quick",
+  "gestures": "presents with both hands, counts the list on his fingers",
+  "idle": "idle",
+  "walk": "walk"
+ },
+ "personality": {
+  "traits": [
+   "delighted",
+   "generous",
+   "showman",
+   "relentless"
+  ],
+  "wants": "his chip back on his stage by seven",
+  "speech": "lists that build into a pitch, a showman's lift at the ends"
+ },
+ "voice": {
+  "id": "jensen-v1",
+  "description": "an older man, warm bright baritone, quick and delighted, a showman's lift at the ends of sentences",
+  "pitch": "mid",
+  "rate": "quick"
+ }
+}

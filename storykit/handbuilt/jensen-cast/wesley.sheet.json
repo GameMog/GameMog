@@ -1,0 +1,117 @@
+{
+ "id": "wesley",
+ "name": "Wesley Trout",
+ "role": "superfan streamer: Jensen Heist",
+ "logline": "Nineteen, has held his spot in the fan line since Tuesday, streams everything.",
+ "identity": {
+  "age": 19,
+  "body": "male",
+  "presentation": "man",
+  "heightCm": 176,
+  "build": {
+   "frame": "small",
+   "weight": "slim",
+   "muscle": "average"
+  }
+ },
+ "heritage": {
+  "note": "invented person; no real likeness",
+  "blend": {
+   "african": 0.2,
+   "asian": 0.1,
+   "european": 0.7
+  },
+  "skin": {
+   "tone": "light-medium",
+   "undertone": "warm",
+   "makeup": "none",
+   "lipTint": "natural"
+  }
+ },
+ "face": {
+  "jaw": "average",
+  "cheeks": "average",
+  "cheekbones": "average",
+  "faceWidth": "average",
+  "nose": {
+   "width": "average",
+   "length": "average",
+   "tip": "average",
+   "bridge": "straight"
+  },
+  "browRidge": "average",
+  "chin": {
+   "projection": "average",
+   "length": "average",
+   "width": "average"
+  },
+  "eyes": "hazel",
+  "brows": {
+   "color": "brown",
+   "weight": "average"
+  },
+  "eyeShape": "round",
+  "eyeBags": "none",
+  "mouth": {
+   "lips": "average",
+   "width": "average",
+   "cupidsBow": "average",
+   "corners": "up"
+  },
+  "ears": {
+   "size": "average",
+   "angle": "flat"
+  },
+  "skull": {
+   "shape": "oval"
+  },
+  "forehead": "average",
+  "faceLength": "average"
+ },
+ "hair": {
+  "style": "short-curly",
+  "color": "brown",
+  "greying": 0
+ },
+ "facialHair": {
+  "style": "none"
+ },
+ "wardrobe": {
+  "top": {
+   "item": "hoodie",
+   "color": "#17171A",
+   "accent": "#D8D5CE"
+  },
+  "bottom": {
+   "item": "track-pants",
+   "color": "#2E3036"
+  },
+  "shoes": {
+   "item": "skate-shoes",
+   "color": "#2B2D31",
+   "accent": "#C9C4BA"
+  }
+ },
+ "posture": {
+  "stance": "relaxed",
+  "pace": "restless",
+  "gestures": "holds the phone up, bounces on his heels",
+  "idle": "phone",
+  "walk": "walk"
+ },
+ "personality": {
+  "traits": [
+   "eager",
+   "sincere",
+   "loud",
+   "loyal"
+  ],
+  "speech": "and-and-and run-ons, every sentence going uphill"
+ },
+ "voice": {
+  "id": "wesley-v1",
+  "description": "young tenor, fast, every sentence going uphill",
+  "pitch": "mid-high",
+  "rate": "quick"
+ }
+}

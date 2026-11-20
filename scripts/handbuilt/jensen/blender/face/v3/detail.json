@@ -1,0 +1,15 @@
+{"deformers": [
+ {"name": "nose tip rounder, a touch up and forward", "at": 4, "r": 7, "y": 0.8, "z": 0.8},
+ {"name": "nose bridge a little higher", "at": [6], "r": 9, "z": 0.8},
+ {"name": "alar width", "at": [48], "r": 5, "out": 0.6},
+ {"name": "cheekbone mass high and forward", "at": [117], "off": [0, 2, 0], "r": 14, "out": 3.0, "z": 1.8},
+ {"name": "submalar hollow", "at": [207], "off": [0, 3, 0], "r": 11, "out": -1.8, "z": -1.6},
+ {"name": "brow ridge", "at": [105], "r": 13, "z": 1.0, "y": 0.6},
+ {"name": "upper-lid crease set in", "at": [159], "off": [0, 6.5, 0], "r": 4.5, "aniso": [1.8, 1, 1], "z": -0.7, "depth": 8},
+ {"name": "chin forward", "at": 152, "off": [0, 6, 0], "r": 15, "z": 4.2},
+ {"name": "lower chin front", "at": 175, "r": 11, "z": 3.0},
+ {"name": "mouth a little wider", "at": [61], "r": 7, "out": 1.0},
+ {"name": "upper lip shape forward", "at": 0, "r": 8, "aniso": [1.8, 1, 1], "z": 0.5}
+],
+ "neck": {"scale": 0.05}
+}

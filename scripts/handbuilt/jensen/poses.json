@@ -1,0 +1,57 @@
+{
+ "_note": "Turntable poses for the hand-built studio (studio-hp.html __shot rot): the idle clip at 1.2 s with these bones turned (degrees, each bone's own frame). apose: arms relaxed out from the body so the sleeves and hands show; keynote: hands out, forearms forward (the presenting gesture).",
+ "apose": {
+  "upperarm01_L": [
+   -30,
+   0,
+   20
+  ],
+  "upperarm01_R": [
+   -30,
+   0,
+   -20
+  ],
+  "lowerarm01_L": [
+   -8,
+   0,
+   0
+  ],
+  "lowerarm01_R": [
+   -8,
+   0,
+   0
+  ]
+ },
+ "keynote": {
+  "upperarm01_L": [
+   -15,
+   0,
+   25
+  ],
+  "upperarm01_R": [
+   -15,
+   0,
+   -25
+  ],
+  "lowerarm01_L": [
+   -50,
+   -60,
+   0
+  ],
+  "lowerarm01_R": [
+   -50,
+   60,
+   0
+  ],
+  "wrist_L": [
+   0,
+   40,
+   0
+  ],
+  "wrist_R": [
+   0,
+   -40,
+   0
+  ]
+ }
+}
