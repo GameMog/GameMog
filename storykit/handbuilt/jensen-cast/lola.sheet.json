@@ -18,20 +18,20 @@
   "note": "invented person; no real likeness",
   "blend": {
    "african": 0.55,
-   "asian": 0.0,
+   "asian": 0,
    "european": 0.45
   },
   "skin": {
    "tone": "brown",
    "undertone": "warm",
-   "makeup": "natural",
-   "lipTint": "natural"
+   "makeup": "lipstick",
+   "lipTint": "berry"
   }
  },
  "face": {
-  "jaw": "average",
+  "jaw": "soft",
   "cheeks": "full",
-  "cheekbones": "average",
+  "cheekbones": "high",
   "faceWidth": "average",
   "nose": {
    "width": "average",
@@ -43,19 +43,19 @@
   "chin": {
    "projection": "average",
    "length": "average",
-   "width": "average"
+   "width": "narrow"
   },
   "eyes": "dark-brown",
   "brows": {
    "color": "black",
-   "weight": "average"
+   "weight": "fine"
   },
-  "eyeShape": "average",
+  "eyeShape": "almond",
   "eyeBags": "light",
   "mouth": {
    "lips": "full",
    "width": "average",
-   "cupidsBow": "average",
+   "cupidsBow": "defined",
    "corners": "neutral"
   },
   "ears": {
@@ -69,7 +69,7 @@
   "faceLength": "average"
  },
  "hair": {
-  "style": "high-ponytail",
+  "style": "long",
   "color": "black",
   "greying": 0.25
  },
@@ -82,12 +82,12 @@
    "color": "#4C6C90"
   },
   "bottom": {
-   "item": "jeans",
-   "color": "#2A3240"
+   "item": "loose-trousers",
+   "color": "#3B3530"
   },
   "shoes": {
-   "item": "work-shoes",
-   "color": "#2E2620"
+   "item": "work-boots",
+   "color": "#3A2A20"
   }
  },
  "posture": {

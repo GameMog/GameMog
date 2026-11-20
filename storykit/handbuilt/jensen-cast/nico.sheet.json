@@ -4,7 +4,7 @@
  "role": "driver and wheelman: Jensen Heist",
  "logline": "Came west from New York four days ago in the white roadster; names every pothole.",
  "identity": {
-  "age": 44,
+  "age": 47,
   "body": "male",
   "presentation": "man",
   "heightCm": 178,
@@ -30,8 +30,8 @@
  },
  "face": {
   "jaw": "square",
-  "cheeks": "average",
-  "cheekbones": "average",
+  "cheeks": "hollow",
+  "cheekbones": "high",
   "faceWidth": "average",
   "nose": {
    "width": "average",
@@ -81,16 +81,16 @@
  "wardrobe": {
   "top": {
    "item": "uniform-jacket",
-   "color": "#3C4234"
+   "color": "#3C4234",
+   "fit": "fitted"
   },
   "bottom": {
-   "item": "jeans",
-   "color": "#2A3240"
+   "item": "trousers",
+   "color": "#4A4436"
   },
   "shoes": {
-   "item": "sneakers",
-   "color": "#2B2D31",
-   "accent": "#D8D5CE"
+   "item": "loafers",
+   "color": "#3A2618"
   }
  },
  "posture": {

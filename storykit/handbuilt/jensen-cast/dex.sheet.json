@@ -17,7 +17,7 @@
  "heritage": {
   "note": "invented person; no real likeness",
   "blend": {
-   "african": 0.0,
+   "african": 0,
    "asian": 0.3,
    "european": 0.7
   },
@@ -85,12 +85,12 @@
    "accent": "#6E727B"
   },
   "bottom": {
-   "item": "jeans",
-   "color": "#262C38"
+   "item": "trousers",
+   "color": "#2E3138"
   },
   "shoes": {
-   "item": "white-sneakers",
-   "color": "#E2DFD8"
+   "item": "loafers",
+   "color": "#1E1C1A"
   }
  },
  "posture": {

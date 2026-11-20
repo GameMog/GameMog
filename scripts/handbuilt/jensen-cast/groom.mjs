@@ -130,11 +130,12 @@ export async function groomPass(doc, style, K = {}) {
   for (let i = 0; i < NF; i++) { const y = 1 - (2 * (i + 0.5)) / NF, r = Math.sqrt(1 - y * y), th = i * 2.399963229728653, d = [r * Math.cos(th), y, r * Math.sin(th)]; const s = look(d); if (s && s.rs !== undefined && s.m > 0.99) roots.push(d); }
   const lenAt = (d) => K.len * (K.side + (1 - K.side) * sm(0.0, 0.6, d[1])) * rr(0.8, 1.2);
   // three layers: the inner mass (wide dense clumps), the mid, the outer (narrower tapered clumps)
-  for (const [l0, l1, f, strips, wk] of [[0.0, 0.35, 0.3, [0, 1, 2], 1.2], [0.35, 0.7, 0.35, [0, 1, 2, 3, 4], 1.0], [0.7, 1.0, 0.35, [3, 4, 5, 1, 6, 7], 0.85]])
+  // (round 2, K.layers: a few large opaque-centred cards only (the dense clump strips), over a kept forge cut)
+  for (const [l0, l1, f, strips, wk] of K.layers || [[0.0, 0.35, 0.3, [0, 1, 2], 1.2], [0.35, 0.7, 0.35, [0, 1, 2, 3, 4], 1.0], [0.7, 1.0, 0.35, [3, 4, 5, 1, 6, 7], 0.85]])
     for (let k = 0; k < Math.round(K.n * f) && roots.length; k++) { const d = roots[Math.floor(rnd() * roots.length)], layer = rr(l0, l1);
       const { P, D } = grow(d, lenAt(d), layer, { ph: rr(0, 6.3) }); card(P, D, strips[Math.floor(rnd() * strips.length)], rr(K.w[0], K.w[1]) * wk, colourOf(d, layer)); }
   // a few flyaways: single strands off the outer layer
-  for (let k = 0; k < 8 && roots.length; k++) { const d = roots[Math.floor(rnd() * roots.length)]; const { P, D } = grow(d, lenAt(d) * 0.8, 1, { ph: rr(0, 6.3), curl: rr(-8, 8) }); card(P, D, 10 + (k % 3), rr(0.003, 0.0045), colourOf(d, 1), { twist: rr(-40, 40), taper: 0.2 }); }
+  for (let k = 0; k < (K.flyaways ?? 8) && roots.length; k++) { const d = roots[Math.floor(rnd() * roots.length)]; const { P, D } = grow(d, lenAt(d) * 0.8, 1, { ph: rr(0, 6.3), curl: rr(-8, 8) }); card(P, D, 10 + (k % 3), rr(0.003, 0.0045), colourOf(d, 1), { twist: rr(-40, 40), taper: 0.2 }); }
   // ---- the skinning: each card point the nearest old cut point's (a 1 cm grid)
   const src = hairPs[0], SP = src.getAttribute('POSITION').getArray(), SJ = src.getAttribute('JOINTS_0').getArray(), SW = src.getAttribute('WEIGHTS_0').getArray(), used = [...new Set(hairPs.flatMap((p) => [...p.getIndices().getArray()]))];
   const cell = 0.01, Gd = new Map(), key = (x, y, z) => `${Math.floor(x / cell)},${Math.floor(y / cell)},${Math.floor(z / cell)}`; for (const v of used) { const k = key(SP[v * 3], SP[v * 3 + 1], SP[v * 3 + 2]); (Gd.get(k) || Gd.set(k, []).get(k)).push(v); }
@@ -147,11 +148,11 @@ export async function groomPass(doc, style, K = {}) {
   // (its colour the cards' mean, a little darker, flat (only a tenth of its own paint's light and dark kept): the gaps
   // read as depth in the same hair, not as a grey helmet or white streaks under it)
   const old = hairPs[0].getMaterial(), mean = lerp(base, grey, K.greying).map((x) => x * K.under);
-  if (img) { const out = Buffer.from(img.data), L0 = 0.2126 * lin(med(0)) + 0.7152 * lin(med(1)) + 0.0722 * lin(med(2));
+  if (img && !K.keepBase) { const out = Buffer.from(img.data), L0 = 0.2126 * lin(med(0)) + 0.7152 * lin(med(1)) + 0.0722 * lin(med(2));
     for (let i = 0; i < img.w * img.h; i++) { const L = 0.2126 * lin(img.data[i * 4]) + 0.7152 * lin(img.data[i * 4 + 1]) + 0.0722 * lin(img.data[i * 4 + 2]), r = clamp(1 + 0.1 * (L / (L0 || 1) - 1), 0.85, 1.12);
       for (let c = 0; c < 3; c++) out[i * 4 + c] = Math.round(255 * Math.pow(clamp(mean[c] * r), 1 / 2.2)); }
     const t2 = doc.createTexture('hairUnder'); await setWebp(t2, out, img.w, img.h, 88, 4); old.setBaseColorTexture(t2); }
-  old.setName('hairUnder').setRoughnessFactor(0.9).setNormalTexture(null).setBaseColorFactor([1, 1, 1, 1]);
+  if (!K.keepBase) old.setName('hairUnder').setRoughnessFactor(0.9).setNormalTexture(null).setBaseColorFactor([1, 1, 1, 1]);
   // (a style whose mass is capped (maxT) has its old cut drawn in under the cards: no helmet standing out past them)
   if (K.maxT) { let nm = 0; const done = new Set();
     for (const p of hairPs) { const acc = p.getAttribute('POSITION'), A = acc.getArray().slice();

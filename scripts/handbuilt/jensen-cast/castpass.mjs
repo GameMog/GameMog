@@ -57,12 +57,20 @@ export function flatFrontPass(doc, K = {}) {
   // the front surface per column and 1 cm row (the outermost of every garment and the skin)
   const zf = new Map(); const seen = new Set();
   for (const p of prims) { const A = p.getAttribute('POSITION').getArray(), I = p.getIndices().getArray();
-    for (const v of new Set(I)) { const x = A[v * 3], y = A[v * 3 + 1], z = A[v * 3 + 2]; if (Math.abs(x) > K.xOut + C || y < K.yb - 0.03 || y > K.ys + 0.03 || z < 0) continue; const k = col(x) + ',' + Math.round(y / C); zf.set(k, Math.max(zf.get(k) ?? -9, z)); } }
+    // (round 2: sampled over each triangle every ~4 mm, not only at its corners: a coarse jacket left the sternum's and the
+    // belt's cells empty and the pass did nothing)
+    const put = (x, y, z) => { if (Math.abs(x) > K.xOut + C || y < K.yb - 0.03 || y > K.ys + 0.03 || z < 0) return; const k = col(x) + ',' + Math.round(y / C); zf.set(k, Math.max(zf.get(k) ?? -9, z)); };
+    for (let t = 0; t < I.length; t += 3) { const a = I[t] * 3, b = I[t + 1] * 3, c = I[t + 2] * 3, L = Math.max(Math.hypot(A[a] - A[b], A[a + 1] - A[b + 1]), Math.hypot(A[a] - A[c], A[a + 1] - A[c + 1]), Math.hypot(A[b] - A[c], A[b + 1] - A[c + 1])), m = Math.min(12, Math.ceil(L / 0.004));
+      for (let i = 0; i <= m; i++) for (let j = 0; j <= m - i; j++) { const u = i / m, v = j / m, w = 1 - u - v; put(A[a] * w + A[b] * u + A[c] * v, A[a + 1] * w + A[b + 1] * u + A[c + 1] * v, A[a + 2] * w + A[b + 2] * u + A[c + 2] * v); } } }
   const at = (x, y) => zf.get(col(x) + ',' + Math.round(y / C));
   let n = 0, mx = 0;
   for (const p of prims) { const acc = p.getAttribute('POSITION'); if (seen.has(acc)) continue; seen.add(acc); const A = acc.getArray().slice();
     for (let v = 0; v < A.length / 3; v++) { const x = A[v * 3], y = A[v * 3 + 1], z = A[v * 3 + 2]; if (y <= K.yb || y >= K.ys || z < 0) continue; const f = fade(x); if (!f) continue;
-      const zs = at(x, K.ys), zb = at(x, K.yb); if (zs === undefined || zb === undefined || zs < 0.04 || zb < 0.04) continue; const t = (y - K.yb) / (K.ys - K.yb), line = zb + (zs - zb) * t + K.slack;
+      const zs = at(x, K.ys); let zb = at(x, K.yb);
+      // (round 2, K.waist: the belt's point the narrowest front between the belt and K.waist above it, so a flared hem doesn't carry the line out past the bust)
+      if (K.waist && zb !== undefined) for (let yy = K.yb; yy <= K.yb + K.waist; yy += C) { const q = at(x, yy); if (q !== undefined && q > 0.04) zb = Math.min(zb, q); }
+      // (K.beltMax: the belt's point no more than this in front of the sternum's (a heavy body's belly not carried into the line))
+      if (K.beltMax != null && zb !== undefined && zs !== undefined) zb = Math.min(zb, zs + K.beltMax); if (zs === undefined || zb === undefined || zs < 0.04 || zb < 0.04) continue; const t = (y - K.yb) / (K.ys - K.yb), line = zb + (zs - zb) * t + K.slack;
       const front = at(x, y); if (front === undefined || front <= line) continue; if (front - z > K.depth) continue;
       const over = Math.min(K.max ?? 0.02, front - line), w = f * sm(0, 0.04, Math.min(y - K.yb, K.ys - y)); A[v * 3 + 2] = z - over * w; mx = Math.max(mx, over * w); n++; }
     acc.setArray(A); }

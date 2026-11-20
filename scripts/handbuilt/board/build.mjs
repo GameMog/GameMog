@@ -14,6 +14,8 @@ import { eyesPass } from '../young-hero/look.mjs';
 import { irisPass } from '../old-boss/eyes.mjs';
 import { teethPass } from '../pedro/build.mjs';
 import { framesPass } from '../frames.mjs';
+import { flatFrontPass } from '../jensen-cast/castpass.mjs';
+import { posturePass, bodyMaskPass } from '../jensen-cast/castpass2.mjs';
 
 const ROOT = new URL('../../../', import.meta.url).pathname;
 const SRC = ROOT + 'public/storykit/cast/mogcity/mrbig.glb', DIR = ROOT + 'storykit/handbuilt/board/';
@@ -35,7 +37,10 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   const on = (k) => (!only || only.includes(k)) && !skip.has(k);
   const { doc, src } = await read(SRC);
   const steps = [['eyes', () => eyesPass(doc)], ['iris', () => irisPass(doc, { base: [86, 56, 36] })], ['teeth', () => teethPass(doc)],
-    ['glasses', () => framesPass(doc, { style: 'tortoise', rough: 0.28 })], ['tie', () => tiePass(doc)]];
+    ['glasses', () => framesPass(doc, { style: 'tortoise', rough: 0.28 })], ['tie', () => tiePass(doc)],
+    // (Jensen Heist cast round 2, the owner's standing rules: the suit's front flat from the sternum to the belt (no belly),
+    // the skin drawn in under it, and the rest correction under his clips (the head and shoulders back to the plumb line))
+    ['flat', () => flatFrontPass(doc, { max: 0.08, depth: 0.12, waist: 0.12, beltMax: 0.04, yb: 0.93, xIn: 0.13, xOut: 0.19 })], ['mask', () => bodyMaskPass(doc)], ['posture', () => posturePass(doc, process.env.JC_POSTURE ? JSON.parse(process.env.JC_POSTURE) : 'auto')]];
   for (const [k, f] of steps) if (on(k)) { const t = Date.now(); await f(); console.log('step', k, ((Date.now() - t) / 1000).toFixed(1), 's'); }
   fs.mkdirSync(DIR, { recursive: true });
   const glb = await write(doc, src); fs.writeFileSync(OUT, glb); console.log(OUT, glb.length, 'bytes', (glb.length / 1048576).toFixed(2), 'MB');

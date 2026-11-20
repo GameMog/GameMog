@@ -83,12 +83,13 @@
    "accent": "#D8D5CE"
   },
   "bottom": {
-   "item": "jeans",
-   "color": "#30394A"
+   "item": "track-pants",
+   "color": "#2E3036"
   },
   "shoes": {
-   "item": "white-sneakers",
-   "color": "#E2DFD8"
+   "item": "skate-shoes",
+   "color": "#2B2D31",
+   "accent": "#C9C4BA"
   }
  },
  "posture": {

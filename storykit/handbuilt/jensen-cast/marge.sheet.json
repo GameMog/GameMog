@@ -4,7 +4,7 @@
  "role": "keynote stage manager: Jensen Heist",
  "logline": "Nineteen keynotes, none started on time; headset, clipboard, stage blacks.",
  "identity": {
-  "age": 54,
+  "age": 57,
   "body": "female",
   "presentation": "woman",
   "heightCm": 166,
@@ -30,18 +30,18 @@
  },
  "face": {
   "jaw": "square",
-  "cheeks": "average",
-  "cheekbones": "average",
+  "cheeks": "hollow",
+  "cheekbones": "high",
   "faceWidth": "average",
   "nose": {
    "width": "average",
-   "length": "average",
+   "length": "long",
    "tip": "average",
    "bridge": "straight"
   },
   "browRidge": "average",
   "chin": {
-   "projection": "average",
+   "projection": "strong",
    "length": "average",
    "width": "average"
   },
@@ -50,7 +50,7 @@
    "color": "brown",
    "weight": "average"
   },
-  "eyeShape": "average",
+  "eyeShape": "hooded",
   "eyeBags": "light",
   "mouth": {
    "lips": "thin",
@@ -66,7 +66,8 @@
    "shape": "oval"
   },
   "forehead": "average",
-  "faceLength": "average"
+  "faceLength": "long",
+  "jawWidth": "wide"
  },
  "hair": {
   "style": "bob-tucked",

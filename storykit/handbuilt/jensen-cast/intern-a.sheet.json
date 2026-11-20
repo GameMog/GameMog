@@ -18,7 +18,7 @@
   "note": "invented person; no real likeness",
   "blend": {
    "african": 0.6,
-   "asian": 0.0,
+   "asian": 0,
    "european": 0.4
   },
   "skin": {
@@ -83,12 +83,11 @@
   },
   "bottom": {
    "item": "trousers",
-   "color": "#2A2C33"
+   "color": "#7E7058"
   },
   "shoes": {
-   "item": "sneakers",
-   "color": "#2B2D31",
-   "accent": "#D8D5CE"
+   "item": "work-shoes",
+   "color": "#4A3424"
   }
  },
  "posture": {
