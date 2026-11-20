@@ -88,13 +88,7 @@
   "shoes": {
    "item": "work-shoes",
    "color": "#2E2620"
-  },
-  "over": [
-   {
-    "item": "apron",
-    "color": "#E6E1D6"
-   }
-  ]
+  }
  },
  "posture": {
   "stance": "proud",

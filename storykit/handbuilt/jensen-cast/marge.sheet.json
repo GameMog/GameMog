@@ -78,8 +78,9 @@
  },
  "wardrobe": {
   "top": {
-   "item": "long-sleeve",
-   "color": "#19191B"
+   "item": "uniform-jacket",
+   "color": "#19191B",
+   "accent": "#19191B"
   },
   "bottom": {
    "item": "trousers",
