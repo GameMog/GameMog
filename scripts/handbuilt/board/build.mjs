@@ -19,6 +19,7 @@ import { flatFrontPass } from '../jensen-cast/castpass.mjs';
 import { posturePass, bodyMaskPass, tailorPass } from '../jensen-cast/castpass2.mjs';
 import { flatFront3Pass, flatGate } from '../jensen-cast/castpass3.mjs';
 import { slimDoc } from '../jensen-cast/slim.mjs';
+import { vertFrontPass } from '../jensen-cast/castpass6.mjs';
 import { plumbClipsPass, bakeRestPass, levelArmaturePass } from '../jensen-cast/plumb.mjs';
 import { faceRigPass } from '../jensen-cast/castpass.mjs';
 import { eyeTamePass, beardCardsPass, beardMorphsPass, seatClipsPass, seatedGate } from '../jensen-cast/castpass4.mjs';
@@ -42,8 +43,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   const only = args.find((a) => a.startsWith('--only='))?.slice(7).split(','), skip = new Set(args.find((a) => a.startsWith('--skip='))?.slice(7).split(',') || []);
   const on = (k) => (!only || only.includes(k)) && !skip.has(k);
   const { doc, src } = await read(SRC);
-  // (rules round 1: his trousers' belt sits 3 cm over his hip joints, not 7: the rule's belt there (rules.mjs trunkLevels))
-  doc.getRoot().setExtras({ ...(doc.getRoot().getExtras() || {}), rules: { beltUp: 0.03 } });
+  // (the finalize: his rules.beltUp override (a belt 3 cm over his hips) removed: rules.mjs holds every body at hips + 7 cm)
   const steps = [['eyes', () => eyesPass(doc)], ['iris', () => irisPass(doc, { base: [86, 56, 36] })], ['teeth', () => teethPass(doc)],
     // (cast round 3, the critic: clear glasses: a fine dark gunmetal frame, the lenses clear (no white glare panes or glints))
     // (cast round 4, the critic: "a genuinely thin dark frame": the rims 2.2 mm (were 3.4 plus a 1.2 mm bevel), a near-black
@@ -76,7 +76,9 @@ if (import.meta.url === 'file://' + process.argv[1]) {
     // the arms' weights (wider: a broad chest), the suit's front on the straight sternum-belt line, the skin under it; his
     // seat clips solved upright (the pack's sit hunched his rig 14 cm head-forward: his upper spine, neck and shoulders
     // taken to his own idle's turns, then the chest and the ears solved over the hips and the shoulders); the gate)
-    ['rules', () => { armSlimPass(doc); chestWeightPass(doc, { xIn: 0.1, xOut: 0.23 }); flatFront5Pass(doc, { iters: 14 }); bodyMaskPass(doc); }],
+    // (the finalize: armSlimPass left out on him (JC_ARMSLIM=1 puts it back); then rule 1c: the lower front pulled back to a
+    // near-vertical line from the sternum, the collar's ring round the neck left in place (castpass6.mjs vertFrontPass))
+    ['rules', () => { if (process.env.JC_ARMSLIM) armSlimPass(doc); chestWeightPass(doc, { xIn: 0.1, xOut: 0.23 }); flatFront5Pass(doc, { iters: 14 }); if (on('vert')) vertFrontPass(doc, JSON.parse(process.env.JC_VERT || '{}')); bodyMaskPass(doc); }],
     ['seat', async () => { await seatClipsPass(doc, { k: 0.5 }); if (on('rules')) seatUprightPass(doc, { pack: await io.read(ROOT + 'public/storykit/cast/cast-clips.glb'), clav: 1, unflex: { neck01: 1, neck02: 1, neck03: 1 }, /* (rules round 2: the chest rigid on the waist, the cast's default) */ ...JSON.parse(process.env.JC_UPRIGHT || '{}') }); await seatedGate(doc, 'board'); }],
     ['rulesgate', async () => rulesGate(doc, 'board', await io.read(ROOT + 'public/storykit/cast/cast-clips.glb'), { hard: true })]];
   for (const [k, f] of steps) if (on(k)) { const t = Date.now(); await f(); console.log('step', k, ((Date.now() - t) / 1000).toFixed(1), 's'); }

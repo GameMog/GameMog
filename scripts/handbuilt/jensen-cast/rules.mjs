@@ -13,7 +13,11 @@
 //     (spine03's), so a slump that folds the jacket into a belly is measured as one.
 //   Rule 2, seated posture: the ears (the head's most lateral skin points) over the shoulder joints: their horizontal
 //     offset along the body's facing, head ahead positive, over the whole sitTalk loop and sit. Limit 3 cm.
-//   Size: every body at most 6,000,000 bytes (the forge's cap).
+//   Rule 1c (the finalize, 20 Nov: round 2 met rule 1 by SLANTING the front, the belt up to 89 mm ahead of the sternum: the
+//     profiles read as paunches): the belt's anchor at most 15 mm ahead of the sternum's along the trunk's facing, standing
+//     and seated (the worst frame); and the belt's depth over the hip joints (standing) at most rules round 1's + 5 mm
+//     (BELT_R1): a belly is never pushed out to straighten the line.
+//   Size: every body at most 6 MiB (6,291,456 bytes).
 //   node scripts/handbuilt/jensen-cast/rules.mjs a.glb [b.glb ...]   (RULES_OUT=<file> also writes the table there;
 //   RULES_PROF=1 prints each profile row by row). Self-contained: @gltf-transform from the repo's node_modules, else
 //   FORGE_TOOLBOX_DIR's (the gltf toolbox), else it stops and says so.
@@ -40,7 +44,11 @@ export async function readGlb(file) {
   const doc = await io.readBinary(fs.readFileSync(file)); doc.setLogger({ debug() {}, info() {}, warn() {}, error: console.error }); return doc;
 }
 
-export const FRONT_MAX = 0.012, SINK_MAX = 0.008, HEAD_MAX = 0.03, SIZE_MAX = 6000000;
+export const FRONT_MAX = 0.012, SINK_MAX = 0.008, HEAD_MAX = 0.03, SIZE_MAX = 6291456, AHEAD_MAX = 0.015, HIPGROW_MAX = 0.005;
+// rule 1c's second half: each body's belt depth over its hip joints (mm, the belt's anchor z - upperleg01_L z in the bind)
+// as rules round 1 (8f6a4b02, Intern One 67f8009a) built it, measured with this file's belt (hips + 7 cm): a later round
+// may not push the belly out past it by more than HIPGROW_MAX
+export const BELT_R1 = { board: 62.9, marge: 137.7, lola: 174.1, wesley: 153.6, nico: 169.3, dex: 168.7, 'intern-a': 162.8, 'intern-b': 145.9, 'director-a': 125.1, 'director-b': 140.6 };
 const OUT = /^(eyes|brows|lashes|teethUp|teethLow|mouth-inside|tongue|hair|hairUnder|headset|cornea|beard|glasses.*|lens.*|frame.*)$/;
 const SKIPM = /shoe|sneaker|boot|sole|lace|lining|eyelet|glasses|lens/;
 const ARM = /^(shoulder|upperarm|lowerarm|wrist|finger|thumb|metacarpal)/, LEG = /^(upperleg|lowerleg|foot|toe)/, HEAD = /^(head|jaw|eye|tongue|special|levator|oris|risorius|temporalis|orbicularis|cheek|nose)/;
@@ -49,9 +57,9 @@ const ARM = /^(shoulder|upperarm|lowerarm|wrist|finger|thumb|metacarpal)/, LEG =
 export function trunkLevels(doc) {
   const S = jointPos(doc, 'upperarm01_L'), S2 = jointPos(doc, 'upperarm01_R'), N = jointPos(doc, 'neck01'), H = jointPos(doc, 'upperleg01_L');
   void S; void S2;
-  // (a body whose belt sits lower on its hips says so in the file: its root's extras rules.beltUp (Mr. Board: 3 cm))
-  const up = doc.getRoot().getExtras()?.rules?.beltUp ?? 0.07;
-  return { ys: N[1] - 0.04, yb: H[1] + up };
+  // (the finalize: one belt for every body, 7 cm over the hips: Mr. Board's 3 cm override (extras rules.beltUp) is not read
+  // any more: his belt measured low let a paunch over it pass)
+  return { ys: N[1] - 0.04, yb: H[1] + 0.07 };
 }
 
 // every joint's skinning matrix (world x inverse bind) at a clip's time (null: the bind itself, identity)
@@ -104,7 +112,8 @@ export function frontRule(doc, anim = null, t = 0, K = {}) {
   const dS = rS[1], dB = rB[1]; let dev = -1, devY = ys, sink = -1, sinkY = ys; const prof = [];
   // (the profile between the two anchors' own rows: the neck over the collar's front is not a hollow)
   for (let r = rS[2]; r >= rB[2]; r--) { const o = rows.get(r); if (!o) continue; const f = (o[0] - rB[0]) / ((rS[0] - rB[0]) || 1), line = dB + (dS - dB) * f, d = o[1] - line; prof.push([+(r * C).toFixed(2), +(d * 1000).toFixed(1)]); if (d > dev) { dev = d; devY = r * C; } if (-d > sink) { sink = -d; sinkY = r * C; } }
-  return { dev: Math.max(0, dev), devY, sink: Math.max(0, sink), sinkY, prof, ys, yb, yTop: rS[2] * C, yBot: rB[2] * C };
+  // (rule 1c: the anchors' own depths along the trunk's facing: the belt ahead of the sternum is a slanted front or a belly)
+  return { dev: Math.max(0, dev), devY, sink: Math.max(0, sink), sinkY, prof, ys, yb, yTop: rS[2] * C, yBot: rB[2] * C, dS, dB, ahead: dB - dS };
 }
 
 // rule 1 on below the belt (standing, the bind): the lower belly and the fly, the band K.below under the belt over |x| <
@@ -147,16 +156,20 @@ export function seatFrames(doc, pack) {
 }
 
 export function measureBody(doc, pack) {
-  const st = frontRule(doc), low = lowRule(doc), fr = seatFrames(doc, pack); let seat = { dev: 0 }, seatSink = { sink: 0 }, head = { o: 0 }, headMin = { o: 9 };
+  const st = frontRule(doc), low = lowRule(doc), fr = seatFrames(doc, pack); let seat = { dev: 0 }, seatSink = { sink: 0 }, seatAhead = { ahead: -9 }, head = { o: 0 }, headMin = { o: 9 };
+  const hip = jointPos(doc, 'upperleg01_L'), beltHip = st.dB - hip[2];
   for (const [nm, a, t] of fr) { const r = frontRule(doc, a, t); if (r.dev > seat.dev || seat.clip === undefined) seat = { ...r, clip: nm, t }; if (r.sink > seatSink.sink || seatSink.clip === undefined) seatSink = { ...r, clip: nm, t };
+    if (r.ahead > seatAhead.ahead) seatAhead = { ahead: r.ahead, clip: nm, t };
     const o = headRule(doc, a, t); if (o > head.o || head.clip === undefined) head = { o, clip: nm, t }; if (o < headMin.o) headMin = { o, clip: nm, t }; }
-  return { st, low, seat, seatSink, head, headMin, frames: fr.length };
+  return { st, low, seat, seatSink, seatAhead, beltHip, head, headMin, frames: fr.length };
 }
 // the verdicts of one measured body (bytes: the file's size)
-export function verdict(m, bytes) {
+// (id: the body's id, for rule 1c's round-1 belt depth (BELT_R1); none known, that half is not held)
+export function verdict(m, bytes, id) {
   const r1 = m.st.dev <= FRONT_MAX && m.seat.dev <= FRONT_MAX && m.low.dev <= FRONT_MAX && m.st.sink <= SINK_MAX && m.seatSink.sink <= SINK_MAX;
+  const b1 = BELT_R1[id], r1c = m.st.ahead <= AHEAD_MAX && m.seatAhead.ahead <= AHEAD_MAX && (b1 == null || m.beltHip * 1000 <= b1 + HIPGROW_MAX * 1000);
   const r2 = Math.max(Math.abs(m.head.o), Math.abs(m.headMin.o)) <= HEAD_MAX, size = bytes == null || bytes <= SIZE_MAX;
-  return { r1, r2, size, ok: r1 && r2 && size };
+  return { r1, r1c, r2, size, ok: r1 && r1c && r2 && size };
 }
 
 if (import.meta.url === 'file://' + process.argv[1]) {
@@ -165,11 +178,12 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   const mm = (x) => (x * 1000).toFixed(1).padStart(5);
   const L = [`Jensen Heist cast, the owner's hard rules measured (scripts/handbuilt/jensen-cast/rules.mjs, ${new Date().toISOString().slice(0, 16)}Z)`,
     `rule 1 flat front: the garment front against the straight sternum-belt line (sternum = neck01 - 4 cm, belt = hips + 7 cm, each end the median of 3 rows): forward (bulge) limit ${FRONT_MAX * 1000} mm, behind (sink) limit ${SINK_MAX * 1000} mm; standing = bind, seated = worst of sitTalk's loop and sit; below belt = lower belly vs the belt's point, limit 12 mm`,
+    `rule 1c near-vertical front: the belt's anchor ahead of the sternum's along the trunk's facing, limit ${AHEAD_MAX * 1000} mm standing and seated (worst frame); and the belt's depth over the hip joints (standing) at most rules round 1's + ${HIPGROW_MAX * 1000} mm`,
     `rule 2 seated posture: ears ahead of the shoulder joints (+ = head forward), limit ${HEAD_MAX * 100} cm (worst over sitTalk's loop and sit)`,
     `size: bytes <= ${SIZE_MAX.toLocaleString('en-US')}`, '',
-    'body              bytes      | stand bulge (y)  sink | seat bulge (clip@t)        sink | ears cm max .. min | below belt | verdict'];
-  for (const f of process.argv.slice(2)) { const doc = await readGlb(f), m = measureBody(doc, pack), bytes = fs.statSync(f).size, v = verdict(m, bytes);
-    L.push(`${f.split('/').pop().replace('.glb', '').padEnd(17)} ${bytes.toLocaleString('en-US').padStart(10)} | ${mm(m.st.dev)} (${m.st.devY.toFixed(2)}) ${mm(m.st.sink)} | ${mm(m.seat.dev)} (${(m.seat.clip + '@' + m.seat.t).padEnd(12)}) ${mm(m.seatSink.sink)} | ${(m.head.o * 100).toFixed(1).padStart(5)} .. ${(m.headMin.o * 100).toFixed(1).padStart(5)}    | ${mm(m.low.dev)}      | ${v.r1 ? 'R1 PASS' : 'R1 FAIL'} ${v.r2 ? 'R2 PASS' : 'R2 FAIL'} ${v.size ? 'SIZE OK' : 'SIZE FAIL'}`);
+    'body              bytes      | stand bulge (y)  sink | seat bulge (clip@t)        sink | 1c ahead st / seat | belt/hip (r1) | ears cm max .. min | below belt | verdict'];
+  for (const f of process.argv.slice(2)) { const doc = await readGlb(f), m = measureBody(doc, pack), bytes = fs.statSync(f).size, id = f.split('/').pop().replace('.glb', ''), v = verdict(m, bytes, id);
+    L.push(`${(process.env.RULES_TAG ? process.env.RULES_TAG + ' ' : '') + id.padEnd(17)} ${bytes.toLocaleString('en-US').padStart(10)} | ${mm(m.st.dev)} (${m.st.devY.toFixed(2)}) ${mm(m.st.sink)} | ${mm(m.seat.dev)} (${(m.seat.clip + '@' + m.seat.t).padEnd(12)}) ${mm(m.seatSink.sink)} | ${mm(m.st.ahead)} / ${mm(m.seatAhead.ahead)} | ${mm(m.beltHip)} (${BELT_R1[id] == null ? '  -  ' : String(BELT_R1[id]).padStart(5)}) | ${(m.head.o * 100).toFixed(1).padStart(5)} .. ${(m.headMin.o * 100).toFixed(1).padStart(5)}    | ${mm(m.low.dev)}      | ${v.r1 ? 'R1 PASS' : 'R1 FAIL'} ${v.r1c ? 'R1c PASS' : 'R1c FAIL'} ${v.r2 ? 'R2 PASS' : 'R2 FAIL'} ${v.size ? 'SIZE OK' : 'SIZE FAIL'}`);
     if (process.env.RULES_PROF) { L.push('   standing ' + m.st.prof.map(([y, d]) => y + ':' + d).join(' ')); if (m.seat.prof) L.push('   seated   ' + m.seat.prof.map(([y, d]) => y + ':' + d).join(' ')); } }
   console.log(L.join('\n')); if (process.env.RULES_OUT) fs.writeFileSync(process.env.RULES_OUT, L.join('\n') + '\n');
 }

@@ -36,6 +36,7 @@ import { flatFront3Pass, flatGate, layerMaskPass } from './castpass3.mjs';
 import { slimDoc } from './slim.mjs';
 import { faceShapePass, eyeTamePass, dyePass, seatClipsPass, seatedGate } from './castpass4.mjs';
 import { chestWeightPass, flatFront5Pass, seatUprightPass, rulesGate, worstedPass, armSlimPass, vCutPass } from './castpass5.mjs';
+import { vertFrontPass } from './castpass6.mjs';
 import { skinTonePass, flatFrontPass, faceRigPass } from './castpass.mjs';
 import { hairBasePass, bodyMaskPass, undershirtPass, posturePass, stubblePaintPass, tailorPass } from './castpass2.mjs';
 // (cast round 1, the owner's standing rules: each person's natural skin tone (sRGB, the cheek under neutral light: varied
@@ -132,6 +133,8 @@ const CAST_EYES = { coat: 0.05, rough: 0.55, iris: 0.42 }, CAST_EYE_SPEC = 0.3;
 const R6 = { lola: { iris: 'dark-brown' }, nico: { iris: 'dark-brown' }, dex: { iris: 'dark-brown', underK: { vneck: /^puffer-collar$/, vx: 0.032, crew: { dip: 0.004, rib: 0.008, ribK: 0.72 } } }, 'intern-b': { iris: 'dark-brown', tone: [112, 78, 56], strandTail: { tube: 0.9, n: 1500, r: 0.03, swell: 0.7, w: 1.1, taper: 0.5 } }, 'director-b': { iris: 'dark-brown', vcut: { inset: 0.018, band: 0.035, hole: 0.2, under: /^clothes$/, back: true } },
   'director-a': { vcut: { inset: 0.018, band: 0.035, hole: 0.2, under: /^clothes$/, back: true }, dye: [[/^suit(-hem|-collar|-lapels)?$/, [58, 60, 64], { contrast: 0.2 }], [/^clothes$/, [56, 58, 62], { only: DARK }]], tailor: { k: 0.3, mats: /^suit(-hem|-collar|-lapels)?$/, x0: 0.13, ease: 0.008 } } };
 for (const [k, v] of Object.entries(R6)) ROUND1[k] = { ...ROUND1[k], ...v };
+// the finalize: rule 1c's line a little more forward of the sternum for the two whose seated front sank behind it
+for (const k of ['lola', 'intern-b']) ROUND1[k] = { ...ROUND1[k], vert: { aim: 0.013 } };
 const SKIP = new Set((process.env.JC_SKIP || '').split(',').filter(Boolean));
 const DIR = new URL('../../../storykit/handbuilt/jensen-cast/', import.meta.url).pathname, OUTDIR = process.env.JC_OUT || DIR;
 const want = process.argv[2]?.split(',');
@@ -194,6 +197,10 @@ for (const f of fs.readdirSync(DIR).filter((x) => x.endsWith('.sheet.json')).sor
   // (rules round 2: the upper arms and shoulders slimmed toward their bone lines (the tile's domed outline), first)
   if (!SKIP.has('rules')) { if (!SKIP.has('armslim')) armSlimPass(doc, R1.armSlim); chestWeightPass(doc, R1.cw); flatFront5Pass(doc, R1.flat5); if (!SKIP.has('mask')) bodyMaskPass(doc, R1.mask); }
   if (R1.vcut && !SKIP.has('vcut')) vCutPass(doc, R1.vcut);
+  // (the finalize, rule 1c: the lower front pulled BACK toward a near-vertical line from the sternum (castpass6.mjs): rules
+  // round 2's flat front had slanted it, the belt up to 89 mm ahead of the sternum; the committed bodies are rules round 2's
+  // with this pass run on them (node castpass6.mjs in out [K]), Lola and Intern Two at aim 0.013 (their seated hollow))
+  if (!SKIP.has('rules') && !SKIP.has('vert')) { vertFrontPass(doc, R1.vert); if (!SKIP.has('mask')) bodyMaskPass(doc, R1.mask); }
   // (round 3's gate, its sternum on the bust: logged only now; rulesGate below holds the rule)
   if (SKIP.has('rules')) flatGate(doc, S.id);
   if (R1.seat && !SKIP.has('seat')) { await seatClipsPass(doc, R1.seat); if (!SKIP.has('rules')) seatUprightPass(doc, { pack: PACKDOC, ...R1.upright }); await seatedGate(doc, S.id); }
