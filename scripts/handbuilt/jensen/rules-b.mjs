@@ -9,9 +9,10 @@
 //      and the ears over the shoulders by the upper neck (the head's world turn kept: the gaze and the chin as they were).
 //   2. vertFrontPass (jensen-cast/castpass6.mjs): the jacket front (and the shirt and the skin under it, together) pulled
 //      BACK toward a near-vertical line dropped from the sternum, never forward; the collar's ring round the neck left.
-//   3. the skin's sheen: the GLB's KHR_materials_sheen colour was an orange-red [0.2, 0.07, 0.045]; under the stage's hard
-//      key (ST-8, a 120-unit spot) that broad warm lobe stacked on the warm base and read orange. Taken to a near-neutral
-//      faint sheen (SHEEN), so the face keeps round 9's light-medium tone in every set; the texture is not touched.
+//   (the skin is left as round 9 has it. His orange face on ST-8's stage is the set's light, not his material: every
+//   'night' set lights its people with an amber key (MogCity storyrun/sets.js, '#FFD2A0'), and the stage sets are night.
+//   sheenPass (a near-neutral sheen in place of the GLB's orange-red [0.2, 0.07, 0.045]) was tried in the game and moved
+//   the stage face by 1-2 levels of 255: it is kept here, off, for K.sheen)
 //   node scripts/handbuilt/jensen/rules-b.mjs <in.glb> <out.glb> [K json]
 // Original procedural work, CC0.
 import fs from 'node:fs';
@@ -19,6 +20,7 @@ import { read, write, io } from '../young-hero/glb.mjs';
 import { seatUprightPass } from '../jensen-cast/castpass5.mjs';
 import { vertFrontPass } from '../jensen-cast/castpass6.mjs';
 import { measureBody, verdict } from '../jensen-cast/rules.mjs';
+import { MOGCITY } from '../../forge/paths.mjs';
 
 // his own seated clips from Dan's (the game's hero plays Dan's: MogCity storyrun/pack.js heroGLTF puts dan.glb's clips
 // first, and every cast double of him shares that cached GLB): his GLB's own sit and sitTalk had decoded to a torso laid flat
@@ -47,7 +49,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   const [inp, out, kj] = process.argv.slice(2), K = kj ? JSON.parse(kj) : {};
   const pack = await io.read(new URL('../../../public/storykit/cast/cast-clips.glb', import.meta.url).pathname);
   const { doc, src } = await read(inp);
-  const dan = await io.read((process.env.FORGE_MOGCITY || '/Users/sheed/Desktop/GameMog/MogCity') + '/assets/characters/dan.glb');
+  const dan = await io.read(MOGCITY + '/assets/characters/dan.glb');
   if (!K.noClips) danSeatClips(doc, dan, K.clips || ['sit', 'sitTalk']);
   // (his own idle, talk, phone and arms decode the same way, a torso laid flat: dropped, so any player of his own clips falls
   // back to Dan's (MogCity storyrun/cast.js adds Dan's for every name a body lacks), which is what the game plays today)
@@ -55,7 +57,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   if (K.measureDan) { const m = measureBody(doc, pack); console.log(`Dan's own seated clips as the game plays them (before any pass): seat bulge ${(m.seat.dev * 1000).toFixed(1)} mm @${m.seat.clip}@${m.seat.t}, sink ${(m.seatSink.sink * 1000).toFixed(1)}, 1c seat ${(m.seatAhead.ahead * 1000).toFixed(1)} mm, ears ${(m.head.o * 100).toFixed(1)} .. ${(m.headMin.o * 100).toFixed(1)} cm`); }
   if (!K.noSeat) seatUprightPass(doc, { pack, ...(K.seat || {}) });
   if (!K.noFront) vertFrontPass(doc, K.front || {});
-  if (!K.noSheen) console.log('skin sheen', JSON.stringify(sheenPass(doc)), '->', JSON.stringify(SHEEN));
+  if (K.sheen) console.log('skin sheen', JSON.stringify(sheenPass(doc)), '->', JSON.stringify(SHEEN));
   const glb = await write(doc, src); fs.writeFileSync(out, glb);
   const m = measureBody(doc, pack), v = verdict(m, glb.length, 'jensen'), mm = (x) => (x * 1000).toFixed(1);
   console.log(`${out} ${glb.length} bytes | front ${mm(m.st.dev)} / seat ${mm(m.seat.dev)} mm (sink ${mm(m.st.sink)} / ${mm(m.seatSink.sink)}), below belt ${mm(m.low.dev)} | 1c ahead ${mm(m.st.ahead)} / ${mm(m.seatAhead.ahead)} mm | ears ${(m.head.o * 100).toFixed(1)} .. ${(m.headMin.o * 100).toFixed(1)} cm | ${JSON.stringify(v)}`);
