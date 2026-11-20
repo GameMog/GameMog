@@ -248,7 +248,7 @@
      "fwd": -16
     },
     "look": "player",
-    "dur": 5,
+    "dur": 4,
     "title": true
    }
   ]
@@ -278,6 +278,15 @@
    "@": "parking41",
    "name": "the market square"
   },
+  "market-lead": {
+   "@": "parking41",
+   "name": "Lola's truck at the market",
+   "heading": 104,
+   "offset": {
+    "right": 0,
+    "fwd": 22
+   }
+  },
   "santa-clara": {
    "@": "hotel33",
    "name": "Santa Clara Street"
@@ -286,9 +295,9 @@
    "@": "parking32",
    "name": "the station"
   },
-  "station-lot": {
-   "@": "park65",
-   "name": "the green by the station"
+  "arena-green": {
+   "@": "park34",
+   "name": "the arena green"
   },
   "diner": {
    "@": "restaurant31",
@@ -307,7 +316,7 @@
    }
   },
   "convention-dock": {
-   "@": "parking42",
+   "@": "parking20",
    "name": "the convention hall dock"
   },
   "viaduct": {
@@ -315,19 +324,15 @@
    "name": "the 280 viaduct"
   },
   "stack": {
-   "@": "restaurant160",
+   "@": "parking38",
    "name": "the stack"
   },
-  "north-87": {
-   "@": "park47",
-   "name": "the 87, northbound"
-  },
   "rose-garden": {
-   "@": "parking63",
+   "@": "park13",
    "name": "the rose garden"
   },
   "rose-lawn": {
-   "@": "parking63",
+   "@": "park13",
    "name": "the rose garden lawn",
    "offset": {
     "right": 0,
@@ -1981,11 +1986,6 @@
      "passLine": "Blue vests, a blue cooler. Follow the crumbs.",
      "steps": [
       {
-       "type": "transition",
-       "kicker": "9:06 AM",
-       "text": "THE KITCHEN STUDIO"
-      },
-      {
        "type": "vcall",
        "id": "k1",
        "title": "Oven Stream: Post-Show",
@@ -2024,6 +2024,10 @@
         {
          "do": "unmute",
          "who": "player"
+        },
+        {
+         "do": "join",
+         "who": "nico"
         },
         {
          "who": "player",
@@ -2082,10 +2086,6 @@
         {
          "who": "player",
          "line": "Luckily unplugged."
-        },
-        {
-         "do": "join",
-         "who": "nico"
         },
         {
          "who": "nico",
@@ -2524,7 +2524,6 @@
          "office": "lot",
          "label": "Jensen",
          "sub": "ninth in line at Lola's",
-         "blur": true,
          "cam": "low"
         }
        ],
@@ -2657,7 +2656,7 @@
        "type": "say",
        "who": "jensen",
        "text": "Blue vests, a blue cooler, and my lucky oven's only child.",
-       "wait": false
+       "wait": true
       }
      ]
     },
@@ -2683,13 +2682,11 @@
        "color": "#2F5FD0",
        "route": [
         "@market",
-        "@santa-clara",
-        "@station",
-        "@station-lot"
+        "@arena-green"
        ],
        "ahead": 60,
-       "speed": 11,
-       "lostDist": 220,
+       "speed": 17,
+       "lostDist": 280,
        "objective": "Follow the Cobalt SUV. Don't get spotted.",
        "during": [
         {
@@ -2893,17 +2890,17 @@
        "name": "cobaltsuv",
        "car": "suv",
        "color": "#2F5FD0",
-       "at": "@station-lot"
+       "at": "@arena-green"
       },
       {
        "type": "npc",
        "who": "intern-a",
-       "at": "@station-lot"
+       "at": "@arena-green"
       },
       {
        "type": "npc",
        "who": "intern-b",
-       "at": "@station-lot"
+       "at": "@arena-green"
       },
       {
        "type": "say",
@@ -2917,7 +2914,7 @@
         "intern-a",
         "intern-b"
        ],
-       "arena": "@station-lot",
+       "arena": "@arena-green",
        "win": "ko-all",
        "rules": "lesson",
        "timer": 90,
@@ -2970,7 +2967,7 @@
          "who": "intern-a",
          "office": "green",
          "label": "Intern One",
-         "sub": "the green by the station",
+         "sub": "the arena green",
          "blur": true,
          "cam": "low"
         },
@@ -2978,7 +2975,7 @@
          "who": "player",
          "office": "green",
          "label": "Jensen",
-         "sub": "the green by the station",
+         "sub": "the arena green",
          "blur": true,
          "cam": "low"
         },
@@ -3006,6 +3003,10 @@
          "line": "And it's going really well. Can I put you down as a reference?"
         },
         {
+         "do": "join",
+         "who": "intern-b"
+        },
+        {
          "who": "player",
          "line": "You want me as your reference?"
         },
@@ -3029,10 +3030,6 @@
          "who": "intern-a",
          "line": "\"Thank you, intern.\" Like it was my name. He bought the whole team coffee first, sixty coffees...",
          "cut": 0.85
-        },
-        {
-         "do": "join",
-         "who": "intern-b"
         },
         {
          "who": "intern-b",
@@ -3597,11 +3594,13 @@
       },
       {
        "type": "pursuit",
+       "checkpoint": true,
        "kind": "crew",
        "name": "the Board's Directors",
-       "level": 2,
+       "level": 3,
        "goal": "lose",
        "loseDist": 220,
+       "loseTime": 35,
        "objective": "Lose the Directors.",
        "during": [
         {
@@ -3735,6 +3734,16 @@
          ]
         }
        ]
+      },
+      {
+       "type": "wait",
+       "secs": 30,
+       "call": true
+      },
+      {
+       "type": "wait",
+       "secs": 30,
+       "call": true
       }
      ]
     },
@@ -4038,21 +4047,18 @@
          "office": "lot",
          "label": "Jensen",
          "sub": "behind the van",
-         "blur": true,
          "cam": "low"
         },
         {
          "who": "wesley",
          "office": "lot",
          "sub": "behind the recycling bins",
-         "blur": true,
          "cam": "low"
         },
         {
          "who": "intern-a",
          "office": "lot",
          "sub": "Cobalt · unpaid · the lot",
-         "blur": true,
          "cam": "low",
          "late": true
         },
@@ -4060,7 +4066,6 @@
          "who": "intern-b",
          "office": "lot",
          "sub": "Cobalt · unpaid · the lot",
-         "blur": true,
          "cam": "low",
          "late": true
         }
@@ -4085,6 +4090,14 @@
         {
          "do": "unfreeze",
          "who": "dex"
+        },
+        {
+         "do": "join",
+         "who": "intern-a"
+        },
+        {
+         "do": "join",
+         "who": "intern-b"
         },
         {
          "who": "dex",
@@ -4159,14 +4172,6 @@
          "cut": 0.6
         },
         {
-         "do": "join",
-         "who": "intern-a"
-        },
-        {
-         "do": "join",
-         "who": "intern-b"
-        },
-        {
          "who": "intern-a",
          "line": "We brought the sixty coffees!"
         },
@@ -4186,6 +4191,28 @@
         {
          "who": "intern-a",
          "line": "Sir? Is now a good time for that reference?"
+        }
+       ]
+      },
+      {
+       "type": "trigger",
+       "area": {
+        "@": "arena-line",
+        "r": 200
+       },
+       "when": "boardText4 != true",
+       "once": true,
+       "set": {
+        "flags": {
+         "boardText4": true
+        }
+       },
+       "do": [
+        {
+         "type": "dm",
+         "from": "board",
+         "text": "Your rival says you touched his van. Rude. My Directors are bringing a case to the convention hall dock. Don't come. Regards, the Board.",
+         "secs": 8
         }
        ]
       },
@@ -4211,35 +4238,35 @@
         },
         {
          "type": "say",
-         "at": 11,
+         "at": 14,
          "who": "wesley",
          "text": "Can I ask you something? Hypothetically. If a fan sold a thing you signed, to a collector, for like, rent...",
          "wait": false
         },
         {
          "type": "say",
-         "at": 18,
+         "at": 25,
          "who": "jensen",
          "text": "Wesley, I've signed your phone, your hoodie, your skateboard and something in your driveway.",
          "wait": false
         },
         {
          "type": "say",
-         "at": 26,
+         "at": 36,
          "who": "wesley",
          "text": "My aunt Deb's car! She won't wash it, it's been three years, and birds avoid it out of respect.",
          "wait": false
         },
         {
          "type": "say",
-         "at": 34,
+         "at": 48,
          "who": "jensen",
          "text": "Wesley, new job. Whatever he tells me next, he wants me looking at it, so you look at the arena: the dock, the back lot, every car.",
          "wait": false
         },
         {
          "type": "say",
-         "at": 44,
+         "at": 60,
          "who": "wesley",
          "text": "From the fan line? I can see the whole dock from the fan line! I'm your EYES!",
          "wait": false
@@ -4248,6 +4275,7 @@
       },
       {
        "type": "dm",
+       "if": "boardText4 != true",
        "from": "board",
        "text": "Your rival says you touched his van. Rude. My Directors are bringing a case to the convention hall dock. Don't come. Regards, the Board.",
        "secs": 8
@@ -4553,21 +4581,18 @@
          "office": "lot",
          "label": "Jensen",
          "sub": "the convention hall dock",
-         "blur": true,
          "cam": "low"
         },
         {
          "who": "director-a",
          "office": "car",
          "sub": "the black cars, outside",
-         "blur": true,
          "late": true
         },
         {
          "who": "director-b",
          "office": "car",
          "sub": "the black cars, outside",
-         "blur": true,
          "late": true
         }
        ],
@@ -4575,6 +4600,14 @@
         {
          "who": "player",
          "line": "Velvet, very soft, and warm. Okay. Okay. ...Why is it shaped like a cone?"
+        },
+        {
+         "do": "join",
+         "who": "director-a"
+        },
+        {
+         "do": "join",
+         "who": "director-b"
         },
         {
          "do": "share",
@@ -4600,14 +4633,6 @@
          "who": "player",
          "line": "He knew I would come. ...Good. I knew he knew.",
          "pre": 0.4
-        },
-        {
-         "do": "join",
-         "who": "director-a"
-        },
-        {
-         "do": "join",
-         "who": "director-b"
         },
         {
          "do": "hand",
@@ -4677,6 +4702,7 @@
       },
       {
        "type": "pursuit",
+       "checkpoint": true,
        "kind": "crew",
        "name": "the Board's Directors",
        "level": 3,
@@ -4881,7 +4907,7 @@
          "who": "wesley",
          "interrupts": true,
          "inCar": true,
-         "at": 50,
+         "at": 20,
          "video": {
           "office": "green",
           "blur": true
@@ -4951,6 +4977,26 @@
          ]
         }
        ]
+      },
+      {
+       "type": "wait",
+       "secs": 30,
+       "call": true
+      },
+      {
+       "type": "wait",
+       "secs": 30,
+       "call": true
+      },
+      {
+       "type": "wait",
+       "secs": 30,
+       "call": true
+      },
+      {
+       "type": "wait",
+       "secs": 30,
+       "call": true
       }
      ]
     },
@@ -4958,7 +5004,7 @@
      "id": "TP-6",
      "title": "Take Private",
      "vehicle": "tensore",
-     "start": "@viaduct",
+     "start": "@stack",
      "time": "golden",
      "card": "slam",
      "verbs": [
@@ -4989,11 +5035,11 @@
        "color": "#6E7378",
        "route": [
         "@stack",
-        "@north-87",
         "@rose-garden"
        ],
        "ahead": 70,
-       "speed": 12,
+       "speed": 18,
+       "lostDist": 280,
        "objective": "Tail the grey SUV to the Board's offsite.",
        "during": [
         {
@@ -5121,6 +5167,13 @@
            }
           ]
          }
+        },
+        {
+         "type": "dm",
+         "at": 72,
+         "from": "wesley",
+         "text": "Chat has you on the map!! The grey SUV just signalled for a whole block and didn't turn. They're VOTING. Stay on him!",
+         "secs": 7
         }
        ]
       },
@@ -5434,8 +5487,9 @@
       },
       {
        "type": "convoy",
+       "checkpoint": true,
        "route": [
-        "@market",
+        "@market-lead",
         "@santa-clara",
         "@arena-approach"
        ],
@@ -5666,15 +5720,13 @@
          "who": "lola",
          "office": "lot",
          "sub": "the dock door · \"catering\"",
-         "blur": true,
          "cam": "low"
         },
         {
          "who": "dex",
          "office": "van",
          "sub": "Cobalt · the van, pivoting",
-         "late": true,
-         "blur": true
+         "late": true
         }
        ],
        "lines": [
@@ -5687,6 +5739,10 @@
          "line": "It's six fifty-one."
         },
         {
+         "do": "join",
+         "who": "dex"
+        },
+        {
          "who": "marge",
          "line": "By my standards you're late. By anyone else's, you're a miracle. Don't tell anyone I said that."
         },
@@ -5697,10 +5753,6 @@
         {
          "who": "marge",
          "line": "Plates to the green room. Busboy to the stage, through about eleven men."
-        },
-        {
-         "do": "join",
-         "who": "dex"
         },
         {
          "who": "dex",
@@ -6315,14 +6367,17 @@
         {
          "cam": {
           "rel": "wesley",
-          "right": -0.21,
-          "up": 0.04,
-          "fwd": 1.18
+          "right": -0.49,
+          "up": 0.08,
+          "fwd": 2.76
          },
          "look": {
-          "rel": "wesley"
+          "rel": "wesley",
+          "right": 0,
+          "up": -0.2,
+          "fwd": 0
          },
-         "fov": 33,
+         "fov": 42,
          "dur": 2.2,
          "say": "wesley",
          "line": "NOW clap! NOW!",
@@ -6425,19 +6480,8 @@
        "prompt": "The room is yours. Open with...",
        "who": "jensen",
        "timeout": 8,
-       "default": 1,
+       "default": 0,
        "options": [
-        {
-         "text": "The jacket",
-         "set": {
-          "meters": {
-           "crowd": {
-            "add": 20
-           }
-          }
-         },
-         "reply": "First, a thank-you to the jacket. Twenty years, every keynote, on time. Unlike me."
-        },
         {
          "text": "The tents",
          "set": {
@@ -6448,6 +6492,17 @@
           }
          },
          "reply": "Somebody here slept in a tent since Tuesday, and somebody slept in a smaller tent inside his tent. This one's for you."
+        },
+        {
+         "text": "The jacket",
+         "set": {
+          "meters": {
+           "crowd": {
+            "add": 20
+           }
+          }
+         },
+         "reply": "First, a thank-you to the jacket. Twenty years, every keynote, on time. Unlike me."
         },
         {
          "text": "A benchmark",
@@ -6884,9 +6939,9 @@
         {
          "cam": {
           "rel": "jensen",
-          "right": -0.13,
+          "right": 0.3,
           "up": 0.04,
-          "fwd": 1.24
+          "fwd": 1.21
          },
          "look": {
           "rel": "jensen"

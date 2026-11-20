@@ -53,17 +53,16 @@ node --import ./scripts/ts-resolve.mjs scripts/storykit-showcase-jensen.ts --exp
 |---|---|---|
 | kitchen | `parking55` | a lot south of downtown, in the spawn district (Mission 1's start) |
 | stage-run, arena | `stadium4` | the arena's front |
-| market | `parking41` | a lot on W Santa Clara St, about 250 m clear of any school or museum |
+| market, market-lead | `parking41` | a lot on W Santa Clara St, about 250 m clear of any school or museum (market-lead: 22 m on at 104 degrees, his lane and his way, where Lola's truck starts the convoy) |
 | santa-clara | `hotel33` | W Santa Clara St, between the market and the arena |
-| station | `parking32` | the station's lot (the tail's last mark) |
-| station-lot | `park65` | the green by the station: Mission 2's fight, 229 m from the nearest temple |
+| station | `parking32` | the station's lot (Mission 3's start) |
+| arena-green | `park34` | the green east of the arena, 242 m from the nearest school: Mission 2's tail ends here, and its fight |
 | diner | `restaurant31` | a diner on W Santa Clara St, 243 m clear |
 | museum-lot, museum-van | `hotel36` | the block behind the science museum (about 170 m off): stealth and a cable pull, no violence |
-| convention-dock | `parking42` | a lot by the convention hall, 246 m clear: the roadblock and the case |
+| convention-dock | `parking20` | a lot by the convention hall, 373 m from the nearest hospital: the roadblock and the case |
 | viaduct | `parking5` | by the 280, east of the children's museum (266 m): the freeway chase starts here |
-| stack | `restaurant160` | under the 87/280 stack (a fire station 149 m off): the tail starts here |
-| north-87 | `park47` | north of downtown, a route mark the tail passes |
-| rose-garden, rose-lawn | `parking63` | the north river park, nothing sensitive within 300 m: Mission 6's fight |
+| stack | `parking38` | a lot by the 87/280 stack, 289 m from the nearest fire station: Mission 6 starts here, and the tail |
+| rose-garden, rose-lawn | `park13` | a park east of downtown, 271 m from the nearest place of worship: Mission 6's fight |
 | arena-line | `park54` | the arena's green: the fan line |
 | arena-approach | `stadium4` | the arena's front, a block short of the dock (the convoy's end) |
 | arena-dock, stage-door, backlot-a/b/c | `parking64` | the arena's back lot, nothing sensitive within 300 m: Missions 7 and 8 |
@@ -181,3 +180,33 @@ limits. The builder's independent names check reads only the texts a Mog adds or
 lines), so the inherited cast and lines, the name "Jensen" among them, pass as they are; a new line or title that
 names him is read by the check, which lists real people, and a real person is sent back unless the creator consented
 for that name. A Mog that moves the town is refused.
+
+## The RC playtest's pack fixes (20 Nov)
+
+Pacing and staging only: no spoken line's text or speaker changed (the voice plan's 688 lines and 678 clips are the
+same; only the line ids that count positions moved). The owner's cap: no tail, chase, convoy or drive over about 2
+minutes at normal driving, and never 3 minutes without a line, a call, a cutscene, a choice or a text.
+
+- **The tails:** the SUV's own pace in the city's traffic is about 10.5 m/s whatever its speed, so the routes are short.
+  CB-2's goes from the market to the arena green (0.9 km by the planner, was 2.8 km to the green by the station) at
+  17 m/s (was 11), lostDist 280. TP-6 starts at the stack and tails 1.1 km to the rose garden, a
+  park east of downtown (was 5.3 km to the north river park at 12 m/s), at 18 m/s (lostDist 280, so it waits for him past 168 m), Wesley's text from the stream on
+  the last of the way (a `dm`, no voice); the chase back to Lola's cooler is 0.8 to 1.2 km (was 3.1).
+- **The convention hall dock** is the hall's nearer lot: 1.8 km from the fan line (was 2.6), then 0.3 km up to the 280.
+  After the freeway chase SS-5 waits (up to four 30 s `wait`s, `call: true`) while the Board's call and Wesley's (20 s
+  into the chase now, was 50: a chase can be over in 40 s) are heard out.
+- **Lines heard out:** PH-1's button line waits (`wait: true`); BT-3 ends with two `wait`s (SS-5 four) (`call: true`, 30 s at
+  most each) so the car phone's last lines and wrap are said before MISSION PASSED.
+- **The chase:** BT-3's Directors at heat 3, 35 s out of sight to lose them (heat 2: lost in 20 s), and a `checkpoint`.
+- **The convoy:** Lola's truck starts 22 m ahead of him on his lane, facing his way (`market-lead`); FL-7's convoy and
+  SS-5's freeway chase are `checkpoint` steps (Retry starts there).
+- **The calls:** the people in a lot, a car or the van are seen unblurred, so the office reads (blurred, the lot read as
+  a kitchen); everyone who joins late joins within about 10 s (Nico in K1, Intern Two in I1, the interns in X1, the
+  Directors in S1, Dex in A1), then speaks on their old cue. H1's late joiner is the hero (the story's beat).
+- **The choices:** every default is the first option, the one the panel highlights (ST-8's "Open with..." is reordered:
+  the tents first).
+- **The stage:** "NOW clap! NOW!" is a medium shot (`medium`), "Only indoors." from his left (Marge was cut at the
+  frame's edge).
+- **Dead air:** the opening's title 4 s (was 5), and PH-1 has no transition card (the opening's place card is a minute
+  before); DL-4's ride lines spread over the ride and the Board's text arrives 200 m from the fan line (a trigger), else
+  as the ride ends.

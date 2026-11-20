@@ -71,18 +71,29 @@ const places = {
   kitchen: { '@': 'parking55', name: 'the kitchen studio' },
   'stage-run': { '@': 'stadium4', name: "the arena's front drive" },
   market: { '@': 'parking41', name: 'the market square' },
+  // (FL-7: Lola's truck 22 m on from his car at the market, on his lane and facing his way (104 degrees, the way he
+  // faces at the market and the planner's first 25 m to the arena): it started on the lot's point with him and drove
+  // off behind him, the RC playtest; at the lot's own facing it stood across his lane)
+  'market-lead': { '@': 'parking41', name: "Lola's truck at the market", heading: 104, offset: { right: 0, fwd: 22 } },
   'santa-clara': { '@': 'hotel33', name: 'Santa Clara Street' },
   station: { '@': 'parking32', name: 'the station' },
-  'station-lot': { '@': 'park65', name: 'the green by the station' },
+  // (CB-2's tail ends here: 0.9 km from the market by the planner; the green by the station was 2.0 to 2.8 km of tail,
+  // 5.5 minutes, the RC playtest. The SUV's own pace in the city's traffic is about 10.5 m/s, whatever its speed)
+  'arena-green': { '@': 'park34', name: 'the arena green' },
   diner: { '@': 'restaurant31', name: 'the corner diner' },
   'museum-lot': { '@': 'hotel36', name: 'the lot behind the science museum' },
   'museum-van': { '@': 'hotel36', name: "Dex's broadcast van", offset: { right: 0, fwd: 22 } },
-  'convention-dock': { '@': 'parking42', name: 'the convention hall dock' },
+  // (SS-5: 1.8 km from the fan line by the planner, and 0.3 km on to the 280; the hall's other lot was 2.6 km, 2.5 minutes)
+  'convention-dock': { '@': 'parking20', name: 'the convention hall dock' },
   viaduct: { '@': 'parking5', name: 'the 280 viaduct' },
-  stack: { '@': 'restaurant160', name: 'the stack' },
-  'north-87': { '@': 'park47', name: 'the 87, northbound' },
-  'rose-garden': { '@': 'parking63', name: 'the rose garden' },
-  'rose-lawn': { '@': 'parking63', name: 'the rose garden lawn', offset: { right: 0, fwd: 18 } },
+  // (TP-6 starts at the stack, a lot by the 87/280 interchange where SS-5's chase ends, and the tail runs 1.1 km to the
+  // rose garden, a park east of downtown; the old garden on the north river was 5.3 km of tail and 3.1 km of chase back,
+  // 9 and 2.5 minutes, the RC playtest)
+  stack: { '@': 'parking38', name: 'the stack' },
+  'rose-garden': { '@': 'park13', name: 'the rose garden' },
+  // (the meeting: 18 m on, the open crossing with the plaza's lawn and trees down the street; toward the park's middle
+  // was against a building)
+  'rose-lawn': { '@': 'park13', name: 'the rose garden lawn', offset: { right: 0, fwd: 18 } },
   arena: { '@': 'stadium4', name: 'the arena' },
   'arena-line': { '@': 'park54', name: 'the fan line' },
   'arena-approach': { '@': 'stadium4', name: "the arena's front, a block short of the dock" },
@@ -121,7 +132,7 @@ const opening = {
     { set: 'kitchen', cam: { rel: 'jensen', right: 0.15, up: 0.08, fwd: 1.2 }, look: { rel: 'jensen' }, fov: 38, dur: 5,
       lines: [L('jensen', 'Ha! Okay. Everybody, quick logo spin. Marge? Logo spin. Marge!', { pre: 0.4, cut: 0.9 }), L('marge', "Off. We're off.", { overlap: true, how: 'deadpan' })] },
     // (the title over the hero by the lime Tensore, parked at his side; the pack's vehicles carry the paint)
-    { cam: { rel: 'player', right: -6, up: 4, fwd: -16 }, look: 'player', dur: 5, title: true },
+    { cam: { rel: 'player', right: -6, up: 4, fwd: -16 }, look: 'player', dur: 4, title: true },
   ],
 };
 
@@ -138,6 +149,8 @@ const K1 = { type: 'vcall', id: 'k1', title: 'Oven Stream: Post-Show', time: 'da
     V(P, 'Marge? Marge, can you hear me? Are we off?'),
     V('marge', 'I said "we\'re off" at "Marge." You\'ve been on mute since the logo spin.', { how: 'deadpan' }),
     Ev('unmute', P),
+    // (Nico on the call from the start of it, in the car out front: a late tile reads "Waiting to join" until its join)
+    Ev('join', 'nico'),
     V(P, "Tell me we're off the stream, because my face is still doing the launch."),
     V('marge', 'Forty thousand people just watched you shout my name at an oven. Chat thinks I\'m the chip.'),
     V(P, "It's not empty. There are cookies in there."),
@@ -150,7 +163,6 @@ const K1 = { type: 'vcall', id: 'k1', title: 'Oven Stream: Post-Show', time: 'da
     V(P, 'Let me show you something. That oven is lucky, it has never burned a thing, and ninety percent of my best ideas came...', { cut: 0.8 }),
     V('marge', "It's unplugged.", { overlap: true }),
     V(P, 'Luckily unplugged.'),
-    Ev('join', 'nico'),
     V('nico', "Car's out front, boss. I had her painted for you, and the guy called the colour \"keynote.\""),
     V('marge', "It's a highlighter.", { overlap: true, how: 'deadpan' }),
     V(P, "It's perfect."),
@@ -235,7 +247,7 @@ const W1 = { type: 'call', who: 'wesley', interrupts: true, inCar: true, at: 6, 
 // the subject.
 const L1 = { type: 'vcall', id: 'l1', title: "Lola's Window", time: 'golden', people: [
   { who: 'lola', office: 'truck', sub: "Lola's · the truck kitchen", cam: 'wide' },
-  { who: P, office: 'lot', label: 'Jensen', sub: "ninth in line at Lola's", blur: true, cam: 'low' }],
+  { who: P, office: 'lot', label: 'Jensen', sub: "ninth in line at Lola's", cam: 'low' }],
   lines: [
     V(P, "Lola! I'm ninth in line. I can see you, you can see me, so why are we on a...", { cut: 0.8 }),
     V('lola', 'No.', { overlap: true }),
@@ -275,7 +287,8 @@ const L1 = { type: 'vcall', id: 'l1', title: "Lola's Window", time: 'golden', pe
 const M1 = { id: 'PH-1', title: 'Preheat', vehicle: 'tensore', start: '@kitchen', time: 'midday', card: 'slam', verbs: ['drive'],
   stakes: 'Ten hours to doors, and the only working prototype is gone.', passLine: 'Blue vests, a blue cooler. Follow the crumbs.',
   steps: [
-    { type: 'transition', kicker: '9:06 AM', text: 'THE KITCHEN STUDIO' },
+    // (no transition card here: the opening's place card said "9:04 AM" a minute before, and the card waits for the
+    // mission's title to clear; the two left 12.5 s between the opening's last line and K1's first, the RC playtest)
     K1,
     { type: 'car', name: 'lolatruck', car: 'van', color: '#E8B23A', at: '@market' },
     { type: 'npc', who: 'lola', at: '@market' },
@@ -289,7 +302,8 @@ const M1 = { id: 'PH-1', title: 'Preheat', vehicle: 'tensore', start: '@kitchen'
     say('jensen', 'I sit on a stool.'),
     { type: 'drive', to: '@market', objective: "Get to **Lola's truck** at the market square", during: [W1] },
     L1,
-    say('jensen', "Blue vests, a blue cooler, and my lucky oven's only child.", { wait: false }),
+    // (the mission's button line, heard out before MISSION PASSED)
+    say('jensen', "Blue vests, a blue cooler, and my lucky oven's only child.", { wait: true }),
   ] };
 
 // ── Mission 2: Cold Box ──
@@ -343,20 +357,21 @@ const D1 = { type: 'call', who: 'dex', auto: true, inCar: true, at: 4, video: { 
 // Intern Two joins late just to correct the count. The Board bought them something small first (61 coffees). It ends
 // on a choice Jensen makes: no police for unpaid interns; they take Lola's cooler back, with a tip.
 const I1 = { type: 'vcall', id: 'i1', title: 'Quick Sync (Intern)', time: 'day', people: [
-  { who: 'intern-a', office: 'green', label: 'Intern One', sub: 'the green by the station', blur: true, cam: 'low' },
-  { who: P, office: 'green', label: 'Jensen', sub: 'the green by the station', blur: true, cam: 'low' },
+  { who: 'intern-a', office: 'green', label: 'Intern One', sub: 'the arena green', blur: true, cam: 'low' },
+  { who: P, office: 'green', label: 'Jensen', sub: 'the arena green', blur: true, cam: 'low' },
   { who: 'intern-b', office: 'green', label: 'Intern Two', sub: 'the green, still on the grass', blur: true, cam: 'low', late: true }],
   lines: [
     V('intern-a', 'Thanks for joining my quick sync, sir. I like things documented. For my reference.'),
     V(P, "I'm standing right next to you."),
     V('intern-a', 'And it\'s going really well. Can I put you down as a reference?'),
+    // (Intern Two on the call within 10 s, on the grass beside them; he speaks only to correct the count)
+    Ev('join', 'intern-b'),
     V(P, 'You want me as your reference?'),
     V('intern-a', "You're the most famous person who's ever hit me."),
     V(P, "Where's the chip?"),
     V('intern-a', 'We had it for one drive! A suit took it at the plaza. Velvet bag.'),
     V(P, 'Did he say anything?'),
     V('intern-a', '"Thank you, intern." Like it was my name. He bought the whole team coffee first, sixty coffees...', { cut: 0.85 }),
-    Ev('join', 'intern-b'),
     V('intern-b', 'Sixty-one!', { overlap: true, how: 'urgent' }),
     V('intern-a', "He left this for you. On Lola's napkin. He said you'd know the booth."),
     Ev('share', 'intern-a', { slide: { title: "LOLA'S NAPKIN", lines: ["Booth three. One o'clock.", 'Come alone.', 'Regards, the Board.'] } }),
@@ -371,13 +386,16 @@ const I1 = { type: 'vcall', id: 'i1', title: 'Quick Sync (Intern)', time: 'day',
 const M2 = { id: 'CB-2', title: 'Cold Box', vehicle: 'tensore', start: '@market', time: 'midday', card: 'slam', verbs: ['drive', 'tail', 'fight'],
   stakes: "Dex's guys have the blue cooler. Don't get spotted.", passLine: "Booth three. One o'clock. Come alone.",
   steps: [
-    { type: 'tail', name: 'the Cobalt SUV', car: 'suv', color: '#2F5FD0', route: ['@market', '@santa-clara', '@station', '@station-lot'], ahead: 60, speed: 11, lostDist: 220,
+    // (the market to the arena green, 0.9 km by the planner, about 2 minutes behind it (D1's main lines); it was 2.8 km
+    // by the station at 11 m/s, 5.5 minutes, the RC playtest, and 1.5 km at 17 m/s was 2.5; it waits for him at half
+    // speed past 168 m (lostDist 280): at 17 m/s on a straight it pulled away)
+    { type: 'tail', name: 'the Cobalt SUV', car: 'suv', color: '#2F5FD0', route: ['@market', '@arena-green'], ahead: 60, speed: 17, lostDist: 280,
       objective: "Follow the Cobalt SUV. Don't get spotted.", during: [D1] },
-    { type: 'car', name: 'cobaltsuv', car: 'suv', color: '#2F5FD0', at: '@station-lot' },
-    { type: 'npc', who: 'intern-a', at: '@station-lot' },
-    { type: 'npc', who: 'intern-b', at: '@station-lot' },
+    { type: 'car', name: 'cobaltsuv', car: 'suv', color: '#2F5FD0', at: '@arena-green' },
+    { type: 'npc', who: 'intern-a', at: '@arena-green' },
+    { type: 'npc', who: 'intern-b', at: '@arena-green' },
     say('intern-a', "It's the CEO! The real one! Somebody hide the cooler!", { wait: false }),
-    { type: 'fight', enemies: ['intern-a', 'intern-b'], arena: '@station-lot', win: 'ko-all', rules: 'lesson', timer: 90, objective: 'Deal with the interns.',
+    { type: 'fight', enemies: ['intern-a', 'intern-b'], arena: '@arena-green', win: 'ko-all', rules: 'lesson', timer: 90, objective: 'Deal with the interns.',
       during: [SAYAT(2, 'intern-a', "We're interns! This isn't even paid!"), SAYAT(8, 'intern-b', "Is this team-building? Nobody said anything about team-building!"),
         SAYAT(14, 'jensen', 'Elbows in. Good form. Terrible career choice.'), SAYAT(22, 'intern-a', "Dex said you'd be nicer!"), SAYAT(30, 'jensen', 'I am being nice. This is my nice.')] },
     I1,
@@ -526,10 +544,16 @@ const M3 = { id: 'BT-3', title: 'Booth Three', vehicle: 'tensore', start: '@stat
     { type: 'drive', to: '@diner', objective: 'Get to the corner diner. Booth three.', during: [N1] },
     { type: 'walk', to: '@diner', leaveCar: true, objective: 'Booth three' },
     B1, BC, B2,
-    { type: 'pursuit', kind: 'crew', name: "the Board's Directors", level: 2, goal: 'lose', loseDist: 220, objective: 'Lose the Directors.', during: [M2C] },
+    // (heat 3 and 35 s out of sight to lose them, about a minute of chase: at heat 2 (8 s) they were lost in 20 s, the RC
+    // playtest, 26 s was 38 s and 45 s ran past two minutes; Retry starts here, not at the drive; then Marge's
+    // call is heard out, its main lines and its wrap, before MISSION PASSED: each wait ends once the car phone has hung
+    // up, the second at once if it already has)
+    { type: 'pursuit', checkpoint: true, kind: 'crew', name: "the Board's Directors", level: 3, goal: 'lose', loseDist: 220, loseTime: 35, objective: 'Lose the Directors.', during: [M2C] },
+    { type: 'wait', secs: 30, call: true }, { type: 'wait', secs: 30, call: true },
   ] };
 
 // ── Mission 4: Dome Light ──
+const DM4 = "Your rival says you touched his van. Rude. My Directors are bringing a case to the convention hall dock. Don't come. Regards, the Board.";
 const LO1 = { type: 'call', who: 'lola', ring: 6, lines: [
   L('lola', 'You owe me a cooler.'),
   L('jensen', "An intern's bringing it back. With a tip."),
@@ -575,16 +599,18 @@ const W2 = { type: 'call', who: 'wesley', auto: true, inCar: true, video: { offi
 // The cable pull froze Dex's stream: X1 opens on his frozen picture; he switches to his phone (unfreeze).
 const X1 = { type: 'vcall', id: 'x1', title: 'COBALT C1: LIVE UPLOAD', time: 'golden', people: [
   { who: 'dex', office: 'van', sub: 'Cobalt Circuitry · the van' },
-  { who: P, office: 'lot', label: 'Jensen', sub: 'behind the van', blur: true, cam: 'low' },
-  { who: 'wesley', office: 'lot', sub: 'behind the recycling bins', blur: true, cam: 'low' },
-  { who: 'intern-a', office: 'lot', sub: 'Cobalt · unpaid · the lot', blur: true, cam: 'low', late: true },
-  { who: 'intern-b', office: 'lot', sub: 'Cobalt · unpaid · the lot', blur: true, cam: 'low', late: true }],
+  { who: P, office: 'lot', label: 'Jensen', sub: 'behind the van', cam: 'low' },
+  { who: 'wesley', office: 'lot', sub: 'behind the recycling bins', cam: 'low' },
+  { who: 'intern-a', office: 'lot', sub: 'Cobalt · unpaid · the lot', cam: 'low', late: true },
+  { who: 'intern-b', office: 'lot', sub: 'Cobalt · unpaid · the lot', cam: 'low', late: true }],
   lines: [
     Ev('freeze', 'dex'),
     V('dex', 'No no no no, not now, it was at ninety-four percent!'),
     V(P, "Dex. You're frozen. Step away from the van."),
     V('dex', "The van's frozen, you froze the... okay, I'm switching to my phone, nobody look at my phone."),
     Ev('unfreeze', 'dex'),
+    // (the interns on the call within 10 s, in the lot; they speak when they bring the coffees)
+    Ev('join', 'intern-a'), Ev('join', 'intern-b'),
     V('dex', "That's a public screen, man, you can't just... it belongs to everyone!"),
     V(P, "I just did. Where's the chip?"),
     V('dex', "Okay. Okay okay okay. Radical honesty. It's not here. He gave it to me for ten seconds, which was enough for one number."),
@@ -602,7 +628,6 @@ const X1 = { type: 'vcall', id: 'x1', title: 'COBALT C1: LIVE UPLOAD', time: 'go
     V(P, 'He buys you something small, then he gives you an address. He does it to everyone.'),
     V('dex', "That's... I'm going to... pivot. I'm pivoting out of this conversation, physically. Guys? Guys!"),
     V(P, 'Dex, wait, you still have a...', { cut: 0.6 }),
-    Ev('join', 'intern-a'), Ev('join', 'intern-b'),
     V('intern-a', 'We brought the sixty coffees!'),
     V('intern-b', 'Sixty-one!', { overlap: true }),
     V('dex', 'Not now! Somebody hold the van door, gently, he\'s a legend!'),
@@ -627,16 +652,22 @@ const M4 = { id: 'DL-4', title: 'Dome Light', vehicle: 'tensore', start: '@santa
     { type: 'search', at: '@museum-van', label: 'pull the cable', prop: 'van', secs: 2.5 },
     { type: 'timer', name: 'upload', stop: true },
     X1,
+    // (the Board's text on the ride: 200 m from the fan line, the last 15% of the way)
+    { type: 'trigger', area: { '@': 'arena-line', r: 200 }, when: 'boardText4 != true', once: true, set: { flags: { boardText4: true } },
+      do: [{ type: 'dm', from: 'board', text: DM4, secs: 8 }] },
     // the ride: Wesley tries to confess (the cone) and Jensen talks over him; then the midpoint: Jensen makes a plan
     { type: 'passenger', who: 'wesley', from: '@museum-lot', to: '@arena-line', seat: 'front', limit: 45, limitSecs: 6, fail: 'soft', warn: 'Wesley: Chat says we\'re speeding and Chat gets carsick!',
       objective: 'Drive Wesley back to the fan line, under 45.', pickObjective: 'Pick up Wesley.',
+      // (the talk spread over the ride, about 1.6 km at under 45: it was over at 50 s, then 84 s of nothing, the RC
+      // playtest; the Board's text comes in on the last of the way, 200 m from the fan line (the trigger before the ride),
+      // else as the ride ends)
       during: [SAYAT(4, 'wesley', "I'm in the car. I'm in the car. Chat, I'm in the actual car, and it smells like leather and confidence."),
-        SAYAT(11, 'wesley', 'Can I ask you something? Hypothetically. If a fan sold a thing you signed, to a collector, for like, rent...'),
-        SAYAT(18, 'jensen', "Wesley, I've signed your phone, your hoodie, your skateboard and something in your driveway."),
-        SAYAT(26, 'wesley', "My aunt Deb's car! She won't wash it, it's been three years, and birds avoid it out of respect."),
-        SAYAT(34, 'jensen', 'Wesley, new job. Whatever he tells me next, he wants me looking at it, so you look at the arena: the dock, the back lot, every car.'),
-        SAYAT(44, 'wesley', "From the fan line? I can see the whole dock from the fan line! I'm your EYES!")] },
-    { type: 'dm', from: 'board', text: "Your rival says you touched his van. Rude. My Directors are bringing a case to the convention hall dock. Don't come. Regards, the Board.", secs: 8 },
+        SAYAT(14, 'wesley', 'Can I ask you something? Hypothetically. If a fan sold a thing you signed, to a collector, for like, rent...'),
+        SAYAT(25, 'jensen', "Wesley, I've signed your phone, your hoodie, your skateboard and something in your driveway."),
+        SAYAT(36, 'wesley', "My aunt Deb's car! She won't wash it, it's been three years, and birds avoid it out of respect."),
+        SAYAT(48, 'jensen', 'Wesley, new job. Whatever he tells me next, he wants me looking at it, so you look at the arena: the dock, the back lot, every car.'),
+        SAYAT(60, 'wesley', "From the fan line? I can see the whole dock from the fan line! I'm your EYES!")] },
+    { type: 'dm', if: 'boardText4 != true', from: 'board', text: DM4, secs: 8 },
     say('jensen', "'Don't come.' He gave me the address. He gives everyone the address."),
     say('jensen', 'So we go. On purpose, this time.'),
   ] };
@@ -690,16 +721,17 @@ const LO2 = { type: 'call', who: 'lola', auto: true, inCar: true, video: { offic
 // The Directors don't walk up: their black cars hold the dock and they join Jensen's call to read a statement,
 // raising a hand before each line, because procedure.
 const S1 = { type: 'vcall', id: 's1', title: 'Delivery for the Board', time: 'golden', people: [
-  { who: P, office: 'lot', label: 'Jensen', sub: 'the convention hall dock', blur: true, cam: 'low' },
-  { who: 'director-a', office: 'car', sub: 'the black cars, outside', blur: true, late: true },
-  { who: 'director-b', office: 'car', sub: 'the black cars, outside', blur: true, late: true }],
+  { who: P, office: 'lot', label: 'Jensen', sub: 'the convention hall dock', cam: 'low' },
+  { who: 'director-a', office: 'car', sub: 'the black cars, outside', late: true },
+  { who: 'director-b', office: 'car', sub: 'the black cars, outside', late: true }],
   lines: [
     V(P, 'Velvet, very soft, and warm. Okay. Okay. ...Why is it shaped like a cone?'),
+    // (the Directors on the call within 10 s, watching from their cars; their hands go up when they have a motion)
+    Ev('join', 'director-a'), Ev('join', 'director-b'),
     Ev('share', P, { slide: { title: 'THE CASE', lines: ['A velvet bag. Warm. Shaped wrong.', 'Inside: a traffic cone.', "In marker: 'To Wesley. Love, Jensen.'"] } }),
     V(P, '"To Wesley. Love, Jensen." I signed this. Last year. I signed this exact cone.'),
     Ev('unshare', P),
     V(P, 'He knew I would come. ...Good. I knew he knew.', { pre: 0.4 }),
-    Ev('join', 'director-a'), Ev('join', 'director-b'),
     Ev('hand', 'director-a'),
     V(P, '...Yes? You, in the black car.'),
     V('director-a', 'Mr. Jensen, we have a prepared statement. The Board sends his regards, and his Directors.'),
@@ -761,7 +793,8 @@ const BD1 = { type: 'call', who: 'board', auto: true, inCar: true, at: 3, video:
     resume: [L('board', 'Back? Was that a fan? How quaint. Where was I. Ah, yes: threatening you.')] } };
 
 // Wesley's confession (the car, "hypothetically") and his new job paying off: the grey SUV, set up for M6.
-const W3 = { type: 'call', who: 'wesley', interrupts: true, inCar: true, at: 50, video: { office: 'green', blur: true },
+// (20 s into the chase, not 50: with the checkpoint a chase can be over in 40 s, and the call never rang, RC fixes)
+const W3 = { type: 'call', who: 'wesley', interrupts: true, inCar: true, at: 20, video: { office: 'green', blur: true },
   lines: [
     L('wesley', 'Hi. Hi. Before you say anything, I know, I know, I know.'),
     L('jensen', 'You sold my cone.'),
@@ -789,7 +822,11 @@ const M5 = { id: 'SS-5', title: 'Signed, Sealed', vehicle: 'tensore', start: '@a
     { type: 'search', at: '@convention-dock', label: 'open the case', prop: 'case', secs: 2 },
     S1,
     { type: 'drive', to: '@viaduct', objective: 'Get up on the 280.' },
-    { type: 'pursuit', kind: 'crew', name: "the Board's Directors", level: 3, goal: 'lose', loseDist: 240, objective: 'Lose the Directors on the freeway.', during: [BD1, W3] },
+    // (Retry starts here, on the 280, not at the 5-minute top of the mission; then the phone is heard out, the Board's
+    // main lines, Wesley's call waiting and the Board's wrap, up to 2 minutes after a 40 s chase: each wait ends once the
+    // car phone has hung up. A drive to the stack after it was 2.5 km from where the chase ended)
+    { type: 'pursuit', checkpoint: true, kind: 'crew', name: "the Board's Directors", level: 3, goal: 'lose', loseDist: 240, objective: 'Lose the Directors on the freeway.', during: [BD1, W3] },
+    { type: 'wait', secs: 30, call: true }, { type: 'wait', secs: 30, call: true }, { type: 'wait', secs: 30, call: true }, { type: 'wait', secs: 30, call: true },
   ] };
 
 
@@ -842,12 +879,16 @@ const M4C = { type: 'call', who: 'marge', ring: 4, lines: [
   L('marge', 'Yes. ...Get delivered.', { pre: 0.4 }),
 ] };
 
-const M6 = { id: 'TP-6', title: 'Take Private', vehicle: 'tensore', start: '@viaduct', time: 'golden', card: 'slam', verbs: ['drive', 'tail', 'fight', 'escape', 'carry'],
+const M6 = { id: 'TP-6', title: 'Take Private', vehicle: 'tensore', start: '@stack', time: 'golden', card: 'slam', verbs: ['drive', 'tail', 'fight', 'escape', 'carry'],
   stakes: "Wesley's watching the docks. The cone guy's grey SUV keeps stopping to vote.", passLine: 'Brisket is back. The stage is not.',
   steps: [
     { type: 'transition', kicker: '5:20 PM', text: 'THE STACK' },
     { type: 'voicenote', who: 'wesley', secs: 12, text: "Grey SUV, the cone guy's, off the stack and up the 87, and they keep pulling over to vote, so they're slow! I'm your EYES! Chat says go!" },
-    { type: 'tail', name: 'the grey SUV', car: 'suv', color: '#6E7378', route: ['@stack', '@north-87', '@rose-garden'], ahead: 70, speed: 12, objective: "Tail the grey SUV to the Board's offsite.", during: [N2] },
+    // (from the stack: 1.1 km to the rose garden at 18 m/s, under 2 minutes (it was 5.3 km by the north river at 12, about
+    // 9 minutes, the RC playtest; 1.6 km at 17 was 2.5 minutes); it waits for him at half speed past 168 m (lostDist 280);
+    // after Nico's call, Wesley's text from the stream on the last of the way)
+    { type: 'tail', name: 'the grey SUV', car: 'suv', color: '#6E7378', route: ['@stack', '@rose-garden'], ahead: 70, speed: 18, lostDist: 280, objective: "Tail the grey SUV to the Board's offsite.",
+      during: [N2, { type: 'dm', at: 72, from: 'wesley', text: "Chat has you on the map!! The grey SUV just signalled for a whole block and didn't turn. They're VOTING. Stay on him!", secs: 7 }] },
     { type: 'npc', who: 'wesley', at: '@rose-garden' },
     { type: 'fight', enemies: ['director-a', 'director-a', 'director-b', 'director-b'], arena: '@rose-lawn', win: 'ko-all', rules: 'full', hp: 120, timer: 120, objective: 'Break up the board meeting.',
       during: [SAYAT(2, 'director-a', 'Motion to restrain!'), SAYAT(4, 'director-b', 'Seconded.'), SAYAT(6, 'jensen', 'Motion denied!'),
@@ -920,15 +961,16 @@ const W4 = { type: 'call', who: 'wesley', interrupts: true, inCar: true, at: 45,
 const A1 = { type: 'vcall', id: 'a1', title: 'Dock Door', time: 'golden', people: [
   { who: 'marge', office: 'backstage', sub: 'headset: a spare, no channel' },
   { who: P, office: 'truck', label: 'Jensen', sub: "Lola's truck · in the back", cam: 'low' },
-  { who: 'lola', office: 'lot', sub: 'the dock door · "catering"', blur: true, cam: 'low' },
-  { who: 'dex', office: 'van', sub: 'Cobalt · the van, pivoting', late: true, blur: true }],
+  { who: 'lola', office: 'lot', sub: 'the dock door · "catering"', cam: 'low' },
+  { who: 'dex', office: 'van', sub: 'Cobalt · the van, pivoting', late: true }],
   lines: [
     V('marge', "You're late."),
     V(P, "It's six fifty-one."),
+    // (Dex on the call within 10 s, from the van; he blurts when he has worked up to it)
+    Ev('join', 'dex'),
     V('marge', "By my standards you're late. By anyone else's, you're a miracle. Don't tell anyone I said that."),
     V('lola', 'I told the suits sixty brisket plates and a busboy. Where do you want them?'),
     V('marge', 'Plates to the green room. Busboy to the stage, through about eleven men.'),
-    Ev('join', 'dex'),
     V('dex', "Wait! Wait wait wait! Don't hit me! I'm pivoting!"),
     V(P, 'Which way?', { overlap: true }),
     V('dex', 'Your way! He gave me the lobby, Jensen, the real lobby, a table by the coat check with a sign that says "also."'),
@@ -951,7 +993,8 @@ const M7 = { id: 'FL-7', title: 'Fan Line', vehicle: 'tensore', start: '@market'
   steps: [
     { type: 'transition', kicker: '6:38 PM', text: 'THE MARKET SQUARE' },
     { type: 'timer', name: 'show', seconds: 480, label: 'DOORS', fail: 'hard', why: 'Seven o\'clock. Mr. Board walked out on your stage.' },
-    { type: 'convoy', route: ['@market', '@santa-clara', '@arena-approach'], lead: 'van', color: '#E8B23A', name: "Lola's truck", who: 'lola', band: [8, 40],
+    // (Lola's truck 20 m ahead of him on the way, facing along it; Retry starts here)
+    { type: 'convoy', checkpoint: true, route: ['@market-lead', '@santa-clara', '@arena-approach'], lead: 'van', color: '#E8B23A', name: "Lola's truck", who: 'lola', band: [8, 40],
       objective: "Stay behind Lola's truck to the arena.", during: [LO3, W4] },
     { type: 'roadblock', at: '@arena-dock', kind: 'crew', cars: 3, crew: 2, ram: true, to: '@arena-dock', objective: 'Clear the dock.' },
     A1,
@@ -1008,6 +1051,9 @@ const shotOn = (B, who, p, o = {}) => ({ cam: camAt(who, B[who], p), look: o.at 
 // a close-up: from `dist` m in front of them, `off` degrees round from their nose (+ to their right), at eye height
 const close = (B, who, o = {}) => { const P = B[who], h = rad(P.face + (o.off || 0)), d = o.dist || 1.35; return shotOn(B, who, [P.at[0] + Math.sin(h) * d, HEAD + (o.up ?? 0.04), P.at[1] + Math.cos(h) * d], { fov: o.fov || 33, dur: o.dur }); };
 const pp = (who, B, extra = {}) => ({ who, at: B[who].at, face: B[who].face, ...extra });
+// a medium shot: from `dist` m in front of them (`off` degrees round), a little over eye height, looking at the chest so
+// the head keeps its room when they jump or throw their arms up (a cheer)
+const medium = (B, who, o = {}) => { const P = B[who], h = rad(P.face + (o.off || 0)), d = o.dist || 2.8; return shotOn(B, who, [P.at[0] + Math.sin(h) * d, HEAD + 0.08, P.at[1] + Math.cos(h) * d], { at: [P.at[0], HEAD - 0.2, P.at[1]], fov: o.fov || 42, dur: o.dur }); };
 
 // where everyone stands (each cutscene's own copy changes a few)
 const ST = {
@@ -1032,7 +1078,8 @@ const ST1 = { type: 'cutscene', id: 'st1', set: stage([pp('board', ST, { pose: '
   { ...close(ST, 'marge', { off: 5, dist: 1.2 }), dur: 3.5, say: 'marge', line: "The jacket's in. ...He's coming.", how: 'hushed', pre: 0.4 },
   // (the walk on, from behind him in the wings: the lit deck, the wall, the house beyond)
   { ...shotOn(ST, 'jensen', [-8.9, 1.85, -3.9], { at: [0, 1.6, -1.2], fov: 46, dur: 3.6 }), act: [{ who: 'jensen', hidden: false, walk: { to: TWO.jensen.at, secs: 3.2, then: 'talk' } }, { who: 'board', face: -40, pose: 'idle' }] },
-  { ...close(ST, 'wesley', { off: 10, dist: 1.2 }), dur: 2.2, say: 'wesley', line: 'NOW clap! NOW!', how: 'shout', act: [{ who: 'wesley', pose: 'cheer' }] },
+  // (a medium shot: in the 1.2 m close his cheer's bounce put his head under the top bar and his hands over the lens, RC playtest)
+  { ...medium(ST, 'wesley', { off: 10 }), dur: 2.2, say: 'wesley', line: 'NOW clap! NOW!', how: 'shout', act: [{ who: 'wesley', pose: 'cheer' }] },
   { ...close(B1s, 'board', { off: 15 }), dur: 3, say: 'board', line: "Jensen. You're not on the run of show." },
   { ...close(ST, 'marge', { off: 25 }), dur: 3, say: 'marge', line: 'He is now. I just wrote him in.', how: 'deadpan', act: [{ who: 'jensen', face: 40, pose: 'talk' }] },
   // (the two of them from the front row, both faces: the Board wants the box, Jensen gives the room its name)
@@ -1042,9 +1089,10 @@ const ST1 = { type: 'cutscene', id: 'st1', set: stage([pp('board', ST, { pose: '
 ] };
 
 const crowd = (n, extra = {}) => ({ meters: { crowd: { add: n } }, ...extra });
-const K1C = { type: 'choice', prompt: 'The room is yours. Open with...', who: 'jensen', timeout: 8, default: 1, options: [
-  { text: 'The jacket', set: crowd(20), reply: 'First, a thank-you to the jacket. Twenty years, every keynote, on time. Unlike me.' },
+// (every choice's default is its first option, the one the panel highlights: here it was the second, the RC playtest)
+const K1C = { type: 'choice', prompt: 'The room is yours. Open with...', who: 'jensen', timeout: 8, default: 0, options: [
   { text: 'The tents', set: crowd(35), reply: "Somebody here slept in a tent since Tuesday, and somebody slept in a smaller tent inside his tent. This one's for you." },
+  { text: 'The jacket', set: crowd(20), reply: 'First, a thank-you to the jacket. Twenty years, every keynote, on time. Unlike me.' },
   { text: 'A benchmark', set: crowd(10), reply: 'Let me show you something. Ninety-one percent of you are standing, the fastest standing ever measured indoors.' }] };
 
 // ST2: the booth story, told true. The Board's mic is dead, so what he says now only Jensen hears.
@@ -1085,7 +1133,8 @@ const ST3A = { type: 'cutscene', id: 'st3a', if: 'applause == true', set: stage(
   // (his face, turned to the house on its feet: from upstage right, the pit filling the left of the frame behind him)
   { ...shotOn(B3b, 'board', [6.0, 1.8, -4.5], { at: [0, 1.5, 0.5], fov: 44, dur: 3.4 }), act: [{ who: 'board', face: 50 }], say: 'board', line: '...Regards.', pre: 0.5 },
   { ...close(B3b, 'board', { off: -8, dist: 1.4 }), dur: 5, say: 'board', line: "...It's louder than I thought. Is it always this loud?", how: 'hushed', pre: 1.0 },
-  { ...close(B3a, 'jensen', { off: 6, dist: 1.25 }), dur: 3, say: 'jensen', line: 'Only indoors.', how: 'warm' },
+  // (from his left of the nose, the wall behind him: from 6 degrees right Marge in the wings sat half out at the frame's left edge)
+  { ...close(B3a, 'jensen', { off: -14, dist: 1.25 }), dur: 3, say: 'jensen', line: 'Only indoors.', how: 'warm' },
   exitShot(B3b, 'walk'),
 ] };
 const ST3B = { type: 'cutscene', id: 'st3b', if: 'applause != true', set: stage([pp('board', B2s, { pose: 'idle' }), pp('jensen', B2s, { pose: 'idle' }), pp('marge', ST, { pose: 'arms' }), pp('wesley', ST, { pose: 'idle' }), pp('lola', ST, { pose: 'idle' }), pp('director-b', ST, { pose: 'idle' })]), shots: [
