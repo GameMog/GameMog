@@ -386,7 +386,9 @@ const M2 = { id: 'CB-2', title: 'Cold Box', vehicle: 'tensore', start: '@market'
 // ── Mission 3: Booth Three ──
 // WRITER B, round 2. Drop-in replacement for gen.mjs from "// ── Mission 3: Booth Three ──" up to (not including)
 // "// ── Mission 6: Take Private ──". Uses only gen.mjs's own helpers (L, V, Ev, say, SAYAT, P).
-const N1 = { type: 'call', who: 'nico', auto: true, inCar: true, video: { office: 'kitchen' },
+// (Nico's picture: the car out front of the house, where the driver waits; the kitchen was Jensen's own set, and the
+// cast critic read his call and Lola's as one room, 20 Nov)
+const N1 = { type: 'call', who: 'nico', auto: true, inCar: true, video: { office: 'car' },
   lines: [
     L('nico', "Boss, I'm at the house with the oven, and it's got a vibe now, like a crime show where the oven did it."),
     L('jensen', "Nico, the napkin says booth three, one o'clock, and it's signed the Board."),
@@ -1097,7 +1099,10 @@ const ST3B = { type: 'cutscene', id: 'st3b', if: 'applause != true', set: stage(
 const B3 = { ...ST, jensen: { at: [-0.6, -2.2], face: 0 }, marge: { at: [-3.4, 0.1], face: 60 }, 'director-a': { at: [5.4, -2.6], face: -110 }, 'director-b': { at: [6.4, -3.0], face: -100 } };
 const B3j = { ...B3, jensen: { at: B3.jensen.at, face: -35 } }, B3m = { ...B3, marge: { at: B3.marge.at, face: 180 } }, B3s = { ...B3, marge: { at: SEAT_AT, face: 180 } };
 const ST3 = { type: 'cutscene', id: 'st3', set: stage([pp('jensen', B3, { pose: 'talk' }), pp('marge', B3, { pose: 'arms' }), pp('wesley', B3, { pose: 'idle' }), pp('dex', B3, { pose: 'idle' }), pp('director-a', B3, { pose: 'idle' }), pp('director-b', B3, { pose: 'idle' })]), shots: [
-  { ...shotOn(B3, 'director-a', [3.9, 1.6, -1.6], { at: [6.0, 1.55, -2.9], fov: 38, dur: 3.5 }),
+  // (Grey's line from in front of him, his face to the lens, Navy over his shoulder for his "Seconded": the lens beside his
+  // nose before (52 degrees off it) showed the back of his head, and an earlier blocking had Navy between the lens and
+  // him, so the line read as Navy's, the cast critic 20 Nov)
+  { ...shotOn(B3, 'director-a', [3.75, 1.6, -3.15], { at: [6.0, 1.55, -2.85], fov: 36, dur: 3.5 }),
     lines: [L('director-a', 'Motion to adjourn.'), L('director-b', 'Seconded.', { overlap: true })] },
   { ...close(B3, 'dex', { off: -10, dist: 1.4 }), dur: 3, act: [{ who: 'dex', pose: 'wave' }], say: 'dex', line: 'Dex! Present!', how: 'shout' },
   { ...close(B3, 'jensen', { off: -12, dist: 1.4 }), dur: 3.2, say: 'jensen', line: 'Ladies and gentlemen: Dex. Present.' },
