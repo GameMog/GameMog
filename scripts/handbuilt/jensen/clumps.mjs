@@ -166,6 +166,8 @@ export function hairClumpsPass(doc, K = {}) {
   // at their own alpha, flick their tips up and out, and split into their own number of sub-locks)
   LK.forEach(([p, w, a1, sw, fr, a0, tl, ns]) => clump(dirT, p, p, w, a0 ?? 29 + 3 * rnd(), a1, K.lockH ?? 0.0075, 0.32, tB(1.0), tl ?? 0.0015, sw, { nsub: ns ?? 3, finger: K.lockFinger ?? 0.2, front: fr }));
   // (3) a few flyaway wisps: thin tapered tubes leaving the locks' surface and arcing up and back off it
+  // (round 6, the critic: "thin separate wire lines floating off the mass": wispR0/R1 make them thicker and tapered,
+  // wispRoot starts them inside the lock (a fraction of the lock's height) so they grow out of the mass)
   let nfly = 0;
   const tube = (pts, r0, r1, tone) => { const base = pos.length / 3, ns = 5, m = pts.length;
     for (let i = 0; i < m; i++) { const p = pts[i], q = pts[Math.min(m - 1, i + 1)], o = pts[Math.max(0, i - 1)], tg = norm([q[0] - o[0], q[1] - o[1], q[2] - o[2]]);
@@ -176,9 +178,9 @@ export function hairClumpsPass(doc, K = {}) {
     for (let i = 0; i < m - 1; i++) for (let j = 0; j < ns; j++) { const a = base + i * ns + j, b = base + i * ns + ((j + 1) % ns), c = a + ns, d = b + ns; idx.push(a, c, b, b, c, d); ntri += 2; }
     nfly++; };
   const wisp = (psi, a0, len, up, side, tone) => { const pts = [];
-    for (let i = 0; i <= 12; i++) { const t = i / 12, a = a0 + len * t, d = dirT((psi + side * t * t) * D2R, a * D2R), q = dome(d); if (!q) return; const h = K.clumpH * 0.9 + up * t * t;
+    for (let i = 0; i <= 12; i++) { const t = i / 12, a = a0 + len * t, d = dirT((psi + side * t * t) * D2R, a * D2R), q = dome(d); if (!q) return; const h = K.clumpH * ((K.wispRoot ?? 0.9) + (0.9 - (K.wispRoot ?? 0.9)) * Math.min(1, t * 3)) + up * t * t;
       pts.push([C[0] + d[0] * (q.r + h), C[1] + d[1] * (q.r + h), C[2] + d[2] * (q.r + h)]); }
-    tube(pts, 0.00045, 0.00012, tone); };
+    tube(pts, K.wispR0 ?? 0.00045, K.wispR1 ?? 0.00012, tone); };
   if (K.flyaways) for (const [psi, a0, len, up, side] of K.wisps || [[-8, 70, 30, 0.006, -6], [14, 82, 26, 0.008, 5], [-40, 95, 30, 0.005, -8], [40, 100, 22, 0.006, 6],
     [-18, 120, 26, 0.007, -4], [2, 135, 22, 0.005, 3], [-100, 105, 24, 0.004, -5], [96, 110, 22, 0.0035, 5], [-65, 60, 20, 0.004, -4], [62, 64, 18, 0.0035, 4]])
     wisp(psi, a0, len, up, side, tB(0.98));
