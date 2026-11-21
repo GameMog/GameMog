@@ -914,7 +914,10 @@ const M6 = { id: 'TP-6', title: 'Take Private', vehicle: 'tensore', start: '@sta
         { below: 0.6, who: 'jensen', text: 'Hold it level, Wesley. Like a cake. Like a very expensive cake.' },
         { below: 0.4, who: 'wesley', text: "It's beeping! Does it beep? Chat says it's never beeped before!" },
         { below: 0.2, who: 'jensen', text: "Lola's cooler. We need Lola's cooler. Don't let go." }] },
-    { type: 'pursuit', kind: 'crew', name: "the Board's Directors", level: 3, goal: 'reach', to: '@market', radius: 12, objective: "Get Brisket to Lola's cooler.",
+    // (heat 2, three cars: a chase to a place can't be shaken as BT-3's chase to lose is at heat 3, so it is held to
+    // their slower top speed; at 3 the lead car sat 3-5 m off him most of the way and caught the autopilot once in
+    // two tries, the RC review, 20 Nov)
+    { type: 'pursuit', kind: 'crew', name: "the Board's Directors", level: 2, count: 3, goal: 'reach', to: '@market', radius: 12, objective: "Get Brisket to Lola's cooler.",
       during: [SAYAT(6, 'wesley', "There's four black cars behind us and they're all signalling. Who signals in a chase?")] },
     say('lola', 'Give it here. Cooler. Blue one. That costs extra, and so does the ice.', { wait: true }),
     say('jensen', 'Wesley. Good eyes.', { how: 'warm' }),
