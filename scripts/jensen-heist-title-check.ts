@@ -24,8 +24,8 @@ const sha = (b: string | Uint8Array) => createHash('sha256').update(b).digest('h
 
 export async function runJensenTitleChecks(ok: Ok) {
   console.log('\nJensen Heist retitled SAN JOSE, CA (deploy/migrate.mjs ' + ID + ')');
-  const { migrate, MIGRATIONS, JH_TITLE, JH_TITLE_WAS, JH_TITLE_FROM, jhTitledWorld } = await import('../deploy/migrate.mjs') as {
-    migrate: (p: string) => Promise<void> | void; MIGRATIONS: Migration[]; JH_TITLE: W; JH_TITLE_WAS: W; JH_TITLE_FROM: string; jhTitledWorld: (t: string, w: W) => string };
+  const { migrate, MIGRATIONS, JH_TITLE, JH_TITLE_WAS, JH_TITLE_FROM, JH_LATER, jhTitledWorld } = await import('../deploy/migrate.mjs') as {
+    migrate: (p: string) => Promise<void> | void; MIGRATIONS: Migration[]; JH_TITLE: W; JH_TITLE_WAS: W; JH_TITLE_FROM: string; JH_LATER: string[]; jhTitledWorld: (t: string, w: W) => string };
   const iPub = MIGRATIONS.findIndex((m) => m.id === PUB_ID), iT = MIGRATIONS.findIndex((m) => m.id === ID);
   ok('the retitle is a migration of its own, async, after the publish', iPub >= 0 && iT > iPub && !!MIGRATIONS[iT].async && !!MIGRATIONS[iPub].async, `${iPub} ${iT}`);
   if (iPub < 0 || iT < 0) return;
@@ -40,7 +40,10 @@ export async function runJensenTitleChecks(ok: Ok) {
   ok('... no "Ten hours to showtime" left in the record or its world; the Showtime act stays',
     !/ten hours to showtime/i.test(JSON.stringify(R)) && !/ten hours to showtime/i.test(worldText) && /"Showtime"/.test(worldText));
   const oldText = jhTitledWorld(worldText, JH_TITLE_WAS);
-  ok('the world gamemog.com plays (2026-11-18\'s) is this world with the old title, kicker and tagline, byte for byte', sha(oldText) === JH_TITLE_FROM, sha(oldText).slice(0, 12));
+  // (a later record, the polish batch's (2026-11-21-jensen-heist-polish1, scripts/jensen-heist-polish1-check.ts): its
+  // world is more than the retitle, so the retitle never seals it; it brings the words and the art alone)
+  const later = JH_LATER.includes(R.world.hash);
+  ok('the world gamemog.com plays (2026-11-18\'s) is this world with the old title, kicker and tagline, byte for byte, or the record is a later one (JH_LATER)', sha(oldText) === JH_TITLE_FROM || later, sha(oldText).slice(0, 12));
 
   const dir = mkdtempSync(path.join(tmpdir(), 'jh-title-')), p = path.join(dir, 'gamemog.db');
   const sk = process.env.STORYKIT, log = console.log, err = console.error;
@@ -82,7 +85,10 @@ export async function runJensenTitleChecks(ok: Ok) {
         .run(JH_TITLE_WAS.title, JH_TITLE_WAS.tagline, JSON.stringify(meta), `GameMog.world({ storykit: ${JSON.stringify(oldPack)} });\n`, art('cover'), art('wide'), g0.id);
     };
     setLive();
-    { const note = await run(T, db), g = row(), m = JSON.parse(g.meta), d = store.db.prepare('SELECT * FROM drafts WHERE id = ?').get(draftId) as any;
+    if (later) {
+      const note = await run(T, db), g = row();
+      ok('on gamemog.com\'s pre-retitle state, a later record is left alone by the retitle (never sealed as a retitle)', /^left alone: .*a later one than the retitle/.test(note) && g.title === JH_TITLE_WAS.title, note);
+    } else { const note = await run(T, db), g = row(), m = JSON.parse(g.meta), d = store.db.prepare('SELECT * FROM drafts WHERE id = ?').get(draftId) as any;
       const was = store.db.prepare("SELECT hash FROM files WHERE draft_id = ? AND name = ?").get(draftId, `was-${JH_TITLE_FROM}.json`) as any;
       ok('on gamemog.com\'s state it retitles the game in place: same id and slug, title, tagline, meta and module the record\'s, the world the record\'s',
         g.id === g0.id && g.slug === 'jensen-heist' && g.title === 'Jensen Heist' && g.tagline === R.meta.tagline && m.title === 'Jensen Heist' && m.tagline === R.meta.tagline
@@ -107,7 +113,7 @@ export async function runJensenTitleChecks(ok: Ok) {
       db.prepare("UPDATE games SET cover = ? WHERE slug = 'jensen-heist'").run(Buffer.from([0xff, 0xd8, 0xff, 0x00]));
       const note = await run(T, db), h = row();
       ok('a cover changed since by hand is left alone (the world, words and key art still brought up)',
-        /left alone: its cover/.test(note) && h.title === 'Jensen Heist' && same(h.art_wide, art('wide-2')) && !same(h.cover, art('cover-2')), note); }
+        later ? /^left alone: .*a later one than the retitle/.test(note) : /left alone: its cover/.test(note) && h.title === 'Jensen Heist' && same(h.art_wide, art('wide-2')) && !same(h.cover, art('cover-2')), note); }
     db.close(); store.db.close();
 
     // the whole boot on a fresh disk with the Story Kit on: both recorded, the game the retitled one

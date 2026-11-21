@@ -332,15 +332,15 @@
    "name": "the stack"
   },
   "rose-garden": {
-   "@": "park13",
+   "@": "park16",
    "name": "the rose garden"
   },
   "rose-lawn": {
-   "@": "park13",
+   "@": "park16",
    "name": "the rose garden lawn",
    "offset": {
-    "right": 0,
-    "fwd": 18
+    "right": -20,
+    "fwd": 0
    }
   },
   "arena": {
@@ -5313,7 +5313,9 @@
        "kind": "crew",
        "name": "the Board's Directors",
        "level": 2,
-       "count": 3,
+       "count": 4,
+       "behind": 55,
+       "loseTime": 25,
        "goal": "reach",
        "to": "@market",
        "radius": 12,
@@ -6099,6 +6101,27 @@
          "text": "Quiet. They hear leather.",
          "wait": false,
          "how": "hushed"
+        },
+        {
+         "type": "dm",
+         "at": 45,
+         "from": "wesley",
+         "text": "Chat is watching the lot cam. The clipboard one just counted his own lanyard. Twice. Stay low!",
+         "secs": 7
+        },
+        {
+         "type": "dm",
+         "at": 75,
+         "from": "marge",
+         "text": "Two minutes to places. Left of the trucks. Walk, do not run.",
+         "secs": 7
+        },
+        {
+         "type": "dm",
+         "at": 105,
+         "from": "lola",
+         "text": "Sixty plates in your green room. He says the fruit was better. Keep walking, busboy.",
+         "secs": 7
         }
        ]
       },

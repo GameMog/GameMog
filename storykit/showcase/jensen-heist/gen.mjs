@@ -90,14 +90,14 @@ const places = {
   // (SS-5: 1.8 km from the fan line by the planner, and 0.3 km on to the 280; the hall's other lot was 2.6 km, 2.5 minutes)
   'convention-dock': { '@': 'parking20', name: 'the convention hall dock' },
   viaduct: { '@': 'parking5', name: 'the 280 viaduct' },
-  // (TP-6 starts at the stack, a lot by the 87/280 interchange where SS-5's chase ends, and the tail runs 1.1 km to the
-  // rose garden, a park east of downtown; the old garden on the north river was 5.3 km of tail and 3.1 km of chase back,
-  // 9 and 2.5 minutes, the RC playtest)
+  // (TP-6 starts at the stack, a lot by the 87/280 interchange where SS-5's chase ends, and the tail runs to the rose
+  // garden, the big downtown plaza lawn with its fountains; the old garden on the north river was 5.3 km of tail and
+  // 3.1 km of chase back, 9 and 2.5 minutes, the RC playtest; the little park by S Market St after it put the fight on
+  // the street, the polish list A5, 21 Nov)
   stack: { '@': 'parking38', name: 'the stack' },
-  'rose-garden': { '@': 'park13', name: 'the rose garden' },
-  // (the meeting: 18 m on, the open crossing with the plaza's lawn and trees down the street; toward the park's middle
-  // was against a building)
-  'rose-lawn': { '@': 'park13', name: 'the rose garden lawn', offset: { right: 0, fwd: 18 } },
+  'rose-garden': { '@': 'park16', name: 'the rose garden' },
+  // (the meeting: on the lawn, 20 m in from the kerb toward the plaza's middle, not on S Market St, the polish list A5)
+  'rose-lawn': { '@': 'park16', name: 'the rose garden lawn', offset: { right: -20, fwd: 0 } },
   arena: { '@': 'stadium4', name: 'the arena' },
   'arena-line': { '@': 'park54', name: 'the fan line' },
   'arena-approach': { '@': 'stadium4', name: "the arena's front, a block short of the dock" },
@@ -917,7 +917,10 @@ const M6 = { id: 'TP-6', title: 'Take Private', vehicle: 'tensore', start: '@sta
     // (heat 2, three cars: a chase to a place can't be shaken as BT-3's chase to lose is at heat 3, so it is held to
     // their slower top speed; at 3 the lead car sat 3-5 m off him most of the way and caught the autopilot once in
     // two tries, the RC review, 20 Nov)
-    { type: 'pursuit', kind: 'crew', name: "the Board's Directors", level: 2, count: 3, goal: 'reach', to: '@market', radius: 12, objective: "Get Brisket to Lola's cooler.",
+    // (four cars, as Wesley counts them, the first 55 m back (behind), and 25 s out of sight to shake them (heat 2's own
+    // is 8): at three, the town's 80 m and 8 s they stayed 100 m+ back and were shaken 16 s into a 38 s run, the polish
+    // list B3, 21 Nov)
+    { type: 'pursuit', kind: 'crew', name: "the Board's Directors", level: 2, count: 4, behind: 55, loseTime: 25, goal: 'reach', to: '@market', radius: 12, objective: "Get Brisket to Lola's cooler.",
       during: [SAYAT(6, 'wesley', "There's four black cars behind us and they're all signalling. Who signals in a chase?")] },
     say('lola', 'Give it here. Cooler. Blue one. That costs extra, and so does the ice.', { wait: true }),
     say('jensen', 'Wesley. Good eyes.', { how: 'warm' }),
@@ -1245,7 +1248,11 @@ const M8 = { id: 'ST-8', title: 'Showtime', vehicle: 'tensore', start: '@arena',
         { '@': 'backlot-c', kind: 'scout', roam: 15, name: 'The Director by the barrier' }],
       onDetect: { set: { label: 'Spotted', meters: { crowd: { add: -10 } } } },
       during: [SAYAT(4, 'marge', "Channel two. Three suits on the lot. Wesley's right, the navy one's by the barrier. Go left of the trucks.", { how: 'hushed' }),
-        SAYAT(20, 'marge', 'Quiet. They hear leather.', { how: 'hushed' })] },
+        SAYAT(20, 'marge', 'Quiet. They hear leather.', { how: 'hushed' }),
+        // (texts, unvoiced, through the quiet middle of the lot: 1 m 50 s with no line, the polish list B4, 21 Nov)
+        { type: 'dm', at: 45, from: 'wesley', text: 'Chat is watching the lot cam. The clipboard one just counted his own lanyard. Twice. Stay low!', secs: 7 },
+        { type: 'dm', at: 75, from: 'marge', text: 'Two minutes to places. Left of the trucks. Walk, do not run.', secs: 7 },
+        { type: 'dm', at: 105, from: 'lola', text: 'Sixty plates in your green room. He says the fruit was better. Keep walking, busboy.', secs: 7 }] },
     { type: 'fight', enemies: ['director-b', 'director-a'], arena: '@stage-door', win: 'ko-all', rules: 'full', timer: 60, hp: 100, objective: "Get Marge's headset back.",
       during: [SAYAT(2, 'director-a', 'Motion to keep the headset!'), SAYAT(4, 'director-b', 'Seconded.'),
         SAYAT(12, 'director-b', 'Fog. Go.'),

@@ -202,6 +202,7 @@ const STEPS = fx(['drive', 'stops', 'pursuit', 'tail', 'tow', 'timer', 'fight', 
   pursuit: step('pursuit', {
     count: R('value'), level: I(1, 5), kind: E(['crew', 'police']), goal: E(['lose', 'reach', 'escort']), to: R('placeRef'), radius: N(3, 60),
     los: N(0, 20), roles: A(E(['chaser', 'cutter', 'pacer', 'blocker']), 6), until: N(5, 600), loseDist: N(40, 400), loseTime: N(1, 30),
+    behind: N(40, 120, { description: 'a chase to a place from a standing car: m back the first car sets out (80 when left out); nearer is more pressure' }),
     alert: R('label'), peelText: R('label'), objective: R('objective'), bonus: N(0, 600), flag: R('flag'),
     name: S(40, { description: "who is on him, the chase alert's title (\"Ruben's divers\"); Police for police when left out" })
   }, ['goal']),
