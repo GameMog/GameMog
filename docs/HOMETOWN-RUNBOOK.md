@@ -8,7 +8,7 @@ State of the code (14 Nov 2026; release r6 is live, release r8 is committed and 
 `HOMETOWN_RUNS` workflows, `HOMETOWN_TILES` on, `NEXT_PUBLIC_HOMETOWN_SEARCH` on, `STORYKIT` on,
 `HOMETOWN_DAILY_COLD` 100). `deploy/town-builder/workflow-build.sh` pins MogCity compiler 0.13.2 (Cold Harbor round 2, see
 [HOMETOWN-HOSTING.md](HOMETOWN-HOSTING.md#release-r13-compiler-0130-stage-0)),
-`MOGCITY_SHA=3b81f72abb20da5934a24b6039273646e36fdbd9`, fetched from github.com/GameMog/GameMog (branch
+`MOGCITY_SHA=0902da00dad61702f89503692fe23c1efbfea0e5`, fetched from github.com/GameMog/GameMog (branch
 `hometown-compiler`).
 
 ---------------------------------------------------------------------------------------------------------------------
