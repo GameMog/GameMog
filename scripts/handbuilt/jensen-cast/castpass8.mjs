@@ -154,6 +154,62 @@ export function underPass(doc, K = {}) {
   console.log(`under: ${pushed} points of the layer under the jacket set ${K.gap * 1000} mm behind its front (up to ${(mx * 1000).toFixed(1)} mm)`);
 }
 
+// the jacket's open edge without spikes (polish 1, 21 Nov: Director Grey's V kept one open-edge point 6.5 cm out from the
+// line by the collar, a thin notch cut into the lapel that reads as a jagged tooth and a dark sliver in the 3/4 face view):
+// every open-edge point in the box (|x| < K.xMax, y in K.y, z > K.z0) whose two chain neighbours lie within K.span of each
+// other and which sits more than K.spike off their midpoint is set on that midpoint (welded copies with it), K.iters times
+export function spikePass(doc, K = {}) {
+  K = { mats: /^(suit|suit-hem)$/, xMax: 0.14, y: [1.0, 1.62], z0: 0.0, spike: 0.015, span: 0.035, iters: 3, ...K };
+  for (const p of garments(doc, K.mats)) { const acc = p.getAttribute('POSITION'), A = acc.getArray().slice(), I = p.getIndices().getArray(), n = A.length / 3, id = new Int32Array(n), wk = new Map();
+    for (let v = 0; v < n; v++) { const k = Math.round(A[v * 3] * 2e4) + ',' + Math.round(A[v * 3 + 1] * 2e4) + ',' + Math.round(A[v * 3 + 2] * 2e4); if (!wk.has(k)) wk.set(k, v); id[v] = wk.get(k); }
+    const members = new Map(); for (let v = 0; v < n; v++) (members.get(id[v]) || members.set(id[v], []).get(id[v])).push(v);
+    const ec = new Map(); for (let t = 0; t < I.length; t += 3) { if (I[t] === I[t + 1]) continue; for (const [a, b] of [[I[t], I[t + 1]], [I[t + 1], I[t + 2]], [I[t + 2], I[t]]]) { const x = id[a], y = id[b], k = x < y ? x + ',' + y : y + ',' + x; ec.set(k, (ec.get(k) || 0) + 1); } }
+    const chain = new Map(); for (const [k, c] of ec) if (c === 1) { const [a, b] = k.split(',').map(Number); (chain.get(a) || chain.set(a, []).get(a)).push(b); (chain.get(b) || chain.set(b, []).get(b)).push(a); }
+    let moved = 0, mx = 0;
+    for (let it = 0; it < K.iters; it++) { let any = 0;
+      for (const [v, c] of chain) { if (c.length !== 2) continue; const x = A[v * 3], y = A[v * 3 + 1], z = A[v * 3 + 2]; if (Math.abs(x) > K.xMax || y < K.y[0] || y > K.y[1] || z < K.z0) continue;
+        const [a, b] = c, m = [0, 1, 2].map((k) => (A[a * 3 + k] + A[b * 3 + k]) / 2), span = Math.hypot(A[a * 3] - A[b * 3], A[a * 3 + 1] - A[b * 3 + 1], A[a * 3 + 2] - A[b * 3 + 2]), d = Math.hypot(x - m[0], y - m[1], z - m[2]);
+        if (span > K.span || d < K.spike) continue; for (const mm of members.get(v)) for (let k = 0; k < 3; k++) A[mm * 3 + k] = m[k]; moved++; any++; mx = Math.max(mx, d); }
+      if (!any) break; }
+    acc.setArray(A); if (moved) console.log(`spike: ${p.getMaterial().getName()} ${moved} open-edge spikes set on their neighbours' midpoint (up to ${(mx * 1000).toFixed(0)} mm)`); }
+}
+
+// a crease across the front filled (polish 1, 21 Nov: Intern Two's tunic had a 2.8 cm deep horizontal trough just under
+// the collar, its top button sunk in it: a dark band and a slit in the 3/4 face view): K.iters passes over the welded
+// garment front in the band (y in K.y, |x| < K.xMax, z > K.z0, faded over K.fade): a point behind its neighbours' mean
+// depth is moved toward it by K.lam (forward only: troughs fill, ridges and the rule passes' flat front stay)
+export function troughPass(doc, K = {}) {
+  K = { mats: /^(uniform|suit)$/, y: [1.22, 1.31], xMax: 0.12, z0: 0.03, fade: 0.02, iters: 60, lam: 0.5, ...K };
+  for (const p of garments(doc, K.mats)) { const acc = p.getAttribute('POSITION'), A0 = acc.getArray(), A = A0.slice(), I = p.getIndices().getArray(), n = A.length / 3, id = new Int32Array(n), wk = new Map();
+    for (let v = 0; v < n; v++) { const k = Math.round(A[v * 3] * 2e4) + ',' + Math.round(A[v * 3 + 1] * 2e4) + ',' + Math.round(A[v * 3 + 2] * 2e4); if (!wk.has(k)) wk.set(k, v); id[v] = wk.get(k); }
+    const members = new Map(); for (let v = 0; v < n; v++) (members.get(id[v]) || members.set(id[v], []).get(id[v])).push(v);
+    const nb = new Map(); for (let t = 0; t < I.length; t += 3) { if (I[t] === I[t + 1]) continue; for (const [a, b] of [[I[t], I[t + 1]], [I[t + 1], I[t + 2]], [I[t + 2], I[t]]]) { const x = id[a], y = id[b]; if (x === y) continue; (nb.get(x) || nb.set(x, new Set()).get(x)).add(y); (nb.get(y) || nb.set(y, new Set()).get(y)).add(x); } }
+    const wt = (v) => { const x = Math.abs(A0[v * 3]), y = A0[v * 3 + 1], z = A0[v * 3 + 2]; return z < K.z0 ? 0 : Math.max(0, Math.min(1, (y - K.y[0]) / K.fade, (K.y[1] - y) / K.fade, (K.xMax - x) / K.fade)); };
+    const W = new Map(); for (const v of nb.keys()) { const w = wt(v); if (w) W.set(v, w); }
+    for (let it = 0; it < K.iters; it++) { const D = new Map(); for (const [v, w] of W) { const N = nb.get(v); let m = 0; for (const u of N) m += A[u * 3 + 2]; m /= N.size; if (m > A[v * 3 + 2]) D.set(v, A[v * 3 + 2] + K.lam * w * (m - A[v * 3 + 2])); }
+      for (const [v, z] of D) for (const mm of members.get(v)) A[mm * 3 + 2] = z; }
+    let mx = 0; for (let v = 0; v < n; v++) mx = Math.max(mx, A[v * 3 + 2] - A0[v * 3 + 2]);
+    acc.setArray(A); console.log(`trough: ${p.getMaterial().getName()} ${W.size} front points, troughs filled up to ${(mx * 1000).toFixed(1)} mm`); }
+}
+
+// the buttons seated on the cloth (polish 1: Intern Two's top button lay tilted up, half inside the tunic): the buttons are
+// blocks of K.block points (one per button, the forge's order); the flattest one (least depth across) is the model, and
+// every button whose depth across is over K.tilt times the model's is replaced by the model moved to its own (x, y), at
+// the model's height off the cloth (the garment's front depth at the button's middle, nearest 1 cm cell)
+export function buttonPass(doc, K = {}) {
+  K = { mats: /-buttons$/, cloth: /^(uniform|suit)$/, block: 57, tilt: 1.5, ...K };
+  const prims = doc.getRoot().listMeshes().flatMap((m) => m.listPrimitives()), cell = 0.01, sz = new Map(), kk = (x, y) => Math.round(x / cell) + ',' + Math.round(y / cell);
+  for (const p of prims.filter((p) => K.cloth.test(p.getMaterial()?.getName() || '') && p.getIndices())) { const A = p.getAttribute('POSITION').getArray(), I = p.getIndices().getArray();
+    for (let t = 0; t < I.length; t += 3) for (let s = 0; s <= 3; s++) for (let u = 0; u <= 3 - s; u++) { const w = [s / 3, u / 3, 1 - s / 3 - u / 3], q = [0, 1, 2].map((c) => w[0] * A[I[t] * 3 + c] + w[1] * A[I[t + 1] * 3 + c] + w[2] * A[I[t + 2] * 3 + c]); if (q[2] < 0) continue; const k = kk(q[0], q[1]); if (!(sz.get(k) >= q[2])) sz.set(k, q[2]); } }
+  const surf = (x, y) => { let best = null; for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const d = sz.get((Math.round(x / cell) + a) + ',' + (Math.round(y / cell) + b)); if (d !== undefined && (best === null || d > best)) best = d; } return best; };
+  for (const p of prims.filter((p) => K.mats.test(p.getMaterial()?.getName() || ''))) { const acc = p.getAttribute('POSITION'), A = acc.getArray().slice(), n = A.length / 3; if (n % K.block) { console.log('buttons: not in blocks of', K.block); continue; }
+    const B = []; for (let k = 0; k < n; k += K.block) { const c = [0, 0, 0]; let z0 = 9, z1 = -9; for (let v = k; v < k + K.block; v++) { for (let j = 0; j < 3; j++) c[j] += A[v * 3 + j] / K.block; z0 = Math.min(z0, A[v * 3 + 2]); z1 = Math.max(z1, A[v * 3 + 2]); } B.push({ k, c, dz: z1 - z0, zMax: z1 }); }
+    const m = B.reduce((a, b) => (b.dz < a.dz ? b : a)), ms = surf(m.c[0], m.c[1]); if (ms === null) continue; let fixed = 0;
+    for (const b of B) { if (b === m || b.dz < K.tilt * m.dz) continue; const s = surf(b.c[0], b.c[1]); if (s === null) continue; const off = [b.c[0] - m.c[0], b.c[1] - m.c[1], s - ms];
+      for (let v = 0; v < K.block; v++) for (let j = 0; j < 3; j++) A[(b.k + v) * 3 + j] = A[(m.k + v) * 3 + j] + off[j]; fixed++; console.log(`buttons: ${p.getMaterial().getName()} button at y ${b.c[1].toFixed(3)} (${(b.dz * 1000).toFixed(0)} mm deep across) reseated from the one at y ${m.c[1].toFixed(3)} (${(m.dz * 1000).toFixed(0)} mm)`); }
+    acc.setArray(A); }
+}
+
 // one depth field for every layer of the front (the jacket, the shirt and the trousers' waist under it, the pocket flaps,
 // the buttons): each layer's own push-back made it slide through the next (the dark hip patches: the jacket's skirt behind
 // the trousers' band; the hexagon: a shirt button ahead of the jacket). The push-back the front passes gave the OUTERMOST
@@ -214,6 +270,12 @@ export function weightEasePass(doc, K = {}) {
 export const DIRECTORS = [['smooth', { axes: [2] }], ['flat5', { iters: 8 }], ['vert', {}], ['smooth', { iters: 10, axes: [2] }], ['vedge', { scale: 0.72 }], ['fabric', {}],
   ['shoulder', { ease: 0.007, drop: 0.14, x0: 0.09 }], ['under', {}], ['layer', {}], ['mask', {}]];
 
+// polish 1 (21 Nov), run on the committed bodies (no reference needed: pass the body itself as <ref.glb>): Director Grey
+// the open-edge spikes off his V (POLISH1_SPIKE); Intern Two the trough under her collar filled and the top button
+// reseated (POLISH1_TROUGH); each then the layer and the skin drawn in under the cloth again
+export const POLISH1_SPIKE = [['spike', {}], ['layer', {}], ['mask', {}]];
+export const POLISH1_TROUGH = [['trough', {}], ['button', {}], ['layer', {}], ['mask', {}]];
+
 // node castpass8.mjs <ref.glb> <in.glb> <out.glb> [steps json]: the reference is the same body built without the front
 // passes (the Directors: JC_NOGATE=1 JC_SKIP=flat,flat3,rules,vcut,tailor,armslim,seat,mask,layer forge.mjs <id>); a step's
 // K takes a string for a material regexp ("mats": "^clothes$")
@@ -223,7 +285,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   const [refF, inF, outF, sj] = process.argv.slice(2), { doc: rdoc } = await read(refF), { doc, src } = await read(inF), ref = refOf(rdoc);
   const steps = (sj ? JSON.parse(sj) : DIRECTORS).map(([k, K]) => [k, Object.fromEntries(Object.entries(K).map(([a, b]) => [a, typeof b === 'string' ? new RegExp(b) : b]))]);
   const run = { smooth: (K) => smoothFoldsPass(doc, ref, K), flat5: (K) => flatFront5Pass(doc, K), vert: (K) => vertFrontPass(doc, K), vedge: (K) => vEdgePass(doc, K), fabric: (K) => fabricPass(doc, K),
-    shoulder: (K) => shoulderPass(doc, K), under: (K) => underPass(doc, K), layer: (K) => layerMaskPass(doc, K), mask: (K) => bodyMaskPass(doc, K), wease: (K) => weightEasePass(doc, K), field: (K) => layerFieldPass(doc, ref, K) };
+    shoulder: (K) => shoulderPass(doc, K), under: (K) => underPass(doc, K), spike: (K) => spikePass(doc, K), trough: (K) => troughPass(doc, K), button: (K) => buttonPass(doc, K), layer: (K) => layerMaskPass(doc, K), mask: (K) => bodyMaskPass(doc, K), wease: (K) => weightEasePass(doc, K), field: (K) => layerFieldPass(doc, ref, K) };
   for (const [k, K] of steps) run[k](K);
   const glb = await write(doc, src); fs.writeFileSync(outF, glb); console.log(outF, glb.length, 'bytes');
 }

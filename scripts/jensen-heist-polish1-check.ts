@@ -1,11 +1,11 @@
 /**
- * Jensen Heist's first polish batch (deploy/migrate.mjs 2026-11-21-jensen-heist-polish1; POLISH-LIST A5, B3, B4).
+ * Jensen Heist's first polish batch (deploy/migrate.mjs 2026-11-21-jensen-heist-polish1; POLISH-LIST A2, A3, A5, B3, B4).
  * Part of `npm run check`. The record's world differs from the retitle's (JH_POLISH1_FROM, what gamemog.com plays) in
- * its steps alone: the same spoken lines, speakers and clips, the same bodies. On a fresh copy of deploy/seed.db.gz in a
+ * its steps and two re-forged bodies (JH_POLISH1_BODIES): the same spoken lines, speakers and clips. On a fresh copy of deploy/seed.db.gz in a
  * temporary folder (its Story Kit store beside it): it waits while the Story Kit is off and while the game is not
  * there; after 2026-11-18-jensen-heist on a fresh disk (which already seals the record) it is "already there"; on the
  * state gamemog.com has (the retitle's world sealed in the kept draft, its pack and module, the game shown) it seals
- * the new world into the kept store draft in place (the old one kept, still served) and leaves the title, the words,
+ * the new world and the two new bodies into the kept store draft in place (the old ones kept, still served) and leaves the title, the words,
  * the art and hidden as they are; run again it is "already there"; a game playing some other world is left alone.
  * Nothing touches data/.
  */
@@ -24,8 +24,8 @@ const sha = (b: string | Uint8Array) => createHash('sha256').update(b).digest('h
 
 export async function runJensenPolish1Checks(ok: Ok) {
   console.log('\nJensen Heist polish batch 1 (deploy/migrate.mjs ' + ID + ')');
-  const { migrate, MIGRATIONS, JH_POLISH1_FROM, JH_LATER } = await import('../deploy/migrate.mjs') as {
-    migrate: (p: string) => Promise<void> | void; MIGRATIONS: Migration[]; JH_POLISH1_FROM: string; JH_LATER: string[] };
+  const { migrate, MIGRATIONS, JH_POLISH1_FROM, JH_LATER, JH_POLISH1_BODIES } = await import('../deploy/migrate.mjs') as {
+    migrate: (p: string) => Promise<void> | void; MIGRATIONS: Migration[]; JH_POLISH1_FROM: string; JH_LATER: string[]; JH_POLISH1_BODIES: Record<string, { from: string; to: string }> };
   const iPub = MIGRATIONS.findIndex((m) => m.id === PUB_ID), iT = MIGRATIONS.findIndex((m) => m.id === TITLE_ID), iP = MIGRATIONS.findIndex((m) => m.id === ID);
   ok('the polish batch is one migration of its own, async, after the retitle', iPub >= 0 && iT > iPub && iP > iT && !!MIGRATIONS[iP].async, `${iPub} ${iT} ${iP}`);
   if (iPub < 0 || iT < 0 || iP < 0) return;
@@ -36,6 +36,10 @@ export async function runJensenPolish1Checks(ok: Ok) {
   const tp6 = JSON.stringify(R.pack).includes('"behind":55,"loseTime":25') && JSON.stringify(R.pack).includes('"count":4');
   ok('... it carries the batch: TP-6\'s board meeting on the plaza lawn, its chase four cars and 55 m back, ST-8\'s three texts',
     /"rose-lawn":\{"@":"park16"/.test(JSON.stringify(R.pack.places)) && tp6 && (JSON.stringify(R.pack).match(/"type":"dm","at":(45|75|105),/g) || []).length === 3 && W.id === 'jensen-heist');
+
+  const BODY = Object.entries(JH_POLISH1_BODIES);
+  ok('... and the two re-forged bodies it names (A2 Director Grey, A3 Intern Two), each new and in this build',
+    BODY.length === 2 && BODY.every(([n, b]) => { const f = R.files.find((x: any) => x.kind === 'glb' && x.name === n); return !!f && f.hash === b.to && b.from !== b.to && sha(readFileSync(f.src)) === b.to; }));
 
   const dir = mkdtempSync(path.join(tmpdir(), 'jh-polish1-')), p = path.join(dir, 'gamemog.db');
   const sk = process.env.STORYKIT, log = console.log, err = console.error;
@@ -59,8 +63,15 @@ export async function runJensenPolish1Checks(ok: Ok) {
     // module, the game shown. The old world is the record's world as the retitle sealed it: a stand-in with its hash
     const store = new StoryStore(path.join(dir, 'storykit'));
     const g0 = row(), m0 = JSON.parse(g0.meta), draftId = m0.storykit.pack;
-    const oldText = worldText.replace('"rose-lawn"', '"rose-lawn-was"');
+    let oldText = worldText.replace('"rose-lawn"', '"rose-lawn-was"');
+    for (const [, b] of BODY) oldText = oldText.split(b.to).join(b.from);
     const setLive = () => {
+      // (the bodies 2026-11-18 stored: stand-in bytes at their addresses, the draft's rows naming them)
+      for (const [n, b] of BODY) {
+        const bp = store.blobPath(b.from, 'glb'); mkdirSync(path.dirname(bp), { recursive: true }); writeFileSync(bp, 'glTF-was-' + n);
+        store.db.prepare('INSERT OR IGNORE INTO blobs (hash, ext, bytes, at) VALUES (?, ?, ?, ?)').run(b.from, 'glb', 9 + n.length, 1);
+        store.db.prepare("UPDATE files SET hash = ?, bytes = ? WHERE draft_id = ? AND kind = 'glb' AND name = ?").run(b.from, 9 + n.length, draftId, n);
+      }
       const bp = store.blobPath(JH_POLISH1_FROM, 'json');
       mkdirSync(path.dirname(bp), { recursive: true }); writeFileSync(bp, oldText);
       store.db.prepare('INSERT OR IGNORE INTO blobs (hash, ext, bytes, at) VALUES (?, ?, ?, ?)').run(JH_POLISH1_FROM, 'json', Buffer.byteLength(oldText), 1);
@@ -82,6 +93,12 @@ export async function runJensenPolish1Checks(ok: Ok) {
       ok('... its title, tagline, art and hidden as they were; the rest of its meta too',
         g.title === before.title && g.tagline === before.tagline && Buffer.from(g.cover).equals(Buffer.from(before.cover)) && Buffer.from(g.art_wide).equals(Buffer.from(before.art_wide)) && g.hidden === 0
           && m.title === m0.title && m.blurb === m0.blurb && JSON.stringify(m.cast) === JSON.stringify(m0.cast) && m.storykit.credit === m0.storykit.credit && m.storykit.packId === 'jensen-heist' && m.storykit.showcase === true);
+      const bodyRow = (n: string) => store.db.prepare("SELECT hash FROM files WHERE draft_id = ? AND kind = 'glb' AND name = ?").get(draftId, n) as any;
+      const wasRow = (h: string) => store.db.prepare("SELECT hash FROM files WHERE draft_id = ? AND kind = 'pack' AND name = ?").get(draftId, `was-${h}.glb`) as any;
+      ok('... the two re-forged bodies are the draft\'s now, the old ones kept as was- rows; both served',
+        BODY.every(([n, b]) => bodyRow(n)?.hash === b.to && wasRow(b.from)?.hash === b.from && store.read(`${b.to}.glb`)?.hash === b.to && !!store.read(`${b.from}.glb`)) && /new bodies director-a, intern-b/.test(note), note);
+      const clips = store.db.prepare("SELECT COUNT(*) n FROM files WHERE draft_id = ? AND kind = 'voice'").get(draftId) as any;
+      ok('... every clip as it was (678)', clips.n === 678, String(clips.n));
       const again = await run(P, db);
       ok('... run again it is already there', /^already there/.test(again), again); }
 
@@ -90,6 +107,13 @@ export async function runJensenPolish1Checks(ok: Ok) {
       db.prepare('UPDATE games SET meta = ? WHERE id = ?').run(JSON.stringify({ ...m, storykit: { ...m.storykit, world: other } }), g.id);
       const note = await run(P, db), h = row();
       ok('a game playing some other world (patched since) is left alone', /^left alone/.test(note) && JSON.parse(h.meta).storykit.world === other, note); }
+
+    { setLive();
+      const [n, b] = BODY[0], other = 'e'.repeat(64);
+      store.db.prepare("UPDATE files SET hash = ? WHERE draft_id = ? AND kind = 'glb' AND name = ?").run(other, draftId, n);
+      const note = await run(P, db), g = row();
+      ok('a draft whose body was re-forged since is left alone (nothing written)', /^left alone: the store draft's/.test(note) && JSON.parse(g.meta).storykit.world === JH_POLISH1_FROM
+        && (store.db.prepare("SELECT hash FROM files WHERE draft_id = ? AND kind = 'glb' AND name = ?").get(draftId, n) as any).hash === other && b.from !== other, note); }
     db.close(); store.db.close();
 
     // the whole boot on a fresh disk with the Story Kit on: all three recorded, the game the record's world, hidden
