@@ -904,7 +904,10 @@ const M6 = { id: 'TP-6', title: 'Take Private', vehicle: 'tensore', start: '@sta
     say('jensen', "There you are. Warm, a little dusty, and you've had a very big day.", { pre: 0.6 }),
     say('jensen', 'Wesley. You hold it. Like a baby bird.', { how: 'warm' }),
     say('wesley', "You're giving me Brisket? Chat. CHAT. I'm holding a baby bird!", { wait: false }),
-    { type: 'passenger', who: 'wesley', board: true, seat: 'front', secs: 2 },
+    // (Retry starts here, Wesley getting in with Brisket, not at the 2.5-minute top of the mission (the transition, the
+    // voicenote, the 1.1 km tail and the fight; Nico's call, heard once, never rang again on the retried tail: 110 s of
+    // quiet), the final replay; the checkpoint is Wesley's boarding, not the chase, so he and Brisket's meter are back)
+    { type: 'passenger', checkpoint: true, who: 'wesley', board: true, seat: 'front', secs: 2 },
     { type: 'comfort', who: 'wesley', label: 'BRISKET HEAT', start: 1, refill: 0.05, fail: 'soft', drain: { bump: 0.25, hit: 0.35, lateral: 0.15, brake: 0.1 },
       why: "Brisket overheated in Wesley's hands. It still works, but it's very upset.",
       lines: [{ below: 0.8, who: 'wesley', text: "It's getting warm. It's getting so warm. Is it supposed to be this warm?" },

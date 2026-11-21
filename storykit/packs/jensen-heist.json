@@ -5265,6 +5265,7 @@
       },
       {
        "type": "passenger",
+       "checkpoint": true,
        "who": "wesley",
        "board": true,
        "seat": "front",
