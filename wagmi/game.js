@@ -1521,7 +1521,9 @@ const CARD_TAIL = 650;
 let cardAt = -1e9;
 const cardUp = () => {
   const t = performance.now();
-  if (document.querySelector(CARDS_UP) || document.body.classList.contains('wg-vcall') || document.body.classList.contains('wg-cine')) cardAt = t;
+  // (jh-polish A8: and a mission's title card due, not up yet: the storyrun sets WAGMI.titleDue (a deadline) as the mission
+  // starts and clears it once the card is on; 'F · Get out' stood a frame as ST-8's Showtime slammed)
+  if (document.querySelector(CARDS_UP) || document.body.classList.contains('wg-vcall') || document.body.classList.contains('wg-cine') || WAGMI.titleDue > t) cardAt = t;
   return t - cardAt < CARD_TAIL;
 };
 WAGMI.cardUp = cardUp;

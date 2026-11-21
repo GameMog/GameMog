@@ -401,6 +401,7 @@ export function createRunner(ctx) {
   }
   const TIME_IDS = { dusk: 'twilight', night: 'midnight', day: 'midday', morning: 'golden', dawn: 'twilight' };
   const HOUR_FADE = [0.45, 0.9]; // s: down to black and back up when a mission starts at another hour
+  const TITLE_DUE = 5000; // ms: the longest a mission's title card may be due (W.titleDue, game.js cardUp) before it lands
   const setTime = (id) => { try { if (id) app.selectTime(TIME_IDS[id] || id); } catch {} };
   // a mission's own time of day (its `time`, or its act's timeline's) is pinned: held through its cutscenes and Mog City's
   // set pieces (which set their own: twilight, golden), put back the moment anything else changes it; a step's own time
@@ -3475,6 +3476,7 @@ export function createRunner(ctx) {
     app.trafficSystem.hold?.([]);
     if (W.cutscene) W.cutscene = false;
     if (W.rides) W.rides.lock = null;
+    W.titleDue = 0;
   }
 
   async function attempt(def, cp, act) {
@@ -3489,6 +3491,9 @@ export function createRunner(ctx) {
     };
     for (const m of meterDefs()) if (M.state.meters[m.id] == null) M.state.meters[m.id] = m.start ?? 0;
     W.mission = { id: def.id, phase: null, stop: () => kill(M.tok, new Stop()), pack: true };
+    // (jh-polish A8: its title card is due: no 'F · Get out' over the frames before it lands (the ride's module awaited,
+    // the player put in the car), game.js cardUp; at most TITLE_DUE ms, so nothing stuck keeps the prompts off)
+    W.titleDue = def.card !== false && !(cp && cp.from) ? performance.now() + TITLE_DUE : 0;
     juice.live = true;
     showMeters();
     // the mission timer and the countdown's end
@@ -3563,6 +3568,7 @@ export function createRunner(ctx) {
       if (action.on || def.card === 'slam') action.slam({ kicker: kick, title: def.title }, ctx.flags.autoCard ? 1.2 : 2.4);
       else { ui.title(kick, def.title, ctx.flags.autoCard ? 1.2 : 2.6); juice.hold((ctx.flags.autoCard ? 1.2 : 2.6) * 1000 + 750); }
     }
+    W.titleDue = 0; // (the card is up now and keeps the prompts off itself)
     host.tell('mission-start', { id: def.id, title: def.title });
     // (its calls on the car's screen up to its first card, their offices pooled behind its title as it starts, the loop
     // not held (CB-2's first call rings in its first step, no card before it); its card's prewarm() pools the rest)
