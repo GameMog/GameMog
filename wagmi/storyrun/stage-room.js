@@ -206,9 +206,9 @@ export function stage(K, def) {
       points: [{ at: [0, 3.2, -6.5], k: 5, color: '#C8F5C0', dist: 12 }, { at: [0, 6, 11], k: 6, color: '#7F92C8', dist: 26 },
         { at: [-4, 0.5, 1.2], k: 3, color: '#FFF0E0', dist: 8 }, { at: [4, 0.5, 1.2], k: 3, color: '#FFF0E0', dist: 8 }],
       spots: [
-        // (the presenter's key from the front-of-house truss, warm, and its partner from the other side, softer)
-        { at: [-4.5, 9.4, 7.2], to: [-0.6, 1.3, -2.1], k: 120, color: '#FFF1E0', angle: 0.36, pen: 0.55, dist: 32, shadow: true },
-        { at: [4.5, 9.4, 7.2], to: [0.6, 1.3, -2.1], k: 80, color: '#FFF6EE', angle: 0.36, pen: 0.6, dist: 32 },
+        // (the presenter's key from the front-of-house truss, a warm white, and its partner from the other side, softer)
+        { at: [-4.5, 9.4, 7.2], to: [-0.6, 1.3, -2.1], k: 120, color: '#FFF5EA', angle: 0.36, pen: 0.55, dist: 32, shadow: true },
+        { at: [4.5, 9.4, 7.2], to: [0.6, 1.3, -2.1], k: 80, color: '#FFF8F2', angle: 0.36, pen: 0.6, dist: 32 },
         // (the top wash over the deck, the cool rims from upstage)
         { at: [0, 8.8, -1.4], to: [0, 0, -3], k: 35, color: '#EAF2FF', angle: 0.7, pen: 0.85, dist: 20 },
         { at: [-4, 8.8, -6.5], to: [-1.2, 1.5, -2], k: 120, color: '#86AEFF', angle: 0.42, pen: 0.6, dist: 20 },
@@ -220,7 +220,9 @@ export function stage(K, def) {
     key: 1.5, rim: 1.1, fill: 1.2,
     // (the people's key in the truss's warm white, not the night's amber (sets.js): skin reads as skin, not orange; the
     // fill a softer cool, so the shadow side doesn't push the lit side warmer by contrast. The rims and the LED stay the mood)
-    keyColor: '#FFF8F2', fillColor: '#B4BFDC',
+    // (jh-polish A7: Jensen still read a little warm: the key and the presenter's truss pair a touch nearer neutral (still
+    // a warm white, never white or grey) and the fill less blue, so the contrast warms the lit side less)
+    keyColor: '#FFFAF5', fillColor: '#C0C8DC',
     marks: { screen: [0, 5, ZS], lip: [0, 0.4, 0.6], podium: [0, 1.2, -2], house: [0, 1.4, 6], chair: [CHAIR[0], 0.9, CHAIR[1]] },
     tick,
   };

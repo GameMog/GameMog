@@ -85,3 +85,22 @@ test("the keynote stage keys its people warm white, not the night's amber; every
     assert.doesNotMatch(fs.readFileSync(path.join(ROOT, 'wagmi/storyrun', f), 'utf8'), /\b(keyColor|fillColor)\s*:/, f);
   }
 });
+
+// (jh-polish A7: Jensen's skin still read a little warm on ST-8's stage)
+test('A7: the stage keys him nearer natural: a warm white key and presenter pair (not white, not grey), a softer cool fill', () => {
+  const st = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/stage-room.js'), 'utf8');
+  const rgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const m = st.match(/keyColor: '(#[0-9A-F]{6})', fillColor: '(#[0-9A-F]{6})'/);
+  const warmWhite = (h) => { const [r, g, b] = rgb(h); return r === 255 && r > b && b / r >= 0.9 && b / r <= 0.985 && g >= b; };
+  assert.ok(warmWhite(m[1]), 'key ' + m[1]);
+  assert.ok(rgb(m[1])[2] / 255 > rgb('#FFF8F2')[2] / 255, 'cooler than the RC key #FFF8F2');
+  // the presenter's truss pair (the two front-of-house spots on the podium)
+  const pair = [...st.matchAll(/to: \[-?0\.6, 1\.3, -2\.1\], k: \d+, color: '(#[0-9A-F]{6})'/g)].map((x) => x[1]);
+  assert.equal(pair.length, 2);
+  for (const c of pair) assert.ok(warmWhite(c), 'presenter spot ' + c);
+  // the fill still cool (blue over red) but softer than the RC's #B4BFDC
+  const [fr, , fb] = rgb(m[2]);
+  assert.ok(fb > fr && fb - fr < 0xDC - 0xB4, m[2]);
+  // the mood kept: the cool rims from upstage and the warm house spill as they were
+  assert.match(st, /color: '#86AEFF'/); assert.match(st, /color: '#9CF0B0'/); assert.match(st, /color: '#FFD9B4'/);
+});
