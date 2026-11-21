@@ -278,7 +278,9 @@ test('P13: a call on the car screen mid-drive never holds the loop: its office p
     assert.match(w, /renderer\.setRenderTarget\(target \|\| scenePass\.renderTarget\);\s*renderer\.setMRT\(target \? null : sceneMRT\);/, f);
     assert.match(w, /if \(!hold\) list = list\.flatMap\(\(o\) => \(o\.isScene \? o\.children : \[o\]\)\);/, f);
     assert.match(w, /if \(hold\) warming\+\+;/, f); assert.match(w, /if \(hold\) warming--;/, f);
-    assert.match(w, /try \{ p = renderer\.compileAsync\(o, camera, where\); \}[^\n]*\n\s*finally \{ renderer\.setRenderTarget\(rt0\); renderer\.setMRT\(mrt0\); \}\n\s*try \{ await p; \}/, f);
+    // (held, the target and MRT stay until the compile is done (three builds the nodes after its first await, reading
+    // the MRT then: put back early, the scene pass's pipelines failed 'targets[1]'); not held, put back at once)
+    assert.match(w, /try \{ p = renderer\.compileAsync\(o, camera, where\); if \(hold\) await p; \}[^\n]*\n\s*finally \{ renderer\.setRenderTarget\(rt0\); renderer\.setMRT\(mrt0\); \}\n\s*if \(!hold\) try \{ await p; \}/, f);
     assert.match(m, /if \(warming\) return;/, f);
   }
   // (the pool: built and compiled for the tile, not the loop held; its people given back; kept by release(); a call

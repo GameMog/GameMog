@@ -1120,9 +1120,13 @@ async function initApp() {
         let p = null;
         renderer.setRenderTarget(target || scenePass.renderTarget);
         renderer.setMRT(target ? null : sceneMRT);
-        try { p = renderer.compileAsync(o, camera, where); } catch (e) { console.warn('[warm]', e); }
+        // (held: the target and MRT kept until the compile is done, as before the RC's hitch fix: three builds each
+        // object's nodes after its first await, reading the renderer's MRT then, and with the scene pass's MRT put back
+        // early its materials came out with one output for the pass's three (WebGPU: 'targets[1]', renderPipeline_eyes
+        // and the rest, Cold Harbor's opening and Jensen Heist's PH-1, the r35 release play). Not held: put back at once)
+        try { p = renderer.compileAsync(o, camera, where); if (hold) await p; } catch (e) { console.warn('[warm]', e); }
         finally { renderer.setRenderTarget(rt0); renderer.setMRT(mrt0); }
-        try { await p; } catch (e) { console.warn('[warm]', e); }
+        if (!hold) try { await p; } catch (e) { console.warn('[warm]', e); }
       }
     } finally {
       if (hold) warming--;
