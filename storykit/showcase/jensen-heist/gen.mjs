@@ -1265,7 +1265,7 @@ const M8 = { id: 'ST-8', title: 'Showtime', vehicle: 'tensore', start: '@arena',
 
 
 const pack = {
-  storykit: 2, id: 'jensen-heist', title: 'Jensen Heist', kicker: 'SAN JOSE', tagline: 'Ten hours to showtime. One chip. One jacket.',
+  storykit: 2, id: 'jensen-heist', title: 'Jensen Heist: San Jose', kicker: 'TEN HOURS TO SHOWTIME', tagline: 'Ten hours to showtime. One chip. One jacket.',
   base: { engine: 'mogcity-1', city: 'hometown', cityBuild: `hometown-${lock.buildId}`.slice(0, 39),
     hometown: { place: lock.place, compiler: lock.buildId, tiles: lock.tiles, formatVersion: lock.formatVersion, grid: lock.grid, domain: lock.domain, origin: lock.origin, k0: lock.k0, gamma0: lock.gamma0, yOffset: lock.yOffset, waterLevel: lock.waterLevel } },
   dressing: { time: 'midday', season: 'autumn', weather: 'clear', holiday: [] },

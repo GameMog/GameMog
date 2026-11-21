@@ -1,17 +1,17 @@
 {
  "storykit": 2,
  "id": "jensen-heist",
- "title": "Jensen Heist",
- "kicker": "SAN JOSE",
+ "title": "Jensen Heist: San Jose",
+ "kicker": "TEN HOURS TO SHOWTIME",
  "tagline": "Ten hours to showtime. One chip. One jacket.",
  "base": {
   "engine": "mogcity-1",
   "city": "hometown",
-  "cityBuild": "hometown-htc-0.14.0-hg1-beeeb5982",
+  "cityBuild": "hometown-htc-0.14.0-hg1-b228e0dd8",
   "hometown": {
    "place": "us-0668000",
-   "compiler": "htc-0.14.0-hg1-beeeb5982",
-   "tiles": "3e607e5620b1d321c41ee28f7241a3f86f60e443dc20b461e27ddbdc662e2757",
+   "compiler": "htc-0.14.0-hg1-b228e0dd8",
+   "tiles": "153da86184828bded8473ee136f932bbd34aa3e00f2cbf2481fa4ec3f637089e",
    "formatVersion": 3,
    "grid": "hg1",
    "domain": "conus",
