@@ -1322,7 +1322,10 @@ class NYCMapSystem {
     const px = ent.position.x;
     const pz = ent.position.z;
     // Ground-level radar shows ~800 m of the city; it zooms out as the camera climbs (helicopter)
-    const target = Math.max(0.05, RADAR_SCALE / (1 + Math.max(0, ent.position.y - 25) / 180));
+    let target = Math.max(0.05, RADAR_SCALE / (1 + Math.max(0, ent.position.y - 25) / 180));
+    // (jh-drive round 2: in the car it zooms out with speed, 1.8x the range at 76 mph: js/drive-model.js radarZoom)
+    const DM = window.NYC && window.NYC.DriveModel, inCar = this.controllerManager.activeMode === 'car';
+    if (DM && inCar) target /= DM.radarZoom(ent.speed);
     this.miniScale += (target - this.miniScale) * 0.08;
     const scale = this.miniScale;
 

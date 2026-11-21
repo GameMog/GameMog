@@ -488,7 +488,9 @@ export function createGPS(W) {
     const wp = ms.waypoint; if (gps.dest || gps.user || blips.size) ms.waypoint = null;
     const ground = (cm.getActiveEntity().position.y || 0) < 25;
     if (ground && (gps.dest || gps.user || blips.size)) {
-      zoom += ((cm.activeMode === 'person' ? FOOT : GROUND) - zoom) * 0.06;
+      // (jh-drive round 2: in the car, out with its speed as the city's radar does: js/drive-model.js radarZoom)
+      const DM = window.NYC && window.NYC.DriveModel, sz = DM && cm.activeMode === 'car' ? DM.radarZoom(cm.getActiveEntity().speed) : 1;
+      zoom += ((cm.activeMode === 'person' ? FOOT : GROUND / sz) - zoom) * 0.06;
       ms.miniScale = (zoom - 0.08 * GROUND) / 0.92;
     } else zoom = ms.miniScale;
     miniOrig(); ms.waypoint = wp;

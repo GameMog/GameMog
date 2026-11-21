@@ -1539,6 +1539,7 @@
   "m4.text.the-flight": "The flight",
   "m4.text.the-last-ferry": "The last ferry",
   "pause.text.mission": "Mission",
+  "ui.text.restart-from-the-start": "Restart: from the start",
   "index.text.lost-the-cops": "Lost the cops",
   "index.text.lost-the-suits": "Lost the {suits}",
   "car.sign.d4n": "D4N",

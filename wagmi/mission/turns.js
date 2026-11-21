@@ -13,6 +13,7 @@
 // (body.wg-turnon), so it covers none of them, the toolbar, the car's pills or a call.
 
 import { world } from '../world/index.js';
+import { createChevrons } from './chevrons.js';
 
 // route = gps.route: pts[0] is where he is, pts[1] the lane under him (the snap: never a turn), the last point the
 // target itself (the arrival leg: never a turn); x east, z south, so cross > 0 is a RIGHT turn
@@ -84,6 +85,10 @@ const CSS = `
 #wg .wg-turn .d { flex: none; color: #FFC93C; }
 #wg .wg-turn .d::before { content: '·'; color: rgba(255,255,255,.55); margin-right: 8px; }
 #wg .wg-turn.new .ar { animation: wgTurnNew .6s ease-out; }
+/* (jh-drive round 2: the turn coming up, SOON s of travel off: the cue lights up gold and grows) */
+#wg .wg-turn.soon { background: rgba(30,22,4,.82); box-shadow: inset 0 0 0 2px #FFC93C, 0 0 18px rgba(255,201,60,.35); font-size: 26px; }
+#wg .wg-turn.soon.now .ar { animation: wgTurnNew .45s ease-out; }
+body.touch-enabled #wg .wg-turn.soon { font-size: 20px; }
 @keyframes wgTurnNew { 0% { transform: scale(1.45); } 100% { transform: none; } }
 body.wg-paused #wg .wg-turn, body.wg-cine #wg .wg-turn, body.hud-minimized #wg .wg-turn { opacity: 0 !important; }
 /* (a narrow computer screen in story mode: the help is in the top-left corner, a row under the cue) */
@@ -144,7 +149,13 @@ export function createTurns(W, gps) {
     const w2 = el.getBoundingClientRect().width;
     el.style.marginLeft = `${Math.round(edge - (a.left + a.width / 2) + w2 / 2)}px`;
   };
-  const hide = () => { cue = null; if (on) { on = false; el?.classList.remove('on'); body.classList.remove('wg-turnon'); } };
+  // (jh-drive round 2) the turn coming up: lit gold from SOON s of travel off (or NEAR m at a crawl), a chime and a pop
+  // at CHIME s; the chevrons on the road at the corner (chevrons.js). log: each turn's lead, for a test
+  const SOON = 6, CHIME = 3, NEAR = 60;
+  const chev = (() => { try { return createChevrons(app.scene, (x, z) => cm.getGroundHeight(x, z, 'car')); } catch (e) { console.warn('[turns] chevrons', e); return null; } })();
+  let soonKey = '', chimeKey = '', lastStep = 0;
+  const log = [];
+  const hide = () => { cue = null; chev?.show(null, 0, 0, 0.2); if (on) { on = false; el?.classList.remove('on', 'soon', 'now'); body.classList.remove('wg-turnon'); } };
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
   const T = {
     step(force = false) {
@@ -179,9 +190,21 @@ export function createTurns(W, gps) {
         if (k !== head) { head = k; el.classList.remove('new'); void el.offsetWidth; el.classList.add('new'); }
       }
       if (!on) { on = true; el.classList.add('on'); cls.add('wg-turnon'); }
+      // (the turn coming up: by the time it takes at his speed)
+      const dtS = lastStep ? Math.min(0.5, (t - lastStep) / 1000) : 0.2; lastStep = t;
+      const v = Math.abs(cm.entities?.car?.speed || 0), secs = c.dist / Math.max(1, v);
+      const soon = c.kind === 'turn' && (secs <= SOON || c.dist < NEAR);
+      el.classList.toggle('soon', soon);
+      if (soon && soonKey !== k) { soonKey = k; log.push({ key: k, dist: Math.round(c.dist), v: +v.toFixed(1), secs: +secs.toFixed(1), at: +(t / 1000).toFixed(1) }); if (log.length > 40) log.shift(); }
+      if (soon && secs <= CHIME && chimeKey !== k && v > 4) {
+        chimeKey = k; el.classList.remove('now'); void el.offsetWidth; el.classList.add('now');
+        try { W.sfx?.play?.('ding', { gain: 0.16 }); } catch {}
+      }
+      if (me) chev?.show(c, me.x, me.z, dtS);
       clearHeat();
     },
     hide,
+    log, chevrons: chev,
     get cue() { return cue; },
     get el() { return el; },
   };

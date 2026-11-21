@@ -307,8 +307,8 @@ export function buildRoadster(THREE, o = {}) {
     // and whatever it reflects turned gold, so a bright sky at a glancing angle reads gold, not white)
     glass: new THREE.MeshPhysicalNodeMaterial({ color: o.glass ?? '#3A2A1C', metalness: 0, roughness: 0.16, specularIntensity: 0.3, specularColor: '#FFE0B0', transparent: true, opacity: 0.85, side: THREE.DoubleSide }),
     trim: new THREE.MeshStandardNodeMaterial({ color: '#08090B', roughness: 0.45, metalness: 0.2 }),
-    // (the cabin, seen through the glass: pale seats in a charcoal suede tub, a red light line along each door)
-    seat: new THREE.MeshStandardNodeMaterial({ color: '#B4B6BB', roughness: 0.7 }),
+    // (the cabin, seen through the glass: pale seats in a charcoal suede tub, a red light line along each door; o.seats 'leather', a story world's car in its own paint (game.js): dark leather, a satin sheen, a thin clear coat)
+    seat: o.seats === 'leather' ? new THREE.MeshPhysicalNodeMaterial({ color: '#141416', roughness: 0.52, metalness: 0, sheen: 0.4, sheenColor: '#4A4A52', sheenRoughness: 0.55, clearcoat: 0.12, clearcoatRoughness: 0.45, specularIntensity: 0.45 }) : new THREE.MeshStandardNodeMaterial({ color: '#B4B6BB', roughness: 0.7 }),
     cabin: new THREE.MeshStandardNodeMaterial({ color: '#1C1D21', roughness: 0.9 }),
     ambient: new THREE.MeshStandardNodeMaterial({ color: '#400008', emissive: '#FF1A2A', emissiveIntensity: 1.6 }),
     screen: new THREE.MeshStandardNodeMaterial({ color: '#05070A', emissive: '#1A2A3A', emissiveIntensity: 0.8, roughness: 0.2 }),

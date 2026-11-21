@@ -95,7 +95,9 @@ export async function createVoice(W, out) {
       const kind = l.speaker in fxOf ? fxOf[l.speaker] : l.fx;
       // (a story world's line down a phone gets the story's call band; a band takes level with it, given back)
       const fx = l.pack && kind === 'phone' ? 'call' : kind;
-      const g = ctx.createGain(); g.gain.value = fx === 'call' ? 1.3 : 1;
+      // (a line said on mute, a video call's (storyrun/vcall.js): played to nobody, its level kept for the mouth)
+      const muted = !!cue?.mute;
+      const g = ctx.createGain(); g.gain.value = muted ? 0 : fx === 'call' ? 1.3 : 1;
       const chain = filters(fx);
       let n = src; for (const f of chain) { n.connect(f); n = f; } n.connect(g); g.connect(bus);
       // (in person, in a tagged scene: the room under the dry voice, the top end of the distance rolled off it)
@@ -106,12 +108,12 @@ export async function createVoice(W, out) {
         const wet = ctx.createGain(); wet.gain.value = R.wet;
         g.disconnect(); g.connect(lp); lp.connect(bus); lp.connect(cv); cv.connect(wet); wet.connect(bus);
       }
-      if (cue?.cut) { const to = g.gain.value; g.gain.setValueAtTime(0, ctx.currentTime); g.gain.linearRampToValueAtTime(to, ctx.currentTime + 0.08); }
+      if (cue?.cut && !muted) { const to = g.gain.value; g.gain.setValueAtTime(0, ctx.currentTime); g.gain.linearRampToValueAtTime(to, ctx.currentTime + 0.08); }
       src.start(ctx.currentTime + wait, late);
       const secs = buf.duration - late;
-      const me = (cur = { src, g, l, end: ctx.currentTime + wait + secs });
+      const me = (cur = { src, g, l, end: ctx.currentTime + wait + secs, how: cue?.how || null });
       live.add(me);
-      V.log.push({ id: l.id, at: +(performance.now() / 1000).toFixed(3), late: +late.toFixed(3), wait: +wait.toFixed(3), intro: W.intro?.t != null ? +W.intro.t.toFixed(2) : null }); if (V.log.length > 60) V.log.shift();
+      V.log.push({ id: l.id, at: +(performance.now() / 1000).toFixed(3), late: +late.toFixed(3), wait: +wait.toFixed(3), intro: W.intro?.t != null ? +W.intro.t.toFixed(2) : null, ...(cue?.how ? { how: cue.how } : {}), ...(muted ? { muted: true } : {}) }); if (V.log.length > 60) V.log.shift();
       src.onended = () => { live.delete(me); if (cur === me) cur = null; };
       if (out.via() === 'mixer') W.audio.duck('music', 0.6, wait + secs + 0.2); else W.radio?.duck?.(0.3, wait + secs + 0.2);
       // (a story world's line dips the effects and the street under it: a creature's roar, a fight's hits, the car's
@@ -169,14 +171,17 @@ export async function createVoice(W, out) {
       if (!text) { shown = null; said = null; return; }
       const l = byKey.get(key(speaker, text));
       // (a Mog's changed line: once per showing, as a recording is; the line before it, recorded or spoken, cut)
-      if (!l) { if (speaker && story.changed(speaker, text) && said !== text + '|' + speaker) { shown = null; V.stop(0.08); speak(speaker, text); } return; }
+      if (!l) { cued = null; if (speaker && story.changed(speaker, text) && said !== text + '|' + speaker) { shown = null; V.stop(0.08); speak(speaker, text); } return; }
       if (shown === l) return;
       if (V.synthOn) try { synth?.cancel(); } catch {}
       const c = cued; cued = null;
       shown = l; play(l, c);
     },
-    // the next line's hand-over (radio/turns.js): { overlap, cut, how }, used by the next sub() only
-    cue(o) { cued = o && (o.overlap || o.cut) ? { overlap: !!o.overlap, cut: !!o.cut && !o.overlap, how: o.how || null } : null; },
+    // the next line's hand-over (radio/turns.js): { overlap, cut, how }, used by the next sub() only (how alone is kept
+    // too: the line's delivery, on the voices' log, for the faces: face.js voiceOf, a warm line's smile)
+    cue(o) { cued = o && (o.overlap || o.cut || o.how || o.mute) ? { overlap: !!o.overlap, cut: !!o.cut && !o.overlap, how: o.how || null, ...(o.mute ? { mute: true } : {}) } : null; },
+    // (the delivery of the line playing now, or null)
+    get how() { return cur?.how || null; },
     // the room in-person lines are heard in: 'street' | 'park' | 'garage' | 'interior' | null (dry, the default)
     room(tag) { room = tag && ROOMS[tag] ? tag : null; return room; },
     get roomTag() { return room; },
@@ -219,6 +224,8 @@ export async function createVoice(W, out) {
       return Math.min(1, Math.sqrt(e / data.length) * 3.5);
     },
     fx(speaker, kind) { if (kind === undefined) delete fxOf[speaker]; else fxOf[speaker] = kind; },
+    // (a speaker's call sound set at run time, or undefined: the manifest's; a scene that sets one puts this back after it)
+    fxOf(speaker) { return speaker in fxOf ? fxOf[speaker] : undefined; },
     // a world's own recording of a line (wagmi/storyrun: a Story Kit voice clip, by its URL), played as a recorded line
     // is (its subtitle, the music ducked, the call filters, the speaker's mouth); never over one of Mog City's own
     clip(speaker, text, file, { dur = 0, fx = null } = {}) {

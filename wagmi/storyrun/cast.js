@@ -138,7 +138,9 @@ export function createCast(W, world) {
       if (!nat) { let h = 2166136261; for (const ch of name) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0; a.time = (h % 997) / 997 * idle.duration; a.timeScale = 0.92 + ((h >>> 10) % 160) / 1000; }
     }
     let face = null;
-    try { face = createFace(W, { speaker: name, inner, bones, head: true, open: 0.45 }); } catch (err) { console.warn('[storyrun] face', name, err.message); }
+    // (a cast member's face knobs (the pack's cast face { smile, open }): a resting smile on a baked face, the jaw's cap)
+    const fk = c.face && typeof c.face === 'object' ? c.face : {}, num = (v, a, b, d) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(b, Math.max(a, v)) : d);
+    try { face = createFace(W, { speaker: name, inner, bones, head: true, open: num(fk.open, 0.2, 0.7, 0.45), smile: num(fk.smile, 0, 0.4, 0) }); } catch (err) { console.warn('[storyrun] face', name, err.message); }
     scene.add(root);
     const f = figureOf(name, root, mixer, bones, own, face, () => {
       scene.remove(root);
@@ -147,7 +149,8 @@ export function createCast(W, world) {
     });
     // (its clips by name, Dan's under its own: a fight's puppet (runner.js STEPS.fight) crossfades them itself)
     f.clip = clip;
-    f.play = (n, loop = true) => { const cl = clip(n); if (!cl) return false; mixer.stopAllAction(); const a = mixer.clipAction(cl); a.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity); a.clampWhenFinished = !loop; a.play(); return true; };
+    // (played: evaluated at once, so its bones are the clip's from the first read, not the state they were first bound in: sets.js blend)
+    f.play = (n, loop = true) => { const cl = clip(n); if (!cl) return false; mixer.stopAllAction(); const a = mixer.clipAction(cl); a.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity); a.clampWhenFinished = !loop; a.play(); mixer.update(0); return true; };
     return f;
   }
   function figureOf(name, root, mixer, bones, clips, face, dispose, nativeP = null) {

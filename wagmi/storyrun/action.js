@@ -94,13 +94,14 @@ export function createAction(W, juice, def) {
       const was = cs.activePresetId; cs.setCameraPreset(preset);
       return () => { try { if (cs.activePresetId === preset) cs.setCameraPreset(was || 'chase'); } catch {} };
     },
-    // a chase on: the car's lens pushed (more widening and shake with speed), speed lines, a siren or a roar as it
+    // a chase on: the car's lens pushed (a little wider, 2 more degrees of widening with speed (its own kick is the big
+    // one now: js/cameras.js DRIVE), more shake), speed lines, a siren or a roar as it
     // starts, a near miss held in slow motion, a crash and a chaser taken out each a beat of their own
     chase(ch, d = {}) {
       if (!on) return () => {};
       const police = d.kind === 'police';
       play(police ? 'siren' : 'roar'); if (police) setTimeout(() => play('screech'), 500);
-      const lens0 = car?.chase || null, lens = lens0 ? { ...lens0, kick: lens0.kick * 2.2 + 1, shake: (lens0.shake || 0.02) * 2.4, fov: lens0.fov + 3, vmax: lens0.vmax * 0.8 } : null;
+      const lens0 = car?.chase || null, lens = lens0 ? { ...lens0, kick: lens0.kick + 2, shake: (lens0.shake || 0.02) * 2.4, fov: lens0.fov + 2, vmax: lens0.vmax * 0.8 } : null;
       if (lens) car.chase = lens;
       chaseOn = { t: performance.now() };
       const missWas = juice.onMiss;

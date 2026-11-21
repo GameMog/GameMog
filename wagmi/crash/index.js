@@ -2,6 +2,8 @@
 //   fx.js      sparks, debris (glass, plastic, paint) and a burst hydrant's water
 //   props.js   the street furniture (js/street-details.js breakables): poles snap and fall, small things fly, trees stand
 //   wrecks.js  the city's cars knocked out of their lanes (js/traffic.js v.wreck): sliding, spinning, a pile-up, honking
+//   skids.js   the tyres' black marks and smoke on the road while the car slides (js/drive-model.js), brakes hard, launches
+//   damage.js  the car's own damage: a dent on the side it was hit, smoke, a limp, its health by the speed (jh-drive)
 // Dan's car (wagmi/game.js: car.body its box, car.mass 2, a sedan 1.4, an SUV 2.1, a bus 12) runs into them in the
 // controllers' half-metre steps (js/controllers.js updateCar calls car.crash.step after each, car.crash.wall on a
 // building): a car it hits is shoved by the weights (spinning off the blow's lever arm), its own car bounces, slows by
@@ -15,6 +17,8 @@ import { createFx } from './fx.js';
 import { createProps } from './props.js';
 import { createWrecks, boxes, dims, massOf } from './wrecks.js';
 import { createPhysics } from '../physics/index.js';
+import { createSkids } from './skids.js';
+import { createDamage } from './damage.js';
 
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 
@@ -86,20 +90,16 @@ export function install(W) {
   /* ------------------------------------------------- what the car meets -- */
   const hit = { nx: 0, nz: 0, pen: 0, x: 0, z: 0 };
   const box = () => { const B = car.body; return { hl: (B.z1 - B.z0) / 2, cz: (B.z1 + B.z0) / 2 }; };
-  // a building (js/controllers.js has already pushed it out and bounced it): head on, a hard stop, barely bouncing back;
-  // the feel once a frame, for the hardest
+  // a building (js/controllers.js has already pushed it out and bounced it, js/drive-model.js wallKnock: head on, a hard
+  // stop, barely bouncing back; at a slant it glances off and drives on): the feel once a frame, for the hardest
   const wallHit = { vn: 0, nx: 0, nz: 0, x: 0, z: 0, headOn: 0, fence: false };
   function wall(vn, nx, nz, headOn, x, z, c = null) {
-    // (and less of the shove back off it the controllers gave: head on, it stays at the wall)
-    const back = headOn > 0.72 ? 0.32 : 0.12;
-    car.vx -= nx * vn * back; car.vz -= nz * vn * back;
-    if (headOn > 0.72) car.speed *= 0.4;
     if (vn > wallHit.vn) Object.assign(wallHit, { vn, nx, nz, x, z, headOn, fence: !!(c && c.fence) });
   }
   // a solid thing (a tree, the subway stairs, a pole hit too slowly): as a wall
   function bounce(nx, nz) {
-    const s = Math.sin(car.heading), c = Math.cos(car.heading);
-    const vn = -((s * car.speed + car.vx) * nx + (c * car.speed + car.vz) * nz);
+    const s = Math.sin(car.heading), c = Math.cos(car.heading), sl = car.slipV || 0;
+    const vn = -((s * car.speed + c * sl + car.vx) * nx + (c * car.speed - s * sl + car.vz) * nz);
     if (vn <= 0.5) return 0;
     const headOn = Math.abs(s * nx + c * nz), side = c * nx - s * nz;
     car.vx += nx * vn * 0.42; car.vz += nz * vn * 0.42;
@@ -117,7 +117,7 @@ export function install(W) {
   const GRIND = 1.2, grind = new WeakMap();
   function blow(ovx, ovz, mv, key = null) {
     const s = Math.sin(car.heading), c = Math.cos(car.heading), mp = car.mass || 2, { nx, nz } = hit;
-    const pvx = s * car.speed + car.vx, pvz = c * car.speed + car.vz;
+    const sl = car.slipV || 0, pvx = s * car.speed + c * sl + car.vx, pvz = c * car.speed - s * sl + car.vz;
     const rvx = pvx - ovx, rvz = pvz - ovz, vn = rvx * nx + rvz * nz;
     if (vn >= -0.15) return null;
     const sp = -vn, e = sp > 12 ? 0.05 : 0.2;
@@ -147,7 +147,7 @@ export function install(W) {
       dw = clamp(dw, -room, room); g.used += Math.abs(dw);
     }
     car.angularVel = clamp((car.angularVel || 0) + dw, -3.5, 3.5);
-    return { sp, Jx, Jz };
+    return { sp, Jx, Jz, front };
   }
   // another car: apart by the weights, then the blow, each turned by its lever arm; the other knocked off its lane when
   // it was really hit (over 6 m/s: a tap leaves it in its lane)
@@ -163,7 +163,7 @@ export function install(W) {
     const [ovx, ovz] = wrecks.velOf(v);
     const b = blow(ovx, ovz, mv, v);
     if (!b) return;
-    const { sp, Jx, Jz } = b;
+    const { sp, Jx, Jz, front } = b;
     wrecks.push(v, -Jx, -Jz, hit.x, hit.z, sp > 6);
     rock(nx, nz, sp);
     // the feel, once a blow (not every step of a grind): sparks and bits where they touched, a bus's horn and brakes
@@ -172,7 +172,7 @@ export function install(W) {
       contactCool.set(v, now);
       if (sp > 1.5) {
         feel(sp, hit.x, 0.55, hit.z, nx, nz, { paint: v.paint, heavy: Math.min(1, mv / (mp + mv) * 1.8) });
-        emit('hit', { kind: 'car', speed: sp, v, x: hit.x, z: hit.z });
+        emit('hit', { kind: 'car', speed: sp, v, x: hit.x, z: hit.z, front, mass: mv });
       }
       if (v.bus && sp > 3) { play('horn', { pos: [v.x, 1.5, v.z], kind: 'bus', len: 'long', vol: 0.9 }); play('airBrake', { pos: [v.x, 1, v.z], vol: 0.6 }); }
     }
@@ -190,7 +190,7 @@ export function install(W) {
     if ((now - last > 250 || r.sp > 4) && r.sp > 1.5) {
       contactCool.set(b.key, now);
       feel(r.sp, hit.x, 0.55, hit.z, nx, nz, { paint: b.paint, heavy: Math.min(1, b.mass / ((car.mass || 2) + b.mass) * 1.8) });
-      emit('hit', { kind: 'car', speed: r.sp, x: hit.x, z: hit.z, other: b.kind });
+      emit('hit', { kind: 'car', speed: r.sp, x: hit.x, z: hit.z, other: b.kind, key: b.key, front: r.front, mass: b.mass });
     }
   }
   // the shore highways' cars (js/traffic.js createHighwayTraffic): they keep to their lanes; a blow along the lane
@@ -272,7 +272,7 @@ export function install(W) {
       const hx = b.w ? h.x : b.x + nx * b.r, hz = b.w ? h.z : b.z + nz * b.r;
       feel(vn, hx, b.kind === 'tree' ? 0.9 : b.w ? 0.45 : 0.6, hz, nx, nz, { glass: vn > 11 });
       if (/^(mast|cobra|post|lamp|hydrant)$/.test(b.kind)) play('clang', { pos: [b.x, 1, b.z], vol: clamp(vn / 10, 0.3, 1), rate: 0.7 });
-      emit('hit', { kind: 'prop', solid: true, speed: vn, b });
+      emit('hit', { kind: 'prop', solid: true, speed: vn, b, x: hx, z: hz });
     }
   };
   PM.onBreak = (b, vi, loss, nx, nz) => {
@@ -357,8 +357,16 @@ export function install(W) {
     };
   }
   let trail = 0;
+  // (the tyres' marks and smoke on the road, wagmi/crash/skids.js)
+  let skids = null;
+  try { skids = api.skids = createSkids(W); } catch (err) { console.error('[crash] skids', err); }
+  // (the car's own damage: dents, smoke, a limp, its readout, wagmi/crash/damage.js)
+  let damage = null;
+  try { damage = api.damage = createDamage(W, api); } catch (err) { console.error('[crash] damage', err); }
   function frame(dt) {
     cool.sound -= dt; cool.fence -= dt;
+    if (skids) try { skids.update(dt); } catch (err) { console.error('[crash] skids', err); skids = null; }
+    if (damage) try { damage.update(dt); } catch (err) { console.error('[crash] damage', err); damage = null; }
     scanSolids(dt);
     // the hardest wall hit this frame, felt; scraping along one at speed, a trail of sparks
     if (wallHit.vn > 0) {
@@ -370,7 +378,7 @@ export function install(W) {
           if (w.vn > 1.5 && cool.fence <= 0) { play('clang', { pos: [w.x, 0.8, w.z], vol: clamp(w.vn / 9, 0.3, 1), rate: 1.6 + Math.random() * 0.3 }); cool.fence = 0.12; }
           fx.spark(w.x, 0.7, w.z, -w.nz, w.nx, Math.round(clamp(w.vn * 1.5, 6, 30)), 4 + w.vn * 0.3);
         }
-        emit('hit', { kind: 'wall', speed: w.vn, headOn: w.headOn, fence: w.fence });
+        emit('hit', { kind: 'wall', speed: w.vn, headOn: w.headOn, fence: w.fence, x: w.x, z: w.z, nx: w.nx, nz: w.nz });
       }
       if (Math.abs(car.speed) > (w.fence ? 3 : 7)) {
         trail += dt * Math.abs(car.speed) * 3; const n = Math.floor(trail); trail -= n;

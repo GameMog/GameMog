@@ -43,7 +43,7 @@
 //   - the lines speak with their recordings (assets/voice, by speaker and words: W.voice, from the subtitle; Jane's on
 //     the phone, Dan's dry), the placeholder mumble until a line is recorded. The radio ducks under the call. The card is
 //     ui.caller (Jane's face in it, her mouth with her lines: jane.js); on a phone it sits by the toolbar (ui.js).
-import { S as story } from '../story/index.js';
+import { S as story } from '../story/index.js'; import { gapAfter, canOverlap, cutInto, GAP } from '../radio/turns.js';
 
 const BLUE = '#6CB8FF', WHITE = '#FFFFFF';
 // the pause and resume lines of the ordinary calls (each cycles: one each time he gets out, one each time he's back)
@@ -738,12 +738,29 @@ export function createCalls(W) {
     // (the words as the story has them, wagmi/story; the line's mark on screen is its speaker's name as shown)
     const [who, color, words, gap = 0.25] = tup, text = story.line(who, words);
     const fast = C.mode === 'fast', rec = W.voice?.dur?.(who, text) || 0;
-    const secs = fast ? Math.max(1.1, text.length / 17, rec + 0.1) : Math.max(1.4, text.length / 15, rec + 0.15);
+    let secs = fast ? Math.max(1.1, text.length / 17, rec + 0.1) : Math.max(1.4, text.length / 15, rec + 0.15);
+    // a world's line with its beat (wagmi/storyrun talk.js: tup[3] { beats, how, pre, post, pause, overlap, cut }):
+    // timed as a scene's lines are (radio/turns.js): a recorded line held for its own length (no reading-time floor:
+    // 'Alone-ish.' is 0.7 s), cut short by its cut when a line follows, 0.15 s early when the next one overlaps it; the
+    // voice told how it hands over (an overlap plays over the end of the one before, a cut-in fades it out) and how
+    // it is said (the faces' smile, face.js)
+    const beat = gap && typeof gap === 'object' ? gap : null;
+    if (beat) {
+      const t0 = now(), prev = C.prevB && t0 - C.prevB.endAt < 1500 ? C.prevB : null, me = { ...beat, text };
+      const nx = peekNext(C), nb = beatOfTup(nx);
+      const natural = rec > 0 ? rec + 0.05 : fast ? Math.max(1.1, text.length / 17) : Math.max(1.4, text.length / 15);
+      secs = natural;
+      if (beat.cut > 0 && nx) secs = natural * beat.cut;
+      if (nb && canOverlap(nb)) secs = Math.max(0.5, secs + GAP.overlap);
+      C.ownEnd = t0 + natural * 1000 + 120;
+      W.voice?.cue?.({ overlap: !!prev && canOverlap(me), cut: !!prev && cutInto(prev), how: beat.how || null });
+    }
     W.ui?.sub(who, text, color);
     if (!W.voice?.speaks?.(who, text)) mumble(C, who, text, secs);
-    duck(secs + gap + 0.6);
+    // (the duck: the line and its pause, a number; a world's line has its beat there, its hand-over timed by turns.js)
+    duck(secs + (beat ? 0 : Number(gap) || 0) + 0.6);
     const t = now();
-    C.line = { tup, kind, again, mine: story.name(who).toUpperCase() + text, t0: t, end: t + secs * 1000, gap: (fast ? Math.min(gap, 0.15) : gap) * 1000, cutAt: 0 };
+    C.line = { tup, kind, again, mine: story.name(who).toUpperCase() + text, t0: t, end: t + secs * 1000, gap: beat ? 0 : (fast ? Math.min(gap, 0.15) : gap) * 1000, cutAt: 0, beat: beat ? { ...beat, text } : null };
     C.said++; C.log.push(`${kind} ${who}: ${text.slice(0, 32)}`); if (C.log.length > 40) C.log.shift();
   }
   function finish(C, t) {
@@ -752,8 +769,25 @@ export function createCalls(W) {
     // (cut short by a line of the mission's: said again once it clears)
     else if (L.cutAt && L.cutAt - L.t0 < (L.end - L.t0) * 0.6 && !L.again && /^(main|extra|wrap)$/.test(L.kind)) C.again = { tup: L.tup, kind: L.kind };
     C.gapEnd = t + L.gap;
+    // (a world's line: the gap to the next by turns.js, the next line's pre in it; an overlap was taken off the hold)
+    if (L.beat) {
+      C.prevB = { ...L.beat, endAt: t };
+      const nb = beatOfTup(peekNext(C));
+      if (nb) C.gapEnd = t + Math.max(0, gapAfter(L.beat, nb)) * 1000 * (C.mode === 'fast' ? 0.6 : 1);
+    }
     if (L.kind === 'main' && !mainLeft(C)) heardOf(C.id).main = true;
   }
+  // the line the call says next, as it stands (for a beat's hand-over; the wrap decided later may come first)
+  function peekNext(C) {
+    const D = C.def;
+    if (C.again) return C.again.tup;
+    if (C.q.length) return C.q[0].tup;
+    if (C.wrapping) return D.wrap[C.wrapI] || null;
+    if (C.mainI < D.main.length) return D.main[C.mainI];
+    if (C.block >= 0) return D.extra[C.block]?.[C.blockI] || null;
+    return null;
+  }
+  const beatOfTup = (x) => (x && x[3] && typeof x[3] === 'object' ? { ...x[3], text: story.line(x[0], x[2]) } : null);
   function end(C, sound = true) {
     if (!C || C.dead) return;
     C.dead = true;
@@ -773,6 +807,10 @@ export function createCalls(W) {
   // way finishes in the car; else it hangs up
   function stepGone(C, step) {
     if (C.state !== 'wait' && (C.def.carry || []).includes(step) && mainLeft(C)) { C.carrying = true; C.step = step; return false; }
+    // (a story world's call with a span (wagmi/storyrun: d.span): on over the next `span` steps, its extras and all, a
+    // long talk across a multi-leg drive; once they are through it finishes as a ride-along call does, below)
+    if (C.def.span > 0 && !C.finishing && (C.spanned || 0) < C.def.span) { C.spanned = (C.spanned || 0) + 1; C.spanning = true; C.step = step; return false; }
+    if (C.spanning && C.state === 'talk' && inCar()) { C.finishing = true; C.step = step; return false; }
     // (a story world's ride-along call (def.finish, wagmi/storyrun): talking at the wheel, it is not cut by its step
     // ending (a quick escape): it carries on into the next, says its main lines and the exchange under way, then its
     // wrap, and hangs up; a call of the next step waits for it)
@@ -842,13 +880,17 @@ export function createCalls(W) {
     C.outAt = 0; C.pauseNow = false;
     if (C.held) { C.held = false; card('On call'); if (C.said && D.resume.length) C.resumeDue = true; }
     // the mission's own line up: the call waits for it, and goes on 0.4 s after it clears (and its recording ends)
-    if (subNow() || W.voice?.left?.() > 0.08) { C.otherAt = t; return; }
+    // (a world's line that overlaps or cuts in: the voice still playing is the call's own line before it, not the mission's)
+    if (subNow() || (!(C.ownEnd && t < C.ownEnd) && W.voice?.left?.() > 0.08)) { C.otherAt = t; return; }
     if (t - C.otherAt < AFTER_OTHER * 1000) return;
+    // (hushed: a story's beat and the mission's lines after it, one exchange, W.calls.hush)
+    if (C.hushUntil && t < C.hushUntil) return;
     if (C.resumeDue) { C.resumeDue = false; say(C, D.resume[C.resumeI++ % D.resume.length], 'resume'); return; }
     if (C.again) { const a = C.again; C.again = null; say(C, a.tup, a.kind, true); return; }
     // react and cue lines, between the call's own (a stale one dropped)
     while (C.q.length && t - C.q[0].at > STALE * 1000) C.q.shift();
-    if (C.q.length) { const x = C.q.shift(); say(C, x.tup, x.kind); return; }
+    // (an exchange's lines go stale from the first one said, not from when it was queued: its 3rd and 4th lines kept)
+    if (C.q.length) { const x = C.q.shift(); if (x.grp) for (const y of C.q) if (y.grp === x.grp) y.at = t; say(C, x.tup, x.kind); return; }
     // (finishing after its step: the main lines and the block under way first, then the wrap; no new block)
     const owed = (C.finishing || (C.def.finish && C.wrapReq)) && !C.wrapping && (C.mainI < D.main.length || (C.block >= 0 && C.blockI < D.extra[C.block].length));
     if (!C.wrapping && !owed && (C.wrapReq || C.finishing || (C.opt.wrapWhen?.() && !(D.wrapAfterMain && mainLeft(C))))) { C.wrapping = true; C.block = -1; }
@@ -907,7 +949,7 @@ export function createCalls(W) {
     const t = now();
     if (!once && (t - C.reactAt < (after ? 3 : C.def.cool ?? 7) * 1000 || C.q.some((x) => x.kind === 'react'))) return false;
     const i = C.reactI[kind] || 0; C.reactI[kind] = i + 1;
-    const lines = pool[i % pool.length].map((tup) => ({ tup, kind: 'react', at: t }));
+    const grp = {}, lines = pool[i % pool.length].map((tup) => ({ tup, kind: 'react', at: t, grp }));
     if (once) C.q.unshift(...lines); else C.q.push(...lines);
     C.reactAt = t; C.lastReact = kind; C.reactUsed.add(kind);
     return true;
@@ -933,8 +975,15 @@ export function createCalls(W) {
       if (mine(cur)) end(cur, !quiet);
     },
     wrap() { if (cur) cur.wrapReq = true; },
+    // (the wrap now, its extra block under way dropped: a story's scene is coming while a call that spans the drive is
+    // still on at the wheel (wagmi/storyrun wrapSpan); its main lines and a resume owed still go first)
+    wrapNow() { if (cur && !cur.dead) { cur.wrapReq = true; if (cur.block >= 0) cur.block = -1; cur.extrasDone = true; } },
+    // (quiet for secs: no new line begun meanwhile, the mission's own exchange (a story's beat and the lines after it) not
+    // broken into by the call)
+    hush(secs) { const C = cur; if (C && !C.dead) C.hushUntil = Math.max(C.hushUntil || 0, now() + secs * 1000); },
     // (a story's next call is up: a ride-along call still finishing after its step hangs up after the line it is saying)
-    yieldFinishing() { if (cur && !cur.dead && cur.finishing) { cur.yieldNow = true; return true; } return false; },
+    // (a spanning call the next call comes for: it finishes, its main lines and the block under way, then its wrap)
+    yieldFinishing() { if (cur && !cur.dead && cur.spanning && !cur.finishing) { cur.finishing = true; return true; } if (cur && !cur.dead && cur.finishing) { cur.yieldNow = true; return true; } return false; },
     // (out of the car, the mission moving on: on hold now, its pause line after the line playing, no 1.5 s wait)
     pause() { if (cur && !cur.dead && cur.state === 'talk') cur.pauseNow = true; }, hold(on) { if (cur && !cur.dead && cur.state === 'talk') { cur.extHold = !!on; if (on) cur.pauseNow = true; } }, // (hold: on hold for another call, a story's call waiting (wagmi/storyrun), as if he were out of the car; hold(false) back on)
     // what the live call `id` still owes before a scene may cut it: 'main' (its protected main lines, wrapAfterMain),
@@ -948,7 +997,7 @@ export function createCalls(W) {
     get heard() { return [...heard].filter(([, h]) => h.main).map(([id]) => id); },
     state() {
       const C = cur;
-      return C ? { id: C.id, state: C.state, step: C.step, held: C.held, mode: C.mode, main: `${C.mainI}/${C.def.main.length}`, block: C.block, wrapping: C.wrapping, carrying: C.carrying, finishing: C.finishing, retry: C.retry, line: C.line?.mine || null, q: C.q.length, next: next?.id || null, log: C.log.slice(-14) } : { id: null, next: next?.id || null };
+      return C ? { id: C.id, state: C.state, step: C.step, held: C.held, mode: C.mode, main: `${C.mainI}/${C.def.main.length}`, block: C.block, wrapping: C.wrapping, carrying: C.carrying, finishing: C.finishing, spanning: !!C.spanning, spanned: C.spanned || 0, retry: C.retry, line: C.line?.mine || null, q: C.q.length, next: next?.id || null, log: C.log.slice(-14) } : { id: null, next: next?.id || null };
     },
     // (for tests: the main lines from line i)
     seek(i) { if (cur) cur.mainI = Math.max(0, Math.min(cur.def.main.length, i)); },

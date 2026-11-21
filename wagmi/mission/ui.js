@@ -14,7 +14,7 @@
 //   phone.show(screen, data) / phone.hide()      feed, incoming, video, ended, tracker
 //   caller(name, colour, status) / caller(null) · dm(from, text) · counter(label, value) / counter(null)
 //   passed({ title, stats, reward, note }) · ko()
-//   failed(reason, { skip, tip, retryLabel, skipLabel, quitLabel }) -> Promise<'retry'|'quit'|'skip'>   the reason, a
+//   failed(reason, { skip, tip, retryLabel, skipLabel, quitLabel, restart, restartLabel }) -> Promise<'retry'|'restart'|'quit'|'skip'>   the reason, a
 //                                                TIP (objective-style parts, key caps and all) and the choices, each label
 //                                                'Main: sub' ('Retry: the tail': RETRY big, 'the tail' small under it)
 //   fade(to, secs) · gate({ when, onStart, hold, fine, credit }) -> Promise (up once when() is true; any key or a click starts. Over
@@ -773,10 +773,11 @@ export function createUI() {
     },
     // tip: what would have helped, for this reason (objective-style parts); each label 'Main: sub', the sub what the
     // choice does ('Retry: the tail', 'Skip the tail: start at the yard'); none: RETRY, QUIT, SKIP as they were
-    failed(reason, { skip = false, tip = null, retryLabel = '', skipLabel = '', quitLabel = '' } = {}) {
+    failed(reason, { skip = false, tip = null, retryLabel = '', skipLabel = '', quitLabel = '', restart = false, restartLabel = '' } = {}) {
       window.mcStat?.('fail', reason);
-      const opts = ['retry', 'quit', ...(skip ? ['skip'] : [])];
-      const labels = { retry: retryLabel, quit: quitLabel, skip: skipLabel };
+      // (restart: a mission retried from a checkpoint offers its start as well, 'restart', beside Retry)
+      const opts = ['retry', ...(restart ? ['restart'] : []), 'quit', ...(skip ? ['skip'] : [])];
+      const labels = { retry: retryLabel, restart: restartLabel || 'Restart: from the start', quit: quitLabel, skip: skipLabel };
       const choice = (o, i) => {
         const s = String(story.t(labels[o]) || ''), at = s.indexOf(': '), main = at < 0 ? s || o : s.slice(0, at), sub = at < 0 ? '' : s.slice(at + 2);
         return `<button data-o="${o}" class="${i === 0 ? 'sel' : ''}"><span class="m">${esc(main)}</span>${sub ? `<small>${esc(sub)}</small>` : ''}</button>`;

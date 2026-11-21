@@ -2,11 +2,14 @@
 // runner's lines). The bar is Jane and Dan on the car phone: a reply lands the moment the line before it ends, a
 // pause is something a writer chose, never a metronome.
 //   beatOf(x)                  a line's beat from its tuple's 4th field: a number (an authored pause after it, as before)
-//                              or { pause, pre, post, overlap, how } (all optional; anything else ignored)
+//                              or { pause, pre, post, overlap, how, cut } (all optional; anything else ignored)
+//                              cut (0.3-0.95): an interruption. The next speaker cuts in once that share of the line is
+//                              said (its voice faded out under them, as after a trail-off); a world's 'The more you
+//                              buy, the more you...' / 'Stop.' without a clip cut short by hand
 //   gapAfter(a, b)             seconds of silence between line a ending and line b starting (D3/D4):
 //                                a's authored pause                      as written (a reveal 0.8-1.2, the pivot 0.6-0.8)
-//                                b overlaps (2 words or fewer, flagged)  -0.15: b starts before a has quite finished
-//                                a trails off ('...' at its end)         0.05: b cuts in
+//                                b overlaps (4 words or fewer, flagged)  -0.15: b starts before a has quite finished
+//                                a trails off ('...' at its end) or is cut   0.05: b cuts in
 //                                b is a quick reply (4 words or fewer, or the answer to a question)   0.12
 //                                otherwise                               0.25
 //                              plus a's post and b's pre (a leading '...' on b: a 0.3 s pre-beat)
@@ -25,7 +28,9 @@
 //                              next line never cuts it; every line of the list starts decoding as the list starts.
 //                              The first line in person takes a breath first (D5: W.voice.breath, about 0.2 s).
 // A line flagged overlap tells the voices (W.voice.cue) to start it over the end of the one before instead of waiting
-// for it; at most 1 in 6 lines may (the writer's rule), and only a reply of 2 words or fewer is honoured.
+// for it; at most 1 in 6 lines may (the writer's rule), and only a reply of 4 words or fewer is honoured (18 Nov, talk
+// track: 2 words left 'Wait, wait, wait.' and 'No, no, listen.' on the line after; a real cut-in is often 3 or 4).
+// A line with a cut is held for that share of its length only (holdOf x cut) and the next one cues cut.
 export const HOW = ['warm', 'tease', 'deadpan', 'urgent', 'angry', 'shout', 'scared', 'hushed', 'hesitant', 'sad', 'smug'];
 export const GAP = { quick: 0.12, normal: 0.25, cut: 0.05, overlap: -0.15, trail: 0.3 };
 const num = (v, lo, hi) => (typeof v === 'number' && Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : undefined);
@@ -36,18 +41,22 @@ export function beatOf(x) {
   if (p != null) o.pause = p; if (pre != null) o.pre = pre; if (post != null) o.post = post;
   if (x.overlap === true) o.overlap = true;
   if (HOW.includes(x.how)) o.how = x.how;
+  const cut = num(x.cut, 0.3, 0.95); if (cut != null) o.cut = cut;
   return o;
 }
 const words = (t) => String(t || '').replace(/^\s*\.\.\.\s*/, '').split(/\s+/).filter((w) => /[a-z0-9]/i.test(w)).length;
 export const quick = (a, b) => words(b.text) <= 4 || /\?['"’]?\s*$/.test(String(a.text || '').trim());
-export const canOverlap = (b) => !!b.overlap && words(b.text) <= 2;
+export const OVERLAP_WORDS = 4;
+export const canOverlap = (b) => !!b.overlap && words(b.text) <= OVERLAP_WORDS;
+// a's end is cut into: a trail-off ('...' at its end) or a line written with a cut
+export const cutInto = (a) => !!a && (a.cut > 0 || /\.\.\.['"’]?\s*$/.test(String(a.text || '').trim()));
 export function preOf(b) { return (b.pre || 0) + (/^\s*\.\.\./.test(String(b.text || '')) && b.pre == null ? GAP.trail : 0); }
 export function gapAfter(a, b) {
   if (!a || !b) return preOf(b || {});
   const tail = (a.post || 0) + preOf(b);
   if (a.pause != null) return a.pause + tail;
   if (canOverlap(b)) return GAP.overlap + tail;
-  if (/\.\.\.['"’]?\s*$/.test(String(a.text || '').trim())) return GAP.cut + tail;
+  if (cutInto(a)) return GAP.cut + tail;
   return (quick(a, b) ? GAP.quick : GAP.normal) + tail;
 }
 export function readingTime(text) { return Math.max(1.4, String(text || '').length / 15); }
@@ -83,8 +92,9 @@ export async function playTurns(W, lines, { show, hide, sleep, dead = () => fals
       // (D5: the scene's first line in person, a breath before it; on a phone or with no recording, none)
       if (!prev) { const b = W?.voice?.breath?.(L.who, L.text) || 0; if (b > 0) { await sleep(b * 1000); if (dead()) break; } }
       done?.(); done = null;
-      W?.voice?.cue?.({ overlap: canOverlap(L) && !!prev, cut: !!prev && /\.\.\.['"’]?\s*$/.test(String(prev.text || '').trim()), how: L.how || null });
-      const secs = holdOf(W, L.who, L.text);
+      W?.voice?.cue?.({ overlap: canOverlap(L) && !!prev, cut: !!prev && cutInto(prev), how: L.how || null, ...(L.muted ? { mute: true } : {}) });
+      // (a line written with a cut is held for that share of it: the next speaker cuts in)
+      const secs = holdOf(W, L.who, L.text) * (L.cut > 0 && lines[i + 1] ? L.cut : 1);
       done = show(L, i, secs) || null;
       const next = lines[i + 1], early = next ? Math.min(0, gapAfter(L, next)) : 0;
       await sleep(Math.max(0.05, secs + early) * 1000);

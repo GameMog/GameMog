@@ -116,6 +116,11 @@ body.wf-fight .hud-top-left,body.wf-fight .hud-top-right,body.wf-fight .hud-bott
 #wf .wf-offer.wf-on{opacity:1}
 /* (never over a cutscene's frame, its letterbox up: Colter Land, 16 Nov, a shot on a shopfront under PICK UP BOTTLE) */
 body.wg-cine #wf .wf-offer{display:none}
+/* (nor on a title or a card: MISSION PASSED, STORY COMPLETE, a fail screen, a transition card (game.js CARDS_UP). Jensen
+   Heist's MISSION PASSED read E · PICK UP TRASH CAN: the RC playtest, P8) */
+body:has(#sr-slam.on, #wg .sr-card.on, #wg .sr-pass.on, #wg .wg-big.on, #wg .wg-title.on) #wf .wf-offer{display:none}
+/* (and through a card's fade-out after it: game.js keeps body.wg-cardup 650 ms past the card's .on) */
+body.wg-cardup #wf .wf-offer{display:none}
 #wf .wf-offer div{position:absolute;left:0;top:0;transform:translate(-50%,-100%);display:flex;align-items:center;gap:7px;padding:6px 10px 6px 7px;border-radius:10px;background:${PANEL};white-space:nowrap;font:700 15px/1 'Barlow Condensed',system-ui,sans-serif;letter-spacing:.1em}
 #wf .wf-offer kbd{font:800 13px/1 'Barlow Condensed',system-ui,sans-serif;color:#15171C;background:${Y};border-radius:4px;padding:3px 6px}
 #wf .wf-offer b{color:${Y};font-weight:800}
@@ -203,6 +208,9 @@ export function createHud(c) {
     flash(text, kind = '') { msg.textContent = text; msg.className = 'wf-msg wf-on ' + (kind ? 'wf-' + kind : ''); msgT = 1.6; },
     // (the first fight: the full key card for 10 s, unless Mission 1's lesson card teaches them one at a time)
     fightStarted({ lesson = false } = {}) { if (!hinted && !lesson) { hinted = true; hintT = 10; } },
+    // (a set's dip to black, Showtime's ST1: the key card and the lesson card out at once, not fading through the dip's
+    // lift; the key card's time is spent, so it does not come back after the scene)
+    hush() { hintT = 0; for (const el of [hint, lessonEl]) { el.style.transition = 'none'; el.classList.remove('wf-on'); void el.offsetWidth; el.style.transition = ''; } root.classList.remove('wf-hinting'); },
     // the lesson card: { step, of, title, line (html, key caps in it) } or null
     lesson(L) {
       const key = L ? L.title + L.step : '';

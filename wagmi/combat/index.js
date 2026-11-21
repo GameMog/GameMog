@@ -1030,6 +1030,7 @@ export async function install(W) {
   // ------------------------------------------------------------------ the API
   const api = W.combat = {
     spawnCrew, clear: clearAll, dressSuit: (obj, look = 'a') => c.dressSuit(obj, look, true),
+    hushHud: () => c.hud.hush?.(), // (the fight's help cards out at once: a story set's dip to black)
     props: (x, z, o = {}) => c.items.scatter(x, z, o),
     get enabled() { return c.enabled; }, set enabled(v) { c.enabled = !!v; if (!v) { c.me.reset(); c.input.clear(); } },
     // a mission's hold on a big fight (see the top); null lets go. Returns what is set

@@ -50,6 +50,8 @@
 //     ahead: false, a town's opening puts none on his road ahead of him (all behind him, out of view: see INTERCEPT).
 //     calm: s at the start they hold off him (CALM: none straight at him to ram, none nearer than CALM.gap m unless he
 //     is going, and a town's first car from a street ahead (INTERCEPT) no sooner than calm + INTERCEPT.every s)
+//     behind: { h, min }, a standing start: every car behind him along h (else his heading), min m back or more (behindRange),
+//     on the road, no cue (a chase to a place: storyrun rules.js chaseOpening). plain: plain wheels (cars.js), a story's own crew
 //     target: what they chase (default: Dan, in his car or on foot). lose: false, they can't be lost (an escort);
 //     reinforce: replace the wrecked (default: heat 3 and up); speed: m/s they set out at; escape: s out of sight to
 //     lose them (default RULE.escape(heat)); vmax: their top speed (default RULE.vmax(heat))
@@ -69,6 +71,8 @@ const Q = new URLSearchParams(location.search);
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 const rnd = (a, b) => a + Math.random() * (b - a);
+// a standing start's spot for its i-th car (start's behind): min..min+40 m back, each further back than the last
+export const behindRange = (min = 80, i = 0) => [min + 35 * i, min + 40 + 45 * i];
 // the rules, by heat
 const RULE = {
   radius: (h) => 90 + 55 * h,   // m: the search circle
@@ -147,7 +151,7 @@ export function install(W) {
   const proxy = { heading: 0, speed: 0, vx: 0, vz: 0, angularVel: 0, pitchVel: 0, rollVel: 0, heaveVel: 0, body: { hx: 1, z0: -2, z1: 2 }, lastCollisionSpark: null };
   const _pos = new THREE.Vector3();
   function makeCar(ch, i, at) {
-    const c = buildChaseCar(ch.kind, i);
+    const c = buildChaseCar(ch.kind, i, { plain: ch.plain });
     scene.add(c.group);
     const P = Object.assign(c, {
       isP: true, i, ch, x: at.x, z: at.z, h: at.h, y: cm.getGroundHeight(at.x, at.z, 'car'), speed: at.speed ?? 10, vx: 0, vz: 0, w: 0, steer: 0, acc: 0,
@@ -630,6 +634,12 @@ export function install(W) {
     const fx = Math.sin(T.h), fz = Math.cos(T.h), back = (x, z) => (x - T.x) * fx + (z - T.z) * fz < -rMin * 0.5 && onRoad(x, z);
     return nav.spot(T.x, T.z, rMin, rMax, (x, z) => !inView(x, z, 4) && back(x, z), 60) || nav.spot(T.x, T.z, rMin, rMax * 2, back, 60);
   }
+  // (a standing start's (start's behind): car i's spot behind him, BEHIND.range(min, i) m back along T.h, out of view first,
+  // then in view, then further out; never one beside him or ahead: TP-6's crew wedged him in on the rose garden's lawn)
+  function behindStart(T, i, min) {
+    const [a, b] = behindRange(min, i);
+    return behindSpot(T, a, b) || behindSpot(T, a, b * 1.6) || behindSpot(T, Math.max(25, a * 0.6), b);
+  }
   // (the way he is going: his motion, or the way he faces when slow; behind him: on the far side of his level)
   const motion = (T) => (T.speed > 3 ? [T.vx / T.speed, T.vz / T.speed] : [Math.sin(T.h), Math.cos(T.h)]);
   const behind = (P, T) => { const [hx, hz] = motion(T); return (P.x - T.x) * hx + (P.z - T.z) * hz < 0; };
@@ -709,7 +719,7 @@ export function install(W) {
       kind, cars: [], state: 'on', seen: true, lastSeen: { x: 0, z: 0 }, esc: 0, hideT: 0, prog: 0, inCircle: true, hidT: 0, t: 0, lose, target,
       reinforce: opts.reinforce, want: 0, refill: 0, caughtT: 0, caughtSent: false, _heat: clamp(opts.heat ?? 2, 1, 5),
       crews: [], ramNext: 0, brute: false, escN: opts.escape ?? null, vmaxN: opts.vmax ?? null, open: world.id === 'pkg', icAt: opts.calm > 0 ? opts.calm : -99, ics: 0, ramAt: -99, calm: Math.max(0, opts.calm || 0),
-      cue: world.id === 'pkg' && opts.ahead === false && !from ? CUE.at : null, cueN: 0,
+      cue: world.id === 'pkg' && opts.ahead === false && !from && !opts.behind ? CUE.at : null, cueN: 0, plain: !!opts.plain,
       on(ev, cb) { (listeners[ev] || (listeners[ev] = [])).push(cb); return ch; },
       off(ev, cb) { listeners[ev] = (listeners[ev] || []).filter((x) => x !== cb); return ch; },
       emit(ev, d) { for (const cb of listeners[ev] || []) { try { cb(d); } catch (e) { console.error('[pursuit]', ev, e); } } },
@@ -740,7 +750,12 @@ export function install(W) {
         // the cruiser coming down his road met him head-on 3 s in and the two stood nose to nose, him at 1-5 m/s, for
         // 3-8 s in half of Pittsburgh's starts; the others are behind him, each further back than the one before)
         const back = ch.open && opts.ahead === false;
-        const s = (ch.open && !back && i % 2 === 1 && (roadAheadSpot(T, 160, 240) || roadAheadSpot(T, 120, 220, 0.9) || aheadSpot(T, 90, 160))) || (back ? behindSpot(T, 30 + 40 * i, 60 + 50 * i) : ch.open ? hiddenSpot(T, 30, 60, true) : hiddenSpot(T, 45, 90)) || { x: T.x - Math.sin(T.h) * (50 + i * 10), z: T.z - Math.cos(T.h) * (50 + i * 10), h: T.h };
+        // (behind: a chase to a place from a standing car (storyrun rules.js chaseOpening): every car behind him along
+        // the way there (behind.h), behind.min m back or more, on the road, wherever the town is)
+        const bh = opts.behind, TB = bh ? { ...T, h: Number.isFinite(bh.h) ? bh.h : T.h } : T;
+        // (nav.spot samples at random and can find none: then straight back along it, as every opening falls back to)
+        const s = (bh ? behindStart(TB, i, bh.min) : (ch.open && !back && i % 2 === 1 && (roadAheadSpot(T, 160, 240) || roadAheadSpot(T, 120, 220, 0.9) || aheadSpot(T, 90, 160))) || (back ? behindSpot(T, 30 + 40 * i, 60 + 50 * i) : ch.open ? hiddenSpot(T, 30, 60, true) : hiddenSpot(T, 45, 90)))
+          || (bh ? { x: TB.x - Math.sin(TB.h) * behindRange(bh.min, i)[0], z: TB.z - Math.cos(TB.h) * behindRange(bh.min, i)[0], h: TB.h } : { x: T.x - Math.sin(T.h) * (50 + i * 10), z: T.z - Math.cos(T.h) * (50 + i * 10), h: T.h });
         ch.cars.push(makeCar(ch, i, { x: s.x, z: s.z, h: facing(s, T), speed: opts.speed ?? 14 }));
       }
     }
@@ -831,6 +846,13 @@ export function install(W) {
     }
     if (ch.state === 'on' && T.onFoot) afoot(ch, live, T);
     for (const P of ch.cars) if (!P.gone) drive(P, ch, dt, T);
+    // (jh-drive: the police cars' sirens, for the traffic ahead to pull over: js/traffic.js, cities/sf/js/traffic.js sirens)
+    if (ch.kind === 'police' || ch.cars.some((P) => P.kind === 'police')) {
+      const N = window.NYC || (window.NYC = {}), S = N.sirens || (N.sirens = { t: 0, list: [] });
+      S.list.length = 0;
+      for (const P of ch.cars) if (!P.gone && !P.wrecked && P.kind === 'police' && P.mode !== 'parked') S.list.push({ x: P.x, z: P.z, h: P.h, speed: P.speed });
+      S.t = performance.now();
+    }
     collide(ch);
     if (ch.state === 'on') runOver(ch);
     for (const P of ch.cars) {
@@ -1014,7 +1036,7 @@ export function install(W) {
   // (built once now, out of sight, so the first chase doesn't stall on its shaders)
   try {
     const warm = new THREE.Group(); warm.position.set(0, -60, 0);
-    for (const [k, i] of [['suits', 0], ['suits', 1], ['police', 0]]) warm.add(buildChaseCar(k, i).group);
+    for (const [k, i, plain] of [['suits', 0], ['suits', 1], ['police', 0], ['suits', 0, true]]) warm.add(buildChaseCar(k, i, { plain }).group);
     scene.add(warm);
     const done = () => scene.remove(warm);
     const r = app.renderer?.compileAsync?.(warm, cam, scene);

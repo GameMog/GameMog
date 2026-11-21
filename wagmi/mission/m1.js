@@ -200,8 +200,8 @@ function createMission(W, { keep = false, quiet = false } = {}) {
         nav.step();
       });
       // (in the car: anywhere in the marker at under ~45 mph; it stops there and the scene starts at once)
-      await wait(() => (inCar() ? dist(car.position, DEST.x, DEST.z) < 7 && Math.abs(car.speed) < 20 : dist(P.position, DEST.x, DEST.z) < 6));
-      if (inCar()) { car.speed = 0; car.vx = car.vz = 0; car.angularVel = 0; }
+      await wait(() => (inCar() ? dist(car.position, DEST.x, DEST.z) < 7 && Math.hypot(car.speed, car.slipV || 0) < 20 : dist(P.position, DEST.x, DEST.z) < 6));
+      if (inCar()) { car.speed = 0; car.vx = car.vz = car.slipV = 0; car.angularVel = 0; }
       helps.length = 0; endCall();
       off(); nav.stop(); gps.unblip('tag'); gps.unblip('car');
     },

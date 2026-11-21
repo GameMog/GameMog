@@ -872,7 +872,7 @@ export function pilot(W) {
     const step = Math.min(d, 22 * dt);
     car.position.x += dx / d * step; car.position.z += dz / d * step;
     car.position.y = cm.getGroundHeight(car.position.x, car.position.z, 'car');
-    car.heading = Math.atan2(dx, dz); car.speed = 0; if ('vx' in car) car.vx = car.vz = 0; car.angularVel = 0;
+    car.heading = Math.atan2(dx, dz); car.speed = 0; if ('vx' in car) car.vx = car.vz = 0; car.slipV = 0; car.angularVel = 0;
   }
   let reconT = 0, hotTo = null;
   // (as a player would: the Suits' sight read off their cones (m2-stealth.js), a spot moved to only out of it, held there

@@ -344,7 +344,7 @@ export function between(W, { letter, at, name, objective, note = null, onArrive,
     if (!inCar && Math.hypot(car.position.x - P.position.x, car.position.z - P.position.z) > 25) gps.blip('car', { x: car.position.x, z: car.position.z, kind: 'car', edge: true, name: car.label || "Dan's car" });
     else gps.unblip('car');
     const d = Math.hypot(p.x - at.x, p.z - at.z);
-    if (!arrived && (inCar ? d < carR && Math.abs(car.speed) < 3 : d < radius && Math.abs(p.y - gy) < 1.2)) { arrived = true; onArrive?.(B); }
+    if (!arrived && (inCar ? d < carR && Math.hypot(car.speed, car.slipV || 0) < 3 : d < radius && Math.abs(p.y - gy) < 1.2)) { arrived = true; onArrive?.(B); }
     if (d > Math.max(radius + 6, carR + 1.5)) arrived = false;
   })();
   W.between?.stop(); W.between = B;
@@ -671,10 +671,10 @@ function createMission(W, { keep = false, quiet = false } = {}) {
         if (!called && now() > callAt) { called = true; W.calls?.start('m3-square', { delay: 0, wrapWhen: () => dist(me(), ARCH.x, ARCH.z) < 250 || at5th(me()), hurryWhen: () => dist(me(), ARCH.x, ARCH.z) < 400 }); }
       });
       // (there: by the arch, or stopped on 5th Ave's last stretch in front of it, or on foot near it)
-      try { await wait(() => { const p = me(), d = dist(p, ARCH.x, ARCH.z); return d < 26 || ((d < 60 || at5th(p)) && (!inCar() || Math.abs(car.speed) < 6)); }); }
+      try { await wait(() => { const p = me(), d = dist(p, ARCH.x, ARCH.z); return d < 26 || ((d < 60 || at5th(p)) && (!inCar() || Math.hypot(car.speed, car.slipV || 0) < 6)); }); }
       finally { off(); drive.stop(); pr.stop(); }
       // (there before Jane has told him how to kill the reel: the arrival waits for her, in the car)
-      if (inCar()) { car.speed = 0; car.vx = car.vz = 0; car.angularVel = 0; }
+      if (inCar()) { car.speed = 0; car.vx = car.vz = car.slipV = 0; car.angularVel = 0; }
       endCall('m3-square');
       if (!up) await spawnRally();
     },
@@ -1004,7 +1004,7 @@ function createMission(W, { keep = false, quiet = false } = {}) {
       // carries on); her wrap 150 m from the door, once her protected lines are said; no new extra block inside 300 m
       W.calls?.start('m3-return', { wrapWhen: () => dist(me(), door.x, door.z) < 150, hurryWhen: () => dist(me(), door.x, door.z) < 300 });
       const off = hook(() => { drive.step(); });
-      try { await wait(() => { const d = dist(me(), door.x, door.z); return inCar() ? d < 7 && Math.abs(car.speed) < 20 : d < 2.6; }); if (inCar()) { car.speed = 0; car.vx = car.vz = 0; car.angularVel = 0; } }
+      try { await wait(() => { const d = dist(me(), door.x, door.z); return inCar() ? d < 7 && Math.hypot(car.speed, car.slipV || 0) < 20 : d < 2.6; }); if (inCar()) { car.speed = 0; car.vx = car.vz = car.slipV = 0; car.angularVel = 0; } }
       finally { off(); drive.stop(); m.hide(); app.scene.remove(m.group); }
       // (there before she's said her piece: the home scene waits for her, in the car)
       endCall('m3-return');

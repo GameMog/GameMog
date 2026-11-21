@@ -16,6 +16,15 @@ const YELLOW = '#FFC93C', GREEN = '#4ADE80';
 // the HUD's cards an edge marker keeps off (mission/ui.js, storyrun/hud.js, pursuit/hud.js, index.html's own)
 const HUD_CARDS = '.wg-track:not(.off), #wg .sr-timer, #wg .sr-meters, #wg .wg-caller, #wg .wg-offer, #wg .wg-help, #wg .wg-turn, #wg-heat, .hud-bottom-left, .hud-bottom-right, .hud-top-right';
 export const NEAR = 40, STUCK_SECS = 90, STUCK_FAR = 30;
+// the subtitles' own room (mission/ui.js .wg-line, the objective line and the subtitle under it): kept for them whether
+// a line is up or not, two lines tall over the line's foot, so an edge marker never sits on what someone says (FL-7's
+// 'LOLA'S TRUCK · 71 m' on Lola's line, the truck behind him: the RC playtest, P10). r: the line's box; null: none
+export const SUB_LINES = 2, SUB_LINE_H = 34;
+export function subZone(r) {
+  if (!r || !(r.width > 0)) return null;
+  const bottom = r.bottom + 6, top = Math.min(r.top, r.bottom - SUB_LINES * SUB_LINE_H) - 6;
+  return { left: r.left - 6, right: r.right + 6, top, bottom };
+}
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 // where the marker goes on the screen for a point at NDC (x, y) (behind: the camera looks away from it, its projection
@@ -31,6 +40,17 @@ export function edgeOf(x, y, behind) {
 
 // the stuck watch (see the top): play seconds on one objective on foot, far off. step(dt, key, d, onFoot) -> { secs,
 // stuck, fresh } (fresh: true the frame it first counts as stuck)
+// an edge marker's top (px) moved up or down the edge clear of the HUD's boxes (and the subtitles' room, subZone): the
+// marker Lx..Lx+lw wide and hgt tall; up over a box where there is room above it, else under it
+export function clearTop(Lx, lw, top, hgt, boxes) {
+  for (let k = 0; k < 6; k++) {
+    const r = boxes.find((b) => Lx < b.right + 6 && Lx + lw > b.left - 6 && top < b.bottom + 6 && top + hgt > b.top - 6);
+    if (!r) break;
+    top = r.top - hgt - 8 >= 8 ? r.top - hgt - 8 : r.bottom + 8;
+  }
+  return top;
+}
+
 export function createStuck({ secs = STUCK_SECS, far = STUCK_FAR } = {}) {
   let key = null, t = 0, said = false;
   return {
@@ -162,12 +182,7 @@ export function createGuide(W, THREE, { gps, ui, groundY, createMarker }) {
     // the edge clear of them; in view its pin stays on the spot)
     if (!q.inView) {
       if (t - hudAt > 300) { hudAt = t; hud = hudRects(); }
-      const hgt = 24 + 2 + 5 + 22;
-      for (let k = 0; k < 4; k++) {
-        const r = hud.find((b) => Lx < b.right + 6 && Lx + lw > b.left - 6 && top < b.bottom + 6 && top + hgt > b.top - 6);
-        if (!r) break;
-        top = r.top - hgt - 8 >= 8 ? r.top - hgt - 8 : r.bottom + 8;
-      }
+      top = clearTop(Lx, lw, top, 24 + 2 + 5 + 22, hud);
     }
     el.style.transform = `translate(${Math.round(sx - 90)}px, ${Math.round(top)}px)`;
     el.classList.add('on');
@@ -175,6 +190,7 @@ export function createGuide(W, THREE, { gps, ui, groundY, createMarker }) {
   // (the HUD's cards on the screen now, their boxes)
   function hudRects() {
     const out = [];
+    { const ln = document.querySelector('#wg .wg-line'), z = ln && ln.getClientRects().length ? subZone(ln.getBoundingClientRect()) : null; if (z) out.push(z); }
     for (const e of document.querySelectorAll(HUD_CARDS)) {
       if (!e.isConnected || !e.getClientRects().length) continue;
       const r = e.getBoundingClientRect(); if (r.width < 4 || r.height < 4) continue;

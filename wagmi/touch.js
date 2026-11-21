@@ -444,7 +444,11 @@ ${T} #wg .m2-prompt kbd::after { content: 'TAKE DOWN'; }`;
     } else if (c === 'car') {
       const th = W.thrusters, u = th?.unlocked || {}, rd = th?.ready || { hop: 1, dash: 1 };
       show('boost', !W.car?.noBoost);
-      show('hop', !!u.hop && !ride);
+      // (the hop's button is the handbrake while there is no hop: Space either way, js/drive-model.js)
+      show('hop', !ride && W.car?.kind !== 'horse');
+      label('hop', u.hop ? 'HOP' : 'DRIFT');
+      { const g = els.hop.querySelector('.g'), want = u.hop ? '⤒' : '↺'; if (g && g.textContent !== want) g.textContent = want; }
+      if (!u.hop) { cls('hop', 'ring', false); cls('hop', 'cool', false); }
       show('dashL', !!u.dash && !ride); show('dashR', !!u.dash && !ride);
       if (u.hop) { const k = Math.max(0, Math.min(1, +rd.hop || 0)); cls('hop', 'ring', k < 1); cls('hop', 'cool', k < 1); els.hop.style.setProperty('--k', k.toFixed(3)); }
       if (u.dash) for (const id of ['dashL', 'dashR']) { const k = Math.max(0, Math.min(1, +rd.dash || 0)); cls(id, 'ring', k < 1); cls(id, 'cool', k < 1); els[id].style.setProperty('--k', k.toFixed(3)); }

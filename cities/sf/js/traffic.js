@@ -1428,13 +1428,54 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
     v.next = null;
   }
 
+  // (how far right it can pull: the right-hand lane toward the curb, any other lane half into the next, which pulls over too)
+  function PULLSF(v) {
+    const L = v.edge && v.edge.lanes; if (!L || !L.length) return 0;
+    let right = true; for (let i = 0; i < L.length; i++) if (L[i] > L[v.lane] + 0.1) right = false;
+    return right ? 1.7 : 1.6;
+  }
+
+  // (jh-drive round 2) Sirens: a police car on a chase (wagmi/pursuit publishes window.NYC.sirens { t, list: [{ x, z, h,
+  // speed }] } each frame) coming up behind within SIREN.reach m on the same road, the same way: the driver ahead slows
+  // to a crawl and pulls over to the right, as far as there is road and room (PULL), holds there till the siren has
+  // gone by (SIREN.hold s after it last heard it close), then eases back into its lane. Never in an intersection, never a
+  // bus (it keeps its stop), never a wreck. sirenStats: { pulled, held } for a test
+  const SIREN = { reach: 60, behind: 6, band: 12, hold: 1.6, crawl: 3.5, every: 0.2 };
+  const sirenStats = { pulled: 0, held: 0 };
+  function sirenBehind(v) {
+    const S = window.NYC && window.NYC.sirens;
+    if (!S || !S.list || !S.list.length || performance.now() - S.t > 700) return false;
+    for (const s of S.list) {
+      const dx = v.x - s.x, dz = v.z - s.z;
+      if (dx * dx + dz * dz > SIREN.reach * SIREN.reach) continue;
+      const hx = Math.sin(s.h), hz = Math.cos(s.h), ahead = dx * hx + dz * hz, across = Math.abs(dx * hz - dz * hx);
+      if (ahead > -SIREN.behind && ahead < SIREN.reach && across < SIREN.band && v.tx * hx + v.tz * hz > 0.5) return true;
+    }
+    return false;
+  }
+  function sirens(v, dt) {
+    v.sirenClock = (v.sirenClock || 0) - dt;
+    if (v.yieldT > 0) v.yieldT -= dt;
+    if (v.sirenClock > 0) return;
+    v.sirenClock = SIREN.every * (0.7 + Math.random() * 0.6);
+    if (v.bus || v.wreck || v.parked) { v.yieldT = 0; v.pull = 0; return; }
+    if (sirenBehind(v)) {
+      if (!(v.yieldT > 0)) { v.pull = v.conn ? 0 : PULLSF(v); sirenStats.pulled++; }
+      else sirenStats.held++;
+      v.yieldT = SIREN.hold;
+    }
+    if (!(v.yieldT > 0)) v.pull = 0;
+  }
   function drive(v, dt) {
     v.laneTimer -= dt;
     if (v.laneTimer <= 0) {
       v.laneTimer = 0.4 + Math.random() * 0.3;
       changeLanes(v);
     }
+    sirens(v, dt); // (jh-drive: pulling over for a siren)
     accelerate(v);
+    // (a siren behind: down to a crawl while it pulls over)
+    if (v.yieldT > 0 && v.speed > SIREN.crawl) v.acc = Math.min(v.acc, -Math.min(6, (v.speed - SIREN.crawl) * 1.5));
     const speed = v.speed;
     v.speed = Math.max(0, v.speed + v.acc * dt);
     let ds = v.speed * dt;
@@ -1467,10 +1508,13 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
     // ease sideways onto the lane centre (after lane changes and knocks), steering the front bumper towards it so the
     // nose doesn't swing on into the next lane, and no faster than the wheels can steer it, though even stopped half
     // way into a lane change a driver edges over
-    const maxLat = Math.min(1.7, 0.3 + (v.bus ? 0.1 : 0.22) * v.speed);
-    const rate = Math.min(1.8, Math.max(v.speed, 1.5) / (v.axle + v.half));
-    const target = clamp(-rate * v.dl, -maxLat, maxLat);
-    v.dlv += clamp(target - v.dlv, -2.5 * dt, 2.5 * dt);
+    // (jh-drive: or onto `pull` metres right of it, pulled over for a siren)
+    const pull = v.pull > 0 && !v.conn ? v.pull : 0;
+    const maxLat = pull ? Math.min(2.2, 0.9 + 0.3 * v.speed) : Math.min(1.7, 0.3 + (v.bus ? 0.1 : 0.22) * v.speed);
+    const rate = pull ? 1.7 : Math.min(1.8, Math.max(v.speed, 1.5) / (v.axle + v.half));
+    const target = clamp(-rate * (v.dl - pull), -maxLat, maxLat);
+    const slew = (pull ? 4.5 : 2.5) * dt;
+    v.dlv += clamp(target - v.dlv, -slew, slew);
     v.dl += v.dlv * dt;
   }
 
@@ -2841,6 +2885,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
   return {
     group,
     update,
+    sirenStats, // (jh-drive)
     requestRideJunction,
     releaseRideJunction,
     cars,

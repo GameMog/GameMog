@@ -14,6 +14,7 @@ import { world } from './world/index.js';
 import { CHASE_START } from './chase-start.js';
 // (the story pack, first: its top-level await holds the game until the pack is in; wagmi/story)
 import { S as story } from './story/index.js'; import { importRetry } from './net.js';
+import { dialFor } from './speedo.js'; import { isOwn } from './storyrun/title.js';
 // (?pack=: a Story Kit world played on this engine, wagmi/storyrun. Without ?pack= none of it is even imported, and every
 // PACK below is null: the game exactly as it is)
 const PACK = new URLSearchParams(location.search).has('pack') ? await importRetry(() => import('./storyrun/pack.js')).then((m) => m.load()) : null;
@@ -112,9 +113,17 @@ installDriveMode(WAGMI);
   const MODEL = !horseRs && PACK?.ok && !sheetRs && PACK.modelCar && PACK.modelCar.model !== 'mogcity/horse' ? await importRetry(() => import('./storyrun/gt.js')).catch(() => null) : null;
   // (it wears its downloaded body, wagmi/storyrun/vantor.js, the same interface; gt.js's own with car.body 'built' or if
   // that fails to load)
-  let modelRs = MODEL && PACK.modelCar.body !== 'built' ? await importRetry(() => import('./storyrun/vantor.js')).then((m) => m.buildVantor(THREE, PACK.modelCar)).catch((err) => { console.warn('[storyrun] car body', err); return null; }) : null;
+  // (the wedge, { model: 'mogcity/wedge' }: the Tensore's body, wagmi/storyrun/wedge.js, on the same interface)
+  const WEDGE = MODEL && PACK.modelCar.model === 'mogcity/wedge';
+  let modelRs = MODEL && WEDGE ? await importRetry(() => import('./storyrun/wedge.js')).then((m) => m.buildWedge(THREE, PACK.modelCar)).catch((err) => { console.warn('[storyrun] car body', err); return null; })
+    : MODEL && PACK.modelCar.body !== 'built' ? await importRetry(() => import('./storyrun/vantor.js')).then((m) => m.buildVantor(THREE, PACK.modelCar)).catch((err) => { console.warn('[storyrun] car body', err); return null; }) : null;
   if (MODEL && !modelRs) try { modelRs = MODEL.buildGT(THREE, PACK.modelCar); } catch (err) { console.warn('[storyrun] car model', err); }
-  const rs = horseRs || sheetRs || modelRs || buildRoadster(THREE, story.paint ? { paint: story.paint } : undefined);   // (its own default paint; a Mog's, wagmi/story)
+  // (its own default paint; a Mog's, wagmi/story; a story world's stock car in the world's carPaint, storyrun/pack.js)
+  const paint = (PACK?.ok && PACK.stockPaint) || story.paint || null;
+  // (a story world's stock car in its own paint has dark leather seats: the stock pale ones read as two white blocks
+  // behind the driver from inside a lime car, Jensen Heist 19 Nov)
+  const stockPaint = (PACK?.ok && PACK.stockPaint) || null;
+  const rs = horseRs || sheetRs || modelRs || buildRoadster(THREE, paint ? { paint, ...(stockPaint ? { seats: 'leather' } : {}) } : undefined);
   rs.group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   car.chassisPivot.add(rs.group);
   // its size: built at a sports car's, scaled up whole (S) to a big hypercar's, 4.8 m long, 2.2 m wide and 1.28 m tall;
@@ -122,7 +131,9 @@ installDriveMode(WAGMI);
   // match. body: its box in its own frame (x across it, z along it, top), for all that runs into it or round it;
   // axle: its axles' distance either side of its middle (the wheels' ground); chase: the chase camera's framing
   // (js/cameras.js): fov, the pull back per m/s, the lens widening with speed and more on the boost, the shake flat out
-  // (kept small: at a cruise the car fills as much of the frame as parked, on the boost a little less)
+  // (kept small: at a cruise the car fills as much of the frame as parked, on the boost a little less). (jh-drive: the
+  // lens 58 degrees parked, 65 at its 76 mph top, 71 on the boost at 125, the boom brought in by as much as the lens
+  // widens to cruise, so the car keeps its size while the street stretches past it: js/cameras.js DRIVE)
   const S = sheetRs || horseRs ? 1 : modelRs ? 1.05 : 1.1;
   rs.group.scale.setScalar(S); rs.anchor.scale.setScalar(1 / S); rs.scale = S;
   for (const k of Object.keys(rs.seat)) rs.seat[k] = rs.seat[k].map((v) => v * S);
@@ -135,11 +146,18 @@ installDriveMode(WAGMI);
     // as before. On a 16:9-ish screen the car is 0.30 of the width across its tail light, the light 0.85 down, the roof
     // 0.60 down and the horizon 0.42 down; it was 0.35, 0.80, 0.58 and 0.46: a little further back, higher, and the car
     // lower in the frame. The zoom still scales both, out to 2.4x)
-    chaseDistance: 5.58, chaseHeight: 2.05, chase: { fov: 58, pull: 0.002, kick: 1.1, boostKick: 3.0, vmax: 34, shake: 0.03, vtop: 56 } });
+    chaseDistance: 5.58, chaseHeight: 2.05, chase: { fov: 58, pull: 0.002, kick: 7, overKick: 3, boostKick: 3.0, vmax: 34, shake: 0.03, vtop: 56 } });
   // (dial: the HUD's speed, js/main.js carDial: Dan's roadster's own scale (the owner, 24 Oct: it peaks at 176); any other
-  // body here, a sheet's, a fleet model's, a picked car, the horse, its real mph: ride.js's fitSheet / wearRide clear it;
-  // a world's model car (PACK.modelCar, the Vantor GT) keeps every number of the roadster's, its dial included)
-  Object.assign(car, { label: story.t("Dan's car"), topSpeed: 34, boostSpeed: 56, accel: 16, boostAccel: 32, roadster: rs, dial: rs === horseRs || rs === sheetRs ? null : 'dan' });
+  // body here, a sheet's, a fleet model's, a picked car, the horse, a world's model car (PACK.modelCar: the Vantor GT,
+  // the Tensore), its real mph: ride.js's fitSheet / wearRide clear it, and speedo.js dialFor never gives it one)
+  // (jh-drive round 2: the weight of a real sports car under it, 0-60 mph in 3.0 s on the throttle (it was 1.7 s, a
+  // toy's), the same 76 mph top and 125 on the boost; the boost from below its top a shove of 13.5 m/s² (0-60 in 2 s),
+  // over it the boost's own 32 as before. Its springs: 3.5 degrees of roll at its tyres' grip, a sports car's)
+  // (the dial only on his own roadster in Mog City's own game: a story world's car, the Tensore included, reads its real
+  // mph, as its speed limits do: wagmi/speedo.js)
+  Object.assign(car, { label: story.t("Dan's car"), topSpeed: 34, boostSpeed: 56, accel: 8.95, boostAccel: 32, boostLaunch: 13.5, roadster: rs,
+    dial: dialFor({ stock: !(rs === horseRs || rs === sheetRs || rs === modelRs), pack: !!PACK?.ok, own: !!PACK?.ok && isOwn(PACK) }),
+    springs: { rollGain: 0.00193, rollMax: 0.07, k: 68, damp: 11.2 } });
   // (a Hometown town, ?city=pkg: the player's own town, so the car is theirs, not Dan's; a story world's sheet still
   // names its own car, wagmi/storyrun/ride.js)
   if (window.NYC && window.NYC.CITY === 'pkg') car.label = ['Your', 'car'].join(' ');
@@ -156,9 +174,13 @@ installDriveMode(WAGMI);
   // out at 76 mph about 81 degrees a second (a 24 m circle, a lane over in well under a second), on the boost wide
   // (a 65 m circle at 125 mph)
   car.handling = { rMin: 4.6, yawMax: 1.85, grip: 48, rampIn: [0.11, 0.17], rampOut: 0.08, vRef: 34 };
+  // (the handbrake, Space, js/drive-model.js: not while the hop has Space, a mission's thrusters, wagmi/pursuit/thrusters.js)
+  car.noHandbrake = () => !!WAGMI.thrusters?.unlocked?.hop;
   if (sheetRs) RIDE.fitSheet(car, rs);
   // (a model keeps every number of the roadster's but its own box, axles and name)
-  if (modelRs) { const B = modelRs.body; Object.assign(car, { body: { hx: B.hx * S, z0: B.z0 * S, z1: B.z1 * S, top: B.top * S }, axle: modelRs.axle * S, label: PACK.modelCar.label || 'Vantor GT' }); }
+  if (modelRs) { const B = modelRs.body; Object.assign(car, { body: { hx: B.hx * S, z0: B.z0 * S, z1: B.z1 * S, top: B.top * S }, axle: modelRs.axle * S, label: PACK.modelCar.label || (WEDGE ? 'Tensore' : 'Vantor GT') }); }
+  // (the wedge's dents: a hit's dent, by what it hit and where (wagmi/crash/damage.js), is pushed into its own painted
+  // panels, wagmi/storyrun/wedge.js dent, never its cabin; the damage hands it there, car.roadster.dent)
   // (the horse: its box, framing, paces, handling and name; its own way over the ground in place of the car's physics,
   // js/controllers.js updateCar, while the car entity is a horse)
   if (horseRs) HORSE.fitHorse(car, rs, { label: PACK?.modelCar?.label });
@@ -388,7 +410,7 @@ installDriveMode(WAGMI);
       const wx = (ax * cs + az * sn) * d, wz = (-ax * sn + az * cs) * d;
       if (!boxClear(car.position.x + wx, car.position.z + wz)) continue;
       Object.assign(pin, { dx: wx / d, dz: wz / d, slide: d / 3 });
-      car.speed = 0;
+      car.speed = 0; car.slipV = 0;
       return;
     }
   }
@@ -567,7 +589,7 @@ installDriveMode(WAGMI);
     // into a wall, it would carry the swing over and look across the car for a second while it eased back behind)
     if (driving) { const cs = app.cameraSystem; Object.assign(cs, { orbitYawOffset: 0, orbitPitchOffset: 0.09, userOrbitTimer: 0, initialized: false, _view: null }); }
     car.position.set(x, y === undefined ? cm.getGroundHeight(x, z, 'car') : cm.getGroundHeight(x, z, 'car', y), z);
-    Object.assign(car, { heading: h, speed: 0, vx: 0, vz: 0, angularVel: 0, steerAngle: 0, steerK: 0, halt: 0, fallVel: 0, pitchVel: 0, rollVel: 0, heaveVel: 0, heaveY: 0 });
+    Object.assign(car, { heading: h, speed: 0, vx: 0, vz: 0, slipV: 0, slip: 0, slide: 0, hb: false, angularVel: 0, steerAngle: 0, steerK: 0, halt: 0, fallVel: 0, pitchVel: 0, rollVel: 0, heaveVel: 0, heaveY: 0 });
     car.chassisPivot.rotation.x = car.chassisPivot.rotation.z = 0; car.chassisPivot.position.y = 0;
     car.mesh.position.copy(car.position); car.mesh.rotation.y = h;
     Object.assign(pin, { t: 0, slide: 0, x, z }); Object.assign(stuck, { t: 0, held: 0, hist: [] });
@@ -1047,7 +1069,7 @@ function startIn() {
   Q.reach('R', null, 0);
   camFrom(1.2);
   person.inVehicle = true; person.speed = 0; person.mesh.visible = false;
-  app.selectMode('car'); car.speed = 0; cs.orbitYawOffset = 0;
+  app.selectMode('car'); car.speed = 0; car.slipV = 0; cs.orbitYawOffset = 0;
   if (!drv.attached) drv.attach();
   Object.assign(ride, { phase: 'in', mode: 'car', k: 0, t: 0 });
   doorTo(1, 0.4);
@@ -1057,7 +1079,7 @@ function inQuick() {
   jobs = []; ride.phase = null; ride.k = 1; doorSide('L');
   Q.reach('R', null, 0);
   person.inVehicle = true; person.speed = 0; person.mesh.visible = false;
-  app.selectMode('car'); car.speed = 0;
+  app.selectMode('car'); car.speed = 0; car.slipV = 0;
   if (!drv.attached) drv.attach(0.12);
   door.p = Math.max(door.p, 0.55); doorTo(1, 0.12); later(0.3, () => { doorTo(0, 0.22, true); ride.engine = true; });
   if (MOUNT) { tackSound('pack:sounds-rpg/creak', 0.5, 0.9); tackSound('pack:sounds-rpg/clothBelt', 0.35, 1); }
@@ -1067,14 +1089,14 @@ function inQuick() {
 function getOut(quick = false) {
   if (ride.phase) return;
   if (quick) return outQuick();
-  if (Math.abs(car.speed) >= BAIL) return bail();
+  if (Math.hypot(car.speed, car.slipV || 0) >= BAIL) return bail();
   jobs = [];
-  if (Math.abs(car.speed) > 0.3) { Object.assign(ride, { phase: 'stop', mode: 'car' }); car.halt = 22; return; }
+  if (Math.hypot(car.speed, car.slipV || 0) > 0.3) { Object.assign(ride, { phase: 'stop', mode: 'car' }); car.halt = 22; return; }
   startOut();
 }
 function startOut() {
   const d = toWorld(drv.door[0], drv.door[1]);
-  car.halt = 0; car.speed = 0;
+  car.halt = 0; car.speed = 0; car.slipV = 0;
   if (walled(d)) return outQuick();
   doorSide('L'); camFrom(1.1);
   person.position.set(d.x, ground(d), d.z); person.heading = car.heading + (drv.face || 0); person.speed = 0; person.verticalVel = 0;
@@ -1095,7 +1117,7 @@ function outQuick() {
   person.position.set(car.position.x + Math.cos(h) * side * s, car.position.y, car.position.z - Math.sin(h) * side * s);
   person.position.y = ground(person.position);
   person.heading = h; person.inVehicle = false; person.mesh.visible = true; person.verticalVel = 0;
-  car.speed = 0;
+  car.speed = 0; car.slipV = 0;
   if (drv.attached) drv.detach(person.mesh);
   app.selectMode('person');
   if (s < 0) { cs.orbitYawOffset = 0.35; cs.userOrbitTimer = 1.2; }
@@ -1180,7 +1202,7 @@ function step(dt) {
       if (ride.k > 0.84 && door.want) { doorTo(0, ride.k >= 1 ? 0.3 : 0.5); ride.engine = true; if (MOUNT) tackSound('pack:sounds-rpg/clothBelt', 0.4, 0.95); }
       if (ride.k >= 1) ride.phase = null;
       break;
-    case 'stop': if (Math.abs(car.speed) < 0.3) startOut(); break;
+    case 'stop': if (Math.hypot(car.speed, car.slipV || 0) < 0.3) startOut(); break;
     case 'out':
       ride.t += dt;
       if (door.p > 0.45) ride.k = Math.max(0, ride.k - dt / (MOUNT ? T_DISMOUNT : T_OUT));
@@ -1234,7 +1256,7 @@ addEventListener('keydown', (e) => {
   if (cm.activeMode === 'person' && rides?.nearBy() != null && !(near() && rides.nearBy() > rides.nearActive())) { if (rides.swap(rides.parked().kind)) getIn(!!WAGMI.combat?.fighting); }
   else if (cm.activeMode === 'person' && near()) getIn(!!WAGMI.combat?.fighting);
   // (a town's car on the street, taken: wagmi/jack.js)
-  else if (cm.activeMode === 'person' && WAGMI.jack?.()) return;
+  else if (cm.activeMode === 'person' && !WAGMI.noJack && WAGMI.jack?.()) return;
   else if (cm.activeMode === 'car') getOut();
 });
 addEventListener('keydown', (e) => {
@@ -1267,7 +1289,7 @@ if (MOUNT) try { HORSE.install(WAGMI, { THREE, rs, rider: drv, drive: HD, ride }
 //     idle(dt)   (game.js's tick: the horse stood by)
 if (ALONG && HORSE && WAGMI.stableRs && HD && !MOUNT) {
   const carRs = rs, horseRs = WAGMI.stableRs, drvCar = drv, drvHorse = seated(HORSE.createRider(THREE, horseRs, Q));
-  const CAR_KEYS = ['kind', 'vclass', 'label', 'body', 'axle', 'mass', 'chaseDistance', 'chaseHeight', 'chase', 'topSpeed', 'boostSpeed', 'accel', 'boostAccel', 'rolling', 'drag', 'coast', 'brake', 'boostBrake', 'noBoost', 'handling', 'words', 'stopV', 'headY', 'dial'];
+  const CAR_KEYS = ['kind', 'vclass', 'label', 'body', 'axle', 'mass', 'chaseDistance', 'chaseHeight', 'chase', 'topSpeed', 'boostSpeed', 'accel', 'boostAccel', 'boostLaunch', 'springs', 'rolling', 'drag', 'coast', 'brake', 'boostBrake', 'noBoost', 'handling', 'words', 'stopV', 'headY', 'dial'];
   let keep = null;
   const activeKind = () => (car.kind === 'horse' ? 'horse' : 'car');
   // (a ride's body: the car's with every mission ride it has worn (wagmi/storyrun/ride.js wearRide, on the chassis beside it))
@@ -1397,7 +1419,8 @@ addEventListener('keydown', (e) => {
   if (MOUNT) return;
   WAGMI.toggleDriveMode();
 });
-// ...and in the car's controls bar (js/main.js draws it per mode): X, Reset car; Q, Electric / Engine
+// ...and in the car's controls bar (js/main.js draws it per mode): Space, Handbrake (js/drive-model.js); X, Reset car; Q,
+// Electric / Engine
 {
   const bar = document.getElementById('hud-controls-hint');
   const addItem = (cls, key, label) => {
@@ -1409,6 +1432,7 @@ addEventListener('keydown', (e) => {
   };
   const addCarKeys = () => {
     if (!bar || cm.activeMode !== 'car' || MOUNT) return;
+    addItem('wg-hb', 'Space', 'Handbrake');
     addItem('wg-reset', 'X', 'Reset car');
     addItem('wg-drivemode', DRIVE_KEY.replace(/^Key/, ''), 'Electric / Engine');
   };
@@ -1486,6 +1510,21 @@ function placeHint() {
 // starts with the key, X, for a phone's RESET CAR (wagmi/touch.js) and the pad's B)
 const RESCUE = { wet: 'X  ·  Your car is in the water', stuck: 'X  ·  Your car is stuck' };
 const RESCUE_HTML = { [RESCUE.wet]: 'Your car is in the water — <kbd>X</kbd> to reset', [RESCUE.stuck]: 'Your car is stuck — <kbd>X</kbd> to reset' };
+// (no prompt over a title or a card, nor in a scene: a mission's title or a transition card, MISSION PASSED, STORY
+// COMPLETE, a fail screen, the pause, a video call. 'F · Get out' and 'E · PICK UP TRASH CAN' stood on Jensen Heist's
+// MISSION PASSED and STORY COMPLETE cards: the RC playtest, P8. WAGMI.noJack: a story step that has no use for a town's
+// car (a sneak: 'F · Take the SUV' in ST-8's stealth) keeps the jack's prompt and its F off)
+const CARDS_UP = '#sr-slam.on, #wg .sr-card.on, #wg .sr-pass.on, #wg .wg-big.on, #wg .wg-title.on';
+// (and for a beat after: a card's .on goes as its 0.5 s fade-out starts, and 'F · Get out' stood for 0.4 s on MISSION
+// PASSED still at half its light, the RC review. body.wg-cardup the same for the fight's offers, combat/hud.js)
+const CARD_TAIL = 650;
+let cardAt = -1e9;
+const cardUp = () => {
+  const t = performance.now();
+  if (document.querySelector(CARDS_UP) || document.body.classList.contains('wg-vcall') || document.body.classList.contains('wg-cine')) cardAt = t;
+  return t - cardAt < CARD_TAIL;
+};
+WAGMI.cardUp = cardUp;
 // the prompt, and the car's parked thrust settling
 let last = performance.now();
 (function tick() {
@@ -1497,9 +1536,11 @@ let last = performance.now();
   const pinned = cm.activeMode === 'car' && ((WAGMI.carStuck?.() || 0) > 1.2 || wrongWay);
   // (a town's car in the water, or stuck off the road: wagmi/game.js rescue)
   const rescue = WAGMI.carRescue?.() || '';
-  const show = ride.phase || WAGMI.paused || WAGMI.cutscene || WAGMI.directed || (WAGMI.carF && WAGMI.carF()) ? '' : cm.activeMode === 'person' && rides?.nearBy() != null && !(near() && rides.nearBy() > rides.nearActive()) ? (rides.parked().kind === 'horse' ? 'F  ·  Mount' : 'F  ·  Get in')
+  const carded = cardUp();
+  if (document.body.classList.contains('wg-cardup') !== carded) document.body.classList.toggle('wg-cardup', carded);
+  const show = ride.phase || WAGMI.paused || WAGMI.cutscene || WAGMI.directed || (WAGMI.carF && WAGMI.carF()) || carded ? '' : cm.activeMode === 'person' && rides?.nearBy() != null && !(near() && rides.nearBy() > rides.nearActive()) ? (rides.parked().kind === 'horse' ? 'F  ·  Mount' : 'F  ·  Get in')
     : cm.activeMode === 'person' && near() ? (MOUNT ? 'F  ·  Mount' : 'F  ·  Get in')
-    : cm.activeMode === 'person' && WAGMI.jackPrompt?.() ? WAGMI.jackPrompt()
+    : cm.activeMode === 'person' && !WAGMI.noJack && WAGMI.jackPrompt?.() ? WAGMI.jackPrompt()
     // (Mission 4's helicopter: in, by it on foot; out, landed: its own F, wagmi/mission/m4-heli.js)
     : WAGMI.heliPrompt?.() ? WAGMI.heliPrompt()
     : rescue ? RESCUE[rescue] : pinned ? (MOUNT ? 'X  ·  Back to the road' : 'X  ·  Reset car to road') : cm.activeMode === 'car' && Math.abs(car.speed) < (MOUNT ? 2.2 : 4) ? (MOUNT ? 'F  ·  Dismount' : 'F  ·  Get out') : '';

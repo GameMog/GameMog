@@ -1099,24 +1099,33 @@ async function initApp() {
   // Without it every new material compiled on its first frame: on WebGPU one long stall per person, on WebGL 2 (where a
   // program links synchronously) a frozen minute as a story's opening began. Default: every top-level object of the
   // scene that isn't the static city. { scene, camera }: another scene drawn through the same pass (a story's set)
+  // { target }: a render target of its own in place of the scene pass's (a video call's tile, wagmi/storyrun/vcall-draw.js),
+  // no MRT, as js/main.js has it (ignored here, a call's { tile } warm-up compiled the scene pass again, the loop held a
+  // second time, and the tile's pipelines were still built on its first draw: the RC review's 180-400 ms frame as a
+  // call came up on the car's screen). { hold: false }: the loop not held (a call's office prepared mid-drive): each of
+  // its top-level objects compiled in a task of its own, the renderer's target put back as soon as each compileAsync()
+  // has taken it (it is read before the compile's first await), the pipelines finished off the loop
   let warming = 0;
-  async function warm(objects, { scene: where = scene, camera = cameraSystem.camera } = {}) {
+  async function warm(objects, { scene: where = scene, camera = cameraSystem.camera, target = null, hold = true } = {}) {
     const city = new Set(cullingRoots);
-    const list = (objects ? [].concat(objects) : scene.children.filter((o) => !city.has(o) && !o.userData.shadowProxy)).filter((o) => o && o.isObject3D);
+    let list = (objects ? [].concat(objects) : scene.children.filter((o) => !city.has(o) && !o.userData.shadowProxy)).filter((o) => o && o.isObject3D);
+    if (!hold) list = list.flatMap((o) => (o.isScene ? o.children : [o]));
     if (!list.length || deviceLost) return;
-    warming++;
-    const rt0 = renderer.getRenderTarget(), mrt0 = renderer.getMRT ? renderer.getMRT() : null;
+    if (hold) warming++;
     try {
       for (const o of list) {
         await nextTask();
-        renderer.setRenderTarget(scenePass.renderTarget);
-        renderer.setMRT(sceneMRT);
-        try { await renderer.compileAsync(o, camera, where); } catch (e) { console.warn('[warm]', e); }
+        if (deviceLost) return;
+        const rt0 = renderer.getRenderTarget(), mrt0 = renderer.getMRT ? renderer.getMRT() : null;
+        let p = null;
+        renderer.setRenderTarget(target || scenePass.renderTarget);
+        renderer.setMRT(target ? null : sceneMRT);
+        try { p = renderer.compileAsync(o, camera, where); } catch (e) { console.warn('[warm]', e); }
+        finally { renderer.setRenderTarget(rt0); renderer.setMRT(mrt0); }
+        try { await p; } catch (e) { console.warn('[warm]', e); }
       }
     } finally {
-      renderer.setRenderTarget(rt0);
-      renderer.setMRT(mrt0);
-      warming--;
+      if (hold) warming--;
     }
   }
 

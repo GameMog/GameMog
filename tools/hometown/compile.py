@@ -50,6 +50,7 @@ import climate  # noqa: E402
 from sources import Sources, blocks_for, MissingRegion  # noqa: E402
 import rects as rects_mod  # noqa: E402
 import looks  # noqa: E402
+import cores as cores_table  # noqa: E402
 import shapely.ops  # noqa: E402
 
 # bump on ANY change to a tile's bytes (a rule, a constant, an output field). 0.1.0 90bae8c; 0.2.0 water rule, 1 cm
@@ -101,7 +102,21 @@ import shapely.ops  # noqa: E402
 # nodes where they are mapped (World.junction_data; the rank heuristic elsewhere); OSM's trees and tree rows in the
 # trees section; a new tile section `props` (street lamps, hydrants, benches, mid-block crosswalks), assembled into
 # GEO.streetProps
-COMPILER_VERSION = '0.13.0'
+# 0.13.1 (Cold Harbor's compiler bugs, made general): a divided road's two carriageways share one grade (World.paired /
+# abeam, grade.py ties: lifted together, and the lifted one brought down beside a twin that lands); the box filter's
+# crest rounding never raises a constraint past the climb cap (no ratchet); a MultiPolygon building is drawn as each of
+# its polygons of MULTI_MIN m2 and MULTI_FRAC of its largest (building_rows, parts_for), not its largest alone; a tunnel road
+# at grade under a building (AT_GRADE_TUNNEL) trims it like a road instead of dropping it (brec, the tunnel-cover rule)
+# 0.13.2 (0.13.1's review): a tie never lifts a deck into a deck crossing over it (grade.solve: capped under it; another
+# cluster's deck over it read as its base profile, Piece.over), never ties where the twins cross a deck on different
+# levels (grade.links, TIE_SPLIT), and the third solve's free-node cap keeps the whole free chain's clearances; a
+# MultiPolygon's other polygons stand at their own floors or their area's default height, never the row's tallest
+# (building_height)
+# 0.14.0 (the core step of the box rule): a capped place whose 0.8.0 box misses its core (cores.json: the Overture / OSM
+# locality point of 1,580 big places, by GEOID) is centred on the strongest downtown centre round that core instead
+# (assemble.downtown_box); every other place keeps its box byte for byte and no tile changes; the table's sha256 is in
+# the build record (`cores`)
+COMPILER_VERSION = '0.14.0'
 OVERTURE_RELEASE = '2026-10-21.0'
 TILE, TCM = grid.TILE, grid.TILE_CM
 SIGNAL_REACH = 15.0  # m (stage 0): an OSM traffic_signals node this near a junction, on one of its approaches, signals it
@@ -138,6 +153,8 @@ DECK_SHRINK = 10.0   # m: the roadway (asphalt, no curb island, no building) run
 DECK_UNDER = 1.4     # m: the deck's thickness (its underside: the profile minus this)
 ISLAND_W = 6.0       # m: a curb island narrower than this is a median or a strip (sidewalk), wider ground is a block
 TUNNEL_COVER = 6.0   # m: a building over a tunnel's road with less ground than this over it is dropped (a portal's cut)
+AT_GRADE_TUNNEL = 1.5  # m (0.13.1): a tunnel road within this of the ground over it has no cover: a passage under a
+                       # building (cut-and-cover at grade), which trims the building like a road instead of dropping it
 PORTAL_PAD = 30.0    # m: a tunnel link's roadway runs this far in from a portal (the cut before the bore)
 PORTAL_SNAP = 30.0   # m: a tunnel portal nearer a connector than this moves onto it (PORTAL_PAD: the cut before the
                      # bore). No link this short at a portal: the engine (road-network.js) joins a link under 8 m into its
@@ -287,6 +304,8 @@ ROAD = {
     'unclassified': (7.5, 2, 0.0, 2), 'service': (6.0, 2, 0.0, 1), 'unknown': (7.0, 2, 0.0, 1),
 }
 SKIP_SUBCLASS = {'driveway', 'parking_aisle', 'drive_through'}
+MULTI_MIN = 100.0     # m2 (0.13.1): a multipolygon building's other polygons of this size or more are buildings of their own,
+MULTI_FRAC = 0.05     # ... and at least this share of its largest (a 280 m2 stair core of a 12,000 m2 hall is not a 50 m tower)
 ROOFS = {'roof', 'carport', 'shelter'}   # building classes the cars drive under: the old rule (any road drops them), never a host
 INSIDE_IN = 1.0       # m: a soft piece inside a building runs in its footprint shrunk by this much (a wall-hugging drive does not)
 INSIDE_MIN_AREA = 150.0   # m2: smaller buildings keep the old rule (a shed, a kiosk, a booth on a drive: the drive wins)
@@ -690,6 +709,66 @@ def _short_half(rects):
     return min(w, d) / 2
 
 
+def building_rows(r):
+    """(0.13.1) The footprints a building row is drawn as: the row itself (its largest polygon, as before) and, for a
+    MultiPolygon, each other polygon of MULTI_MIN m2 and MULTI_FRAC of the largest or more as a row of its own (id '{id}~{k}', k from 1 by
+    decreasing area, then bounds; 'parent' the row's id), owned by the tile holding its own centroid, sharing the
+    row's height, class, names and tags. Before, every polygon but the largest was dropped: the Long Beach Convention
+    & Entertainment Center lost its exhibit halls (11,350 and 5,591 m2 of its 29,532). Pure per row, cached on it."""
+    if 'rows_' not in r:
+        out = [r]
+        g = r['geom']
+        if g is not None and g.geom_type == 'MultiPolygon':
+            polys = sorted(g.geoms, key=lambda p: (p.area, p.bounds), reverse=True)
+            k = 0
+            for p in polys[1:]:
+                if p.area < MULTI_MIN or p.area < MULTI_FRAC * polys[0].area:
+                    continue
+                k += 1
+                q = {kk: v for kk, v in r.items() if kk not in ('own', 'rows_', 'geom')}
+                q.update(id='%s~%d' % (r['id'], k), geom=p, parent=r['id'])
+                out.append(q)
+        r['rows_'] = out
+    return r['rows_']
+
+
+def building_height(r, area, wgt):
+    """A building row's height (m, before its kind's floor): Overture's, else its floors', else the default for its area
+    (wgt: the dense blend). (0.13.2) A MultiPolygon's other polygon (building_rows: 'parent') has no height of its own:
+    the row's is its tallest part's (the Long Beach Convention Center's 50.1 m, its arena), so it stands at the row's
+    floors or the default for its own area, never taller than the row; its parts with no height of their own stand at
+    this one. Before, its exhibit halls stood as 50 m slabs."""
+    h = r['height'] if r.get('parent') is None else None
+    if h is None and r['num_floors']:
+        h = r['num_floors'] * 3.3 + 0.8
+    if h is None:
+        sparse = 4.5 if area < 250 else 7.0 if area < 1500 else 9.0
+        dense = 6.5 if area < 60 else 8.5 if area < 250 else 9.5 if area < 1500 else 9.0
+        h = sparse + (dense - sparse) * wgt
+    if r.get('parent') is not None and r['height'] is not None:
+        h = min(h, r['height'])
+    return float(h)
+
+
+def parts_for(src, r):
+    """A building row's parts (part id order): its own; a MultiPolygon's (0.13.1) only those standing mostly on the
+    polygon this row is drawn as (building_rows), so no part is drawn twice and each polygon's parts cover it."""
+    pid = r.get('parent', r['id'])
+    plist = src.parts_of.get(pid) or []
+    if not plist or (r.get('parent') is None and r['geom'].geom_type != 'MultiPolygon'):
+        return plist
+    own = largest_polygon(r['geom'])
+    if own is None:
+        return []
+    own = own.buffer(0)
+    out = []
+    for pr in plist:
+        pg = pr['geom'].buffer(0) if pr['geom'].geom_type in ('Polygon', 'MultiPolygon') else None
+        if pg is not None and not pg.is_empty and pg.intersection(own).area >= 0.5 * pg.area:
+            out.append(pr)
+    return out
+
+
 def shape_building(W, r, rec, near, downtown):
     """Kind, roof, front, row and masses of a brec (and its parts), in place."""
     src = W.src
@@ -814,7 +893,7 @@ def shape_building(W, r, rec, near, downtown):
         hz = hash01(rec['gx'] // 100, rec['gs'] // 100, 71)
         rec['peakAdd'] = 7.0 + 4.0 * hash01(rec['gx'] // 100, rec['gs'] // 100, 72) if hz < 0.5 else 0.6
     podium = 0.0
-    if kind == 'tower' and area > 1200 and not src.parts_of.get(r['id']):
+    if kind == 'tower' and area > 1200 and not parts_for(src, r):
         podium = round(0.45 + 0.25 * hash01(rec['gx'] // 100, rec['gs'] // 100, 73), 2)
     # front width: the largest mass's side facing the road
     frontw = 0.0
@@ -828,14 +907,14 @@ def shape_building(W, r, rec, near, downtown):
                 'rects': rects if cov >= 0.9 or kind in ('house', 'garage', 'church') else [], 'frontW': frontw, 'podium': podium,
                 'bays': min(2, int(frontw // 3.5)) if kind == 'rowhouse' else 0})
     # stage 0: its walls and colours from the OSM tags Overture carries (looks.py; 0 = the engine's region palette)
-    bx = src.bextra.get(r['id']) or {}
+    bx = src.bextra.get(r.get('parent', r['id'])) or {}
     lk = looks.look_of(bx)
     rec['wall'] = WALLS.index(lk['wall']) if lk['wall'] else 0
     rec['facade'] = FACADES.index(lk['facade']) if lk['facade'] and btype in ('tower', 'midrise') else 0
     rec['wallRGB'], rec['roofRGB'] = lk['wallRGB'], lk['roofRGB']
     # parts: a building whose parts cover 90% of it is drawn as its parts (each its own heights and masses)
     rec['parts'] = []
-    plist = src.parts_of.get(r['id']) or []
+    plist = parts_for(src, r)
     if plist:
         pg = []
         for pr in plist:
@@ -920,7 +999,8 @@ def build_record(store):
             'demSnapshot': {'id': sid, 'key': 'dem/snapshots/%s.json' % sid, 'products': {p: len(v) for p, v in sorted(snap['products'].items())},
                             'partial': snap.get('partial') or None,
                             'policy': 'every 3DEP file at its snapshot ETag; range reads If-Match; bytes mirrored at dem/{product}/{name}/{etag}/'},
-            'osmRoads': None if not OSM_ROADS['meta'] else {k: OSM_ROADS['meta'].get(k) for k in ('source', 'sha256', 'ways')}}
+            'osmRoads': None if not OSM_ROADS['meta'] else {k: OSM_ROADS['meta'].get(k) for k in ('source', 'sha256', 'ways')},
+            'cores': cores_table.meta()}
 
 
 def build_id_of(rec):
@@ -1079,7 +1159,7 @@ class World:
         self.junction_marked = {}
         self.kept_c, self.foot_c, self.inside_c = {}, {}, {}
         self.lanes_c, self.osm_c, self.deck_c, self.prof_c, self.gstats = {}, None, {}, {}, {}
-        self.pair_c, self.side_c = {}, {}
+        self.pair_c, self.side_c, self.pairs_c = {}, {}, {}
         self.seg_rows, self.iv_c, self.cross_c, self.moved_c = {}, {}, {}, {}
         self.files_c, self.grp_c, self.near_c, self.base_c, self.l4_c, self.tline_c = {}, {}, {}, {}, {}, {}
         self.data = data
@@ -1821,7 +1901,8 @@ class World:
 
     def deck_near(self, q):
         """The deck pieces q interacts with (symmetric: q is in each one's list): one crossing it with no shared node,
-        or one of another level within max(w, w') / 2 + 15 m (a stacked deck, a viaduct alongside)."""
+        or one of another level within max(w, w') / 2 + 15 m (a stacked deck, a viaduct alongside), or (0.13.1) the
+        other carriageway of its divided road (paired(): the two are solved together, tied to one grade)."""
         def f():
             self.ensure_piece(q)
             line, _, _ = self.pgeom(q)
@@ -1834,10 +1915,55 @@ class World:
                     continue
                 rl, _, _ = self.pgeom(r)
                 if (r['lvl'] != q['lvl'] and rl.distance(line) <= max(q['w'], r['w']) / 2 + 15) or kr in xq or \
-                        kq in set(self.pkey(o) for _, o, _ in self.crossings(r)):
+                        kq in set(self.pkey(o) for _, o, _ in self.crossings(r)) or self.paired(q, r):
                     out.append(r)
             return out
         return self.memo(self.near_c, self.pkey(q), f)
+
+    def tangent(self, p, s):
+        """The unit travel direction of piece p at arc s (its drawn direction times its one-way sign)."""
+        _, L, _ = self.pgeom(p)
+        xs, zs = self.at_arc(p, [max(0.0, s - 1.0), min(L, s + 1.0)])
+        dx, dz = float(xs[1] - xs[0]), float(zs[1] - zs[0])
+        n = math.hypot(dx, dz) or 1.0
+        sg = p['dir'] if p['dir'] else 1
+        return dx / n * sg, dz / n * sg
+
+    def abeam(self, q, r):
+        """[(s along q, s along r)] at q's grade stations where r runs abeam: r's nearest point PAIR_MIN..PAIR_REACH m
+        off q's station, square to q (not off one of r's ends), r travelling the other way within ~25 degrees."""
+        lq, Lq, _ = self.pgeom(q)
+        lr, Lr, _ = self.pgeom(r)
+        out = []
+        if lq.distance(lr) > PAIR_REACH:
+            return out
+        ss = grade.stations(Lq)
+        xs, zs = self.at_arc(q, ss)
+        for s, x, z in zip(ss, xs.tolist(), zs.tolist()):
+            pt = Point(x, z)
+            d = lr.distance(pt)
+            if not (PAIR_MIN <= d <= PAIR_REACH):
+                continue
+            sr = float(lr.project(pt))
+            if sr <= 0.5 or sr >= Lr - 0.5:
+                continue
+            tq, tr = self.tangent(q, s), self.tangent(r, sr)
+            if tq[0] * tr[0] + tq[1] * tr[1] <= -PAIR_COS:
+                out.append((s, sr))
+        return out
+
+    def paired(self, q, r):
+        """Are q and r the two carriageways of one divided road (symmetric, pure per pair of pieces)? Both one-way
+        (pair() found another carriageway for each segment), not the same segment, the same name (both unnamed: the
+        same class), both mainline or both links, and r abeam of q (abeam()) at 3 or more of q's stations, or q of r's."""
+        if q['pair'] is None or r['pair'] is None or q['seg'] == r['seg'] or not q['dir'] or not r['dir']:
+            return False
+        if q['name'] != r['name'] or (not q['name'] and q['cls'] != r['cls']) or q['link'] != r['link']:
+            return False
+        k = tuple(sorted((self.pkey(q), self.pkey(r))))
+        if k not in self.pairs_c:
+            self.pairs_c[k] = len(self.abeam(q, r)) >= 3 or len(self.abeam(r, q)) >= 3
+        return self.pairs_c[k]
 
     def _closure(self, p, lv):
         """(members {key: piece}, free nodes): the deck pieces reached from p through free nodes (every drivable piece
@@ -1911,13 +2037,13 @@ class World:
 
     def _group_profiles(self, G, base):
         members, free = G['members'], G['free']
-        gp, ext_refs = [], {}
+        gp, ext_refs, over_refs = [], {}, {}
         for kk in sorted(members):
             q = members[kk]
             _, L, _ = self.pgeom(q)
             u0, u1 = self.deck_iv(q)
             ss, g, wet, _, _ = self.pground(q)
-            fixed, under = [], []
+            fixed, under, over = [], [], []
             # water: wet stations inside the deck (a narrow run: a stream)
             run = []
             for i, s_ in enumerate(ss + [None]):
@@ -1957,6 +2083,11 @@ class World:
                 if (q['lvl'], r['seg'], r['i']) > (r['lvl'], q['seg'], q['i']):
                     under.append((sq, self.pkey(r), sr, CLEAR_ROAD + CLEAR_MARGIN))
                     ext_refs[self.pkey(r)] = r
+                elif self.pkey(r) not in members:
+                    # (0.13.2) a deck of another cluster over it: it caps this one's ties (grade.links; one of this
+                    # cluster over it is found from its own `under`), read as its base profile (no cycle)
+                    over.append((sq, self.pkey(r), sr, CLEAR_ROAD + CLEAR_MARGIN))
+                    over_refs[self.pkey(r)] = r
             # roads of a LOWER level running under it along the way (a stacked deck: Fort Pitt's two; a viaduct over a
             # street): every station within (w + w') / 2 of one, over 20 m of overlap, clear of a node they share
             for r in sorted(self.raw_pieces_near(line.buffer(q['w'] / 2 + 15)), key=self.pkey):
@@ -1982,8 +2113,16 @@ class World:
                         ext_refs[self.pkey(r)] = r
                     else:
                         fixed.append((s_, max(grade.interp(ss, g, s_), self.road_ground(r, sr)) + CLEAR_ROAD + CLEAR_MARGIN))
+            # (0.13.1) the other carriageway of its divided road, a member on its deck abeam: one grade for both
+            ties = []
+            for k2 in sorted(members):
+                r = members[k2]
+                if k2 == kk or not self.paired(q, r):
+                    continue
+                riv = self.deck_iv(r)
+                ties += [(s_, k2, sr) for s_, sr in self.abeam(q, r) if u0 <= s_ <= u1 and riv[0] <= sr <= riv[1]]
             main = q['cls'] in MAINLINE and not q['link']
-            gp.append(grade.Piece(kk, q['a'], q['b'], L, u0, u1, main, g, fixed, under))
+            gp.append(grade.Piece(kk, q['a'], q['b'], L, u0, u1, main, g, fixed, under, ties, over))
         # (a node's ground: its first piece's (in key order) end station; every piece's end there is the same point)
         node_ground = {}
         for gpc in gp:
@@ -1999,6 +2138,9 @@ class World:
                 r = ext_refs[k2]
                 G2 = self.deck_group(r)
                 others[k2] = self.deck_profile(r) if G2['rank'] < G['rank'] else self.deck_base(r)
+            for k2 in sorted(over_refs):
+                if k2 not in members and k2 not in others:
+                    others[k2] = self.deck_base(over_refs[k2])
 
         def ext(k2, s2):
             if others.get(k2) is None:
@@ -2234,6 +2376,17 @@ class World:
         self.inside_c[k] = q
         return q
 
+    def at_grade_tunnel(self, p, wg):
+        """(0.13.1) The pieces of tunnel link p's footprint (tunnel_footprint) over footprint wg whose road runs at grade:
+        within AT_GRADE_TUNNEL of the ground there (a cut-and-cover passage under a building, no ground over it)."""
+        out = []
+        for poly, y in self.tunnel_footprint(p):
+            if poly.intersects(wg):
+                c0 = poly.centroid
+                if y > float(self.ground_at([c0.x], [c0.y])[0][0]) - AT_GRADE_TUNNEL:
+                    out.append(poly)
+        return out
+
     def brec(self, r, ctx, centres):
         bid = r['id']
         if bid in self.brec_c:
@@ -2254,6 +2407,10 @@ class World:
                 pg = gl.buffer(p['w'] / 2 + max(p['sw'], 0.6), quad_segs=4)
                 if pg.intersects(wg):
                     parts.append(pg)
+            # (0.13.1) a tunnel link at grade under it (no ground over its road: Long Beach's E Seaside Way under the
+            # Convention Center's exhibit hall) trims it like a road on the ground, so the building stands and the road
+            # passes; before, the tunnel-cover rule dropped the whole building (_compile_tile: a portal's cut)
+            parts += self.at_grade_tunnel(p, wg)
         if parts and not elevated:
             # (a footprint is trimmed off the roadway round it; an elevated one (canopy, skybridge) spans it. Its place
             # was decided in footprint(); where the roads left would take more than 35% of it, the site roads that run
@@ -2279,20 +2436,13 @@ class World:
         area = wg.area
         gx, gs = own[0] // own[2], own[1] // own[2]
         dt = downtown_at(centres, gx, gs)
-        h = r['height']
-        if h is None and r['num_floors']:
-            h = r['num_floors'] * 3.3 + 0.8
-        if h is None:
-            sparse = 4.5 if area < 250 else 7.0 if area < 1500 else 9.0
-            dense = 6.5 if area < 60 else 8.5 if area < 250 else 9.5 if area < 1500 else 9.0
-            h = sparse + (dense - sparse) * wgt
-        h = float(h)
+        h = building_height(r, area, wgt)
         btype, pal = classify(r, area, h, dt)
         h = max(h, 3.4 if btype in ('rowhouse', 'shed') else 4.0)
         rec = {'id': bid, 'g': wg, 'own': oc, 'gx': gx, 'gs': gs, 'h': h, 'btype': btype, 'pal': pal, 'downtown': dt, 'area': area,
                'shops': 1 if (r['class'] or '') in SHOPS or (dt and btype == 'office-low') else 0,
                'stories': r['num_floors'] or max(1, int(round(h / 3.4))), 'peakAdd': 1.6 if btype == 'rowhouse' and area < 300 else 0.6,
-               'heightFromOverture': r['height'] is not None}
+               'heightFromOverture': r['height'] is not None and r.get('parent') is None}
         shape_building(self, r, rec, near, dt)
         self.brec_c[bid] = rec
         return rec
@@ -2526,7 +2676,7 @@ def _compile_tile(Wd, c, r, dem_files):
     # ---- buildings: owned by the tile holding the full footprint's centroid
     brecs_near = {}
     tb28 = TB.buffer(28, join_style='mitre')
-    for b in Wd.src.query('buildings', TB.buffer(29, join_style='mitre'), predicate=None):
+    for b in (q for b0 in Wd.src.query('buildings', TB.buffer(29, join_style='mitre'), predicate=None) for q in building_rows(b0)):
         o = building_owner_cm(b) if not b['is_underground'] else None
         if o is None:
             continue
@@ -2566,7 +2716,9 @@ def _compile_tile(Wd, c, r, dem_files):
             gr = ground(np.append(xs, rec['gx'] / 100.0), np.append(zs, rec['gs'] / 100.0))
         base = float(gr.min())
         rise = min(8.0, float(gr.max()) - base)
-        if tun_tree is not None and any(base < tun_fp[i][1] + TUNNEL_COVER for i in tun_tree.query(g, predicate='intersects').tolist()):
+        # (a footprint brec() trimmed off an at-grade tunnel only touches it: 1 m2 or more over a tunnel's road counts)
+        if tun_tree is not None and any(base < tun_fp[i][1] + TUNNEL_COVER and tun_fp[i][0].intersection(g).area >= 1.0
+                                        for i in tun_tree.query(g, predicate='intersects').tolist()):
             under_deck += 1
             continue
         if deck_tree is not None:

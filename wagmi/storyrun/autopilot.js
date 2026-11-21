@@ -97,7 +97,7 @@ export function startAutopilot(W, runner, { missionSecs = 240, onTimeout = null,
   function putCar(x, z, h) {
     if (!carOk(x, z)) { refuse('the car put inside a building', x, z, false); return false; }
     const p = { x, z };
-    car.position.set(p.x, cm.getGroundHeight(p.x, p.z, 'car'), p.z); car.heading = h; car.speed = 0; car.vx = car.vz = car.angularVel = 0;
+    car.position.set(p.x, cm.getGroundHeight(p.x, p.z, 'car'), p.z); car.heading = h; car.speed = 0; car.vx = car.vz = car.slipV = car.angularVel = 0;
     car.mesh.position.copy(car.position); car.mesh.rotation.y = h;
     // (a horse's own way over the ground starts again where it is put: wagmi/horse/drive.js)
     if (car.kind === 'horse' && W.horse?.drive?.S) Object.assign(W.horse.drive.S, { ground: null, air: false, jumpY: 0, jumpV: 0, rammed: 0 });

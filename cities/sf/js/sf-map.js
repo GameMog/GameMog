@@ -992,7 +992,10 @@ class NYCMapSystem {
     // Ground-level radar shows ~800 m of the city; it zooms out as the camera climbs (helicopter)
     const T = window.NYC.Terrain;
     const above = ent.position.y - (T && T.loaded ? T.groundAt(px, pz) : 0); // height above the ground, not sea level
-    const target = Math.max(0.05, RADAR_SCALE / (1 + Math.max(0, above - 25) / 180));
+    let target = Math.max(0.05, RADAR_SCALE / (1 + Math.max(0, above - 25) / 180));
+    // (jh-drive round 2: in the car it zooms out with speed, 1.8x the range at 76 mph: js/drive-model.js radarZoom)
+    const DM = window.NYC && window.NYC.DriveModel, inCar = this.controllerManager.activeMode === 'car';
+    if (DM && inCar) target /= DM.radarZoom(ent.speed);
     this.miniScale += (target - this.miniScale) * 0.08;
     const scale = this.miniScale;
 

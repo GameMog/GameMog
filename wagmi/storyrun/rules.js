@@ -86,7 +86,7 @@ export function band(state, d, dt, { near = 6, far = 60, drain = 0.12, refill = 
 
 /* -------------------------------------------------------- a passenger's rule -- */
 // v (m/s); max (m/s); grace (s over it before it counts); state: { over (s), warned }. Returns 'ok' | 'warn' | 'over'
-export const MPH = 2.23694;
+export { MPH } from '../speedo.js';
 export function speedRule(state, v, dt, { max = 15, grace = 3 } = {}) {
   if (Math.abs(v) > max) state.over = (state.over || 0) + dt; else state.over = Math.max(0, (state.over || 0) - dt * 0.5);
   if (state.over > grace) return 'over';
@@ -155,4 +155,58 @@ export function tailRule(state, o, dt) {
   if (state.t - (state.warnAt ?? -1e9) > 3.5 && (state.close > spotTime * 0.4 || state.far > lostTime * 0.35)) { state.warnAt = state.t; warn = state.close > 0 ? 'close' : 'far'; }
   const verdict = state.close > spotTime ? 'spotted' : state.far > lostTime ? 'lost' : 'ok';
   return { want, verdict, warn };
+}
+
+// a failed mission's retry: from its last checkpoint (a step marked { checkpoint: true }, or a direct start's step),
+// with RESTART from the mission's start beside it; before any checkpoint, RETRY from the start alone (mission/ui.js
+// failed). SS-5's one retry replayed about 5 minutes (the call, the drive, the roadblock, the search, the call) to get
+// back to its chase: the RC playtest, P3
+export function retryChoices(cp) {
+  const at = !!(cp && cp.i > 0);
+  return at ? { retryLabel: 'Retry: from the checkpoint', restart: true, restartLabel: 'Restart: from the start' } : { retryLabel: 'Retry: from the start', restart: false };
+}
+
+// a chase to a place (pursuit goal 'reach') that starts with his car standing: how its crew sets out. Every car
+// behind him (along the way there, else the way he faces), BEHIND_START.min m back or more, on the road and out of
+// view first, and none ahead of him on his road; a calm of BEHIND_START.calm s (none rams him, none nearer than the
+// pursuit's CALM gap unless he is going) so he gets the car rolling. TP-6's chase began with the car standing on the
+// rose garden's lawn and the town's opening put one 30-60 m off and the others on his road ahead, coming at him: they
+// wedged him in on both sides and he was caught in 14 s (the final replay, 20 Nov). A chase to lose, or one started
+// at speed, keeps the town's own opening (BT-3's and SS-5's tuning). Returns the pursuit start()'s extra options, or null
+export const BEHIND_START = { min: 80, calm: 5, standing: 4 };
+// (the traffic held off the way there as a standing chase starts (runner.js STEPS.pursuit): base m of it, 25 s, for
+// every chase to a place; open m for up to secs s for one with the behind opening)
+export const CLEAR_WAY = { base: 180, open: 650, secs: 60 };
+export function chaseOpening(d, o = {}) {
+  if (!d || d.goal !== 'reach' || !d.to) return null;
+  if (!(Math.abs(o.speed || 0) < BEHIND_START.standing)) return null;
+  const h = Number.isFinite(o.routeH) ? o.routeH : Number.isFinite(o.carH) ? o.carH : null;
+  return { ahead: false, calm: BEHIND_START.calm, behind: { min: BEHIND_START.min, ...(h != null ? { h } : {}) } };
+}
+// (the way there as it leaves the car: from the car to the route's first point `ahead` m or more off; null on none)
+export function routeHeading(route, from, ahead = 30) {
+  if (!Array.isArray(route) || !from) return null;
+  for (const q of route) { const dx = q[0] - from.x, dz = q[1] - from.z; if (Math.hypot(dx, dz) >= ahead) return Math.atan2(dx, dz); }
+  return null;
+}
+// (the way there as he will drive it, for a standing start's crew: of the routes planned from the car (runner.js: with
+// the car's heading, against it and with none), the shortest, and the way from the car to its point `at` m along; no
+// route, the bearing to the place. TP-6's Tensore stood on the rose garden's lawn facing away from the market: the plan
+// with its heading set off forward and U-turned, so 'behind along it' put the crew on his real way, ahead of him, and
+// they met him head-on 4-5 s in (the RC review, 20 Nov))
+const pathLen = (r) => { let L = 0; for (let k = 1; k < r.length; k++) L += Math.hypot(r[k][0] - r[k - 1][0], r[k][1] - r[k - 1][1]); return L; };
+export const shortestRoute = (routes) => (Array.isArray(routes) ? routes : []).filter((r) => Array.isArray(r) && r.length > 1).reduce((a, b) => (!a || pathLen(b) < pathLen(a) ? b : a), null);
+export function wayThere(routes, from, to, at = 80) {
+  if (!from) return null;
+  const bearing = to && Math.hypot(to.x - from.x, to.z - from.z) > 1 ? Math.atan2(to.x - from.x, to.z - from.z) : null;
+  const best = shortestRoute(routes);
+  if (!best) return bearing;
+  let L = 0, q = best[best.length - 1];
+  for (let k = 1; k < best.length; k++) {
+    const [ax, az] = best[k - 1], [bx, bz] = best[k], seg = Math.hypot(bx - ax, bz - az);
+    if (L + seg >= at) { const u = (at - L) / (seg || 1); q = [ax + (bx - ax) * u, az + (bz - az) * u]; break; }
+    L += seg;
+  }
+  const dx = q[0] - from.x, dz = q[1] - from.z;
+  return Math.hypot(dx, dz) > 5 ? Math.atan2(dx, dz) : bearing;
 }

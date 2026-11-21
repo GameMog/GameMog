@@ -60,6 +60,37 @@ presentation. It is loaded only with `?pack=`; without it the game is exactly mc
   drive (`&autopilot=1&autocard=1&flowfast=1&mission=HR-1`) it plays through in about 40 s; with `&realpace=1` a
   player's pace. Mog City's own Dan rides (no forged people, no clips).
 
+### A stock car's paint and the stage set (any world; `node --test tests/storyrun.test.mjs`)
+
+A world whose car is a stock one (`"car": "roadster"`) may give it a paint, `"carPaint": "#76B900"` (a colour, nothing
+else: no livery, no logo): Mog City's roadster is built in it (`wagmi/game.js`; GameMog's `toRunnerPack` writes it from a
+stock vehicle's `paint`). A sheet or model car has its own paint, so `carPaint` is refused there. A car parked while the
+hero walks (an opening, a mission on foot) stands on the ground under it (`intro.js place`), not at 0, so it is there
+on a hometown's streets. A cutscene's set may be `stage` (`stage-room.js`): an arena's keynote stage from the floor, lit
+as a keynote is (a front-of-house key and a cool upstage rim on the presenter, haze in the truss's beams, an LED wall the
+width of the stage glowing with the set's `sign` (a long sign shrinks to fit) and lighting the deck and the front rows),
+the standing pit packed to the barrier (the city's own people, `PersonCrowd`, kept a metre clear of the set's people
+and their walks), the seats rising behind it, phones up, the front row's mahogany chair at [-1, 3.5]; its `house`
+`calm` (watching, swaying) or `up` (on its feet cheering: the rally crowd's takes, a bounce without them). A room may
+carry `fog` (its haze), `envNight`, and a `tick(dt, t, S)` the set calls each frame (sets.js). A cutscene in a set is entered
+through a dip to black (the set built and compiled behind it, the HUD out), and a set is held on its last frame
+through the steps after it that stay in it (a `choice`, a `say`, the next set cutscene: `linger`), so a choice and
+its reply are played in the room, not on the street outside it. Or a video call's office
+as a room of its own, `office-<look>`.
+
+### The street, the calls and the scenes (any world; `node --test tests/storyrun-talk.test.mjs`)
+
+An `npc` may `push: 'chair'` (the executive chair rolled in front of them), wear a `lanyard`, and `walk` from where they
+stand (`fwd` m along the player's heading, `right` m toward the kerb, over `secs`): a plant shown, not told
+(`npc-dress.js`; the chair is gone when the mission ends). A mission's `say` waits (up to 6 s) for a car-phone call's
+line on screen and keeps the call from starting another meanwhile, and a `beat` does too and keeps the call quiet through itself, so a mission's exchange is never cut
+into nor a call's line said twice. A scene (a `vcall` or a `cutscene`) arriving while a call that spans the drive is
+still on at the wheel lets it wrap first (`calls.wrapNow`: its resume line if owed, its wrap, up to 24 s). A call
+waiting's office is built while it rings, and its picture is the call's one card from the moment it is answered; a
+car-screen feed's name tag says a call waiting for someone else. The video call offices are eight: `exec`,
+`startup`, `backstage`, `boardroom`, `kitchen`, `study`, `van` (a broadcast van's back), `greenroom` (an arena's green
+room: the mirror's bulbs, the fruit, a jacket on the rail).
+
 ### A horse alongside the car (any world; `node --test tests/storyrun-horse.test.mjs`)
 
 A world whose car is a car and whose story mounts or rides a horse (`mount` / `ride` steps, or a `horse: { name }`;

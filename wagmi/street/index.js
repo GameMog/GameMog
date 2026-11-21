@@ -7,8 +7,8 @@
 // so do they round a fight. The city's cars and buses brake for the crowd in the road (crossing, or lying in it).
 // The ground under the parks, plazas and Bryant Park's terrace: js/city-grid.js, js/landmarks.js groundPatches, read by
 // js/controllers.js getGroundHeight.
-// API (window.WAGMI.street): crowd, hits (people hit this session), near(r) -> { n, inView }, on('hit', cb)
-import { createCrowd } from './crowd.js'; import { world } from '../world/index.js';
+// API (window.WAGMI.street): crowd, hits (people hit this session), near(r) -> { n, inView }, on('hit', cb), note() (the 'Hit and run' note shown, for a check)
+import { createCrowd } from './crowd.js'; import { tickTop, TICK } from './tick-place.js'; import { world } from '../world/index.js';
 
 const CAR = { hx: 0.95, z0: -2.12, z1: 2.26 }; // Dan's car's body in its own frame (wagmi/game.js car.body, at install)
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
@@ -57,6 +57,8 @@ export function install(W) {
     api.hits++; runN = tickT > 0 ? runN + 1 : 1; tickT = 2.6;
     tick.innerHTML = `Hit and run${runN > 1 ? ` <span style="color:#FFC93C">x${runN}</span>` : ''}`;
   }
+  // (the note shown as a person hit shows it, its count untouched: for a check of where it sits)
+  api.note = () => { const h = api.hits; noteHit(); api.hits = h; return tick; };
 
   // ------------------------------------------------------------------ the car against people on foot
   const _list = [], _city = [], decided = new WeakMap();
@@ -197,7 +199,17 @@ export function install(W) {
     scatter(dt);
     cityCalm();
     crowd.update(dt, elapsed, camera);
-    if (tickT > 0) { tickT -= dt; tick.style.opacity = tickT > 0.3 && !W.cutscene ? '1' : '0'; }
+    if (tickT > 0) {
+      tickT -= dt; const on = tickT > 0.3 && !W.cutscene;
+      tick.style.opacity = on ? '1' : '0';
+      // (clear of a video call's tile in the same corner: under it, wagmi/street/tick-place.js)
+      if (on) {
+        const tiles = [...document.querySelectorAll('.wg-vfeed.on')].map((e) => e.getBoundingClientRect());
+        const w = tick.offsetWidth || 160, h = tick.offsetHeight || 38, right = innerWidth - 28;
+        const y = tickTop({ left: right - w, right, top: TICK.TOP, bottom: TICK.TOP + h }, tiles);
+        if (tick.style.top !== y + 'px') tick.style.top = y + 'px';
+      }
+    }
   }
   console.log('[wagmi] the streets are in');
   return api;

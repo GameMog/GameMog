@@ -1918,6 +1918,7 @@ const _target = new THREE.Vector3();
 const _pole = new THREE.Vector3();
 const _front = new THREE.Vector3();
 const _fwd = new THREE.Vector3();
+const UP_Y = new THREE.Vector3(0, 1, 0);
 const _bx = new THREE.Vector3();
 const _by = new THREE.Vector3();
 const _bz = new THREE.Vector3();
@@ -2585,6 +2586,57 @@ class PersonRig {
       bendDir(bNew, a, own, g, addS * keep);
       _rq.setFromUnitVectors(b, bNew);
       qF.premultiply(_rq);
+    }
+  }
+
+  /**
+   * (Mog City, 19 Nov) A standing person's hands put where they are wanted, after update() (an arena's pit cheering:
+   * arms up, clapping, a fist pumped, a phone held up; wagmi/storyrun/stage-room.js). hands: [left, right], each null
+   * (that arm as the walk left it) or an { x, y, z } offset from that arm's shoulder joint in the body's own frame (+x its
+   * left, +y up, +z its front, metres at 1.75 m tall: scaled by this person's size); poles likewise, where each elbow
+   * points (default down, out and back). Two-bone reach as ride()'s, the hand's length added to the forearm's.
+   */
+  reach(hands, poles = null) {
+    const s = this.s;
+    const j = this.bind;
+    const a = this.pose;
+    const o = BONE.CHEST * 8;
+    _qChest.set(a[o], a[o + 1], a[o + 2], a[o + 3]);
+    _chest.set(a[o + 4], a[o + 5], a[o + 6]).add(_v2.copy(j[BONE.CHEST]).applyQuaternion(_qChest).multiplyScalar(s));
+    const sy = Math.sin(this.yaw);
+    const cy = Math.cos(this.yaw);
+    _fwd.set(sy, 0, cy);
+    const toWorld = (v, out) => out.set(cy * v.x + sy * v.z, v.y, -sy * v.x + cy * v.z);
+    for (let i = 0; i < 2; i++) {
+      const h = hands[i];
+      if (!h) continue;
+      const side = SIDES[i];
+      _shoulder.copy(j[LIMB.upperArm[i]]).sub(j[BONE.CHEST]).multiplyScalar(s).applyQuaternion(_qChest).add(_chest);
+      toWorld(h, _target).multiplyScalar(s).add(_shoulder);
+      const l1 = UPPER_ARM * s;
+      const l2 = (FOREARM + 0.07) * s;
+      _v.subVectors(_target, _shoulder);
+      let dist = _v.length();
+      const dn = _v.divideScalar(dist || 1);
+      dist = Math.max(Math.abs(l1 - l2) + 1e-3, Math.min((l1 + l2) * 0.999, dist));
+      const p = poles && poles[i];
+      toWorld(p || { x: side * 0.6, y: -1, z: -0.4 }, _pole);
+      _pole.addScaledVector(dn, -_pole.dot(dn));
+      if (_pole.lengthSq() < 1e-8) toWorld({ x: side, y: 0, z: 0 }, _pole);
+      _pole.normalize();
+      const cosA = (l1 * l1 + dist * dist - l2 * l2) / (2 * l1 * dist);
+      const sinA = Math.sqrt(Math.max(0, 1 - cosA * cosA));
+      _knee.copy(_shoulder).addScaledVector(dn, l1 * cosA).addScaledVector(_pole, l1 * sinA);
+      _ankle.copy(_shoulder).addScaledVector(dn, dist);
+      (this.handAt ||= [new THREE.Vector3(), new THREE.Vector3()])[i].copy(_ankle); // (where the hand is: a thing held in it)
+      // (each bone's front kept toward the body's front and up, so a forearm held out level does not lose its roll)
+      _front.copy(_fwd).addScaledVector(UP_Y, 0.8);
+      this.basis(_v2.subVectors(_shoulder, _knee), _front, _qUpper);
+      _qUpper.multiply(qZ(_q, -side * ARM_BIND_ABDUCTION));
+      this.writeBone(LIMB.upperArm[i], _qUpper, _shoulder);
+      this.basis(_v2.subVectors(_knee, _ankle), _front, _q2);
+      _q2.multiply(qZ(_q, -side * ARM_BIND_ABDUCTION));
+      this.writeBone(LIMB.forearm[i], _q2, _knee);
     }
   }
 

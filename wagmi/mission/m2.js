@@ -161,7 +161,7 @@ function between(W, { letter, at, name, objective, note = null, onArrive, radius
     if (!inCar && Math.hypot(car.position.x - P.position.x, car.position.z - P.position.z) > 25) gps.blip('car', { x: car.position.x, z: car.position.z, kind: 'car', edge: true, name: car.label || "Dan's car" });
     else gps.unblip('car');
     const d = Math.hypot(p.x - at.x, p.z - at.z);
-    if (!arrived && (inCar ? d < radius + 4.5 && Math.abs(car.speed) < 3 : d < radius && Math.abs(p.y - cm.getGroundHeight(at.x, at.z, 'person')) < 1.2)) {
+    if (!arrived && (inCar ? d < radius + 4.5 && Math.hypot(car.speed, car.slipV || 0) < 3 : d < radius && Math.abs(p.y - cm.getGroundHeight(at.x, at.z, 'person')) < 1.2)) {
       arrived = true; onArrive?.(B);
     }
     if (d > radius + 6) arrived = false;
@@ -687,7 +687,7 @@ function createMission(W, { keep = false, quiet = false } = {}) {
       const at = S.crashAt || { ...CRASH };
       if (fresh) inTheCar(at.x - 18, at.z + 22, PI / 2);
       // (his car stopped, clear of the wreck)
-      car.speed = 0; car.vx = car.vz = 0; car.angularVel = 0;
+      car.speed = 0; car.vx = car.vz = car.slipV = 0; car.angularVel = 0;
       const dc = dist(car.position, at.x, at.z);
       if (dc < 10) { const k = 10 / Math.max(0.5, dc); car.position.x = at.x + (car.position.x - at.x) * k; car.position.z = at.z + (car.position.z - at.z) * k; car.mesh.position.copy(car.position); }
       const mack = await mackRig();

@@ -61,6 +61,33 @@ export function setClass(car, vclass) {
   return car;
 }
 
+// (jh-drive round 2) the car's weight, by its class and its sheet's pull and weight: how long it takes to 60 mph on the
+// throttle (a sports car about 3.4-3.8 s, a V8 SUV about 5, a sedan 5.5, a pickup 6, a delivery van 8), the boost's shove off the line (a
+// sports car's, half again its pull), and its springs: how far it rolls at its tyres' grip (a sports car 3.5 degrees, a
+// van 7), less what its own body leans on its springs (build-vehicle.js), stiff or soft as its sheet's tune.js springs.
+// The controllers read car.accel, boostLaunch and springs (js/controllers.js, cities/sf/js/controllers.js updateCar).
+// Called after the sheet's own numbers are on the car (its accel among them)
+export const ZERO_60 = Object.freeze({ sports: 3.8, sedan: 5.4, suv: 4.8, truck: 5.8, van: 7.4 });
+export const ROLL_DEG = Object.freeze({ sports: 3.5, sedan: 4.6, suv: 6.0, truck: 6.4, van: 7.0 });
+const MPH60 = 26.82;
+export function weigh(car, sheet, springs, vclass) {
+  const H = (sheet && sheet.handling) || {}, k1 = (x) => Math.max(-1, Math.min(1, +x || 0));
+  const t60 = (ZERO_60[vclass] || ZERO_60.sedan) * (1 - 0.12 * k1(H.pull)) * (1 + 0.05 * k1(H.weight));
+  // (a world's own car or a mission's ride was tuned with its missions, their timers and chases: it keeps at least 0.8 of
+  // its sheet's pull (Colter Land's pursuit at sunup was made on it); a car taken off the street, wagmi/jack.js, is all
+  // its class's weight)
+  const authored = !String((sheet && sheet.id) || '').startsWith('jack-');
+  car.accel = +Math.max(MPH60 / t60, authored && Number.isFinite(car.accel) ? car.accel * 0.8 : 0).toFixed(2);
+  car.boostLaunch = vclass === 'sports' ? +(car.accel * 1.5).toFixed(2) : 0;
+  const soft = springs && Number.isFinite(springs.rollGain) ? Math.max(0, Math.min(1, (springs.rollGain - 0.0013) / 0.0021)) : 0.5;
+  const want = (ROLL_DEG[vclass] || ROLL_DEG.sedan) * (0.85 + 0.3 * soft) * Math.PI / 180;
+  const grip = car.handling && Number.isFinite(car.handling.grip) ? car.handling.grip : 30;
+  const body = springs && Number.isFinite(springs.rollGain) ? Math.min(grip * springs.rollGain, springs.rollMax || 0.085) : 0;
+  const chassis = Math.max(0.6 * Math.PI / 180, want - body);
+  car.springs = { rollGain: +(chassis / (grip * 0.66)).toFixed(5), rollMax: +(chassis * 1.25).toFixed(4), k: springs?.k || 60, damp: springs?.damp || 10, t60: +t60.toFixed(2), rollDeg: +(want * 180 / Math.PI).toFixed(1) };
+  return car;
+}
+
 // the chase camera's framing for any car the player drives: Mog City's own car view (wagmi/game.js, the owner's 4 Nov
 // framing of Dan's car: 5.58 m back, 2.05 m up, a 58 degree lens). The owner, 15 Nov: "all games should have initial MOG
 // CITY car view unless specified differently in the build". A sheet's tune keeps its own feel of speed (the lens kick,
@@ -83,6 +110,7 @@ export function fitSheet(car, rs) {
   Object.assign(car, mogFraming(T, rs.sheet || null, bodyHeight(T, rs)));
   if (T.handling) car.handling = { ...T.handling };
   car.label = rs.label || car.label; car.dial = null;   // (its real mph on the HUD, js/main.js)
+  weigh(car, rs.sheet || null, rs.springs || null, vehicleClass(rs.sheet || null));
   setClass(car, vehicleClass(rs.sheet || null));
   // (its headlamps on its own lamps)
   try { rs.attach?.(car); } catch (err) { console.warn('[storyrun] lamps', err); }
@@ -95,7 +123,7 @@ export function fitSheet(car, rs) {
 // driver's seat anchor kept), the sheet's body shown on the same chassis, the car's numbers (box, axles, chase framing,
 // pace, brakes, handling, name) the sheet's while it is worn and the hero car's again after.
 //   wearRide(THREE, car, sheet | null)
-const WORN_KEYS = ['body', 'axle', 'mass', 'chaseDistance', 'chaseHeight', 'chase', 'topSpeed', 'boostSpeed', 'accel', 'boostAccel', 'rolling', 'drag', 'coast', 'brake', 'boostBrake', 'label', 'vclass', 'noBoost'];
+const WORN_KEYS = ['body', 'axle', 'mass', 'chaseDistance', 'chaseHeight', 'chase', 'topSpeed', 'boostSpeed', 'accel', 'boostAccel', 'boostLaunch', 'springs', 'rolling', 'drag', 'coast', 'brake', 'boostBrake', 'label', 'vclass', 'noBoost'];
 export function wearRide(THREE, car, sheet) {
   // (never on a horse: a horse alongside the car is ridden as it is, wagmi/game.js the two rides; the car wears it)
   const rs = car.roadster; if (!rs || rs.kind === 'horse') return false;
@@ -133,6 +161,7 @@ export function wearRide(THREE, car, sheet) {
     Object.assign(car, mogFraming(T, sheet, bodyHeight(T, w)));   // (Mog City's car view, as fitSheet)
     if (T.handling) car.handling = { ...T.handling };
     car.label = w.label || sheet.label || car.label; car.dial = null;
+    weigh(car, sheet, w.springs || null, vehicleClass(sheet));
     setClass(car, vehicleClass(sheet));
     // (the hero rig still runs (its wheel the hands hold), its flame off; the sheet's body turns its own wheels)
     rs.update = (dt, v, s) => { st.base.update.call(rs, dt, v, s); w.update(dt, v, s); };

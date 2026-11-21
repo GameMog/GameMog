@@ -26,7 +26,7 @@ const WEARS = new Set(['rider']);
 export const STEP_KINDS = new Set(['drive', 'stops', 'walk', 'pursuit', 'timer', 'call', 'voicemail', 'voicenote', 'choice', 'cutscene',
   'place', 'set', 'say', 'wait', 'goto', 'end', 'label', 'transition', 'vignette', 'wallet', 'actEnd', 'comfort', 'tail',
   'stealth', 'patrol', 'convoy', 'trigger', 'beat', 'roadblock', 'passenger', 'npc', 'fight', 'dm', 'search', 'scene', 'tow', 'ally', 'car',
-  'collect', 'mount', 'dismount', 'herd', 'sneak', 'flee', 'drove', 'track', 'ambush', 'ride']);
+  'collect', 'mount', 'dismount', 'herd', 'sneak', 'flee', 'drove', 'track', 'ambush', 'ride', 'vcall']);
 // the steps that ride the horse (a world whose car is a car rides one alongside it: wagmi/game.js the two rides)
 export const HORSE_STEPS = new Set(['mount', 'ride']);
 /** A world's horse alongside its car: { label } (its `horse`, else Ranger), or null (no step rides one, or its car is the horse). */
@@ -41,7 +41,7 @@ export function horseAlongOf(def) {
 }
 const STOCK = new Set(['roadster', 'trailhand', 'vandal']);
 // the hero cars Mog City builds in code besides Dan's roadster, by the name a world's `car.model` gives (wagmi/storyrun/gt.js)
-export const MODEL_CARS = new Set(['mogcity/gt', 'mogcity/horse']);
+export const MODEL_CARS = new Set(['mogcity/gt', 'mogcity/wedge', 'mogcity/horse']);
 const MAX_BYTES = 1_000_000, MAX_TEXT = 600;
 const q = new URLSearchParams(location.search);
 const COLOUR = /^#[0-9A-Fa-f]{6}$/;
@@ -278,6 +278,9 @@ export function check(w) {
       shapes(s.during, `${at}[${i}].during`);
     } };
     shapes(m.steps, 'steps');
+    // (a checkpoint: a top-level step marked { checkpoint: true } is where a retry starts from (runner.js snapshot); a
+    // failed attempt after it offers RETRY from it and RESTART from the start. docs/CHECKPOINTS.md)
+    for (const [i, s] of m.steps.entries()) if (s && s.checkpoint != null && typeof s.checkpoint !== 'boolean') bad(`${m.id} steps[${i}]: checkpoint (true or false)`);
     for (const e of siteErrors(m)) bad(`${m.id} ${e}`);
     if (m.vehicle != null && typeof m.vehicle !== 'string') bad(`${m.id}: vehicle`);
   }
@@ -319,8 +322,12 @@ export function check(w) {
   // (a ranch dressed at one of its places, ranch.js: up to two; a place alias's `ranch` mark one of the ranch's)
   for (const e of ranchErrors(w)) bad(e);
   if (w.car != null && !(typeof w.car === 'string' ? STOCK.has(w.car) : w.car && (typeof w.car.sheet === 'object' || MODEL_CARS.has(w.car.model)))) bad('car');
+  // (a stock car's paint, carPaint: '#76B900', any world whose car is a stock one (car: 'roadster'): Mog City's roadster
+  // built in that colour, paint only (wagmi/game.js); a sheet or model car has its own paint, so it is refused there)
+  if (w.carPaint != null && (!COLOUR.test(w.carPaint) || typeof w.car !== 'string')) bad('carPaint');
   // (a Mog City model as the hero's car: { model: 'mogcity/gt', paint?, plate?, label?, body? }, wagmi/storyrun/gt.js;
-  // it wears the downloaded body, wagmi/storyrun/vantor.js; body: 'built' the one built in code, gt.js)
+  // it wears the downloaded body, wagmi/storyrun/vantor.js; body: 'built' the one built in code, gt.js. 'mogcity/wedge': the
+  // Tensore, the lime wedge with scissor doors, wagmi/storyrun/wedge.js, on the same handling)
   if (w.car && typeof w.car === 'object' && MODEL_CARS.has(w.car.model)) {
     if (w.car.paint != null && !COLOUR.test(w.car.paint)) bad('car.paint');
     if (w.car.plate != null && (typeof w.car.plate !== 'string' || !/^[A-Z0-9 ]{0,8}$/.test(w.car.plate))) bad('car.plate');
@@ -328,6 +335,17 @@ export function check(w) {
     if (w.car.body != null && w.car.body !== 'ext' && w.car.body !== 'built') bad('car.body');
   }
   return errs;
+}
+
+// the forged hero's clips: Dan's, with the body's own clips that Dan lacks; but a body's own seated clips (sit, sitTalk:
+// HERO_OWN) are its own, upright for its proportions (Jensen Heist's hand-built bodies), where Dan's leaned a longer head
+// forward of the chair's line. A body without them sits on Dan's, as before; Dan himself never comes here. (Idempotent:
+// the loaded GLTF is cached, glb.js, so a second call, or the cast's double of the hero on the same file, finds the same)
+export const HERO_OWN = new Set(['sit', 'sitTalk']);
+export function heroClips(danClips, own) {
+  const mine = new Map(); for (const c of own || []) if (HERO_OWN.has(c.name) && !mine.has(c.name)) mine.set(c.name, c);
+  const names = new Set(danClips.map((c) => c.name));
+  return [...danClips.map((c) => mine.get(c.name) || c), ...(own || []).filter((c) => !names.has(c.name))];
 }
 
 // a forged body on Dan's clips: the hand-built cast (John, Milo, Pell, the old boss, the young hero) carry an extra node
@@ -376,8 +394,7 @@ export async function load() {
     if (!W.heroGlb) return dan;
     try {
       const g = await loadGLB(W.heroGlb);
-      const names = new Set(dan.animations.map((c) => c.name));
-      g.animations = [...dan.animations, ...g.animations.filter((c) => !names.has(c.name))];
+      g.animations = heroClips(dan.animations, g.animations);
       // (their surfaces finished as the cast's are: polish.js)
       try { (await importRetry(() => import('./polish.js'))).polishBody(g.scene); } catch (err) { console.warn('[storyrun] hero polish', err); }
       unhang(g.scene);
@@ -387,6 +404,8 @@ export async function load() {
   // the player's car: a vehicle sheet (wagmi/storyrun/vehicles) or a stock one (the roadster is Dan's own)
   W.sheetCar = def.car && typeof def.car === 'object' && def.car.sheet ? def.car.sheet : null;
   W.stockCar = typeof def.car === 'string' ? def.car : null;
+  // (its paint, when the world gives one: carPaint, a stock car's only)
+  W.stockPaint = W.stockCar && typeof def.carPaint === 'string' && COLOUR.test(def.carPaint) ? def.carPaint : null;
   // (or one of Mog City's own models: the Vantor GT, built by wagmi/storyrun/gt.js with the roadster's handling)
   W.modelCar = def.car && typeof def.car === 'object' && MODEL_CARS.has(def.car.model) ? def.car : null;
   // (trailhand and vandal are their sheets: none in this repo yet, so Dan's roadster stands in for them)

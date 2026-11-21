@@ -68,7 +68,7 @@ test('the test worlds pass the checks; bad worlds are refused', () => {
   assert.ok(bad((w) => { w.city = 'sf'; }).some((e) => /city sf/.test(e)));
   assert.ok(bad((w) => { w.storykit = 2; }).length);
   assert.ok(bad((w) => { w.car = 'tank'; }).some((e) => /car/.test(e)));
-  assert.ok(STEP_KINDS.has('scene') && STEP_KINDS.has('tow') && STEP_KINDS.has('collect') && STEP_KINDS.has('ambush') && STEP_KINDS.has('ride') && STEP_KINDS.size === 48);
+  assert.ok(STEP_KINDS.has('scene') && STEP_KINDS.has('tow') && STEP_KINDS.has('collect') && STEP_KINDS.has('ambush') && STEP_KINDS.has('ride') && STEP_KINDS.has('vcall') && STEP_KINDS.size === 49);
   // (the tow world: a wrecker sheet as the car, a ride of the world's on the hook)
   assert.deepEqual(check(JSON.parse(fs.readFileSync(path.join(ROOT, 'tools/storyrun/test-packs/tow.json'), 'utf8'))), []);
 });
@@ -220,7 +220,7 @@ test('a ride-along call finishes what it is saying when its step ends; a call st
   assert.match(calls, /cur\.carrying \|\| cur\.wrapOnly \|\| cur\.finishing/); // (the next step's call waits for it)
   assert.match(calls, /if \(C\.finishing && C\.yieldNow\) \{ end\(C, true\); return; \}/); // (a story's next call: after the line it is saying)
   const run = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/runner.js'), 'utf8');
-  assert.match(run, /wrapAfterMain: !ride, finish: !!ride \}/);
+  assert.match(run, /wrapAfterMain: !ride, finish: !!ride, span, beats: true \}/);
   assert.match(run, /if \(QUIET_STEPS\.has\(d\.type\) && !d\.ref\) ui\.objective\(d\.objective \? parts\(d\.objective\) : null\)/);
 });
 
@@ -238,11 +238,13 @@ test("a recorded line is heard out: the call waiting waits for the hold line, a 
   const run = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/runner.js'), 'utf8');
   const cw = run.slice(run.indexOf('async function callWaiting('), run.indexOf('async function voicemail('));
   assert.match(cw, /W\.calls\.state\(\)\?\.held && !W\.calls\.talking/); // ('Go, I'll hold.' said before the new caller)
-  assert.match(run, /if \(W\.voice\?\.left\?\.\(\) > 0\.08\) \{ const t0 = now\(\); await wait\(\(\) => !\(W\.voice\.left\(\) > 0\.08\)/);
+  // (but a line written to be cut into (its cut, or a trail-off) is cut in over: storyrun-talk.test.mjs)
+  assert.match(run, /if \(!cutIn && W\.voice\?\.left\?\.\(\) > 0\.08\) \{ const t0 = now\(\); await wait\(\(\) => !\(W\.voice\.left\(\) > 0\.08\)/);
   const calls = fs.readFileSync(path.join(ROOT, 'wagmi/mission/calls.js'), 'utf8');
   const end = calls.slice(calls.indexOf('function end(C, sound = true)'), calls.indexOf('function stepGone('));
   assert.doesNotMatch(end, /W\.voice\?\.stop/);
-  assert.match(calls, /if \(subNow\(\) \|\| W\.voice\?\.left\?\.\(\) > 0\.08\)/);
+  // (the voice still playing that is the call's own line before (a world's overlap or cut-in) is not the mission's)
+  assert.match(calls, /if \(subNow\(\) \|\| \(!\(C\.ownEnd && t < C\.ownEnd\) && W\.voice\?\.left\?\.\(\) > 0\.08\)\)/);
   assert.match(fs.readFileSync(path.join(ROOT, 'wagmi/radio/voices.js'), 'utf8'), /left: \(\) => \(cur && ctx \? Math\.max\(0, cur\.end - ctx\.currentTime\) : 0\)/);
 });
 
@@ -457,4 +459,95 @@ test("a story world's lines are heard clearly (14 Nov: \"I can't hear anyone tal
   // the voices never go through the in-car muffle (core.js: only the amb bus and the reverb are low-passed in the cabin)
   const core = fs.readFileSync(path.join(ROOT, 'wagmi/audio/core.js'), 'utf8');
   assert.match(core, /if \(k === 'amb'\) \{ g\.connect\(muffle\); muffle\.connect\(muffleGain\); muffleGain\.connect\(d\); \} else g\.connect\(d\);/);
+});
+
+test("a stock car's paint (carPaint): a colour, on a world whose car is a stock one; the roadster is built in it", () => {
+  const native = JSON.parse(fs.readFileSync(path.join(ROOT, 'tools/storyrun/test-packs/native.json'), 'utf8'));
+  const w = (f) => { const x = structuredClone(native); x.car = 'roadster'; f(x); return check(x); };
+  assert.deepEqual(w((x) => { x.carPaint = '#76B900'; }), []);
+  assert.ok(w((x) => { x.carPaint = 'green'; }).includes('carPaint'));
+  assert.ok(w((x) => { x.carPaint = '#76B900;x'; }).includes('carPaint'));
+  assert.ok(w((x) => { x.car = { model: 'mogcity/gt' }; x.carPaint = '#76B900'; }).includes('carPaint'), 'a model car has its own paint');
+  const src = fs.readFileSync(path.join(ROOT, 'wagmi/game.js'), 'utf8'), pk = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/pack.js'), 'utf8');
+  assert.match(pk, /W\.stockPaint = W\.stockCar && typeof def\.carPaint === 'string' && COLOUR\.test\(def\.carPaint\)/);
+  assert.match(src, /const paint = \(PACK\?\.ok && PACK\.stockPaint\) \|\| story\.paint \|\| null;/);
+  assert.match(src, /buildRoadster\(THREE, paint \? \{ paint, \.\.\.\(stockPaint \? \{ seats: 'leather' \} : \{\}\) \} : undefined\)/);
+  // (in its own paint it has dark leather seats, not the stock car's pale ones: from inside a lime car they were two
+  // white blocks behind the driver, 19 Nov); Dan's roadster and a Mog's paint keep the pale seats
+  assert.match(src, /const stockPaint = \(PACK\?\.ok && PACK\.stockPaint\) \|\| null;/);
+  const rd = fs.readFileSync(path.join(ROOT, 'wagmi/roadster.js'), 'utf8');
+  const seat = rd.slice(rd.indexOf('    seat: o.seats'), rd.indexOf('    cabin: new'));
+  assert.match(seat, /o\.seats === 'leather' \? new THREE\.MeshPhysicalNodeMaterial\(\{ color: '#141416'/);
+  assert.match(seat, /: new THREE\.MeshStandardNodeMaterial\(\{ color: '#B4B6BB', roughness: 0\.7 \}\)/);
+  const hex = seat.match(/color: '#([0-9A-F]{6})'/)[1], lum = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16)).reduce((a, b) => a + b) / 3;
+  assert.ok(lum < 40, 'the leather is dark');
+});
+
+test("the wedge (the Tensore, Jensen's car): a world's model car { model: 'mogcity/wedge' }, its own body, credited, badge-free", async () => {
+  const native = JSON.parse(fs.readFileSync(path.join(ROOT, 'tools/storyrun/test-packs/native.json'), 'utf8'));
+  const w = (f) => { const x = structuredClone(native); f(x); return check(x); };
+  assert.deepEqual(w((x) => { x.car = { model: 'mogcity/wedge', label: "Jensen's car", paint: '#76B900' }; }), []);
+  assert.ok(w((x) => { x.car = { model: 'mogcity/wedge', paint: 'lime' }; }).includes('car.paint'));
+  assert.ok(w((x) => { x.car = { model: 'mogcity/wedge' }; x.carPaint = '#76B900'; }).includes('carPaint'), 'a model car has its own paint');
+  assert.deepEqual(check(JSON.parse(fs.readFileSync(path.join(ROOT, 'tools/storyrun/test-packs/wedge-day.json'), 'utf8'))), []);
+  const src = fs.readFileSync(path.join(ROOT, 'wagmi/game.js'), 'utf8'), wd = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/wedge.js'), 'utf8');
+  assert.match(src, /const WEDGE = MODEL && PACK\.modelCar\.model === 'mogcity\/wedge';/);
+  assert.match(src, /import\('\.\/storyrun\/wedge\.js'\)\)\.then\(\(m\) => m\.buildWedge\(THREE, PACK\.modelCar\)\)/);
+  // its body: the downloaded model, credited (CC BY 4.0) wherever it is shown, with no texture of the source's shipped
+  assert.match(wd, /assets\/vehicles\/wedge\/wedge\.glb/);
+  assert.match(wd, /WEDGE_CREDIT = \{[^}]*ALIEEEN[^}]*CC BY 4\.0/);
+  const glb = fs.readFileSync(path.join(ROOT, 'assets/vehicles/wedge/wedge.glb'));
+  const jl = glb.readUInt32LE(12), gj = JSON.parse(glb.subarray(20, 20 + jl).toString('utf8'));
+  assert.equal((gj.images || []).length, 0, 'no image of the source (photos of the real car, its maker\'s marks) is shipped');
+  assert.ok(!(gj.nodes || []).some((n) => /logo|badge|emblem|crest/i.test(n.name || '')), 'no badge mesh');
+  for (const c of ['FL', 'FR', 'BL', 'BR']) assert.ok(gj.nodes.some((n) => n.name === `wheel_${c}_rim`), `its ${c} wheel`);
+  for (const sd of ['L', 'R']) assert.ok(gj.nodes.some((n) => (n.name || '').startsWith(`door_${sd}_Body`)), `its ${sd} door`);
+  const credits = fs.readFileSync(path.join(ROOT, 'assets/vehicles/wedge/CREDITS.md'), 'utf8');
+  assert.match(credits, /based on a 3D model by \*\*ALIEEEN\*\*/);
+  // the brand rule: no real maker's or model's name where a player sees it (the pause menu's credit) or in what ships
+  // (the model's own metadata, the scripts that make it); the work's title is left out, its link is by id
+  const { REAL_NAMES } = await import('../wagmi/storyrun/vehicles/classes.js');
+  const words = (t) => ' ' + String(t).toLowerCase().replace(/['’]s\b/g, '').replace(/[^a-z0-9]+/g, ' ') + ' ';
+  // (and the source's own maker and model words, kept here only as sha256 prefixes, so the repo never spells them out)
+  const SRC = new Set(['bc7cf653fae92897', 'c798ceefaebca023', '9698723240ab6e42', '31e4dacf7448f4bf', '6eded4e498617dff', '6270fe359522a1f4', '915b2b89192d9021', '73fc8d2a61a4c97d', '8c649a8f85f3d89d', '9ad5027e26a06c35']);
+  const hashed = (t) => words(t).split(' ').filter((x) => x && SRC.has(createHash('sha256').update(x).digest('hex').slice(0, 16)));
+  const named = (t) => [...REAL_NAMES.filter((n) => words(t).includes(' ' + n + ' ')), ...hashed(t)];
+  const cr = wd.slice(wd.indexOf('export const WEDGE_CREDIT'), wd.indexOf('};', wd.indexOf('export const WEDGE_CREDIT')));
+  assert.match(cr, /3D model by ALIEEEN \(Sketchfab\)/);
+  for (const [where, t] of [['WEDGE_CREDIT', cr], ['wedge.glb asset', JSON.stringify(gj.asset)], ['wedge.glb names', JSON.stringify([gj.nodes, gj.meshes, gj.materials].map((l) => (l || []).map((x) => x.name)))],
+    ['wedge.js', wd], ['pack.mjs', fs.readFileSync(path.join(ROOT, 'tools/vehicles/wedge/pack.mjs'), 'utf8')], ['build.py', fs.readFileSync(path.join(ROOT, 'tools/vehicles/wedge/build.py'), 'utf8')],
+    ['CREDITS.md', credits.replace(/\(a\s+real car maker's and model's names\)/, '')], ['LICENSE.txt', fs.readFileSync(path.join(ROOT, 'assets/vehicles/wedge/LICENSE.txt'), 'utf8')]]) {
+    assert.deepEqual(named(t), [], `${where} names no real maker or model`);
+  }
+  assert.match(fs.readFileSync(path.join(ROOT, 'assets/CREDITS.md'), 'utf8'), /assets\/vehicles\/wedge\/wedge\.glb/);
+});
+
+test("the wedge's dents come through the damage model once: damage.js hands a costed dent to the car's own, repair puts it back", () => {
+  const dm = fs.readFileSync(path.join(ROOT, 'wagmi/crash/damage.js'), 'utf8'), src = fs.readFileSync(path.join(ROOT, 'wagmi/game.js'), 'utf8'), wd = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/wedge.js'), 'utf8');
+  assert.match(dm, /typeof car\.roadster\.dent === 'function'/);
+  assert.match(dm, /own\.dent\(_p\.x, _p\.z, 20, \{ depth, r, cap \}\)/);
+  assert.match(dm, /car\.roadster\.repair\(\)/);
+  // (no second hook of its own on crash.js 'hit': a hit would dent it twice)
+  assert.doesNotMatch(src, /modelRs\.dent\(/);
+  assert.match(wd, /rs\.dent = \(x, z, speed = 10, o2 = null\)/);
+  assert.match(wd, /rs\.repair = \(\) =>/);
+});
+
+test('the stage set room: an arena stage from the floor, in the rooms a set may name', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/rooms.js'), 'utf8');
+  assert.match(src, /export const ROOMS = \{[^}]*\bstage \}/);
+  assert.match(src, /import \{ stage \} from '\.\/stage-room\.js';/);
+  const st = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/stage-room.js'), 'utf8');
+  assert.match(st, /export function stage\(K, def\) \{[\s\S]*def\.sign \|\| 'LIVE'/);
+  // (lit as a keynote: the wall's area light, haze, the presenter's key; the house: the city's people kept clear of the
+  // set's own, calm or up; a tick the set calls each frame)
+  assert.match(st, /K\.rects\.push\(/); assert.match(st, /fog: \{ color:/); assert.match(st, /def\.house === 'up'/);
+  assert.match(st, /N\.PersonCrowd/); assert.match(st, /clear\.some\(\(c\) => Math\.hypot\(c\[0\] - p\.x, c\[1\] - p\.z\) < 1\.0\)/);
+  const sets = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/sets.js'), 'utf8');
+  assert.match(sets, /if \(S\.room\.tick\)/); assert.match(sets, /if \(room\.fog\) scene\.fog = new THREE\.FogExp2/);
+});
+
+test('a car parked while he walks stands on the ground under it (a hometown street is not at 0)', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'wagmi/intro.js'), 'utf8');
+  assert.match(src, /c\.position\.set\(car\[0\], cm\.getGroundHeight \? cm\.getGroundHeight\(car\[0\], car\[1\], 'car'\) \|\| 0 : 0, car\[1\]\)/);
 });

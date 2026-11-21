@@ -205,6 +205,14 @@ The Vantor GT's downloaded body (`assets/vehicles/vantor/vantor-gt.glb`, used on
 mechanicals removed, simplified and repainted; `assets/vehicles/vantor/CREDITS.md` has the details. The game's car is
 a look-alike named "Vantor GT" and has no connection with any car maker.
 
+The Tensore's downloaded body (`assets/vehicles/wedge/wedge.glb`, used only by a Story Kit world whose car is
+`{ model: 'mogcity/wedge' }`, never by Mog City's own game) is based on a 3D model by
+[ALIEEEN](https://sketchfab.com/ALIEEEN), from
+[Sketchfab](https://sketchfab.com/3d-models/cf52245eb68f48daa909c7ad2a8deaa3), under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Modified: every badge mesh and every texture removed, the
+doors cut free, refinished in the game's own materials; the source was verified against the author's Sketchfab
+original; `assets/vehicles/wedge/CREDITS.md` has the details. The game's car is a look-alike named "Tensore" and has no connection with any car maker.
+
 
 ### Town cars (`assets/vehicles/fleet/`)
 

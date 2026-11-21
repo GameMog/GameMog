@@ -26,6 +26,7 @@ Add these to the URL to jump straight to what you're working on (combine them wi
 |---|---|
 | `?nointro` | Free roam: no title screen, no cutscene, no mission |
 | `?nogate` | No title screen: the opening plays at once |
+| `&freedrive` (with a story world's `pack=`) | The world with no story: its town, car, hero and time of day, free roam from behind the wheel, no opening and no mission (for driving tests in San Jose, Colter Land, SF 2040) |
 | `?m1=car`, `drive`, `arrival`, `fight`, `search` | Mission 1 (*Bagged*) from that checkpoint |
 | `?m2=start`, `go`, `tail`, `yard`, `fight`, `chase`, `crash`, `phone` | Mission 2 (*Burner*) from that checkpoint |
 | `?m2=handoff` | After Mission 1: by the Suits' van at Chelsea Park, Jane's DM, then the drive to Bryant Park with her on the car phone |

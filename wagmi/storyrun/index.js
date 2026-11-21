@@ -167,6 +167,16 @@ export async function install(W) {
   if (gate) await gate;
   ui.gameTitle(false);
   if (Q.has('nogate')) sfx.unlock?.();
+  // (jh-drive round 2) &freedrive: the world as built (its town, its car, its hero, its time of day) with no story: no
+  // opening, no mission, free roam from behind the wheel, for driving and handling tests (SJ, Colter Land, SF 2040)
+  if (Q.has('freedrive')) {
+    console.info('[storyrun] freedrive: no story');
+    // (behind the wheel once the world has settled: the test drives start from the seat)
+    await sleep(1500);
+    try { if (W.app.controllerManager.activeMode !== 'car') W.ride?.getIn?.(true); } catch (e) { console.warn('[storyrun] freedrive', e); }
+    tell('freedrive', { id: def.id });
+    return;
+  }
 
   // (the ranch up before the first mission names it; never held more than 25 s)
   if (W.storyrun.ranch) await Promise.race([W.storyrun.ranch.ready.catch(() => null), sleep(25000)]);
@@ -240,6 +250,9 @@ export async function install(W) {
         W.storyrun.lastCard = card;
         await hud.passed({ ...card, stats: [['TIME', fmt(r.secs)], ...card.stands] }, flags.autoCard ? 2.2 : 7);
       }
+      // (free roam from here to the next mission: the GPS routed to its start at once, its marker over the spot (guide.js,
+      // runner.js nextSource), before its afterword and its between(); the RC playtest, P9)
+      routeNext(order[k + 1]?.def || null);
       // (the act's end card, after its last mission)
       // (after the card: the mission's own afterword, Mog City's way: DMs, a line of his; Mission 2's Jane and Rook)
       await afterPass(m);
@@ -292,11 +305,21 @@ export async function install(W) {
   // (a mission's `between` says how its way in looks, Mog City's J and G: { letter, name, objective, step (the free-roam
   // step its car call belongs to, calls.js: 'free:J' rings m2-handoff), dm: false (its afterword already said it),
   // help, note (the GPS's one stall line: [who, text]), radius, carR (how near a stopped car counts) }; else the giver's letter and a DM of the stakes)
+  // (the GPS on the next mission's start as soon as the last one has passed: the route on the radar, the turn cues,
+  // the marker over the spot. None in a test drive's fast flow, nor for a mission its start is cut to (ride: false))
+  function routeNext(m) {
+    W.nextMission = null;
+    const p = m && !flags.flowFast && m.between?.ride !== false ? places.at(m.start) : null;
+    if (!p) return;
+    W.nextMission = { id: m.id, x: p.x, z: p.z, name: m.between?.name || m.title };
+    try { W.gps.objective(['Go to ', { [p.name || m.title]: 'yellow' }, ' for ', { [m.title]: 'yellow' }, '.'], { x: p.x, z: p.z, name: W.nextMission.name }, { blip: false }); } catch (e) { console.warn('[storyrun] next route', e); }
+  }
   async function between(m) {
-    const p = places.at(m.start); if (!p) return;
+    const p = places.at(m.start); if (!p) { W.nextMission = null; return; }
     const B = m.between || {};
     // (`between.ride: false`: no ride there in free roam, the mission's start is cut to (its card covers it: a new day,
     // a long ride already taken); its radio lines still said, over the start)
+    W.nextMission = B.ride === false ? null : { id: m.id, x: p.x, z: p.z, name: B.name || m.title };
     if (B.ride === false) {
       // (a short fade over the cut, back up once the mission has put him at its start)
       if (B.fade !== false) { try { await ui.fade(1, 0.5); } catch {} setTimeout(() => { try { ui.fade(0, 0.8); } catch {} }, 700); }
@@ -345,12 +368,12 @@ export async function install(W) {
         // (a test drive drives into it: put down by the corona once its call has had a moment)
         if (flags.autopilot && flags.autoContinue && !jumped && performance.now() - t0 > 4000) { jumped = true; W.storyrun.runner.putPlayer({ x: p.x, z: p.z + 3, heading: Math.PI }, 'car'); }
         const d = Math.hypot(e.position.x - p.x, e.position.z - p.z);
-        if (inCar ? d < (B.carR ?? r + 4.5) && Math.abs(car.speed) < 3 : d < r + 0.6) return res();
+        if (inCar ? d < (B.carR ?? r + 4.5) && Math.hypot(car.speed, car.slipV || 0) < 3 : d < r + 0.6) return res();
         requestAnimationFrame(f);
       };
       f();
     });
-    btok.dead = true; ui.sub(null);
+    btok.dead = true; ui.sub(null); W.nextMission = null;
     W.between = wasB === W.between ? null : wasB;
     if (W.gps.stallNote === B.note) W.gps.stallNote = null;
     marker.hide(); W.gps.unblip('next'); W.gps.unblip('car'); W.gps.clear(); ui.objective(null); ui.help(null); hud.meters([]);

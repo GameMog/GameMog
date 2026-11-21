@@ -39,7 +39,8 @@ A say() tuple's 4th field is a number (an authored pause, as before) or a beat:
 |---|---|
 | `pause` | seconds of silence after the line (a reveal 0.8-1.2, the W6 pivot 0.6-0.8); left out, the beat decides |
 | `pre` / `post` | seconds before / after it (0-1.2); a line starting `...` gets a 0.3 s pre-beat |
-| `overlap` | a reply of 2 words or fewer starts 0.15 s before the line before ends (at most 1 in 6 lines) |
+| `overlap` | a reply of 4 words or fewer starts 0.15 s before the line before ends (at most 1 in 6 lines) |
+| `cut` | 0.3-0.95: an interruption. The line is held for that share of it, then the next speaker cuts in (0.05 s), its voice faded out under them |
 | `how` | warm, tease, deadpan, urgent, angry, shout, scared, hushed, hesitant, sad, smug: the voice build makes the line in it (its pitch ±1 semitone, a Kokoro voice's speed ±8 %, its level: a shout 3 dB up, hushed 4 down) |
 
 Without a written pause, a quick reply (4 words or fewer, or the answer to a question) lands 0.12 s after the line
@@ -49,8 +50,16 @@ line's own pause and post are kept, its subtitle up through them. A line whose r
 clip before it is decoded) waits for the decode, up to 2.5 s, so it is held for its real length and never cut by the
 next; every line of a scene starts decoding when the scene does. The first in-person line of a scene takes a breath
 first (D5: `W.voice.breath`, soft filtered noise, 0.2 s; none on a phone or video band).
-Story packs carry the same fields on a line object (`{ who, text, how, pre, post, pause, overlap }`), and a cutscene
+Story packs carry the same fields on a line object (`{ who, text, how, pre, post, pause, overlap, cut }`), and a cutscene
 shot may hold several lines (`lines: [...]`) or none (`react: true`, 0.6-1.2 s, a reaction after a reveal).
+
+A story world's car-phone call (`wagmi/storyrun/talk.js`, 18 Nov) is timed the same way: each line goes to calls.js
+with its beat, so a quick reply lands 0.12 s after, an overlap 0.15 s early over the line before, a cut cuts in, and a
+recorded line is held for its own length (Mog City's own calls, with a number or nothing for a beat, are as they were).
+Its react pools are lists of variants, each a line or an exchange; `hit` fires on a crash (4.5 m/s or more) while it
+talks, `spotted` when a chase sees him again or a stealth spots him. `span: n` keeps it going over the next n steps,
+its extra blocks and all, and it wraps at the last. A line's `how` reaches the voices (W.voice.how, the log) and the
+faces: a baked face smiles on a warm line (docs/FACE-CONTRACT.md).
 
 A scene's in-person lines are heard in its place: `room: 'street' | 'park' | 'garage' | 'interior'` on a runScene def
 (or talk()), a short room and the distance's top end under the dry voice (`wagmi/radio/voices.js`). Calls keep their

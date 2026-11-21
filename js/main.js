@@ -468,7 +468,9 @@ async function initApp() {
   // (Mog City: Dan's car has a dial of its own, carDial: the meter fills to its 176; any other car, a story's sheet, a
   // town fleet's model, a picked car, the horse, shows its real mph, the meter full at its own top, carTopMph)
   const topSpeedMph = { person: 18, car: 176, cyclist: 43, helicopter: 116 };
-  const carTopMph = (c) => (c.dial === 'dan' ? 176 : Math.max(1, (c.noBoost ? c.topSpeed : c.boostSpeed ?? c.topSpeed) ?? 56) * 2.237);
+  // (m/s to mph: the one conversion, wagmi/speedo.js MPH, the story runner's speed limits' too)
+  const MPH = 2.23694;
+  const carTopMph = (c) => (c.dial === 'dan' ? 176 : Math.max(1, (c.noBoost ? c.topSpeed : c.boostSpeed ?? c.topSpeed) ?? 56) * MPH);
   // (Mog City, the owner 24 Oct: Dan's car peaks at 176 and never shows a frozen number. Double its real mph up to
   // the cruise (34 m/s, 76 mph: 152), the boost's 76-125 mph over the last 24 (56 m/s: 176); held at either top it
   // wanders the 3 under it (149-152, 173-176), a new number every update). Only Dan's car (game.js: car.dial 'dan',
@@ -833,6 +835,7 @@ async function initApp() {
     cycleCamera,
     setHintInput,
     selectTime,
+    warm, // (Mog City: a story's sets and late arrivals compiled for the scene pass before their first frame, see warm())
     getFps: () => currentFps
   };
 
@@ -918,6 +921,41 @@ async function initApp() {
   await precompileShaders();
   markInit('compile');
 
+  // warm(objects, { scene, camera }): what the game adds once the city runs (a story's set and its people, a late
+  // arrival) compiled for the very target the city's frame draws it into (the scene pass: its attachments, its samples),
+  // not the canvas, the frames held meanwhile (the loop draws nothing while warming: compileAsync() renders into the
+  // scene pass's target). A story's set compiled for the canvas came out with one output for the pass's several, so
+  // every pipeline was built again on the set's first frame: 220-320 ms at each of ST-8's cutscenes, and its h1 call
+  // (the Jensen Heist RC review, P12; cities/sf/js/main.js has had the same since its loadfix). { scene, camera }:
+  // another scene drawn through the same pass (a story's set, wagmi/storyrun/sets.js). { target }: a render target of
+  // its own in place of the scene pass's (a video call's tile, wagmi/storyrun/vcall-draw.js), no MRT
+  // { hold: false }: the loop not held (a call's office prepared mid-drive, wagmi/storyrun/vcall.js: the 180-400 ms frame
+  // it held on the street, the RC review): each of its top-level objects compiled in a task of its own, the renderer's
+  // target put back as soon as each compileAsync() has taken it (it is read before the compile's first await), the
+  // pipelines finished off the loop
+  let warming = 0;
+  async function warm(objects, { scene: where = scene, camera = cameraSystem.camera, target = null, hold = true } = {}) {
+    let list = [].concat(objects || []).filter((o) => o && o.isObject3D);
+    if (!hold) list = list.flatMap((o) => (o.isScene ? o.children : [o]));
+    if (!list.length || deviceLost) return;
+    if (hold) warming++;
+    try {
+      for (const o of list) {
+        await nextTask();
+        if (deviceLost) return;
+        const rt0 = renderer.getRenderTarget(), mrt0 = renderer.getMRT ? renderer.getMRT() : null;
+        let p = null;
+        renderer.setRenderTarget(target || scenePass.renderTarget);
+        renderer.setMRT(target ? null : sceneMRT);
+        try { p = renderer.compileAsync(o, camera, where); } catch (e) { console.warn('[warm]', e); }
+        finally { renderer.setRenderTarget(rt0); renderer.setMRT(mrt0); }
+        try { await p; } catch (e) { console.warn('[warm]', e); }
+      }
+    } finally {
+      if (hold) warming--;
+    }
+  }
+
   // 6. Animation Loop
   let lastTime = performance.now();
   let elapsed = 0;
@@ -946,6 +984,7 @@ async function initApp() {
   renderer.setAnimationLoop((now) => {
     const rawDt = (now - lastTime) * 0.001;
     lastTime = now;
+    if (warming) return; // (warm() holds the frame, see above)
     if (adaptiveResolution && warmedUp) adaptiveResolution.update(rawDt, !document.hidden, lastWork);
     const workStart = performance.now();
     if (warmedUp) window.mcPerf?.frame(rawDt, lastWork);
@@ -1030,7 +1069,7 @@ async function initApp() {
 
       const activeEnt = controllerManager.getActiveEntity();
       const mode = controllerManager.activeMode;
-      const mph = mode === 'car' && activeEnt.dial === 'dan' ? carDial(activeEnt, controllerManager.keys.boost) : Math.round(Math.abs(activeEnt.speed) * 2.237);
+      const mph = mode === 'car' && activeEnt.dial === 'dan' ? carDial(activeEnt, controllerManager.keys.boost) : Math.round(Math.abs(activeEnt.speed) * MPH);
       const altFt = Math.max(0, Math.round(activeEnt.position.y * 3.281));
 
       if (elFps) {

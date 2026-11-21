@@ -32,6 +32,8 @@ export const HORSE_CREDIT = { what: 'Ranger, the horse', who: 'Patch (New Save L
 
 /** The city's car entity's numbers as a horse's: its box, framing, paces, handling, name (in place of the car's). */
 export function fitHorse(car, rs, o = {}) {
+  // (no tyres' state carried onto the horse: its slide, handbrake and drift are the car's, js/drive-model.js)
+  Object.assign(car, { slipV: 0, slip: 0, slide: 0, hb: false, latF: 0, _knockCool: 0 });
   Object.assign(car, {
     kind: 'horse', vclass: 'horse', label: o.label || rs.label,
     body: { ...rs.body }, axle: rs.axle, mass: 0.6,

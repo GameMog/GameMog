@@ -127,7 +127,7 @@ export function outBesideCar(W) {
 export function place(W, { car, dan }) {
   const cm = W.app.controllerManager, c = W.car, p = W.person;
   if (car) {
-    c.position.set(car[0], 0, car[1]); c.heading = car[2]; c.speed = 0; c.vx = c.vz = c.angularVel = c.steerAngle = 0;
+    c.position.set(car[0], cm.getGroundHeight ? cm.getGroundHeight(car[0], car[1], 'car') || 0 : 0, car[1]); c.heading = car[2]; c.speed = 0; c.vx = c.vz = c.slipV = c.angularVel = c.steerAngle = 0; // (y: on the ground under it, a hometown's street is not at 0)
     c.mesh.position.copy(c.position); c.mesh.rotation.y = c.heading;
   }
   if (dan) {

@@ -9,7 +9,8 @@
 //              footwork reads it the same way)   RS look   A jump (Space)
 //              X strike (J)   Y get in (F) with the car's prompt or a hold-F ring up, else heavy (K)   B dodge (C)
 //              LB counter (L)   RB grab · pick up · throw (E)   LT held, or L3 (on until the stick lets go): sprint
-//   IN THE CAR RT drive   LT brake · reverse   LS steer   RS look   A hop (Space)   X boost   LB · RB dash left · right
+//   IN THE CAR RT drive   LT brake · reverse   LS steer   RS look   A handbrake, or the hop once a mission gives one (Space)
+//              X boost   LB · RB dash left · right
 //              (Z · C)   Y get out (F)   B reset car to road (X)   D-pad up electric · engine (Q)   D-pad right · left
 //              radio: next song (R) · song back   D-pad down radio on · off (T)
 //   IN THE AIR (Mission 4's helicopter) LS pitch and turn   RT · LT ascend · descend   X boost   Y get out (F, landed)
@@ -392,12 +393,30 @@ export function install(W) {
 
   W.pad = { active: false, family, ids: IDS, glyph: glyphHTML };
   gp.attach(layer);
+  // (jh-drive) the pad's rumble, while it is the one played with and has a motor (vibrationActuator): a crash's blow
+  // (wagmi/crash 'hit') by how hard it was, and a light buzz while the tyres slide or the handbrake is on
+  // (js/drive-model.js c.slide, c.hb). W.pad.rumble(strong, weak, ms) for anything else that wants it
+  const motor = () => { for (const g of navigator.getGamepads?.() || []) if (g && g.connected && g.vibrationActuator) return g.vibrationActuator; return null; };
+  function rumble(strong, weak, ms) {
+    if (!active) return;
+    try { motor()?.playEffect?.('dual-rumble', { duration: ms, strongMagnitude: Math.min(1, Math.max(0, strong)), weakMagnitude: Math.min(1, Math.max(0, weak)) })?.catch?.(() => {}); } catch {}
+  }
+  W.pad.rumble = rumble;
+  let hooked = false, buzzT = 0;
+  function rumbleFrame(dt) {
+    if (!hooked && W.crash?.on) { hooked = true; W.crash.on('hit', (h) => { const k = Math.min(1, (h?.speed || 0) / 20); if (k > 0.1) rumble(k, Math.min(1, k * 1.3), 120 + 260 * k); }); }
+    if ((buzzT -= dt) > 0 || cm.activeMode !== 'car') return;
+    buzzT = 0.1;
+    const c = W.car, k = c ? Math.max(c.slide || 0, c.hb ? 0.6 : 0) * Math.min(1, Math.abs(c.speed || 0) / 10) : 0;
+    if (k > 0.05) rumble(0, 0.12 + 0.3 * k, 130);
+  }
   // (polled on a frame of its own: the pause menu holds the city's)
   let last = performance.now(), soundT = 0;
   (function poll(now) {
     requestAnimationFrame(poll);
     const dt = Math.min(0.1, Math.max(0, (now - last) / 1000)); last = now;
     try { gp.poll(dt); } catch (e) { console.warn('[pad]', e); }
+    try { rumbleFrame(dt); } catch {}
     // (the key caps that depend on it: in the car or on foot)
     if (active && cm.activeMode !== modeWas) swapAll(true);
     modeWas = cm.activeMode;

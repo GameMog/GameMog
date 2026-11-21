@@ -1,4 +1,4 @@
-# Hometown compiler 0.13.0 (the national grid hg1)
+# Hometown compiler 0.14.0 (the national grid hg1)
 
 Turns open US map data into **tiles on one national grid**. A tile is compiled from its own sources and context alone,
 so any tile can be compiled on first request, neighbouring towns share identical tiles, and a place is just a list of
@@ -139,10 +139,10 @@ centres by non-max suppression within 2 km, downtown = within 350 m of a centre)
 A tile reads the ctx blocks within 3.2 km and the regions within 3.2 km (a tile whose regions are not fetched is refused
 with the fetch command to run).
 
-**buildId** `htc-0.13.0-hg1-b{8 hex}`: the first 8 hex of the sha256 of the build record (`builds/{buildId}.json`:
+**buildId** `htc-0.14.0-hg1-b{8 hex}`: the first 8 hex of the sha256 of the build record (`builds/{buildId}.json`:
 compiler version, libraries incl. GEOS and zlib, the CPU architecture (`machine`) and the duckdb `spatial` extension's
 version, image digest (`HOMETOWN_IMAGE_DIGEST` from the environment: the town-builder image sets a recipe id), Overture
-release, DEM snapshot, grid). Compiler logic
+release, DEM snapshot, grid, and since 0.14.0 the core table's sha256, `cores`). Compiler logic
 changes bump `COMPILER_VERSION`; library, image or source changes change only `b`.
 
 ## Containers (gzip, mtime 0, sorted JSON)
@@ -190,6 +190,35 @@ from a compiled tile**, so it exists seconds after a town is picked and is the s
 Since 0.8.0 stage 1 is round 3's: a capped place (its `searchBbox` wider than its capped `bbox`) takes the same size of
 box centred on its downtown (`assemble.downtown_box`), so the frame's play box, tile range, district, spawns and lock
 are all over the downtown-centred box.
+
+**The core step (0.14.0).** The 0.8.0 search looks for that downtown only within half a box of the Census internal
+point, and some big places' internal points are farther than that from their downtown: San Jose's lies 8 km south-east
+of it (its 0.8.0 box is Story Rd and Senter Rd), Phoenix's 14 km north, Los Angeles' 16 km west. `cores.json` lists the
+**core** of each such place: its Overture locality point (OpenStreetMap's place node, which mappers put on the downtown,
+the main square or the city hall), matched to the Census place by state, folded name and its search box, for the 1,580
+capped places whose core lies outside the internal point's window (`cores.py --census <GameMog lib/places/us-places.tsv.gz>`
+rebuilds it, ~10 s, once per Overture release). When the 0.8.0 box misses the core, `downtown_box` takes the strongest
+ctx centre within half a box of the core instead, if it scores at least the 0.8.0 centre (POIs within 250 m); else the
+0.8.0 box with `boxRule.coreKept` saying why. The frame's `boxRule` names the core, its source and both centres. Every
+place whose 0.8.0 box already holds its core, or that has none, keeps that box byte for byte (checked on Bozeman and
+Pittsburgh: the same box, tiles and `boxRule` as 0.13.2), no tile's bytes change, and the session frame's origin stays
+the internal point's tile (a moved box lies kilometres from the origin; every coordinate is still the frame's). A
+places entry may carry its own `core: [lon, lat]` (a dev box, a test). Tests: `test_cores.py` (the rule on stubbed
+centres; the table; `HOMETOWN_CORES_CENSUS=<tsv>` re-derives the table and compares). GameMog's
+`scripts/hometown-build-pycheck.py` checks that the table reads the same search and play boxes GameMog sends.
+
+| place | 0.13.2 box (W, S, E, N) | 0.14.0 box | moved |
+|---|---|---|---|
+| San Jose (us-0668000) | -121.85016, 37.29601, -121.79935, 37.3365 | -121.91628, 37.31515, -121.86546, 37.35564 | onto downtown (score 921 vs 210) |
+| Phoenix (us-0455000) | -112.13506, 33.56426, -112.08654, 33.60475 | -112.09776, 33.42904, -112.04924, 33.46953 | onto downtown (897 vs 239) |
+| Bozeman (us-3008950) | -111.06506, 45.6587, -111.00719, 45.6992 | the same | no (core in its window) |
+| Pittsburgh (us-4261000) | -80.02648, 40.41855, -79.97337, 40.45904 | the same | no (0.8.0 box holds the core) |
+
+**Releasing it.** Stored worlds pin their buildId: 0.13.2's frames and bundles stay and are served as before; a
+published story pinned to a town whose box moved stays on its build (GameMog lib/storykit-upgrade.ts: a place not on the
+new map, or a datum that moved, holds it). Like any compiler release every town rebuilds cold under the new buildId on
+its first visit (`HOMETOWN_DAILY_COLD`); the towns whose box moves are exactly the listed places whose 0.8.0 box misses
+their core. No engine change: the engine plays a box kilometres from the origin (driven: San Jose, 0.14.0).
 
 The assembler lays out spawns, places, the datum and density **from the frame** (one source of truth); `--id` computes
 and stores the frame first. `--assemble <placeId> --window district|full --frame <file> --out <dir>` writes a **bundle**
@@ -389,6 +418,81 @@ S3 read per layer); every town then rebuilds cold under the new buildId on its f
 Coverage (the fetched regions, inside a district): Okemah has no building tags and almost no street furniture (a few
 stop nodes); Pittsburgh's downtown and Phoenix gain hundreds of signals, stop signs, benches and thousands of trees,
 few colours; New York's midtown parts carry roof shapes on 88%, facade colours on 82% and roof materials on 84%.
+
+## 0.13.2: the ties keep every crossing (0.13.1's review)
+
+0.13.1's ties lifted decks into the decks crossing over them and brought decks down onto the ones under them
+(Pittsburgh: Crosstown Blvd 9.5 -> 2.8 m under Bigelow Blvd; Long Beach: W Ocean Blvd's bridge 1.8-6.3 m short over the
+deck under it). Fixed in `grade.solve` and `building_height`:
+
+- **Every deck crossing keeps the side the untied solve put it on** (`grade.links`: the cluster's `under` both ways, and
+  `Piece.over`, a deck of another cluster crossing over it, read as its base profile). In the tied solves a deck that
+  stood under another rises (by its ties, or by the free nodes its twin's ties lifted) no higher than that deck's
+  untied height less its clearance and the vertical curve's rise (a tent at G off the crossing, never under its own
+  untied height); one that stood over another is never brought down under that deck's untied height plus its clearance
+  (or its own untied height, if that was lower).
+- **No tie where the twins cross a deck on different levels** (one over it, the other under): not within `TIE_SPLIT`
+  (150 m) of it; the twins part there, each on its own clearances.
+- **A tie never moves a deck end** out over its fill (`reach`: the clearances alone do). Moved for its tie, Crosstown
+  Blvd's deck ran out over the fill where Bigelow Blvd crosses it.
+- **The third solve's node cap keeps the free chain's clearances**: a free node brought down beside its twin stays as
+  high as the free nodes beyond it need to climb to their clearances at RELAX.
+- **The crest rounding's climb cap holds the ties only**: a clearance is raised by its shortfall as in 0.13.0 (0.13.1
+  capped it too, and left Pittsburgh's ramps at (444, 631) and (-1355, 919) 2.7 m lower under the decks over them).
+- **A MultiPolygon's other polygons stand at their own height** (`building_height`): the row's floors, else the default
+  for the polygon's own area, never taller than the row; the row's height is its tallest part's (the Long Beach
+  Convention Center's 50.1 m arena), and its exhibit halls stood as 50 m slabs.
+
+| full build | 0.13.0 | 0.13.1 | 0.13.2 |
+|---|---|---|---|
+| Pittsburgh `grade.unmet` | 201 | 209 | 173 |
+| Long Beach `grade.unmet` | 134 | 139 | 123 |
+| Crosstown Blvd under Bigelow Blvd (-1149, 29) | 9.5 m | 2.8 m | 9.5 m |
+| ramp under Penn-Lincoln Pkwy N (-2660, 832) | 6.6 m | 3.8 m | 6.6 m |
+| ramps at (444, 631) / (-1355, 919) | 2.2 / 3.7 m | 0.5 / 2.2 m | 2.5 / 4.0 m |
+| W Ocean Blvd bridge `bafc56c5` over the deck under it | met | 1.8-6.3 m short | met |
+| Seaside Freeway twins over the harbour (x -5600..-4400), widest gap | 34.1 m | 0.3 m | 0.3 m |
+| Convention Center exhibit halls (10,078 / 5,496 m2 drawn) | (not drawn) | 56.5 / 57.5 m | 15.4 / 16.5 m |
+
+(Pittsburgh's two new unmet constraints are counted, not made: ramps `52b01767` (6.3 m short) and `c29a7610` (0.6 m)
+are as short under 0.13.0's solver, their 7-piece cluster now reaching a compiled tile through a twin.)
+
+## 0.13.1: twin carriageways, multipolygon buildings (Cold Harbor, Long Beach)
+
+The bugs the owner met in Long Beach (pinned to `htc-0.12.0-hg1-b0d9f54c8`), fixed for every town:
+
+- **A divided road's two carriageways share one grade.** Two one-way pieces are the two directions of one road
+  (`World.paired`) when both found another carriageway (`pair()`), they share a name (unnamed: a class), both are
+  mainline or both links, and one runs abeam of the other, travelling the other way within ~25 degrees, 3-45 m off,
+  at 3 or more grade stations (`abeam`). Paired pieces are in each other's `deck_near` (one grade cluster) and each
+  station abeam is a tie (`grade.Piece.ties`). `grade.solve` then solves the cluster three times: untied; tied UP
+  (each deck at least at its twin's untied height, so both stand at the higher of the two, never lowered under a road
+  or water the other must clear); and tied DOWN where one twin is held down by an anchor (an at-grade junction where
+  it lands): the other is capped at the landed one's height + 5 cm abeam, the cap spreading at RELAX along it and to
+  its free end nodes, never under a clearance tent and never steeper than RELAX off its own ends. The stats count
+  `ties` and the widest gap left (`tieGap`). Long Beach's grade cluster of Seaside Freeway / W Ocean Blvd (35 pieces,
+  1,467 tie stations): abeam gaps over 5 m 1,057 -> 151, the widest 39.2 -> 11.8 m (where both data carriageways end on
+  different anchors), mean 23.8 -> 1.2 m; the twin decks over the harbour channel 0-0.1 m apart (were 35-38 m).
+- **No crest ratchet.** The box filter rounds a crest down, so each constraint is raised by its shortfall and profiled
+  again (4 rounds); a shortfall the RELAX cap made (an anchor too near) was raised too, and each round spread its tent
+  higher (a tied carriageway stood 29 m over its twin). A constraint is now raised no further than the cap at its
+  station plus the filter's reach (RELAX x VC / 2). Long Beach's steepest deck grade 0.28 -> 0.25, constraints met the
+  same.
+- **A MultiPolygon building is all of its polygons.** Overture gives some buildings as a MultiPolygon; the compiler
+  drew only the largest. Each other polygon of `MULTI_MIN` (100 m2) and `MULTI_FRAC` (5%) of the largest or more is a
+  row of its own (`building_rows`: id `{id}~{k}`, owned by the tile of its own centroid, the row's height, names and
+  tags), each with the parts standing mostly on it (`parts_for`). The Long Beach Convention & Entertainment Center was
+  its 11,964 m2 arena alone; its 11,350 and 5,591 m2 exhibit halls are back (its 280 m2 stair cores stay out).
+- **A road at grade in a tunnel under a building trims it, never drops it.** The tunnel-cover rule (a building with less
+  than `TUNNEL_COVER` of ground over a tunnel's road is in a portal's cut: dropped) also dropped a building standing ON
+  a cut-and-cover passage at grade: E Seaside Way runs under the Convention Center's 11,350 m2 hall at 2.4-2.6 m, the
+  hall's base 2.41 m. A tunnel road within `AT_GRADE_TUNNEL` (1.5 m) of the ground over it now trims the footprint like
+  a road on the ground (`brec`), and the rule counts only a footprint lying 1 m2 or more over a tunnel's road.
+- **Pico Avenue is a bridge in the data.** OSM way 172876528 (Overture `66d45bf9`, from way 13400335) is
+  `bridge=yes layer=1` over the Pier B rail yard (Pier F and Pier J leads) and the I-710 southbound ramp (way
+  159431149, layer 0), and the 3DEP bare earth shows its approach fills (10.1 and 7.8 m either side of a 4.7-6 m yard),
+  so the compiler builds it as a deck, as it should. Pico's underpass is under W Ocean Blvd / the Seaside Freeway
+  (z 580 m in the town's frame), where Pico runs at grade under both carriageways' decks.
 
 ## Decks and lanes (grade-lanes)
 

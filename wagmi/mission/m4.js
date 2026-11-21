@@ -581,7 +581,7 @@ function createMission(W, { keep = false, quiet = false } = {}) {
       const off = hook(() => { drive.step(); if (!up && dist(me(), PAV.x, PAV.z) < 700) { up = true; showPav(true); knoxOnDoor(true); } });
       // (the review, round 3: at the curb with Jane's main lines still to say, the scene waits for them, the wheel still
       // his: "Jane's still talking." once. Out of the car the call is on hold and the scene goes on; 40 s at most)
-      const there = () => { const d = dist(me(), dest.x, dest.z); return cm.activeMode === 'car' ? d < 10 && Math.abs(car.speed) < 6 : d < 4; };
+      const there = () => { const d = dist(me(), dest.x, dest.z); return cm.activeMode === 'car' ? d < 10 && Math.hypot(car.speed, car.slipV || 0) < 6 : d < 4; };
       let heldAt = null;
       try {
         await wait(() => {
@@ -592,7 +592,7 @@ function createMission(W, { keep = false, quiet = false } = {}) {
         });
       }
       finally { off(); drive.stop(); if (heldAt != null) ui.help(null); }
-      if (cm.activeMode === 'car') { car.speed = 0; car.vx = car.vz = 0; car.angularVel = 0; }
+      if (cm.activeMode === 'car') { car.speed = 0; car.vx = car.vz = car.slipV = 0; car.angularVel = 0; }
       endCall('m4-seaport');
       showPav(true);
     },

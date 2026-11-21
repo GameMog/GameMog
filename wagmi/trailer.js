@@ -468,7 +468,7 @@ async function play(W, T, borrow, getPage) {
   let borrowed = false;
   function own() { if (borrowed) { borrowed = false; borrow.off(); } }
   function carPose(x, z, h, o = {}) {
-    car.position.set(x, ground(x, z, 'car') + (o.y || 0), z); car.heading = h; car.speed = 0; car.vx = car.vz = 0;
+    car.position.set(x, ground(x, z, 'car') + (o.y || 0), z); car.heading = h; car.speed = 0; car.vx = car.vz = 0; car.slipV = 0;
     car.mesh.position.copy(car.position); car.mesh.rotation.set(0, h, o.roll || 0); car.mesh.visible = true;
     carState = { speed: o.speed || 0, cold: o.cold || 0, burn: o.burn || 0, steer: o.steer || 0 };
   }
