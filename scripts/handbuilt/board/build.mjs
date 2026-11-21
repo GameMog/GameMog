@@ -20,6 +20,7 @@ import { posturePass, bodyMaskPass, tailorPass } from '../jensen-cast/castpass2.
 import { flatFront3Pass, flatGate } from '../jensen-cast/castpass3.mjs';
 import { slimDoc } from '../jensen-cast/slim.mjs';
 import { vertFrontPass } from '../jensen-cast/castpass6.mjs';
+import { fieldFrontPass, weightSmoothPass } from '../jensen-cast/castpass9.mjs';
 import { plumbClipsPass, bakeRestPass, levelArmaturePass } from '../jensen-cast/plumb.mjs';
 import { faceRigPass } from '../jensen-cast/castpass.mjs';
 import { eyeTamePass, beardCardsPass, beardMorphsPass, seatClipsPass, seatedGate } from '../jensen-cast/castpass4.mjs';
@@ -41,7 +42,11 @@ export async function tiePass(doc, K = {}) {
 if (import.meta.url === 'file://' + process.argv[1]) {
   const args = process.argv.slice(2), OUT = args.find((a) => !a.startsWith('--')) || DIR + 'board.glb';
   const only = args.find((a) => a.startsWith('--only='))?.slice(7).split(','), skip = new Set(args.find((a) => a.startsWith('--skip='))?.slice(7).split(',') || []);
-  const on = (k) => (!only || only.includes(k)) && !skip.has(k);
+  // (polish 1, A1: the suit's front flattened by ONE smooth field over every layer at once, castpass9.mjs, in place of the
+  // per-garment front passes (flat, flat3 and its gate, flatFront5, vert), which folded the jacket over itself; JC_OLDFRONT=1
+  // builds the old way)
+  const FIELD = !process.env.JC_OLDFRONT, FK = JSON.parse(process.env.JC_FIELD_K || '{}');
+  const on = (k) => (!only || only.includes(k)) && !skip.has(k) && !(FIELD && ['flat', 'gate', 'vert'].includes(k));
   const { doc, src } = await read(SRC);
   // (the finalize: his rules.beltUp override (a belt 3 cm over his hips) removed: rules.mjs holds every body at hips + 7 cm)
   const steps = [['eyes', () => eyesPass(doc)], ['iris', () => irisPass(doc, { base: [86, 56, 36] })], ['teeth', () => teethPass(doc)],
@@ -61,7 +66,8 @@ if (import.meta.url === 'file://' + process.argv[1]) {
     ['level', () => levelArmaturePass(doc)], ['plumb', () => plumbClipsPass(doc, JSON.parse(process.env.JC_PLUMB || '{}'))], ['bakerest', () => bakeRestPass(doc, 'idle', 0)],
     // (the critic: "remove the shoulder humps that appear in the call-tile pose": the suit's shoulders taken in to the arm)
     ['tailor', () => tailorPass(doc, { mats: /^clothes$/, ease: 0.008, x0: 0.13, drop: 0.14, k: 0.3, ...JSON.parse(process.env.JC_TAILOR || '{}') })],
-    ['flat3', () => { flatFront3Pass(doc, { lean: 0.02, xIn: 0.21, xOut: 0.3, d1: 0.06, d2: 0.14, below: 0.17, lowEase: 0.03, legW: 0.93, bUp: 0.03 }); bodyMaskPass(doc); }], // (cast round 4: on down to the crotch)
+    ['flat3', () => { if (FIELD) return; // (polish 1: the field runs once, in the rules step, after the face's targets)
+      flatFront3Pass(doc, { lean: 0.02, xIn: 0.21, xOut: 0.3, d1: 0.06, d2: 0.14, below: 0.17, lowEase: 0.03, legW: 0.93, bUp: 0.03 }); bodyMaskPass(doc); }], // (cast round 4: on down to the crotch)
     ['gate', () => flatGate(doc, 'board', { bUp: 0.03, below: 0.1 })], // (his belt sits 3 cm over the hips: the band 10 cm under it, to the trousers' fly seam)
     // (cast round 4, the critic: his visemes rendered and checked: the cast's baked face targets (castpass.mjs faceRigPass:
     // blinks, jaw, the 15 visemes, smiles, brows; his skin is MakeHuman's, mapped by uv), the beard as short dense cards that
@@ -78,7 +84,17 @@ if (import.meta.url === 'file://' + process.argv[1]) {
     // taken to his own idle's turns, then the chest and the ears solved over the hips and the shoulders); the gate)
     // (the finalize: armSlimPass left out on him (JC_ARMSLIM=1 puts it back); then rule 1c: the lower front pulled back to a
     // near-vertical line from the sternum, the collar's ring round the neck left in place (castpass6.mjs vertFrontPass))
-    ['rules', () => { if (process.env.JC_ARMSLIM) armSlimPass(doc); chestWeightPass(doc, { xIn: 0.1, xOut: 0.23 }); flatFront5Pass(doc, { iters: 14 }); if (on('vert')) vertFrontPass(doc, JSON.parse(process.env.JC_VERT || '{}')); bodyMaskPass(doc); }],
+    // (polish 1, A1: the shoulders' and armpits' folds seated (the call framing) were the arms' weights stepping to the
+    // spine's: the chest's hand-over eased over the trunk's side (z), under the shoulder (y) and over the waist by the
+    // hanging forearms, then the jacket's weights round the armpits relaxed over the cloth (castpass9.mjs weightSmoothPass);
+    // then the field front)
+    ['rules', () => { if (process.env.JC_ARMSLIM) armSlimPass(doc);
+      if (!FIELD) { chestWeightPass(doc, { xIn: 0.1, xOut: 0.23 }); flatFront5Pass(doc, { iters: 14 }); if (on('vert')) vertFrontPass(doc, JSON.parse(process.env.JC_VERT || '{}')); }
+      else { chestWeightPass(doc, { xIn: 0.1, xOut: 0.3, zEase: 0.15, yEase: 0.06, lowUp: 0.08, lowEase: 0.1, ...JSON.parse(process.env.JC_CW || '{}') }); weightSmoothPass(doc, { iters: 80, x0: 0.1, x1: 0.4, y1: 0.02, ...JSON.parse(process.env.JC_WSMOOTH || '{}') });
+        // (polish 1 round 2, the critic: the belt held near the hips (no sunken belly) as far as rule 1c allows, the field eased
+        // out over the lap, the beard's cards moved whole with the chin and the throat under them, not dragged point by point)
+        fieldFrontPass(doc, { keep: /^beard$/, follow: true, hipFloor: -0.013, aheadMax: 0.006, lapFade: 0.2, lap0: 0.13, ...FK }); }
+      bodyMaskPass(doc); }],
     ['seat', async () => { await seatClipsPass(doc, { k: 0.5 }); if (on('rules')) seatUprightPass(doc, { pack: await io.read(ROOT + 'public/storykit/cast/cast-clips.glb'), clav: 1, unflex: { neck01: 1, neck02: 1, neck03: 1 }, /* (rules round 2: the chest rigid on the waist, the cast's default) */ ...JSON.parse(process.env.JC_UPRIGHT || '{}') }); await seatedGate(doc, 'board'); }],
     ['rulesgate', async () => rulesGate(doc, 'board', await io.read(ROOT + 'public/storykit/cast/cast-clips.glb'), { hard: true })]];
   for (const [k, f] of steps) if (on(k)) { const t = Date.now(); await f(); console.log('step', k, ((Date.now() - t) / 1000).toFixed(1), 's'); }

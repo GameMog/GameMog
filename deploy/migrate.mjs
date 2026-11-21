@@ -2137,6 +2137,111 @@ export const MIGRATIONS = [
       return `/g/${g.slug} (hidden as it was): plays ${R.world.hash.slice(0, 12)} (was ${JH_POLISH1_FROM.slice(0, 12)}, kept) in store draft ${d.id}${bodies.length ? `; new bodies ${bodies.map((b) => b.name).join(', ')} (the old ones kept)` : ''}`;
     },
   },
+  {
+    // 21 Nov: Jensen Heist's second polish batch (storykit/showcase/jensen-heist POLISH-LIST A1): Mr. Board's re-forged
+    // body (the suit without folds or see-through holes, a flat front, the belly held over the hips, the beard moved
+    // whole; scripts/handbuilt/board/build.mjs with castpass9.mjs): JH_POLISH2_BODIES, swapped in the kept draft only
+    // where it still holds the body 2026-11-18 stored, the old one kept as a was-<sha256>.glb row (still served, so the
+    // old world still plays). No spoken line, speaker, clip or step changed: every other body and every clip is the
+    // draft's already, and the world differs from the polish batch's (JH_POLISH2_FROM, what
+    // 2026-11-21-jensen-heist-polish1 sealed on gamemog.com) only in that body's address. As polish1, the new world is
+    // sealed into the game's kept store draft in place (the old one kept as a was-<sha256>.json row, still served), the
+    // draft's pack becomes the record's, and the game's meta and module name them; its title, words, art and hidden stay.
+    // Only the game whose meta names the jensen-heist showcase pack, and only while it plays JH_POLISH2_FROM; on a fresh
+    // disk 2026-11-18 already seals the record's world (already there). It waits (unrecorded) while the Story Kit is off
+    // or the game is not there yet
+    id: '2026-11-21-jensen-heist-polish2',
+    async: true,
+    async run(db, path) {
+      if (!['on', 'owner'].includes(String(process.env.STORYKIT ?? '').trim().toLowerCase())) throw new Error('waiting: the Story Kit is off on this server (STORYKIT)');
+      const rec = file('jensen-heist-story.json'), worldBytes = file('jensen-heist/world.json');
+      if (!rec || !worldBytes) throw new Error('deploy/migrations/jensen-heist-story.json or jensen-heist/world.json is not in this build');
+      const R = JSON.parse(rec.toString('utf8'));
+      if (R.v !== 1 || R.slug !== 'jensen-heist' || R.pack?.id !== 'jensen-heist' || R.meta?.storykit?.showcase !== true || R.meta.title !== JH_TITLE.title || R.pack.kicker !== JH_TITLE.kicker || R.meta.tagline !== JH_TITLE.tagline) throw new Error('jensen-heist-story.json is not the titled Jensen Heist');
+      const sha = (b) => createHash('sha256').update(b).digest('hex');
+      if (sha(worldBytes) !== R.world?.hash || worldBytes.length !== R.world.bytes) throw new Error('jensen-heist/world.json is not the record\'s world');
+      const text = worldBytes.toString('utf8'), W = JSON.parse(text);
+      if (W.id !== 'jensen-heist' || W.title !== R.pack.title || W.kicker !== R.pack.kicker || W.tagline !== R.pack.tagline) throw new Error('jensen-heist/world.json is not the titled runner world');
+
+      const g = db.prepare("SELECT id, slug, meta FROM games WHERE json_extract(meta, '$.mode') = 'storykit' AND json_extract(meta, '$.storykit.packId') = 'jensen-heist' AND json_extract(meta, '$.storykit.showcase') = 1").get();
+      if (!g) throw new Error('waiting: Jensen Heist is not in this database yet (2026-11-18-jensen-heist)');
+      if (g.id !== R.id) return `left alone: /g/${g.slug} is not the record's game`;
+      const meta = JSON.parse(g.meta ?? '{}');
+      if (meta.storykit?.world === R.world.hash) return `already there: /g/${g.slug} plays ${R.world.hash.slice(0, 12)}`;
+      if (meta.storykit?.world !== JH_POLISH2_FROM) return `left alone: /g/${g.slug} plays ${String(meta.storykit?.world).slice(0, 12)}, not ${JH_POLISH2_FROM.slice(0, 12)}`;
+      const { StoryStore, LIMITS } = await storykit();
+      const s = new StoryStore(join(dirname(resolve(path)), 'storykit'));
+      const d = typeof meta.storykit.pack === 'string' ? s.db.prepare("SELECT id, world, pack FROM drafts WHERE id = ? AND state = 'kept' AND game_id = ?").get(meta.storykit.pack, g.id) : null;
+      if (!d) throw new Error('Jensen Heist\'s kept store draft is not in the store');
+      if (d.world !== JH_POLISH2_FROM) return `left alone: the store draft holds ${String(d.world).slice(0, 12)}, not ${JH_POLISH2_FROM.slice(0, 12)}`;
+      // (every clip and every other body the world names is the draft's already: no line changed, checked by its
+      // SHA-256; a re-forged body (JH_POLISH2_BODIES) is read from this build and checked before anything is written)
+      const has = s.db.prepare('SELECT 1 FROM files WHERE draft_id = ? AND hash = ? AND name = ?');
+      const bodies = [];
+      for (const f of R.files) {
+        if (has.get(d.id, f.hash, f.name)) continue;
+        const B = JH_POLISH2_BODIES[f.name];
+        if (f.kind !== 'glb' || !B || B.to !== f.hash || f.ext !== 'glb' || f.src !== `public/storykit/cast/hand/jh-${f.name}.glb`) throw new Error(`the store draft does not hold ${f.name} (${f.hash.slice(0, 12)}): a clip or another body changed`);
+        const cur = s.db.prepare("SELECT hash, bytes FROM files WHERE draft_id = ? AND kind = 'glb' AND name = ?").get(d.id, f.name);
+        if (cur?.hash !== B.from) return `left alone: the store draft's ${f.name} is ${String(cur?.hash).slice(0, 12)}, not ${B.from.slice(0, 12)}`;
+        if (!existsSync(f.src)) throw new Error(`${f.src} is not in this build`);
+        const b = readFileSync(f.src);
+        if (sha(b) !== f.hash || b.length !== f.bytes || b.readUInt32LE(0) !== 0x46546c67) throw new Error(`${f.src} is not the body the world names`);
+        if (b.length > LIMITS.glb.each) throw new Error(`${f.src} is ${b.length} bytes, over a body's ${LIMITS.glb.each}`);
+        bodies.push({ name: f.name, hash: f.hash, bytes: b, was: cur });
+      }
+      const named = new Set(R.files.map((f) => f.hash));
+      for (const m of text.matchAll(/\/storykit\/f\/([0-9a-f]{64})\.([a-z]{3,4})/g)) if (!named.has(m[1])) throw new Error(`the world names /storykit/f/${m[1]}.${m[2]}, which the record does not hold`);
+      if (worldBytes.length > LIMITS.sealed) throw new Error(`the world is ${worldBytes.length} bytes, over a sealed world's ${LIMITS.sealed}`);
+      const blobs = [[R.world.hash, 'json', worldBytes], ...bodies.map((b) => [b.hash, 'glb', b.bytes])], fresh = blobs.filter(([h]) => !s.db.prepare('SELECT 1 FROM blobs WHERE hash = ?').get(h));
+      if (s.used() + fresh.reduce((n, [, , b]) => n + b.length, 0) > LIMITS.disk) throw new Error('waiting: the Story Kit store has no room for Jensen Heist\'s polished world');
+      for (const [h, ext, b] of fresh) {
+        const p = s.blobPath(h, ext);
+        if (!(existsSync(p) && sha(readFileSync(p)) === h)) {
+          mkdirSync(dirname(p), { recursive: true });
+          const tmp = `${p}.${process.pid}.${randomBytes(4).toString('hex')}.tmp`;
+          writeFileSync(tmp, b); renameSync(tmp, p);
+        }
+      }
+      const t = Date.now(), old = d.pack;
+      const oldBytes = s.db.prepare('SELECT bytes FROM blobs WHERE hash = ?').get(JH_POLISH2_FROM)?.bytes ?? 0;
+      s.db.exec('BEGIN');
+      try {
+        for (const [h, ext, b] of blobs) s.db.prepare('INSERT OR IGNORE INTO blobs (hash, ext, bytes, at) VALUES (?, ?, ?, ?)').run(h, ext, b.length, t);
+        const row = s.db.prepare("INSERT OR REPLACE INTO files (draft_id, kind, name, hash, ext, bytes, meta, inherited, at) VALUES (?, 'pack', ?, ?, 'json', ?, NULL, 0, ?)");
+        row.run(d.id, `was-${JH_POLISH2_FROM}.json`, JH_POLISH2_FROM, oldBytes, t);
+        row.run(d.id, 'world.json', R.world.hash, worldBytes.length, t);
+        // (a re-forged body: the draft's body by that name, the old one kept as a was- row, as StoryStore.patch keeps one)
+        for (const b of bodies) {
+          s.db.prepare("UPDATE files SET hash = ?, bytes = ?, at = ? WHERE draft_id = ? AND kind = 'glb' AND name = ?").run(b.hash, b.bytes.length, t, d.id, b.name);
+          s.db.prepare("INSERT OR REPLACE INTO files (draft_id, kind, name, hash, ext, bytes, meta, inherited, at) VALUES (?, 'pack', ?, ?, 'glb', ?, NULL, 0, ?)").run(d.id, `was-${b.was.hash}.glb`, b.was.hash, b.was.bytes, t);
+        }
+        s.db.prepare('UPDATE drafts SET pack = ?, world = ?, touched_at = ? WHERE id = ?').run(JSON.stringify(R.pack), R.world.hash, t, d.id);
+        s.db.exec('COMMIT');
+      } catch (e) { s.db.exec('ROLLBACK'); throw e; }
+      try {
+        // (only the world and the module: the record's meta is the retitle's, the row's words and art stay)
+        const next = { ...meta, storykit: { ...meta.storykit, pack: d.id, world: R.world.hash } };
+        const r = db.prepare('UPDATE games SET meta = ?, code = ? WHERE id = ?').run(JSON.stringify(next), `GameMog.world({ storykit: ${JSON.stringify(R.pack)} });\n`, g.id);
+        if (r.changes !== 1) throw new Error(`/g/${g.slug} could not be updated`);
+      } catch (e) {
+        // (the games row is rolled back with the transaction; the store draft goes back to the world and pack it had)
+        try {
+          s.db.exec('BEGIN');
+          s.db.prepare("UPDATE files SET hash = ?, bytes = ? WHERE draft_id = ? AND kind = 'pack' AND name = 'world.json'").run(JH_POLISH2_FROM, oldBytes, d.id);
+          s.db.prepare("DELETE FROM files WHERE draft_id = ? AND kind = 'pack' AND name = ?").run(d.id, `was-${JH_POLISH2_FROM}.json`);
+          for (const b of bodies) {
+            s.db.prepare("UPDATE files SET hash = ?, bytes = ? WHERE draft_id = ? AND kind = 'glb' AND name = ?").run(b.was.hash, b.was.bytes, d.id, b.name);
+            s.db.prepare("DELETE FROM files WHERE draft_id = ? AND kind = 'pack' AND name = ?").run(d.id, `was-${b.was.hash}.glb`);
+          }
+          s.db.prepare('UPDATE drafts SET pack = ?, world = ? WHERE id = ?').run(old, JH_POLISH2_FROM, d.id);
+          s.db.exec('COMMIT');
+        } catch { try { s.db.exec('ROLLBACK'); } catch { /* as it is */ } }
+        throw e;
+      }
+      return `/g/${g.slug} (hidden as it was): plays ${R.world.hash.slice(0, 12)} (was ${JH_POLISH2_FROM.slice(0, 12)}, kept) in store draft ${d.id}${bodies.length ? `; new bodies ${bodies.map((b) => b.name).join(', ')} (the old ones kept)` : ''}`;
+    },
+  },
 ];
 
 /**
@@ -2152,11 +2257,19 @@ export const JH_TITLE_FROM = '915d6afcbd5056b73fd939fbc7d5485cc30902d9d947c50679
  * gamemog.com), and the records' worlds after the retitle's (JH_LATER: the retitle leaves each one to its own migration).
  */
 export const JH_POLISH1_FROM = 'db4073fb0ddfecc7fddc176fee30dc56ac585d18ae717d355d382fee11f87085';
-export const JH_LATER = ['6911c2d44e2cf7a912330222979ce92398c377b91d4ee78baaf0c427521cd40e', '71cb57932287df25a95d3f4238d48dde89912bcac0a2ba1518152fc5254d047c'];
+export const JH_LATER = ['6911c2d44e2cf7a912330222979ce92398c377b91d4ee78baaf0c427521cd40e', '71cb57932287df25a95d3f4238d48dde89912bcac0a2ba1518152fc5254d047c', '032193132a88cd3081ff516c86e7ced9658f8a87bfd04b80ec0d380761a6a16f'];
 /** The polish batch's re-forged bodies (A2 Director Grey, A3 Intern Two): the one 2026-11-18 stored and the record's. */
 export const JH_POLISH1_BODIES = {
   'director-a': { from: 'ade408278e5795fbf07330556a10d9b09265c3050b8a59c57a567b94b72af063', to: '9e434181182ddf0f7462b31aed2c0d5b55e7fd3bda63906ebfd893ee2e5bf24e' },
   'intern-b': { from: '697c21af9bfc2e9fd3e39c07ff5e11dc289fb92ffc317893d9dcc0d6d542cb44', to: '4382988e15e6da1a0a290a0d496f36321f021c501773ca0fdb0a90b5ed33e89e' },
+};
+/**
+ * Jensen Heist's second polish batch (2026-11-21-jensen-heist-polish2): the world it replaces (what polish1 sealed on
+ * gamemog.com) and its re-forged body (A1 Mr. Board): the one 2026-11-18 stored and the record's.
+ */
+export const JH_POLISH2_FROM = '71cb57932287df25a95d3f4238d48dde89912bcac0a2ba1518152fc5254d047c';
+export const JH_POLISH2_BODIES = {
+  board: { from: 'da3da9314aafde22a5ab17c56fcbfdb1d7771b48c0ac172bf480c2305207c323', to: '1b655493781e9416d6854ef57933c89c0d4ac8d828d5a120233d054e9df2dd7e' },
 };
 const JH_TITLE_ART = { cover: '278e816e7518141944537d8ce239164c3d2ed6138f3be8cfb76b65a6639da69b', art_wide: '63e1ae79132cb423d42b0bbb3b8501d61f5ebeed1c2cdec6d2d5d427d7b756ea' };
 /** A Jensen Heist runner world (its JSON text) with its title, kicker and tagline set to `w` (key order kept). */

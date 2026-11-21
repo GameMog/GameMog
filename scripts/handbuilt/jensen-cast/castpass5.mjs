@@ -215,15 +215,19 @@ void jointPos;
 // height + K.up down to the belt, z > K.z0) has its arm weight eased out toward the middle (none left inside K.xIn, all
 // kept from K.xOut), the weight it gives up handed to the spine at its height (spine01 above K.split, spine02 under).
 export function chestWeightPass(doc, K = {}) {
-  K = { xIn: 0.07, xOut: 0.16, up: 0.03, z0: 0.0, ...K };
+  K = { xIn: 0.07, xOut: 0.16, up: 0.03, z0: 0.0, lowUp: 0, ...K };
   const R = doc.getRoot(), names = R.listSkins()[0].listJoints().map((j) => j.getName()), isArm = names.map((n) => ARM.test(n)), { ys, yb } = trunkLevels(doc);
   const s1 = names.indexOf('spine01'), s2 = names.indexOf('spine02'), split = K.split ?? (ys + yb) / 2 + 0.05; let n = 0, mx = 0;
   const seen = new Set();
   for (const p of R.listMeshes().flatMap((m) => m.listPrimitives())) { const nm = p.getMaterial()?.getName() || ''; if (OUTER.test(nm) || NOT.test(nm)) continue; const JA = p.getAttribute('JOINTS_0'), WA = p.getAttribute('WEIGHTS_0'); if (!JA || !WA || seen.has(WA)) continue; seen.add(WA);
     const A = p.getAttribute('POSITION').getArray(), j = [0, 0, 0, 0], w = [0, 0, 0, 0];
-    for (let i = 0; i < A.length / 3; i++) { const x = Math.abs(A[i * 3]), y = A[i * 3 + 1], z = A[i * 3 + 2]; if (x >= K.xOut || y > ys + K.up || y < yb || z < K.z0) continue; JA.getElement(i, j); WA.getElement(i, w);
+    for (let i = 0; i < A.length / 3; i++) { const x = Math.abs(A[i * 3]), y = A[i * 3 + 1], z = A[i * 3 + 2]; if (x >= K.xOut || y > ys + K.up || y < yb || z < K.z0 - (K.zEase || 0)) continue; JA.getElement(i, j); WA.getElement(i, w);
       let aw = 0; for (let k = 0; k < 4; k++) if (isArm[j[k]]) aw += w[k]; if (aw < 1e-4) continue;
-      const keep = sm(K.xIn, K.xOut, x) * (y > ys ? 1 - sm(ys + K.up, ys, y) * (1 - 1) : 1), give = aw * (1 - keep); if (give < 1e-4) continue;
+      // (polish 1, K.zEase / K.yEase: the hand-over eased in over the trunk's side (z) and under the shoulder (y) instead of
+      // stepping at z0 and at ys + up: a step in the weights folds the jacket's side and shoulder when the arms come forward;
+      // K.lowEase: none over the waist's sides by the hanging forearms, eased in from yb + K.lowUp)
+      const g = (K.zEase ? sm(K.z0 - K.zEase, K.z0 + K.zEase, z) : 1) * (K.yEase ? 1 - sm(ys + K.up - K.yEase, ys + K.up, y) : 1) * (K.lowEase ? sm(yb + K.lowUp, yb + K.lowUp + K.lowEase, y) : 1);
+      const keep = 1 - (1 - sm(K.xIn, K.xOut, x)) * g, give = aw * (1 - keep); if (give < 1e-4) continue;
       for (let k = 0; k < 4; k++) if (isArm[j[k]]) w[k] *= keep;
       const tgt = y > split ? s1 : s2; let slot = j.indexOf(tgt); if (slot < 0 || w[slot] === 0 && j[slot] !== tgt) { slot = -1; for (let k = 0; k < 4; k++) if (j[k] === tgt) slot = k; }
       if (slot < 0) { let lo = 0; for (let k = 1; k < 4; k++) if (w[k] < w[lo]) lo = k; const lost = w[lo]; w[lo] = 0; j[lo] = tgt; slot = lo; w[slot] += lost; }
