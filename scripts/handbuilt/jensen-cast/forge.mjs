@@ -200,6 +200,10 @@ for (const f of fs.readdirSync(DIR).filter((x) => x.endsWith('.sheet.json')).sor
   // (the finalize, rule 1c: the lower front pulled BACK toward a near-vertical line from the sternum (castpass6.mjs): rules
   // round 2's flat front had slanted it, the belt up to 89 mm ahead of the sternum; the committed bodies are rules round 2's
   // with this pass run on them (node castpass6.mjs in out [K]), Lola and Intern Two at aim 0.013 (their seated hollow))
+  // (suits round 1, the owner on the RC: the Directors' committed bodies are the finalize's with castpass8.mjs's recipe run
+  // on them, against this forge's build without the front passes: node castpass8.mjs <ref.glb> <id>.glb <out.glb>, the
+  // ref from JC_NOGATE=1 JC_SKIP=flat,flat3,rules,vcut,tailor,armslim,seat,mask,layer: no folded chest, a clean V, the
+  // shoulder crest and the muscle relief taken out of the cloth, the shirt's buttons behind the jacket)
   if (!SKIP.has('rules') && !SKIP.has('vert')) { vertFrontPass(doc, R1.vert); if (!SKIP.has('mask')) bodyMaskPass(doc, R1.mask); }
   // (round 3's gate, its sternum on the bust: logged only now; rulesGate below holds the rule)
   if (SKIP.has('rules')) flatGate(doc, S.id);
