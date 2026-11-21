@@ -1922,7 +1922,125 @@ export const MIGRATIONS = [
       }
     },
   },
+  {
+    // 21 Nov, the owner: Jensen Heist's title treatment, styled like /g/oaktown. Its title "Jensen Heist" (was "Jensen
+    // Heist: San Jose"), the line under it (the pack's kicker) "SAN JOSE, CA" (was "TEN HOURS TO SHOWTIME"), its tagline
+    // "San Jose, CA. One chip. One jacket."; the slug, every spoken line (and so every clip), the Showtime act and the
+    // headshot stay. Its record (deploy/migrations/jensen-heist-story.json and jensen-heist/world.json, re-exported from
+    // storykit/showcase/jensen-heist/gen.mjs) differs from what 2026-11-18-jensen-heist sealed only there: the world's
+    // three top-level fields, so the world it replaces is the record's world with the old three put back, and must hash to
+    // JH_TITLE_FROM (what that migration sealed on gamemog.com). As 2026-11-11-sf2040-world-2, the new world is sealed
+    // into the game's kept store draft in place (the old one kept as a was-<sha256>.json row, still served), the draft's
+    // pack becomes the record's, and the game's title, tagline, meta and module name them. The cover (the same frame,
+    // now titled: JENSEN HEIST, a gold rule, a SAN JOSE, CA plate) and the key art (its plate SAN JOSE, CA) are
+    // deploy/migrations/jensen-heist-{cover,wide}-2.jpg, each swapped only where the row still has what
+    // 2026-11-18-jensen-heist wrote, byte for byte; the icon and the headshot stay. Only the game whose meta names the
+    // jensen-heist showcase pack; hidden or shown as it is. On a fresh disk 2026-11-18 already seals the new world, so
+    // only the art is swapped; it waits (unrecorded) while the Story Kit is off or the game is not there yet
+    id: '2026-11-21-jensen-heist-title',
+    async: true,
+    async run(db, path) {
+      if (!['on', 'owner'].includes(String(process.env.STORYKIT ?? '').trim().toLowerCase())) throw new Error('waiting: the Story Kit is off on this server (STORYKIT)');
+      const rec = file('jensen-heist-story.json'), worldBytes = file('jensen-heist/world.json');
+      if (!rec || !worldBytes) throw new Error('deploy/migrations/jensen-heist-story.json or jensen-heist/world.json is not in this build');
+      const R = JSON.parse(rec.toString('utf8'));
+      if (R.v !== 1 || R.slug !== 'jensen-heist' || R.pack?.id !== 'jensen-heist' || R.meta?.storykit?.showcase !== true || R.pack.title !== R.meta.title || R.meta.title !== JH_TITLE.title || R.pack.kicker !== JH_TITLE.kicker || R.meta.tagline !== JH_TITLE.tagline) throw new Error('jensen-heist-story.json is not the retitled Jensen Heist');
+      const sha = (b) => createHash('sha256').update(b).digest('hex');
+      if (sha(worldBytes) !== R.world?.hash || worldBytes.length !== R.world.bytes) throw new Error('jensen-heist/world.json is not the record\'s world');
+      const text = worldBytes.toString('utf8'), W = JSON.parse(text);
+      if (W.id !== 'jensen-heist' || W.title !== R.pack.title || W.kicker !== R.pack.kicker || W.tagline !== R.pack.tagline) throw new Error('jensen-heist/world.json is not the retitled runner world');
+      const oldText = jhTitledWorld(text, JH_TITLE_WAS);
+      if (sha(oldText) !== JH_TITLE_FROM) throw new Error('the record\'s world is not 2026-11-18-jensen-heist\'s retitled (more than the title changed)');
+      const art = { cover: [file('jensen-heist-cover.jpg'), file('jensen-heist-cover-2.jpg')], art_wide: [file('jensen-heist-wide.jpg'), file('jensen-heist-wide-2.jpg')] };
+      for (const [k, [was, now]] of Object.entries(art)) {
+        if (!was || !now) throw new Error('deploy/migrations/jensen-heist-{cover,wide}{,-2}.jpg are not all in this build');
+        if (sha(was) !== JH_TITLE_ART[k]) throw new Error(`deploy/migrations/${k === 'cover' ? 'jensen-heist-cover' : 'jensen-heist-wide'}.jpg is not what 2026-11-18-jensen-heist wrote`);
+        if (!(now[0] === 0xff && now[1] === 0xd8 && now[2] === 0xff)) throw new Error(`the new ${k} is not a JPEG`);
+      }
+
+      const g = db.prepare("SELECT id, slug, title, tagline, code, meta, cover, art_wide FROM games WHERE json_extract(meta, '$.mode') = 'storykit' AND json_extract(meta, '$.storykit.packId') = 'jensen-heist' AND json_extract(meta, '$.storykit.showcase') = 1").get();
+      if (!g) throw new Error('waiting: Jensen Heist is not in this database yet (2026-11-18-jensen-heist)');
+      if (g.id !== R.id) return `left alone: /g/${g.slug} is not the record's game`;
+      const meta = JSON.parse(g.meta ?? '{}'), done = [];
+      if (meta.storykit.world !== R.world.hash) {
+        if (meta.storykit.world !== JH_TITLE_FROM) return `left alone: /g/${g.slug} plays ${String(meta.storykit.world).slice(0, 12)}, not ${JH_TITLE_FROM.slice(0, 12)}`;
+        const { StoryStore, LIMITS } = await storykit();
+        const s = new StoryStore(join(dirname(resolve(path)), 'storykit'));
+        const d = typeof meta.storykit.pack === 'string' ? s.db.prepare("SELECT id, world FROM drafts WHERE id = ? AND state = 'kept' AND game_id = ?").get(meta.storykit.pack, g.id) : null;
+        if (!d) throw new Error('Jensen Heist\'s kept store draft is not in the store');
+        if (d.world !== JH_TITLE_FROM) return `left alone: the store draft holds ${String(d.world).slice(0, 12)}, not ${JH_TITLE_FROM.slice(0, 12)}`;
+        // every body and clip the world names is the draft's already (no line changed), checked by its SHA-256
+        const has = s.db.prepare('SELECT 1 FROM files WHERE draft_id = ? AND hash = ? AND name = ?');
+        for (const f of R.files) if (!has.get(d.id, f.hash, f.name)) throw new Error(`the store draft does not hold ${f.name} (${f.hash.slice(0, 12)}): more than the title changed`);
+        const named = new Set(R.files.map((f) => f.hash));
+        for (const m of text.matchAll(/\/storykit\/f\/([0-9a-f]{64})\.([a-z]{3,4})/g)) if (!named.has(m[1])) throw new Error(`the world names /storykit/f/${m[1]}.${m[2]}, which the record does not hold`);
+        if (worldBytes.length > LIMITS.sealed) throw new Error(`the world is ${worldBytes.length} bytes, over a sealed world's ${LIMITS.sealed}`);
+        const fresh = !s.db.prepare('SELECT 1 FROM blobs WHERE hash = ?').get(R.world.hash);
+        if (fresh && s.used() + worldBytes.length > LIMITS.disk) throw new Error('waiting: the Story Kit store has no room for Jensen Heist\'s retitled world');
+        if (fresh) {
+          const p = s.blobPath(R.world.hash, 'json');
+          if (!(existsSync(p) && sha(readFileSync(p)) === R.world.hash)) {
+            mkdirSync(dirname(p), { recursive: true });
+            const tmp = `${p}.${process.pid}.${randomBytes(4).toString('hex')}.tmp`;
+            writeFileSync(tmp, worldBytes); renameSync(tmp, p);
+          }
+        }
+        const t = Date.now(), old = s.db.prepare("SELECT pack FROM drafts WHERE id = ?").get(d.id).pack;
+        const oldBytes = s.db.prepare('SELECT bytes FROM blobs WHERE hash = ?').get(JH_TITLE_FROM)?.bytes ?? Buffer.byteLength(oldText);
+        s.db.exec('BEGIN');
+        try {
+          s.db.prepare('INSERT OR IGNORE INTO blobs (hash, ext, bytes, at) VALUES (?, ?, ?, ?)').run(R.world.hash, 'json', worldBytes.length, t);
+          const row = s.db.prepare("INSERT OR REPLACE INTO files (draft_id, kind, name, hash, ext, bytes, meta, inherited, at) VALUES (?, 'pack', ?, ?, 'json', ?, NULL, 0, ?)");
+          row.run(d.id, `was-${JH_TITLE_FROM}.json`, JH_TITLE_FROM, oldBytes, t);
+          row.run(d.id, 'world.json', R.world.hash, worldBytes.length, t);
+          s.db.prepare('UPDATE drafts SET pack = ?, world = ?, touched_at = ? WHERE id = ?').run(JSON.stringify(R.pack), R.world.hash, t, d.id);
+          s.db.exec('COMMIT');
+        } catch (e) { s.db.exec('ROLLBACK'); throw e; }
+        try {
+          // (only the words and the world: the record's meta differs from 2026-11-18's in its title and tagline alone)
+          const next = { ...meta, title: R.meta.title, tagline: R.meta.tagline, storykit: { ...meta.storykit, pack: d.id, world: R.world.hash } };
+          const r = db.prepare('UPDATE games SET title = ?, tagline = ?, meta = ?, code = ? WHERE id = ?')
+            .run(R.meta.title, R.meta.tagline, JSON.stringify(next), `GameMog.world({ storykit: ${JSON.stringify(R.pack)} });\n`, g.id);
+          if (r.changes !== 1) throw new Error(`/g/${g.slug} could not be updated`);
+        } catch (e) {
+          // (the games row is rolled back with the transaction; the store draft goes back to the world and pack it had)
+          try {
+            s.db.exec('BEGIN');
+            s.db.prepare("UPDATE files SET hash = ?, bytes = ? WHERE draft_id = ? AND kind = 'pack' AND name = 'world.json'").run(JH_TITLE_FROM, oldBytes, d.id);
+            s.db.prepare("DELETE FROM files WHERE draft_id = ? AND kind = 'pack' AND name = ?").run(d.id, `was-${JH_TITLE_FROM}.json`);
+            s.db.prepare('UPDATE drafts SET pack = ?, world = ? WHERE id = ?').run(old, JH_TITLE_FROM, d.id);
+            s.db.exec('COMMIT');
+          } catch { try { s.db.exec('ROLLBACK'); } catch { /* as it is */ } }
+          throw e;
+        }
+        done.push(`plays ${R.world.hash.slice(0, 12)} (was ${JH_TITLE_FROM.slice(0, 12)}, kept) in store draft ${d.id}, titled ${JSON.stringify(R.meta.title)}`);
+      } else if (g.title !== R.meta.title || g.tagline !== R.meta.tagline || meta.title !== R.meta.title || meta.tagline !== R.meta.tagline) {
+        // (the new world already, as 2026-11-18 seals it on a fresh disk: the row's words brought to the record's)
+        db.prepare('UPDATE games SET title = ?, tagline = ?, meta = ? WHERE id = ?').run(R.meta.title, R.meta.tagline, JSON.stringify({ ...meta, title: R.meta.title, tagline: R.meta.tagline }), g.id);
+        done.push(`titled ${JSON.stringify(R.meta.title)}`);
+      }
+      const same = (a, b) => a != null && Buffer.from(a).equals(b);
+      const swap = Object.keys(art).filter((k) => same(g[k], art[k][0]));
+      if (swap.length) db.prepare(`UPDATE games SET ${swap.map((k) => `${k} = ?`).join(', ')} WHERE id = ?`).run(...swap.map((k) => art[k][1]), g.id);
+      const kept = Object.keys(art).filter((k) => !swap.includes(k) && !same(g[k], art[k][1]));
+      if (swap.length) done.push(`new ${swap.join(', ')}`);
+      if (kept.length) done.push(`left alone: its ${kept.join(', ')} (changed since 2026-11-18-jensen-heist)`);
+      return done.length ? `/g/${g.slug} (hidden as it was): ${done.join('; ')}` : `already there: /g/${g.slug} is titled ${JSON.stringify(R.meta.title)}`;
+    },
+  },
 ];
+
+/**
+ * Jensen Heist's retitle (2026-11-21-jensen-heist-title): the words it carries now (JH_TITLE), the ones
+ * 2026-11-18-jensen-heist published (JH_TITLE_WAS), the world that sealed (JH_TITLE_FROM: the record's world with the
+ * old words put back, jhTitledWorld) and the art it wrote (JH_TITLE_ART, SHA-256 of deploy/migrations/jensen-heist-{cover,wide}.jpg).
+ */
+export const JH_TITLE = { title: 'Jensen Heist', kicker: 'SAN JOSE, CA', tagline: 'San Jose, CA. One chip. One jacket.' };
+export const JH_TITLE_WAS = { title: 'Jensen Heist: San Jose', kicker: 'TEN HOURS TO SHOWTIME', tagline: 'Ten hours to showtime. One chip. One jacket.' };
+export const JH_TITLE_FROM = '915d6afcbd5056b73fd939fbc7d5485cc30902d9d947c506795928369342c6cd';
+const JH_TITLE_ART = { cover: '278e816e7518141944537d8ce239164c3d2ed6138f3be8cfb76b65a6639da69b', art_wide: '63e1ae79132cb423d42b0bbb3b8501d61f5ebeed1c2cdec6d2d5d427d7b756ea' };
+/** A Jensen Heist runner world (its JSON text) with its title, kicker and tagline set to `w` (key order kept). */
+export const jhTitledWorld = (text, w) => JSON.stringify({ ...JSON.parse(text), title: w.title, kicker: w.kicker, tagline: w.tagline });
 
 /**
  * A published story world's plain square frame (its store draft's art key-square.jpg, which the report's titling reads:

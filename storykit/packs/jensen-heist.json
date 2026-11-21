@@ -1,9 +1,9 @@
 {
  "storykit": 2,
  "id": "jensen-heist",
- "title": "Jensen Heist: San Jose",
- "kicker": "TEN HOURS TO SHOWTIME",
- "tagline": "Ten hours to showtime. One chip. One jacket.",
+ "title": "Jensen Heist",
+ "kicker": "SAN JOSE, CA",
+ "tagline": "San Jose, CA. One chip. One jacket.",
  "base": {
   "engine": "mogcity-1",
   "city": "hometown",
