@@ -173,7 +173,10 @@ export function retryChoices(cp) {
 // rose garden's lawn and the town's opening put one 30-60 m off and the others on his road ahead, coming at him: they
 // wedged him in on both sides and he was caught in 14 s (the final replay, 20 Nov). A chase to lose, or one started
 // at speed, keeps the town's own opening (BT-3's and SS-5's tuning). Returns the pursuit start()'s extra options, or null
-export const BEHIND_START = { min: 80, calm: 5, standing: 4 };
+export const BEHIND_START = { min: 80, calm: 5, standing: 4, near: [40, 120] };
+// (a story's own pressure: the step's `behind` m (BEHIND_START.near, clamped) for the first car instead of min. Jensen
+// Heist's TP-6 chase at heat 2 kept its crew 100 m+ back the whole way, the polish playtest, 21 Nov)
+export const behindMin = (d) => (Number.isFinite(+d?.behind) && d.behind != null ? Math.max(BEHIND_START.near[0], Math.min(BEHIND_START.near[1], +d.behind)) : BEHIND_START.min);
 // (the traffic held off the way there as a standing chase starts (runner.js STEPS.pursuit): base m of it, 25 s, for
 // every chase to a place; open m for up to secs s for one with the behind opening)
 export const CLEAR_WAY = { base: 180, open: 650, secs: 60 };
@@ -181,7 +184,7 @@ export function chaseOpening(d, o = {}) {
   if (!d || d.goal !== 'reach' || !d.to) return null;
   if (!(Math.abs(o.speed || 0) < BEHIND_START.standing)) return null;
   const h = Number.isFinite(o.routeH) ? o.routeH : Number.isFinite(o.carH) ? o.carH : null;
-  return { ahead: false, calm: BEHIND_START.calm, behind: { min: BEHIND_START.min, ...(h != null ? { h } : {}) } };
+  return { ahead: false, calm: BEHIND_START.calm, behind: { min: behindMin(d), ...(h != null ? { h } : {}) } };
 }
 // (the way there as it leaves the car: from the car to the route's first point `ahead` m or more off; null on none)
 export function routeHeading(route, from, ahead = 30) {

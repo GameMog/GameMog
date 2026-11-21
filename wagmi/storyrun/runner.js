@@ -3655,6 +3655,9 @@ export function createRunner(ctx) {
           // caught you') left it alive, and that attempt's timer loop ran on for good, ticking and pinning whatever
           // mission came after: after PT-14's retry it held PT-15's midnight over the story's free roam)
           const at = M; kill(at.tok, e instanceof Fail ? e : new Stop()); tidy();
+          // (a retry, a restart or the pause menu's checkpoint: the mission's calls said again on the steps it replays
+          // (calls.js forget), never started past their lines as if heard: the polish list B7, 21 Nov)
+          try { W.calls?.forget?.(`pack:${def.id}:`); } catch {}
           if (restartTo) { cp = restartTo === 'start' ? null : at.cp; restartTo = null; continue; }
           if (!(e instanceof Fail)) { if (!(e instanceof Stop)) console.error('[storyrun]', def.id, e); return { how: 'quit' }; }
           fails++;

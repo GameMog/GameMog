@@ -995,6 +995,10 @@ export function createCalls(W) {
     get live() { return cur && !cur.dead && cur.state !== 'wait' ? cur.id : null; },
     get talking() { return !!cur?.line; },
     get heard() { return [...heard].filter(([, h]) => h.main).map(([id]) => id); },
+    // (a story's mission retried: its own calls (ids under `prefix`, 'pack:<mission>:') rung and said again, from their
+    // first line. A heard call on a retry started past its main lines, so the retried step was silent: Jensen Heist's
+    // TP-6 and CB-2 tails replayed with no call, the polish list B7, 21 Nov. Mog City's own calls keep that rule)
+    forget(prefix) { if (typeof prefix !== 'string' || !prefix.startsWith('pack:')) return 0; let n = 0; for (const id of [...heard.keys()]) if (id.startsWith(prefix)) { heard.delete(id); n++; } return n; },
     state() {
       const C = cur;
       return C ? { id: C.id, state: C.state, step: C.step, held: C.held, mode: C.mode, main: `${C.mainI}/${C.def.main.length}`, block: C.block, wrapping: C.wrapping, carrying: C.carrying, finishing: C.finishing, spanning: !!C.spanning, spanned: C.spanned || 0, retry: C.retry, line: C.line?.mine || null, q: C.q.length, next: next?.id || null, log: C.log.slice(-14) } : { id: null, next: next?.id || null };
