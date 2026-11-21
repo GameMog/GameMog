@@ -6,7 +6,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { createDamageLook, blockedBy, envelope, lookLength, LOOK } from '../wagmi/crash/damage-look.js';
+import { createDamageLook, blockedBy, envelope, lookLength, LOOK, pickView, HIGH } from '../wagmi/crash/damage-look.js';
 import { DENT, dentSize } from '../wagmi/crash/damage-cost.js';
 
 const ROOT = new URL('..', import.meta.url).pathname;
@@ -131,11 +131,56 @@ test('never in a cutscene, a call, a chase, a timed or chase step, another camer
 
 test('wired: damage.js offers every hit and steps it onto the camera; cameras.js swings the chase lens by it; a repair ends it', () => {
   const dmg = fs.readFileSync(ROOT + 'wagmi/crash/damage.js', 'utf8'), cam = fs.readFileSync(ROOT + 'js/cameras.js', 'utf8');
-  assert.match(dmg, /import \{ createDamageLook, blockedBy \} from '\.\/damage-look\.js'/);
+  assert.match(dmg, /import \{ createDamageLook, blockedBy, LOOK \} from '\.\/damage-look\.js'/);
   assert.match(dmg, /look\.offer\(\{ zone, dsp, lx \}, lookCtx\(\)\)/);
   assert.match(dmg, /app\.cameraSystem\.damageLook = L\.active \? L : null/);
   assert.match(dmg, /look\.cancel\('repair'\)/);
   for (const k of ['W.cutscene', 'W.calls?.live', 'W.calls?.talking', 'W.pursuit?.active', "'wg-cine'", "'wg-vcall'", 'M?.timer?.running', 'cs.isDragging']) assert.ok(dmg.includes(k), k);
   assert.match(cam, /this\.damageLook && this\.damageLook\.w > 0/);
   assert.match(cam, /if \(dl\) \{ boomYaw \+= dl\.yaw; lookYaw \+= dl\.yaw; \}/);
+});
+
+// (jh-polish A6: a head-on wall hit swung the lens to a side where the nose was hidden in the wall)
+test('A6: the look goes round the side the nose is in sight from, else narrower, else high behind', () => {
+  // the landed side (+1: yaw > 0) blocked by a wall, the other free
+  const wallRight = (yaw) => ({ clear: yaw > 0 ? 0.2 : 1, sees: yaw < 0 });
+  let v = pickView(1, wallRight);
+  assert.equal(v.side, -1); assert.equal(v.yaw, LOOK.YAW); assert.equal(v.why, 'clear');
+  // both full swings into walls, the narrower one free
+  const narrow = (yaw) => ({ clear: Math.abs(yaw) < LOOK.YAW * 0.9 ? 1 : 0.3, sees: Math.abs(yaw) < LOOK.YAW * 0.9 });
+  v = pickView(1, narrow);
+  assert.equal(v.side, 1); assert.ok(v.yaw < LOOK.YAW && v.yaw > 1);
+  // boxed in (a corner): high behind, over the roof onto the bonnet
+  const boxed = (yaw) => ({ clear: Math.abs(yaw) <= HIGH.yaw + 1e-9 ? 1 : 0.1, sees: Math.abs(yaw) <= HIGH.yaw + 1e-9 });
+  v = pickView(-1, boxed);
+  assert.ok(v.high); assert.equal(v.pitch, HIGH.pitch);
+  // a nose sunk in a wall seen from no side: high behind, clear, over the roof onto the bonnet
+  v = pickView(1, () => ({ clear: 1, sees: false }));
+  assert.ok(v.high); assert.equal(v.why, 'high');
+  // nothing clear and nothing sees: the clearest that sees, else the clearest; no probe: the side the blow landed on
+  v = pickView(1, (yaw) => ({ clear: yaw < 0 ? 0.6 : 0.4, sees: false }));
+  assert.equal(v.side, -1);
+  assert.deepEqual([pickView(-1).side, pickView(-1).yaw, pickView(-1).why], [-1, LOOK.YAW, 'no-probe']);
+  assert.equal(pickView(1, () => { throw new Error('x'); }).why, 'no-probe');
+});
+
+test('A6: update() takes the probed way: the lens swings to the free side, and the old behaviour without a probe', () => {
+  const L = createDamageLook();
+  assert.equal(L.offer({ zone: 'front', dsp: 16, lx: -0.5 }, calm()), true); // (landed on its right: yaw > 0)
+  const probe = (yaw) => ({ clear: yaw > 0 ? 0 : 1, sees: yaw < 0 });
+  const r = run(L, 0.8, calm({ probe }));
+  assert.ok(r.peak > 2);
+  assert.equal(L.S.side, -1);
+  const L2 = createDamageLook(); L2.offer({ zone: 'front', dsp: 16, lx: -0.5 }, calm());
+  let yaw = 0; run(L2, 0.8, calm(), (i, o) => { if (o.active) yaw = o.yaw; });
+  assert.ok(yaw > 0);
+});
+
+test('A6: the wiring: js/cameras.js probes the boom and the line to the nose, damage.js hands the probe over', () => {
+  const cams = fs.readFileSync(ROOT + 'js/cameras.js', 'utf8'), dmg = fs.readFileSync(ROOT + 'wagmi/crash/damage.js', 'utf8');
+  assert.match(cams, /probeLook\(entity, yaw, pitch = 0, pull = 0\)/);
+  assert.match(cams, /this\._chaseRig = \{ dist,/);
+  assert.match(cams, /const sees = /);
+  assert.match(dmg, /cs\.probeLook\(car, yaw, pitch, LOOK\.PULL\)/);
+  assert.match(dmg, /orbit, blocked, probe \}/);
 });

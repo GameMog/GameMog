@@ -21,6 +21,34 @@ export const LOOK = Object.freeze({ MIN: 15, SLOW: 7, ABORT: 9, WINDOW: 0.35, OU
 // away, a roadblock, a timer, a tow
 export const CRITICAL_STEPS = new Set(['pursuit', 'tail', 'convoy', 'flee', 'roadblock', 'timer', 'tow', 'ambush', 'track', 'sneak', 'stealth', 'cutscene', 'scene', 'vcall', 'call']);
 
+// (jh-polish A6, the owner's RC: a head-on wall hit swung the lens to a side where the crumpled nose was in the wall)
+// The ways the look may go, best first: the side the blow landed, then the other, each at the full swing and then a
+// narrower one; last, behind and high over the roof, looking down onto the bonnet (the nose always shows from there).
+// pickView tries them with probe(yaw, pitch) -> { clear 0..1 (how much of the boom out to that lens is free of the
+// buildings), sees (the nose in sight from that lens) } (js/cameras.js probeLook) and takes the first that is clear and
+// sees the nose (the high one only needs to be clear: from over the roof the bonnet always shows); with none, the one
+// that sees and is clearest; with no probe at all, the side the blow landed on.
+export const VIEWS = Object.freeze([{ k: 1, pitch: 1 }, { k: 0.78, pitch: 1 }, { k: 0.55, pitch: 1.6 }]);
+export const HIGH = Object.freeze({ yaw: 0.35, pitch: 0.75 }); // (rad: just off straight behind, well up)
+export const CLEAR_OK = 0.9;
+export function pickView(side, probe, L = LOOK) {
+  const tries = [];
+  for (const v of VIEWS) for (const s of [side, -side]) tries.push({ side: s, yaw: v.k * L.YAW, pitch: v.pitch * L.PITCH });
+  tries.push({ side, yaw: HIGH.yaw, pitch: HIGH.pitch, high: true });
+  if (typeof probe !== 'function') return { ...tries[0], why: 'no-probe' };
+  let best = null, bs = -Infinity;
+  for (const t of tries) {
+    let r = null;
+    try { r = probe(t.side * t.yaw, t.pitch); } catch { r = null; }
+    if (!r) continue;
+    const clear = Math.max(0, Math.min(1, +r.clear || 0));
+    if (clear >= CLEAR_OK && (r.sees || t.high)) return { ...t, clear, why: t.high ? 'high' : 'clear' };
+    const score = clear + (r.sees ? 1 : 0);
+    if (score > bs + 1e-6) { bs = score; best = { ...t, clear, why: 'best' }; }
+  }
+  return best || { ...tries[0], why: 'no-probe' };
+}
+
 const smooth = (t) => { const k = Math.max(0, Math.min(1, t)); return k * k * (3 - 2 * k); };
 
 // what keeps the look off (a string, the first reason), else null. f: { mode, horse, preset, cutscene, directed, cine,
@@ -48,9 +76,9 @@ export function envelope(t, L = LOOK) {
 export const lookLength = (L = LOOK) => L.OUT + L.HOLD + L.BACK;
 
 // ctx each call: { speed m/s, keys (the controls: action -> 0..1 or a boolean), orbit (the player moved the camera this
-// frame), blocked (blockedBy's reason or null) }
+// frame), blocked (blockedBy's reason or null), probe (optional: see pickView) }
 export function createDamageLook(L = LOOK) {
-  const S = { phase: 'idle', t: 0, cool: 0, side: 1, snap: null, pending: null, last: null, n: 0 };
+  const S = { phase: 'idle', t: 0, cool: 0, side: 1, yaw: L.YAW, pitch: L.PITCH, view: null, snap: null, pending: null, last: null, n: 0 };
   const out = { yaw: 0, pitch: 0, pull: 0, aim: 0, w: 0, active: false };
   const val = (v) => (v === true ? 1 : +v || 0);
   const snapKeys = (keys) => Object.fromEntries(Object.entries(keys || {}).map(([k, v]) => [k, val(v)]));
@@ -88,7 +116,9 @@ export function createDamageLook(L = LOOK) {
         S.pending.t += dt;
         if (ctx.blocked) { S.pending = null; S.last = 'blocked:' + ctx.blocked; }
         else if (sp <= L.SLOW) {
-          S.phase = 'look'; S.t = 0; S.side = S.pending.side; S.snap = snapKeys(ctx.keys); S.cool = L.COOL; S.pending = null; S.n++; S.last = 'start';
+          // (the way round with the nose in sight: ctx.probe, js/cameras.js probeLook; see pickView)
+          const v = pickView(S.pending.side, ctx.probe, L);
+          S.phase = 'look'; S.t = 0; S.side = v.side; S.yaw = v.yaw; S.pitch = v.pitch; S.view = v; S.snap = snapKeys(ctx.keys); S.cool = L.COOL; S.pending = null; S.n++; S.last = 'start';
         } else if (S.pending.t > L.WINDOW) { S.pending = null; S.last = 'fast'; }
       }
       if (S.phase !== 'look') return out;
@@ -100,7 +130,7 @@ export function createDamageLook(L = LOOK) {
       S.t += dt;
       if (S.t >= lookLength(L)) { end('done'); return out; }
       const w = envelope(S.t, L);
-      Object.assign(out, { yaw: S.side * L.YAW * w, pitch: L.PITCH * w, pull: L.PULL * w, aim: L.AIM * w, w, active: true });
+      Object.assign(out, { yaw: S.side * S.yaw * w, pitch: S.pitch * w, pull: L.PULL * w, aim: L.AIM * w, w, active: true });
       return out;
     },
     cancel(why = 'cancel') { S.pending = null; if (S.phase === 'look') end(why); },

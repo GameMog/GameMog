@@ -481,6 +481,8 @@ class CameraSystem {
         // (upright: a longer boom, higher, looking lower)
         const rig = pk ? this.portRig(entity, pk) : null;
         if (rig) dist *= 1 + rig.pull;
+        // (the boom and its height as they stand without the damage look: its probe, probeLook)
+        this._chaseRig = { dist, h0: (entity.chaseHeight * this.zoomMultiplier) * hold + (rig ? rig.lift * this.zoomMultiplier : 0), yaw: totalYaw };
         if (dl) dist *= 1 - (dl.pull || 0);
         let height = (entity.chaseHeight * this.zoomMultiplier) * hold + Math.sin(this.orbitPitchOffset + (dl ? dl.pitch || 0 : 0)) * dist * 0.85;
         if (rig) height += rig.lift * this.zoomMultiplier;
@@ -837,6 +839,39 @@ class CameraSystem {
       if (k > bk + 0.05) { bk = k; best = yaw; }
     }
     return best;
+  }
+
+  // (Mog City, jh-polish A6) the damage look's probe (wagmi/crash/damage-look.js pickView): the chase lens swung yaw rad
+  // round the car (+: to its right) and pitch rad up, the boom shorter by pull: how much of the boom out to it is clear
+  // of the buildings and the street's things (0..1), and whether the crumpled nose is in sight from there (a nose in a
+  // wall seen from the wall's side is not). null when the chase rig has not run yet.
+  probeLook(entity, yaw, pitch = 0, pull = 0) {
+    const R = this._chaseRig;
+    if (!R || !entity || !entity.position) return null;
+    const d = R.dist * (1 - pull), by = R.yaw + yaw;
+    const horiz = Math.cos(this.orbitPitchOffset) * d, height = R.h0 + Math.sin(this.orbitPitchOffset + pitch) * d * 0.85;
+    const E = entity.position, P = this._pivot.set(E.x, E.y + 1.15, E.z);
+    const Q = { x: E.x - Math.sin(by) * horiz, y: E.y + height, z: E.z - Math.cos(by) * horiz };
+    const B = entity.body || { z1: 2.3, top: 1.3, hx: 0.95 }, h = entity.heading, fs = Math.sin(h), fc = Math.cos(h);
+    const near = this.nearBoxes(P, d + 4, entity);
+    let x = Q.x - P.x, y = Q.y - P.y, z = Q.z - P.z, L = Math.hypot(x, y, z);
+    const clear = L < 1e-3 ? 1 : rayClear(P, x / L, y / L, z / L, L, near) / L;
+    // (the nose itself: three points across the front, at its crumple's height, a hand in from its face; the line from
+    // the lens to each, stopping just short of it. A nose in a wall, or behind a ledge it went into, shows from a side
+    // only when two of them are in sight)
+    const nz = (B.z1 || 2.3) - 0.15, ny = E.y + (B.top || 1.3) * 0.45, hx = (B.hx || 0.95) * 0.6;
+    // (here the car's own solids count too: a plaza's raised edge or a fence (carOnly, the lens passes over them) the
+    // nose went into hides it as well as a wall does)
+    const sight = near.map((c) => (c.carOnly ? { ...c, carOnly: false } : c));
+    let seen = 0;
+    for (const s of [-1, 0, 1]) {
+      const nx = E.x + fs * nz + fc * hx * s, nzw = E.z + fc * nz - fs * hx * s;
+      x = nx - Q.x; y = ny - Q.y; z = nzw - Q.z; L = Math.hypot(x, y, z);
+      const run = Math.max(0, L - 0.3);
+      if (L < 1e-3 || rayClear(Q, x / L, y / L, z / L, run, sight, 0) >= run - 1e-3) seen++;
+    }
+    const sees = seen >= 2;
+    return { clear, sees };
   }
 
   keepInView(entity, dt) {

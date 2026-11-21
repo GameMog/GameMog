@@ -23,7 +23,7 @@ import * as THREE from 'three/webgpu';
 import { createVapor } from '../pursuit/vapor.js';
 import { baseCost, hitCost, createContacts, afterHit, BUSY_FLOOR, DENT, dentSpeed, dentSize, wearOf, addWear, readoutOf } from './damage-cost.js';
 import { wheelKeeps, keepRoom, crumple, crease } from './dent-geom.js';
-import { createDamageLook, blockedBy } from './damage-look.js';
+import { createDamageLook, blockedBy, LOOK } from './damage-look.js';
 
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 // a dent: the hardest of a hit's blows over DENT.MIN m/s costing over DENT.COST, its depth and radius by the blow's energy
@@ -58,7 +58,9 @@ export function createDamage(W, crash) {
       pursuit: !!W.pursuit?.active, step, timer: !!M?.timer?.running });
     // (the player moved the camera: a drag, a look stick, a flick; the camera's own orbit timer goes back up to 4 s)
     const ot = cs ? cs.userOrbitTimer || 0 : 0, orbit = !!(cs && (cs.isDragging || ot > orbitT + 1e-3)); orbitT = ot;
-    return { speed: Math.hypot(car.speed || 0, car.slipV || 0), keys: cm.keys, orbit, blocked };
+    // (the way round with the nose in sight, probed when a look begins: js/cameras.js probeLook, damage-look.js pickView)
+    const probe = cs && typeof cs.probeLook === 'function' ? (yaw, pitch) => cs.probeLook(car, yaw, pitch, LOOK.PULL) : null;
+    return { speed: Math.hypot(car.speed || 0, car.slipV || 0), keys: cm.keys, orbit, blocked, probe };
   }
 
   // the side a point (world x, z) struck, by the car's box; and the point on that side of the box
