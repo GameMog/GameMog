@@ -24,6 +24,8 @@
 // On a phone (body.touch-enabled): finger-sized rows, the menu scrolling where the screen is short, upright or
 // sideways, and the controls' Touch column (wagmi/touch.js's buttons).
 //   ui.pause.open(id)     open on one item ('select': Mission select); open() on Resume
+//   ui.pause.hold(on, pre) the city held still with no menu (photo mode, photo.js): the clock, the frame loop, the sound;
+//                         pre() run before each held frame is drawn. Photo mode: Pause > Photo mode, or O in play
 import { creditsHTML } from '../credits.js';
 import { world } from '../world/index.js';
 // (the story pack, wagmi/story: the missions' names and checkpoints as a Mog has them; Story, `story` being the mission
@@ -161,7 +163,7 @@ const CONTROLS = [
   ['On foot', [['Move', 'W A S D', 'LS', 'stick'], ['Sprint', 'Shift', 'LT · L3', 'SPRINT'], ['Jump', 'Space', 'A', 'JUMP'], ['Get in the car', 'F', 'Y', 'GET IN'], ['Look round', 'drag the mouse', 'RS', 'drag the view']]],
   ['In the car', [['Drive · brake', 'W · S', 'RT · LT', 'stick up · down'], ['Steer', 'A · D', 'LS', 'stick left · right'], ['Boost', 'Shift', 'X', 'BOOST'], ['Get out', 'F (slow down first)', 'Y', 'EXIT'], ['Reset car to road', 'recover', 'B', 'RESET CAR'], ['Electric / Engine', 'Q', 'Up', 'ELECTRIC'], ['Handbrake (a slide, a 180)', 'Space', 'A', 'DRIFT'], ['Thrusters: hop (in place of the handbrake once you have them)', 'Space', 'A', 'HOP'], ['Thrusters: dash left · right', 'Z · C', 'LB · RB', 'DASH ◀ · ▶'], ['Radio on / off (Mog Music)', 'T', 'Down', 'hold RADIO'], ['Radio: next song', 'R', 'Right', 'RADIO'], ['Radio: song back', '', 'Left', ''], ['Look round', 'drag the mouse', 'RS', 'drag the view']]],
   ['Fighting', [['Strike', 'Left click · J', 'X', 'STRIKE'], ['Heavy', 'Right click · K', 'Y', 'HEAVY'], ['Counter (on the cue)', 'Q · L', 'LB', 'DODGE · COUNTER'], ['Dodge', 'C · Space', 'B', 'DODGE · COUNTER'], ['Grab · pick up · throw', 'E', 'RB', 'GRAB'], ['Lock the mouse to the view', 'click in a fight', '', '']]],
-  ['Anywhere', [['Map', 'M', 'View', 'Map button'], ['Brief: the objective, the last lines', 'B', 'R3', 'tap the objective'], ['Pause', 'Esc · P', 'Start', 'Pause button'], ['Skip a cutscene', 'hold Space', 'hold A', 'hold anywhere'], ['Menus: choose · OK · back', '↑ ↓ · Enter · Esc', 'Up Down · A · B', 'tap'], ['Need a hand? options', '1 · 2 · 3', 'Up · Right · Down', 'tap one']]],
+  ['Anywhere', [['Map', 'M', 'View', 'Map button'], ['Brief: the objective, the last lines', 'B', 'R3', 'tap the objective'], ['Pause', 'Esc · P', 'Start', 'Pause button'], ['Photo mode', 'O', '', 'Pause › Photo mode'], ['Skip a cutscene', 'hold Space', 'hold A', 'hold anywhere'], ['Menus: choose · OK · back', '↑ ↓ · Enter · Esc', 'Up Down · A · B', 'tap'], ['Need a hand? options', '1 · 2 · 3', 'Up · Right · Down', 'tap one']]],
 ];
 // (a world ridden on Ranger (W.car.kind 'horse'): the car's column is the horse's, and on foot F mounts him)
 const HORSE_CONTROLS = [
@@ -240,12 +242,13 @@ export function createPause(ui) {
   /* ---------------------------------------------- holding the city still -- */
   // the city's frame loop (main.js, through the renderer's animation loop): while paused it only draws the frame
   // (the scene as it stood); failing that, its updates are held one by one
+  let heldPre = null; // (photo mode's camera, put before each held frame: hold())
   function holdLoop() {
     const anim = app.renderer?._animation;
     if (anim && typeof anim._animationLoop === 'function') {
       if (anim._wgHeld) return;
       const loop = anim._animationLoop; anim._wgHeld = true;
-      anim._animationLoop = (t, xr) => { if (!W.paused) return loop(t, xr); try { app.renderPipeline?.render(); } catch {} };
+      anim._animationLoop = (t, xr) => { if (!W.paused) return loop(t, xr); try { heldPre?.(); app.renderPipeline?.render(); } catch {} };
       return;
     }
     for (const o of [cm, app.cameraSystem, app.trafficSystem, app.highwayTraffic]) {
@@ -259,7 +262,7 @@ export function createPause(ui) {
   const typing = (e) => /^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.tagName || '') || e.target?.isContentEditable;
   function pausable() {
     const b = document.body.classList;
-    if (!app.ready || b.contains('wg-gating')) return false;
+    if (!app.ready || b.contains('wg-gating') || W.photo?.on) return false;
     if (app.mapSystem?.isFullMapOpen) return false;
     if (document.querySelector('#wg .wg-big.on .choices')) return false; // (the fail screen asks its own question)
     return true;
@@ -267,13 +270,13 @@ export function createPause(ui) {
 
   /* ----------------------------------------------------------- the menu -- */
   const ALL = [
-    ['resume', 'Resume'], ['brief', 'Brief'], ['controls', 'Controls'], ['recover', 'Reset car to road'], ['restart', 'Restart checkpoint'], ['select', 'Mission select'], ['sound', 'Sound'], ['graphics', 'Graphics'], ['credits', 'Credits'], ['title', 'Return to title'],
+    ['resume', 'Resume'], ['brief', 'Brief'], ['controls', 'Controls'], ['recover', 'Reset car to road'], ['restart', 'Restart checkpoint'], ['select', 'Mission select'], ['sound', 'Sound'], ['graphics', 'Graphics'], ['photo', 'Photo mode'], ['credits', 'Credits'], ['title', 'Return to title'],
   ];
   // (the car's reset only in the car, and only with the driving track's WAGMI.recoverCar: fixed while the menu is up;
   // Graphics only with the city's quality switch)
   let ITEMS = ALL;
   const quality = () => world.look.quality || null;
-  const items = () => (ITEMS = ALL.filter(([id]) => (id !== 'recover' || (cm.activeMode === 'car' && typeof W.recoverCar === 'function')) && (id !== 'graphics' || !!quality())));
+  const items = () => (ITEMS = ALL.filter(([id]) => (id !== 'recover' || (cm.activeMode === 'car' && typeof W.recoverCar === 'function')) && (id !== 'graphics' || !!quality()) && (id !== 'photo' || !!W.photo?.can?.(true))));
   // (the choice made here this session: the switch's own may only say so on the next load)
   let gfxPick = null;
   const gfxChoice = () => gfxPick || quality()?.choice || 'auto';
@@ -341,6 +344,9 @@ export function createPause(ui) {
         ${extra.map((x, j) => x === 'reset' ? `<button class="opt${inPanel && sub === opts.length + j ? ' sel' : ''}" data-gfxreset="1">Reset Auto<small>Measure this device again</small></button>`
           : `<button class="opt${inPanel && sub === opts.length + j ? ' sel' : ''}" data-reload="1">Reload now<small>Progress since the last checkpoint is lost</small></button>`).join('')}
         ${code ? `<div class="mu" style="margin-top:8px;font-size:14px">Machine report code: <b>${esc(code)}</b></div>` : ''}`;
+    } else if (id === 'photo') {
+      panel.innerHTML = `<div class="t">Photo mode</div><div class="ln">The game held where it is, the HUD gone, a free camera round you and your ride: orbit, zoom, height, a look (none, warm, noir, vivid), then save a PNG.</div>
+        <div class="mu" style="margin-top:10px;font-size:15px">${touchUI() ? 'Tap Photo mode to start · drag to orbit, pinch to zoom' : '<kbd>Enter</kbd> to start · in play, any time: <kbd>O</kbd>'}</div>`;
     } else if (id === 'credits') {
       panel.innerHTML = creditsHTML();
     } else if (id === 'title') {
@@ -378,14 +384,29 @@ export function createPause(ui) {
     setTimeout(() => ui.fade(0, 0.6), 250);
   }
 
-  function open(at) {
-    if (isOpen) return;
+  // the city held (the menu's, and photo mode's without it)
+  let held = false;
+  function freeze() {
+    if (held) return; held = true;
     holdLoop();
-    isOpen = true; openedAt = performance.now();
     W.paused = true; since = performance.now();
     cm.resetInput?.();
     if (document.pointerLockElement) { gameLetGo = performance.now(); document.exitPointerLock?.(); }
     duck(); duckT = setInterval(duck, 500);
+  }
+  function thaw() {
+    if (!held) return; held = false;
+    clearInterval(duckT);
+    pausedMs += performance.now() - since; W.paused = false;
+    cm.resetInput?.();
+  }
+  function hold(on, pre = null) {
+    if (on) { if (isOpen) close(); heldPre = pre; freeze(); } else { heldPre = null; if (!isOpen) thaw(); }
+  }
+  function open(at) {
+    if (isOpen || W.photo?.on) return;
+    freeze();
+    isOpen = true; openedAt = performance.now();
     ui.brief?.(false);
     items(); sel = Math.max(0, typeof at === 'string' ? ITEMS.findIndex(([id]) => id === at) : 0); inPanel = false; sub = 0; draw();
     mapCredit();
@@ -394,13 +415,12 @@ export function createPause(ui) {
   function close() {
     if (!isOpen) return;
     isOpen = false; root.classList.remove('on'); document.body.classList.remove('wg-paused');
-    clearInterval(duckT);
-    pausedMs += performance.now() - since; W.paused = false;
-    cm.resetInput?.();
+    thaw();
   }
   function act(id) {
     if (id === 'resume') close();
     else if (id === 'recover') { close(); try { W.recoverCar?.(); } catch (e) { console.warn('[pause] recover', e); } }
+    else if (id === 'photo') { W.photo?.open?.(); }
     else if (id === 'credits') { inPanel = true; panel.classList.add('focus'); }
     else if (subCount()) { inPanel = true; sub = 0; if (id === 'restart') { const l = checkpoints().list; sub = Math.max(0, l.findIndex((c) => c.cur)); } if (id === 'graphics') sub = Math.max(0, GFX().findIndex(([k]) => k === gfxChoice())); draw(); }
   }
@@ -453,6 +473,7 @@ export function createPause(ui) {
     else if (back || left) { inPanel = false; draw(); }
   }
   addEventListener('keydown', (e) => {
+    if (W.photo?.on) return; // (photo mode's own keys: photo.js)
     if (isOpen) { if (!typing(e) && !e.metaKey && !e.ctrlKey && !e.altKey) { if (!e.repeat || /Arrow/.test(e.code)) menuKey(e); e.stopImmediatePropagation(); e.preventDefault(); } return; }
     if (typing(e) || e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
     if (e.code === 'Escape' || e.code === 'KeyP') {
@@ -472,12 +493,12 @@ export function createPause(ui) {
   const exitPL = document.exitPointerLock?.bind(document);
   if (exitPL) document.exitPointerLock = () => { gameLetGo = performance.now(); return exitPL(); };
   document.addEventListener('pointerlockchange', () => {
-    if (document.pointerLockElement || isOpen || performance.now() - gameLetGo < 500 || !document.hasFocus()) return;
+    if (document.pointerLockElement || isOpen || W.photo?.on || performance.now() - gameLetGo < 500 || !document.hasFocus()) return;
     if (pausable()) open();
   });
   root.addEventListener('click', (e) => {
     const t = e.target.closest('button, .bar'); if (!t) return;
-    if (t.dataset.i != null) { const i = +t.dataset.i; if (i === sel && ITEMS[i][0] === 'resume') return close(); sel = i; inPanel = false; draw(); if (ITEMS[i][0] === 'resume') close(); return; }
+    if (t.dataset.i != null) { const i = +t.dataset.i; if (i === sel && ITEMS[i][0] === 'resume') return close(); if (ITEMS[i][0] === 'photo') return act('photo'); sel = i; inPanel = false; draw(); if (ITEMS[i][0] === 'resume') close(); return; }
     if (t.dataset.cp != null) { inPanel = true; sub = +t.dataset.cp; return restart(sub); }
     if (t.dataset.ms != null) { inPanel = true; sub = +t.dataset.ms; return replay(sub); }
     if (t.dataset.gfx) { inPanel = true; sub = GFX().findIndex(([k]) => k === t.dataset.gfx); return setGfx(t.dataset.gfx); }
@@ -493,5 +514,5 @@ export function createPause(ui) {
 
   // (opened on one item and into its choices, as Enter there would: REPLAY A MISSION's Mission select)
   function openTo(id) { open(id); if (ITEMS[sel] && ITEMS[sel][0] === id) act(id); }
-  return { open, openTo, close, get isOpen() { return isOpen; }, pausable, restartCurrent };
+  return { open, openTo, close, hold, get isOpen() { return isOpen; }, pausable, restartCurrent };
 }

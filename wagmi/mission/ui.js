@@ -34,7 +34,7 @@
 //                                                counting within `reach` m; step() true once held through
 //   offer({ title, note, options: [{ key, label, run }] }) / offer(null)   a small prompt of real help (top left), its
 //                                                options on the number keys (held off the city's own while it is up)
-import { createPause } from './pause.js';
+import { createPause } from './pause.js'; import { createPhoto } from './photo.js';
 import { janePortrait } from './jane.js';
 // (the story pack: every string these methods show is S.t of what they are given, a speaker's label S.name of its id;
 // with Mog City's own pack each returns what it is given, wagmi/story/index.js)
@@ -983,5 +983,7 @@ export function createUI() {
   };
   // the pause menu (Esc or P), with the brief's key (B)
   try { ui.pause = createPause(ui); } catch (err) { console.warn('[wagmi] pause', err); }
+  // photo mode (O, or Pause > Photo mode): the pause menu's hold, a free camera, a PNG with the world's tag
+  try { ui.photo = createPhoto(ui); } catch (err) { console.warn('[wagmi] photo', err); }
   return ui;
 }
