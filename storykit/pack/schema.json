@@ -38,6 +38,26 @@
    "type": "string",
    "maxLength": 80
   },
+  "credits": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "lines"
+   ],
+   "properties": {
+    "lines": {
+     "type": "array",
+     "items": {
+      "type": "string",
+      "maxLength": 160
+     },
+     "minItems": 1,
+     "maxItems": 12,
+     "description": "the world's own credit lines: what it is and what it is made from (\"Built from CC0 MakeHuman parts.\")"
+    }
+   },
+   "description": "the end credits, rolled after STORY COMPLETE and the title (any key skips them): Mog City adds the cast and their roles, the voices, the map's data and GameMog Community around these lines"
+  },
   "base": {
    "type": "object",
    "additionalProperties": false,
@@ -1786,6 +1806,78 @@
            "description": "the mission's title card: slam (slammed in with a hit), false (none: its first cutscene titles it); a hometown story slams every one"
           }
          ]
+        },
+        "medals": {
+         "type": "object",
+         "additionalProperties": false,
+         "required": [],
+         "properties": {
+          "gold": {
+           "type": "object",
+           "additionalProperties": false,
+           "required": [
+            "secs"
+           ],
+           "properties": {
+            "secs": {
+             "type": "number",
+             "minimum": 10,
+             "maximum": 7200,
+             "description": "the time to beat, in seconds, from the mission's start"
+            },
+            "damage": {
+             "type": "number",
+             "minimum": 0,
+             "maximum": 1000,
+             "description": "the most damage: what the car takes (100 is a whole car's worth) and 3 a hit on foot; left out, any"
+            }
+           }
+          },
+          "silver": {
+           "type": "object",
+           "additionalProperties": false,
+           "required": [
+            "secs"
+           ],
+           "properties": {
+            "secs": {
+             "type": "number",
+             "minimum": 10,
+             "maximum": 7200,
+             "description": "the time to beat, in seconds, from the mission's start"
+            },
+            "damage": {
+             "type": "number",
+             "minimum": 0,
+             "maximum": 1000,
+             "description": "the most damage: what the car takes (100 is a whole car's worth) and 3 a hit on foot; left out, any"
+            }
+           }
+          },
+          "bronze": {
+           "type": "object",
+           "additionalProperties": false,
+           "required": [
+            "secs"
+           ],
+           "properties": {
+            "secs": {
+             "type": "number",
+             "minimum": 10,
+             "maximum": 7200,
+             "description": "the time to beat, in seconds, from the mission's start"
+            },
+            "damage": {
+             "type": "number",
+             "minimum": 0,
+             "maximum": 1000,
+             "description": "the most damage: what the car takes (100 is a whole car's worth) and 3 a hit on foot; left out, any"
+            }
+           }
+          }
+         },
+         "minProperties": 1,
+         "description": "the mission's medals (Mog City's MISSION PASSED card): gold, silver and bronze, each a time to beat and a damage to stay under; earned on a run from the mission's start, kept on the player's device"
         }
        }
       },

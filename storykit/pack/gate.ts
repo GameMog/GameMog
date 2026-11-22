@@ -193,7 +193,7 @@ export const lineHash = (text: string): string => vdLineHash(text);
 const SPEECH_KEYS = new Set(['reply', 'silenceReply', 'line']);
 /** A call's react pools and their line-id tags (schema.mjs REACT_POOLS). */
 const REACT_IDS: [string, string][] = [['tooClose', 'rclose'], ['hit', 'rhit'], ['lost', 'rlost'], ['spotted', 'rspot']];
-const FREE_KEYS = new Set(['title', 'kicker', 'tagline', 'name', 'stakes', 'passLine', 'note', 'timerLine', 'label', 'objective', 'why', 'role',
+const FREE_KEYS = new Set(['title', 'kicker', 'tagline', 'credit', 'name', 'stakes', 'passLine', 'note', 'timerLine', 'label', 'objective', 'why', 'role',
   'alert', 'peelText', 'text', 'prompt', 'defaultText', 'sub', 'caption', 'heading', 'lateLabel', 'silenceLabel', 'reply', 'silenceReply',
   'line', 'missing', 'signed', 'skip', 'date', 'due', 'hint', 'logline', 'presentation', 'gestures', 'wants', 'speech', 'traits', 'story',
   'description', 'nickname', 'oneLine', 'unitLabel', 'zero', 'street', 'note', 'fail', 'value',
@@ -691,6 +691,8 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
 
   // pack-wide texts (title, places, cast, rides, hud)
   collect({ title: pack.title, kicker: pack.kicker, tagline: pack.tagline }, 'pack', texts);
+  // (the end credits' own lines: on-screen words, read as every other is)
+  if ((pack as Json).credits?.lines) collect({ credit: (pack as Json).credits.lines }, 'pack.credits', texts);
   for (const [k, a] of Object.entries(aliases)) collect({ name: a.name }, `places.${k}`, texts);
   ranches.forEach((r: Json, i: number) => { if (r.sign) collect({ name: r.sign }, `ranches[${i}].sign`, texts); });
   for (const c of pack.cast) { collect(c.sheet || { name: c.name, role: c.role }, `cast "${c.id}"${c.sheet ? '.sheet' : ''}`, texts); collect({ description: c.voice?.description }, `cast "${c.id}".voice`, texts); }
@@ -1022,6 +1024,9 @@ export function toRunnerPack(pack: PackV2, opts: { cast?: Record<string, string>
   const end = (e: Json) => (e?.quote?.by ? { ...e, quote: { ...e.quote, by: name(e.quote.by) } } : e);
   return {
     storykit: 1, engine: pack.base.engine, id: pack.id, title: pack.title, kicker: pack.kicker, tagline: pack.tagline, city: pack.base.city,
+    // (the end credits: Mog City's wagmi/storyrun rules.js creditsRoll adds the cast, the voices, the map and GameMog
+    // Community round its own lines; a mission's medals go as they are, with the mission)
+    ...((pack as Json).credits ? { credits: { lines: [...(pack as Json).credits.lines] } } : {}),
     // (a hometown: the town it plays, exactly as base.hometown pins it; Mog City plays it only on a page that loaded that
     // town, wagmi/storyrun/pack.js, comparing it field by field with the bundle's lock, compiler = the bundle's buildId)
     ...(town && pack.base.hometown ? { hometown: pack.base.hometown } : {}),

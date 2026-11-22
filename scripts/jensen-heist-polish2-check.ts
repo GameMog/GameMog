@@ -24,8 +24,8 @@ const sha = (b: string | Uint8Array) => createHash('sha256').update(b).digest('h
 
 export async function runJensenPolish2Checks(ok: Ok) {
   console.log('\nJensen Heist polish batch 2 (deploy/migrate.mjs ' + ID + ')');
-  const { migrate, MIGRATIONS, JH_POLISH2_FROM, JH_LATER, JH_POLISH2_BODIES } = await import('../deploy/migrate.mjs') as {
-    migrate: (p: string) => Promise<void> | void; MIGRATIONS: Migration[]; JH_POLISH2_FROM: string; JH_LATER: string[]; JH_POLISH2_BODIES: Record<string, { from: string; to: string }> };
+  const { migrate, MIGRATIONS, JH_POLISH2_FROM, JH_POLISH3_FROM, JH_LATER, JH_POLISH2_BODIES } = await import('../deploy/migrate.mjs') as {
+    migrate: (p: string) => Promise<void> | void; MIGRATIONS: Migration[]; JH_POLISH2_FROM: string; JH_POLISH3_FROM: string; JH_LATER: string[]; JH_POLISH2_BODIES: Record<string, { from: string; to: string }> };
   const iPub = MIGRATIONS.findIndex((m) => m.id === PUB_ID), iT = MIGRATIONS.findIndex((m) => m.id === TITLE_ID), i1 = MIGRATIONS.findIndex((m) => m.id === P1_ID), iP = MIGRATIONS.findIndex((m) => m.id === ID);
   ok('the second polish batch is one migration of its own, async, after the retitle and polish1', iPub >= 0 && iT > iPub && i1 > iT && iP > i1 && !!MIGRATIONS[iP].async, `${iPub} ${iT} ${i1} ${iP}`);
   if (iPub < 0 || iT < 0 || i1 < 0 || iP < 0) return;
@@ -33,6 +33,12 @@ export async function runJensenPolish2Checks(ok: Ok) {
   const R = JSON.parse(readFileSync('deploy/migrations/jensen-heist-story.json', 'utf8'));
   const worldText = readFileSync('deploy/migrations/jensen-heist/world.json', 'utf8'), W = JSON.parse(worldText);
   ok('the record\'s world is one the retitle leaves to a later migration (JH_LATER)', JH_LATER.includes(R.world.hash) && JH_LATER.includes(JH_POLISH2_FROM) && R.world.hash !== JH_POLISH2_FROM, R.world.hash.slice(0, 12));
+  // (a later batch's record (polish3: gamemog.com has polish2 recorded, and plays what it sealed, JH_POLISH3_FROM): what
+  // it is built from is that batch's check, scripts/jensen-heist-polish3-check.ts, which runs the same states)
+  if (R.world.hash !== JH_POLISH3_FROM) {
+    ok('... a later batch\'s record (polish3 replaces what polish2 sealed): its own check runs the states', JH_LATER.indexOf(R.world.hash) > JH_LATER.indexOf(JH_POLISH3_FROM) && MIGRATIONS.some((m) => m.id === '2026-11-21-jensen-heist-polish3'), R.world.hash.slice(0, 12));
+    return;
+  }
   const BODY = Object.entries(JH_POLISH2_BODIES);
   // (polish1's world exactly: the record's world with the old body's address put back, byte for byte)
   let oldText = worldText;

@@ -1270,9 +1270,24 @@ const M8 = { id: 'ST-8', title: 'Showtime', vehicle: 'tensore', start: '@arena',
     { type: 'dm', from: 'wesley', text: 'Pruitt got seat one. He\'s still lying down.', secs: 6 },
   ] };
 
+// (the medals, Mog City's MISSION PASSED card (polish batch 2, C1): gold, silver and bronze by the time from the mission's
+// start and its DAMAGE (the car's knocks, 100 a whole car, and 3 a hit on foot). First targets, from the autopilot's
+// whole-mission runs (20-21 Nov: PH-1 about 4 min, CB-2 3, BT-3 4.5, DL-4 5.5, SS-5 2.5-6, TP-6 3.5, FL-7 4-5, ST-8 5.5),
+// gold a little over the autopilot's time with the cutscenes watched)
+const MEDALS = { 'PH-1': [270, 360, 540], 'CB-2': [210, 285, 420], 'BT-3': [300, 390, 540], 'DL-4': [360, 450, 600],
+  'SS-5': [240, 330, 480], 'TP-6': [240, 330, 480], 'FL-7': [300, 390, 540], 'ST-8': [360, 450, 660] };
+for (const m of [M1, M2, M3, M4, M5, M6, M7, M8]) { const [g, s, b] = MEDALS[m.id]; m.medals = { gold: { secs: g, damage: 10 }, silver: { secs: s, damage: 30 }, bronze: { secs: b } }; }
 
 const pack = {
   storykit: 2, id: 'jensen-heist', title: 'Jensen Heist', kicker: 'SAN JOSE, CA', tagline: 'San Jose, CA. One chip. One jacket.',
+  // (the end credits after ST-8 (polish batch 2, C3): the approved parody line and the assets' credits; Mog City rolls
+  // the cast, the voices, San Jose's map data and GameMog Community round them)
+  credits: { lines: [
+    "A parody of a public figure's public keynote persona. Not endorsed. Built from CC0 MakeHuman parts.",
+    'Hair cards: "Hair Cards_FBX" by POLYTRICITY (Sketchfab), CC BY 4.0, modified.',
+    "The lime supercar: adapted from a model by ALIEEEN (Sketchfab), CC BY 4.0, modified, with no maker's badges; a look-alike with no connection to any car maker.",
+    "The town's cars: models by Daniel Zhabotinsky and Comrade1280 (Sketchfab), CC BY 4.0, adapted, every badge removed.",
+  ] },
   base: { engine: 'mogcity-1', city: 'hometown', cityBuild: `hometown-${lock.buildId}`.slice(0, 39),
     hometown: { place: lock.place, compiler: lock.buildId, tiles: lock.tiles, formatVersion: lock.formatVersion, grid: lock.grid, domain: lock.domain, origin: lock.origin, k0: lock.k0, gamma0: lock.gamma0, yOffset: lock.yOffset, waterLevel: lock.waterLevel } },
   dressing: { time: 'midday', season: 'autumn', weather: 'clear', holiday: [] },

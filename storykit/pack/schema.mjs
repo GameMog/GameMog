@@ -399,7 +399,9 @@ const mission = O({
   start: R('placeRef'), traffic: N(0, 1), stakes: R('line'), passLine: R('line'), note: R('line'), timerLine: S(80), label: S(24),
   time: E(TIMES, { description: "the mission's time of day, pinned: held through its cutscenes and set pieces (left out: the act's timeline's, else the dressing's)" }),
   reward: R('set'), hiddenMeters: A(R('slug'), 4), next: R('missionId'), hidden: B, steps: A({ $ref: '#/$defs/step' }, LIMITS.steps, 1),
-  card: ONE(E(['slam']), { const: false }, { description: "the mission's title card: slam (slammed in with a hit), false (none: its first cutscene titles it); a hometown story slams every one" })
+  card: ONE(E(['slam']), { const: false }, { description: "the mission's title card: slam (slammed in with a hit), false (none: its first cutscene titles it); a hometown story slams every one" }),
+  medals: O(Object.fromEntries(['gold', 'silver', 'bronze'].map((k) => [k, O({ secs: N(10, 7200, { description: 'the time to beat, in seconds, from the mission\'s start' }), damage: N(0, 1000, { description: "the most damage: what the car takes (100 is a whole car's worth) and 3 a hit on foot; left out, any" }) }, ['secs'])])), [],
+    { minProperties: 1, description: "the mission's medals (Mog City's MISSION PASSED card): gold, silver and bronze, each a time to beat and a damage to stay under; earned on a run from the mission's start, kept on the player's device" })
 }, ['id', 'title', 'vehicle', 'start', 'steps']);
 
 const voice = {
@@ -427,6 +429,8 @@ export const SCHEMA = {
     id: R('packId'),
     parent: { ...R('packId'), description: 'a Mog: the pack it remixes (its base is copied and locked)' },
     title: S(48), kicker: S(24), tagline: S(80),
+    credits: O({ lines: A(S(160), 12, 1, { description: "the world's own credit lines: what it is and what it is made from (\"Built from CC0 MakeHuman parts.\")" }) }, ['lines'],
+      { description: "the end credits, rolled after STORY COMPLETE and the title (any key skips them): Mog City adds the cast and their roles, the voices, the map's data and GameMog Community around these lines" }),
     base: O({ engine: E(ENGINES), city: E(CITIES), cityBuild: S(40, { pattern: '^[a-z]{2,8}-[a-z0-9.-]{1,30}$' }),
       hometown: O({ place: S(80, { pattern: '^[a-z0-9][a-z0-9-]{1,79}$' }), compiler: S(30, { pattern: '^[a-z0-9][a-z0-9.-]{0,29}$' }), tiles: S(64, { pattern: '^[0-9a-f]{16,64}$' }),
         // (lock v2, the national grid hg1: the session frame the town's descriptor pinned; v3 the same, its tiles the hash

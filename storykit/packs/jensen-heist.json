@@ -4,6 +4,14 @@
  "title": "Jensen Heist",
  "kicker": "SAN JOSE, CA",
  "tagline": "San Jose, CA. One chip. One jacket.",
+ "credits": {
+  "lines": [
+   "A parody of a public figure's public keynote persona. Not endorsed. Built from CC0 MakeHuman parts.",
+   "Hair cards: \"Hair Cards_FBX\" by POLYTRICITY (Sketchfab), CC BY 4.0, modified.",
+   "The lime supercar: adapted from a model by ALIEEEN (Sketchfab), CC BY 4.0, modified, with no maker's badges; a look-alike with no connection to any car maker.",
+   "The town's cars: models by Daniel Zhabotinsky and Comrade1280 (Sketchfab), CC BY 4.0, adapted, every badge removed."
+  ]
+ },
  "base": {
   "engine": "mogcity-1",
   "city": "hometown",
@@ -2662,7 +2670,20 @@
        "text": "Blue vests, a blue cooler, and my lucky oven's only child.",
        "wait": true
       }
-     ]
+     ],
+     "medals": {
+      "gold": {
+       "secs": 270,
+       "damage": 10
+      },
+      "silver": {
+       "secs": 360,
+       "damage": 30
+      },
+      "bronze": {
+       "secs": 540
+      }
+     }
     },
     {
      "id": "CB-2",
@@ -3084,7 +3105,20 @@
         }
        ]
       }
-     ]
+     ],
+     "medals": {
+      "gold": {
+       "secs": 210,
+       "damage": 10
+      },
+      "silver": {
+       "secs": 285,
+       "damage": 30
+      },
+      "bronze": {
+       "secs": 420
+      }
+     }
     }
    ]
   },
@@ -3749,7 +3783,20 @@
        "secs": 30,
        "call": true
       }
-     ]
+     ],
+     "medals": {
+      "gold": {
+       "secs": 300,
+       "damage": 10
+      },
+      "silver": {
+       "secs": 390,
+       "damage": 30
+      },
+      "bronze": {
+       "secs": 540
+      }
+     }
     },
     {
      "id": "DL-4",
@@ -4294,7 +4341,20 @@
        "who": "jensen",
        "text": "So we go. On purpose, this time."
       }
-     ]
+     ],
+     "medals": {
+      "gold": {
+       "secs": 360,
+       "damage": 10
+      },
+      "silver": {
+       "secs": 450,
+       "damage": 30
+      },
+      "bronze": {
+       "secs": 600
+      }
+     }
     }
    ]
   },
@@ -5002,7 +5062,20 @@
        "secs": 30,
        "call": true
       }
-     ]
+     ],
+     "medals": {
+      "gold": {
+       "secs": 240,
+       "damage": 10
+      },
+      "silver": {
+       "secs": 330,
+       "damage": 30
+      },
+      "bronze": {
+       "secs": 480
+      }
+     }
     },
     {
      "id": "TP-6",
@@ -5457,7 +5530,20 @@
         "sub": "The chair, the run of show, the dock. And the headset."
        }
       }
-     ]
+     ],
+     "medals": {
+      "gold": {
+       "secs": 240,
+       "damage": 10
+      },
+      "silver": {
+       "secs": 330,
+       "damage": 30
+      },
+      "bronze": {
+       "secs": 480
+      }
+     }
     }
    ]
   },
@@ -5883,7 +5969,20 @@
        "name": "show",
        "stop": true
       }
-     ]
+     ],
+     "medals": {
+      "gold": {
+       "secs": 300,
+       "damage": 10
+      },
+      "silver": {
+       "secs": 390,
+       "damage": 30
+      },
+      "bronze": {
+       "secs": 540
+      }
+     }
     },
     {
      "id": "ST-8",
@@ -7961,7 +8060,20 @@
        "text": "Pruitt got seat one. He's still lying down.",
        "secs": 6
       }
-     ]
+     ],
+     "medals": {
+      "gold": {
+       "secs": 360,
+       "damage": 10
+      },
+      "silver": {
+       "secs": 450,
+       "damage": 30
+      },
+      "bronze": {
+       "secs": 660
+      }
+     }
     }
    ]
   }
