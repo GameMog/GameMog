@@ -25,15 +25,21 @@ const sha = (b: string | Uint8Array) => createHash('sha256').update(b).digest('h
 
 export async function runJensenPolish3Checks(ok: Ok) {
   console.log('\nJensen Heist polish batch 3 (deploy/migrate.mjs ' + ID + ')');
-  const { migrate, MIGRATIONS, JH_POLISH3_FROM, JH_LATER, JH_POLISH3_BODIES } = await import('../deploy/migrate.mjs') as {
-    migrate: (p: string) => Promise<void> | void; MIGRATIONS: Migration[]; JH_POLISH3_FROM: string; JH_LATER: string[]; JH_POLISH3_BODIES: Record<string, { from: string; to: string }> };
+  const { migrate, MIGRATIONS, JH_POLISH3_FROM, JH_DAY1_FROM, JH_LATER, JH_POLISH3_BODIES } = await import('../deploy/migrate.mjs') as {
+    migrate: (p: string) => Promise<void> | void; MIGRATIONS: Migration[]; JH_POLISH3_FROM: string; JH_DAY1_FROM: string; JH_LATER: string[]; JH_POLISH3_BODIES: Record<string, { from: string; to: string }> };
   const iPub = MIGRATIONS.findIndex((m) => m.id === PUB_ID), iT = MIGRATIONS.findIndex((m) => m.id === TITLE_ID), i1 = MIGRATIONS.findIndex((m) => m.id === P1_ID), i2 = MIGRATIONS.findIndex((m) => m.id === P2_ID), iP = MIGRATIONS.findIndex((m) => m.id === ID);
-  ok('the third polish batch is one migration of its own, async, after the retitle, polish1 and polish2', iPub >= 0 && iT > iPub && i1 > iT && i2 > i1 && iP > i2 && iP === MIGRATIONS.length - 1 && !!MIGRATIONS[iP].async, `${iPub} ${iT} ${i1} ${i2} ${iP}`);
+  ok('the third polish batch is one migration of its own, async, after the retitle, polish1 and polish2', iPub >= 0 && iT > iPub && i1 > iT && i2 > i1 && iP > i2 && !!MIGRATIONS[iP].async, `${iPub} ${iT} ${i1} ${i2} ${iP}`);
   if (iPub < 0 || iT < 0 || i1 < 0 || i2 < 0 || iP < 0) return;
   const PUB = MIGRATIONS[iPub], P = MIGRATIONS[iP];
   const R = JSON.parse(readFileSync('deploy/migrations/jensen-heist-story.json', 'utf8'));
   const worldText = readFileSync('deploy/migrations/jensen-heist/world.json', 'utf8'), W = JSON.parse(worldText);
   ok('the record\'s world is one the retitle leaves to a later migration (JH_LATER)', JH_LATER.includes(R.world.hash) && JH_LATER.includes(JH_POLISH3_FROM) && R.world.hash !== JH_POLISH3_FROM, R.world.hash.slice(0, 12));
+  // (a later batch's record (day1: gamemog.com has polish3 recorded, and plays what it sealed, JH_DAY1_FROM): what it
+  // is built from is that batch's check, scripts/jensen-heist-day1-check.ts, which runs the same states)
+  if (R.world.hash !== JH_DAY1_FROM) {
+    ok('... a later batch\'s record (day1 replaces what polish3 sealed): its own check runs the states', JH_LATER.indexOf(R.world.hash) > JH_LATER.indexOf(JH_DAY1_FROM) && MIGRATIONS.some((m) => m.id === '2026-11-22-jensen-heist-day1'), R.world.hash.slice(0, 12));
+    return;
+  }
   // (the batch's bodies the record names (a body here it does not name yet is the draft's as it is))
   const BODY = Object.entries(JH_POLISH3_BODIES).filter(([n, b]) => R.files.some((x: any) => x.kind === 'glb' && x.name === n && x.hash === b.to));
   ok('... it carries the batch: the end credits (the approved parody line first) and every mission\'s gold, silver and bronze',

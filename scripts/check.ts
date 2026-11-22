@@ -32,6 +32,7 @@ import { runJensenTitleChecks } from './jensen-heist-title-check.ts';
 import { runJensenPolish1Checks } from './jensen-heist-polish1-check.ts';
 import { runJensenPolish2Checks } from './jensen-heist-polish2-check.ts';
 import { runJensenPolish3Checks } from './jensen-heist-polish3-check.ts';
+import { runJensenDay1Checks } from './jensen-heist-day1-check.ts';
 import { runRevoiceChecks } from './storykit-revoice-check.ts';
 import { runForgeBrowserChecks } from './storykit-forge-browser-check.ts';
 import { runHometownChecks } from './storykit-hometown-check.ts';
@@ -618,6 +619,7 @@ await runJensenTitleChecks(ok);
 await runJensenPolish1Checks(ok);
 await runJensenPolish2Checks(ok);
 await runJensenPolish3Checks(ok);
+await runJensenDay1Checks(ok);
 // Story Kit (14 Nov): a published story world's voices recorded again by the owner's browser (hometown stories sealed with no lines)
 runRevoiceChecks(ok);
 // Hometown (12 Nov): the builder reads a town's CityPackage, the town lock on Mogs, and the real-place safety rules

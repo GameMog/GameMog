@@ -649,6 +649,13 @@
          "up"
         ],
         "description": "stage only: the house, calm (standing and watching, a phone up here and there) or up (on its feet and cheering, the phones up)"
+       },
+       "screens": {
+        "enum": [
+         "figure",
+         "sign"
+        ],
+        "description": "stage only: the side screens, a stand-in figure under LIVE (figure, the default) or the set's sign"
        }
       },
       "description": "a set: the room (or closed exterior) the cutscene is staged in, its light (else the mission's time), its people and where they stand"
@@ -1061,6 +1068,10 @@
    "additionalProperties": false,
    "required": [],
    "properties": {
+    "calm": {
+     "type": "boolean",
+     "description": "a calm driving HUD (Mog City's calm-hud.js): 'F · Get out' faded after 3 s of driving and back once the car stands, the objective said once a step"
+    },
     "clock": {
      "type": "object",
      "additionalProperties": false,
@@ -5021,6 +5032,13 @@
           "up"
          ],
          "description": "stage only: the house, calm (standing and watching, a phone up here and there) or up (on its feet and cheering, the phones up)"
+        },
+        "screens": {
+         "enum": [
+          "figure",
+          "sign"
+         ],
+         "description": "stage only: the side screens, a stand-in figure under LIVE (figure, the default) or the set's sign"
         }
        },
        "description": "a set: the room (or closed exterior) the cutscene is staged in, its light (else the mission's time), its people and where they stand"

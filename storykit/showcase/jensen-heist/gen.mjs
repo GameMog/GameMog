@@ -553,8 +553,9 @@ const M3 = { id: 'BT-3', title: 'Booth Three', vehicle: 'tensore', start: '@aren
     // (heat 3 and 35 s out of sight to lose them, about a minute of chase: at heat 2 (8 s) they were lost in 20 s, the RC
     // playtest, 26 s was 38 s and 45 s ran past two minutes; Retry starts here, not at the drive; then Marge's
     // call is heard out, its main lines and its wrap, before MISSION PASSED: each wait ends once the car phone has hung
-    // up, the second at once if it already has)
-    { type: 'pursuit', checkpoint: true, kind: 'crew', name: "the Board's Directors", level: 3, goal: 'lose', loseDist: 220, loseTime: 35, objective: 'Lose the Directors.', during: [M2C] },
+    // up, the second at once if it already has. Three cars, the first 60 m back along his heading (behind): the town's
+    // opening stood them either side of the parked Tensore, the day audit, 22 Nov)
+    { type: 'pursuit', checkpoint: true, kind: 'crew', name: "the Board's Directors", level: 3, count: 3, behind: 60, goal: 'lose', loseDist: 220, loseTime: 35, objective: 'Lose the Directors.', during: [M2C] },
     { type: 'wait', secs: 30, call: true }, { type: 'wait', secs: 30, call: true },
   ] };
 
@@ -662,17 +663,20 @@ const M4 = { id: 'DL-4', title: 'Dome Light', vehicle: 'tensore', start: '@santa
     { type: 'trigger', area: { '@': 'arena-line', r: 200 }, when: 'boardText4 != true', once: true, set: { flags: { boardText4: true } },
       do: [{ type: 'dm', from: 'board', text: DM4, secs: 8 }] },
     // the ride: Wesley tries to confess (the cone) and Jensen talks over him; then the midpoint: Jensen makes a plan
-    { type: 'passenger', who: 'wesley', from: '@museum-lot', to: '@arena-line', seat: 'front', limit: 45, limitSecs: 6, fail: 'soft', warn: 'Wesley: Chat says we\'re speeding and Chat gets carsick!',
-      objective: 'Drive Wesley back to the fan line, under 45.', pickObjective: 'Pick up Wesley.',
+    // (to the arena's front on Santa Clara, the fan line beside it: the planner's way into the green itself was a narrow
+    // park road, where a stalled taxi held the ride 2 minutes at 1 m/s, the day audit, 22 Nov)
+    { type: 'passenger', who: 'wesley', from: '@museum-lot', to: '@arena', seat: 'front', limit: 45, limitSecs: 6, fail: 'soft', warn: 'Wesley: Chat says we\'re speeding and Chat gets carsick!',
+      objective: 'Drive Wesley back to the arena, under 45.', pickObjective: 'Pick up Wesley.',
       // (the talk spread over the ride, about 1.6 km at under 45: it was over at 50 s, then 84 s of nothing, the RC
       // playtest; the Board's text comes in on the last of the way, 200 m from the fan line (the trigger before the ride),
-      // else as the ride ends)
+      // else as the ride ends. Spread to 78 s over the 1.7-minute ride to the arena's front: to 60 s the last 39 s were
+      // quiet, the day audit's run, 22 Nov)
       during: [SAYAT(4, 'wesley', "I'm in the car. I'm in the car. Chat, I'm in the actual car, and it smells like leather and confidence."),
-        SAYAT(14, 'wesley', 'Can I ask you something? Hypothetically. If a fan sold a thing you signed, to a collector, for like, rent...'),
-        SAYAT(25, 'jensen', "Wesley, I've signed your phone, your hoodie, your skateboard and something in your driveway."),
-        SAYAT(36, 'wesley', "My aunt Deb's car! She won't wash it, it's been three years, and birds avoid it out of respect."),
-        SAYAT(48, 'jensen', 'Wesley, new job. Whatever he tells me next, he wants me looking at it, so you look at the arena: the dock, the back lot, every car.'),
-        SAYAT(60, 'wesley', "From the fan line? I can see the whole dock from the fan line! I'm your EYES!")] },
+        SAYAT(18, 'wesley', 'Can I ask you something? Hypothetically. If a fan sold a thing you signed, to a collector, for like, rent...'),
+        SAYAT(33, 'jensen', "Wesley, I've signed your phone, your hoodie, your skateboard and something in your driveway."),
+        SAYAT(48, 'wesley', "My aunt Deb's car! She won't wash it, it's been three years, and birds avoid it out of respect."),
+        SAYAT(63, 'jensen', 'Wesley, new job. Whatever he tells me next, he wants me looking at it, so you look at the arena: the dock, the back lot, every car.'),
+        SAYAT(78, 'wesley', "From the fan line? I can see the whole dock from the fan line! I'm your EYES!")] },
     { type: 'dm', if: 'boardText4 != true', from: 'board', text: DM4, secs: 8 },
     say('jensen', "'Don't come.' He gave me the address. He gives everyone the address."),
     say('jensen', 'So we go. On purpose, this time.'),
@@ -799,8 +803,9 @@ const BD1 = { type: 'call', who: 'board', auto: true, inCar: true, at: 3, video:
     resume: [L('board', 'Back? Was that a fan? How quaint. Where was I. Ah, yes: threatening you.')] } };
 
 // Wesley's confession (the car, "hypothetically") and his new job paying off: the grey SUV, set up for M6.
-// (20 s into the chase, not 50: with the checkpoint a chase can be over in 40 s, and the call never rang, RC fixes)
-const W3 = { type: 'call', who: 'wesley', interrupts: true, inCar: true, at: 20, video: { office: 'green', blur: true },
+// (a step of its own after the chase (day audit, 22 Nov): in the chase's during, 20 s in, it died with a chase shaken
+// sooner and never rang)
+const W3 = { type: 'call', who: 'wesley', interrupts: true, inCar: true, video: { office: 'green', blur: true },
   lines: [
     L('wesley', 'Hi. Hi. Before you say anything, I know, I know, I know.'),
     L('jensen', 'You sold my cone.'),
@@ -828,11 +833,15 @@ const M5 = { id: 'SS-5', title: 'Signed, Sealed', vehicle: 'tensore', start: '@a
     { type: 'search', at: '@convention-dock', label: 'open the case', prop: 'case', secs: 2 },
     S1,
     { type: 'drive', to: '@viaduct', objective: 'Get up on the 280.' },
-    // (Retry starts here, on the 280, not at the 5-minute top of the mission; then the phone is heard out, the Board's
-    // main lines, Wesley's call waiting and the Board's wrap, up to 2 minutes after a 40 s chase: each wait ends once the
-    // car phone has hung up. A drive to the stack after it was 2.5 km from where the chase ended)
-    { type: 'pursuit', checkpoint: true, kind: 'crew', name: "the Board's Directors", level: 3, goal: 'lose', loseDist: 240, objective: 'Lose the Directors on the freeway.', during: [BD1, W3] },
-    { type: 'wait', secs: 30, call: true }, { type: 'wait', secs: 30, call: true }, { type: 'wait', secs: 30, call: true }, { type: 'wait', secs: 30, call: true },
+    // (Retry starts here, on the 280, not at the 5-minute top of the mission. The Board's call rings 3 s into the chase
+    // and is kept past it (persist: a chase shaken in 27 s killed it at his hold line, the day audit, 22 Nov); Wesley's
+    // call waiting is a step of its own after the chase, so it always rings (in the chase's during it died with the step
+    // and the Board sat 'On hold' for 2 minutes): it puts the Board on hold, then he is back and says the rest and his
+    // wrap; each wait ends once the car phone has hung up. A drive to the stack after it was 2.5 km from where the chase
+    // ended)
+    { type: 'pursuit', checkpoint: true, kind: 'crew', name: "the Board's Directors", level: 3, goal: 'lose', loseDist: 240, objective: 'Lose the Directors on the freeway.', during: [{ ...BD1, persist: true }] },
+    W3,
+    ...Array.from({ length: 6 }, () => ({ type: 'wait', secs: 30, call: true })),
   ] };
 
 
@@ -1009,7 +1018,9 @@ const M7 = { id: 'FL-7', title: 'Fan Line', vehicle: 'tensore', start: '@market'
     { type: 'transition', kicker: '6:38 PM', text: 'THE MARKET SQUARE' },
     { type: 'timer', name: 'show', seconds: 480, label: 'DOORS', fail: 'hard', why: 'Seven o\'clock. Mr. Board walked out on your stage.' },
     // (Lola's truck 38 m ahead of him on the way, facing along it; Retry starts here)
-    { type: 'convoy', checkpoint: true, route: ['@market-lead', '@santa-clara', '@arena-approach'], lead: 'van', color: '#E8B23A', name: "Lola's truck", who: 'lola', band: [8, 40],
+    // (to the fan line on the arena's green, a block short of the arena's front, at 13 m/s: to the front at the default
+    // 11 it ran 2:16, the last 41 s after the calls with nothing said, the day audit, 22 Nov)
+    { type: 'convoy', checkpoint: true, route: ['@market-lead', '@santa-clara', '@arena-line'], speed: 13, lead: 'van', color: '#E8B23A', name: "Lola's truck", who: 'lola', band: [8, 40],
       objective: "Stay behind Lola's truck to the arena.", during: [LO3, W4] },
     { type: 'roadblock', at: '@arena-dock', kind: 'crew', cars: 3, crew: 2, ram: true, to: '@arena-dock', objective: 'Clear the dock.' },
     A1,
@@ -1057,7 +1068,8 @@ const H1 = { type: 'vcall', id: 'h1', title: 'GREENLIVE · PRE-SHOW', time: 'nig
 // cheated out to the house (faces toward +z); every camera is placed in the room (at) and written relative to the
 // person it is on (rel, in their frame: the engine's camPt), so each line plays over its speaker. Seven people at most.
 const STAGE_ROOM = 'stage';
-const stage = (people, o = {}) => ({ room: STAGE_ROOM, light: 'night', sign: o.sign || 'GREENLIVE', ...(o.house ? { house: o.house } : {}), people });
+// (the side screens carry the sign, not the stand-in figure: the day audit, 22 Nov, read it as a placeholder avatar)
+const stage = (people, o = {}) => ({ room: STAGE_ROOM, light: 'night', sign: o.sign || 'GREENLIVE', screens: 'sign', ...(o.house ? { house: o.house } : {}), people });
 const HEAD = 1.62, rad = (d) => (d * Math.PI) / 180, fx = (v) => Math.round(v * 100) / 100;
 // a point in the room [x, y, z] as a camera point relative to someone standing at [x, z] facing `face` degrees
 const camAt = (who, P, p) => { const h = rad(P.face), dx = p[0] - P.at[0], dz = p[2] - P.at[1]; return { rel: who, right: fx(-Math.cos(h) * dx + Math.sin(h) * dz), up: fx(p[1] - HEAD), fwd: fx(Math.sin(h) * dx + Math.cos(h) * dz) }; };
@@ -1304,7 +1316,9 @@ const pack = {
     hometown: { place: lock.place, compiler: lock.buildId, tiles: lock.tiles, formatVersion: lock.formatVersion, grid: lock.grid, domain: lock.domain, origin: lock.origin, k0: lock.k0, gamma0: lock.gamma0, yOffset: lock.yOffset, waterLevel: lock.waterLevel } },
   dressing: { time: 'midday', season: 'autumn', weather: 'clear', holiday: [] },
   hero: 'jensen', ride: 'tensore', opening,
-  hud: { meters: [{ id: 'crowd', label: 'CROWD', kind: 'bar', start: 0, min: 0, max: 100 }] },
+  // (calm: the driving HUD kept calm, Mog City's calm-hud.js: 'F · Get out' faded after 3 s of driving, the objective
+  // said once a step; the day audit, 22 Nov)
+  hud: { calm: true, meters: [{ id: 'crowd', label: 'CROWD', kind: 'bar', start: 0, min: 0, max: 100 }] },
   // (the hero's car: Mog City's Tensore (stock wedge), the lime supercar, in the parody company's lime green, paint only, no logo or livery)
   places, cast, vehicles: [{ stock: 'wedge', id: 'tensore', label: 'Tensore', paint: '#76B900' }],
   acts: [

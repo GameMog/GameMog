@@ -162,7 +162,8 @@ const setPersonProps = {
   prop: E(['phone', 'walkie'], { description: 'a thing in the right hand' }), look: { ...R('slug'), description: "where their eyes go: 'lens' (into the camera), 'prop', or someone in the set" }
 };
 const setDef = O({ room: E(SET_ROOMS), light: E(['day', 'golden', 'night']), sign: S(40), people: A(O(setPersonProps, ['who', 'at']), 7),
-  house: E(['calm', 'up'], { description: "stage only: the house, calm (standing and watching, a phone up here and there) or up (on its feet and cheering, the phones up)" }) }, ['room'],
+  house: E(['calm', 'up'], { description: "stage only: the house, calm (standing and watching, a phone up here and there) or up (on its feet and cheering, the phones up)" }),
+  screens: E(['figure', 'sign'], { description: "stage only: the side screens, a stand-in figure under LIVE (figure, the default) or the set's sign" }) }, ['room'],
   { description: "a set: the room (or closed exterior) the cutscene is staged in, its light (else the mission's time), its people and where they stand" });
 const setAct = A(O(setPersonProps, ['who']), 7, 0, { description: "a shot's changes to its set's people as it starts: where they stand, whom they face, their pose, a walk, a hug" });
 // a cutscene shot: `say` + `line` is a cast member's spoken line under the shot (a subtitle until its clip is ready)
@@ -453,6 +454,7 @@ export const SCHEMA = {
       { description: "the hero's horse, saddled alongside the hero's car (a hometown story on Mog City's engine, in horse country: a ranch, a farm, a rodeo town): the mount, ride and dismount steps ride him. Never a vehicle" }),
     heroCar: E(HERO_CAR_IDS, { description: "the player's car as the creator picked it on Create (left out: the story's own). The hero's ride (ride, or the first vehicle) is then a vehicle sheet of that kind of car (gate.ts), and in a hometown Mog City draws it as the town fleet's realistic model of that name" }),
     hud: O({
+      calm: { ...B, description: "a calm driving HUD (Mog City's calm-hud.js): 'F · Get out' faded after 3 s of driving and back once the car stands, the objective said once a step" },
       clock: O({ label: S(12), format: E(['count', 'age', 'text']), unit: S(12, { pattern: '^[a-z]{1,12}$' }), unitLabel: S(12), zero: S(24) }),
       meters: A(O({ id: R('slug'), label: S(12), kind: E(['money', 'count', 'pips', 'bar', 'hidden'], { description: 'count: a plain number that only adds up (supporters), money without the dollars or the choices' }), start: N(-1e6, 1e6), min: N(-1e6, 1e6), max: N(-1e6, 1e6), pips: I(1, 10), cool: N(0, 100), heat: B, prefix: S(2),
         goal: N(1, 1e7, { description: "what it is raised toward: the HUD shows '$430,000 / $1,000,000' and a bar, the MISSION PASSED card its progress" }) }, ['id', 'kind']), 4)

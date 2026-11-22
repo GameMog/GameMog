@@ -315,6 +315,7 @@
   ]
  },
  "hud": {
+  "calm": true,
   "meters": [
    {
     "id": "crowd",
@@ -3689,6 +3690,8 @@
        "kind": "crew",
        "name": "the Board's Directors",
        "level": 3,
+       "count": 3,
+       "behind": 60,
        "goal": "lose",
        "loseDist": 220,
        "loseTime": 35,
@@ -4324,13 +4327,13 @@
        "type": "passenger",
        "who": "wesley",
        "from": "@museum-lot",
-       "to": "@arena-line",
+       "to": "@arena",
        "seat": "front",
        "limit": 45,
        "limitSecs": 6,
        "fail": "soft",
        "warn": "Wesley: Chat says we're speeding and Chat gets carsick!",
-       "objective": "Drive Wesley back to the fan line, under 45.",
+       "objective": "Drive Wesley back to the arena, under 45.",
        "pickObjective": "Pick up Wesley.",
        "during": [
         {
@@ -4342,35 +4345,35 @@
         },
         {
          "type": "say",
-         "at": 14,
+         "at": 18,
          "who": "wesley",
          "text": "Can I ask you something? Hypothetically. If a fan sold a thing you signed, to a collector, for like, rent...",
          "wait": false
         },
         {
          "type": "say",
-         "at": 25,
+         "at": 33,
          "who": "jensen",
          "text": "Wesley, I've signed your phone, your hoodie, your skateboard and something in your driveway.",
          "wait": false
         },
         {
          "type": "say",
-         "at": 36,
+         "at": 48,
          "who": "wesley",
          "text": "My aunt Deb's car! She won't wash it, it's been three years, and birds avoid it out of respect.",
          "wait": false
         },
         {
          "type": "say",
-         "at": 48,
+         "at": 63,
          "who": "jensen",
          "text": "Wesley, new job. Whatever he tells me next, he wants me looking at it, so you look at the arena: the dock, the back lot, every car.",
          "wait": false
         },
         {
          "type": "say",
-         "at": 60,
+         "at": 78,
          "who": "wesley",
          "text": "From the fan line? I can see the whole dock from the fan line! I'm your EYES!",
          "wait": false
@@ -5017,83 +5020,93 @@
             "text": "Back? Was that a fan? How quaint. Where was I. Ah, yes: threatening you."
            }
           ]
-         }
-        },
-        {
-         "type": "call",
-         "who": "wesley",
-         "interrupts": true,
-         "inCar": true,
-         "at": 20,
-         "video": {
-          "office": "green",
-          "blur": true
          },
-         "lines": [
-          {
-           "who": "wesley",
-           "text": "Hi. Hi. Before you say anything, I know, I know, I know."
-          },
-          {
-           "who": "jensen",
-           "text": "You sold my cone."
-          },
-          {
-           "who": "wesley",
-           "text": "A guy in a suit offered me a thousand dollars and said he was a collector and he had a velvet bag, and collectors have velvet bags!"
-          },
-          {
-           "who": "wesley",
-           "text": "I tried to tell you in the car! Hypothetically!"
-          },
-          {
-           "who": "jensen",
-           "text": "...You did. I signed a door instead.",
-           "pre": 0.5
-          },
-          {
-           "who": "wesley",
-           "text": "I'm the worst fan, I'm a bad fan, and Chat is being so mean to me right now."
-          },
-          {
-           "who": "jensen",
-           "text": "Hey. Hey. You're not a bad fan.",
-           "how": "warm",
-           "pre": 0.6
-          },
-          {
-           "who": "wesley",
-           "text": "I'm not?"
-          },
-          {
-           "who": "jensen",
-           "text": "You're the only fan I've ever called back while eleven men chased me down a freeway."
-          },
-          {
-           "who": "wesley",
-           "text": "Eleven?",
-           "overlap": true
-          },
-          {
-           "who": "jensen",
-           "text": "They have quorum."
-          },
-          {
-           "who": "wesley",
-           "text": "But I did the job! I'm watching the dock like you said, and the cone guy, the collector, just got into a grey SUV behind the arena!"
-          },
-          {
-           "who": "jensen",
-           "text": "Wesley, which way did it...",
-           "cut": 0.7
-          },
-          {
-           "who": "wesley",
-           "text": "I'm gonna fix it so hard!"
-          }
-         ]
+         "persist": true
         }
        ]
+      },
+      {
+       "type": "call",
+       "who": "wesley",
+       "interrupts": true,
+       "inCar": true,
+       "video": {
+        "office": "green",
+        "blur": true
+       },
+       "lines": [
+        {
+         "who": "wesley",
+         "text": "Hi. Hi. Before you say anything, I know, I know, I know."
+        },
+        {
+         "who": "jensen",
+         "text": "You sold my cone."
+        },
+        {
+         "who": "wesley",
+         "text": "A guy in a suit offered me a thousand dollars and said he was a collector and he had a velvet bag, and collectors have velvet bags!"
+        },
+        {
+         "who": "wesley",
+         "text": "I tried to tell you in the car! Hypothetically!"
+        },
+        {
+         "who": "jensen",
+         "text": "...You did. I signed a door instead.",
+         "pre": 0.5
+        },
+        {
+         "who": "wesley",
+         "text": "I'm the worst fan, I'm a bad fan, and Chat is being so mean to me right now."
+        },
+        {
+         "who": "jensen",
+         "text": "Hey. Hey. You're not a bad fan.",
+         "how": "warm",
+         "pre": 0.6
+        },
+        {
+         "who": "wesley",
+         "text": "I'm not?"
+        },
+        {
+         "who": "jensen",
+         "text": "You're the only fan I've ever called back while eleven men chased me down a freeway."
+        },
+        {
+         "who": "wesley",
+         "text": "Eleven?",
+         "overlap": true
+        },
+        {
+         "who": "jensen",
+         "text": "They have quorum."
+        },
+        {
+         "who": "wesley",
+         "text": "But I did the job! I'm watching the dock like you said, and the cone guy, the collector, just got into a grey SUV behind the arena!"
+        },
+        {
+         "who": "jensen",
+         "text": "Wesley, which way did it...",
+         "cut": 0.7
+        },
+        {
+         "who": "wesley",
+         "text": "I'm gonna fix it so hard!"
+        }
+       ]
+      },
+      {
+       "type": "wait",
+       "secs": 30,
+       "call": true
+      },
+      {
+       "type": "wait",
+       "secs": 30,
+       "call": true
       },
       {
        "type": "wait",
@@ -5638,8 +5651,9 @@
        "route": [
         "@market-lead",
         "@santa-clara",
-        "@arena-approach"
+        "@arena-line"
        ],
+       "speed": 13,
        "lead": "van",
        "color": "#E8B23A",
        "name": "Lola's truck",
@@ -6346,6 +6360,7 @@
         "room": "stage",
         "light": "night",
         "sign": "GREENLIVE",
+        "screens": "sign",
         "people": [
          {
           "who": "board",
@@ -6705,6 +6720,7 @@
         "room": "stage",
         "light": "night",
         "sign": "GREENLIVE",
+        "screens": "sign",
         "people": [
          {
           "who": "board",
@@ -6992,6 +7008,7 @@
         "room": "stage",
         "light": "night",
         "sign": "GREENLIVE",
+        "screens": "sign",
         "house": "up",
         "people": [
          {
@@ -7173,6 +7190,7 @@
         "room": "stage",
         "light": "night",
         "sign": "GREENLIVE",
+        "screens": "sign",
         "people": [
          {
           "who": "board",
@@ -7304,6 +7322,7 @@
         "room": "stage",
         "light": "night",
         "sign": "GREENLIVE",
+        "screens": "sign",
         "people": [
          {
           "who": "jensen",
@@ -7578,6 +7597,7 @@
         "room": "stage",
         "light": "night",
         "sign": "TO WESLEY TROUT, MY EYES. LOVE, JENSEN",
+        "screens": "sign",
         "people": [
          {
           "who": "jensen",
@@ -7735,6 +7755,7 @@
         "room": "stage",
         "light": "night",
         "sign": "GREENLIVE",
+        "screens": "sign",
         "house": "up",
         "people": [
          {
@@ -7886,6 +7907,7 @@
         "room": "stage",
         "light": "night",
         "sign": "GREENLIVE",
+        "screens": "sign",
         "people": [
          {
           "who": "jensen",
