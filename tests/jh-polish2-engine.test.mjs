@@ -11,6 +11,63 @@ import fs from 'node:fs';
 const ROOT = new URL('..', import.meta.url).pathname;
 const src = (f) => fs.readFileSync(ROOT + f, 'utf8');
 
+test('A4: a call\'s office on the car screen keeps its shadow maps at FEED_SHADOW, set before its first draw', async () => {
+  const sets = src('wagmi/storyrun/sets.js');
+  assert.match(sets, /export const FEED_SHADOW = 1024;/);
+  // (pooled under the card, and a feed's own office built mid-drive: both)
+  const pool = sets.slice(sets.indexOf('    async pool(defs'), sets.indexOf('    // a pooled office (pool()) taken'));
+  assert.match(pool, /S\.pooled = true; sets\.set\(id, S\);\n\s*feedShadows\(S\);/);
+  assert.ok(pool.indexOf('feedShadows(S)') < pool.indexOf('await tileWarm(S, hold)'), 'before its warm-up and its first draw');
+  assert.match(sets, /sets\.set\(id, S\); built\.add\(S\);\n\s*if \(tile && !hold\) feedShadows\(S\);/);
+  // feedShadows itself: a 2048 light not drawn yet comes down, one already drawn (its map made) and a small one stay
+  const a = sets.indexOf('  function feedShadows(S)'), b = sets.indexOf('\n  }\n', a) + 4;
+  const feedShadows = new Function('FEED_SHADOW', sets.slice(a, b) + '\nreturn feedShadows;')(1024);
+  const L = (n, map = null) => ({ isLight: true, castShadow: true, shadow: { map, mapSize: { x: n, y: n, set(x, y) { this.x = x; this.y = y; } } } });
+  const sun = L(2048), drawn = L(2048, {}), key = L(1024), lamp = { isLight: true, castShadow: false, shadow: { mapSize: { x: 2048 } } };
+  const S = { scene: { traverse: (f) => [sun, drawn, key, lamp].forEach(f) } };
+  feedShadows(S);
+  assert.deepEqual([sun.shadow.mapSize.x, drawn.shadow.mapSize.x, key.shadow.mapSize.x, lamp.shadow.mapSize.x], [1024, 2048, 1024, 2048]);
+  // (its bodies pinned by the cast while it waits, unpinned when its call takes it or it is let go)
+  assert.match(pool, /S\.pins = \[\.\.\.S\.people\.values\(\)\]\.filter\(\(P\) => !P\.isHero && P\.fig\)\.map\(\(P\) => P\.name\); for \(const nm of S\.pins\) cast\.pin\?\.\(nm, true\);/);
+  assert.equal((sets.match(/unpin\(S\);/g) || []).length, 3);
+  // the cast's eviction, run as written: the one used longest ago goes, a pinned one only when all are
+  const cs = src('wagmi/storyrun/cast.js');
+  const evict = cs.split('\n').find((l) => /^\s+while \(order\.length > MAX\) \{ let k = order\.findIndex/.test(l));
+  const touchL = cs.split('\n').find((l) => /^\s+const touch = \(name\) =>/.test(l));
+  const pinL = cs.split('\n').find((l) => /^\s+pin\(name, on = true\) \{/.test(l));
+  assert.ok(evict && touchL && pinL);
+  const mk = new Function('MAX', `const live = new Map(), order = [], pins = new Map(), gone = [];
+    ${touchL.trim()}
+    const C = { ${pinL.trim()} };
+    const add = (name) => { if (live.has(name)) { touch(name); return; } live.set(name, { dispose: () => gone.push(name) }); order.push(name);
+      ${evict.trim()} };
+    return { add, C, order, gone };`);
+  const T = mk(3);
+  T.add('Marge'); T.C.pin('Marge', true); T.add('Nico'); T.add('Lola'); T.add('Dex');
+  assert.deepEqual(T.gone, ['Nico'], 'the oldest unpinned goes, Marge (pinned) stays');
+  T.add('Lola'); T.add('Wes');
+  assert.deepEqual(T.gone, ['Nico', 'Dex'], 'Lola asked for again is kept over Dex');
+  T.C.pin('Marge', false); T.add('Pruitt');
+  assert.deepEqual(T.gone, ['Nico', 'Dex', 'Marge']);
+  const A = mk(1); A.add('a'); A.C.pin('a'); A.add('b'); A.C.pin('b'); A.add('c'); A.C.pin('c');
+  assert.equal(A.order.length, 1, 'never past MAX: all pinned, the oldest goes');
+  // (one body per name: two spawns at once (the pool and the opening call standing Marge) get the same body)
+  const sp = cs.slice(cs.indexOf('    async spawn(name, at = null) {'), cs.indexOf('\n    },\n', cs.indexOf('    async spawn(name, at = null) {')) + 7);
+  const mkSpawn = new Function('MAX', `const live = new Map(), order = [], pins = new Map(), building = new Map(); let built = 0;
+    ${touchL.trim()}
+    const entry = () => ({}), cast = { isHero: () => false };
+    const build = async (name) => { built++; await new Promise((r) => setTimeout(r, 5)); return { name, root: { visible: false, scale: { setScalar() {} } }, at() {}, dispose() {} }; };
+    const C = { ${sp.trim()} };
+    return { C, live, order, built: () => built };`);
+  const B = mkSpawn(8);
+  const [f1, f2] = await Promise.all([B.C.spawn('Marge'), B.C.spawn('Marge')]);
+  assert.ok(f1 && f1 === f2 && B.live.get('Marge') === f1);
+  assert.equal(B.built(), 1); assert.deepEqual(B.order, ['Marge']);
+  // (what the pool did, for a look at it: W.sets.log)
+  assert.match(sets, /note\('adopt', key\);/);
+  assert.match(sets, /W\.sets = api;/);
+});
+
 test('A7: a set\'s room.grade is laid on the city\'s grade for its frame and the street\'s given back; the stage takes the split down', async () => {
   const sets = src('wagmi/storyrun/sets.js');
   assert.match(sets, /const g0 = gradeOn\(S\.room\.grade\);\n\s*try \{ return render0\(\.\.\.a\); \} finally \{[^\n]*gradeOff\(g0\); \}/);

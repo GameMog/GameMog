@@ -39,7 +39,8 @@ const SUIT_CLIP = { idle: 'suitIdle', talk: 'suitIdle', phone: 'suitIdle', walk:
 const F0 = { 'mogcity/dan': 110, 'mogcity/jane': 205, 'mogcity/mrbig': 95, 'mogcity/gears': 92, 'mogcity/fiona': 230 };
 
 export function createCast(W, world) {
-  const def = world.def, live = new Map(), order = [], doubles = new Map();
+  const def = world.def, live = new Map(), order = [], doubles = new Map(), pins = new Map(), building = new Map();
+  const touch = (name) => { const i = order.indexOf(name); if (i >= 0 && i < order.length - 1) { order.splice(i, 1); order.push(name); } };
   const scene = W.app.scene, cm = W.app.controllerManager;
   let danClips = null;
   const clipsOfDan = () => danClips || (danClips = loadGLB('assets/characters/dan.glb').then((g) => g.animations).catch(() => []));
@@ -65,15 +66,28 @@ export function createCast(W, world) {
       return n;
     },
     async spawn(name, at = null) {
-      if (live.has(name)) { const f = live.get(name); if (at) f.at(at.x, at.z, at.heading ?? f.heading); f.root.visible = true; return f; }
+      // (asked for again: the last to be let go now, jh-polish2 A4)
+      if (live.has(name)) { const f = live.get(name); touch(name); if (at) f.at(at.x, at.z, at.heading ?? f.heading); f.root.visible = true; return f; }
       const c = entry(name);
       if (!c || c.voiceOnly || c.pet) return null;
       if (cast.isHero(name)) return null;
+      // (one build per name at a time: two asking at once (a call's office pooled while the opening call stands the same
+      // person) each built a body, the second put over the first in live, and the office kept a body the cast no
+      // longer knew: its call found it gone and built the office again mid-drive, jh-polish2 A4)
+      if (building.has(name)) {
+        await building.get(name);
+        const f = live.get(name); if (!f) return null;
+        touch(name); if (at) f.at(at.x, at.z, at.heading ?? f.heading); f.root.visible = true;
+        return f;
+      }
       let f = null;
-      try { f = await build(name, c); } catch (err) { console.warn('[storyrun] cast', name, err); return null; }
+      const job = build(name, c).catch((err) => { console.warn('[storyrun] cast', name, err); return null; });
+      building.set(name, job);
+      try { f = await job; } finally { building.delete(name); }
       if (!f) return null;
       live.set(name, f); order.push(name);
-      while (order.length > MAX) { const old = order.shift(); live.get(old)?.dispose(); live.delete(old); }
+      // (past MAX the one used longest ago goes, one a call's pooled office holds (pin) only when every other is held)
+      while (order.length > MAX) { let k = order.findIndex((n) => !pins.get(n)); if (k < 0) k = 0; const old = order.splice(k, 1)[0]; live.get(old)?.dispose(); live.delete(old); }
       if (at) f.at(at.x, at.z, at.heading ?? 0);
       // (a world may stand someone a little shorter or taller: its cast's `scale`, 0.7 to 1.15; a stand-in teenager)
       if (typeof c.scale === 'number' && c.scale >= 0.7 && c.scale <= 1.15) f.root.scale.setScalar(c.scale);
@@ -88,6 +102,11 @@ export function createCast(W, world) {
       let f = null; try { f = await build(name, c); } catch (err) { console.warn('[storyrun] double', name, err); return null; }
       if (f) doubles.set(name, f); return f;
     },
+    // a body a call's pooled office stands (sets.js pool()): kept past the cast's MAX while it is pinned, so the office
+    // is still whole when its call comes (PH-1's Marge was let go by the opening call's bodies, and her office built
+    // again mid-drive: the stutter, jh-polish2 A4). Counted: pin(name, true) twice needs two pin(name, false)
+    pin(name, on = true) { const n = Math.max(0, (pins.get(name) || 0) + (on ? 1 : -1)); if (n) pins.set(name, n); else pins.delete(name); return n; },
+    get pinned() { return [...pins.keys()]; },
     remove(name) { const f = live.get(name); if (!f) return; f.dispose(); live.delete(name); const i = order.indexOf(name); if (i >= 0) order.splice(i, 1); },
     hide(name) { const f = live.get(name); if (f) f.root.visible = false; },
     clear() { for (const f of live.values()) f.dispose(); live.clear(); order.length = 0; },

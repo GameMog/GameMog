@@ -291,7 +291,7 @@ test('P13: a call on the car screen mid-drive never holds the loop: its office p
   assert.match(pool, /S\.pooled = true; sets\.set\(id, S\);/);
   assert.match(pool, /await tileWarm\(S, hold\);/);
   assert.match(pool, /for \(const P of S\.people\.values\(\)\) \{ giveBack\(P\.fig\);/);
-  assert.match(pool, /if \(fresh\.length > room\) continue;/);
+  assert.match(pool, /if \(fresh\.length > room\) \{ note\('pool-skip', id, 'room'\); continue; \}/);
   assert.match(pool, /cast\.get\?\.\(P\.name\) !== P\.fig/);
   assert.match(sets, /for \(const \[id, S\] of \[\.\.\.sets\]\) if \(!S\.pooled\) \{ sets\.delete\(id\); dropSet\(S\); \}/);
   assert.match(sets, /if \(S\.pooled\) continue;/);

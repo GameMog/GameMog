@@ -30,6 +30,8 @@ const PI = Math.PI;
 const MH_ARM = ['upperarm01_', 'lowerarm01_', 'wrist_'];
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const now = () => performance.now() / 1000;
+// (a call's office on the car screen: its shadow maps at most this many px, feedShadows)
+export const FEED_SHADOW = 1024;
 // a pose's clip (Dan's names; the cast's bodies carry Dan's clips: cast.js); kneel and crouch are made here (arms():
 // idle's upper body over legs bent by the two-bone reach); the sitting ones put the hips on the seat's mark
 const SIT = new Set(['sit', 'sitTalk']);
@@ -505,6 +507,17 @@ export function createSets(W, { cast, castName, heroName, idleOf = () => null })
     try { for (const rt of grid.warmTargets()) await app.warm(S.scene, { scene: S.scene, camera: S.cam, target: rt, hold }); }
     finally { for (const r of shown) r.visible = false; }
   }
+  // (a call's office drawn only into the car screen's small picture (pool(), a feed's prepare { tile, hold: false }):
+  // its daylight's shadow map at FEED_SHADOW px, not the room's 2048 (a 320 x 180 picture shows no more of it). The
+  // feed draws the office every other frame while he drives, its shadow pass with it, the first of them on the street's
+  // frame (jh-polish2 A4): a quarter of the map to make and to draw. Only before its first draw: a map already made is
+  // left as it is)
+  function feedShadows(S) {
+    if (S.feedShadows) return; S.feedShadows = true;
+    S.scene.traverse((o) => { if (o.isLight && o.castShadow && o.shadow && !o.shadow.map && o.shadow.mapSize.x > FEED_SHADOW) o.shadow.mapSize.set(FEED_SHADOW, FEED_SHADOW); });
+  }
+  // (a pooled office's bodies let go by it: the cast may let them go again past its MAX)
+  function unpin(S) { for (const nm of S.pins || []) cast.pin?.(nm, false); S.pins = null; }
   // (a body back where it was before a set took it)
   function giveBack(fig) {
     const m = fig && moved.get(fig); if (!m) return;
@@ -521,7 +534,11 @@ export function createSets(W, { cast, castName, heroName, idleOf = () => null })
   }
 
   /* ------------------------------------------------------------- the API -- */
+  // (what the pool did, the last 40: for a look at it, W.sets.log)
+  const log = [];
+  const note = (...a) => { log.push([+now().toFixed(2), ...a]); if (log.length > 40) log.shift(); };
   const api = {
+    log,
     get active() { return active; },
     // (for a look at it: the call's tiles and the car screen's picture, vcall-draw.js)
     get draw() { return grid; },
@@ -536,6 +553,7 @@ export function createSets(W, { cast, castName, heroName, idleOf = () => null })
         if (!def || sets.has(id)) continue;
         const S = await raise(id, def); if (!S) continue;
         sets.set(id, S); built.add(S);
+        if (tile && !hold) feedShadows(S);
       }
       // (the pipelines built now, not on the set's first frame: each set's materials under its own lights)
       // (loadfix: for the target the set is drawn into, the city's scene pass (main.js warm(): its colour, normal and
@@ -578,18 +596,21 @@ export function createSets(W, { cast, castName, heroName, idleOf = () => null })
     // when nothing uses it). Offices pooled for another mission are let go
     async pool(defs, { hold = false } = {}) {
       const want = new Set(Object.keys(defs || {}));
-      for (const [id, S] of [...sets]) if (S.pooled && !want.has(id)) { sets.delete(id); dropSet(S); }
+      for (const [id, S] of [...sets]) if (S.pooled && !want.has(id)) { sets.delete(id); unpin(S); dropSet(S); }
       let n = 0, room = Math.max(0, 8 - (cast.live?.length || 0)); // (never past the cast's room: cast.js keeps 8)
       for (const [id, def] of Object.entries(defs || {})) {
         if (!def || sets.has(id) || pooling.has(id)) continue;
         const names = (def.people || []).map((p) => castName(p.who) || p.who), fresh = names.filter((n) => !cast.get?.(n));
-        if (fresh.length > room) continue;
+        if (fresh.length > room) { note('pool-skip', id, 'room'); continue; }
         room -= fresh.length;
         pooling.add(id);
         let S = null;
         try { S = await raise(id, def); } finally { pooling.delete(id); }
         if (!S) continue;
         S.pooled = true; sets.set(id, S);
+        feedShadows(S);
+        // (its people's bodies kept for it by the cast until its call takes it, or it is let go: unpin())
+        S.pins = [...S.people.values()].filter((P) => !P.isHero && P.fig).map((P) => P.name); for (const nm of S.pins) cast.pin?.(nm, true);
         const culled = [];
         S.scene.traverseVisible((o) => { if (o.frustumCulled) { o.frustumCulled = false; culled.push(o); } });
         try { if (app.warm && !direct) { S.tileWarmed = true; await tileWarm(S, hold); } } catch (e) { console.warn('[storyrun] set pool', e); }
@@ -598,6 +619,7 @@ export function createSets(W, { cast, castName, heroName, idleOf = () => null })
         // (one made for it hidden under the street where he is, as prewarm() leaves a body)
         const me = app.controllerManager?.getActiveEntity?.()?.position;
         for (const P of S.people.values()) { giveBack(P.fig); if (fresh.includes(P.name) && P.fig) { P.fig.root.visible = false; if (me) P.fig.root.position.set(me.x, (me.y || 0) - 60, me.z); } }
+        note('pool', id);
         n++;
       }
       return n;
@@ -605,10 +627,11 @@ export function createSets(W, { cast, castName, heroName, idleOf = () => null })
     // a pooled office (pool()) taken by a call as its set `id` (vcall.js feed()): its people stood in it again
     adopt(key, id) {
       const S = sets.get(key);
-      if (!S || !S.pooled || sets.has(id)) return false;
+      if (!S || !S.pooled || sets.has(id)) { note('adopt-miss', key, !S ? 'none' : !S.pooled ? 'taken' : 'has'); return false; }
       // (a body the cast has let go since (cast.js keeps 8): the office is let go too, the call builds its own)
-      if ([...S.people.values()].some((P) => !P.fig || (!P.isHero && cast.get?.(P.name) !== P.fig))) { sets.delete(key); dropSet(S); return false; }
-      sets.delete(key); sets.set(id, S); S.pooled = false; S.id = id;
+      const lost = [...S.people.values()].filter((P) => !P.fig || (!P.isHero && cast.get?.(P.name) !== P.fig));
+      if (lost.length) { note('adopt-miss', key, 'body', lost.map((P) => P.name + (cast.get?.(P.name) ? ':other' : ':gone')).join(',')); sets.delete(key); unpin(S); dropSet(S); return false; }
+      sets.delete(key); sets.set(id, S); S.pooled = false; S.id = id; unpin(S); note('adopt', key);
       for (const P of S.people.values()) {
         const fig = P.fig; if (!fig) continue;
         if (!moved.has(fig)) moved.set(fig, { parent: fig.root.parent, pos: fig.root.position.clone(), rot: fig.root.rotation.y, h: fig.heading, vis: fig.root.visible });
@@ -662,5 +685,7 @@ export function createSets(W, { cast, castName, heroName, idleOf = () => null })
       for (const [id, S] of [...sets]) if (!S.pooled) { sets.delete(id); dropSet(S); }
     },
   };
+  // (for a look at it from the page: the pool's log, the sets)
+  W.sets = api;
   return api;
 }
