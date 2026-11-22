@@ -26,6 +26,10 @@ const PARK_LANE = [1.0, 2.2]; // (round a park: its perimeter walk, short of the
 // A Hometown town's only (world.id 'pkg'): New York's and San Francisco's crowds are as they were
 const PER_M = { busy: 0.2, quiet: 0.11 };
 const SIDE_K = 1.6;
+// (jh-polish2 B6, a Hometown story town's downtown: the blocks within STORY.R m of one of the story's own places (its
+// pack's named places: the arena, the market square, the diner) walk as a busy block does, times STORY.K. Jensen
+// Heist's San Jose had a thin downtown: its places' blocks mostly quiet (few shopfronts on them by the town's plan))
+export const STORY = Object.freeze({ R: 170, K: 1.6 });
 // (a town's: how far along a side from the next one along it, in about the same lane, a newcomer is put at least)
 const GAP = 3.5;
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -230,8 +234,29 @@ export function createCrowd(W) {
     const q = Math.sqrt(disc);
     return Math.max(0, Math.min(S.len, -b + q) - Math.max(0, -b - q));
   }
+  // (a story town's places, read once the story has them: W.storyrun.places, its pack's aliases)
+  let spots = null;
+  const storyOf = new Map();
+  function storySpots() {
+    if (spots) return spots;
+    const P = W.storyrun?.places, keys = P?.aliases ? Object.keys(P.aliases) : [];
+    if (!keys.length || typeof P.at !== 'function') return null;
+    const out = [];
+    for (const k of keys) { try { const q = P.at('@' + k); if (q && Number.isFinite(q.x) && Number.isFinite(q.z)) out.push(q); } catch {} }
+    return (spots = out);
+  }
+  // (STORY.K for a block near one of them in a town, else 1)
+  const story = (b) => {
+    if (!TOWN) return 1;
+    let k = storyOf.get(b);
+    if (k != null) return k;
+    const S = storySpots(); if (!S) return 1;
+    k = S.some((q) => Math.hypot(q.x - b.cx, q.z - b.cz) < STORY.R) ? STORY.K : 1;
+    storyOf.set(b, k);
+    return k;
+  };
   // (a metre of this block's sidewalk takes this many at most)
-  const perM = (b) => (busy(b) ? PER_M.busy : PER_M.quiet) * (world.crowd ?? 1) * (b.park > 0.6 ? 0.6 : 1);
+  const perM = (b) => (busy(b) || story(b) > 1 ? PER_M.busy : PER_M.quiet) * story(b) * (world.crowd ?? 1) * (b.park > 0.6 ? 0.6 : 1);
   // (how many to a side of a block at most: SIDE_K times its share of its length, 2 at least; no cap outside a town)
   const TOWN = world.id === 'pkg';
   const sideCap = (b, S) => (TOWN ? Math.max(2, Math.ceil(S.len * perM(b) * SIDE_K)) : Infinity);
@@ -248,7 +273,7 @@ export function createCrowd(W) {
     nearW = near.reduce((s, n) => s + n.w, 0);
     // (how many of them are out: all of them in the commercial districts, under half on the quieter streets; never more
     // than the sidewalks round him take, PER_M)
-    const cw = near.reduce((s, n) => s + (busy(n.b) ? n.w : 0), 0);
+    const cw = near.reduce((s, n) => s + (busy(n.b) || story(n.b) > 1 ? n.w : 0), 0);
     cap = TOWN ? Math.round(near.reduce((s, n) => s + n.inLen * perM(n.b), 0)) : MAX;
     active = Math.min(limit, cap, Math.round(MAX * (world.crowd ?? 1) * (0.45 + 0.55 * (nearW ? cw / nearW : 1))));
   }
@@ -640,7 +665,7 @@ export function createCrowd(W) {
     get active() { return active; },
     get cap() { return cap; },
     // (for the survey: whether a block's busy, and how much of a town's block is built over)
-    busy, built,
+    busy, built, story,
     set limit(v) { limit = Math.max(0, Math.min(MAX, Math.round(v))); nearAt = { x: 1e9, z: 1e9 }; },
     // (off: none of the crowd's own drawn or moved, those taken over from the city still are; on again, placed afresh)
     get enabled() { return enabled; },

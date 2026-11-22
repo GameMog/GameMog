@@ -33,3 +33,26 @@ test('B5: a ring is RING_SECS at most, a pack\'s shorter ring kept, never under 
   // (the declined count only after a pressed X or N)
   assert.equal((call.match(/answer = false;/g) || []).length, 2);
 });
+
+test('B6: a Hometown story town\'s blocks near the story\'s places walk as busy blocks, STORY.K times over', async () => {
+  const c = src('wagmi/street/crowd.js');
+  const m = /export const STORY = Object\.freeze\(\{ R: (\d+), K: ([\d.]+) \}\);/.exec(c);
+  assert.ok(m); const R = +m[1], K = +m[2];
+  assert.ok(R >= 100 && R <= 250 && K > 1 && K <= 2);
+  assert.match(c, /const perM = \(b\) => \(busy\(b\) \|\| story\(b\) > 1 \? PER_M\.busy : PER_M\.quiet\) \* story\(b\) \* \(world\.crowd \?\? 1\)/);
+  assert.match(c, /const cw = near\.reduce\(\(s, n\) => s \+ \(busy\(n\.b\) \|\| story\(n\.b\) > 1 \? n\.w : 0\), 0\);/);
+  // (story() itself, run over two places: a block 100 m from one is K, one 400 m off 1; New York's or SF's always 1)
+  const a = c.indexOf('  let spots = null;'), b = c.indexOf('  // (a metre of this block');
+  const mk = (TOWN, places) => new Function('W', 'STORY', 'TOWN', c.slice(a, b) + '\nreturn story;')({ storyrun: { places } }, { R, K }, TOWN);
+  const P = { aliases: { arena: {}, market: {} }, at: (r) => (r === '@arena' ? { x: 0, z: 0 } : { x: 1000, z: 0 }) };
+  const story = mk(true, P);
+  assert.equal(story({ cx: 100, cz: 0 }), K);
+  assert.equal(story({ cx: 400, cz: 0 }), 1);
+  assert.equal(story({ cx: 1050, cz: 30 }), K);
+  assert.equal(mk(false, P)({ cx: 0, cz: 0 }), 1);
+  // (no story yet: 1, and asked again once it has its places)
+  const late = { aliases: {}, at: P.at }, s2 = mk(true, late);
+  assert.equal(s2({ cx: 0, cz: 0 }), 1);
+  late.aliases = P.aliases;
+  assert.equal(s2({ cx: 10, cz: 0 }), K);
+});
