@@ -128,7 +128,14 @@ export async function install(W) {
     }
     return creditsRoll(def, { map: mapSec?.lines || [], place, voiced, assets });
   };
-  W.storyrun = { world, places, cast, hud, runner, save, pets, host: hostLog, reach: runner.reach, endRoll, get choosing() { return hud.choosing; } };
+  // (rolled as a cinematic: the screen's markers (guide.js's beacon and edge arrow, a horse's tag) are drawn over #wg
+  // and stand aside for wg-cine, as for a cutscene; put back as it was after)
+  const rollCredits = async (roll, secs = 0) => {
+    const was = document.body.classList.contains('wg-cine');
+    ui.cine(true);
+    try { await hud.roll(roll, { secs }); } finally { if (!was) ui.cine(false); }
+  };
+  W.storyrun = { world, places, cast, hud, runner, save, pets, host: hostLog, reach: runner.reach, endRoll, rollCredits, get choosing() { return hud.choosing; } };
   // the missions in story order (the acts' order lists, then any left out)
   const acts = def.acts || [];
   const byId = new Map(def.missions.map((m) => [m.id, m]));
@@ -318,7 +325,7 @@ export async function install(W) {
         try {
           const roll = endRoll();
           tell('credits', { id: def.id, sections: roll.length });
-          await hud.roll(roll, { secs: flags.autoCard ? 3 : 0 });
+          await rollCredits(roll, flags.autoCard ? 3 : 0);
         } catch (e) { console.warn('[storyrun] credits', e); }
       }
       const fin = order[order.length - 1]?.act?.end?.next;

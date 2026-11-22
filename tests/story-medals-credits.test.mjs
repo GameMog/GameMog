@@ -135,7 +135,8 @@ test('wired in: the runner times a whole run and its damage, the pass card shows
   assert.match(run, /damage: r\.damage, whole: r\.whole/);
   assert.match(idx, /medalRows\(m\.medals, r, best0\)/);
   assert.match(idx, /save\.medals\[m\.id\] = medal/);
-  assert.match(idx, /await hud\.roll\(roll/);
+  assert.match(idx, /await rollCredits\(roll, /);
+  assert.match(idx, /ui\.cine\(true\);\s*try \{ await hud\.roll\(roll/);
   assert.match(hud, /async roll\(sections/);
   assert.match(hud, /if \(c\.medal\)/);
 });
@@ -215,5 +216,5 @@ test('the standard roll: credits.js tags what a story carries, the end wires it 
   assert.match(idx, /if \(!isOwn\(world\)\) \{\s*try \{\s*const roll = endRoll\(\);/);
   assert.doesNotMatch(idx, /if \(def\.credits\) \{/);
   assert.match(idx, /voiced = nClips > 0/);
-  assert.match(idx, /endRoll, get choosing/);
+  assert.match(idx, /endRoll, rollCredits, get choosing/);
 });
