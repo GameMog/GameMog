@@ -31,6 +31,7 @@ import { showTitle, plainTitle, isOwn, ownTitle } from './title.js';
 import { asksDressing, asksApocalypse, HOURS } from './pack.js';
 import { passCard, medalOf, medalRows, medalRank, creditsRoll } from './rules.js';
 import { CREDITS } from '../credits.js';
+import { world as cityWorld } from '../world/index.js';
 import { createDirector } from '../mission/cine.js'; import { importRetry } from '../net.js';
 import { keyShotOf, hoodShot, rideOffShot } from './keyshots.js';
 
@@ -112,7 +113,22 @@ export async function install(W) {
     if (W.storyrun?.ranch) W.storyrun.ranch.update(dt);
     document.body.classList.toggle('wg-onfoot', W.app.controllerManager.activeMode !== 'car');
   })();
-  W.storyrun = { world, places, cast, hud, runner, save, pets, host: hostLog, reach: runner.reach, get choosing() { return hud.choosing; } };
+  // the end credits' sections (rules.js creditsRoll), from what the world has when its story ends: its pack, its city's
+  // map data (credits.js: a town's own data only, New York's and San Francisco's their own), whether its lines are
+  // heard (its clips, or Mog City's own recordings of a Mog's lines), and the credits.js lines it carries (the models
+  // its cars wear and its type, added when they are built; the moves its people play; its bodies' finishing detail)
+  const endRoll = () => {
+    const mapSec = CREDITS.find((c) => /^The (map|city)/.test(c.heading));
+    const place = window.NYC?.PKG?.name ? String(window.NYC.PKG.name).split(',')[0] : (cityWorld.id !== 'pkg' && cityWorld.name) || '';
+    const voiced = nClips > 0 || (def.voice?.lines || []).some((l) => l && l.rec && W.voice?.has?.(l.who, l.text));
+    const bodies = Object.values(def.cast || {}).some((c) => c && !c.pet && c.glb);
+    const assets = [];
+    for (const sec of CREDITS) for (const l of sec.lines || []) {
+      if (sec.heading === 'Vehicles' || sec.heading === 'Type' || l.roll === 'moves' || (l.roll === 'bodies' && bodies)) assets.push(l);
+    }
+    return creditsRoll(def, { map: mapSec?.lines || [], place, voiced, assets });
+  };
+  W.storyrun = { world, places, cast, hud, runner, save, pets, host: hostLog, reach: runner.reach, endRoll, get choosing() { return hud.choosing; } };
   // the missions in story order (the acts' order lists, then any left out)
   const acts = def.acts || [];
   const byId = new Map(def.missions.map((m) => [m.id, m]));
@@ -295,12 +311,12 @@ export async function install(W) {
     try {
       try { W.app.selectTime('midday'); } catch {}
       await hud.card({ kicker: def.kicker || '', text: def.title, sub: def.tagline || 'Thanks for playing.' }, flags.autoCard ? 1 : 4);
-      // (the end credits, a world with `credits` (rules.js creditsRoll): its cast, the voices, its own lines, the
-      // map's data, GameMog Community, rolled over the dark; any key, a click or a tap skips them)
-      if (def.credits) {
+      // (the end credits (endRoll, rules.js creditsRoll): the title, its cast, the voices, what it is made with, the
+      // map's data, the engine, GameMog Community, rolled over the dark; any key, a click or a tap skips them)
+      // (every story world has them, the standard roll (the owner, 21 Nov); Mog City's own story keeps its own end)
+      if (!isOwn(world)) {
         try {
-          const mapSec = CREDITS.find((c) => /^The (map|city)/.test(c.heading));
-          const roll = creditsRoll(def, { map: mapSec?.lines || [], place: window.NYC?.PKG?.name ? String(window.NYC.PKG.name).split(',')[0] : '' });
+          const roll = endRoll();
           tell('credits', { id: def.id, sections: roll.length });
           await hud.roll(roll, { secs: flags.autoCard ? 3 : 0 });
         } catch (e) { console.warn('[storyrun] credits', e); }

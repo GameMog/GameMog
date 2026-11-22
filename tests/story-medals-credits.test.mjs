@@ -48,15 +48,15 @@ test('damage: the car as a percentage of a car, 3 a hit on foot', () => {
 
 test('the credits roll: the title, the cast, the voices, its own lines, the map, GameMog Community last', () => {
   const def = { title: 'A Story', kicker: 'SAN JOSE, CA', cast: { Ann: { role: 'hero: the driver, in her red coat and boots' }, Rex: { pet: {} }, Bo: { role: 'the boss: A Story' } }, credits: { lines: ['Built from CC0 parts.'] } };
-  const r = creditsRoll(def, { map: [{ what: 'Map data', who: '© OpenStreetMap contributors', licence: 'ODbL 1.0' }], place: 'San Jose' });
+  const r = creditsRoll(def, { map: [{ what: 'Map data', who: '© OpenStreetMap contributors', licence: 'ODbL 1.0' }], place: 'San Jose', voiced: true });
   assert.equal(r[0].title, 'A Story');
   assert.deepEqual(r.find((s) => s.head === 'Starring').lines, [['Ann', 'the driver'], ['Bo', 'the boss']]);
   assert.ok(r.some((s) => s.head === 'Voices'));
   assert.deepEqual(r.find((s) => s.head === 'Made with').lines, ['Built from CC0 parts.']);
   assert.deepEqual(r.find((s) => s.head === 'The map: San Jose').lines, [['© OpenStreetMap contributors · ODbL 1.0', 'Map data']]);
   assert.deepEqual(r.at(-1).lines, ['GameMog Community']);
-  // (a world without credits has no roll)
-  assert.deepEqual(creditsRoll({ title: 'x', cast: {} }), []);
+  // (no world, no roll)
+  assert.deepEqual(creditsRoll(null), []);
 });
 
 test("the credits roll: a hometown's map lists only its own data, the city engine's code goes under Played on", () => {
@@ -92,17 +92,19 @@ test('the credits roll: a role as a credit, a few words, never cut mid-word', ()
   assert.equal(creditRole('superintendent of the extraordinarily overcomplicated building'), 'superintendent');
   assert.equal(creditRole(undefined), '');
   for (const r of ['hero: founder-CEO of Greenlight Silicon, in his black leathe', 'a b c d e f g h', 'x'.repeat(10) + ' ' + 'y'.repeat(30)]) {
-    const c = creditRole(r); assert.ok(c.length <= 34 && c.split(' ').length <= 5, c);
+    const c = creditRole(r); assert.ok(c.length <= 34 && c.split(' ').length <= 6, c);
     assert.ok(!c || r.replace(/^hero:\s*/, '').startsWith(c), c);
   }
 });
 
 test('the credits roll: the pack\'s own cast and voices, and a default that names no model', () => {
   const def = { title: 'A Story', cast: { Ann: { role: 'hero: the driver' }, Bo: { role: 'the boss' } }, voice: { model: 'kokoro' }, credits: { lines: [] } };
-  const r = creditsRoll(def);
+  const r = creditsRoll(def, { voiced: true });
   const st = r.find((s) => s.head === 'Starring');
   assert.equal(st.cast, true);
   assert.deepEqual(r.find((s) => s.head === 'Voices').lines, ['Voices synthesised']);
+  // (no lines heard: no Voices section at all)
+  assert.ok(!creditsRoll(def).some((s) => s.head === 'Voices'));
   assert.doesNotMatch(JSON.stringify(r), /Kokoro|kokoro/);
   const own = creditsRoll({ ...def, credits: { cast: [{ name: 'Ann', role: 'the wheelman' }, { name: 'Bo' }, { role: 'nameless' }], voices: ['Voices: Qwen3-TTS (Apache-2.0).', ''] } });
   assert.deepEqual(own.find((s) => s.head === 'Starring').lines, [['Ann', 'the wheelman'], ['Bo', '']]);
@@ -136,4 +138,82 @@ test('wired in: the runner times a whole run and its damage, the pass card shows
   assert.match(idx, /await hud\.roll\(roll/);
   assert.match(hud, /async roll\(sections/);
   assert.match(hud, /if \(c\.medal\)/);
+});
+
+/* ------------------------------------------------ the standard roll -- */
+// (every story world rolls credits from what it has, the owner's 21 Nov standard: a world with no `credits` of its own,
+// shaped as the live ones are: Pickup Time (New York), Colter Land (a hometown), SF 2040 (San Francisco, voices on the air))
+const MAPNY = [
+  { what: 'Slop New York', who: 'Mr.doob', engine: true, licence: 'MIT' },
+  { what: 'Map data', who: '© OpenStreetMap contributors', licence: 'ODbL 1.0' },
+  { what: 'City data', who: 'NYC Open Data', licence: null },
+];
+const MOVES = [
+  { what: 'Motion capture', roll: 'moves', who: 'CMU Graphics Lab Motion Capture Database', licence: null },
+  { what: 'Motion capture', roll: 'moves', who: 'Bandai Namco Research Motion Dataset, © 2022 Bandai Namco Research Inc.', licence: 'CC BY-NC 4.0' },
+];
+
+test('the standard roll: a world with no credits of its own still has its title, cast, voices, map, engine and GameMog Community', () => {
+  const def = {
+    title: 'Pickup Time', kicker: 'NEW YORK',
+    cast: { 'John Marin': { role: 'owns Slice Marin pizza, used to plan heists', glb: '/x.glb' }, 'Agnes Teodoro': { role: 'the Nanny: white hair, very polite, not theirs' },
+      'Lou Varga': { role: 'a bail bondsman who once owed John his life' }, Rex: { role: 'the dog', pet: { follows: true } }, '  ': { role: 'nobody' } },
+    voice: { model: 'kokoro-82m-v1.0', lines: [{ who: 'John Marin', text: 'Hi.', clip: 'a-b' }] },
+  };
+  const r = creditsRoll(def, { map: MAPNY, place: 'New York', voiced: true, assets: MOVES });
+  assert.deepEqual(r.map((s) => s.head), ['', 'Starring', 'Voices', 'Made with', 'The map: New York', 'Played on', '']);
+  assert.equal(r[0].title, 'Pickup Time'); assert.deepEqual(r[0].lines, ['NEW YORK']);
+  assert.deepEqual(r[1].lines, [['John Marin', 'owns Slice Marin pizza'], ['Agnes Teodoro', 'the Nanny'], ['Lou Varga', 'a bail bondsman']]);
+  assert.deepEqual(r[2].lines, ['Voices synthesised']);
+  assert.deepEqual(r[3].lines, [['CMU Graphics Lab Motion Capture Database', 'Motion capture'], ['Bandai Namco Research Motion Dataset, © 2022 Bandai Namco Research Inc. · CC BY-NC 4.0', 'Motion capture']]);
+  assert.deepEqual(r[4].lines.map((l) => l[1]), ['Map data', 'City data']);
+  assert.deepEqual(r[5].lines, ["Mog City's story engine", ['Mr.doob · MIT', 'Slop New York']]);
+  assert.deepEqual(r.at(-1), { head: '', lines: ['GameMog Community'], end: true });
+  // (never a model the world did not use, never a raw note's colon)
+  const txt = JSON.stringify(r);
+  assert.doesNotMatch(txt, /kokoro|Kokoro|qwen|Qwen/);
+  for (const [, role] of r[1].lines) assert.doesNotMatch(role, /:/);
+  // (its voice plan has clips: voiced when the runner does not say)
+  assert.deepEqual(creditsRoll(def).find((s) => s.head === 'Voices').lines, ['Voices synthesised']);
+  // (no clips, nothing recorded: no Voices section)
+  assert.ok(!creditsRoll({ ...def, voice: { model: 'qwen3-tts', lines: [{ who: 'x', text: 'y' }] } }).some((s) => s.head === 'Voices'));
+  assert.ok(!creditsRoll({ title: 'T', cast: {} }).some((s) => s.head === 'Voices' || s.head === 'Starring' || s.head === 'Made with'));
+});
+
+test("the standard roll: a sheet's name before its role, the world's own voice credit, its title alone", () => {
+  const def = { title: 'SF 2040', kicker: 'SAN FRANCISCO', voice: { model: 'qwen3-tts-12hz (wagmi/radio/build/pack-voices.mjs)', lines: [] },
+    cast: { Cal: { role: 'Cal Mercer, an ex-park ranger looking for his family' }, Nina: { role: 'Dr. Nina Mercer, his wife, an ER doctor' },
+      Warden: { role: "WARDEN-7, the Preserve's security unit", voiceOnly: true }, Vale: { role: 'Deacon Vale, who leads the Iron Saints', voiceOnly: true } } };
+  const r = creditsRoll(def, { map: [{ what: 'Slop San Francisco', who: 'Kamil (@unable0_) and Mr.doob', licence: 'MIT' }, { what: 'Slop New York', who: 'Mr.doob', engine: true, licence: 'MIT' }], place: 'San Francisco', voiced: true });
+  assert.deepEqual(r.find((s) => s.head === 'Starring').lines, [['Cal', 'an ex-park ranger looking'], ['Nina', 'his wife'], ['Warden', "the Preserve's security unit"], ['Vale', 'who leads the Iron Saints']]);
+  assert.deepEqual(r.find((s) => s.head === 'Voices').lines, ['Voices synthesised']);
+  assert.doesNotMatch(JSON.stringify(r), /qwen|pack-voices/i);
+  assert.deepEqual(r.find((s) => s.head === 'The map: San Francisco').lines, [['Kamil (@unable0_) and Mr.doob · MIT', 'Slop San Francisco']]);
+  // (its own voice credit, said as the world says it)
+  assert.deepEqual(creditsRoll({ ...def, voice: { credit: 'Voices: made for SF 2040.' } }, { voiced: true }).find((s) => s.head === 'Voices').lines, ['Voices: made for SF 2040.']);
+  // (no title: still a title card)
+  assert.equal(creditsRoll({ cast: {} })[0].title, 'Untitled');
+});
+
+test("the standard roll: made with its own lines, then what it carries, one line per author, the ones it names left out", () => {
+  const fleet = ['Daniel Zhabotinsky', 'Daniel Zhabotinsky', 'Comrade1280'].map((who, i) => ({ what: `"Car ${i}"`, who, group: "The town's cars", licence: 'CC BY 4.0' }));
+  const vantor = { what: 'The car\'s body', who: 'Black Snow', licence: 'CC BY 4.0' };
+  const type = { what: 'Geist', who: 'The Geist Project Authors', licence: 'SIL OFL 1.1' };
+  const def = { title: 'A Story', cast: {}, credits: { lines: ["The town's cars: models by Daniel Zhabotinsky and Comrade1280 (Sketchfab), CC BY 4.0."] } };
+  const r = creditsRoll(def, { assets: [...fleet, vantor, type] });
+  assert.deepEqual(r.find((s) => s.head === 'Made with').lines, [def.credits.lines[0], ['Black Snow · CC BY 4.0', "The car's body"], ['The Geist Project Authors · SIL OFL 1.1', 'Geist']]);
+  // (no own lines: the fleet as one line, its authors once each)
+  const r2 = creditsRoll({ title: 'A Story', cast: {} }, { assets: fleet });
+  assert.deepEqual(r2.find((s) => s.head === 'Made with').lines, [['Daniel Zhabotinsky, Comrade1280 · CC BY 4.0', "The town's cars"]]);
+});
+
+test('the standard roll: credits.js tags what a story carries, the end wires it for every world but Mog City\'s own', () => {
+  const cr = src('wagmi/credits.js'), idx = src('wagmi/storyrun/index.js');
+  assert.equal((cr.match(/group: FLEET_GROUP/g) || []).length, 18);
+  assert.equal((cr.match(/roll: 'moves'/g) || []).length, 2);
+  assert.equal((cr.match(/roll: 'bodies'/g) || []).length, 3);
+  assert.match(idx, /if \(!isOwn\(world\)\) \{\s*try \{\s*const roll = endRoll\(\);/);
+  assert.doesNotMatch(idx, /if \(def\.credits\) \{/);
+  assert.match(idx, /voiced = nClips > 0/);
+  assert.match(idx, /endRoll, get choosing/);
 });

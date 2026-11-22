@@ -14,8 +14,8 @@
 //   damageOf(o)                  a mission's DAMAGE (0..): what the car took (100 = one car's worth) and 3 a hit on foot
 //   medalOf(medals, r)           the medal a pass earns from its time and damage ('gold' | 'silver' | 'bronze' | null)
 //   medalRows(medals, r, best)   the MISSION PASSED card's medal: { medal, label, rows, hint }
-//   creditsRoll(def, o)          the story's end credits, as sections to roll: the cast, the voices, the world's own
-//                                lines, the map's data, the engine and GameMog Community
+//   creditsRoll(def, o)          the story's end credits, the standard roll of every story world, as sections: the
+//                                title, the cast, the voices, what it is made with, the map's data, the engine, GameMog Community
 //   avoids(list, x, z)           a point inside one of the GPS's held-off circles (a roadblock's street)
 //   tailStart(o)                 where a tail's followed car starts: ahead of his car, before the first bend (or far: drive there)
 //   tailRule(state, o, dt)       a tail each frame: a fair start, then too close / lost clocks and their warnings
@@ -155,48 +155,92 @@ export function medalRows(medals, r = {}, best = null) {
 
 /* ----------------------------------------------------------------- credits -- */
 // A cast member's role as a credit, a few words: any ': <the world's title>' after it, any one-word 'hero:' before it
-// and the title as its first words taken off, then all after its first comma, then cut at a word (never mid-word) to 5 words and 34 characters at most,
-// a dangling 'of' or 'and' dropped. 'hero: founder-CEO of Greenlight Silicon, in his black leather jacket' ->
-// 'founder-CEO of Greenlight Silicon'
+// and the title as its first words taken off, then all after its first comma (a sheet's 'Cal Mercer, an ex-park
+// ranger ...': the name first, the role after it), any ': <a note>' after a short role ('the Nanny: white hair'), then
+// cut at a word (never mid-word) to 34 characters and 5 words at most (6 when that is all of it): at its first clause's
+// start (who, with, when ...) when there is one, a dangling 'of' or 'and' dropped. 'hero: founder-CEO of Greenlight Silicon, in his black leather
+// jacket' -> 'founder-CEO of Greenlight Silicon'; 'a bail bondsman who once owed John his life' -> 'a bail bondsman'
 const ROLE_WORDS = 5, ROLE_CHARS = 34;
-export function creditRole(r, title = '') {
+const DANGLE = /^(of|and|the|a|an|in|at|for|to|from|with|his|her|their|its|my|our|your|who|that|which|when|where|on|by|as|or|but)$/i;
+const BREAK = /^(who|that|which|with|when|where|while|in|on|at|for|from|by|after|before)$/i;
+export function creditRole(r, title = '', name = '') {
   let t = String(r ?? '').replace(/\s+/g, ' ').trim();
   const esc = title ? String(title).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') : '';
   if (esc) t = t.replace(new RegExp(`\\s*:\\s*${esc}\\s*$`, 'i'), '');
   t = t.replace(/^[A-Za-z][\w-]*\s*:\s*/, '');
   // ('hero: <the world's title>, founder-CEO of ...': the title as its first words is not a role)
   if (esc) t = t.replace(new RegExp(`^${esc}\\s*,\\s*`, 'i'), '');
+  // (the name first, the role after it: 'Dr. Nina Mercer, his wife, an ER doctor', 'WARDEN-7, the Preserve's unit')
+  const nm = String(name || '').trim().split(' ')[0].toLowerCase();
+  if (nm && t.includes(',')) {
+    const head = t.slice(0, t.indexOf(',')), words = head.toLowerCase().split(' ');
+    if (words.length <= 4 && words.some((w) => w === nm || w.startsWith(nm + '-') || w.replace(/[^a-z]/g, '') === nm)) t = t.slice(t.indexOf(',') + 1).trim();
+  }
   if (t.includes(',')) t = t.slice(0, t.indexOf(','));
-  let w = t.trim().split(' ').filter(Boolean).slice(0, ROLE_WORDS);
-  while (w.length > 1 && w.join(' ').length > ROLE_CHARS) w.pop();
-  while (w.length > 1 && /^(of|and|the|a|an|in|at|for|to|from|with)$/i.test(w[w.length - 1])) w.pop();
+  // (a short role and a note after it: 'the Nanny: white hair' -> 'the Nanny'; never the raw note's colon)
+  if (t.includes(':')) { const a = t.slice(0, t.indexOf(':')).trim(); t = a.split(' ').length <= ROLE_WORDS && a ? a : t.replace(/:/g, ''); }
+  let w = t.trim().split(' ').filter(Boolean);
+  // (a whole role of six short words stays whole: 'the one who is always late'; too long: cut where its first clause
+  // starts, if what is before it is a role of two words or more ('the underboss who lost everything when they ran' ->
+  // 'the underboss'), else at 5 words and 34 characters, a cut's dangling 'of', 'the' or 'for' dropped)
+  if (w.length > ROLE_WORDS + 1 || w.join(' ').length > ROLE_CHARS) {
+    for (let i = 2; i <= ROLE_WORDS && i < w.length; i++) if (BREAK.test(w[i]) && w.slice(0, i).join(' ').length <= ROLE_CHARS && !/^one$/i.test(w[i - 1])) { w = w.slice(0, i); break; }
+    w = w.slice(0, ROLE_WORDS);
+    while (w.length > 1 && w.join(' ').length > ROLE_CHARS) w.pop();
+    while (w.length > 1 && DANGLE.test(w[w.length - 1])) w.pop();
+  }
   t = w.join(' ');
   return t.length > ROLE_CHARS ? t.slice(0, ROLE_CHARS) : t;
 }
 
-// The story's end credits (a pack's `credits`: { lines: [its own lines: what it is, what it is made from] }), rolled
-// after STORY COMPLETE and the title (index.js, hud.roll). def: the runner pack (its title, its cast: { name: { role,
-// voiceOnly } }); o: { map: [{ what, who, licence }] (the engine's own credits for the city: credits.js), place }.
-// -> [{ head, lines: [[a, b]] | [text] }], the title first and GameMog Community last
-export function creditsRoll(def, { map = [], place = '' } = {}) {
-  if (!def || !def.credits || typeof def.credits !== 'object') return [];
+// The story's end credits, the standard roll every story world gets (the owner, 21 Nov), built from what the world
+// already has, and a pack's own `credits` ({ lines, cast, voices }) added to it. Rolled after STORY COMPLETE and the
+// title (index.js endRoll, hud.roll). def: the runner pack (its title, kicker, cast: { name: { role, pet } }, voice);
+// o: { map: [{ what, who, licence, engine }] (the engine's own credits for the city: credits.js), place (the map's
+// place: a town's name, New York, San Francisco), voiced (the world's lines are heard: its clips, or Mog City's own
+// recordings; left out: its voice plan has clips), assets: [{ what, who, licence, group }] (what the world carries
+// that asks to be credited: credits.js lines its car, its type and its people add) }.
+// -> [{ head, lines: [[a, b]] | [text] }], the title first and GameMog Community last:
+//   the title and kicker · Starring · Voices (its own credit, else 'Voices synthesised' when it is voiced, else none:
+//   never a model it did not use) · Made with (its own lines, then the assets they do not already name) · The map ·
+//   Played on Mog City's story engine · GameMog Community
+export function creditsRoll(def, { map = [], place = '', voiced, assets = [] } = {}) {
+  if (!def || typeof def !== 'object') return [];
+  const C = def.credits && typeof def.credits === 'object' && !Array.isArray(def.credits) ? def.credits : {};
   const S = (x, n = 160) => String(x ?? '').slice(0, n);
-  const out = [{ head: '', title: S(def.title, 48), lines: def.kicker ? [S(def.kicker, 24)] : [] }];
-  // (the cast as a credit: the pack's own credits.cast ([{ name, role }]) when it gives one, else each cast member's
-  // role made a credit, creditRole: a forged sheet's 'keynote stage manager: <the world's title>' and the hero's
-  // 'hero: founder-CEO of ..., in his ...' read 'keynote stage manager' and 'founder-CEO of Greenlight Silicon')
-  const given = Array.isArray(def.credits.cast) ? def.credits.cast.filter((c) => c && typeof c.name === 'string' && c.name.trim()) : null;
+  const str = (l) => typeof l === 'string' && l.trim();
+  const out = [{ head: '', title: S(def.title || 'Untitled', 48), lines: typeof def.kicker === 'string' && def.kicker.trim() ? [S(def.kicker, 24)] : [] }];
+  // (the cast as a credit: the pack's own credits.cast ([{ name, role }]) when it gives one, else each cast member
+  // with a name and its role made a credit, creditRole; never a pet)
+  const given = Array.isArray(C.cast) ? C.cast.filter((c) => c && typeof c.name === 'string' && c.name.trim()) : null;
   const cast = given && given.length
     ? given.map((c) => [S(c.name.trim(), 40), creditRole(c.role)])
-    : Object.entries(def.cast || {}).filter(([, c]) => c && !c.pet).map(([name, c]) => [S(name, 40), creditRole(c.role, def.title)]);
+    : Object.entries(def.cast && typeof def.cast === 'object' ? def.cast : {}).filter(([n, c]) => n.trim() && c && typeof c === 'object' && !c.pet)
+      .map(([name, c]) => [S(name.trim(), 40), creditRole(c.role, def.title, name)]);
   if (cast.length) out.push({ head: 'Starring', cast: true, lines: cast.slice(0, 24) });
-  const own = (Array.isArray(def.credits.lines) ? def.credits.lines : []).filter((l) => typeof l === 'string' && l.trim()).slice(0, 12).map((l) => S(l));
-  // (the voices: the pack's own credits.voices lines, else its voice record's credit, else no model named at all: a
-  // world's voice.model is the fallback model, not always the one its clips were made with)
-  const vo = (Array.isArray(def.credits.voices) ? def.credits.voices : []).filter((l) => typeof l === 'string' && l.trim()).slice(0, 4).map((l) => S(l, 200));
-  if (!vo.length && typeof def.voice?.credit === 'string' && def.voice.credit.trim()) vo.push(S(def.voice.credit, 200));
-  out.push({ head: 'Voices', lines: vo.length ? vo : ['Voices synthesised'] });
-  if (own.length) out.push({ head: 'Made with', lines: own });
+  // (the voices: the pack's own credits.voices lines, else its voice record's credit, else, when its lines are heard,
+  // a neutral line; never a model: a world's voice.model is the fallback model, not always the one its clips were made with)
+  const vo = (Array.isArray(C.voices) ? C.voices : []).filter(str).slice(0, 4).map((l) => S(l, 200));
+  if (!vo.length && str(def.voice?.credit)) vo.push(S(def.voice.credit, 200));
+  const heard = voiced ?? (Array.isArray(def.voice?.lines) && def.voice.lines.some((l) => l && (l.clip || l.rec)));
+  if (!vo.length && heard) vo.push('Voices synthesised');
+  if (vo.length) out.push({ head: 'Voices', lines: vo });
+  // (made with: its own lines, then what it carries that asks for a credit (its car's model, its type, its people's
+  // detail and moves), one pair per author and licence, the ones its own lines already name left out)
+  const own = (Array.isArray(C.lines) ? C.lines : []).filter(str).slice(0, 12).map((l) => S(l));
+  const said = own.join(' ').toLowerCase(), groups = new Map();
+  for (const a of Array.isArray(assets) ? assets : []) {
+    if (!a || !str(a.who)) continue;
+    const k = `${a.group || a.what}|${a.licence || ''}`;
+    const g = groups.get(k) || groups.set(k, { what: a.group || a.what, licence: a.licence || '', who: [] }).get(k);
+    if (!g.who.includes(a.who)) g.who.push(a.who);
+  }
+  const made = [...own];
+  for (const g of groups.values()) {
+    if (g.who.every((w) => said.includes(String(w).toLowerCase().replace(/^the\s+/, '').split(/[,(|]/)[0].trim()))) continue;
+    made.push([S(`${g.who.join(', ')}${g.licence ? ` · ${g.licence}` : ''}`, 200), S(g.what, 60)]);
+  }
+  if (made.length) out.push({ head: 'Made with', lines: made.slice(0, 16) });
   // (a pair is [the credited, what for]: the roll sets what for on the left, the credited on the right)
   // (the map: only the place's own data (OpenStreetMap, Overture, the elevation...); a line marked engine (credits.js:
   // the city engine's code, Slop San Francisco or Slop New York) is set under 'Played on' with the story engine)
