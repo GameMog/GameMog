@@ -127,7 +127,8 @@ export function createGuide(W, THREE, { gps, ui, groundY, createMarker }) {
   const v = new THREE.Vector3(), vc = new THREE.Vector3();
   const stuck = createStuck();
   let live = true, last = performance.now(), st = { on: false }, html = '', colour = YELLOW, lw = 0, hud = [], hudAt = 0;
-  const hidden = () => W.cutscene || W.paused || document.body.classList.contains('wg-cine') || app.mapSystem?.isFullMapOpen;
+  // (sr-rolling: the end credits are up, storyrun/index.js rollCredits: a cutscene ending under them clears wg-cine)
+  const hidden = () => W.cutscene || W.paused || document.body.classList.contains('wg-cine') || document.body.classList.contains('sr-rolling') || app.mapSystem?.isFullMapOpen;
   const api = {
     source: null,
     state: () => ({ ...st }),

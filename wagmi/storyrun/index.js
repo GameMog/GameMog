@@ -132,8 +132,8 @@ export async function install(W) {
   // and stand aside for wg-cine, as for a cutscene; put back as it was after)
   const rollCredits = async (roll, secs = 0) => {
     const was = document.body.classList.contains('wg-cine');
-    ui.cine(true);
-    try { await hud.roll(roll, { secs }); } finally { if (!was) ui.cine(false); }
+    ui.cine(true); document.body.classList.add('sr-rolling');
+    try { await hud.roll(roll, { secs }); } finally { document.body.classList.remove('sr-rolling'); if (!was) ui.cine(false); }
   };
   W.storyrun = { world, places, cast, hud, runner, save, pets, host: hostLog, reach: runner.reach, endRoll, rollCredits, get choosing() { return hud.choosing; } };
   // the missions in story order (the acts' order lists, then any left out)

@@ -136,7 +136,8 @@ test('wired in: the runner times a whole run and its damage, the pass card shows
   assert.match(idx, /medalRows\(m\.medals, r, best0\)/);
   assert.match(idx, /save\.medals\[m\.id\] = medal/);
   assert.match(idx, /await rollCredits\(roll, /);
-  assert.match(idx, /ui\.cine\(true\);\s*try \{ await hud\.roll\(roll/);
+  assert.match(idx, /ui\.cine\(true\); document\.body\.classList\.add\('sr-rolling'\);\s*try \{ await hud\.roll\(roll/);
+  assert.match(src('wagmi/storyrun/guide.js'), /classList\.contains\('sr-rolling'\)/);
   assert.match(hud, /async roll\(sections/);
   assert.match(hud, /if \(c\.medal\)/);
 });
