@@ -187,7 +187,7 @@ test("the standard roll: a sheet's name before its role, the world's own voice c
     cast: { Cal: { role: 'Cal Mercer, an ex-park ranger looking for his family' }, Nina: { role: 'Dr. Nina Mercer, his wife, an ER doctor' },
       Warden: { role: "WARDEN-7, the Preserve's security unit", voiceOnly: true }, Vale: { role: 'Deacon Vale, who leads the Iron Saints', voiceOnly: true } } };
   const r = creditsRoll(def, { map: [{ what: 'Slop San Francisco', who: 'Kamil (@unable0_) and Mr.doob', licence: 'MIT' }, { what: 'Slop New York', who: 'Mr.doob', engine: true, licence: 'MIT' }], place: 'San Francisco', voiced: true });
-  assert.deepEqual(r.find((s) => s.head === 'Starring').lines, [['Cal', 'an ex-park ranger looking'], ['Nina', 'his wife'], ['Warden', "the Preserve's security unit"], ['Vale', 'who leads the Iron Saints']]);
+  assert.deepEqual(r.find((s) => s.head === 'Starring').lines, [['Cal', 'an ex-park ranger'], ['Nina', 'his wife'], ['Warden', "the Preserve's security unit"], ['Vale', 'leads the Iron Saints']]);
   assert.deepEqual(r.find((s) => s.head === 'Voices').lines, ['Voices synthesised']);
   assert.doesNotMatch(JSON.stringify(r), /qwen|pack-voices/i);
   assert.deepEqual(r.find((s) => s.head === 'The map: San Francisco').lines, [['Kamil (@unable0_) and Mr.doob · MIT', 'Slop San Francisco']]);
@@ -218,4 +218,27 @@ test('the standard roll: credits.js tags what a story carries, the end wires it 
   assert.doesNotMatch(idx, /if \(def\.credits\) \{/);
   assert.match(idx, /voiced = nClips > 0/);
   assert.match(idx, /endRoll, rollCredits, get choosing/);
+});
+
+// (the runtime's Vehicles and horse credits, read as written: their modules load three.js's WebGPU build, so the literal
+// is taken from the source rather than imported)
+const literal = (f, name) => {
+  const m = src(f).match(new RegExp(`export const ${name} = (\\{.*?\\});\\s*$`, 'm'));
+  assert.ok(m, `${name} in ${f}`);
+  return Function(`return (${m[1]});`)();
+};
+
+test("the standard roll: a Made with label is a whole name, never a raw note's colon or a mid-word cut", () => {
+  const cars = [literal('wagmi/storyrun/vantor.js', 'VANTOR_CREDIT'), literal('wagmi/storyrun/wedge.js', 'WEDGE_CREDIT'), literal('wagmi/horse/index.js', 'HORSE_CREDIT')];
+  assert.equal(cars[0].group, "The Vantor GT's body");
+  assert.equal(cars[1].group, "The Tensore's body");
+  const r = creditsRoll({ title: 'A Story', cast: {} }, { assets: cars });
+  const labels = r.find((s) => s.head === 'Made with').lines.map((l) => l[1]);
+  assert.deepEqual(labels, ["The Vantor GT's body", "The Tensore's body", 'Ranger, the horse']);
+  for (const [i, l] of labels.entries()) {
+    assert.doesNotMatch(l, /:/, l);
+    // (not cut: the label is the credit's whole group, or its whole what)
+    assert.equal(l, cars[i].group || cars[i].what, l);
+    assert.doesNotMatch(l, /porsche|gt3/i, l);
+  }
 });

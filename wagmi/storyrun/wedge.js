@@ -22,7 +22,7 @@ import { wheelKeeps, keepRoom, crumple, crease } from '../crash/dent-geom.js';
 export const WEDGE_GLB = new URL('../../assets/vehicles/wedge/wedge.glb', import.meta.url).href;
 
 // its line in the pause menu's Credits (CC BY 4.0 asks for it wherever the car is shown)
-export const WEDGE_CREDIT = { what: 'The Tensore\'s body: 3D model by ALIEEEN (Sketchfab), modified', who: 'ALIEEEN', note: 'modified: badges and every texture removed, doors cut free, refinished; the game\'s car is a look-alike with no connection to any car maker', licence: 'CC BY 4.0', licenceUrl: 'https://creativecommons.org/licenses/by/4.0/', src: 'https://sketchfab.com/3d-models/cf52245eb68f48daa909c7ad2a8deaa3' };
+export const WEDGE_CREDIT = { group: 'The Tensore\'s body', what: 'The Tensore\'s body: 3D model by ALIEEEN (Sketchfab), modified', who: 'ALIEEEN', note: 'modified: badges and every texture removed, doors cut free, refinished; the game\'s car is a look-alike with no connection to any car maker', licence: 'CC BY 4.0', licenceUrl: 'https://creativecommons.org/licenses/by/4.0/', src: 'https://sketchfab.com/3d-models/cf52245eb68f48daa909c7ad2a8deaa3' };
 
 export const WEDGE_LIME = '#76B900';
 

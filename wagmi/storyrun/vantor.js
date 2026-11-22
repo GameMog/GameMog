@@ -18,7 +18,7 @@ import { CREDITS } from '../credits.js';
 export const VANTOR_GLB = new URL('../../assets/vehicles/vantor/vantor-gt.glb', import.meta.url).href;
 
 // its line in the pause menu's Credits (CC BY 4.0 asks for it wherever the car is shown)
-export const VANTOR_CREDIT = { what: 'The Vantor GT\'s body: "Porsche GT3 RS"', who: 'Black Snow', note: 'modified: badges, crest and lettering removed, simplified, repainted; the game\'s car is a look-alike with no connection to any car maker', licence: 'CC BY 4.0', licenceUrl: 'https://creativecommons.org/licenses/by/4.0/', src: 'https://sketchfab.com/3d-models/porsche-gt3-rs-e738eae819c34d19a31dd066c45e0f3d' };
+export const VANTOR_CREDIT = { group: 'The Vantor GT\'s body', what: 'The Vantor GT\'s body: "Porsche GT3 RS"', who: 'Black Snow', note: 'modified: badges, crest and lettering removed, simplified, repainted; the game\'s car is a look-alike with no connection to any car maker', licence: 'CC BY 4.0', licenceUrl: 'https://creativecommons.org/licenses/by/4.0/', src: 'https://sketchfab.com/3d-models/porsche-gt3-rs-e738eae819c34d19a31dd066c45e0f3d' };
 
 export async function buildVantor(THREE, o = {}) {
   const gltf = await loadGLB(VANTOR_GLB);

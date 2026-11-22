@@ -179,12 +179,14 @@ export function creditRole(r, title = '', name = '') {
   if (t.includes(',')) t = t.slice(0, t.indexOf(','));
   // (a short role and a note after it: 'the Nanny: white hair' -> 'the Nanny'; never the raw note's colon)
   if (t.includes(':')) { const a = t.slice(0, t.indexOf(':')).trim(); t = a.split(' ').length <= ROLE_WORDS && a ? a : t.replace(/:/g, ''); }
+  // (a relative clause as the whole role: 'who leads the Iron Saints' -> 'leads the Iron Saints')
+  t = t.replace(/^(who|that|which)\s+/i, '');
   let w = t.trim().split(' ').filter(Boolean);
   // (a whole role of six short words stays whole: 'the one who is always late'; too long: cut where its first clause
   // starts, if what is before it is a role of two words or more ('the underboss who lost everything when they ran' ->
   // 'the underboss'), else at 5 words and 34 characters, a cut's dangling 'of', 'the' or 'for' dropped)
   if (w.length > ROLE_WORDS + 1 || w.join(' ').length > ROLE_CHARS) {
-    for (let i = 2; i <= ROLE_WORDS && i < w.length; i++) if (BREAK.test(w[i]) && w.slice(0, i).join(' ').length <= ROLE_CHARS && !/^one$/i.test(w[i - 1])) { w = w.slice(0, i); break; }
+    for (let i = 2; i <= ROLE_WORDS && i < w.length; i++) if ((BREAK.test(w[i]) || (i >= 3 && /^[a-z]{4,}ing$/.test(w[i]))) && w.slice(0, i).join(' ').length <= ROLE_CHARS && !/^one$/i.test(w[i - 1])) { w = w.slice(0, i); break; }
     w = w.slice(0, ROLE_WORDS);
     while (w.length > 1 && w.join(' ').length > ROLE_CHARS) w.pop();
     while (w.length > 1 && DANGLE.test(w[w.length - 1])) w.pop();
