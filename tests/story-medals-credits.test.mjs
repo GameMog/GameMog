@@ -30,8 +30,12 @@ test('a pass earns the best tier its time and its damage both meet; none from a 
 test("the card's medal says what it got and what the next tier asks", () => {
   const s = medalRows(M, { secs: 300, damage: 12, whole: true });
   assert.equal(s.label, 'SILVER');
-  assert.deepEqual(s.rows, [['DAMAGE', '12']]);
-  assert.equal(s.hint, 'GOLD: under 4:00, damage 10 or less');
+  assert.deepEqual(s.rows, [['DAMAGE', '12 PTS']]);
+  assert.equal(s.hint, 'GOLD: under 4:00, damage 10 pts or less');
+  // (what the points are, in the HUD's terms: day audit 22 Nov, the card's 'DAMAGE 3' beside the HUD's 'DENTED 94%')
+  assert.deepEqual(medalRows(M, { secs: 300, damage: 3, parts: { car: 0, hits: 1 }, whole: true }).rows, [['DAMAGE', '3 PTS (1 HIT)']]);
+  assert.deepEqual(medalRows(M, { secs: 300, damage: 12, parts: { car: 0.06, hits: 2 }, whole: true }).rows, [['DAMAGE', '12 PTS (CAR -6%, 2 HITS)']]);
+  assert.deepEqual(medalRows(M, { secs: 300, damage: 0, parts: { car: 0, hits: 0 }, whole: true }).rows, [['DAMAGE', '0 PTS']]);
   assert.equal(medalRows(M, { secs: 100, damage: 0, whole: true }).hint, '');
   assert.equal(medalRows(M, { secs: 900, damage: 0, whole: true }).label, 'NO MEDAL');
   assert.match(medalRows(M, { secs: 100, whole: false }).hint, /from its start/);
@@ -132,7 +136,8 @@ test('wired in: the runner times a whole run and its damage, the pass card shows
   const run = src('wagmi/storyrun/runner.js'), idx = src('wagmi/storyrun/index.js'), hud = src('wagmi/storyrun/hud.js'), dmg = src('wagmi/crash/damage.js');
   assert.match(dmg, /D\.taken \+= cost/);
   assert.match(run, /whole: !cp/);
-  assert.match(run, /damage: r\.damage, whole: r\.whole/);
+  assert.match(run, /damage: r\.damage, parts: r\.parts, whole: r\.whole/);
+  assert.match(run, /const parts = \{ car: Math\.max\(0, \(\+W\.crash\?\.damage\?\.taken \|\| 0\) - M\.dmg0\), hits: M\.stats\.hits \};/);
   assert.match(idx, /medalRows\(m\.medals, r, best0\)/);
   assert.match(idx, /save\.medals\[m\.id\] = medal/);
   assert.match(idx, /await rollCredits\(roll, /);

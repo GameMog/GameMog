@@ -290,7 +290,8 @@ test('P13: a call on the car screen mid-drive never holds the loop: its office p
   assert.match(pool, /async pool\(defs, \{ hold = false \} = \{\}\)/);
   assert.match(pool, /S\.pooled = true; sets\.set\(id, S\);/);
   assert.match(pool, /await tileWarm\(S, hold\);/);
-  assert.match(pool, /for \(const P of S\.people\.values\(\)\) \{ giveBack\(P\.fig\);/);
+  // (its people given back, unless a live set holds the body meanwhile: day audit 22 Nov, tests/jh-day-a-engine.test.mjs)
+  assert.match(pool, /for \(const P of S\.people\.values\(\)\) \{\n[\s\S]*?giveBack\(P\.fig\);/);
   assert.match(pool, /if \(fresh\.length > room\) \{ note\('pool-skip', id, 'room'\); continue; \}/);
   assert.match(pool, /cast\.get\?\.\(P\.name\) !== P\.fig/);
   assert.match(sets, /for \(const \[id, S\] of \[\.\.\.sets\]\) if \(!S\.pooled\) \{ sets\.delete\(id\); dropSet\(S\); \}/);

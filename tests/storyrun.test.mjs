@@ -157,8 +157,9 @@ test("a world's opening: checked, played once before Mission 1 on a first start,
   assert.ok(bad((o) => { o.stage = [{ at: '@bowery' }]; }).some((e) => /opening\.stage/.test(e)));
   // (index.js: the opening only when the world has one, on a first start or ?opening=1, never with ?opening=0)
   const idx = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/index.js'), 'utf8');
-  assert.match(idx, /if \(def\.opening && Array\.isArray\(def\.opening\.shots\) && def\.opening\.shots\.length && Q\.get\('opening'\) !== '0'/);
-  assert.match(idx, /Q\.get\('opening'\) === '1' \|\| \(k === 0 && !resume && !Q\.get\('mission'\) && !Object\.keys\(save\.done\)\.length\)/);
+  // (the rule is index.js opensNow(): tests/jh-day-a-engine.test.mjs runs it)
+  assert.match(idx, /if \(!def\?\.opening \|\| !Array\.isArray\(def\.opening\.shots\) \|\| !def\.opening\.shots\.length \|\| Q\.get\('opening'\) === '0'\) return false;/);
+  assert.match(idx, /Q\.get\('opening'\) === '1' \|\| \(k === 0 && !resume && !Q\.get\('mission'\) && !Object\.keys\(save\?\.done \|\| \{\}\)\.length\)/);
   // (runner.js: Mog City's own place card, name card (caption) and title lockup, on the cutscene director)
   const run = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/runner.js'), 'utf8');
   for (const k of ['ui.place(tokens(s.where.name)', 'ui.caption(who, ', 'ui.gameTitle(true)', "shotList(o.shots || [], t, { opening: true })", 'fig.hold = true']) assert.ok(run.includes(k), k);

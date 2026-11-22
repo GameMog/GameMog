@@ -443,7 +443,27 @@ export function createSets(W, { cast, castName, heroName, idleOf = () => null })
     const side = V().crossVectors(up, ax).normalize();
     P.prop.matrix.makeBasis(side, up, ax); P.prop.quaternion.setFromRotationMatrix(P.prop.matrix); P.prop.position.copy(at);
   }
+  // (a person this drawn set stands taken back into it: a body is one object and stands in one set at a time. A call's
+  // office pooled for a later call on the car's screen (pool(), under the mission's title, not awaited) stood PH-1's
+  // Marge in its own scene while the opening call k1 had her in her tile, then gave her body back to the street: her
+  // tile drew the backstage office with nobody in it for the whole call (day audit, 22 Nov). Each drawn frame now puts
+  // its people back in it, posed as it has them, unless a live set that is not a pool holds the body (update()))
+  function reclaim(S) {
+    for (const P of S.people.values()) {
+      const fig = P.fig; if (!fig || fig.root.parent === S.scene) continue;
+      const holder = [...sets.values()].find((O) => O !== S && !O.pooled && O.scene === fig.root.parent);
+      if (holder && (holder === active || holder.inGrid)) continue;
+      if (!moved.has(fig)) moved.set(fig, { parent: fig.root.parent, pos: fig.root.position.clone(), rot: fig.root.rotation.y, h: fig.heading, vis: fig.root.visible });
+      S.scene.add(fig.root); fig.root.visible = !P.hidden;
+      fig.post = () => { if (active === S || S.inGrid) arms(S, P); };
+      place(S, P); pose(S, P);
+      S.reclaimed = (S.reclaimed || 0) + 1; note('reclaim', S.id, P.name);
+    }
+  }
   function update(S) {
+    // (a call's tile or the car screen's picture only: a cutscene's set has its own hand-over, use(), and a set built
+    // behind the dip for the next scene takes the hero's double into it to compile him there)
+    if (S.inGrid && active !== S) reclaim(S);
     // (the set's own clock: it stops while a name card holds someone's frame, and the whole frame holds with them)
     const t1 = now(), dt = Math.min(0.1, t1 - (S.last || t1)); S.last = t1;
     const held = [...S.people.values()].some((P) => P.fig.hold && !P.heldBySet);
@@ -618,7 +638,13 @@ export function createSets(W, { cast, castName, heroName, idleOf = () => null })
         // (its people back where they were; stood in it again when a call takes it)
         // (one made for it hidden under the street where he is, as prewarm() leaves a body)
         const me = app.controllerManager?.getActiveEntity?.()?.position;
-        for (const P of S.people.values()) { giveBack(P.fig); if (fresh.includes(P.name) && P.fig) { P.fig.root.visible = false; if (me) P.fig.root.position.set(me.x, (me.y || 0) - 60, me.z); } }
+        // (a body a live set holds meanwhile (the call that rang as the pool was built: PH-1's k1 and its Marge) is left
+        // standing there, not given back to the street from under it)
+        for (const P of S.people.values()) {
+          const holder = P.fig && [...sets.values()].find((O) => O !== S && !O.pooled && O.people.has(P.name) && O.people.get(P.name).fig === P.fig);
+          if (holder) { const H = holder.people.get(P.name); holder.scene.add(P.fig.root); P.fig.root.visible = !H.hidden; P.fig.post = () => { if (active === holder || holder.inGrid) arms(holder, H); }; place(holder, H); pose(holder, H); note('pool-keep', id, P.name, holder.id); continue; }
+          giveBack(P.fig); if (fresh.includes(P.name) && P.fig) { P.fig.root.visible = false; if (me) P.fig.root.position.set(me.x, (me.y || 0) - 60, me.z); }
+        }
         note('pool', id);
         n++;
       }

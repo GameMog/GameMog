@@ -14,7 +14,7 @@ import { world } from './world/index.js';
 import { CHASE_START } from './chase-start.js';
 // (the story pack, first: its top-level await holds the game until the pack is in; wagmi/story)
 import { S as story } from './story/index.js'; import { importRetry } from './net.js';
-import { dialFor } from './speedo.js'; import { isOwn } from './storyrun/title.js';
+import { dialFor } from './speedo.js'; import { isOwn } from './storyrun/title.js'; import { createGetOut } from './calm-hud.js';
 // (?pack=: a Story Kit world played on this engine, wagmi/storyrun. Without ?pack= none of it is even imported, and every
 // PACK below is null: the game exactly as it is)
 const PACK = new URLSearchParams(location.search).has('pack') ? await importRetry(() => import('./storyrun/pack.js')).then((m) => m.load()) : null;
@@ -1480,7 +1480,7 @@ body[data-mode='car'] #wg-drive { display: inline-flex; }
   tint();
 }
 
-const hint = document.createElement('div');
+const getOutOffer = createGetOut(); const hint = document.createElement('div');
 hint.id = 'wg-prompt';
 Object.assign(hint.style, { position: 'fixed', left: '50%', bottom: '120px', transform: 'translateX(-50%)', padding: '10px 18px', borderRadius: '12px',
   background: 'rgba(10,12,18,0.72)', color: '#fff', font: '600 15px system-ui, sans-serif', letterSpacing: '0.04em', zIndex: 20, display: 'none', pointerEvents: 'none',
@@ -1549,6 +1549,7 @@ let last = performance.now();
   // (the key in a key cap that reads as plain text, so a game pad's button can stand in for it: wagmi/pad.js; what is
   // offered, WAGMI.prompt, for the pad's Y: the car's door, or else the fight's heavy)
   WAGMI.prompt = show;
+  { const g = getOutOffer.step(dt, cm.activeMode === 'car', car.speed), quiet = !!WAGMI.calmHud && /Get out|Dismount/.test(show) && !g, op = quiet ? '0' : ''; if (hint.style.opacity !== op) { hint.style.transition = 'bottom 0.2s, opacity 0.5s'; hint.style.opacity = op; } } // (a calm HUD: 'F · Get out' faded after 3 s of driving, calm-hud.js)
   if (hint.dataset.s !== show) { hint.dataset.s = show; hint.innerHTML = RESCUE_HTML[show] || (show ? `<kbd>${show[0]}</kbd>${show.slice(1)}` : ''); }
   hint.style.display = show ? 'block' : 'none';
   if (show) placeHint();

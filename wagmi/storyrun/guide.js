@@ -51,6 +51,22 @@ export function clearTop(Lx, lw, top, hgt, boxes) {
   return top;
 }
 
+// the marker (Lx..Lx+lw wide, top..top+hgt) moved off the player's car on the screen (car: its box, px, or null): never
+// a target drawn over him. An edge marker is slid along the bottom edge to the side of the car it points to (a spot
+// behind him: SS-5's 'AWAY · 826 M' sat on the Tensore's boot, day audit 22 Nov); one in view is lifted over the car's
+// roof. -> { dx (px to slide it), top }
+export function clearCar(Lx, lw, top, hgt, car, { edge = false, side = 0, W = Infinity } = {}) {
+  if (!car || !(car.right > car.left)) return { dx: 0, top };
+  const pad = 8, hit = Lx < car.right + pad && Lx + lw > car.left - pad && top < car.bottom + pad && top + hgt > car.top - pad;
+  if (!hit) return { dx: 0, top };
+  if (!edge) return { dx: 0, top: Math.max(8, car.top - hgt - pad) };
+  const mid = (car.left + car.right) / 2, goRight = side > 0 || (side === 0 && Lx + lw / 2 >= mid);
+  let dx = goRight ? car.right + pad - Lx : car.left - pad - (Lx + lw);
+  // (no room that side: the other)
+  if (Lx + dx < 10 || Lx + dx + lw > W - 10) dx = goRight ? car.left - pad - (Lx + lw) : car.right + pad - Lx;
+  return { dx, top };
+}
+
 export function createStuck({ secs = STUCK_SECS, far = STUCK_FAR } = {}) {
   let key = null, t = 0, said = false;
   return {
@@ -132,6 +148,8 @@ export function createGuide(W, THREE, { gps, ui, groundY, createMarker }) {
   const api = {
     source: null,
     state: () => ({ ...st }),
+    // (his car's box on the screen as the marker last kept off it, px: clearCar)
+    get carBox() { return carBox; },
     stop() { live = false; el.remove(); css.remove(); beam.hide(); app.scene.remove(beam.group); },
   };
   const off = () => { el.classList.remove('on'); beam.hide(); st = { on: false, stuck: false }; };
@@ -185,8 +203,36 @@ export function createGuide(W, THREE, { gps, ui, groundY, createMarker }) {
       if (t - hudAt > 300) { hudAt = t; hud = hudRects(); }
       top = clearTop(Lx, lw, top, 24 + 2 + 5 + 22, hud);
     }
-    el.style.transform = `translate(${Math.round(sx - 90)}px, ${Math.round(top)}px)`;
+    // (never over his own car: slid off it along the edge, or lifted over its roof, clearCar)
+    let dx = 0;
+    if (!onFoot) {
+      if (t - carAt > 200) { carAt = t; carBox = carRect(cam); }
+      // (the side it goes to held until the spot is clearly the other side: a spot dead behind does not swap it frame by frame)
+      if (Math.abs(q.x) > 0.15) carSide = Math.sign(q.x);
+      const cc = clearCar(Lx, lw, top, 24 + 2 + 5 + 22, carBox, { edge: !q.inView, side: carSide, W: W0 });
+      dx = cc.dx; top = cc.top;
+    }
+    el.style.transform = `translate(${Math.round(sx - 90 + dx)}px, ${Math.round(top)}px)`;
     el.classList.add('on');
+  }
+  // (the player's car on the screen: a car-sized box round him (CAR_BOX: half width, half length, height, m), turned
+  // with his heading, its corners projected, px; null on foot or with a corner behind the lens. Not the mesh's own
+  // bounds: a world's car is a model under the entity, its lights and shadow cards with it)
+  const CAR_BOX = [0.95, 2.2, 1.3], cv = new THREE.Vector3(), cz = new THREE.Vector3();
+  let carAt = 0, carBox = null, carSide = 1;
+  function carRect(cam) {
+    const e = cm.getActiveEntity?.(); if (!e || cm.activeMode !== 'car') return null;
+    const h = e.heading || 0, fx = Math.sin(h), fz = Math.cos(h), [hw, hl, ht] = CAR_BOX, y0 = e.position.y || 0;
+    let l = Infinity, r = -Infinity, tp = Infinity, b = -Infinity;
+    for (let i = 0; i < 8; i++) {
+      const sx = i & 1 ? hw : -hw, sz = i & 2 ? hl : -hl;
+      cv.set(e.position.x + fz * sx + fx * sz, y0 + (i & 4 ? ht : 0), e.position.z - fx * sx + fz * sz);
+      if (cz.copy(cv).applyMatrix4(cam.matrixWorldInverse).z > -0.2) return null;
+      cv.project(cam);
+      const x = (cv.x + 1) / 2 * innerWidth, y = (1 - cv.y) / 2 * innerHeight;
+      l = Math.min(l, x); r = Math.max(r, x); tp = Math.min(tp, y); b = Math.max(b, y);
+    }
+    return { left: l, right: r, top: tp, bottom: b };
   }
   // (the HUD's cards on the screen now, their boxes)
   function hudRects() {

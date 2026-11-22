@@ -14,6 +14,7 @@
 //   damageOf(o)                  a mission's DAMAGE (0..): what the car took (100 = one car's worth) and 3 a hit on foot
 //   medalOf(medals, r)           the medal a pass earns from its time and damage ('gold' | 'silver' | 'bronze' | null)
 //   medalRows(medals, r, best)   the MISSION PASSED card's medal: { medal, label, rows, hint }
+//   damageText(r)                its DAMAGE row: '3 PTS (1 HIT)', '6 PTS (CAR -6%)' (r.parts: { car, hits })
 //   creditsRoll(def, o)          the story's end credits, the standard roll of every story world, as sections: the
 //                                title, the cast, the voices, what it is made with, the map's data, the engine, GameMog Community
 //   avoids(list, x, z)           a point inside one of the GPS's held-off circles (a roadblock's street)
@@ -139,6 +140,18 @@ export function medalOf(medals, r = {}) {
   }
   return null;
 }
+// (the card's DAMAGE in words that agree with the HUD: its points, then what they are, the car's knocks as the share of
+// a car the HUD's DENTED / BATTERED reads down from, and the hits he took on foot. The card read 'DAMAGE 3' while the
+// HUD read 'DENTED 94%', two scales with one name (day audit, 22 Nov): now '3 PTS (1 HIT)', '6 PTS (CAR -6%)'.
+// r.parts: { car (0..1 of a car), hits }; without it, the points alone)
+export function damageText(r = {}) {
+  const pts = Math.round(+r.damage || 0), p = r.parts && typeof r.parts === 'object' ? r.parts : null;
+  if (!p) return `${pts} PTS`;
+  const car = Math.round((+p.car || 0) * 100), hits = Math.round(+p.hits || 0), what = [];
+  if (car > 0) what.push(`CAR -${car}%`);
+  if (hits > 0) what.push(`${hits} HIT${hits === 1 ? '' : 'S'}`);
+  return what.length ? `${pts} PTS (${what.join(', ')})` : `${pts} PTS`;
+}
 const mmss = (s) => { s = Math.max(0, Math.round(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 // The card's medal: { medal, label ('GOLD', or 'NO MEDAL'), rows ([label, text]: DAMAGE), hint (the next tier's
 // targets: 'GOLD: under 4:30, damage 10 or less'), best (the best this device has had, when better than this one) }
@@ -148,8 +161,8 @@ export function medalRows(medals, r = {}, best = null) {
   const up = MEDALS.filter((m) => tierOk(medals[m]) && medalRank(m) > medalRank(medal)).pop() || null;
   const t = up ? medals[up] : null;
   const hint = !r.whole ? 'Medals: play the mission through from its start'
-    : t ? `${MEDAL_NAME[up]}: under ${mmss(t.secs)}${t.damage != null ? `, damage ${Math.round(t.damage)} or less` : ''}` : '';
-  return { medal, label: medal ? MEDAL_NAME[medal] : 'NO MEDAL', rows: [['DAMAGE', String(Math.round(+r.damage || 0))]], hint,
+    : t ? `${MEDAL_NAME[up]}: under ${mmss(t.secs)}${t.damage != null ? `, damage ${Math.round(t.damage)} pts or less` : ''}` : '';
+  return { medal, label: medal ? MEDAL_NAME[medal] : 'NO MEDAL', rows: [['DAMAGE', damageText(r)]], hint,
     best: best && medalRank(best) > medalRank(medal) ? MEDAL_NAME[best] : null };
 }
 

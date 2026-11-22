@@ -760,9 +760,15 @@ export async function install(W) {
   ];
   let lessonAt = 0, lessonEnd = 0;
   c.lesson = null;
-  function lessonShow() { const L = c.lesson; if (!L) return c.hud.lesson(null); const S = LESSON[L.step]; if (S) c.hud.lesson({ step: L.step + 1, of: LESSON.length, title: S.title, line: S.line }); }
+  function lessonShow() { const L = c.lesson; if (!L) return c.hud.lesson(null); const S = LESSON[L.step]; if (S) { L.shownAt = c.rtime; c.hud.lesson({ step: L.step + 1, of: LESSON.length, title: S.title, line: S.line }); } }
+  // (each card up LESSON_MIN s before the next takes it: three quick blows had STRIKE 1/3 gone in a frame, and the
+  // first card a player saw was FIGHT BASICS 2/3, Jensen Heist's CB-2, day audit 22 Nov. A step done sooner is done
+  // then, lessonTick())
+  const LESSON_MIN = 3;
   c.lessonDone = (key, skipped = false) => {
     const L = c.lesson; if (!L || LESSON[L.step]?.key !== key) return;
+    if (!skipped && L.shownAt != null && c.rtime - L.shownAt < LESSON_MIN) { L.due = key; return; }
+    L.due = null;
     L.step++; L.n = 0; L.tries = 0; L.t = 0; lessonAt = L.step; c.globalCd = Math.max(c.globalCd, 1.1);
     if (!skipped) c.sfx('counter');
     if (L.step >= LESSON.length) { c.hud.lesson({ step: 0, of: 0, title: 'NOW TAKE THEM DOWN', line: '<span>Strike, counter on yellow, dodge the red</span>' }); lessonEnd = c.rtime + 3; }
@@ -770,7 +776,12 @@ export async function install(W) {
   };
   // (the lesson's blow: its cue held a beat in slow motion, to read it)
   c.lessonThreat = (t) => { if (!t.e.lessonBlow) return; t.e.lessonBlow = false; t.lesson = true; c.slowmo(t.lead / 0.45, 0.45, 0.25); }; // (real time: the whole cue slowed)
+  // (the lesson ended with its fight (a story's fight step over, wagmi/storyrun runner.js): the card down and the lesson
+  // done for the session, never left up over what comes next nor picked up mid-way by a later fight, which then opened
+  // on 2/3)
+  c.lessonOff = () => { lessonAt = LESSON.length; lessonEnd = 0; if (c.lesson) { c.lesson = null; c.hud.lesson(null); } };
   function lessonTick() {
+    if (c.lesson?.due && c.rtime - (c.lesson.shownAt ?? 0) >= LESSON_MIN) c.lessonDone(c.lesson.due);
     const want = fightOn && c.rules.name === 'lesson' && lessonAt < LESSON.length;
     if (want && !c.lesson) { c.lesson = { step: lessonAt, n: 0, tries: 0, t: 0 }; lessonShow(); }
     else if (!want && c.lesson && c.lesson.step < LESSON.length) { c.lesson = null; c.hud.lesson(null); }

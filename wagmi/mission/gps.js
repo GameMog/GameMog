@@ -331,7 +331,7 @@ export function createGPS(W) {
   // the stall watch (see the top): headway is the route getting shorter; the time is play time (the clock stops in the
   // pause menu, and a cutscene starts it over)
   const stall = (() => {
-    let best = Infinity, since = 0, stuckT = 0, lastT = 0, offered = false, noted = false, mine = null, mineWhy = null, mineL = Infinity, goingT = 0;
+    let best = Infinity, since = 0, stuckT = 0, lastT = 0, offered = false, noted = false, mine = null, mineWhy = null, mineL = Infinity, goingT = 0; const trail = []; // (trail: [t ms, route length], the last STUCK_LOOK s, stuckShows())
     const S = {
       reset(all = false) { best = Infinity; since = now(); stuckT = 0; if (all) { offered = false; noted = false; } },
       step(still = true) {
@@ -344,19 +344,19 @@ export function createGPS(W) {
         // (stuck: the car's own signal when it has one, the one its 'X · Reset car to road' prompt uses: the pedal held,
         // the car going nowhere; else the pedal down with it stood still)
         if (W.carStuck) stuckT = inCar ? W.carStuck() : 0;
-        else stuckT = inCar && (k.forward || k.backward) && Math.abs(car?.speed || 0) < 1.2 ? stuckT + dt : Math.max(0, stuckT - dt * 2);
+        else stuckT = inCar && (k.forward || k.backward) && Math.abs(car?.speed || 0) < 1.2 ? stuckT + dt : Math.max(0, stuckT - dt * 2); trail.push([t, L]); while (trail.length > 2 && t - trail[1][0] > STUCK_LOOK * 1000) trail.shift(); const gain = trail.length && Number.isFinite(trail[0][1]) && Number.isFinite(L) ? trail[0][1] - L : 0, spd = Math.abs(car?.speed || 0);
         // (the help taken down once it no longer fits: 'Stuck?' when the car has been going again for a second (driven
         // free, or put back on the road); 'Need a hand?' once the route is getting shorter again. Colter Land's WR-3, 17
-        // Nov: 'Stuck? The car is going nowhere' stayed up its whole 14 s over the car doing 34 mph)
-        if (mine && W.ui?.offering?.() !== mine) mine = null;
+        // Nov: 'Stuck? The car is going nowhere' stayed up its whole 14 s at 34 mph; FL-7's at 16 mph: stuckShows(), STUCK_MPS)
+        { const up = W.ui?.offering?.(); if (mine && up !== mine) mine = null; if (!mine && up && up.title === 'Stuck?') { mine = up; mineWhy = 'stuck'; } } // (any 'Stuck?' up is taken down once he moves)
         if (mine) {
-          const going = mineWhy === 'stuck' ? !inCar || (stuckT === 0 && Math.abs(car?.speed || 0) > 3) : L < mineL - 25;
+          const going = mineWhy === 'stuck' ? !inCar || spd > STUCK_MPS : L < mineL - 25;
           goingT = going ? goingT + dt : 0;
-          if (goingT > (mineWhy === 'stuck' ? 1 : 0)) { W.ui.offer(null); mine = null; }
+          if (goingT > (mineWhy === 'stuck' ? 0.3 : 0)) { W.ui.offer(null); mine = null; }
         }
         if (offered) return;
         if (t - since > 50000) S.offer('lost');
-        else if (stuckT > 4 && W.recoverCar) S.offer('stuck');
+        else if (stuckT > 4 && W.recoverCar && stuckShows(spd, gain)) S.offer('stuck');
       },
       // the help itself: what fits him now
       offer(why) {
@@ -544,3 +544,10 @@ export function createGPS(W) {
   };
   return gps;
 }
+
+// the stuck offer ('Stuck? The car is going nowhere'): only with the car under STUCK_MPS (about 5 mph) and the route no
+// more than STUCK_GAIN m shorter over the last STUCK_LOOK s. The car's own signal (game.js stuckClock: the pedal held,
+// under 2.5 m from where it was 1.5 s ago) fired at FL-7's roadblock as the car pulled away, and the panel stood over
+// it at 16 mph (day audit, 22 Nov). Plain, for the tests: stuckShows(speed m/s, metres gained toward the target)
+export const STUCK_MPS = 2.2, STUCK_GAIN = 3, STUCK_LOOK = 4;
+export const stuckShows = (speed, gain) => Math.abs(+speed || 0) < STUCK_MPS && !((+gain || 0) > STUCK_GAIN);

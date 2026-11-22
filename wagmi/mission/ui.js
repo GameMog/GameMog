@@ -38,7 +38,7 @@ import { createPause } from './pause.js'; import { createPhoto } from './photo.j
 import { janePortrait } from './jane.js';
 // (the story pack: every string these methods show is S.t of what they are given, a speaker's label S.name of its id;
 // with Mog City's own pack each returns what it is given, wagmi/story/index.js)
-import { S as story } from '../story/index.js'; import { importRetry } from '../net.js';
+import { S as story } from '../story/index.js'; import { importRetry } from '../net.js'; import { readable } from './contrast.js';
 export const COLORS = { yellow: '#FFC93C', green: '#4ADE80', red: '#EF4444', blue: '#6CB8FF', acid: '#B6FF3B', white: '#FFFFFF' };
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -139,7 +139,7 @@ body.wg-cine .wg-place { bottom: calc(var(--bar) + 3.2vh); }
 .wg-cap { position: absolute; left: 5vw; bottom: calc(var(--bar) + 10vh); opacity: 0; transform: translateX(-18px); transition: opacity .35s, transform .5s cubic-bezier(.2,.7,.2,1); z-index: 3; border-left: 4px solid var(--c, #fff); padding: 2px 0 2px 14px; }
 .wg-cap.on { opacity: 1; transform: none; }
 .wg-cap .n { font: italic 800 54px/0.95 'Barlow Condensed'; text-transform: uppercase; letter-spacing: 1px; }
-.wg-cap .r { margin-top: 6px; font: 700 15px/1 'Barlow Condensed'; letter-spacing: 3px; text-transform: uppercase; color: var(--c, #fff); }
+.wg-cap .r { margin-top: 6px; font: 700 15px/1 'Barlow Condensed'; letter-spacing: 3px; text-transform: uppercase; color: var(--c, #fff); display: inline-block; padding: 3px 8px 2px; border-radius: 5px; background: rgba(8,10,14,0.62); }
 
 /* (wrapped at about half the screen: a long line never reaches the speed panel or the radar) */
 .wg-line { position: absolute; left: 50%; bottom: 158px; transform: translateX(-50%); width: min(max(52vw, 320px), 820px, calc(100vw - 32px)); text-align: center; z-index: 4; }
@@ -566,7 +566,7 @@ export function createUI() {
 
   let objHtml = null, subOn = false;
   // the step and his mode: what is asked of him follows both (see step() at the top)
-  let stepId = null, base = null, baseSecs = 7, ask = false, askT = 0, helpMode = null;
+  let stepId = null, said1 = null, base = null, baseSecs = 7, ask = false, askT = 0, helpMode = null;
   const askText = /^\s*get (back )?in(to)? (your|the|a) (car|vehicle)/i;
   const isCarAsk = (parts) => !!parts && askText.test(plain(parts));
   // (a help about the car's door: getting out is for the car, getting in is for on foot)
@@ -617,7 +617,7 @@ export function createUI() {
     placeOff() { placeEl.classList.remove('on'); },
     caption(name, role = '', color = '#FFFFFF', secs = 2.8) {
       if (!name) { capEl.classList.remove('on'); return; }
-      capEl.style.setProperty('--c', color);
+      capEl.style.setProperty('--c', readable(color)); // (lightened until it reads: contrast.js)
       capEl.querySelector('.n').textContent = story.t(name); capEl.querySelector('.r').textContent = story.t(role);
       capEl.classList.remove('on'); void capEl.offsetWidth; capEl.classList.add('on');
       later('cap', secs * 1000, () => capEl.classList.remove('on'));
@@ -630,12 +630,12 @@ export function createUI() {
       // (the label the speaker's name as the story has it; the id kept on the line for whoever asks who speaks: face.js
       // subLine. The words come already as the story has them: the say loops' S.line)
       // (the words in a span of their own, so a theme can set them under the name and bring each line in; radio: a line
-      // over the radio or a phone, for a theme to mark)
-      subEl.innerHTML = (speaker ? `<b style="color:${color}">${esc(story.name(speaker).toUpperCase())}</b>` : '') + `<span class="t">${esc(text)}</span>`;
+      // over the radio or a phone, for a theme to mark; the name's colour lightened until it reads, contrast.js)
+      subEl.innerHTML = (speaker ? `<b style="color:${readable(color)}">${esc(story.name(speaker).toUpperCase())}</b>` : '') + `<span class="t">${esc(text)}</span>`;
       subEl.dataset.who = speaker || ''; subEl.classList.toggle('radio', !!radio);
       subOn = true; subEl.classList.remove('hide'); objEl.classList.add('hide');
       const last = said[said.length - 1];
-      if (!last || last[2] !== text) { said.push([speaker, color, text]); if (said.length > 12) said.shift(); }
+      if (!last || last[2] !== text) { said.push([speaker, readable(color), text]); if (said.length > 12) said.shift(); }
     },
     // the objective: the line for a few seconds, the tracker until the next one (track: false leaves the tracker be)
     objective(parts, secs = 7, { track: keep = true } = {}) {
@@ -648,7 +648,7 @@ export function createUI() {
       }
       if (keep) track(parts || null);
       if (!parts) { objHtml = null; objEl.classList.add('hide'); return; }
-      objHtml = rich(parts); objEl.innerHTML = `<span class="t">${objHtml}</span>`;
+      const html = rich(parts); if (window.WAGMI?.calmHud && keep && said1 && said1[0] === stepId && said1[1] === html) return; if (keep) said1 = [stepId, html]; objHtml = html; objEl.innerHTML = `<span class="t">${objHtml}</span>`; // (calm-hud.js: said once a step)
       if (!subOn) objEl.classList.remove('hide');
       // (a theme may hold the line shorter, --wg-obj-secs: the tracker keeps it, the line only announces it)
       const cap = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--wg-obj-secs'));

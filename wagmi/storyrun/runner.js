@@ -1373,7 +1373,7 @@ export function createRunner(ctx) {
     if (fig) fig.hold = true; if (mixer) mixer.timeScale = 0;
     return () => { if (fig) fig.hold = false; if (mixer) mixer.timeScale = ts; setTimeout(() => { if (capEl && !capEl.classList.contains('on')) capEl.style.bottom = ''; }, 600); };
   }
-  async function opening(o, { time = null } = {}) {
+  async function opening(o, { time = null, covered = false } = {}) {
     const t = tokOf(null), staged = [];
     if (o.place) putPlayer(placeOf(o.place), 'walk');
     // (its own time, else Mission 1's: index.js firstTime)
@@ -1404,6 +1404,9 @@ export function createRunner(ctx) {
     const free = holdStreet();
     host.tell('opening', { phase: 'start', shots: (o.shots || []).length });
     const t0 = now();
+    // (covered: the start's cover (index.js) up since the click, the HUD away, taken down on the first shot's frame,
+    // two frames on: the lens is the shot's by then, never the street he was stood in while it was all made)
+    if (covered) requestAnimationFrame(() => requestAnimationFrame(() => { ui.fade(0, 0.6); host.tell('opening', { phase: 'uncover' }); }));
     try { await shotList(o.shots || [], t, { opening: true }); }
     finally {
       free(); if (setRun) await setRun.release();
@@ -1898,6 +1901,8 @@ export function createRunner(ctx) {
       ui.counter(null); hud.timer(null); M.crew = null; M.fightTimer = null;
     }
     if (d.win === 'survive') combat.clear?.();
+    // (won: FIGHT BASICS down with the fight, and done for the session, combat/index.js lessonOff)
+    combat.lessonOff?.();
     // (a puppet goes on with its man's fall for the beat after)
     if (puppets.length) { const t1 = now(); await wait(() => { for (const pp of puppets) pp.sync(); return now() - t1 > 1000; }, t); }
     else await delay(1.0, t);
@@ -3649,8 +3654,9 @@ export function createRunner(ctx) {
     if (ps) { M.stats.ko += ps.ko || 0; M.stats.hits += ps.hits || 0; for (const k of ['quiet', 'smashed', 'lookouts']) if (ps[k] != null) M.stats[k] = ps[k]; }
     // (its DAMAGE: what the car took on this attempt and the hits on foot; whole: played from its start, so its time
     // is the mission's (a checkpoint's retry, a Continue or a skip starts the clock late: no medal, rules.js medalOf))
-    const damage = damageOf({ car: Math.max(0, (+W.crash?.damage?.taken || 0) - M.dmg0), hits: M.stats.hits });
-    return { secs: (now() - M.t0) / 1000, stats: M.stats, damage, whole: M.whole };
+    const parts = { car: Math.max(0, (+W.crash?.damage?.taken || 0) - M.dmg0), hits: M.stats.hits };
+    const damage = damageOf(parts);
+    return { secs: (now() - M.t0) / 1000, stats: M.stats, damage, parts, whole: M.whole };
   }
 
   // a mission, with Mog City's fail screen: Retry (from its checkpoint), Quit, and Skip after three fails
@@ -3674,7 +3680,7 @@ export function createRunner(ctx) {
         try {
           const r = await attempt(def, cp, act);
           tidy();
-          return { how: 'pass', secs: r.secs, stats: r.stats, damage: r.damage, whole: r.whole, state: M.state, log: M.log };
+          return { how: 'pass', secs: r.secs, stats: r.stats, damage: r.damage, parts: r.parts, whole: r.whole, state: M.state, log: M.log };
         } catch (e) {
           // (the attempt is over: its token killed, as a pass kills it. A step that throws its Fail (a pursuit's 'They
           // caught you') left it alive, and that attempt's timer loop ran on for good, ticking and pinning whatever

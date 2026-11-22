@@ -38,6 +38,14 @@ import { keyShotOf, hoodShot, rideOffShot } from './keyshots.js';
 const Q = new URLSearchParams(location.search);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+
+// the world's opening plays on this start (def.opening: runner.js opening()): on a story's first start (nothing
+// passed, no ?mission=, not a Continue), or asked for (?opening=1); ?opening=0 leaves it out. Plain, for the tests
+export function opensNow(def, Q, k, save, resume = null) {
+  if (!def?.opening || !Array.isArray(def.opening.shots) || !def.opening.shots.length || Q.get('opening') === '0') return false;
+  return Q.get('opening') === '1' || (k === 0 && !resume && !Q.get('mission') && !Object.keys(save?.done || {}).length);
+}
+
 export async function install(W) {
   const world = W.pack;
   const ui = (W.ui = createUI()), sfx = (W.sfx = createAudio());
@@ -87,6 +95,9 @@ export async function install(W) {
     autopilot: Q.has('autopilot'), autoAnswer: Q.has('autoanswer') || Q.has('autopilot'), autoChoose: Q.has('autochoose') ? Math.max(0, +Q.get('autochoose') || 0) : (Q.has('autopilot') ? 0 : null),
     autoCard: Q.has('autocard'), autoContinue: Q.has('autocontinue'), flowFast: Q.has('flowfast'), autoRetry: Q.has('autopilot'), failStop: Q.has('failstop'), stealthFair: Q.has('stealthfair'),
   };
+  // (a calm driving HUD, wagmi/calm-hud.js: the pack's hud.calm, or ?calmhud=1 (=0 off) to try it; a world without it
+  // keeps its HUD as it was)
+  W.calmHud = Q.has('calmhud') ? Q.get('calmhud') !== '0' : def.hud?.calm === true;
   const host = { tell };
   // (every checkpoint reached is saved for Continue, but not a test drive's: it would start the next one mid-story)
   const onCheckpoint = (id, cp) => {
@@ -190,6 +201,23 @@ export async function install(W) {
   for (let i = 0; i < 600 && !W.app.ready; i++) await sleep(100);
   if (gate) await gate;
   ui.gameTitle(false);
+  // the first mission: ?mission=, else the first not passed
+  let k = Math.max(0, order.findIndex((o) => o.def.id === Q.get('mission')));
+  if (!Q.get('mission')) { const n = order.findIndex((o) => !save.done[o.def.id]); k = n < 0 ? 0 : n; }
+  // Continue: the mission he was in when he left, at its last checkpoint (not with ?mission=, ?step= or a test drive)
+  let resume = null;
+  if (!Q.get('mission') && !Q.get('step') && !flags.autopilot && save.resume && !save.done[save.resume.id]) {
+    const j = order.findIndex((o) => o.def.id === save.resume.id);
+    if (j >= 0) { k = j; resume = save.resume.cp; }
+  }
+  const k0 = k;
+  // (the world's opening plays now: on a story's first start, or asked for)
+  const opens = !Q.has('freedrive') && opensNow(def, Q, k, save, resume);
+  // (from the start's click to the opening's first frame, a cover over the city, the HUD away: the opening's people,
+  // sets and pipelines are made in that time (8-10 s on a first start), and Jensen Heist's player saw it all as live
+  // free roam at midday, the radar, the bar and 'F · Get in', before the cold open (day audit, 22 Nov). runner.js
+  // opening() takes it down on its first shot)
+  if (opens) { W.cutscene = true; ui.cine(true); ui.fade(1, gate ? 0.35 : 0); }
   if (Q.has('nogate')) sfx.unlock?.();
   // (jh-drive round 2) &freedrive: the world as built (its town, its car, its hero, its time of day) with no story: no
   // opening, no mission, free roam from behind the wheel, for driving and handling tests (SJ, Colter Land, SF 2040)
@@ -220,22 +248,11 @@ export async function install(W) {
   // the key art (?keyart=1, a test drive): one frame of the first drive, the HUD hidden, a wide and a square JPEG
   if (Q.has('keyart')) keyArt(W, runner).then((art) => { if (art) { W.storyrun.keyart = { wide: art.wide.slice(0), square: art.square.slice(0) }; tell('keyart', art, [art.wide, art.square]); } else tell('keyart', { wide: null, square: null, why: 'no frame' }); });
 
-  // the first mission: ?mission=, else the first not passed
-  let k = Math.max(0, order.findIndex((o) => o.def.id === Q.get('mission')));
-  if (!Q.get('mission')) { const n = order.findIndex((o) => !save.done[o.def.id]); k = n < 0 ? 0 : n; }
-  // Continue: the mission he was in when he left, at its last checkpoint (not with ?mission=, ?step= or a test drive)
-  let resume = null;
-  if (!Q.get('mission') && !Q.get('step') && !flags.autopilot && save.resume && !save.done[save.resume.id]) {
-    const j = order.findIndex((o) => o.def.id === save.resume.id);
-    if (j >= 0) { k = j; resume = save.resume.cp; }
-  }
-  const k0 = k;
   if (resume) await hud.card({ kicker: 'CONTINUE', text: order[k].def.title, sub: 'From your last checkpoint' }, 2.4);
   // the world's opening (def.opening: runner.js opening()), before Mission 1 as Mog City's opening is before its Mission
   // 1: on a story's first start (nothing passed, no ?mission=), or asked for (?opening=1); ?opening=0 leaves it out
-  if (def.opening && Array.isArray(def.opening.shots) && def.opening.shots.length && Q.get('opening') !== '0'
-    && (Q.get('opening') === '1' || (k === 0 && !resume && !Q.get('mission') && !Object.keys(save.done).length))) {
-    try { await runner.opening(def.opening, { time: firstTime }); } catch (e) { console.warn('[storyrun] opening', e); }
+  if (opens) {
+    try { await runner.opening(def.opening, { time: firstTime, covered: true }); } catch (e) { console.warn('[storyrun] opening', e); W.cutscene = false; ui.cine(false); ui.fade(0, 0.6); }
   }
   const marker = createMarker(THREE, W.app.scene, { color: '#FFC93C', radius: 2.4, height: 2.2, alpha: 0.25 });
   let first = true;
