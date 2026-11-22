@@ -9,7 +9,7 @@
 //                                  shapes (digraphs th, ch, sh; a space or a stop is sil), spread evenly over the line
 //   createBakedFace(meshes, opt)   -> { has, set, jaw(k), blink(b), brow(b), look(x, y), frame(o) }: frame() each frame
 //                                  with { dt, mouth 0..1, blink, brow, lookX, lookY, how, talking, text, t, dur };
-//                                  opt { smile: resting smile 0..0.4, open: the jaw's scale }
+//                                  opt { smile: resting smile 0..0.4 (at least REST_SMILE unless stern), open: the jaw's scale, stern }
 export const FACE_NAMES = ['eyeBlinkLeft', 'eyeBlinkRight', 'jawOpen', 'mouthClose', 'mouthSmileLeft', 'mouthSmileRight', 'cheekSquintLeft', 'cheekSquintRight',
   'eyeSquintLeft', 'eyeSquintRight', 'browInnerUp', 'browOuterUpLeft', 'browOuterUpRight', 'eyeLookUpLeft', 'eyeLookUpRight', 'eyeLookDownLeft', 'eyeLookDownRight',
   'eyeLookInLeft', 'eyeLookInRight', 'eyeLookOutLeft', 'eyeLookOutRight', 'eyeWideLeft', 'eyeWideRight', 'mouthFrownLeft', 'mouthFrownRight', 'mouthPucker', 'mouthFunnel'];
@@ -17,6 +17,10 @@ export const VISEMES = ['sil', 'PP', 'FF', 'TH', 'DD', 'kk', 'CH', 'SS', 'nn', '
 const ALL = new Set([...FACE_NAMES, ...VISEMES.map((v) => 'viseme_' + v)]);
 // (a smile on a line said so; 'warm' the grin)
 export const SMILE_HOW = { warm: 0.45, tease: 0.38, smug: 0.32 };
+// (Jensen Heist polish 2, B1: a friendlier face at rest for every baked face: the lips' own line, unsmiling, read as a thin
+// dark slit across the cast. A resting smile of at least REST_SMILE (with the cheeks and the eyes it carries) unless the
+// caller asks for a stern face (opt.stern); a pack's cast face.smile over it is kept)
+export const REST_SMILE = 0.28;
 const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
 
 export function bakedMeshes(root) {
@@ -51,7 +55,8 @@ export function visemeAt(text, k) {
   return q[Math.min(q.length - 1, Math.max(0, Math.floor(clamp(k) * q.length)))];
 }
 
-export function createBakedFace(meshes, { smile = 0, open = 0.45 } = {}) {
+export function createBakedFace(meshes, { smile = 0, open = 0.45, stern = false } = {}) {
+  smile = stern ? smile : Math.max(REST_SMILE, smile || 0);
   const idx = new Map();
   for (const m of meshes) for (const [k, i] of Object.entries(m.morphTargetDictionary)) if (ALL.has(k)) (idx.get(k) || idx.set(k, []).get(k)).push([m, i]);
   const has = (k) => idx.has(k);

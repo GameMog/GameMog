@@ -47,7 +47,8 @@ above plus the 15 visemes.
 
 | Field | Default | Meaning |
 |---|---|---|
-| `smile` | 0 | resting smile 0..0.4 (Jensen: 0.18, the warm grin while listening) |
+| `smile` | 0 | resting smile 0..0.4; the engine raises it to at least 0.28 (REST_SMILE, face-baked.js: a warm grin, not a thin line) |
+| `stern` | false | true: no resting-smile floor (a face meant to read stern) |
 | `open` | 0.45 | jaw cap scale (0.5 = jawOpen 0.55 at the loudest syllable) |
 | `blink` | 1 | blink rate scale (0.5 = half as often) |
 

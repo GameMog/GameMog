@@ -159,7 +159,7 @@ export function createCast(W, world) {
     let face = null;
     // (a cast member's face knobs (the pack's cast face { smile, open }): a resting smile on a baked face, the jaw's cap)
     const fk = c.face && typeof c.face === 'object' ? c.face : {}, num = (v, a, b, d) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(b, Math.max(a, v)) : d);
-    try { face = createFace(W, { speaker: name, inner, bones, head: true, open: num(fk.open, 0.2, 0.7, 0.45), smile: num(fk.smile, 0, 0.4, 0) }); } catch (err) { console.warn('[storyrun] face', name, err.message); }
+    try { face = createFace(W, { speaker: name, inner, bones, head: true, open: num(fk.open, 0.2, 0.7, 0.45), smile: num(fk.smile, 0, 0.4, 0), stern: fk.stern === true }); } catch (err) { console.warn('[storyrun] face', name, err.message); }
     scene.add(root);
     const f = figureOf(name, root, mixer, bones, own, face, () => {
       scene.remove(root);

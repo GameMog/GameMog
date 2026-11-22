@@ -5,7 +5,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { bakedMeshes, createBakedFace, visemeAt, visemeSeq, VISEMES, SMILE_HOW } from '../wagmi/face-baked.js';
+import { bakedMeshes, createBakedFace, visemeAt, visemeSeq, VISEMES, SMILE_HOW, REST_SMILE } from '../wagmi/face-baked.js';
 
 const mesh = (names, extra = {}) => ({ morphTargetDictionary: Object.fromEntries(names.map((n, i) => [n, i])), morphTargetInfluences: names.map(() => 0), children: [], ...extra });
 const val = (m, k) => m.morphTargetInfluences[m.morphTargetDictionary[k]];
@@ -55,7 +55,17 @@ test("a warm line's grin, eased in; the resting smile otherwise; the smile reach
   assert.ok(Math.abs(val(skin, 'mouthSmileLeft') - SMILE_HOW.warm) < 0.05, `${val(skin, 'mouthSmileLeft')}`);
   assert.ok(val(skin, 'cheekSquintLeft') > 0.2);
   for (let i = 0; i < 120; i++) F.frame({ dt: 0.016, mouth: 0, talking: false });
-  assert.ok(Math.abs(val(skin, 'mouthSmileLeft') - 0.18) < 0.03, 'back to the resting smile');
+  assert.ok(Math.abs(val(skin, 'mouthSmileLeft') - REST_SMILE) < 0.03, 'back to the resting smile (raised to the floor)');
+});
+
+test('every baked face rests on at least REST_SMILE (a warm grin, not a thin line); stern opts out; the lips still shape the words', () => {
+  for (const [opt, want] of [[{}, REST_SMILE], [{ smile: 0.35 }, 0.35], [{ smile: 0.1, stern: true }, 0.1], [{ stern: true }, 0]]) {
+    const skin = mesh(FULL), F = createBakedFace([skin], opt);
+    for (let i = 0; i < 60; i++) F.frame({ dt: 0.016, mouth: 0, talking: false });
+    assert.ok(Math.abs(val(skin, 'mouthSmileLeft') - want) < 0.02, `${JSON.stringify(opt)} ${val(skin, 'mouthSmileLeft')}`);
+    for (let i = 0; i < 20; i++) F.frame({ dt: 0.016, mouth: 0.8, talking: true, text: 'Oh.', t: 0.1, dur: 1 });
+    assert.ok(val(skin, 'viseme_O') > 0.6, `O ${val(skin, 'viseme_O')}`);
+  }
 });
 
 test('face.js uses a baked face when the body has one, and hands the line its delivery (voices.js how)', () => {

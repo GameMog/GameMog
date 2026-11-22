@@ -462,11 +462,12 @@ function autoLoop(now) {
 // bones, by name); opt: head (live() turns the head as well as the eyes: Jane's scenes), open (the jaw's cap: the
 // mouth's widest on the loudest syllable; 0.5 is 0.1 rad), gaze (how far the eyes go on their own, rad), fix / hair
 // (faceMorphs), auto (it runs itself; false: only when a scene calls live())
-// smile: a resting smile, 0..0.4 (a baked face only: face-baked.js; a pack's cast face.smile)
-export function createFace(W, { speaker, inner, bones, head = false, open = 0.5, gaze = 0.22, fix, hair = false, auto: runs = true, smile = 0 } = {}) {
+// smile: a resting smile, 0..0.4 (a baked face only: face-baked.js; a pack's cast face.smile), at least REST_SMILE unless
+// stern (a pack's cast face.stern)
+export function createFace(W, { speaker, inner, bones, head = false, open = 0.5, gaze = 0.22, fix, hair = false, auto: runs = true, smile = 0, stern = false } = {}) {
   // (a body with its face's morphs baked in (eyeBlinkLeft, jawOpen, the visemes...: docs/FACE-CONTRACT.md) keeps them
   // and is driven by them; any other has its own made from the geometry, as before)
-  const baked = bakedMeshes(inner), BK = baked ? createBakedFace(baked, { smile, open }) : null;
+  const baked = bakedMeshes(inner), BK = baked ? createBakedFace(baked, { smile, open, stern }) : null;
   const { body, fm, morphed } = baked ? { body: baked, fm: null, morphed: [] } : morphMeshes(inner, { fix, hair });
   const setM = (k, x) => { for (const m of morphed) { const i = m.morphTargetDictionary[k]; if (i != null) m.morphTargetInfluences[i] = x; } };
   const skinM = baked ? (baked.find((m) => m.isSkinnedMesh && m.material?.name === 'skin') || baked.find((m) => m.isSkinnedMesh) || null) : body.find((m) => m.material.name === 'skin');
