@@ -10,7 +10,60 @@
    "Hair cards: \"Hair Cards_FBX\" by POLYTRICITY (Sketchfab), CC BY 4.0, modified.",
    "The lime supercar: adapted from a model by ALIEEEN (Sketchfab), CC BY 4.0, modified, with no maker's badges; a look-alike with no connection to any car maker.",
    "The town's cars: models by Daniel Zhabotinsky and Comrade1280 (Sketchfab), CC BY 4.0, adapted, every badge removed."
+  ],
+  "cast": [
+   {
+    "name": "Jensen",
+    "role": "founder-CEO of Greenlight Silicon"
+   },
+   {
+    "name": "Mr. Board",
+    "role": "ex-bank boss from back east"
+   },
+   {
+    "name": "Marge Tolliver",
+    "role": "keynote stage manager"
+   },
+   {
+    "name": "Nico Brancato",
+    "role": "driver and wheelman"
+   },
+   {
+    "name": "Lola Hart",
+    "role": "brisket truck owner"
+   },
+   {
+    "name": "Wesley Trout",
+    "role": "superfan streamer"
+   },
+   {
+    "name": "Dex Varga",
+    "role": "rival CEO of Cobalt Circuitry"
+   },
+   {
+    "name": "Intern One",
+    "role": "Cobalt intern"
+   },
+   {
+    "name": "Intern Two",
+    "role": "Cobalt intern"
+   },
+   {
+    "name": "Director Grey",
+    "role": "board director"
+   },
+   {
+    "name": "Director Navy",
+    "role": "board director"
+   }
+  ],
+  "voices": [
+   "Voices: Qwen3-TTS by the Qwen team, Alibaba Cloud (Apache-2.0), mlx-community conversions (Apache-2.0), run with mlx-audio (MIT).",
+   "Every voice was invented from a written description; no real person's voice was used or imitated."
   ]
+ },
+ "calls": {
+  "ringOut": "answer"
  },
  "base": {
   "engine": "mogcity-1",

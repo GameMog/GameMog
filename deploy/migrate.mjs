@@ -2245,7 +2245,8 @@ export const MIGRATIONS = [
   {
     // 21 Nov evening: Jensen Heist's third polish batch (POLISH-LIST, "keep going"), one migration for the whole batch:
     // the world gains its end credits (credits: the approved parody line and the assets' credits; Mog City rolls the
-    // cast, the voices, San Jose's map data and GameMog Community round them) and each mission its medals (gold, silver
+    // cast as credited (credits.cast), the voices as the voice record credits them (credits.voices), San Jose's map data and
+    // GameMog Community round them), a ring that runs out answered (calls.ringOut) and each mission its medals (gold, silver
     // and bronze by time and damage, on the MISSION PASSED card, kept on the player's device), and any re-forged body
     // the batch names (JH_POLISH3_BODIES: the one gamemog.com's draft holds now and the record's) is swapped in the kept
     // draft only where it still holds that one, the old one kept as a was-<sha256>.glb row (still served, so the old
@@ -2364,7 +2365,7 @@ export const JH_TITLE_FROM = '915d6afcbd5056b73fd939fbc7d5485cc30902d9d947c50679
 export const JH_POLISH1_FROM = 'db4073fb0ddfecc7fddc176fee30dc56ac585d18ae717d355d382fee11f87085';
 export const JH_LATER = ['6911c2d44e2cf7a912330222979ce92398c377b91d4ee78baaf0c427521cd40e', '71cb57932287df25a95d3f4238d48dde89912bcac0a2ba1518152fc5254d047c', '032193132a88cd3081ff516c86e7ced9658f8a87bfd04b80ec0d380761a6a16f',
   // (polish3: the end credits and the medals)
-  '36af6dadc39f790080e7fb7d2a245b572cfa4b0bcb3620f40a7384da17ba1b08'];
+  '7c984f6b52a4be9a183e096829493e2bca4b2986bc07236732d1bb707f0c965f'];
 /** The polish batch's re-forged bodies (A2 Director Grey, A3 Intern Two): the one 2026-11-18 stored and the record's. */
 export const JH_POLISH1_BODIES = {
   'director-a': { from: 'ade408278e5795fbf07330556a10d9b09265c3050b8a59c57a567b94b72af063', to: '9e434181182ddf0f7462b31aed2c0d5b55e7fd3bda63906ebfd893ee2e5bf24e' },

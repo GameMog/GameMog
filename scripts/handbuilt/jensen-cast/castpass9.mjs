@@ -14,6 +14,9 @@
 //          never moves) to the column's front (which moves the whole E): the depth between is scaled, never turned
 //          (dz'/dz = (target - back) / (front - back) > 0), so no layer passes through another; the arms and the
 //          sleeves on them stay
+// (polish 2, the side view: K.headKeep scales a point's move down by its head and jaw weight (the chin's underside keeps its
+// shape over the throat, no long sloped wedge from the chin to the collar); K.legKeep the same by the legs' weight (tried for
+// the seated lap's U: a little softer, but more of the cloth's triangles cross, so it is off))
 // K.iters passes, each measured again, until the front is within K.target of the line. The beard, the face and the
 // collar's ring sit over the sternum and are never moved.
 //   fieldFrontPass(doc, K)
@@ -71,7 +74,7 @@ export function fieldFrontPass(doc, K = {}) {
     let mv = 0;
     for (const L of layers) { const A = L.acc.getArray().slice(), n = A.length / 3; let ch = false;
       for (let i = 0; i < n; i++) { const x = A[i * 3], y = A[i * 3 + 1], z = A[i * 3 + 2]; if (y > ys || y < r0 * C) continue; const e = Ex(x, y); if (e < 1e-5) continue;
-        const zf = T(y / C) + e, wz = Math.max(0, Math.min(1, (z - zB) / (zf - zB))), d = e * wz * (1 - L.aw[i]); if (d < 1e-6) continue;
+        const zf = T(y / C) + e, wz = Math.max(0, Math.min(1, (z - zB) / (zf - zB))), d = e * wz * (1 - L.aw[i]) * (1 - (K.headKeep ? Math.min(1, L.hw[i] * K.headKeep) : 0)) * (1 - (K.legKeep ? Math.min(1, L.lw[i] * K.legKeep) : 0)); if (d < 1e-6) continue;
         A[i * 3 + 2] = z - d; ch = true; mv = Math.max(mv, d); }
       if (ch) L.acc.setArray(A); }
     if (mv < 1e-4) break; }
@@ -96,6 +99,22 @@ export function fieldFrontPass(doc, K = {}) {
         let best = -1, bd = 1e9; for (const i of cand) { const d = (S0[i * 3] - cx) ** 2 + (S0[i * 3 + 1] - cy) ** 2 + (S0[i * 3 + 2] - cz) ** 2; if (d < bd) { bd = d; best = i; } }
         if (best < 0) continue; const dz = S1[best * 3 + 2] - S0[best * 3 + 2]; if (Math.abs(dz) < 1e-5) continue; for (const i of g) A[i * 3 + 2] += dz; moved++; }
       L.acc.setArray(A); console.log('field front: beard cards following the skin', moved); } } }
+  // (polish 2, the side view: the field pulls the throat and the chin's underside back while the chin stays, so their
+  // triangles stretch and the beard's dark shell on them reads as a long wedge down to the collar. K.uvKeep: the skin's uv
+  // re-spread over the moved throat so each edge keeps its texel density from before the field, the unmoved skin and the
+  // uv seams held: the shell ends under the chin where it did, the throat below takes the skin further down the map)
+  if (K.uvKeep) { const sk = layers.find((L) => L.nm === 'skin'), U = sk?.p.getAttribute('TEXCOORD_0'); if (sk && U && sk.p.getIndices()) {
+    const S0 = sk.a0, S1 = sk.acc.getArray(), I = sk.p.getIndices().getArray(), n = S0.length / 3, uv0 = new Float64Array(n * 2), e = [0, 0];
+    for (let i = 0; i < n; i++) { U.getElement(i, e); uv0[i * 2] = e[0]; uv0[i * 2 + 1] = e[1]; }
+    // the seams: one place with more than one uv (held)
+    const at = new Map(), seam = new Uint8Array(n); for (let i = 0; i < n; i++) { const k = Math.round(S0[i * 3] * 2e4) + ',' + Math.round(S0[i * 3 + 1] * 2e4) + ',' + Math.round(S0[i * 3 + 2] * 2e4), j = at.get(k); if (j === undefined) at.set(k, i); else if (Math.abs(uv0[j * 2] - uv0[i * 2]) + Math.abs(uv0[j * 2 + 1] - uv0[i * 2 + 1]) > 1e-4) { seam[i] = 1; seam[j] = 1; } }
+    const free = new Uint8Array(n); let nf = 0; for (let i = 0; i < n; i++) { const mv = Math.abs(S1[i * 3 + 2] - S0[i * 3 + 2]); if (!seam[i] && mv > (K.uvKeep.min ?? 0.0005) && S0[i * 3 + 1] > ys - (K.uvKeep.below ?? 0.1) && Math.abs(S0[i * 3]) < (K.uvKeep.x ?? 0.12)) { free[i] = 1; nf++; } }
+    const nb = Array.from({ length: n }, () => new Map()), len = (P, a, b) => Math.hypot(P[a * 3] - P[b * 3], P[a * 3 + 1] - P[b * 3 + 1], P[a * 3 + 2] - P[b * 3 + 2]);
+    for (let t = 0; t < I.length; t += 3) for (const [a, b] of [[I[t], I[t + 1]], [I[t + 1], I[t + 2]], [I[t + 2], I[t]]]) { if (!(free[a] || free[b])) continue; const r = Math.min(K.uvKeep.rMax ?? 3, len(S1, a, b) / Math.max(1e-6, len(S0, a, b))); nb[a].set(b, r); nb[b].set(a, r); }
+    const uv = uv0.slice(); let rmax = 1; for (let it = 0; it < (K.uvKeep.iters ?? 400); it++) for (let i = 0; i < n; i++) { if (!free[i] || !nb[i].size) continue; let su = 0, sv = 0;
+      for (const [j, r] of nb[i]) { rmax = Math.max(rmax, r); su += uv[j * 2] + (uv0[i * 2] - uv0[j * 2]) * r; sv += uv[j * 2 + 1] + (uv0[i * 2 + 1] - uv0[j * 2 + 1]) * r; } uv[i * 2] = su / nb[i].size; uv[i * 2 + 1] = sv / nb[i].size; }
+    let dmax = 0; for (let i = 0; i < n; i++) if (free[i]) { dmax = Math.max(dmax, Math.hypot(uv[i * 2] - uv0[i * 2], uv[i * 2 + 1] - uv0[i * 2 + 1])); U.setElement(i, [Math.min(1, Math.max(0, uv[i * 2])), Math.min(1, Math.max(0, uv[i * 2 + 1]))]); }
+    console.log(`field front: throat uv re-spread, points ${nf}, stretch up to ${rmax.toFixed(2)}x, uv moved up to ${(dmax * 1024).toFixed(1)} texels of 1024`); } }
   const f = frontRule(doc); console.log(`field front: row excess ${log.join(' -> ')} mm; rule 1 bulge ${(f.dev * 1000).toFixed(1)} sink ${(f.sink * 1000).toFixed(1)}, belt ahead of the sternum ${(f.ahead * 1000).toFixed(1)} mm`);
   return f;
 }

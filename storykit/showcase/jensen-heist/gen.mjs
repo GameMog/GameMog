@@ -1287,7 +1287,19 @@ const pack = {
     'Hair cards: "Hair Cards_FBX" by POLYTRICITY (Sketchfab), CC BY 4.0, modified.',
     "The lime supercar: adapted from a model by ALIEEEN (Sketchfab), CC BY 4.0, modified, with no maker's badges; a look-alike with no connection to any car maker.",
     "The town's cars: models by Daniel Zhabotinsky and Comrade1280 (Sketchfab), CC BY 4.0, adapted, every badge removed.",
-  ] },
+  ],
+  // (polish batch 2, finished: the cast as credited, each by the name the story calls them and a short role from their
+  // sheet; the voices as the voice record credits them, split at its sentences (Mog City's line is 200 characters))
+  cast: [
+    { name: 'Jensen', role: 'founder-CEO of Greenlight Silicon' }, { name: 'Mr. Board', role: 'ex-bank boss from back east' },
+    { name: 'Marge Tolliver', role: 'keynote stage manager' }, { name: 'Nico Brancato', role: 'driver and wheelman' },
+    { name: 'Lola Hart', role: 'brisket truck owner' }, { name: 'Wesley Trout', role: 'superfan streamer' },
+    { name: 'Dex Varga', role: 'rival CEO of Cobalt Circuitry' }, { name: 'Intern One', role: 'Cobalt intern' },
+    { name: 'Intern Two', role: 'Cobalt intern' }, { name: 'Director Grey', role: 'board director' },
+    { name: 'Director Navy', role: 'board director' }],
+  voices: JSON.parse(readFileSync('deploy/migrations/jensen-heist-voice.json', 'utf8')).credit.split(/(?<=\.) (?=[A-Z])/) },
+  // (a ring that runs out is answered, as before Mog City made it opt-in: runner.js ringOf, 4 s at most)
+  calls: { ringOut: 'answer' },
   base: { engine: 'mogcity-1', city: 'hometown', cityBuild: `hometown-${lock.buildId}`.slice(0, 39),
     hometown: { place: lock.place, compiler: lock.buildId, tiles: lock.tiles, formatVersion: lock.formatVersion, grid: lock.grid, domain: lock.domain, origin: lock.origin, k0: lock.k0, gamma0: lock.gamma0, yOffset: lock.yOffset, waterLevel: lock.waterLevel } },
   dressing: { time: 'midday', season: 'autumn', weather: 'clear', holiday: [] },

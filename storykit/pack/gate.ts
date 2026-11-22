@@ -693,6 +693,8 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
   collect({ title: pack.title, kicker: pack.kicker, tagline: pack.tagline }, 'pack', texts);
   // (the end credits' own lines: on-screen words, read as every other is)
   if ((pack as Json).credits?.lines) collect({ credit: (pack as Json).credits.lines }, 'pack.credits', texts);
+  ((pack as Json).credits?.cast || []).forEach((c: Json, i: number) => collect({ name: c.name, role: c.role }, `pack.credits.cast[${i}]`, texts));
+  if ((pack as Json).credits?.voices) collect({ credit: (pack as Json).credits.voices }, 'pack.credits.voices', texts);
   for (const [k, a] of Object.entries(aliases)) collect({ name: a.name }, `places.${k}`, texts);
   ranches.forEach((r: Json, i: number) => { if (r.sign) collect({ name: r.sign }, `ranches[${i}].sign`, texts); });
   for (const c of pack.cast) { collect(c.sheet || { name: c.name, role: c.role }, `cast "${c.id}"${c.sheet ? '.sheet' : ''}`, texts); collect({ description: c.voice?.description }, `cast "${c.id}".voice`, texts); }
@@ -1026,7 +1028,12 @@ export function toRunnerPack(pack: PackV2, opts: { cast?: Record<string, string>
     storykit: 1, engine: pack.base.engine, id: pack.id, title: pack.title, kicker: pack.kicker, tagline: pack.tagline, city: pack.base.city,
     // (the end credits: Mog City's wagmi/storyrun rules.js creditsRoll adds the cast, the voices, the map and GameMog
     // Community round its own lines; a mission's medals go as they are, with the mission)
-    ...((pack as Json).credits ? { credits: { lines: [...(pack as Json).credits.lines] } } : {}),
+    ...((pack as Json).credits ? { credits: { lines: [...(pack as Json).credits.lines],
+      // (its own cast credits and voices lines, when it gives them; rules.js creditsRoll falls back to the cast's roles)
+      ...((pack as Json).credits.cast ? { cast: (pack as Json).credits.cast.map((c: Json) => ({ name: c.name, ...(c.role != null ? { role: c.role } : {}) })) } : {}),
+      ...((pack as Json).credits.voices ? { voices: [...(pack as Json).credits.voices] } : {}) } } : {}),
+    // (its calls: { ringOut: 'answer' }, a ring that runs out is answered (Mog City's runner.js ringOf); left out, declined)
+    ...((pack as Json).calls ? { calls: { ...(pack as Json).calls } } : {}),
     // (a hometown: the town it plays, exactly as base.hometown pins it; Mog City plays it only on a page that loaded that
     // town, wagmi/storyrun/pack.js, comparing it field by field with the bundle's lock, compiler = the bundle's buildId)
     ...(town && pack.base.hometown ? { hometown: pack.base.hometown } : {}),

@@ -54,9 +54,57 @@
      "minItems": 1,
      "maxItems": 12,
      "description": "the world's own credit lines: what it is and what it is made from (\"Built from CC0 MakeHuman parts.\")"
+    },
+    "cast": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "name"
+      ],
+      "properties": {
+       "name": {
+        "type": "string",
+        "maxLength": 40
+       },
+       "role": {
+        "type": "string",
+        "maxLength": 60
+       }
+      }
+     },
+     "minItems": 1,
+     "maxItems": 24,
+     "description": "the cast as credited (Starring, two columns): each person's display name and a short role; left out, each cast member's role made a credit"
+    },
+    "voices": {
+     "type": "array",
+     "items": {
+      "type": "string",
+      "maxLength": 200
+     },
+     "minItems": 1,
+     "maxItems": 4,
+     "description": "the voices' credit lines (what made them, and under what licence); left out, no model is named"
     }
    },
    "description": "the end credits, rolled after STORY COMPLETE and the title (any key skips them): Mog City adds the cast and their roles, the voices, the map's data and GameMog Community around these lines"
+  },
+  "calls": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [],
+   "properties": {
+    "ringOut": {
+     "enum": [
+      "answer",
+      "decline"
+     ],
+     "description": "a ring that runs out with no key pressed: answer (the call plays, the ring 4 s at most) or decline (the decline set and the voicemail, the default)"
+    }
+   },
+   "description": "the phone's calls (Mog City's wagmi/storyrun runner.js)"
   },
   "base": {
    "type": "object",

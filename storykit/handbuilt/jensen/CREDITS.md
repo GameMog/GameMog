@@ -67,6 +67,18 @@ sculpted brow shapes that carry the card brows' weights and morphs (`face4.mjs`,
 mirror-symmetric, its nose-to-mouth folds softened, the lips toned toward the skin, the glasses' lens rims thicker
 (`face4.mjs`); older face shape via MakeHuman targets (CC0). No new downloads.
 
+His own moves (polish 2, 21 Nov 2026, the owner: "Jensen's own moves: gestures and walk instead of borrowed clips"):
+three clips of his own in the GLB, marked his (asset extras `heroOwn`), which Mog City plays over Dan's of the same name
+(`wagmi/storyrun/pack.js` heroClips). Retargeted onto the game's rig by `scripts/handbuilt/jensen/moves.mjs` (the asset
+library's own retarget, `scripts/assets/gltf.ts`). The source is the pinned `quaternius-ual` source in
+`assets-src/sources.json` (Standard packs, CC0 1.0; not the newer QAL licence, which is not CC0):
+
+| Clip | Source | Licence |
+|---|---|---|
+| `walk`, an upright, unhurried walk | Quaternius, Universal Animation Library 1 (Standard), `Walk_Formal_Loop`, quaternius.com | CC0 1.0 |
+| `talk`, the keynote talk: both hands, then one hand held open to the room | Quaternius, Universal Animation Library 1 (Standard), `Idle_Talking_Loop` then `Interact`, joined into one loop | CC0 1.0 |
+| `cheer`, his celebration: a fist pumped, "yes" | Quaternius, Universal Animation Library 2 (Standard), `Yes` | CC0 1.0 |
+
 No CC-BY asset is used in this GLB, so it needs no credits-page line of its own. (The CC-BY candidates in the research
 shortlist, e.g. Elvaerwyn's Grump Hair, were not used.)
 

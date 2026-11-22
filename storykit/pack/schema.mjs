@@ -429,8 +429,12 @@ export const SCHEMA = {
     id: R('packId'),
     parent: { ...R('packId'), description: 'a Mog: the pack it remixes (its base is copied and locked)' },
     title: S(48), kicker: S(24), tagline: S(80),
-    credits: O({ lines: A(S(160), 12, 1, { description: "the world's own credit lines: what it is and what it is made from (\"Built from CC0 MakeHuman parts.\")" }) }, ['lines'],
+    credits: O({ lines: A(S(160), 12, 1, { description: "the world's own credit lines: what it is and what it is made from (\"Built from CC0 MakeHuman parts.\")" }),
+      cast: A(O({ name: S(40), role: S(60) }, ['name']), 24, 1, { description: "the cast as credited (Starring, two columns): each person's display name and a short role; left out, each cast member's role made a credit" }),
+      voices: A(S(200), 4, 1, { description: "the voices' credit lines (what made them, and under what licence); left out, no model is named" }) }, ['lines'],
       { description: "the end credits, rolled after STORY COMPLETE and the title (any key skips them): Mog City adds the cast and their roles, the voices, the map's data and GameMog Community around these lines" }),
+    calls: O({ ringOut: E(['answer', 'decline'], { description: "a ring that runs out with no key pressed: answer (the call plays, the ring 4 s at most) or decline (the decline set and the voicemail, the default)" }) }, [],
+      { description: "the phone's calls (Mog City's wagmi/storyrun runner.js)" }),
     base: O({ engine: E(ENGINES), city: E(CITIES), cityBuild: S(40, { pattern: '^[a-z]{2,8}-[a-z0-9.-]{1,30}$' }),
       hometown: O({ place: S(80, { pattern: '^[a-z0-9][a-z0-9-]{1,79}$' }), compiler: S(30, { pattern: '^[a-z0-9][a-z0-9.-]{0,29}$' }), tiles: S(64, { pattern: '^[0-9a-f]{16,64}$' }),
         // (lock v2, the national grid hg1: the session frame the town's descriptor pinned; v3 the same, its tiles the hash

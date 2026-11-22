@@ -93,7 +93,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
       else { chestWeightPass(doc, { xIn: 0.1, xOut: 0.3, zEase: 0.15, yEase: 0.06, lowUp: 0.08, lowEase: 0.1, ...JSON.parse(process.env.JC_CW || '{}') }); weightSmoothPass(doc, { iters: 80, x0: 0.1, x1: 0.4, y1: 0.02, ...JSON.parse(process.env.JC_WSMOOTH || '{}') });
         // (polish 1 round 2, the critic: the belt held near the hips (no sunken belly) as far as rule 1c allows, the field eased
         // out over the lap, the beard's cards moved whole with the chin and the throat under them, not dragged point by point)
-        fieldFrontPass(doc, { keep: /^beard$/, follow: true, hipFloor: -0.013, aheadMax: 0.006, lapFade: 0.2, lap0: 0.13, ...FK }); }
+        fieldFrontPass(doc, { keep: /^beard$/, follow: true, hipFloor: -0.013, aheadMax: 0.006, lapFade: 0.2, lap0: 0.13, headKeep: 1, uvKeep: {}, ...FK }); }
       bodyMaskPass(doc); }],
     ['seat', async () => { await seatClipsPass(doc, { k: 0.5 }); if (on('rules')) seatUprightPass(doc, { pack: await io.read(ROOT + 'public/storykit/cast/cast-clips.glb'), clav: 1, unflex: { neck01: 1, neck02: 1, neck03: 1 }, /* (rules round 2: the chest rigid on the waist, the cast's default) */ ...JSON.parse(process.env.JC_UPRIGHT || '{}') }); await seatedGate(doc, 'board'); }],
     ['rulesgate', async () => rulesGate(doc, 'board', await io.read(ROOT + 'public/storykit/cast/cast-clips.glb'), { hard: true })]];

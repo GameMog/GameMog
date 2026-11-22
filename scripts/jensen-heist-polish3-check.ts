@@ -40,11 +40,18 @@ export async function runJensenPolish3Checks(ok: Ok) {
     Array.isArray(W.credits?.lines) && /^A parody of a public figure's public keynote persona\. Not endorsed\. Built from CC0 MakeHuman parts\.$/.test(W.credits.lines[0])
       && W.missions.length === 8 && W.missions.every((m: any) => m.medals?.gold?.secs < m.medals?.silver?.secs && m.medals.silver.secs < m.medals.bronze.secs)
       && JSON.stringify(R.pack.credits) === JSON.stringify(W.credits));
-  // (polish2's world exactly: the record's world without its credits and medals, the old bodies' addresses put back)
-  const back = JSON.parse(worldText); delete back.credits; for (const m of back.missions) delete m.medals;
+  // (the batch, finished: the cast as credited (every name one the world's cast plays), the voices as the voice record
+  // credits them, and a ring that runs out answered, as Mog City now asks a world to say)
+  const VR = JSON.parse(readFileSync('deploy/migrations/jensen-heist-voice.json', 'utf8'));
+  ok('... the cast credited by the names the world plays them under, the voices as the voice record credits them, a ring-out answered',
+    Array.isArray(W.credits?.cast) && W.credits.cast.length === Object.keys(W.cast).length && W.credits.cast.every((c: any) => !!W.cast[c.name] && typeof c.role === 'string' && c.role.length <= 34)
+      && Array.isArray(W.credits.voices) && W.credits.voices.join(' ') === VR.credit && W.credits.voices.every((l: string) => l.length <= 200)
+      && W.calls?.ringOut === 'answer' && JSON.stringify(R.pack.calls) === JSON.stringify(W.calls));
+  // (polish2's world exactly: the record's world without its credits, calls and medals, the old bodies' addresses put back)
+  const back = JSON.parse(worldText); delete back.credits; delete back.calls; for (const m of back.missions) delete m.medals;
   let oldText = JSON.stringify(back);
   for (const [, b] of BODY) oldText = oldText.split(b.to).join(b.from);
-  ok('... it is polish2\'s world with only the credits, the medals and the batch\'s bodies added (taken out, it is JH_POLISH3_FROM)', sha(oldText) === JH_POLISH3_FROM && oldText !== worldText && W.id === 'jensen-heist');
+  ok('... it is polish2\'s world with only the credits, the calls, the medals and the batch\'s bodies added (taken out, it is JH_POLISH3_FROM)', sha(oldText) === JH_POLISH3_FROM && oldText !== worldText && W.id === 'jensen-heist');
   ok('... and each re-forged body it names is new and in this build',
     Object.values(JH_POLISH3_BODIES).every((b) => b.from !== b.to) && BODY.every(([n, b]) => { const f = R.files.find((x: any) => x.kind === 'glb' && x.name === n); return !!f && f.hash === b.to && sha(readFileSync(f.src)) === b.to; }), BODY.map(([n]) => n).join(', ') || 'none named yet');
 

@@ -61,7 +61,9 @@ the Story Kit's clip pack (`cast/cast-clips.glb`), clips from the CMU Graphics L
 Built on the hand-built cast's track for Jensen Heist (`scripts/storykit-showcase-jensen.ts` `BODIES`, copied here by
 `--bodies`): `jh-jensen.glb`, `jh-board.glb`, `jh-marge.glb`, `jh-nico.glb`, `jh-lola.glb`, `jh-wesley.glb`, `jh-dex.glb`,
 `jh-intern-a.glb`, `jh-intern-b.glb`, `jh-director-a.glb` and `jh-director-b.glb`. Their moves come from the Story Kit's
-clip pack (`cast/cast-clips.glb`, above).
+clip pack (`cast/cast-clips.glb`, above), but for three clips of Jensen's own in `jh-jensen.glb` (his `walk`, `talk` and
+`cheer`), retargeted from Quaternius's Universal Animation Library 1 and 2 (Standard packs; `Walk_Formal_Loop`,
+`Idle_Talking_Loop`, `Interact` and `Yes`), CC0 1.0.
 
 `jh-jensen.glb` ("Jensen"): a stylized, affectionate parody of a public figure's public keynote persona (the black leather
 jacket, the swept silver hair, the browline glasses, the presenter's grin). Not endorsed. No face here is derived from a
