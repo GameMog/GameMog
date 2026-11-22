@@ -69,11 +69,26 @@ function wallCanvas(sign) {
   return c;
 }
 // a side screen (the close-up feed's frame: a lime field and LIVE, the house's own magnification)
-function sideCanvas() {
+// (a set's `screens: 'sign'` puts its sign on them instead of the stand-in figure: the wall's sign stacked over a lime
+// sunrise, LIVE above it. Jensen Heist's day audit, 22 Nov: the figure read as a placeholder avatar. A set without it
+// keeps the figure)
+function sideCanvas(sign = null) {
   const c = document.createElement('canvas'); c.width = 512; c.height = 768; const x = c.getContext('2d');
   const g = x.createRadialGradient(256, 420, 30, 256, 420, 520); g.addColorStop(0, '#2C6E3A'); g.addColorStop(1, '#03100A'); x.fillStyle = g; x.fillRect(0, 0, 512, 768);
-  x.fillStyle = 'rgba(0,0,0,0.55)'; x.beginPath(); x.ellipse(256, 520, 130, 230, 0, PI, 2 * PI); x.fill(); x.beginPath(); x.arc(256, 300, 80, 0, 2 * PI); x.fill();
-  x.font = '800 54px Arial'; x.textAlign = 'center'; x.fillStyle = '#B6FF3B'; x.fillText('● LIVE', 256, 80);
+  if (sign) {
+    const s = x.createLinearGradient(0, 768, 0, 300); s.addColorStop(0, 'rgba(182,255,59,0.55)'); s.addColorStop(1, 'rgba(182,255,59,0)'); x.fillStyle = s; x.fillRect(0, 300, 512, 468);
+    x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#F6FFF0'; x.shadowColor = 'rgba(200,255,170,0.9)'; x.shadowBlur = 24;
+    // (one word as large as fits across; a longer sign in two lines at its middle space)
+    const words = String(sign).trim().split(/\s+/), lines = words.length > 1 ? [words.slice(0, Math.ceil(words.length / 2)).join(' '), words.slice(Math.ceil(words.length / 2)).join(' ')] : words;
+    let px = 120; x.font = `800 ${px}px Arial, Helvetica, sans-serif`;
+    const widest = () => Math.max(...lines.map((l) => x.measureText(l).width));
+    while (px > 36 && widest() > 380) { px -= 4; x.font = `800 ${px}px Arial, Helvetica, sans-serif`; }
+    lines.forEach((l, i) => x.fillText(l, 256, 400 + (i - (lines.length - 1) / 2) * px * 1.05));
+    x.shadowBlur = 0; x.fillStyle = '#B6FF3B'; x.fillRect(156, 400 + lines.length * px * 0.6 + 10, 200, 8);
+  } else {
+    x.fillStyle = 'rgba(0,0,0,0.55)'; x.beginPath(); x.ellipse(256, 520, 130, 230, 0, PI, 2 * PI); x.fill(); x.beginPath(); x.arc(256, 300, 80, 0, 2 * PI); x.fill();
+  }
+  x.font = '800 54px Arial'; x.textAlign = 'center'; x.textBaseline = 'alphabetic'; x.fillStyle = '#B6FF3B'; x.fillText('● LIVE', 256, 80);
   return c;
 }
 // a seated figure's torso: shoulders wider than deep, narrowing to the waist (a lathe, squashed front to back)
@@ -99,7 +114,7 @@ export function stage(K, def) {
   for (const sx of [-1, 1]) {
     const G = K.grp(sx * 13.2, 0, -3.2, -sx * 0.42);
     K.box(4.2, 6.2, 0.15, black, 0, 2.2, -0.08, { parent: G, shadow: false });
-    K.plane(4.0, 6.0, new THREE.MeshBasicMaterial({ map: K.tex(sideCanvas()), color: new THREE.Color(1.6, 1.6, 1.6), fog: false }), 0, 5.2, 0.01, { parent: G });
+    K.plane(4.0, 6.0, new THREE.MeshBasicMaterial({ map: K.tex(sideCanvas(def.screens === 'sign' ? sign : null)), color: new THREE.Color(1.6, 1.6, 1.6), fog: false }), 0, 5.2, 0.01, { parent: G });
   }
   // the truss: upstage, mid and front of house, its cans; haze in the cans' beams (additive cones), sweeping slowly
   const truss = K.std({ color: '#2E3136', roughness: 0.4, metalness: 0.8 }), can = K.std({ color: '#111214', roughness: 0.5, metalness: 0.5 });

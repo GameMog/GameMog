@@ -338,8 +338,12 @@ export const behindMin = (d) => (Number.isFinite(+d?.behind) && d.behind != null
 // (the traffic held off the way there as a standing chase starts (runner.js STEPS.pursuit): base m of it, 25 s, for
 // every chase to a place; open m for up to secs s for one with the behind opening)
 export const CLEAR_WAY = { base: 180, open: 650, secs: 60 };
+// (a chase to lose from a standing car opens the same way only when its step asks, with its own `behind` (Jensen Heist's
+// BT-3, the day audit 22 Nov: the town's opening stood the Directors' SUVs either side of the parked Tensore); a chase to
+// lose without `behind` opens as it always has)
+export const standingOpens = (d) => !!d && ((d.goal === 'reach' && !!d.to) || (d.goal === 'lose' && d.behind != null && Number.isFinite(+d.behind)));
 export function chaseOpening(d, o = {}) {
-  if (!d || d.goal !== 'reach' || !d.to) return null;
+  if (!standingOpens(d)) return null;
   if (!(Math.abs(o.speed || 0) < BEHIND_START.standing)) return null;
   const h = Number.isFinite(o.routeH) ? o.routeH : Number.isFinite(o.carH) ? o.carH : null;
   return { ahead: false, calm: BEHIND_START.calm, behind: { min: behindMin(d), ...(h != null ? { h } : {}) } };

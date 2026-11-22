@@ -28,7 +28,7 @@ import { missions as registry } from '../mission/pause.js';
 import { place as putAt, outBesideCar } from '../intro.js';
 import { rideWanted, yours } from './rides.js';
 import { test, value, flagName } from './cond.js';
-import { createTimers, meterText, deltaText, progress, damageOf, seen as inSight, band as bandRule, speedRule, MPH, tailStart, tailRule, retryChoices, chaseOpening, wayThere, shortestRoute, CLEAR_WAY } from './rules.js';
+import { createTimers, meterText, deltaText, progress, damageOf, seen as inSight, band as bandRule, speedRule, MPH, tailStart, tailRule, retryChoices, chaseOpening, standingOpens, wayThere, shortestRoute, CLEAR_WAY } from './rules.js';
 import { createSets } from './sets.js';
 import { warmList, feedList } from './prewarm.js';
 import { createVcall } from './vcall.js';
@@ -2669,9 +2669,10 @@ export function createRunner(ctx) {
     // it and with none, 80 m along (rules.js wayThere), else the bearing to the place: the car's own heading alone set
     // TP-6's off forward and U-turned, and the crew stood on his real way, ahead of him (the RC review, 20 Nov))
     let open = null, wayRoute = null;
-    if (d.goal === 'reach' && d.to && inCar() && Math.abs(car.speed || 0) < 4) {
+    if (standingOpens(d) && inCar() && Math.abs(car.speed || 0) < 4) {
       let routeH = null;
-      try {
+      // (a chase to lose has no way there: the crew behind him along the car's heading)
+      if (d.to) try {
         const p = placeOf(d.to), c0 = { x: car.position.x, z: car.position.z }, to = { x: p.x, z: p.z }, h = car.heading;
         const routes = [h, h + PI, null].map((hh) => { try { return gps.plan(c0, to, hh); } catch { return null; } });
         routeH = wayThere(routes, c0, to); wayRoute = shortestRoute(routes);
