@@ -341,9 +341,17 @@ export function check(w) {
 // HERO_OWN) are its own, upright for its proportions (Jensen Heist's hand-built bodies), where Dan's leaned a longer head
 // forward of the chair's line. A body without them sits on Dan's, as before; Dan himself never comes here. (Idempotent:
 // the loaded GLTF is cached, glb.js, so a second call, or the cast's double of the hero on the same file, finds the same)
+// A body may also name more of its clips as its own in its GLB (asset extras heroOwn: ['walk', 'talk', 'cheer'], Jensen
+// Heist's Jensen: his own walk, keynote talk and celebration, retargeted from CC0 clips): those win over Dan's too. A body
+// that names none is as before (its other clips under Dan's: older hand-built bodies carry clips that decode laid flat)
 export const HERO_OWN = new Set(['sit', 'sitTalk']);
-export function heroClips(danClips, own) {
-  const mine = new Map(); for (const c of own || []) if (HERO_OWN.has(c.name) && !mine.has(c.name)) mine.set(c.name, c);
+export function heroOwnOf(gltf) {
+  const l = gltf?.asset?.extras?.heroOwn;
+  return Array.isArray(l) ? l.filter((n) => typeof n === 'string' && /^[A-Za-z][\w-]{0,31}$/.test(n)).slice(0, 16) : [];
+}
+export function heroClips(danClips, own, marked = []) {
+  const ownNames = new Set([...HERO_OWN, ...(marked || [])]);
+  const mine = new Map(); for (const c of own || []) if (ownNames.has(c.name) && !mine.has(c.name)) mine.set(c.name, c);
   const names = new Set(danClips.map((c) => c.name));
   return [...danClips.map((c) => mine.get(c.name) || c), ...(own || []).filter((c) => !names.has(c.name))];
 }
@@ -394,7 +402,7 @@ export async function load() {
     if (!W.heroGlb) return dan;
     try {
       const g = await loadGLB(W.heroGlb);
-      g.animations = heroClips(dan.animations, g.animations);
+      g.animations = heroClips(dan.animations, g.animations, heroOwnOf(g));
       // (their surfaces finished as the cast's are: polish.js)
       try { (await importRetry(() => import('./polish.js'))).polishBody(g.scene); } catch (err) { console.warn('[storyrun] hero polish', err); }
       unhang(g.scene);

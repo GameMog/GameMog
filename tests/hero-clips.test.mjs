@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 globalThis.location = new URL('http://127.0.0.1:4981/?pack=x');
-const { heroClips, HERO_OWN } = await import('../wagmi/storyrun/pack.js');
+const { heroClips, HERO_OWN, heroOwnOf } = await import('../wagmi/storyrun/pack.js');
 const glbJson = (f) => { const b = fs.readFileSync(f); return JSON.parse(b.subarray(20, 20 + b.readUInt32LE(12)).toString()); };
 const clip = (name, from) => ({ name, from });
 const danNames = glbJson(path.join(ROOT, 'assets/characters/dan.glb')).animations.map((a) => a.name);
@@ -52,7 +52,7 @@ test("pack.js heroGLTF uses heroClips; Dan himself (no hero GLB) is Dan's file u
   const pack = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/pack.js'), 'utf8');
   const hero = pack.slice(pack.indexOf('W.heroGLTF = async'), pack.indexOf('};', pack.indexOf('W.heroGLTF = async')));
   assert.match(hero, /if \(!W\.heroGlb\) return dan;/);
-  assert.match(hero, /g\.animations = heroClips\(dan\.animations, g\.animations\);/);
+  assert.match(hero, /g\.animations = heroClips\(dan\.animations, g\.animations, heroOwnOf\(g\)\);/);
   const cast = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/cast.js'), 'utf8');
   assert.match(cast, /const own = g\.animations\.slice\(\), names = new Set\(own\.map\(\(a\) => a\.name\)\)/);
   assert.match(cast, /for \(const a of await clipsOfDan\(\)\) if \(!names\.has\(a\.name\)\) own\.push\(a\);/);
@@ -103,4 +103,20 @@ test('A7: the stage keys him nearer natural: a warm white key and presenter pair
   assert.ok(fb > fr && fb - fr < 0xDC - 0xB4, m[2]);
   // the mood kept: the cool rims from upstage and the warm house spill as they were
   assert.match(st, /color: '#86AEFF'/); assert.match(st, /color: '#9CF0B0'/); assert.match(st, /color: '#FFD9B4'/);
+});
+
+test("a body that names clips its own (asset extras heroOwn: Jensen's walk, keynote talk and cheer) plays them over Dan's", () => {
+  const body = [clip('sit', 'body'), clip('sitTalk', 'body'), clip('walk', 'body'), clip('talk', 'body'), clip('cheer', 'body'), clip('idle', 'body')];
+  const marked = heroOwnOf({ asset: { extras: { heroOwn: ['walk', 'talk', 'cheer'] } } });
+  assert.deepEqual(marked, ['walk', 'talk', 'cheer']);
+  const out = heroClips(DAN, body, marked);
+  assert.deepEqual(out.map((c) => c.name), danNames);
+  for (const n of ['sit', 'sitTalk', 'walk', 'talk', 'cheer']) assert.equal(out.find((c) => c.name === n).from, 'body', n);
+  // (a clip it has but does not name stays Dan's, as before)
+  assert.equal(out.find((c) => c.name === 'idle').from, 'dan');
+  // (idempotent, as the cached GLTF needs)
+  assert.deepEqual(heroClips(DAN, out, marked), out);
+  // (no mark, a bad mark: nothing more is its own)
+  for (const g of [{}, { asset: {} }, { asset: { extras: { heroOwn: 'walk' } } }, { asset: { extras: { heroOwn: [3, '../x', ''] } } }, null]) assert.deepEqual(heroOwnOf(g), []);
+  assert.equal(heroClips(DAN, body, heroOwnOf({})).find((c) => c.name === 'walk').from, 'dan');
 });
