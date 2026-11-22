@@ -188,12 +188,12 @@
       }, true);
     })();
   </script>
-  <script src="js/net-retry.js?v=20261121-r37" defer></script>
+  <script src="js/net-retry.js?v=20261122-r38" defer></script>
   <script src="wagmi/stats.js" async></script>
   <!-- (how this machine runs the game: the graphics tier it picks, js/gfx-auto.js, and the anonymous report of it, wagmi/perf.js;
        ?v= the engine scripts' own cache stamp, v and assetVersion below: a release changes all four together, tests/gfx-auto.test.mjs) -->
-  <script src="wagmi/perf.js?v=20261121-r37" defer></script>
-  <script src="js/gfx-auto.js?v=20261121-r37" defer></script>
+  <script src="wagmi/perf.js?v=20261122-r38" defer></script>
+  <script src="js/gfx-auto.js?v=20261122-r38" defer></script>
   <meta name="theme-color" content="#0b0b0c" />
   <meta name="description" content="MOG CITY: Unfinished Business, an open-world mission game in the browser. Dan, a first-year banker at JPBank, has been fired and charged with insider trading, and the bank's security just took the laptop that proves he was set up. Get it back. Built on Slop New York (three.js WebGPU + TSL)." />
   <link rel="canonical" href="https://mc.gamemog.com/" />
@@ -229,7 +229,7 @@
       // (San Francisco's own modules from cities/sf/js; the ones both cities share as they are (the people, the touch
       // and pad controls, the cameras with their hill clearance, the culling, the lamps) from js/. Not SF's settings
       // dialog or its robotaxi ride: Mog City's pause menu and Dan's car are the game's)
-      const v = '20261121-r37';
+      const v = '20261122-r38';
       const sf = (f) => `./cities/sf/js/${f}?v=${v}`, shared = (f) => `./js/${f}?v=${v}`;
       // (a Hometown package: its own geodata.js (window.NYC.GEO, PLACE_DATA and PKG, tools/hometown/compile.py) in
       // place of San Francisco's geodata and places, then the same engine)
@@ -284,7 +284,7 @@
         sf('main.js')
       ];
     })() : (() => {
-      const assetVersion = '20261121-r37';
+      const assetVersion = '20261122-r38';
       return [
         './js/nyc-geodata.js',
         // (New York's buildings as mapped: heights, facade and roof colours, pitched roofs; tools/geo-looks.py)
