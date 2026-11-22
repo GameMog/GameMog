@@ -9,24 +9,26 @@ import { STATIONS, LICENCES } from './radio/stations.js';
 import { world } from './world/index.js';
 
 // (the city this page plays (wagmi/world: world.id): its own map's credits under 'The city')
+// (a line marked engine: true is the code the place is played on, not its map's data: a story's end credits
+// (storyrun/rules.js creditsRoll) set it under 'Played on', never under 'The map')
 const SF = world.id === 'sf';
 // (a Hometown package: the place compiled from open data, tools/hometown, on San Francisco's engine; its own name, from
 // the package (world.name is the engine's 'Hometown'))
 const place = () => { const n = globalThis.window?.NYC?.PKG?.name; return n ? String(n).split(',')[0] : world.name; };
 const PKGLINES = () => [
-  { what: 'Slop San Francisco', who: 'Kamil (@unable0_) and Mr.doob', note: 'the city engine this place is played on', licence: 'MIT', licenceUrl: 'https://opensource.org/license/mit', src: 'https://github.com/unable12/slop-sanfrancisco' },
+  { what: 'Slop San Francisco', who: 'Kamil (@unable0_) and Mr.doob', note: 'the city engine this place is played on', engine: true, licence: 'MIT', licenceUrl: 'https://opensource.org/license/mit', src: 'https://github.com/unable12/slop-sanfrancisco' },
   { what: 'Map data', who: '© OpenStreetMap contributors', note: `${place()}'s streets, their names and classes, water and parks (via Overture Maps)`, licence: 'ODbL 1.0', licenceUrl: 'https://opendatacommons.org/licenses/odbl/1-0/', src: 'https://www.openstreetmap.org/copyright' },
   { what: 'Overture Maps Foundation', who: 'Overture Maps', note: 'the building footprints and heights (from OpenStreetMap, Esri Community Maps contributors (CC BY 4.0) and Microsoft\'s ML building footprints (ODbL)), the land cover and the places', licence: 'ODbL 1.0 / CC BY 4.0 / CDLA Permissive 2.0', licenceUrl: 'https://docs.overturemaps.org/attribution/', src: 'https://overturemaps.org' },
   { what: 'Elevation', who: 'USGS 3D Elevation Program', note: 'the ground: 1/3 arc-second terrain in town, 1 arc-second out to the horizon', licence: 'public domain', licenceUrl: null, src: 'https://www.usgs.gov/3d-elevation-program' },
 ];
 const cityLines = () => world.id === 'pkg' ? PKGLINES() : SF ? [
   { what: 'Slop San Francisco', who: 'Kamil (@unable0_) and Mr.doob', note: 'the city: San Francisco\'s streets, hills, buildings, landmarks and traffic', licence: 'MIT', licenceUrl: 'https://opensource.org/license/mit', src: 'https://github.com/unable12/slop-sanfrancisco' },
-  { what: 'Slop New York', who: 'Mr.doob', note: 'the city engine both of Mog City\'s cities are built on', licence: 'MIT', licenceUrl: 'https://opensource.org/license/mit', src: null },
+  { what: 'Slop New York', who: 'Mr.doob', note: 'the city engine both of Mog City\'s cities are built on', engine: true, licence: 'MIT', licenceUrl: 'https://opensource.org/license/mit', src: null },
   { what: 'Map data', who: '© OpenStreetMap contributors', note: 'San Francisco\'s piers, water, landmarks\' footprints, bridges, lanes, coast and ferry routes', licence: 'ODbL 1.0', licenceUrl: 'https://opendatacommons.org/licenses/odbl/1-0/', src: 'https://www.openstreetmap.org/copyright' },
   { what: 'City data', who: 'City and County of San Francisco, DataSF', note: 'the streets, curbs, building footprints, street trees, signals, stop signs, Muni stops and neighbourhoods', licence: 'PDDL / CC0', licenceUrl: 'https://opendatacommons.org/licenses/pddl/1-0/', src: 'https://datasf.org/opendata/' },
   { what: 'Elevation', who: 'USGS 3D Elevation Program', note: 'the hills: San Francisco\'s 1 m terrain', licence: 'public domain', licenceUrl: null, src: 'https://www.usgs.gov/3d-elevation-program' },
 ] : [
-  { what: 'Slop New York', who: 'Mr.doob', note: 'the city this game is built on; some city code is ported from its newer commits', licence: 'MIT', licenceUrl: 'https://opensource.org/license/mit', src: null },
+  { what: 'Slop New York', who: 'Mr.doob', note: 'the city this game is built on; some city code is ported from its newer commits', engine: true, licence: 'MIT', licenceUrl: 'https://opensource.org/license/mit', src: null },
   { what: 'Map data', who: '© OpenStreetMap contributors', note: 'Central Park, the piers, the landmarks\' footprints, the New Jersey shore, the buildings\' looks (heights, facade and roof colours and materials, roof shapes) and the street corners as mapped (traffic signals, marked crossings and street trees, read 15 Nov 2026)', licence: 'ODbL 1.0', licenceUrl: 'https://opendatacommons.org/licenses/odbl/1-0/', src: 'https://www.openstreetmap.org/copyright' },
   { what: 'Overture Maps Foundation', who: 'Overture Maps', note: 'the buildings as mapped, release 2026-10-21.0 (only the footprints and tags from OpenStreetMap; the machine-traced footprints left out)', licence: 'ODbL 1.0', licenceUrl: 'https://docs.overturemaps.org/attribution/', src: 'https://overturemaps.org' },
   { what: 'Building heights', who: 'USGS 3D Elevation Program', note: 'lidar heights of the buildings as mapped (via Overture Maps)', licence: 'public domain', licenceUrl: null, src: 'https://www.usgs.gov/3d-elevation-program' },

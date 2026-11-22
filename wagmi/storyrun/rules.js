@@ -198,9 +198,13 @@ export function creditsRoll(def, { map = [], place = '' } = {}) {
   out.push({ head: 'Voices', lines: vo.length ? vo : ['Voices synthesised'] });
   if (own.length) out.push({ head: 'Made with', lines: own });
   // (a pair is [the credited, what for]: the roll sets what for on the left, the credited on the right)
-  const ml = (map || []).filter((l) => l && l.who).slice(0, 8).map((l) => [S(`${l.who}${l.licence ? ` · ${l.licence}` : ''}`, 200), S(l.what, 60)]);
+  // (the map: only the place's own data (OpenStreetMap, Overture, the elevation...); a line marked engine (credits.js:
+  // the city engine's code, Slop San Francisco or Slop New York) is set under 'Played on' with the story engine)
+  const pr = (l) => [S(`${l.who}${l.licence ? ` · ${l.licence}` : ''}`, 200), S(l.what, 60)];
+  const lns = (map || []).filter((l) => l && l.who);
+  const ml = lns.filter((l) => !l.engine).slice(0, 8).map(pr), el = lns.filter((l) => l.engine).slice(0, 2).map(pr);
   if (ml.length) out.push({ head: place ? `The map: ${S(place, 60)}` : 'The map', lines: ml });
-  out.push({ head: 'Played on', lines: ["Mog City's story engine"] });
+  out.push({ head: 'Played on', lines: ["Mog City's story engine", ...el] });
   out.push({ head: '', lines: ['GameMog Community'], end: true });
   return out;
 }

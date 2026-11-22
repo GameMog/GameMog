@@ -59,6 +59,27 @@ test('the credits roll: the title, the cast, the voices, its own lines, the map,
   assert.deepEqual(creditsRoll({ title: 'x', cast: {} }), []);
 });
 
+test("the credits roll: a hometown's map lists only its own data, the city engine's code goes under Played on", () => {
+  const def = { title: 'A Story', cast: {}, credits: { lines: [] } };
+  const map = [
+    { what: 'Slop San Francisco', who: 'Kamil (@unable0_) and Mr.doob', engine: true, licence: 'MIT' },
+    { what: 'Map data', who: '© OpenStreetMap contributors', licence: 'ODbL 1.0' },
+    { what: 'Overture Maps Foundation', who: 'Overture Maps', licence: 'ODbL 1.0 / CC BY 4.0 / CDLA Permissive 2.0' },
+    { what: 'Elevation', who: 'USGS 3D Elevation Program', licence: 'public domain' },
+  ];
+  const r = creditsRoll(def, { map, place: 'San Jose' });
+  const m = r.find((s) => s.head === 'The map: San Jose').lines.map((l) => l[1]);
+  assert.deepEqual(m, ['Map data', 'Overture Maps Foundation', 'Elevation']);
+  assert.deepEqual(r.find((s) => s.head === 'Played on').lines, ["Mog City's story engine", ['Kamil (@unable0_) and Mr.doob · MIT', 'Slop San Francisco']]);
+  // (credits.js marks the engine's code as engine in every city's list: the hometown's Slop San Francisco, Slop New York)
+  const src = fs.readFileSync(path.join(ROOT, 'wagmi/credits.js'), 'utf8');
+  const slop = src.split('\n').filter((l) => /what: 'Slop (San Francisco|New York)'/.test(l));
+  assert.equal(slop.filter((l) => /engine: true/.test(l)).length, 3);
+  assert.ok(/note: 'the city engine this place is played on', engine: true/.test(src));
+  // (a roll with only engine lines has no map section)
+  assert.ok(!creditsRoll(def, { map: map.slice(0, 1), place: 'San Jose' }).some((s) => /^The map/.test(s.head)));
+});
+
 test('the credits roll: a role as a credit, a few words, never cut mid-word', () => {
   const T = 'Jensen Heist';
   assert.equal(creditRole('keynote stage manager: Jensen Heist', T), 'keynote stage manager');
