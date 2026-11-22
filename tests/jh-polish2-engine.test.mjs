@@ -96,26 +96,40 @@ test('A7: a set\'s room.grade is laid on the city\'s grade for its frame and the
   assert.match(st, /keyColor: '#FFF[0-9A-F]{3}'/);
 });
 
-test('B5: a ring is RING_SECS at most, a pack\'s shorter ring kept, never under RING_MIN; running out answers it', () => {
+test('B5: opt-in per world (calls.ringOut \'answer\'): a ring of RING_SECS at most that runs out answered; every other world as it was', () => {
   const r = src('wagmi/storyrun/runner.js');
   const m = /export const RING_SECS = ([\d.]+), RING_MIN = ([\d.]+);/.exec(r);
   assert.ok(m); const RING_SECS = +m[1], RING_MIN = +m[2];
+  const old = /export const RING_OLD = ([\d.]+);/.exec(r);
+  assert.ok(old); const RING_OLD = +old[1];
+  assert.equal(RING_OLD, 8);
   assert.ok(RING_SECS <= 4 && RING_MIN >= 1);
-  const line = r.split('\n').find((l) => /^\s+function ringSecs\(d\)/.test(l));
-  const ringSecs = new Function('RING_SECS', 'RING_MIN', line.trim() + '\nreturn ringSecs;')(RING_SECS, RING_MIN);
-  assert.equal(ringSecs({}), RING_SECS);
-  assert.equal(ringSecs({ ring: 8 }), RING_SECS);
-  assert.equal(ringSecs({ ring: 6 }), RING_SECS);
-  assert.equal(ringSecs({ ring: 3 }), 3);
-  assert.equal(ringSecs({ ring: 0.2 }), RING_MIN);
-  assert.equal(ringSecs({ ring: 'x' }), RING_SECS);
-  // (both rings: a phone's and a call waiting's. No ring runs out into a decline: only a key's `answer = false`)
+  const fn = (name) => r.split('\n').find((l) => new RegExp(`^\\s+function ${name}\\(`).test(l)).trim();
+  const make = (def) => new Function('RING_SECS', 'RING_MIN', 'RING_OLD', 'world', `${fn('ringOutAnswers')}\n${fn('ringSecs')}\n${fn('ringOf')}\nreturn { ringSecs, ringOf, ringOutAnswers };`)(RING_SECS, RING_MIN, RING_OLD, { def });
+  // (a world that opts in: Jensen Heist's)
+  const jh = make({ calls: { ringOut: 'answer' } });
+  assert.equal(jh.ringOutAnswers(), true);
+  assert.equal(jh.ringOf({}), RING_SECS);
+  assert.equal(jh.ringOf({ ring: 8 }), RING_SECS);
+  assert.equal(jh.ringOf({ ring: 6 }), RING_SECS);
+  assert.equal(jh.ringOf({ ring: 3 }), 3);
+  assert.equal(jh.ringOf({ ring: 0.2 }), RING_MIN);
+  assert.equal(jh.ringOf({ ring: 'x' }), RING_SECS);
+  // (every other world: its own ring, 8 s when it names none, as before B5 (Pickup Time's 6 and 10 s rings))
+  for (const def of [{}, { calls: {} }, { calls: { ringOut: 'decline' } }, undefined]) {
+    const o = make(def);
+    assert.equal(o.ringOutAnswers(), false);
+    assert.equal(o.ringOf({}), RING_OLD);
+    assert.equal(o.ringOf({ ring: 6 }), 6);
+    assert.equal(o.ringOf({ ring: 10 }), 10);
+  }
+  // (both rings, a phone's and a call waiting's: timed by ringOf; one that runs out is answered only in a world that
+  // opts in (or a run that answers every call), else declined, its voicemail played)
   const call = r.slice(r.indexOf('  STEPS.call = async'), r.indexOf('  async function voicemail('));
-  assert.equal((call.match(/const rs = ringSecs\(d\);/g) || []).length, 2);
-  assert.equal((call.match(/if \(answer == null\) answer = true;/g) || []).length, 2);
+  assert.equal((call.match(/const rs = ringOf\(d\);/g) || []).length, 2);
+  assert.equal((call.match(/if \(answer == null && \(ringOutAnswers\(\) \|\| ctx\.flags\.autoAnswer\)\) answer = true;/g) || []).length, 2);
+  assert.doesNotMatch(call, /if \(answer == null\) answer = true;/);
   assert.doesNotMatch(call, /d\.ring \|\| 8/);
-  assert.doesNotMatch(call, /answer == null && ctx\.flags\.autoAnswer/);
-  // (the declined count only after a pressed X or N)
   assert.equal((call.match(/answer = false;/g) || []).length, 2);
 });
 
