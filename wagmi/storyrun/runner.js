@@ -48,6 +48,8 @@ const PI = Math.PI;
 export const KINDS_STUB = new Set(['patrol', 'wallet']);
 // (the crash that fires a world call's 'hit' pool, m/s: a knock under it is driving, not a crash)
 export const HIT_SPEED = 4.5;
+// a phone's ring at most, and at least (s): ringSecs (jh-polish2 B5)
+export const RING_SECS = 4, RING_MIN = 1.5;
 // Mog City's own mission phases a step can play by ref ('m2.tail'): m2.js and m3.js playPart
 const PART_IDS = { m2: ['start', 'go', 'tail', 'yard', 'fight', 'chase', 'crash', 'phone', 'chat'], m3: ['garage', 'square', 'rally', 'rigs', 'dump', 'escape', 'ret', 'home'] };
 const PART_MOD = { m2: () => importRetry(() => import('../mission/m2.js')), m3: () => importRetry(() => import('../mission/m3.js')) };
@@ -1691,13 +1693,15 @@ export function createRunner(ctx) {
     let answer = d.auto ? true : null;
     const onKey = (e) => { if (W.paused || e.repeat) return; if (['KeyE', 'KeyY'].includes(e.code)) { answer = true; e.stopImmediatePropagation(); } else if (['KeyX', 'KeyN'].includes(e.code)) { answer = false; e.stopImmediatePropagation(); } };
     addEventListener('keydown', onKey, true);
-    if (!d.auto) ui.help('Press [E|ANSWER] to answer, [X|DECLINE] to decline.', (d.ring || 8) + 1);
+    const rs = ringSecs(d);
+    if (!d.auto) ui.help('Press [E|ANSWER] to answer, [X|DECLINE] to decline.', rs + 1);
     const t0 = now();
     try {
-      await wait(() => answer != null || (ctx.flags.autoAnswer && now() - t0 > 1500) || (now() - t0) / 1000 > (d.ring || 8), t);
+      await wait(() => answer != null || (ctx.flags.autoAnswer && now() - t0 > 1500) || (now() - t0) / 1000 > rs, t);
       if (d.auto) await wait(() => now() - t0 > 900, t);
     } finally { removeEventListener('keydown', onKey, true); ui.help(null); }
-    if (answer == null && ctx.flags.autoAnswer) answer = true;
+    // (a ring that runs out is answered, never declined: only X or N declines, ringSecs)
+    if (answer == null) answer = true;
     if (!answer) {
       ui.caller(null); sfx.play('hangup', { gain: 0.12 });
       applySet(d.decline);
@@ -1713,6 +1717,10 @@ export function createRunner(ctx) {
       if (d.choice) return await choose(d.choice, t);
     } finally { ui.caller(null); sfx.play('hangup', { gain: 0.12 }); }
   };
+  // (jh-polish2 B5: a phone's ring, RING_SECS at most (a pack's own `ring` shorter only, never under RING_MIN): it rang
+  // 8 s, and 6 in three of Jensen Heist's calls, and running out counted as declined, so a player who only waited took
+  // the declined branch. Now a ring that runs out answers itself; only X or N declines)
+  function ringSecs(d) { const r = Number.isFinite(+d.ring) && +d.ring > 0 ? +d.ring : RING_SECS; return Math.max(RING_MIN, Math.min(RING_SECS, r)); }
   async function callWaiting(d, t, who, color, lines) {
     const live = W.calls.state()?.id;
     sfx.play('ring', { gain: 0.12, times: 1 });
@@ -1723,11 +1731,13 @@ export function createRunner(ctx) {
     let answer = d.auto ? true : null;
     const onKey = (e) => { if (W.paused || e.repeat) return; if (['KeyE', 'KeyY'].includes(e.code)) { answer = true; e.stopImmediatePropagation(); } else if (['KeyX', 'KeyN'].includes(e.code)) { answer = false; e.stopImmediatePropagation(); } };
     addEventListener('keydown', onKey, true);
-    if (!d.auto) ui.help('Call waiting: [E|ANSWER] to answer, [X|DECLINE] to decline.', (d.ring || 8) + 1);
+    const rs = ringSecs(d);
+    if (!d.auto) ui.help('Call waiting: [E|ANSWER] to answer, [X|DECLINE] to decline.', rs + 1);
     const t0 = now();
-    try { await wait(() => answer != null || (ctx.flags.autoAnswer && now() - t0 > 1500) || (now() - t0) / 1000 > (d.ring || 8), t); }
+    try { await wait(() => answer != null || (ctx.flags.autoAnswer && now() - t0 > 1500) || (now() - t0) / 1000 > rs, t); }
     finally { removeEventListener('keydown', onKey, true); ui.help(null); }
-    if (answer == null && ctx.flags.autoAnswer) answer = true;
+    // (a call waiting that rings out is answered too: the live call goes on hold, as when E is pressed)
+    if (answer == null) answer = true;
     M.log.push(['call-waiting', who, live, !!answer]);
     if (!answer) {
       applySet(d.decline); M.state.declined = (M.state.declined || 0) + 1;
