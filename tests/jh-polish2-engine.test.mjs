@@ -11,6 +11,34 @@ import fs from 'node:fs';
 const ROOT = new URL('..', import.meta.url).pathname;
 const src = (f) => fs.readFileSync(ROOT + f, 'utf8');
 
+test('A7: a set\'s room.grade is laid on the city\'s grade for its frame and the street\'s given back; the stage takes the split down', async () => {
+  const sets = src('wagmi/storyrun/sets.js');
+  assert.match(sets, /const g0 = gradeOn\(S\.room\.grade\);\n\s*try \{ return render0\(\.\.\.a\); \} finally \{[^\n]*gradeOff\(g0\); \}/);
+  const a = sets.indexOf('  const GRADE_KEYS'), b = sets.indexOf('\n  }\n', sets.indexOf('  function gradeOff')) + 4;
+  const V3 = class { constructor() { this.v = [1, 1, 1]; } set(...x) { this.v = x; } toArray() { return this.v.slice(); } };
+  const C = { split: { value: 1 }, saturation: { value: 1.08 }, balance: { value: new V3() } };
+  const app = { postFX: { colorGrade: C } };
+  const { gradeOn, gradeOff } = new Function('app', sets.slice(a, b) + '\nreturn { gradeOn, gradeOff };')(app);
+  assert.equal(gradeOn(undefined), null);
+  const o = gradeOn({ split: 0.2, saturation: 1, balance: [1, 1, 1.01] });
+  assert.deepEqual([C.split.value, C.saturation.value, C.balance.value.v], [0.2, 1, [1, 1, 1.01]]);
+  gradeOff(o);
+  assert.deepEqual([C.split.value, C.saturation.value, C.balance.value.v], [1, 1.08, [1, 1, 1]]);
+  // (both cities' grades have the split as a uniform, 1 the street's as before)
+  for (const f of ['js/post-processing.js', 'cities/sf/js/post-processing.js']) {
+    const p = src(f);
+    assert.match(p, /const split = uniform\(1\.0\);/, f);
+    assert.match(p, /mix\(vec3\(1\), vec3\(1\.035, 1\.005, 0\.965\), split\)/, f);
+    assert.match(p, /balance, split \};/, f);
+  }
+  // (the keynote stage's: still a warm white key, never white or grey)
+  const st = src('wagmi/storyrun/stage-room.js');
+  const g = /grade: \{ split: ([\d.]+), saturation: ([\d.]+), balance: \[0\.98, 1, 1\.02\] \}/.exec(st);
+  assert.ok(g, 'stage-room grade');
+  assert.ok(+g[1] >= 0 && +g[1] < 1 && +g[2] >= 0.95 && +g[2] <= 1.08, 'never grey: saturation kept near 1');
+  assert.match(st, /keyColor: '#FFF[0-9A-F]{3}'/);
+});
+
 test('B5: a ring is RING_SECS at most, a pack\'s shorter ring kept, never under RING_MIN; running out answers it', () => {
   const r = src('wagmi/storyrun/runner.js');
   const m = /export const RING_SECS = ([\d.]+), RING_MIN = ([\d.]+);/.exec(r);

@@ -27,6 +27,7 @@ function createPostProcessing(renderer, sceneColor, reflections, options = {}) {
   const contrast = uniform(1.0);
   const saturation = uniform(1.0);
   const balance = uniform(new THREE.Vector3(1, 1, 1));
+  const split = uniform(1.0);
   const exposed = max(sceneColor.rgb.add(reflections.rgb), vec3(0)).mul(exposure).mul(balance);
 
   // Limit only bloom's peak radiance, scaling RGB together to retain neon and lamp colors.
@@ -42,8 +43,9 @@ function createPostProcessing(renderer, sceneColor, reflections, options = {}) {
     const luma = dot(color, vec3(0.2126, 0.7152, 0.0722)).toVar();
 
     // Gentle cool shadow / warm highlight separation; multiply rather than lifting the black level.
-    const shadows = mix(vec3(0.965, 1.005, 1.045), vec3(1), smoothstep(0.02, 0.60, luma));
-    const highlights = mix(vec3(1), vec3(1.035, 1.005, 0.965), smoothstep(0.60, 3.0, luma));
+    // (split: how much of it, 1 the street's; a story set may take less for its frame, wagmi/storyrun/sets.js grade)
+    const shadows = mix(mix(vec3(1), vec3(0.965, 1.005, 1.045), split), vec3(1), smoothstep(0.02, 0.60, luma));
+    const highlights = mix(vec3(1), mix(vec3(1), vec3(1.035, 1.005, 0.965), split), smoothstep(0.60, 3.0, luma));
     color.mulAssign(shadows.mul(highlights));
 
     // Contrast pivots around middle gray and scales RGB together, avoiding per-channel gamma shifts.
@@ -71,7 +73,7 @@ function createPostProcessing(renderer, sceneColor, reflections, options = {}) {
   }
 
   applyPreset('golden');
-  return { outputNode, bloomPass, applyPreset, exposure, contrast, saturation, balance };
+  return { outputNode, bloomPass, applyPreset, exposure, contrast, saturation, balance, split };
 }
 
 Object.assign(window.NYC, { createPostProcessing });

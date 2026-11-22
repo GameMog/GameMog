@@ -62,7 +62,8 @@ export function createSets(W, { cast, castName, heroName, idleOf = () => null })
         if (sp && !direct) {
           const ssr = app.postFX.ssrPass, s0 = sp.scene, c0 = sp.camera, i0 = ssr ? ssr.intensity.value : 0;
           sp.scene = S.scene; sp.camera = S.cam; if (ssr) ssr.intensity.value = 0;
-          try { return render0(...a); } finally { sp.scene = s0; sp.camera = c0; if (ssr) ssr.intensity.value = i0; }
+          const g0 = gradeOn(S.room.grade);
+          try { return render0(...a); } finally { sp.scene = s0; sp.camera = c0; if (ssr) ssr.intensity.value = i0; gradeOff(g0); }
         }
         renderer.setRenderTarget(null); renderer.render(S.scene, S.cam);
         return;
@@ -71,6 +72,21 @@ export function createSets(W, { cast, castName, heroName, idleOf = () => null })
     return render0(...a);
   };
   let direct = false;
+  // (a room's own grade for its frame, room.grade { split, saturation, balance: [r, g, b] }: the street's look given back
+  // after it. jh-polish2 A7, the keynote stage: the street's warm-highlight split pushed a face under the stage's bright
+  // key towards orange, stage-room.js)
+  const GRADE_KEYS = ['split', 'saturation'];
+  function gradeOn(g) {
+    const C = g && app.postFX?.colorGrade; if (!C) return null;
+    const was = {};
+    for (const k of GRADE_KEYS) if (Number.isFinite(g[k]) && C[k]?.value != null) { was[k] = C[k].value; C[k].value = g[k]; }
+    if (Array.isArray(g.balance) && g.balance.length === 3 && C.balance?.value) { was.balance = C.balance.value.toArray(); C.balance.value.set(...g.balance); }
+    return { C, was };
+  }
+  function gradeOff(o) {
+    if (!o) return;
+    for (const [k, v] of Object.entries(o.was)) { if (k === 'balance') o.C.balance.value.set(...v); else o.C[k].value = v; }
+  }
   const grid = createGrid(W); let gridFails = 0;
   const pooling = new Set(); // (pool(): call offices being built now)
   // (one frame of a set through the city's frame (the draw above), its lens at the room's middle; whoever was drawn is

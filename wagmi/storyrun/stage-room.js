@@ -223,6 +223,13 @@ export function stage(K, def) {
     // (jh-polish A7: Jensen still read a little warm: the key and the presenter's truss pair a touch nearer neutral (still
     // a warm white, never white or grey) and the fill less blue, so the contrast warms the lit side less)
     keyColor: '#FFFAF5', fillColor: '#C0C8DC',
+    // (jh-polish2 A7: still warm, the polish2 measure on ST-8's close-ups: skin hue 21, saturation 0.45, blue 0.55 of
+    // its red. The lights were near white already; the push was the street's twilight grade over the set's frame: its
+    // red balance up 2.5 %, its warm-highlight split on a face under a 120 key, its saturation 1.08. Here: no split,
+    // saturation 1 and the balance a touch the other way (red 0.98, blue 1.02: a cool white stage). Measured on the same
+    // close-ups: saturation 0.44 -> about 0.40, blue 0.56 -> 0.60 of the red, the green room's Jensen 0.37 / 0.63. The
+    // LED wall and the rims keep their colour; skin stays skin)
+    grade: { split: 0, saturation: 1, balance: [0.98, 1, 1.02] },
     marks: { screen: [0, 5, ZS], lip: [0, 0.4, 0.6], podium: [0, 1.2, -2], house: [0, 1.4, 6], chair: [CHAIR[0], 0.9, CHAIR[1]] },
     tick,
   };
