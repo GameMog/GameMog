@@ -632,6 +632,11 @@ export function createSets(W, { cast, castName, heroName, idleOf = () => null })
       const lost = [...S.people.values()].filter((P) => !P.fig || (!P.isHero && cast.get?.(P.name) !== P.fig));
       if (lost.length) { note('adopt-miss', key, 'body', lost.map((P) => P.name + (cast.get?.(P.name) ? ':other' : ':gone')).join(',')); sets.delete(key); unpin(S); dropSet(S); return false; }
       sets.delete(key); sets.set(id, S); S.pooled = false; S.id = id; unpin(S); note('adopt', key);
+      // (compiled for its tile again as its call takes it, its people stood in it: what was compiled under the card was
+      // built for the office's lights as they were then, and the lights' cache key is not the same by the call (PH-1's
+      // Marge: every material of the office and her body built again on the street's frame as the picture came up,
+      // 180-207 ms at 4.6 m/s, jh-polish4 A4). prepare() does it without holding the loop and the picture comes up after)
+      S.tileWarmed = false;
       for (const P of S.people.values()) {
         const fig = P.fig; if (!fig) continue;
         if (!moved.has(fig)) moved.set(fig, { parent: fig.root.parent, pos: fig.root.position.clone(), rot: fig.root.rotation.y, h: fig.heading, vis: fig.root.visible });

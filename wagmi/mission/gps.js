@@ -236,7 +236,7 @@ export function createGPS(W) {
       ms.waypoint = p ? { x: p.x, z: p.z, name: t.name || '' } : null;
       gps.update(true);
     },
-    clear() { gps.to(null); gps.unblip('dest'); },
+    clear() { gps.to(null); gps.unblip('dest'); }, warm() { return walkGraph().ms; }, // (warm: the walking graph built ahead, under a story mission's card, not on its first drive's frame: jh-polish4 A4)
     // the objective and its route together (the rule: a new objective, a new route)
     objective(parts, t = null, { blip = true, secs } = {}) {
       W.ui?.objective(parts, secs);

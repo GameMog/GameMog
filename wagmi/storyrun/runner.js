@@ -1528,6 +1528,8 @@ export function createRunner(ctx) {
   // never let go for a warm-up)
   const WARM_HOLD = 0.4;
   async function prewarm(from) {
+    // (the GPS's walking graph too, once a session: built under the card, not on the first drive's frame, gps.js warm())
+    try { gps.warm?.(); } catch (e) { console.warn('[storyrun] prewarm gps', e); }
     const names = warmList(M?.def?.steps, from, { castName, heroName });
     if (!names.length) return 0;
     const me0 = me();
