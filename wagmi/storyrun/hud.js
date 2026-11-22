@@ -338,16 +338,18 @@ export function createHud(ui) {
       el.append(col, tx('div', 'sk', 'ANY KEY TO SKIP'));
       root.appendChild(el);
       requestAnimationFrame(() => el.classList.add('on'));
-      await sleep(900);
+      // (the skip is armed from the first frame: a press during the fade-in ends the roll too)
+      let done = false, raf = 0, res = null;
+      const end = () => { if (done) return; done = true; cancelAnimationFrame(raf); removeEventListener('keydown', key, true); el.removeEventListener('pointerdown', end); res?.(); };
+      const key = (e) => { if (e.repeat) return; e.preventDefault(); e.stopPropagation(); end(); };
+      addEventListener('keydown', key, true); el.addEventListener('pointerdown', end);
+      await Promise.race([sleep(900), new Promise((r) => { res = r; })]);
       // (rolled till its last section, GameMog Community, stands in the middle; held there 2.5 s)
       const H = col.offsetHeight, V = el.offsetHeight || innerHeight, lastH = col.lastChild?.offsetHeight || 0;
       const dist = Math.max(0, V / 2 + H - lastH / 2 - 56), dur = secs > 0 ? secs : Math.min(90, Math.max(12, dist / 46));
-      let done = false, raf = 0;
-      await new Promise((res) => {
+      if (!done) await new Promise((r) => {
+        res = r;
         const t0 = performance.now();
-        const end = () => { if (done) return; done = true; cancelAnimationFrame(raf); removeEventListener('keydown', key, true); el.removeEventListener('pointerdown', end); res(); };
-        const key = (e) => { if (e.repeat) return; e.preventDefault(); e.stopPropagation(); end(); };
-        addEventListener('keydown', key, true); el.addEventListener('pointerdown', end);
         const hold = secs > 0 ? 0 : 2500;
         const step = () => { const t = performance.now() - t0, k = Math.min(1, t / (dur * 1000)); col.style.transform = `translate(-50%, ${(-k * dist).toFixed(1)}px)`; if (t >= dur * 1000 + hold) end(); else raf = requestAnimationFrame(step); };
         raf = requestAnimationFrame(step);

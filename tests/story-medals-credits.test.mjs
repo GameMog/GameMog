@@ -242,3 +242,11 @@ test("the standard roll: a Made with label is a whole name, never a raw note's c
     assert.doesNotMatch(l, /porsche|gt3/i, l);
   }
 });
+
+test('the roll is skippable from its first frame: the key and the tap are armed before the fade-in', () => {
+  const h = src('wagmi/storyrun/hud.js'), r = h.slice(h.indexOf('async roll('), h.indexOf('    bar(label'));
+  const arm = r.indexOf("addEventListener('keydown', key, true)"), fade = r.indexOf('sleep(900)');
+  assert.ok(arm > 0 && fade > 0 && arm < fade);
+  assert.match(r, /el\.addEventListener\('pointerdown', end\)/);
+  assert.match(r, /removeEventListener\('keydown', key, true\)/);
+});
