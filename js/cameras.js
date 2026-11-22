@@ -46,6 +46,9 @@ if (SCENIC) for (const p of CAMERA_PRESETS) if (SCENIC[p.id]) Object.assign(p, {
 // The follow cameras' lens keeps LENS_PAD m off the buildings (the near plane, 0.35 m out, stays clear of a wall); on
 // foot, LENS_PAD_FOOT (Mog City: the lens a man's height off the pavement had a facade grazing the frame's edge)
 const LENS_PAD = 0.3, LENS_PAD_FOOT = 0.55;
+// (the damage look's sight lines to the crumpled nose keep this far off every box: a town's drawn front stands up to
+// about a metre out from its collision box, probeLook)
+const NOSE_PAD = 1.2;
 // (Mog City) a wall alongside the lens: probes SIDE_A off the view's way either side (wider on a wider lens), SIDE m
 // long, from the lens; a hit edges the view away from it, at most SIDE_MAX rad (keepInView)
 const SIDE_A = 70 * Math.PI / 180, SIDE = 2.2, SIDE_MAX = 0.35;
@@ -863,12 +866,17 @@ class CameraSystem {
     // (here the car's own solids count too: a plaza's raised edge or a fence (carOnly, the lens passes over them) the
     // nose went into hides it as well as a wall does)
     const sight = near.map((c) => (c.carOnly ? { ...c, carOnly: false } : c));
+    // (jh-polish2 A6: a town's drawn front stands up to about a metre out from its collision box, so a nose stopped
+    // against the box is inside the drawn wall: each sight line to it has to pass NOSE_PAD m clear of every box, else
+    // that side counts as hidden and the look goes high behind, over the roof (pickView), the way it shows whatever the
+    // wall's drawn depth)
+    const pad = Number.isFinite(this.nosePad) ? this.nosePad : NOSE_PAD;
     let seen = 0;
     for (const s of [-1, 0, 1]) {
       const nx = E.x + fs * nz + fc * hx * s, nzw = E.z + fc * nz - fs * hx * s;
       x = nx - Q.x; y = ny - Q.y; z = nzw - Q.z; L = Math.hypot(x, y, z);
       const run = Math.max(0, L - 0.3);
-      if (L < 1e-3 || rayClear(Q, x / L, y / L, z / L, run, sight, 0) >= run - 1e-3) seen++;
+      if (L < 1e-3 || rayClear(Q, x / L, y / L, z / L, run, sight, pad) >= run - 1e-3) seen++;
     }
     const sees = seen >= 2;
     return { clear, sees };

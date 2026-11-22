@@ -184,3 +184,27 @@ test('A6: the wiring: js/cameras.js probes the boom and the line to the nose, da
   assert.match(dmg, /cs\.probeLook\(car, yaw, pitch, LOOK\.PULL\)/);
   assert.match(dmg, /orbit, blocked, probe \}/);
 });
+
+// (jh-polish2 A6: a town's drawn front stands about a metre out from its collision box, so the nose stopped against the
+// box sat inside the drawn wall and a side "in sight" by the boxes still showed only the wall)
+test('A6 polish2: the sight lines to the nose keep NOSE_PAD (1.2 m) off every box, so a nose at a wall goes high', () => {
+  const cams = fs.readFileSync(ROOT + 'js/cameras.js', 'utf8');
+  assert.match(cams, /const NOSE_PAD = 1\.2;/);
+  assert.match(cams, /rayClear\(Q, x \/ L, y \/ L, z \/ L, run, sight, pad\)/);
+  // rayClear itself, read out of cameras.js: a wall (its box from x = 0.7 on) 0.7 m ahead of a nose at x = 0
+  const a = cams.indexOf('function rayClear('), b = cams.indexOf('\n}\n', a) + 2;
+  const rayClear = new Function('window', 'polyClear', 'let rayHit = null; const LENS_PAD = 0.3;\n' + cams.slice(a, b) + '\nreturn rayClear;')({ NYC: {} }, () => Infinity);
+  const wall = [{ minX: 0.7, maxX: 12, minZ: -20, maxZ: 20, maxY: 9 }];
+  // from a lens beside the car (out to the side and back), the line to the nose stopping 0.3 m short of it
+  const lens = { x: -3, y: 2.2, z: 3.6 }, nose = { x: 0, y: 0.5, z: 0 };
+  const dx = nose.x - lens.x, dy = nose.y - lens.y, dz = nose.z - lens.z, L = Math.hypot(dx, dy, dz), run = L - 0.3;
+  // the boxes alone: in sight (the old pad 0)
+  assert.ok(rayClear(lens, dx / L, dy / L, dz / L, run, wall, 0) >= run - 1e-3);
+  // 1.2 m off the box: hidden (the drawn wall is in the way)
+  assert.ok(rayClear(lens, dx / L, dy / L, dz / L, run, wall, 1.2) < run - 1e-3);
+  // a nose well clear of any wall (4 m back) still in sight with the pad
+  const n2 = { x: -4, y: 0.5, z: 0 }, ex = n2.x - lens.x, ey = n2.y - lens.y, ez = n2.z - lens.z, L2 = Math.hypot(ex, ey, ez);
+  assert.ok(rayClear(lens, ex / L2, ey / L2, ez / L2, L2 - 0.3, wall, 1.2) >= L2 - 0.3 - 1e-3);
+  // and with both sides hidden, pickView takes the high view from behind, over the roof
+  assert.ok(pickView(1, (yaw, pitch) => ({ clear: 1, sees: false })).high);
+});
