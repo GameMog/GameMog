@@ -150,6 +150,8 @@ body.touch-enabled #wg .sr-pass .box { padding: 10px 16px 12px; } body.touch-ena
 #wg .sr-roll .ln { font: 600 19px/1.4 'Barlow Condensed'; color: rgba(255,255,255,.88); margin: 0 0 8px; }
 #wg .sr-roll .end .ln { font: 800 30px/1 'Barlow Condensed'; letter-spacing: 3px; color: #fff; text-transform: uppercase; }
 #wg .sr-roll .sk { position: absolute; right: 24px; bottom: 20px; font: 700 13px/1 'Barlow Condensed'; letter-spacing: 3px; color: rgba(255,255,255,.45); }
+/* (the cast: two even columns, each credit on one line: rules.js creditRole keeps a role to a few words) */
+#wg .sr-roll .cast .pr { gap: 18px; margin: 0 0 4px; } #wg .sr-roll .cast .pr span { white-space: nowrap; overflow: hidden; }
 body.touch-enabled #wg .sr-roll .pr { grid-template-columns: 1fr; gap: 0; } body.touch-enabled #wg .sr-roll .pr span { text-align: center !important; }
 /* (a story world in a GameMog page's frame, 1146 x 645 or a 4:3 860 x 645, with a mouse: nothing laid over anything.
    Colter Land's playtest, 16 Nov: the fight's HITS over the meters and the clock, the key row and the line over the
@@ -324,7 +326,7 @@ export function createHud(ui) {
       if (!Array.isArray(sections) || !sections.length) return;
       const el = tx('div', 'sr-roll'), col = tx('div', 'c');
       for (const sc of sections) {
-        const d = tx('div', `sec${sc.end ? ' end' : ''}`);
+        const d = tx('div', `sec${sc.end ? ' end' : ''}${sc.cast ? ' cast' : ''}`);
         if (sc.title) d.appendChild(tx('div', 'tt', sc.title));
         if (sc.head) d.appendChild(tx('div', 'hd', sc.head));
         for (const l of sc.lines || []) {

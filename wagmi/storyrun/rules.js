@@ -154,6 +154,26 @@ export function medalRows(medals, r = {}, best = null) {
 }
 
 /* ----------------------------------------------------------------- credits -- */
+// A cast member's role as a credit, a few words: any ': <the world's title>' after it, any one-word 'hero:' before it
+// and the title as its first words taken off, then all after its first comma, then cut at a word (never mid-word) to 5 words and 34 characters at most,
+// a dangling 'of' or 'and' dropped. 'hero: founder-CEO of Greenlight Silicon, in his black leather jacket' ->
+// 'founder-CEO of Greenlight Silicon'
+const ROLE_WORDS = 5, ROLE_CHARS = 34;
+export function creditRole(r, title = '') {
+  let t = String(r ?? '').replace(/\s+/g, ' ').trim();
+  const esc = title ? String(title).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') : '';
+  if (esc) t = t.replace(new RegExp(`\\s*:\\s*${esc}\\s*$`, 'i'), '');
+  t = t.replace(/^[A-Za-z][\w-]*\s*:\s*/, '');
+  // ('hero: <the world's title>, founder-CEO of ...': the title as its first words is not a role)
+  if (esc) t = t.replace(new RegExp(`^${esc}\\s*,\\s*`, 'i'), '');
+  if (t.includes(',')) t = t.slice(0, t.indexOf(','));
+  let w = t.trim().split(' ').filter(Boolean).slice(0, ROLE_WORDS);
+  while (w.length > 1 && w.join(' ').length > ROLE_CHARS) w.pop();
+  while (w.length > 1 && /^(of|and|the|a|an|in|at|for|to|from|with)$/i.test(w[w.length - 1])) w.pop();
+  t = w.join(' ');
+  return t.length > ROLE_CHARS ? t.slice(0, ROLE_CHARS) : t;
+}
+
 // The story's end credits (a pack's `credits`: { lines: [its own lines: what it is, what it is made from] }), rolled
 // after STORY COMPLETE and the title (index.js, hud.roll). def: the runner pack (its title, its cast: { name: { role,
 // voiceOnly } }); o: { map: [{ what, who, licence }] (the engine's own credits for the city: credits.js), place }.
@@ -162,19 +182,20 @@ export function creditsRoll(def, { map = [], place = '' } = {}) {
   if (!def || !def.credits || typeof def.credits !== 'object') return [];
   const S = (x, n = 160) => String(x ?? '').slice(0, n);
   const out = [{ head: '', title: S(def.title, 48), lines: def.kicker ? [S(def.kicker, 24)] : [] }];
-  // (a role as a credit: a forged sheet's role reads 'keynote stage manager: <the world's title>' and the hero's
-  // 'hero: founder-CEO of ..., in his ...': the title and 'hero:' taken off, a long one cut at its first comma)
-  const esc = (t) => String(t).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const roleOf = (r) => {
-    let t = String(r || '').trim().replace(/^hero:\s*/i, '');
-    if (def.title) t = t.replace(new RegExp(`\\s*:\\s*${esc(def.title)}\\s*$`, 'i'), '');
-    if (t.length > 36 && t.indexOf(',') > 0) t = t.slice(0, t.indexOf(','));
-    return S(t, 60);
-  };
-  const cast = Object.entries(def.cast || {}).filter(([, c]) => c && !c.pet).map(([name, c]) => [S(name, 40), roleOf(c.role)]);
-  if (cast.length) out.push({ head: 'Starring', lines: cast.slice(0, 24) });
+  // (the cast as a credit: the pack's own credits.cast ([{ name, role }]) when it gives one, else each cast member's
+  // role made a credit, creditRole: a forged sheet's 'keynote stage manager: <the world's title>' and the hero's
+  // 'hero: founder-CEO of ..., in his ...' read 'keynote stage manager' and 'founder-CEO of Greenlight Silicon')
+  const given = Array.isArray(def.credits.cast) ? def.credits.cast.filter((c) => c && typeof c.name === 'string' && c.name.trim()) : null;
+  const cast = given && given.length
+    ? given.map((c) => [S(c.name.trim(), 40), creditRole(c.role)])
+    : Object.entries(def.cast || {}).filter(([, c]) => c && !c.pet).map(([name, c]) => [S(name, 40), creditRole(c.role, def.title)]);
+  if (cast.length) out.push({ head: 'Starring', cast: true, lines: cast.slice(0, 24) });
   const own = (Array.isArray(def.credits.lines) ? def.credits.lines : []).filter((l) => typeof l === 'string' && l.trim()).slice(0, 12).map((l) => S(l));
-  out.push({ head: 'Voices', lines: ['Every voice synthesised: invented voices, never a recording or an imitation of anyone (Kokoro-82M, Apache 2.0)'] });
+  // (the voices: the pack's own credits.voices lines, else its voice record's credit, else no model named at all: a
+  // world's voice.model is the fallback model, not always the one its clips were made with)
+  const vo = (Array.isArray(def.credits.voices) ? def.credits.voices : []).filter((l) => typeof l === 'string' && l.trim()).slice(0, 4).map((l) => S(l, 200));
+  if (!vo.length && typeof def.voice?.credit === 'string' && def.voice.credit.trim()) vo.push(S(def.voice.credit, 200));
+  out.push({ head: 'Voices', lines: vo.length ? vo : ['Voices synthesised'] });
   if (own.length) out.push({ head: 'Made with', lines: own });
   // (a pair is [the credited, what for]: the roll sets what for on the left, the credited on the right)
   const ml = (map || []).filter((l) => l && l.who).slice(0, 8).map((l) => [S(`${l.who}${l.licence ? ` · ${l.licence}` : ''}`, 200), S(l.what, 60)]);

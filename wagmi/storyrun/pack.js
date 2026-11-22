@@ -309,6 +309,15 @@ export function check(w) {
   // voices, the map's data and GameMog Community)
   if (w.credits != null && (typeof w.credits !== 'object' || Array.isArray(w.credits) || (w.credits.lines != null && (!Array.isArray(w.credits.lines) || w.credits.lines.length > 12
     || w.credits.lines.some((l) => typeof l !== 'string' || l.length > 160))))) bad('credits: { lines } (12 at most, 160 characters each)');
+  // (its own cast credits, [{ name, role }], and its own voices lines, rules.js creditsRoll)
+  if (w.credits && typeof w.credits === 'object' && w.credits.cast != null && (!Array.isArray(w.credits.cast) || w.credits.cast.length > 24
+    || w.credits.cast.some((c) => !c || typeof c !== 'object' || typeof c.name !== 'string' || c.name.length > 40 || (c.role != null && (typeof c.role !== 'string' || c.role.length > 60)))))
+    bad('credits.cast: [{ name, role }] (24 at most; a name 40 characters, a role 60)');
+  if (w.credits && typeof w.credits === 'object' && w.credits.voices != null && (!Array.isArray(w.credits.voices) || w.credits.voices.length > 4
+    || w.credits.voices.some((l) => typeof l !== 'string' || l.length > 200))) bad('credits.voices: [lines] (4 at most, 200 characters each)');
+  // (its calls: { ringOut: 'answer' } a ring that runs out is answered (runner.js ringOf), 'decline' as by default)
+  if (w.calls != null && (typeof w.calls !== 'object' || Array.isArray(w.calls) || (w.calls.ringOut != null && !['answer', 'decline'].includes(w.calls.ringOut))))
+    bad("calls: { ringOut: 'answer' | 'decline' }");
   // (a mission's medals, rules.js medalOf: { gold | silver | bronze: { secs, damage } })
   for (const m of w.missions || []) {
     const md = m && m.medals;
