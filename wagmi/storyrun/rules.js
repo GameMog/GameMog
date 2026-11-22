@@ -11,6 +11,11 @@
 //                                refills inside it
 //   speedRule(state, v, dt, o)   a passenger's speed rule: seconds over the limit, a warning, and the fail
 //   passCard(o)                  the MISSION PASSED card's data: what was gained, the meter's progress, what is next
+//   damageOf(o)                  a mission's DAMAGE (0..): what the car took (100 = one car's worth) and 3 a hit on foot
+//   medalOf(medals, r)           the medal a pass earns from its time and damage ('gold' | 'silver' | 'bronze' | null)
+//   medalRows(medals, r, best)   the MISSION PASSED card's medal: { medal, label, rows, hint }
+//   creditsRoll(def, o)          the story's end credits, as sections to roll: the cast, the voices, the world's own
+//                                lines, the map's data, the engine and GameMog Community
 //   avoids(list, x, z)           a point inside one of the GPS's held-off circles (a roadblock's street)
 //   tailStart(o)                 where a tail's followed car starts: ahead of his car, before the first bend (or far: drive there)
 //   tailRule(state, o, dt)       a tail each frame: a fair start, then too close / lost clocks and their warnings
@@ -108,6 +113,75 @@ export function passCard({ title = '', passLine = '', meters = [], before = {}, 
     else if (!next && m.goal) stands.push([String(m.label || m.id).toUpperCase(), meterText(m, b)]);
   }
   return { title, line: passLine || '', gains, progress: prog, stands, next: next ? { title: next.title || '', sub: next.stakes || next.objective || '' } : null };
+}
+
+/* ------------------------------------------------------------------ medals -- */
+// A mission's medals (the pack's mission.medals): { gold: { secs, damage }, silver: {...}, bronze: {...} }, each tier
+// a time to beat (secs, at most) and a damage to stay under (damage, at most; left out: any). Kept local, on this
+// device only (index.js save.medals): no server scoring.
+export const MEDALS = ['gold', 'silver', 'bronze'];
+export const MEDAL_NAME = { gold: 'GOLD', silver: 'SILVER', bronze: 'BRONZE' };
+const MEDAL_RANK = { gold: 3, silver: 2, bronze: 1 };
+export const medalRank = (m) => MEDAL_RANK[m] || 0;
+// (the damage: the car's knocks as damage.js counts them (taken, the health they cost, 1 = a car's worth, repairs
+// never undo it), as a percentage, and 3 a hit he takes on foot)
+export function damageOf({ car = 0, hits = 0 } = {}) {
+  return Math.max(0, Math.round((+car || 0) * 100 + (+hits || 0) * 3));
+}
+const tierOk = (t) => t && typeof t === 'object' && Number.isFinite(+t.secs) && +t.secs > 0;
+// r: { secs, damage, whole } (whole: played from its start; a checkpoint retry, a Continue or a skip earns none)
+export function medalOf(medals, r = {}) {
+  if (!medals || typeof medals !== 'object' || !r.whole) return null;
+  for (const m of MEDALS) {
+    const t = medals[m];
+    if (!tierOk(t)) continue;
+    if ((+r.secs || 0) <= +t.secs && (t.damage == null || (+r.damage || 0) <= +t.damage)) return m;
+  }
+  return null;
+}
+const mmss = (s) => { s = Math.max(0, Math.round(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+// The card's medal: { medal, label ('GOLD', or 'NO MEDAL'), rows ([label, text]: DAMAGE), hint (the next tier's
+// targets: 'GOLD: under 4:30, damage 10 or less'), best (the best this device has had, when better than this one) }
+export function medalRows(medals, r = {}, best = null) {
+  if (!medals || typeof medals !== 'object' || !MEDALS.some((m) => tierOk(medals[m]))) return null;
+  const medal = medalOf(medals, r);
+  const up = MEDALS.filter((m) => tierOk(medals[m]) && medalRank(m) > medalRank(medal)).pop() || null;
+  const t = up ? medals[up] : null;
+  const hint = !r.whole ? 'Medals: play the mission through from its start'
+    : t ? `${MEDAL_NAME[up]}: under ${mmss(t.secs)}${t.damage != null ? `, damage ${Math.round(t.damage)} or less` : ''}` : '';
+  return { medal, label: medal ? MEDAL_NAME[medal] : 'NO MEDAL', rows: [['DAMAGE', String(Math.round(+r.damage || 0))]], hint,
+    best: best && medalRank(best) > medalRank(medal) ? MEDAL_NAME[best] : null };
+}
+
+/* ----------------------------------------------------------------- credits -- */
+// The story's end credits (a pack's `credits`: { lines: [its own lines: what it is, what it is made from] }), rolled
+// after STORY COMPLETE and the title (index.js, hud.roll). def: the runner pack (its title, its cast: { name: { role,
+// voiceOnly } }); o: { map: [{ what, who, licence }] (the engine's own credits for the city: credits.js), place }.
+// -> [{ head, lines: [[a, b]] | [text] }], the title first and GameMog Community last
+export function creditsRoll(def, { map = [], place = '' } = {}) {
+  if (!def || !def.credits || typeof def.credits !== 'object') return [];
+  const S = (x, n = 160) => String(x ?? '').slice(0, n);
+  const out = [{ head: '', title: S(def.title, 48), lines: def.kicker ? [S(def.kicker, 24)] : [] }];
+  // (a role as a credit: a forged sheet's role reads 'keynote stage manager: <the world's title>' and the hero's
+  // 'hero: founder-CEO of ..., in his ...': the title and 'hero:' taken off, a long one cut at its first comma)
+  const esc = (t) => String(t).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const roleOf = (r) => {
+    let t = String(r || '').trim().replace(/^hero:\s*/i, '');
+    if (def.title) t = t.replace(new RegExp(`\\s*:\\s*${esc(def.title)}\\s*$`, 'i'), '');
+    if (t.length > 36 && t.indexOf(',') > 0) t = t.slice(0, t.indexOf(','));
+    return S(t, 60);
+  };
+  const cast = Object.entries(def.cast || {}).filter(([, c]) => c && !c.pet).map(([name, c]) => [S(name, 40), roleOf(c.role)]);
+  if (cast.length) out.push({ head: 'Starring', lines: cast.slice(0, 24) });
+  const own = (Array.isArray(def.credits.lines) ? def.credits.lines : []).filter((l) => typeof l === 'string' && l.trim()).slice(0, 12).map((l) => S(l));
+  out.push({ head: 'Voices', lines: ['Every voice synthesised: invented voices, never a recording or an imitation of anyone (Kokoro-82M, Apache 2.0)'] });
+  if (own.length) out.push({ head: 'Made with', lines: own });
+  // (a pair is [the credited, what for]: the roll sets what for on the left, the credited on the right)
+  const ml = (map || []).filter((l) => l && l.who).slice(0, 8).map((l) => [S(`${l.who}${l.licence ? ` · ${l.licence}` : ''}`, 200), S(l.what, 60)]);
+  if (ml.length) out.push({ head: place ? `The map: ${S(place, 60)}` : 'The map', lines: ml });
+  out.push({ head: 'Played on', lines: ["Mog City's story engine"] });
+  out.push({ head: '', lines: ['GameMog Community'], end: true });
+  return out;
 }
 
 /* -------------------------------------------------------- the GPS held off -- */

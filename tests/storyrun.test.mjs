@@ -261,7 +261,8 @@ test("the story's end reads MISSION PASSED, the act's stats, STORY COMPLETE, the
   assert.match(idx, /if \(e\.next && !holdNext\)/);
   const end = idx.slice(idx.indexOf("head: 'STORY COMPLETE'"), idx.indexOf("ui.objective(['Free roam. '"));
   assert.ok(end.indexOf('text: def.title') < end.indexOf('const fin = order[order.length - 1]?.act?.end?.next'));
-  assert.match(idx, /stats: \[\['TIME', fmt\(r\.secs\)\], \.\.\.card\.stands\]/);
+  // (and a mission's medal rows, rules.js medalRows, between the time and the stands: tests/story-medals-credits)
+  assert.match(idx, /stats: \[\['TIME', fmt\(r\.secs\)\], \.\.\.\(mc \? mc\.rows : \[\]\), \.\.\.card\.stands\]/);
   const run = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/runner.js'), 'utf8');
   const pu = run.slice(run.indexOf('STEPS.pursuit = '), run.indexOf('STEPS.tail = '));
   assert.match(pu, /const cr = d\.clear \?\? 32/); assert.match(pu, /gps\.plan\(/);

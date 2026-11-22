@@ -13,6 +13,7 @@
 //                                  tail's way to go: who is followed, to where, the metres he has left, the bar filling
 //   hud.meters(list)               (a meter with a goal: { label, text: '$430,000 / $1,000,000', k: 0.43 } is the big
 //                                  money pill, its progress under it); hud.delta(label, '+$85,000', good) flashes beside it
+//   hud.roll(sections, { secs })   the end credits (rules.js creditsRoll), rolled over the dark; any key, a click or a tap skips
 //   hud.passed(card, secs)         the story's MISSION PASSED card (rules.js passCard: the title, what was gained, the
 //                                  meter's progress filling from before to after, the pass line, NEXT); a sting with it
 // All text goes in as textContent.
@@ -127,6 +128,29 @@ body.touch-enabled #wg .sr-meters > div.goal { min-width: 0; padding: 5px 10px 6
 body.touch-enabled #wg .sr-meters > div.goal .v { font-size: 20px; }
 body.touch-enabled #wg .sr-meters .l { font-size: 11px; letter-spacing: 2px; }
 body.touch-enabled #wg .sr-pass .box { padding: 10px 16px 12px; } body.touch-enabled #wg .sr-pass .g b { font-size: 30px; }
+/* (the pass's medal, rules.js medalRows: a disc in its metal, its name, the next tier's targets under it) */
+#wg .sr-pass .md { display: flex; align-items: center; gap: 14px; margin: 2px 0 10px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,.14); text-align: left; }
+#wg .sr-pass .md i { flex: none; width: 44px; height: 44px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff8 0, #fff0 42%), var(--md, #3a3f47); box-shadow: inset 0 0 0 3px rgba(0,0,0,.22), 0 2px 10px rgba(0,0,0,.5);
+  transform: scale(.4); opacity: 0; transition: transform .6s cubic-bezier(.2,1.6,.4,1) .7s, opacity .3s .7s; }
+#wg .sr-pass.on .md i { transform: none; opacity: 1; }
+#wg .sr-pass .md.gold { --md: #F5C542; } #wg .sr-pass .md.silver { --md: #C9D1DA; } #wg .sr-pass .md.bronze { --md: #C7834A; } #wg .sr-pass .md.none i { background: rgba(255,255,255,.1); box-shadow: inset 0 0 0 2px rgba(255,255,255,.25); }
+#wg .sr-pass .md .k { font: 700 13px/1 'Barlow Condensed'; letter-spacing: 4px; color: rgba(255,255,255,.6); }
+#wg .sr-pass .md .n { font: 800 30px/1 'Barlow Condensed'; letter-spacing: 1px; color: var(--md, #fff); margin-top: 3px; }
+#wg .sr-pass .md.none .n { color: rgba(255,255,255,.7); font-size: 24px; }
+#wg .sr-pass .md .s { font: 600 15px/1.25 'Barlow Condensed'; color: rgba(255,255,255,.7); margin-top: 3px; }
+/* (the end credits, hud.roll: over the dark, the names rising) */
+#wg .sr-roll { position: absolute; inset: 0; z-index: 22; overflow: hidden; background: #050608; opacity: 0; transition: opacity .8s; pointer-events: none; text-align: center; }
+#wg .sr-roll.on { opacity: 1; pointer-events: auto; }
+#wg .sr-roll .c { position: absolute; left: 50%; top: 100%; width: min(640px, calc(100vw - 32px)); transform: translate(-50%, 0); will-change: transform; }
+#wg .sr-roll .sec { margin: 0 0 56px; }
+#wg .sr-roll .hd { font: 700 15px/1 'Barlow Condensed'; letter-spacing: 6px; text-transform: uppercase; color: #FFC93C; margin-bottom: 14px; }
+#wg .sr-roll .tt { font: italic 800 clamp(44px, 7vw, 80px)/.95 'Barlow Condensed'; text-transform: uppercase; margin-bottom: 8px; }
+#wg .sr-roll .pr { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; font: 700 21px/1.3 'Barlow Condensed'; margin: 0 0 6px; }
+#wg .sr-roll .pr span:first-child { text-align: right; color: rgba(255,255,255,.6); font-weight: 600; } #wg .sr-roll .pr span:last-child { text-align: left; }
+#wg .sr-roll .ln { font: 600 19px/1.4 'Barlow Condensed'; color: rgba(255,255,255,.88); margin: 0 0 8px; }
+#wg .sr-roll .end .ln { font: 800 30px/1 'Barlow Condensed'; letter-spacing: 3px; color: #fff; text-transform: uppercase; }
+#wg .sr-roll .sk { position: absolute; right: 24px; bottom: 20px; font: 700 13px/1 'Barlow Condensed'; letter-spacing: 3px; color: rgba(255,255,255,.45); }
+body.touch-enabled #wg .sr-roll .pr { grid-template-columns: 1fr; gap: 0; } body.touch-enabled #wg .sr-roll .pr span { text-align: center !important; }
 /* (a story world in a GameMog page's frame, 1146 x 645 or a 4:3 860 x 645, with a mouse: nothing laid over anything.
    Colter Land's playtest, 16 Nov: the fight's HITS over the meters and the clock, the key row and the line over the
    radar, the objective twice. The radar's column is 308 px from the left, 24 px kept clear of it: 332 px) */
@@ -272,6 +296,13 @@ export function createHud(ui) {
       // (head: the big word, MISSION PASSED unless the card says otherwise: an act's end card names the act or the story)
       passEl.append(tx('div', 'h', c.head || 'MISSION PASSED'), tx('div', 't', c.title || ''));
       const box = tx('div', 'box');
+      // (its medal, rules.js medalRows: GOLD, SILVER, BRONZE or NO MEDAL, and what the next one asks)
+      if (c.medal) {
+        const md = tx('div', `md ${c.medal.medal || 'none'}`), w = tx('div');
+        w.append(tx('div', 'k', c.medal.best ? `MEDAL · BEST ${c.medal.best}` : 'MEDAL'), tx('div', 'n', c.medal.label));
+        if (c.medal.hint) w.appendChild(tx('div', 's', c.medal.hint));
+        md.append(tx('i'), w); box.appendChild(md);
+      }
       for (const g of c.gains || []) { const r = tx('div', 'g'); r.append(tx('span', '', g.label)); const b = tx('b', g.good ? '' : 'bad', g.text); r.appendChild(b); box.appendChild(r); }
       for (const [a, b] of c.stats || []) { const r = tx('div', 'st'); r.append(tx('span', '', a), tx('span', '', b)); box.appendChild(r); }
       let fill = null;
@@ -286,6 +317,40 @@ export function createHud(ui) {
       passEl.classList.add('on');
       requestAnimationFrame(() => requestAnimationFrame(() => fill?.()));
       await sleep(secs * 1000); passEl.classList.remove('on'); await sleep(500);
+    },
+    // the end credits (rules.js creditsRoll's sections), rolled up over the dark at about 46 px a second; any key, a
+    // click or a tap skips them. secs: a fixed length (a test drive's quick flow), else as long as they take
+    async roll(sections, { secs = 0 } = {}) {
+      if (!Array.isArray(sections) || !sections.length) return;
+      const el = tx('div', 'sr-roll'), col = tx('div', 'c');
+      for (const sc of sections) {
+        const d = tx('div', `sec${sc.end ? ' end' : ''}`);
+        if (sc.title) d.appendChild(tx('div', 'tt', sc.title));
+        if (sc.head) d.appendChild(tx('div', 'hd', sc.head));
+        for (const l of sc.lines || []) {
+          if (Array.isArray(l)) { const r = tx('div', 'pr'); r.append(tx('span', '', l[1] || ''), tx('span', '', l[0] || '')); d.appendChild(r); }
+          else d.appendChild(tx('div', 'ln', l));
+        }
+        col.appendChild(d);
+      }
+      el.append(col, tx('div', 'sk', 'ANY KEY TO SKIP'));
+      root.appendChild(el);
+      requestAnimationFrame(() => el.classList.add('on'));
+      await sleep(900);
+      // (rolled till its last section, GameMog Community, stands in the middle; held there 2.5 s)
+      const H = col.offsetHeight, V = el.offsetHeight || innerHeight, lastH = col.lastChild?.offsetHeight || 0;
+      const dist = Math.max(0, V / 2 + H - lastH / 2 - 56), dur = secs > 0 ? secs : Math.min(90, Math.max(12, dist / 46));
+      let done = false, raf = 0;
+      await new Promise((res) => {
+        const t0 = performance.now();
+        const end = () => { if (done) return; done = true; cancelAnimationFrame(raf); removeEventListener('keydown', key, true); el.removeEventListener('pointerdown', end); res(); };
+        const key = (e) => { if (e.repeat) return; e.preventDefault(); e.stopPropagation(); end(); };
+        addEventListener('keydown', key, true); el.addEventListener('pointerdown', end);
+        const hold = secs > 0 ? 0 : 2500;
+        const step = () => { const t = performance.now() - t0, k = Math.min(1, t / (dur * 1000)); col.style.transform = `translate(-50%, ${(-k * dist).toFixed(1)}px)`; if (t >= dur * 1000 + hold) end(); else raf = requestAnimationFrame(step); };
+        raf = requestAnimationFrame(step);
+      });
+      el.classList.remove('on'); await sleep(800); el.remove();
     },
     // ({ danger: true }: a bar where full is bad (a NOISE bar, how close a chaser is): green low, red high)
     bar(label, k = 1, note = '', { danger = false } = {}) {

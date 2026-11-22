@@ -305,6 +305,17 @@ export function check(w) {
       if (o.stage != null && (!Array.isArray(o.stage) || o.stage.length > 8 || o.stage.some((x) => !x || typeof x.who !== 'string'))) bad('opening.stage');
     }
   }
+  // (the end credits, rolled after STORY COMPLETE and the title: its own lines, rules.js creditsRoll adds the cast, the
+  // voices, the map's data and GameMog Community)
+  if (w.credits != null && (typeof w.credits !== 'object' || Array.isArray(w.credits) || (w.credits.lines != null && (!Array.isArray(w.credits.lines) || w.credits.lines.length > 12
+    || w.credits.lines.some((l) => typeof l !== 'string' || l.length > 160))))) bad('credits: { lines } (12 at most, 160 characters each)');
+  // (a mission's medals, rules.js medalOf: { gold | silver | bronze: { secs, damage } })
+  for (const m of w.missions || []) {
+    const md = m && m.medals;
+    if (md == null) continue;
+    if (typeof md !== 'object' || Array.isArray(md) || Object.keys(md).some((k) => !['gold', 'silver', 'bronze'].includes(k))
+      || Object.values(md).some((t) => !t || typeof t !== 'object' || !(t.secs > 0 && t.secs <= 7200) || (t.damage != null && !(t.damage >= 0 && t.damage <= 1000)))) bad(`${m.id}: medals`);
+  }
   // (the coda, after the credits: an opening's shape, index.js plays it with runner.opening)
   if (w.coda != null && (typeof w.coda !== 'object' || Array.isArray(w.coda) || !Array.isArray(w.coda.shots) || !w.coda.shots.length || w.coda.shots.length > 24
     || w.coda.shots.some((s) => !s || typeof s !== 'object' || (s.dur != null && !(s.dur > 0 && s.dur <= 15))))) bad('coda');

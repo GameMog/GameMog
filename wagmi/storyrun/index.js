@@ -29,7 +29,8 @@ import { createRunner } from './runner.js';
 import { tell, result as tellResult, log as hostLog } from './host.js';
 import { showTitle, plainTitle, isOwn, ownTitle } from './title.js';
 import { asksDressing, asksApocalypse, HOURS } from './pack.js';
-import { passCard } from './rules.js';
+import { passCard, medalOf, medalRows, medalRank, creditsRoll } from './rules.js';
+import { CREDITS } from '../credits.js';
 import { createDirector } from '../mission/cine.js'; import { importRetry } from '../net.js';
 import { keyShotOf, hoodShot, rideOffShot } from './keyshots.js';
 
@@ -79,8 +80,8 @@ export async function install(W) {
   // the save, per world (never Mog City's own)
   const KEY = `mc.pack.${def.id}.v1`;
   // (`resume`: the mission he was in and its last checkpoint, for Continue: { id, cp } (runner.js snapshot))
-  const save = (() => { try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (s && Array.isArray(s.done)) return { done: Object.fromEntries(s.done.map((id) => [id, true])), meters: s.meters || {}, flags: s.flags || {}, resume: s.resume && typeof s.resume.id === 'string' ? s.resume : null }; } catch {} return { done: {}, meters: {}, flags: {}, resume: null }; })();
-  const writeSave = () => { try { localStorage.setItem(KEY, JSON.stringify({ v: 1, done: Object.keys(save.done), meters: save.meters, flags: save.flags, resume: save.resume, at: Date.now() })); } catch {} };
+  const save = (() => { try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (s && Array.isArray(s.done)) return { done: Object.fromEntries(s.done.map((id) => [id, true])), meters: s.meters || {}, flags: s.flags || {}, resume: s.resume && typeof s.resume.id === 'string' ? s.resume : null, medals: s.medals && typeof s.medals === 'object' && !Array.isArray(s.medals) ? s.medals : {} }; } catch {} return { done: {}, meters: {}, flags: {}, resume: null, medals: {} }; })();
+  const writeSave = () => { try { localStorage.setItem(KEY, JSON.stringify({ v: 1, done: Object.keys(save.done), meters: save.meters, flags: save.flags, resume: save.resume, medals: save.medals, at: Date.now() })); } catch {} };
   const flags = {
     autopilot: Q.has('autopilot'), autoAnswer: Q.has('autoanswer') || Q.has('autopilot'), autoChoose: Q.has('autochoose') ? Math.max(0, +Q.get('autochoose') || 0) : (Q.has('autopilot') ? 0 : null),
     autoCard: Q.has('autocard'), autoContinue: Q.has('autocontinue'), flowFast: Q.has('flowfast'), autoRetry: Q.has('autopilot'), failStop: Q.has('failstop'), stealthFair: Q.has('stealthfair'),
@@ -237,7 +238,12 @@ export async function install(W) {
       const statOf = (x) => (typeof x === 'string' ? STAT[x]?.() : x && x.label ? [x.label, x.stat ? `${r.stats?.[x.stat] ?? 0}${x.of ? '/' + x.of : ''}` : String(x.value ?? '')] : null);
       const stats = Array.isArray(P0.stats) ? P0.stats.map(statOf).filter(Boolean)
         : [['Time', fmt(r.secs)], ...((def.hud?.meters || []).filter((x) => x.kind !== 'hidden').map((x) => [x.label || x.id, String(Math.round(r.state.meters[x.id] ?? 0))]))];
-      tell('mission-end', { id: m.id, how: 'pass', secs: Math.round(r.secs) });
+      // (its medal, from its time and damage against the pack's targets (mission.medals, rules.js medalOf); the best this
+      // device has had kept with the save, local only: no server scoring)
+      const best0 = save.medals[m.id] || null, medal = medalOf(m.medals, r);
+      const mc = medalRows(m.medals, r, best0);
+      if (medal && medalRank(medal) > medalRank(best0)) { save.medals[m.id] = medal; writeSave(); }
+      tell('mission-end', { id: m.id, how: 'pass', secs: Math.round(r.secs), ...(m.medals ? { damage: r.damage ?? 0, medal: medal || 'none', whole: !!r.whole } : {}) });
       tellResult(world, m.id, r.secs);
       // the card: Mog City's own (its stats, as the shipped game's: a world that lists pass.stats, Mog City's own story),
       // else the story's MISSION PASSED (hud.passed): what was gained ('+$85,000'), the meter's way to its goal ('$430,000
@@ -248,7 +254,8 @@ export async function install(W) {
         const nx = order[k + 1]?.def || null;
         const card = passCard({ title: m.title, passLine: m.passLine || '', meters: def.hud?.meters || [], before, after: r.state.meters, next: nx ? { title: nx.title, stakes: nx.stakes } : null });
         W.storyrun.lastCard = card;
-        await hud.passed({ ...card, stats: [['TIME', fmt(r.secs)], ...card.stands] }, flags.autoCard ? 2.2 : 7);
+        if (mc) card.medal = mc;
+        await hud.passed({ ...card, stats: [['TIME', fmt(r.secs)], ...(mc ? mc.rows : []), ...card.stands] }, flags.autoCard ? 2.2 : 7);
       }
       // (free roam from here to the next mission: the GPS routed to its start at once, its marker over the spot (guide.js,
       // runner.js nextSource), before its afterword and its between(); the RC playtest, P9)
@@ -288,6 +295,16 @@ export async function install(W) {
     try {
       try { W.app.selectTime('midday'); } catch {}
       await hud.card({ kicker: def.kicker || '', text: def.title, sub: def.tagline || 'Thanks for playing.' }, flags.autoCard ? 1 : 4);
+      // (the end credits, a world with `credits` (rules.js creditsRoll): its cast, the voices, its own lines, the
+      // map's data, GameMog Community, rolled over the dark; any key, a click or a tap skips them)
+      if (def.credits) {
+        try {
+          const mapSec = CREDITS.find((c) => /^The (map|city)/.test(c.heading));
+          const roll = creditsRoll(def, { map: mapSec?.lines || [], place: window.NYC?.PKG?.name ? String(window.NYC.PKG.name).split(',')[0] : '' });
+          tell('credits', { id: def.id, sections: roll.length });
+          await hud.roll(roll, { secs: flags.autoCard ? 3 : 0 });
+        } catch (e) { console.warn('[storyrun] credits', e); }
+      }
       const fin = order[order.length - 1]?.act?.end?.next;
       if (fin) await hud.card({ kicker: fin.kicker || 'NEXT', text: fin.text, sub: fin.sub || '' }, flags.autoCard ? 0.8 : (fin.secs || 3));
     } finally { await ui.fade(0, 0.6); }

@@ -28,7 +28,7 @@ import { missions as registry } from '../mission/pause.js';
 import { place as putAt, outBesideCar } from '../intro.js';
 import { rideWanted, yours } from './rides.js';
 import { test, value, flagName } from './cond.js';
-import { createTimers, meterText, deltaText, progress, seen as inSight, band as bandRule, speedRule, MPH, tailStart, tailRule, retryChoices, chaseOpening, wayThere, shortestRoute, CLEAR_WAY } from './rules.js';
+import { createTimers, meterText, deltaText, progress, damageOf, seen as inSight, band as bandRule, speedRule, MPH, tailStart, tailRule, retryChoices, chaseOpening, wayThere, shortestRoute, CLEAR_WAY } from './rules.js';
 import { createSets } from './sets.js';
 import { warmList, feedList } from './prewarm.js';
 import { createVcall } from './vcall.js';
@@ -3494,6 +3494,8 @@ export function createRunner(ctx) {
     const find = (id) => steps.findIndex((s) => s.id === id);
     M = {
       def, i: cp ? cp.i : 0, tok: tokOf(), sides: new Set(), npcs: new Set(), stubbed: new Set(), log: [], t0: now(), timer: createTimer(),
+      // (the car's knocks going in, for the pass's DAMAGE and its medal: crash/damage.js taken)
+      dmg0: +W.crash?.damage?.taken || 0, whole: !cp,
       partMods: new Map(), partStats: null, fresh: true, keep: !!cp,
       state: cp ? JSON.parse(JSON.stringify(cp.state)) : { meters: { ...ctx.save.meters }, flags: { ...ctx.save.flags }, forks: {} },
       cp: cp || null, auto: !!ctx.flags.autopilot, stats: cp?.stats ? { ...cp.stats } : { hits: 0, ko: 0 }, live: false, pin: null, inScene: false, allies: new Map(), blocks: [], parked: new Map(),
@@ -3635,7 +3637,10 @@ export function createRunner(ctx) {
     // (the card's counts from Mog City's own phases it played: their Suits down, takedowns, rigs, hits)
     const ps = M.partStats;
     if (ps) { M.stats.ko += ps.ko || 0; M.stats.hits += ps.hits || 0; for (const k of ['quiet', 'smashed', 'lookouts']) if (ps[k] != null) M.stats[k] = ps[k]; }
-    return { secs: (now() - M.t0) / 1000, stats: M.stats };
+    // (its DAMAGE: what the car took on this attempt and the hits on foot; whole: played from its start, so its time
+    // is the mission's (a checkpoint's retry, a Continue or a skip starts the clock late: no medal, rules.js medalOf))
+    const damage = damageOf({ car: Math.max(0, (+W.crash?.damage?.taken || 0) - M.dmg0), hits: M.stats.hits });
+    return { secs: (now() - M.t0) / 1000, stats: M.stats, damage, whole: M.whole };
   }
 
   // a mission, with Mog City's fail screen: Retry (from its checkpoint), Quit, and Skip after three fails
@@ -3659,7 +3664,7 @@ export function createRunner(ctx) {
         try {
           const r = await attempt(def, cp, act);
           tidy();
-          return { how: 'pass', secs: r.secs, stats: r.stats, state: M.state, log: M.log };
+          return { how: 'pass', secs: r.secs, stats: r.stats, damage: r.damage, whole: r.whole, state: M.state, log: M.log };
         } catch (e) {
           // (the attempt is over: its token killed, as a pass kills it. A step that throws its Fail (a pursuit's 'They
           // caught you') left it alive, and that attempt's timer loop ran on for good, ticking and pinning whatever

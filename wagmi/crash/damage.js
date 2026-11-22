@@ -17,7 +17,7 @@
 //     battered by the body; smoking, wrecked by the health), shown once it has taken a knock
 // Repaired as new when the car is put somewhere far in one frame (over 30 m: a mission's start, a checkpoint, a teleport;
 // the reset onto the road beside it keeps its dents) or by repair().
-// API (WAGMI.crash.damage): { health 0..1, zones { front, rear, left, right } 0..1, dents, hit(sp, x, z), repair(),
+// API (WAGMI.crash.damage): { health 0..1, zones { front, rear, left, right } 0..1, dents, taken (all its knocks cost, never reset), hit(sp, x, z), repair(),
 //   update(dt), state() }
 import * as THREE from 'three/webgpu';
 import { createVapor } from '../pursuit/vapor.js';
@@ -38,7 +38,7 @@ export function createDamage(W, crash) {
   const app = W.app, cm = app.controllerManager, car = W.car, scene = app.scene;
   // (wear: how bent the body is, 0..1, from its dents: the readout's condition is the worse of it and the health,
   // damage-cost.js readoutOf)
-  const D = { health: 1, zones: { front: 0, rear: 0, left: 0, right: 0 }, dents: 0, hits: 0, limping: false, smoking: false, wear: 0 };
+  const D = { health: 1, zones: { front: 0, rear: 0, left: 0, right: 0 }, dents: 0, hits: 0, limping: false, smoking: false, wear: 0, taken: 0 };
   let wearSides = {};
   const bent = new Map(); // mesh -> { orig geometry, pos copy } : the meshes dented, and what they were built as
   let cool = 0;
@@ -212,6 +212,9 @@ export function createDamage(W, crash) {
     // (a step running: never past smoking)
     D.health = afterHit(D.health, cost, busy());
     D.hits++;
+    // (what the car has taken in all, the health its knocks cost before any floor: a story mission's DAMAGE, its
+    // medals (storyrun/rules.js damageOf); a repair never undoes it)
+    D.taken += cost;
     // (a dent a hit, but the same contact grinding on (the same side, the same spot, a moment later) only the first)
     const again = cool > 0 && lastDent.zone === zone && Math.hypot(lastDent.lx - lx, lastDent.lz - lz) < 0.6;
     // (a big one on the nose: the camera's look at it, damage-look.js, once the car has stopped)
