@@ -9,11 +9,12 @@ export default function Terms() {
       <SiteHeader on="" />
       <main className="wrap prose" style={{ paddingTop: 24 }}>
         <h1>Terms of Service</h1>
-        <p className="dim" style={{ marginTop: 6 }}>Last updated 22 September 2026.</p>
+        <p className="dim" style={{ marginTop: 6 }}>Last updated 23 November 2026.</p>
 
         <h2>What this is</h2>
         <p>
-          GameMog is a preview. From text you write and images you upload, GameMog writes
+          GameMog (gamemog.com) is operated by Ockams Inc. (&quot;we&quot;, &quot;us&quot;). These terms are between
+          you and Ockams Inc. GameMog is a preview. From text you write and images you upload, GameMog writes
           games as code, which run in a sandbox with no access to this site, your account or the
           network; or it fills in our own racing engine. It is not a finished, operated service: there is no
           account system, no payment, no moderation queue and no uptime commitment. Treat anything

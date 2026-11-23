@@ -1295,7 +1295,7 @@ const pack = {
   // The id, the slug's old address and every file name keep jensen-heist)
   storykit: 2, id: 'jensen-heist', title: 'Jensen Return', kicker: 'SAN JOSE, CA', tagline: 'San Jose, CA. One chip. One jacket.',
   // (the end credits after ST-8 (polish batch 2, C3): the approved parody line and the assets' credits; Mog City rolls
-  // the cast, the voices, San Jose's map data and GameMog Community round them)
+  // the cast, the voices, San Jose's map data and Ockams Inc. round them)
   credits: { lines: [
     "A parody of a public figure's public keynote persona. Not endorsed. Built from CC0 MakeHuman parts.",
     'Hair cards: "Hair Cards_FBX" by POLYTRICITY (Sketchfab), CC BY 4.0, modified.',

@@ -314,3 +314,9 @@ A build (Create or Mog) is one long request to `/api/generate`: the model writes
 | Owner's words | What the code does | Check |
 |---|---|---|
 | "make this a community project not a company behind GameMog. scrub any mention of Ockams Inc anywhere on website, metadata or github and CHANGE To GameMog Community. Also delete \"Powered by WHY.\" anywhere and everywhere" | The footer reads "© 2026 GameMog Community"; the "Powered by WHY." line is gone. No company name appears on the site, its metadata, the README, the licence ("The GameMog authors") or the GitHub org/repo profile. | `npm run check` "no \"Ockams\" and no \"Powered by WHY.\" anywhere on the site" |
+
+## Ockams Inc. and Powered by WHY. (23 Nov 2026, replaces "Community project")
+
+| Owner's words | What the code does | Check |
+|---|---|---|
+| "add back everywhere … the Powered by WHY. (footer backlink) and remove everywhere GameMog Community and replace with Ockams Inc. make sure to update terms and privacy" | Footer: "Powered by WHY." linking why.com, and "© 2026 Ockams Inc. All rights reserved."; Terms and Privacy name Ockams Inc. as GameMog's operator; the story credits roll ends on "Ockams Inc." | `npm run check` (Ockams Inc. and Powered by WHY.) |

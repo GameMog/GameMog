@@ -764,3 +764,6 @@ table.bd td:nth-child(2){font-weight:600}
   .sks-drive{grid-template-columns:minmax(0,1fr)}
   .sks-art{grid-template-columns:minmax(0,1fr) 110px;gap:10px}
 }
+
+.fbrand .fpowered{margin-top:6px;font-size:13px;line-height:18px}
+.fbrand .fpowered a,.fbrand .fpowered a:hover{display:inline;font-size:inherit;line-height:inherit;color:var(--ink);font-weight:700;text-decoration:none}

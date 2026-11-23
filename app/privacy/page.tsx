@@ -9,7 +9,12 @@ export default function Privacy() {
       <SiteHeader on="" />
       <main className="wrap prose" style={{ paddingTop: 24 }}>
         <h1>Privacy Policy</h1>
-        <p className="dim" style={{ marginTop: 6 }}>Last updated 27 October 2026.</p>
+        <p className="dim" style={{ marginTop: 6 }}>Last updated 23 November 2026.</p>
+
+        <p>
+          GameMog (gamemog.com) is operated by Ockams Inc. (&quot;we&quot;, &quot;us&quot;). This policy explains what
+          Ockams Inc. stores and counts when you use GameMog.
+        </p>
 
         <h2>What we store</h2>
         <p>

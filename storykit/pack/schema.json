@@ -89,7 +89,7 @@
      "description": "the voices' credit lines (what made them, and under what licence); left out, no model is named"
     }
    },
-   "description": "the end credits, rolled after STORY COMPLETE and the title (any key skips them): Mog City adds the cast and their roles, the voices, the map's data and GameMog Community around these lines"
+   "description": "the end credits, rolled after STORY COMPLETE and the title (any key skips them): Mog City adds the cast and their roles, the voices, the map's data and Ockams Inc. around these lines"
   },
   "calls": {
    "type": "object",

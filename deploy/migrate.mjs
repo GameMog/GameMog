@@ -2246,7 +2246,7 @@ export const MIGRATIONS = [
     // 21 Nov evening: Jensen Heist's third polish batch (POLISH-LIST, "keep going"), one migration for the whole batch:
     // the world gains its end credits (credits: the approved parody line and the assets' credits; Mog City rolls the
     // cast as credited (credits.cast), the voices as the voice record credits them (credits.voices), San Jose's map data and
-    // GameMog Community round them), a ring that runs out answered (calls.ringOut) and each mission its medals (gold, silver
+    // Ockams Inc. round them), a ring that runs out answered (calls.ringOut) and each mission its medals (gold, silver
     // and bronze by time and damage, on the MISSION PASSED card, kept on the player's device), and any re-forged body
     // the batch names (JH_POLISH3_BODIES: the one gamemog.com's draft holds now and the record's) is swapped in the kept
     // draft only where it still holds that one, the old one kept as a was-<sha256>.glb row (still served, so the old

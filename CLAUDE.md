@@ -56,6 +56,6 @@ This repo is PUBLIC (GameMog/GameMog, MIT) and a push to `main` deploys producti
   - No music by default (`docs/PRODUCT.md`).
   - No FIFA, World Cup, UEFA or other competition marks; no real players, federation crests or sponsors.
   - Look-alikes get original names and no logos.
-- **GameMog is a community project** (owner, 18 Nov 2026): no company name (never "Ockams Inc") and no "Powered by WHY." anywhere on the site, its metadata or GitHub. The footer reads "© 2026 GameMog Community". `npm run check` enforces it.
+- **Ockams Inc. and Powered by WHY.** (owner, 23 Nov 2026, reversing 18 Nov): the footer reads "© 2026 Ockams Inc. All rights reserved." with "Powered by WHY." (why.com); Terms and Privacy name Ockams Inc. as operator; never "GameMog Community". `npm run check` enforces it.
 - **If you cannot measure it, write NOT ASSESSED.** Never present an estimate as a measurement.
 - Owner decisions win. Confirm how you read a new rule in writing before building it, and record it in `docs/RULES.md`: the owner's words, what the code does, and the check that proves it.
