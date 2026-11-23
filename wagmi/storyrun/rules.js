@@ -16,7 +16,7 @@
 //   medalRows(medals, r, best)   the MISSION PASSED card's medal: { medal, label, rows, hint }
 //   damageText(r)                its DAMAGE row: '3 PTS (1 HIT)', '6 PTS (CAR -6%)' (r.parts: { car, hits })
 //   creditsRoll(def, o)          the story's end credits, the standard roll of every story world, as sections: the
-//                                title, the cast, the voices, what it is made with, the map's data, the engine, GameMog Community
+//                                title, the cast, the voices, what it is made with, the map's data, the engine, Ockams Inc.
 //   avoids(list, x, z)           a point inside one of the GPS's held-off circles (a roadblock's street)
 //   tailStart(o)                 where a tail's followed car starts: ahead of his car, before the first bend (or far: drive there)
 //   tailRule(state, o, dt)       a tail each frame: a fair start, then too close / lost clocks and their warnings
@@ -215,10 +215,10 @@ export function creditRole(r, title = '', name = '') {
 // place: a town's name, New York, San Francisco), voiced (the world's lines are heard: its clips, or Mog City's own
 // recordings; left out: its voice plan has clips), assets: [{ what, who, licence, group }] (what the world carries
 // that asks to be credited: credits.js lines its car, its type and its people add) }.
-// -> [{ head, lines: [[a, b]] | [text] }], the title first and GameMog Community last:
+// -> [{ head, lines: [[a, b]] | [text] }], the title first and Ockams Inc. last:
 //   the title and kicker · Starring · Voices (its own credit, else 'Voices synthesised' when it is voiced, else none:
 //   never a model it did not use) · Made with (its own lines, then the assets they do not already name) · The map ·
-//   Played on Mog City's story engine · GameMog Community
+//   Played on Mog City's story engine · Ockams Inc.
 export function creditsRoll(def, { map = [], place = '', voiced, assets = [] } = {}) {
   if (!def || typeof def !== 'object') return [];
   const C = def.credits && typeof def.credits === 'object' && !Array.isArray(def.credits) ? def.credits : {};
@@ -264,7 +264,7 @@ export function creditsRoll(def, { map = [], place = '', voiced, assets = [] } =
   const ml = lns.filter((l) => !l.engine).slice(0, 8).map(pr), el = lns.filter((l) => l.engine).slice(0, 2).map(pr);
   if (ml.length) out.push({ head: place ? `The map: ${S(place, 60)}` : 'The map', lines: ml });
   out.push({ head: 'Played on', lines: ["Mog City's story engine", ...el] });
-  out.push({ head: '', lines: ['GameMog Community'], end: true });
+  out.push({ head: '', lines: ['Ockams Inc.'], end: true });
   return out;
 }
 

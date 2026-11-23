@@ -344,7 +344,7 @@ export function createHud(ui) {
       const key = (e) => { if (e.repeat) return; e.preventDefault(); e.stopPropagation(); end(); };
       addEventListener('keydown', key, true); el.addEventListener('pointerdown', end);
       await Promise.race([sleep(900), new Promise((r) => { res = r; })]);
-      // (rolled till its last section, GameMog Community, stands in the middle; held there 2.5 s)
+      // (rolled till its last section, Ockams Inc., stands in the middle; held there 2.5 s)
       const H = col.offsetHeight, V = el.offsetHeight || innerHeight, lastH = col.lastChild?.offsetHeight || 0;
       const dist = Math.max(0, V / 2 + H - lastH / 2 - 56), dur = secs > 0 ? secs : Math.min(90, Math.max(12, dist / 46));
       if (!done) await new Promise((r) => {

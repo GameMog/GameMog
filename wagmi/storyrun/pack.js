@@ -306,7 +306,7 @@ export function check(w) {
     }
   }
   // (the end credits, rolled after STORY COMPLETE and the title: its own lines, rules.js creditsRoll adds the cast, the
-  // voices, the map's data and GameMog Community)
+  // voices, the map's data and Ockams Inc.)
   if (w.credits != null && (typeof w.credits !== 'object' || Array.isArray(w.credits) || (w.credits.lines != null && (!Array.isArray(w.credits.lines) || w.credits.lines.length > 12
     || w.credits.lines.some((l) => typeof l !== 'string' || l.length > 160))))) bad('credits: { lines } (12 at most, 160 characters each)');
   // (its own cast credits, [{ name, role }], and its own voices lines, rules.js creditsRoll)

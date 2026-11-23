@@ -50,7 +50,7 @@ test('damage: the car as a percentage of a car, 3 a hit on foot', () => {
   assert.equal(damageOf({ car: -1 }), 0);
 });
 
-test('the credits roll: the title, the cast, the voices, its own lines, the map, GameMog Community last', () => {
+test('the credits roll: the title, the cast, the voices, its own lines, the map, Ockams Inc. last', () => {
   const def = { title: 'A Story', kicker: 'SAN JOSE, CA', cast: { Ann: { role: 'hero: the driver, in her red coat and boots' }, Rex: { pet: {} }, Bo: { role: 'the boss: A Story' } }, credits: { lines: ['Built from CC0 parts.'] } };
   const r = creditsRoll(def, { map: [{ what: 'Map data', who: '© OpenStreetMap contributors', licence: 'ODbL 1.0' }], place: 'San Jose', voiced: true });
   assert.equal(r[0].title, 'A Story');
@@ -58,7 +58,7 @@ test('the credits roll: the title, the cast, the voices, its own lines, the map,
   assert.ok(r.some((s) => s.head === 'Voices'));
   assert.deepEqual(r.find((s) => s.head === 'Made with').lines, ['Built from CC0 parts.']);
   assert.deepEqual(r.find((s) => s.head === 'The map: San Jose').lines, [['© OpenStreetMap contributors · ODbL 1.0', 'Map data']]);
-  assert.deepEqual(r.at(-1).lines, ['GameMog Community']);
+  assert.deepEqual(r.at(-1).lines, ['Ockams Inc.']);
   // (no world, no roll)
   assert.deepEqual(creditsRoll(null), []);
 });
@@ -160,7 +160,7 @@ const MOVES = [
   { what: 'Motion capture', roll: 'moves', who: 'Bandai Namco Research Motion Dataset, © 2022 Bandai Namco Research Inc.', licence: 'CC BY-NC 4.0' },
 ];
 
-test('the standard roll: a world with no credits of its own still has its title, cast, voices, map, engine and GameMog Community', () => {
+test('the standard roll: a world with no credits of its own still has its title, cast, voices, map, engine and Ockams Inc.', () => {
   const def = {
     title: 'Pickup Time', kicker: 'NEW YORK',
     cast: { 'John Marin': { role: 'owns Slice Marin pizza, used to plan heists', glb: '/x.glb' }, 'Agnes Teodoro': { role: 'the Nanny: white hair, very polite, not theirs' },
@@ -175,7 +175,7 @@ test('the standard roll: a world with no credits of its own still has its title,
   assert.deepEqual(r[3].lines, [['CMU Graphics Lab Motion Capture Database', 'Motion capture'], ['Bandai Namco Research Motion Dataset, © 2022 Bandai Namco Research Inc. · CC BY-NC 4.0', 'Motion capture']]);
   assert.deepEqual(r[4].lines.map((l) => l[1]), ['Map data', 'City data']);
   assert.deepEqual(r[5].lines, ["Mog City's story engine", ['Mr.doob · MIT', 'Slop New York']]);
-  assert.deepEqual(r.at(-1), { head: '', lines: ['GameMog Community'], end: true });
+  assert.deepEqual(r.at(-1), { head: '', lines: ['Ockams Inc.'], end: true });
   // (never a model the world did not use, never a raw note's colon)
   const txt = JSON.stringify(r);
   assert.doesNotMatch(txt, /kokoro|Kokoro|qwen|Qwen/);

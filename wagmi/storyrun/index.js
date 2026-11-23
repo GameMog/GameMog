@@ -336,7 +336,7 @@ export async function install(W) {
       try { W.app.selectTime('midday'); } catch {}
       await hud.card({ kicker: def.kicker || '', text: def.title, sub: def.tagline || 'Thanks for playing.' }, flags.autoCard ? 1 : 4);
       // (the end credits (endRoll, rules.js creditsRoll): the title, its cast, the voices, what it is made with, the
-      // map's data, the engine, GameMog Community, rolled over the dark; any key, a click or a tap skips them)
+      // map's data, the engine, Ockams Inc., rolled over the dark; any key, a click or a tap skips them)
       // (every story world has them, the standard roll (the owner, 21 Nov); Mog City's own story keeps its own end)
       if (!isOwn(world)) {
         try {
