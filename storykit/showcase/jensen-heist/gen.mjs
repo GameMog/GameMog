@@ -1,4 +1,4 @@
-// Jensen Heist: writes storykit/packs/jensen-heist.json (Story Kit v2, a showcase in the San Jose town) from the
+// Jensen Return (was Jensen Heist): writes storykit/packs/jensen-heist.json (Story Kit v2, a showcase in the San Jose town) from the
 // script (the story bible, draft 2, 18 Nov 2026), every conversation scene a video call (vcall) and every car-phone
 // call on the car's screen (call video). Run from the GameMog checkout: node storykit/showcase/jensen-heist/gen.mjs
 // The town's pin (base.hometown) is read from town.json.gz (the CityPackage the pack is gated with); the people's
@@ -1291,7 +1291,9 @@ const MEDALS = { 'PH-1': [270, 360, 540], 'CB-2': [210, 285, 420], 'BT-3': [300,
 for (const m of [M1, M2, M3, M4, M5, M6, M7, M8]) { const [g, s, b] = MEDALS[m.id]; m.medals = { gold: { secs: g, damage: 10 }, silver: { secs: s, damage: 30 }, bronze: { secs: b } }; }
 
 const pack = {
-  storykit: 2, id: 'jensen-heist', title: 'Jensen Heist', kicker: 'SAN JOSE, CA', tagline: 'San Jose, CA. One chip. One jacket.',
+  // (its title "Jensen Return" since 23 Nov, the owner; was "Jensen Heist": deploy/migrate.mjs 2026-11-23-jensen-return.
+  // The id, the slug's old address and every file name keep jensen-heist)
+  storykit: 2, id: 'jensen-heist', title: 'Jensen Return', kicker: 'SAN JOSE, CA', tagline: 'San Jose, CA. One chip. One jacket.',
   // (the end credits after ST-8 (polish batch 2, C3): the approved parody line and the assets' credits; Mog City rolls
   // the cast, the voices, San Jose's map data and GameMog Community round them)
   credits: { lines: [

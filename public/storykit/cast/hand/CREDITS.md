@@ -56,9 +56,9 @@ cut with a side part from the long strand cards, brows and lashes, an olive jack
 forge overcoat's sleeves, the knit, dark jeans, leather boots, gold hoops, irises, teeth, hands). Her moves come from
 the Story Kit's clip pack (`cast/cast-clips.glb`), clips from the CMU Graphics Lab Motion Capture Database.
 
-## Jensen Heist (`jh-<id>.glb`)
+## Jensen Return, was Jensen Heist (`jh-<id>.glb`)
 
-Built on the hand-built cast's track for Jensen Heist (`scripts/storykit-showcase-jensen.ts` `BODIES`, copied here by
+Built on the hand-built cast's track for Jensen Return (`scripts/storykit-showcase-jensen.ts` `BODIES`, copied here by
 `--bodies`): `jh-jensen.glb`, `jh-board.glb`, `jh-marge.glb`, `jh-nico.glb`, `jh-lola.glb`, `jh-wesley.glb`, `jh-dex.glb`,
 `jh-intern-a.glb`, `jh-intern-b.glb`, `jh-director-a.glb` and `jh-director-b.glb`. Their moves come from the Story Kit's
 clip pack (`cast/cast-clips.glb`, above), but for three clips of Jensen's own in `jh-jensen.glb` (his `walk`, `talk` and

@@ -24,8 +24,8 @@ const sha = (b: string | Uint8Array) => createHash('sha256').update(b).digest('h
 
 export async function runJensenTitleChecks(ok: Ok) {
   console.log('\nJensen Heist retitled SAN JOSE, CA (deploy/migrate.mjs ' + ID + ')');
-  const { migrate, MIGRATIONS, JH_TITLE, JH_TITLE_WAS, JH_TITLE_FROM, JH_LATER, jhTitledWorld } = await import('../deploy/migrate.mjs') as {
-    migrate: (p: string) => Promise<void> | void; MIGRATIONS: Migration[]; JH_TITLE: W; JH_TITLE_WAS: W; JH_TITLE_FROM: string; JH_LATER: string[]; jhTitledWorld: (t: string, w: W) => string };
+  const { migrate, MIGRATIONS, JH_TITLE, JH_TITLES, JH_TITLE_WAS, JH_TITLE_FROM, JH_LATER, jhTitledWorld } = await import('../deploy/migrate.mjs') as {
+    migrate: (p: string) => Promise<void> | void; MIGRATIONS: Migration[]; JH_TITLE: W; JH_TITLES: string[]; JH_TITLE_WAS: W; JH_TITLE_FROM: string; JH_LATER: string[]; jhTitledWorld: (t: string, w: W) => string };
   const iPub = MIGRATIONS.findIndex((m) => m.id === PUB_ID), iT = MIGRATIONS.findIndex((m) => m.id === ID);
   ok('the retitle is a migration of its own, async, after the publish', iPub >= 0 && iT > iPub && !!MIGRATIONS[iT].async && !!MIGRATIONS[iPub].async, `${iPub} ${iT}`);
   if (iPub < 0 || iT < 0) return;
@@ -33,9 +33,10 @@ export async function runJensenTitleChecks(ok: Ok) {
   const R = JSON.parse(readFileSync('deploy/migrations/jensen-heist-story.json', 'utf8'));
   const worldText = readFileSync('deploy/migrations/jensen-heist/world.json', 'utf8'), W = JSON.parse(worldText);
   const art = (n: string) => readFileSync(`deploy/migrations/jensen-heist-${n}.jpg`);
-  ok('the record is the owner\'s title: "Jensen Heist", SAN JOSE, CA under it, the tagline "San Jose, CA. One chip. One jacket."',
-    R.pack.title === 'Jensen Heist' && R.meta.title === 'Jensen Heist' && R.pack.kicker === 'SAN JOSE, CA' && W.kicker === 'SAN JOSE, CA' && W.title === 'Jensen Heist'
-      && R.meta.tagline === 'San Jose, CA. One chip. One jacket.' && R.pack.tagline === R.meta.tagline && R.slug === 'jensen-heist' && JH_TITLE.title === R.meta.title,
+  // (its title "Jensen Heist", or a later one: "Jensen Return" since 23 Nov, 2026-11-23-jensen-return, scripts/jensen-return-check.ts)
+  ok('the record is the owner\'s title: "Jensen Heist" (or a later one, JH_TITLES), SAN JOSE, CA under it, the tagline "San Jose, CA. One chip. One jacket."',
+    R.pack.title === R.meta.title && JH_TITLES.includes(R.meta.title) && R.pack.kicker === 'SAN JOSE, CA' && W.kicker === 'SAN JOSE, CA' && W.title === R.meta.title
+      && R.meta.tagline === 'San Jose, CA. One chip. One jacket.' && R.pack.tagline === R.meta.tagline && R.slug === 'jensen-heist' && JH_TITLE.title === 'Jensen Heist',
     `${R.pack.title} / ${R.pack.kicker} / ${R.meta.tagline}`);
   ok('... no "Ten hours to showtime" left in the record or its world; the Showtime act stays',
     !/ten hours to showtime/i.test(JSON.stringify(R)) && !/ten hours to showtime/i.test(worldText) && /"Showtime"/.test(worldText));
@@ -63,7 +64,7 @@ export async function runJensenTitleChecks(ok: Ok) {
     const same = (a: unknown, b: Buffer) => a != null && Buffer.from(a as Uint8Array).equals(b);
     { const note = await run(T, db), g = row();
       ok('after it, on a fresh disk only the art is swapped (the titled cover and key art), the title already the record\'s, still hidden',
-        /new cover, art_wide/.test(note) && !/plays/.test(note) && g.title === 'Jensen Heist' && g.hidden === 1 && same(g.cover, art('cover-2')) && same(g.art_wide, art('wide-2'))
+        /new cover, art_wide/.test(note) && !/plays/.test(note) && g.title === R.meta.title && g.hidden === 1 && same(g.cover, art('cover-2')) && same(g.art_wide, art('wide-2'))
           && same(g.art_icon, art('icon')) && same(g.art_avatar, art('sky')), note);
       const again = await run(T, db);
       ok('... run again it is already there', /^already there/.test(again), again); }
@@ -91,7 +92,7 @@ export async function runJensenTitleChecks(ok: Ok) {
     } else { const note = await run(T, db), g = row(), m = JSON.parse(g.meta), d = store.db.prepare('SELECT * FROM drafts WHERE id = ?').get(draftId) as any;
       const was = store.db.prepare("SELECT hash FROM files WHERE draft_id = ? AND name = ?").get(draftId, `was-${JH_TITLE_FROM}.json`) as any;
       ok('on gamemog.com\'s state it retitles the game in place: same id and slug, title, tagline, meta and module the record\'s, the world the record\'s',
-        g.id === g0.id && g.slug === 'jensen-heist' && g.title === 'Jensen Heist' && g.tagline === R.meta.tagline && m.title === 'Jensen Heist' && m.tagline === R.meta.tagline
+        g.id === g0.id && g.slug === 'jensen-heist' && g.title === R.meta.title && g.tagline === R.meta.tagline && m.title === R.meta.title && m.tagline === R.meta.tagline
           && m.storykit.world === R.world.hash && m.storykit.pack === draftId && g.code === `GameMog.world({ storykit: ${JSON.stringify(R.pack)} });\n` && note.includes(`plays ${R.world.hash.slice(0, 12)} (was ${JH_TITLE_FROM.slice(0, 12)}, kept)`), note);
       ok('... the new world sealed into the same kept store draft (its pack the record\'s), the old one kept as a was- row, both served',
         d.state === 'kept' && d.game_id === g.id && d.world === R.world.hash && d.pack === JSON.stringify(R.pack) && was?.hash === JH_TITLE_FROM
@@ -113,7 +114,7 @@ export async function runJensenTitleChecks(ok: Ok) {
       db.prepare("UPDATE games SET cover = ? WHERE slug = 'jensen-heist'").run(Buffer.from([0xff, 0xd8, 0xff, 0x00]));
       const note = await run(T, db), h = row();
       ok('a cover changed since by hand is left alone (the world, words and key art still brought up)',
-        later ? /^left alone: .*a later one than the retitle/.test(note) : /left alone: its cover/.test(note) && h.title === 'Jensen Heist' && same(h.art_wide, art('wide-2')) && !same(h.cover, art('cover-2')), note); }
+        later ? /^left alone: .*a later one than the retitle/.test(note) : /left alone: its cover/.test(note) && h.title === R.meta.title && same(h.art_wide, art('wide-2')) && !same(h.cover, art('cover-2')), note); }
     db.close(); store.db.close();
 
     // the whole boot on a fresh disk with the Story Kit on: both recorded, the game the retitled one
@@ -121,9 +122,10 @@ export async function runJensenTitleChecks(ok: Ok) {
     writeFileSync(p2, gunzipSync(readFileSync('deploy/seed.db.gz')));
     console.log = () => {}; console.error = () => {};
     try { await migrate(p2); } finally { console.log = log; console.error = err; }
-    const d2 = new DatabaseSync(p2), notes = d2.prepare('SELECT id, note FROM migrations WHERE id IN (?, ?)').all(PUB_ID, ID) as any[], g2 = d2.prepare("SELECT title, hidden, cover FROM games WHERE slug = 'jensen-heist'").get() as any;
+    const d2 = new DatabaseSync(p2), notes = d2.prepare('SELECT id, note FROM migrations WHERE id IN (?, ?)').all(PUB_ID, ID) as any[], g2 = d2.prepare("SELECT title, hidden, cover FROM games WHERE json_extract(meta, '$.storykit.packId') = 'jensen-heist'").get() as any;
+    // (its titled cover, or Jensen Return's, which 2026-11-23-jensen-return swaps in after it)
     ok('a fresh boot with the Story Kit on records both and ends with the retitled game, its titled cover, hidden',
-      notes.length === 2 && g2?.title === 'Jensen Heist' && g2.hidden === 1 && same(g2.cover, art('cover-2')), notes.map((n) => `${n.id}: ${n.note}`).join(' | '));
+      notes.length === 2 && g2?.title === R.meta.title && g2.hidden === 1 && same(g2.cover, art(R.meta.title === JH_TITLE.title ? 'cover-2' : 'cover-3')), notes.map((n) => `${n.id}: ${n.note}`).join(' | '));
     d2.close();
   } finally {
     console.log = log; console.error = err;

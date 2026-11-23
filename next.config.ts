@@ -43,6 +43,8 @@ const config: NextConfig = {
       { source: '/:section(g|mog)/mariomog-canyon-gp/:rest*', destination: '/:section/mog-kart-canyon-gp/:rest*', permanent: true },
       // Typson: Honky Tonk Havoc became Country Box (the owner, 5 Oct; deploy/migrate.mjs)
       { source: '/:section(g|mog)/typson-honky-tonk-havoc/:rest*', destination: '/:section/country-box/:rest*', permanent: true },
+      // Jensen Heist became Jensen Return (the owner, 23 Nov; deploy/migrate.mjs 2026-11-23-jensen-return): a 301
+      { source: '/:section(g|mog)/jensen-heist/:rest*', destination: '/:section/jensen-return/:rest*', statusCode: 301 },
     ];
   },
   // The Story Kit's static files (public/storykit: the forge, the voices, the work page; a world plays on Mog City,

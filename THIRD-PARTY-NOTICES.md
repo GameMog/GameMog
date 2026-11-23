@@ -105,16 +105,16 @@ The forge's hair strand cards (`hair-strand-cards`, the file `strands.png`) are 
 licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Changed: ten of its eleven strips' mask, root, tone
 and depth maps resampled into one 512 x 2048 strip; its other maps and its mesh are not used.
 
-### Jensen Heist: the cast's hair cards and the Tensore (CC BY 4.0, 19 Nov 2026)
+### Jensen Return (was Jensen Heist): the cast's hair cards and the Tensore (CC BY 4.0, 19 Nov 2026)
 
-The hair cards of Jensen Heist's hand-built cast (`public/storykit/cast/hand/jh-*.glb`, the strand atlas embedded in
+The hair cards of Jensen Return's hand-built cast (`public/storykit/cast/hand/jh-*.glb`, the strand atlas embedded in
 each body that has cards) are derived from
 ["Hair Cards_FBX"](https://sketchfab.com/3d-models/hair-cards-fbx-ad1ac6f162ff43a3ae175982bf770c3e) by POLYTRICITY
 (@PolytricityLtd), licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Changed: taken down to 2048 px,
 strands gathered into groups, the signature text cleared, the clump strips redrawn as fine strands inside each strip's
 outline, greyed; the groom is GameMog's own.
 
-Jensen Heist's ride, the Tensore, is drawn by Mog City (its `wedge` model, in Mog City's repository, not this one) from
+Jensen Return's ride, the Tensore, is drawn by Mog City (its `wedge` model, in Mog City's repository, not this one) from
 a [Sketchfab model](https://sketchfab.com/models/cf52245eb68f48daa909c7ad2a8deaa3) by ALIEEEN, licensed
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Changed: repainted lime, every badge and maker's lettering
 removed, renamed. A look-alike with no connection to any car maker; credited here because this repository's world

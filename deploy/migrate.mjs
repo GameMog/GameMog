@@ -1944,7 +1944,7 @@ export const MIGRATIONS = [
       const rec = file('jensen-heist-story.json'), worldBytes = file('jensen-heist/world.json');
       if (!rec || !worldBytes) throw new Error('deploy/migrations/jensen-heist-story.json or jensen-heist/world.json is not in this build');
       const R = JSON.parse(rec.toString('utf8'));
-      if (R.v !== 1 || R.slug !== 'jensen-heist' || R.pack?.id !== 'jensen-heist' || R.meta?.storykit?.showcase !== true || R.pack.title !== R.meta.title || R.meta.title !== JH_TITLE.title || R.pack.kicker !== JH_TITLE.kicker || R.meta.tagline !== JH_TITLE.tagline) throw new Error('jensen-heist-story.json is not the retitled Jensen Heist');
+      if (R.v !== 1 || R.slug !== 'jensen-heist' || R.pack?.id !== 'jensen-heist' || R.meta?.storykit?.showcase !== true || R.pack.title !== R.meta.title || !JH_TITLES.includes(R.meta.title) || R.pack.kicker !== JH_TITLE.kicker || R.meta.tagline !== JH_TITLE.tagline) throw new Error('jensen-heist-story.json is not the retitled Jensen Heist');
       const sha = (b) => createHash('sha256').update(b).digest('hex');
       if (sha(worldBytes) !== R.world?.hash || worldBytes.length !== R.world.bytes) throw new Error('jensen-heist/world.json is not the record\'s world');
       const text = worldBytes.toString('utf8'), W = JSON.parse(text);
@@ -2052,7 +2052,7 @@ export const MIGRATIONS = [
       const rec = file('jensen-heist-story.json'), worldBytes = file('jensen-heist/world.json');
       if (!rec || !worldBytes) throw new Error('deploy/migrations/jensen-heist-story.json or jensen-heist/world.json is not in this build');
       const R = JSON.parse(rec.toString('utf8'));
-      if (R.v !== 1 || R.slug !== 'jensen-heist' || R.pack?.id !== 'jensen-heist' || R.meta?.storykit?.showcase !== true || R.meta.title !== JH_TITLE.title || R.pack.kicker !== JH_TITLE.kicker || R.meta.tagline !== JH_TITLE.tagline) throw new Error('jensen-heist-story.json is not the titled Jensen Heist');
+      if (R.v !== 1 || R.slug !== 'jensen-heist' || R.pack?.id !== 'jensen-heist' || R.meta?.storykit?.showcase !== true || !JH_TITLES.includes(R.meta.title) || R.pack.kicker !== JH_TITLE.kicker || R.meta.tagline !== JH_TITLE.tagline) throw new Error('jensen-heist-story.json is not the titled Jensen Heist');
       const sha = (b) => createHash('sha256').update(b).digest('hex');
       if (sha(worldBytes) !== R.world?.hash || worldBytes.length !== R.world.bytes) throw new Error('jensen-heist/world.json is not the record\'s world');
       const text = worldBytes.toString('utf8'), W = JSON.parse(text);
@@ -2157,7 +2157,7 @@ export const MIGRATIONS = [
       const rec = file('jensen-heist-story.json'), worldBytes = file('jensen-heist/world.json');
       if (!rec || !worldBytes) throw new Error('deploy/migrations/jensen-heist-story.json or jensen-heist/world.json is not in this build');
       const R = JSON.parse(rec.toString('utf8'));
-      if (R.v !== 1 || R.slug !== 'jensen-heist' || R.pack?.id !== 'jensen-heist' || R.meta?.storykit?.showcase !== true || R.meta.title !== JH_TITLE.title || R.pack.kicker !== JH_TITLE.kicker || R.meta.tagline !== JH_TITLE.tagline) throw new Error('jensen-heist-story.json is not the titled Jensen Heist');
+      if (R.v !== 1 || R.slug !== 'jensen-heist' || R.pack?.id !== 'jensen-heist' || R.meta?.storykit?.showcase !== true || !JH_TITLES.includes(R.meta.title) || R.pack.kicker !== JH_TITLE.kicker || R.meta.tagline !== JH_TITLE.tagline) throw new Error('jensen-heist-story.json is not the titled Jensen Heist');
       const sha = (b) => createHash('sha256').update(b).digest('hex');
       if (sha(worldBytes) !== R.world?.hash || worldBytes.length !== R.world.bytes) throw new Error('jensen-heist/world.json is not the record\'s world');
       const text = worldBytes.toString('utf8'), W = JSON.parse(text);
@@ -2263,7 +2263,7 @@ export const MIGRATIONS = [
       const rec = file('jensen-heist-story.json'), worldBytes = file('jensen-heist/world.json');
       if (!rec || !worldBytes) throw new Error('deploy/migrations/jensen-heist-story.json or jensen-heist/world.json is not in this build');
       const R = JSON.parse(rec.toString('utf8'));
-      if (R.v !== 1 || R.slug !== 'jensen-heist' || R.pack?.id !== 'jensen-heist' || R.meta?.storykit?.showcase !== true || R.meta.title !== JH_TITLE.title || R.pack.kicker !== JH_TITLE.kicker || R.meta.tagline !== JH_TITLE.tagline) throw new Error('jensen-heist-story.json is not the titled Jensen Heist');
+      if (R.v !== 1 || R.slug !== 'jensen-heist' || R.pack?.id !== 'jensen-heist' || R.meta?.storykit?.showcase !== true || !JH_TITLES.includes(R.meta.title) || R.pack.kicker !== JH_TITLE.kicker || R.meta.tagline !== JH_TITLE.tagline) throw new Error('jensen-heist-story.json is not the titled Jensen Heist');
       const sha = (b) => createHash('sha256').update(b).digest('hex');
       if (sha(worldBytes) !== R.world?.hash || worldBytes.length !== R.world.bytes) throw new Error('jensen-heist/world.json is not the record\'s world');
       const text = worldBytes.toString('utf8'), W = JSON.parse(text);
@@ -2367,7 +2367,7 @@ export const MIGRATIONS = [
       const rec = file('jensen-heist-story.json'), worldBytes = file('jensen-heist/world.json');
       if (!rec || !worldBytes) throw new Error('deploy/migrations/jensen-heist-story.json or jensen-heist/world.json is not in this build');
       const R = JSON.parse(rec.toString('utf8'));
-      if (R.v !== 1 || R.slug !== 'jensen-heist' || R.pack?.id !== 'jensen-heist' || R.meta?.storykit?.showcase !== true || R.meta.title !== JH_TITLE.title || R.pack.kicker !== JH_TITLE.kicker || R.meta.tagline !== JH_TITLE.tagline) throw new Error('jensen-heist-story.json is not the titled Jensen Heist');
+      if (R.v !== 1 || R.slug !== 'jensen-heist' || R.pack?.id !== 'jensen-heist' || R.meta?.storykit?.showcase !== true || !JH_TITLES.includes(R.meta.title) || R.pack.kicker !== JH_TITLE.kicker || R.meta.tagline !== JH_TITLE.tagline) throw new Error('jensen-heist-story.json is not the titled Jensen Heist');
       const sha = (b) => createHash('sha256').update(b).digest('hex');
       if (sha(worldBytes) !== R.world?.hash || worldBytes.length !== R.world.bytes) throw new Error('jensen-heist/world.json is not the record\'s world');
       const text = worldBytes.toString('utf8'), W = JSON.parse(text);
@@ -2428,6 +2428,116 @@ export const MIGRATIONS = [
       return `/g/${g.slug} (hidden as it was): plays ${R.world.hash.slice(0, 12)} (was ${JH_DAY1_FROM.slice(0, 12)}, kept) in store draft ${d.id}`;
     },
   },
+  {
+    // 23 Nov, the owner: "rename game everywhere 'Jensen Return'". The title "Jensen Return" (was "Jensen Heist"); its
+    // kicker SAN JOSE, CA and tagline stay, and so do every spoken line (and so every clip), every body, the game's id,
+    // plays, scores, Mogs and medals. Its address moves to /g/jensen-return (was /g/jensen-heist, which next.config.ts
+    // sends there for good, 301, as the Zombie Beach and Country Box renames do; the record's slug stays the address
+    // 2026-11-18 first published it at). The record's world differs from day1's (JH_RETURN_FROM, what gamemog.com plays)
+    // only in its title (jhTitledWorld with JH_TITLE puts the old one back, byte for byte). As day1, the new world is
+    // sealed into the game's kept store draft in place (the old one kept as a was-<sha256>.json row, still served), the
+    // draft's pack becomes the record's, and the game's title, meta and module name them. The cover, the key art and the
+    // icon (the same pictures, the same lockup, now JENSEN RETURN) are deploy/migrations/jensen-heist-{cover-3,wide-3,
+    // icon-2}.jpg, each swapped only where the row still has what the retitle (cover-2, wide-2) and 2026-11-18 (the icon)
+    // wrote, byte for byte; the headshot and hidden stay. Only the game whose meta names the jensen-heist showcase pack,
+    // and only while it plays JH_RETURN_FROM or the record's world (on a fresh disk 2026-11-18 already seals it, so the
+    // address and the art are left); it waits (unrecorded) while the Story Kit is off or the game is not there yet
+    id: '2026-11-23-jensen-return',
+    async: true,
+    async run(db, path) {
+      if (!['on', 'owner'].includes(String(process.env.STORYKIT ?? '').trim().toLowerCase())) throw new Error('waiting: the Story Kit is off on this server (STORYKIT)');
+      const rec = file('jensen-heist-story.json'), worldBytes = file('jensen-heist/world.json');
+      if (!rec || !worldBytes) throw new Error('deploy/migrations/jensen-heist-story.json or jensen-heist/world.json is not in this build');
+      const R = JSON.parse(rec.toString('utf8'));
+      if (R.v !== 1 || R.slug !== 'jensen-heist' || R.pack?.id !== 'jensen-heist' || R.meta?.storykit?.showcase !== true || R.pack.title !== R.meta.title || R.meta.title !== JH_RETURN.title || R.pack.kicker !== JH_TITLE.kicker || R.meta.tagline !== JH_TITLE.tagline || R.pack.tagline !== JH_TITLE.tagline) throw new Error('jensen-heist-story.json is not Jensen Return');
+      const sha = (b) => createHash('sha256').update(b).digest('hex');
+      if (sha(worldBytes) !== R.world?.hash || worldBytes.length !== R.world.bytes) throw new Error('jensen-heist/world.json is not the record\'s world');
+      const text = worldBytes.toString('utf8'), W = JSON.parse(text);
+      if (W.id !== 'jensen-heist' || W.title !== R.pack.title || W.kicker !== R.pack.kicker || W.tagline !== R.pack.tagline) throw new Error('jensen-heist/world.json is not the Jensen Return runner world');
+      // (a later record (a batch after this one): its world is more than the title, so it is never sealed here)
+      const oldText = jhTitledWorld(text, JH_TITLE), retitle = sha(oldText) === JH_RETURN_FROM;
+      if (!retitle && !JH_LATER.slice(JH_LATER.indexOf(JH_RETURN_FROM) + 1).includes(R.world.hash)) throw new Error('the record\'s world is not day1\'s retitled Jensen Return (more than the title changed)');
+      const art = { cover: [file('jensen-heist-cover-2.jpg'), file('jensen-heist-cover-3.jpg')], art_wide: [file('jensen-heist-wide-2.jpg'), file('jensen-heist-wide-3.jpg')], art_icon: [file('jensen-heist-icon.jpg'), file('jensen-heist-icon-2.jpg')] };
+      for (const [k, [was, now]] of Object.entries(art)) {
+        if (!was || !now) throw new Error('deploy/migrations/jensen-heist-{cover-2,cover-3,wide-2,wide-3,icon,icon-2}.jpg are not all in this build');
+        if (sha(was) !== JH_RETURN_ART[k]) throw new Error(`the old ${k} in this build is not what gamemog.com has`);
+        if (!(now[0] === 0xff && now[1] === 0xd8 && now[2] === 0xff)) throw new Error(`the new ${k} is not a JPEG`);
+      }
+
+      const g = db.prepare("SELECT id, slug, title, meta, cover, art_wide, art_icon FROM games WHERE json_extract(meta, '$.mode') = 'storykit' AND json_extract(meta, '$.storykit.packId') = 'jensen-heist' AND json_extract(meta, '$.storykit.showcase') = 1").get();
+      if (!g) throw new Error('waiting: Jensen Heist is not in this database yet (2026-11-18-jensen-heist)');
+      if (g.id !== R.id) return `left alone: /g/${g.slug} is not the record's game`;
+      const meta = JSON.parse(g.meta ?? '{}'), done = [];
+      if (meta.storykit?.world !== R.world.hash) {
+        if (meta.storykit?.world !== JH_RETURN_FROM) return `left alone: /g/${g.slug} plays ${String(meta.storykit?.world).slice(0, 12)}, not ${JH_RETURN_FROM.slice(0, 12)}`;
+        if (!retitle) return `left alone: /g/${g.slug} plays ${JH_RETURN_FROM.slice(0, 12)}, and the record's world is a later one than Jensen Return's`;
+        const { StoryStore, LIMITS } = await storykit();
+        const s = new StoryStore(join(dirname(resolve(path)), 'storykit'));
+        const d = typeof meta.storykit.pack === 'string' ? s.db.prepare("SELECT id, world, pack FROM drafts WHERE id = ? AND state = 'kept' AND game_id = ?").get(meta.storykit.pack, g.id) : null;
+        if (!d) throw new Error('Jensen Heist\'s kept store draft is not in the store');
+        if (d.world !== JH_RETURN_FROM) return `left alone: the store draft holds ${String(d.world).slice(0, 12)}, not ${JH_RETURN_FROM.slice(0, 12)}`;
+        // (every clip and every body the world names is the draft's already: only the title changed, checked by its SHA-256)
+        const has = s.db.prepare('SELECT 1 FROM files WHERE draft_id = ? AND hash = ? AND name = ?');
+        for (const f of R.files) if (!has.get(d.id, f.hash, f.name)) throw new Error(`the store draft does not hold ${f.name} (${f.hash.slice(0, 12)}): more than the title changed`);
+        const named = new Set(R.files.map((f) => f.hash));
+        for (const m of text.matchAll(/\/storykit\/f\/([0-9a-f]{64})\.([a-z]{3,4})/g)) if (!named.has(m[1])) throw new Error(`the world names /storykit/f/${m[1]}.${m[2]}, which the record does not hold`);
+        if (worldBytes.length > LIMITS.sealed) throw new Error(`the world is ${worldBytes.length} bytes, over a sealed world's ${LIMITS.sealed}`);
+        const fresh = !s.db.prepare('SELECT 1 FROM blobs WHERE hash = ?').get(R.world.hash);
+        if (fresh && s.used() + worldBytes.length > LIMITS.disk) throw new Error('waiting: the Story Kit store has no room for Jensen Return\'s world');
+        { const p = s.blobPath(R.world.hash, 'json');
+          if (!(existsSync(p) && sha(readFileSync(p)) === R.world.hash)) {
+            mkdirSync(dirname(p), { recursive: true });
+            const tmp = `${p}.${process.pid}.${randomBytes(4).toString('hex')}.tmp`;
+            writeFileSync(tmp, worldBytes); renameSync(tmp, p);
+          } }
+        const t = Date.now(), old = d.pack;
+        const oldBytes = s.db.prepare('SELECT bytes FROM blobs WHERE hash = ?').get(JH_RETURN_FROM)?.bytes ?? Buffer.byteLength(oldText);
+        s.db.exec('BEGIN');
+        try {
+          s.db.prepare('INSERT OR IGNORE INTO blobs (hash, ext, bytes, at) VALUES (?, ?, ?, ?)').run(R.world.hash, 'json', worldBytes.length, t);
+          const row = s.db.prepare("INSERT OR REPLACE INTO files (draft_id, kind, name, hash, ext, bytes, meta, inherited, at) VALUES (?, 'pack', ?, ?, 'json', ?, NULL, 0, ?)");
+          row.run(d.id, `was-${JH_RETURN_FROM}.json`, JH_RETURN_FROM, oldBytes, t);
+          row.run(d.id, 'world.json', R.world.hash, worldBytes.length, t);
+          s.db.prepare('UPDATE drafts SET pack = ?, world = ?, touched_at = ? WHERE id = ?').run(JSON.stringify(R.pack), R.world.hash, t, d.id);
+          s.db.exec('COMMIT');
+        } catch (e) { s.db.exec('ROLLBACK'); throw e; }
+        try {
+          // (the words and the world: the record's meta differs from day1's in its title alone)
+          const next = { ...meta, title: R.meta.title, storykit: { ...meta.storykit, pack: d.id, world: R.world.hash } };
+          const r = db.prepare('UPDATE games SET title = ?, meta = ?, code = ? WHERE id = ?').run(R.meta.title, JSON.stringify(next), `GameMog.world({ storykit: ${JSON.stringify(R.pack)} });\n`, g.id);
+          if (r.changes !== 1) throw new Error(`/g/${g.slug} could not be updated`);
+        } catch (e) {
+          // (the games row is rolled back with the transaction; the store draft goes back to the world and pack it had)
+          try {
+            s.db.exec('BEGIN');
+            s.db.prepare("UPDATE files SET hash = ?, bytes = ? WHERE draft_id = ? AND kind = 'pack' AND name = 'world.json'").run(JH_RETURN_FROM, oldBytes, d.id);
+            s.db.prepare("DELETE FROM files WHERE draft_id = ? AND kind = 'pack' AND name = ?").run(d.id, `was-${JH_RETURN_FROM}.json`);
+            s.db.prepare('UPDATE drafts SET pack = ?, world = ? WHERE id = ?').run(old, JH_RETURN_FROM, d.id);
+            s.db.exec('COMMIT');
+          } catch { try { s.db.exec('ROLLBACK'); } catch { /* as it is */ } }
+          throw e;
+        }
+        done.push(`plays ${R.world.hash.slice(0, 12)} (was ${JH_RETURN_FROM.slice(0, 12)}, kept) in store draft ${d.id}, titled ${JSON.stringify(R.meta.title)}`);
+      } else if (g.title !== R.meta.title || meta.title !== R.meta.title) {
+        // (the record's world already, as 2026-11-18 seals it on a fresh disk: the row's words brought to the record's)
+        db.prepare('UPDATE games SET title = ?, meta = ? WHERE id = ?').run(R.meta.title, JSON.stringify({ ...meta, title: R.meta.title }), g.id);
+        done.push(`titled ${JSON.stringify(R.meta.title)}`);
+      }
+      // the address: /g/jensen-return, unless another game has it (the old one redirects there: next.config.ts)
+      if (g.slug !== JH_RETURN.slug) {
+        if (db.prepare('SELECT 1 FROM games WHERE slug = ? AND id != ?').get(JH_RETURN.slug, g.id)) done.push(`left alone: its address /g/${g.slug} (/g/${JH_RETURN.slug} is another game)`);
+        else { db.prepare('UPDATE games SET slug = ? WHERE id = ?').run(JH_RETURN.slug, g.id); done.push(`moved to /g/${JH_RETURN.slug} (was /g/${g.slug})`); }
+      }
+      const same = (a, b) => a != null && Buffer.from(a).equals(b);
+      const swap = Object.keys(art).filter((k) => same(g[k], art[k][0]));
+      if (swap.length) db.prepare(`UPDATE games SET ${swap.map((k) => `${k} = ?`).join(', ')} WHERE id = ?`).run(...swap.map((k) => art[k][1]), g.id);
+      const kept = Object.keys(art).filter((k) => !swap.includes(k) && !same(g[k], art[k][1]));
+      if (swap.length) done.push(`new ${swap.join(', ')}`);
+      if (kept.length) done.push(`left alone: its ${kept.join(', ')} (changed since)`);
+      const slug = db.prepare('SELECT slug FROM games WHERE id = ?').get(g.id).slug;
+      return done.length ? `/g/${slug} (hidden as it was): ${done.join('; ')}` : `already there: /g/${slug} is titled ${JSON.stringify(R.meta.title)}`;
+    },
+  },
 ];
 
 /**
@@ -2447,7 +2557,9 @@ export const JH_LATER = ['6911c2d44e2cf7a912330222979ce92398c377b91d4ee78baaf0c4
   // (polish3: the end credits and the medals)
   '7c984f6b52a4be9a183e096829493e2bca4b2986bc07236732d1bb707f0c965f',
   // (day1: the day audit's quick wins, 22 Nov)
-  '74df52d6c09ec6e99b7621a44f3894ca2f11e5436df7160b233083482da48c78'];
+  '74df52d6c09ec6e99b7621a44f3894ca2f11e5436df7160b233083482da48c78',
+  // (Jensen Return: the title, 23 Nov)
+  'deac9af931c7bc3259584e480137b6eaf227d59af224dd92233744286c028dda'];
 /** The polish batch's re-forged bodies (A2 Director Grey, A3 Intern Two): the one 2026-11-18 stored and the record's. */
 export const JH_POLISH1_BODIES = {
   'director-a': { from: 'ade408278e5795fbf07330556a10d9b09265c3050b8a59c57a567b94b72af063', to: '9e434181182ddf0f7462b31aed2c0d5b55e7fd3bda63906ebfd893ee2e5bf24e' },
@@ -2477,6 +2589,17 @@ export const JH_POLISH3_BODIES = {
  * body changes in it.
  */
 export const JH_DAY1_FROM = '7c984f6b52a4be9a183e096829493e2bca4b2986bc07236732d1bb707f0c965f';
+/**
+ * Jensen Return (2026-11-23-jensen-return; the owner, 23 Nov): its title and address now (JH_RETURN; the kicker and
+ * the tagline are JH_TITLE's), the world it replaces (what day1 sealed on gamemog.com: the record's world with JH_TITLE's
+ * title put back, jhTitledWorld) and the art it replaces (SHA-256 of deploy/migrations/jensen-heist-{cover-2,wide-2,icon}.jpg,
+ * what the retitle and 2026-11-18 wrote). The titles a Jensen Heist record may carry (JH_TITLES): the earlier
+ * migrations take a later record's title as their own.
+ */
+export const JH_RETURN = { title: 'Jensen Return', slug: 'jensen-return' };
+export const JH_RETURN_FROM = '74df52d6c09ec6e99b7621a44f3894ca2f11e5436df7160b233083482da48c78';
+export const JH_RETURN_ART = { cover: '6d3fd9f20f44db770aed5281e004a7b351dd401115e2e27bf0f08f15088b2d7e', art_wide: 'cafb9394af204744e2e2f88e1a647f884a6a939577da7761f51db6012199123f', art_icon: '809e3a3fed4b2326611cbc7bed2a36ec52847dcac15b53012924022b614346ba' };
+export const JH_TITLES = [JH_TITLE.title, JH_RETURN.title];
 const JH_TITLE_ART = { cover: '278e816e7518141944537d8ce239164c3d2ed6138f3be8cfb76b65a6639da69b', art_wide: '63e1ae79132cb423d42b0bbb3b8501d61f5ebeed1c2cdec6d2d5d427d7b756ea' };
 /** A Jensen Heist runner world (its JSON text) with its title, kicker and tagline set to `w` (key order kept). */
 export const jhTitledWorld = (text, w) => JSON.stringify({ ...JSON.parse(text), title: w.title, kicker: w.kicker, tagline: w.tagline });

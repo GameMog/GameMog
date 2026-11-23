@@ -38,7 +38,7 @@ The GameMog Story Kit: the creator's side of a story world (forge, voices, the s
   idle, phone and talk clips (each clip's glTF `extras.motion` says so). Non-commercial use only: free GameMog only,
   never sold, and not under GameMog's MIT licence (`THIRD-PARTY-NOTICES.md`). Every person a story world draws plays
   this pack.
-- **Jensen Heist's hand-built cast** (`cast/hand/jh-*.glb`): MakeHuman (CC0) bodies finished by hand; their hair cards
+- **Jensen Return's hand-built cast** (`cast/hand/jh-*.glb`): MakeHuman (CC0) bodies finished by hand; their hair cards
   are cut from an atlas derived from "Hair Cards_FBX" by POLYTRICITY (Sketchfab,
   https://sketchfab.com/3d-models/hair-cards-fbx-ad1ac6f162ff43a3ae175982bf770c3e), **CC BY 4.0**, modified. Its lime
   supercar, the Tensore (built by Mog City), is adapted from a Sketchfab model by ALIEEEN

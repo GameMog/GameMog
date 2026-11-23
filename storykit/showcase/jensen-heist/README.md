@@ -1,4 +1,4 @@
-# Jensen Heist: the pack's sources
+# Jensen Return (was Jensen Heist): the pack's sources
 
 `storykit/packs/jensen-heist.json` is the committed pack. `gen.mjs` writes it, so edit the pack through `gen.mjs` and
 run it again; the two never drift apart. It is GameMog's second showcase (`SHOWCASE_PACKS`) and its first in a

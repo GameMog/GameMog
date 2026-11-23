@@ -121,9 +121,9 @@ export async function runJensenPolish1Checks(ok: Ok) {
     writeFileSync(p2, gunzipSync(readFileSync('deploy/seed.db.gz')));
     console.log = () => {}; console.error = () => {};
     try { await migrate(p2); } finally { console.log = log; console.error = err; }
-    const d2 = new DatabaseSync(p2), notes = d2.prepare('SELECT id, note FROM migrations WHERE id IN (?, ?, ?)').all(PUB_ID, TITLE_ID, ID) as any[], g2 = d2.prepare("SELECT title, hidden, meta FROM games WHERE slug = 'jensen-heist'").get() as any;
+    const d2 = new DatabaseSync(p2), notes = d2.prepare('SELECT id, note FROM migrations WHERE id IN (?, ?, ?)').all(PUB_ID, TITLE_ID, ID) as any[], g2 = d2.prepare("SELECT title, hidden, meta FROM games WHERE json_extract(meta, '$.storykit.packId') = 'jensen-heist'").get() as any;
     ok('a fresh boot with the Story Kit on records all three and ends with the polished world, hidden',
-      notes.length === 3 && g2?.title === 'Jensen Heist' && g2.hidden === 1 && JSON.parse(g2.meta).storykit.world === R.world.hash, notes.map((n) => `${n.id}: ${n.note}`).join(' | '));
+      notes.length === 3 && g2?.title === R.meta.title && g2.hidden === 1 && JSON.parse(g2.meta).storykit.world === R.world.hash, notes.map((n) => `${n.id}: ${n.note}`).join(' | '));
     d2.close();
   } finally {
     console.log = log; console.error = err;

@@ -46,15 +46,21 @@ export function jhDay1Back(worldText: string) {
 
 export async function runJensenDay1Checks(ok: Ok) {
   console.log('\nJensen Heist day A (deploy/migrate.mjs ' + ID + ')');
-  const { migrate, MIGRATIONS, JH_DAY1_FROM, JH_LATER } = await import('../deploy/migrate.mjs') as {
-    migrate: (p: string) => Promise<void> | void; MIGRATIONS: Migration[]; JH_DAY1_FROM: string; JH_LATER: string[] };
+  const { migrate, MIGRATIONS, JH_DAY1_FROM, JH_RETURN_FROM, JH_LATER } = await import('../deploy/migrate.mjs') as {
+    migrate: (p: string) => Promise<void> | void; MIGRATIONS: Migration[]; JH_DAY1_FROM: string; JH_RETURN_FROM: string; JH_LATER: string[] };
   const ids = [PUB_ID, TITLE_ID, P1_ID, P2_ID, P3_ID, ID].map((id) => MIGRATIONS.findIndex((m) => m.id === id)), iP = ids[5];
-  ok('day A is one migration of its own, async, after the retitle and the three polish batches', ids.every((n, k) => n >= 0 && (k === 0 || n > ids[k - 1])) && iP === MIGRATIONS.length - 1 && !!MIGRATIONS[iP].async, ids.join(' '));
+  ok('day A is one migration of its own, async, after the retitle and the three polish batches', ids.every((n, k) => n >= 0 && (k === 0 || n > ids[k - 1])) && !!MIGRATIONS[iP].async, ids.join(' '));
   if (ids.some((n) => n < 0)) return;
   const PUB = MIGRATIONS[ids[0]], P = MIGRATIONS[iP];
   const R = JSON.parse(readFileSync('deploy/migrations/jensen-heist-story.json', 'utf8'));
   const worldText = readFileSync('deploy/migrations/jensen-heist/world.json', 'utf8'), W = JSON.parse(worldText);
   ok('the record\'s world is one the retitle leaves to a later migration (JH_LATER), after polish3\'s', JH_LATER.includes(R.world.hash) && JH_LATER.indexOf(R.world.hash) > JH_LATER.indexOf(JH_DAY1_FROM) && JH_LATER.includes(JH_DAY1_FROM), R.world.hash.slice(0, 12));
+  // (a later record (Jensen Return: gamemog.com has day1 recorded, and plays what it sealed, JH_RETURN_FROM): what it is
+  // built from is that migration's check, scripts/jensen-return-check.ts, which runs the same states)
+  if (R.world.hash !== JH_RETURN_FROM) {
+    ok('... a later record (Jensen Return replaces what day1 sealed): its own check runs the states', JH_LATER.indexOf(R.world.hash) > JH_LATER.indexOf(JH_RETURN_FROM) && MIGRATIONS.some((m) => m.id === '2026-11-23-jensen-return'), R.world.hash.slice(0, 12));
+    return;
+  }
   const M = (id: string) => W.missions.find((m: any) => m.id === id), ss = M('SS-5').steps, iC = ss.findIndex((s: any) => s.type === 'pursuit');
   ok('... it carries the batch: SS-5\'s Board call kept past the chase, Wesley\'s call waiting a step of its own, then the waits for the phone',
     ss[iC].during.length === 1 && ss[iC].during[0].who === 'Mr. Board' && ss[iC].during[0].persist === true && ss[iC + 1].type === 'call' && ss[iC + 1].interrupts === true && ss[iC + 1].at === undefined
