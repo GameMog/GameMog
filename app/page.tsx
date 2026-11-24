@@ -182,7 +182,7 @@ function Section({ sort, games, best, stats, seed }: {
   return (
     <Shelf title={chart.title} sub={chart.caption ?? chart.explanation}
       more={{ href: `/charts/${sort}`, label: `View all ${chart.title}` }}>
-      {games.map((g, i) => <Tile key={g.id} g={g} i={seed + i} best={best[g.id]} stats={stats[g.id]} />)}
+      {games.map((g, i) => <Tile key={g.id} g={g} i={seed + i} best={best[g.id]} stats={stats[g.id]} rating />)}
     </Shelf>
   );
 }

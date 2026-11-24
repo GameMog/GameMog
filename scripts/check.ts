@@ -662,7 +662,7 @@ await runSameOriginChecks(ok);
   const tile = readFileSync('app/tile.tsx', 'utf8'), home = readFileSync('app/page.tsx', 'utf8');
   const pages = ['app/g/[slug]/page.tsx', 'app/g/[slug]/custom-page.tsx'].map((f) => readFileSync(f, 'utf8'));
   const dash = readFileSync('app/admin/dashboard.tsx', 'utf8'), admin = readFileSync('app/admin/page.tsx', 'utf8');
-  ok('no plays or like % on a homepage or chart card', !/g\.plays|liked|thumbUp/.test(tile));
+  ok('cards show no plays; only the homepage shows a rating %, 100% when unrated (owner, 23 Nov: like roblox.com)', !/g\.plays/.test(tile) && /rating \? <span/.test(tile) && /votes \? Math\.round[^:]*: 100/.test(tile) && /stats=\{stats\[g\.id\]\} rating \/>/.test(home));
   ok('no plays in the homepage hero', !/game\.plays/.test(home));
   ok('no stats panel (plays, players, likes) on a game page', pages.every((p) => !p.includes('gstats') && !p.includes('playerStats') && !p.includes('game.plays')));
   ok("the admin dashboard's Games tab, fed by adminGames", /\{ id: 'games', label: 'Games' \}/.test(dash) && dash.includes("tab === 'games' && <Games") && dash.includes('Download CSV') && admin.includes('games={adminGames()}'));

@@ -16,7 +16,10 @@ export const short = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >
  * in size and rhythm and shows its game's art whole: worlds their wide key
  * art, Classic races their wide drawn cover.
  */
-export function Tile({ g, i = 0, best, stats }: { g: GameRow; i?: number; best?: number; stats?: TileStats }) {
+export function Tile({ g, i = 0, best, stats, rating = false }: { g: GameRow; i?: number; best?: number; stats?: TileStats; rating?: boolean }) {
+  // (the homepage only, the owner 23 Nov: "only put rating in %, like roblox.com; if it hasn't been rated use 100% temporarily")
+  const votes = (stats?.up ?? 0) + (stats?.down ?? 0);
+  const pct = votes ? Math.round(((stats?.up ?? 0) / votes) * 100) : 100;
   const isNew = Date.now() - g.created_at < NEW_MS;
   // Runtime worlds use their generated wide key art; Classic covers are
   // drawn from their specs at the same shape.
@@ -35,7 +38,8 @@ export function Tile({ g, i = 0, best, stats }: { g: GameRow; i?: number; best?:
       <div className="tb">
         <div className="nm">{g.title}</div>
         <div className="mt">
-          {stats?.mogs
+          {rating ? <span aria-label={`${pct}% rating`}><Icon name="thumbUp" size={13} />{pct}%</span>
+          : stats?.mogs
             ? <span aria-label={`${stats.mogs} Mogs`}><Icon name="remix" size={13} />{stats.mogs}</span>
             : best ? <span><Icon name="trophy" size={13} />{(best / 1000).toFixed(1)}s</span> : null}
         </div>
