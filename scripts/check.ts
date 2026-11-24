@@ -655,6 +655,18 @@ await runPublishGapChecks(ok);
 await runClientKeyChecks(ok);
 // Owner writes (16 Nov): never from another origin, and the site's own headers
 await runSameOriginChecks(ok);
+// Public analytics (the owner, 23 Nov): plays and likes are off the homepage, its cards and the game pages; they live on
+// the admin dashboard's Games tab, from the same functions the public pages read
+{
+  const { readFileSync } = await import('node:fs');
+  const tile = readFileSync('app/tile.tsx', 'utf8'), home = readFileSync('app/page.tsx', 'utf8');
+  const pages = ['app/g/[slug]/page.tsx', 'app/g/[slug]/custom-page.tsx'].map((f) => readFileSync(f, 'utf8'));
+  const dash = readFileSync('app/admin/dashboard.tsx', 'utf8'), admin = readFileSync('app/admin/page.tsx', 'utf8');
+  ok('no plays or like % on a homepage or chart card', !/g\.plays|liked|thumbUp/.test(tile));
+  ok('no plays in the homepage hero', !/game\.plays/.test(home));
+  ok('no stats panel (plays, players, likes) on a game page', pages.every((p) => !p.includes('gstats') && !p.includes('playerStats') && !p.includes('game.plays')));
+  ok("the admin dashboard's Games tab, fed by adminGames", /\{ id: 'games', label: 'Games' \}/.test(dash) && dash.includes("tab === 'games' && <Games") && dash.includes('Download CSV') && admin.includes('games={adminGames()}'));
+}
 // Story Kit (16 Nov): who may open a store draft, and the store's caps asked at the build route's door. Its own process:
 // it runs in a throwaway folder (its own data/) and drives the real routes, so nothing here sees its databases
 {

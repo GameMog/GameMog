@@ -106,6 +106,17 @@
 .lt td small{display:inline-block;width:40px;font-size:12px;font-weight:500;color:var(--ink-3);text-align:right}
 .lt tbody tr:first-child>*{border-top:0}
 
+/* the Games tab (23 Nov): every game ranked by plays, a sortable header, a total row, scrolled sideways on a narrow screen */
+.gtab{overflow-x:auto;padding:4px 20px 16px}
+.gtab .lt thead th{white-space:nowrap;padding-left:12px}
+.gtab .lt thead th button{border:0;background:none;padding:0;font:inherit;color:inherit;cursor:pointer}
+.gtab .lt thead th button:hover,.gtab .lt thead th.on button{color:var(--ink)}
+.gtab .lt td.l,.gtab .lt th.l{text-align:left}
+.gtab .lt tr.off td{color:var(--ink-3)}
+.gtab .lt tfoot td{border-top:2px solid var(--hair);font-weight:700}
+.dl{flex:0 0 auto;height:36px;padding:0 16px;border:1px solid var(--hair);border-radius:var(--pill);background:var(--soft);font:600 14px/1 var(--ui);color:var(--ink);cursor:pointer}
+.dl:hover{border-color:var(--ink)}
+
 /* lists */
 .tools{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:16px 20px;border-bottom:1px solid var(--hair)}
 .tools-t{font-size:13px;color:var(--ink-2);max-width:620px}

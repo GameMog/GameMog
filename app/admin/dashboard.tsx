@@ -13,13 +13,14 @@ import type { DareLoop, LoopWindow } from '@/lib/funnel';
 import type { StoreUsage } from '@/lib/storykit-store';
 import type { StoryReconcileRow, StoryTownRow } from '@/lib/storykit-publish';
 import type { BackupsAdmin } from '@/lib/backups';
+import type { AdminGame } from '@/lib/admin-games';
 
 /** The Story Kit's store on the owner's screen, only while the switch is on or owner-only (else null: nothing shown). */
 export type StoryKitAdmin = StoreUsage & { mode: 'owner' | 'on' };
 
-type Tab = 'overview' | 'dares' | 'worlds' | 'builds' | 'names' | 'traffic' | 'mogcity' | 'perf' | 'reports';
+type Tab = 'overview' | 'dares' | 'games' | 'worlds' | 'builds' | 'names' | 'traffic' | 'mogcity' | 'perf' | 'reports';
 const TABS = [
-  { id: 'overview', label: 'Overview' }, { id: 'dares', label: 'Dares' }, { id: 'worlds', label: 'Worlds' }, { id: 'builds', label: 'Builds' },
+  { id: 'overview', label: 'Overview' }, { id: 'dares', label: 'Dares' }, { id: 'games', label: 'Games' }, { id: 'worlds', label: 'Worlds' }, { id: 'builds', label: 'Builds' },
   { id: 'names', label: 'Names' }, { id: 'traffic', label: 'Traffic' }, { id: 'mogcity', label: 'Mog City' }, { id: 'perf', label: 'Machines' }, { id: 'reports', label: 'Crashes' },
 ] as const satisfies readonly { id: Tab; label: string }[];
 const RANGE_ITEMS = [{ id: '24h', label: '24h' }, { id: '7d', label: '7 days' }, { id: '30d', label: '30 days' }, { id: 'all', label: 'All time' }] as const satisfies readonly { id: Range; label: string }[];
@@ -50,7 +51,7 @@ export type TownBuilderAdmin = {
   runs?: { problem?: string; inFlight?: number; maxRuns?: number; byState?: Record<string, number>; plan?: { want: number; ready: number } | null;
     lastError?: { status: number; message: string } | null; holdS?: number } | null;
 };
-export type AdminData = { stats: Record<Range, Stats>; worlds: AdminWorld[]; builds: AdminBuild[]; scores: AdminScore[]; active: number; reports: KartReportRow[]; perf?: PerfAdmin | null; slots: Capacity; loop: DareLoop; mc: Record<Range, McStats>; storykit?: StoryKitAdmin | null; towns?: TownBuilderAdmin | null; storyTowns?: StoryTownRow[] | null; backups?: BackupsAdmin | null; reconcile?: StoryReconcileRow[] | null };
+export type AdminData = { stats: Record<Range, Stats>; games: AdminGame[]; worlds: AdminWorld[]; builds: AdminBuild[]; scores: AdminScore[]; active: number; reports: KartReportRow[]; perf?: PerfAdmin | null; slots: Capacity; loop: DareLoop; mc: Record<Range, McStats>; storykit?: StoryKitAdmin | null; towns?: TownBuilderAdmin | null; storyTowns?: StoryTownRow[] | null; backups?: BackupsAdmin | null; reconcile?: StoryReconcileRow[] | null };
 
 export function Dashboard(props: AdminData) {
   return <Toasts><Board {...props} /></Toasts>;
@@ -67,7 +68,7 @@ export function ago(at: number) {
   return new Date(at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function Board({ stats, worlds: initialWorlds, builds, scores: initialScores, active, reports, perf = null, slots, loop, mc, storykit = null, towns = null, storyTowns = null, backups = null, reconcile = null }: AdminData) {
+function Board({ stats, games, worlds: initialWorlds, builds, scores: initialScores, active, reports, perf = null, slots, loop, mc, storykit = null, towns = null, storyTowns = null, backups = null, reconcile = null }: AdminData) {
   const router = useRouter();
   const toast = useToast();
   const [tab, setTab] = useState<Tab>('overview');
@@ -131,7 +132,7 @@ function Board({ stats, worlds: initialWorlds, builds, scores: initialScores, ac
           <button type="button" className="adm-out" onClick={async () => { await signOut(); router.refresh(); }}>Sign out</button>
         </div>
         <div className="adm-row adm-nav">
-          <Segmented label="Sections" items={TABS} value={tab} onChange={setTab} counts={{ worlds: worlds.length, builds: builds.length }} />
+          <Segmented label="Sections" items={TABS} value={tab} onChange={setTab} counts={{ games: games.length, worlds: worlds.length, builds: builds.length }} />
           {ranged(tab) && <Segmented label="Range" pill items={RANGE_ITEMS} value={range} onChange={setRange} />}
         </div>
       </header>
@@ -140,6 +141,7 @@ function Board({ stats, worlds: initialWorlds, builds, scores: initialScores, ac
         <BlurIn k={ranged(tab) ? `${tab}-${range}` : tab}>
           {tab === 'overview' && <Overview s={s} slots={slots} storykit={storykit} towns={towns} storyTowns={storyTowns} backups={backups} reconcile={reconcile} />}
           {tab === 'dares' && <Dares loop={loop} />}
+          {tab === 'games' && <Games games={games} />}
           {tab === 'worlds' && <Worlds worlds={worlds} hidden={hiddenCount} visibility={visibility} />}
           {tab === 'builds' && <Builds builds={builds} titles={new Map(worlds.map((w) => [w.slug, w.title]))} />}
           {tab === 'names' && <Names scores={scores} setScores={setScores} />}
@@ -473,6 +475,100 @@ function Dares({ loop }: { loop: DareLoop }) {
         </section>
       </div>
     </>
+  );
+}
+
+/* --------------------------------------------------------------- games -- */
+// every game, hidden ones too, with the plays, players, likes and Mogs the public pages showed until 23 Nov (lib/admin-games.ts:
+// the same functions); ranked by plays, sorted by any column, filtered by text, and downloaded as the CSV of the rows shown
+type GameCol = { id: keyof AdminGame | 'rank'; label: string; left?: boolean; total?: boolean; show: (g: AdminGame, i: number) => React.ReactNode; csv: (g: AdminGame, i: number) => string | number };
+const day = (at: number) => new Date(at).toISOString().slice(0, 10);
+const yes = (b: boolean) => (b ? 'yes' : '');
+const GAME_COLS: GameCol[] = [
+  { id: 'rank', label: '#', show: (_, i) => i + 1, csv: (_, i) => i + 1 },
+  { id: 'title', label: 'Title', left: true, show: (g) => <Link href={`/g/${g.slug}`} target="_blank">{g.title}</Link>, csv: (g) => g.title },
+  { id: 'slug', label: 'Slug', left: true, show: (g) => g.slug, csv: (g) => g.slug },
+  { id: 'plays', label: 'Plays', total: true, show: (g) => g.plays.toLocaleString('en-US'), csv: (g) => g.plays },
+  { id: 'players', label: 'Players', total: true, show: (g) => g.players.toLocaleString('en-US'), csv: (g) => g.players },
+  { id: 'up', label: 'Likes', total: true, show: (g) => g.up, csv: (g) => g.up },
+  { id: 'down', label: 'Dislikes', total: true, show: (g) => g.down, csv: (g) => g.down },
+  { id: 'likePct', label: 'Like %', show: (g) => (g.likePct === null ? '-' : `${g.likePct}%`), csv: (g) => g.likePct ?? '' },
+  { id: 'mogs', label: 'Mogs', total: true, show: (g) => g.mogs, csv: (g) => g.mogs },
+  { id: 'generation', label: 'Gen', show: (g) => g.generation, csv: (g) => g.generation },
+  { id: 'parent', label: 'Mog of', left: true, show: (g) => g.parent ?? '', csv: (g) => g.parent ?? '' },
+  { id: 'created_at', label: 'Created', show: (g) => day(g.created_at), csv: (g) => day(g.created_at) },
+  { id: 'genre', label: 'Genre', left: true, show: (g) => g.genre, csv: (g) => g.genre },
+  { id: 'mode', label: 'Mode', left: true, show: (g) => g.mode, csv: (g) => g.mode },
+  { id: 'city', label: 'City / town', left: true, show: (g) => g.city ?? '', csv: (g) => g.city ?? '' },
+  { id: 'hidden', label: 'Hidden', left: true, show: (g) => (g.hidden ? (g.unlisted ? 'link only' : 'hidden') : ''), csv: (g) => (g.hidden ? (g.unlisted ? 'link only' : 'hidden') : '') },
+  { id: 'firstParty', label: 'First-party', left: true, show: (g) => yes(g.firstParty), csv: (g) => yes(g.firstParty) },
+];
+const cell = (v: string | number) => { const t = String(v); return /[",\n\r]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
+
+function Games({ games }: { games: AdminGame[] }) {
+  const [q, setQ] = useState('');
+  const [sort, setSort] = useState<{ by: GameCol['id']; desc: boolean }>({ by: 'plays', desc: true });
+  // the rank is the plays rank, whatever the sort
+  const ranked = useMemo(() => new Map([...games].sort((a, b) => b.plays - a.plays || b.created_at - a.created_at).map((g, i) => [g.id, i])), [games]);
+  const list = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    const shown = games.filter((g) => !needle || `${g.title} ${g.slug} ${g.genre} ${g.mode} ${g.city ?? ''} ${g.parent ?? ''}`.toLowerCase().includes(needle));
+    const key = (g: AdminGame) => (sort.by === 'rank' ? ranked.get(g.id)! : g[sort.by]);
+    return shown.sort((a, b) => {
+      const x = key(a), y = key(b);
+      const c = x === y ? 0 : x === null || x === undefined ? 1 : y === null || y === undefined ? -1
+        : typeof x === 'string' && typeof y === 'string' ? x.localeCompare(y) : Number(x) - Number(y);
+      return (sort.desc ? -c : c) || ranked.get(a.id)! - ranked.get(b.id)!;
+    });
+  }, [games, q, sort, ranked]);
+  const sum = (k: keyof AdminGame) => list.reduce((n, g) => n + (Number(g[k]) || 0), 0);
+  const up = sum('up'), down = sum('down');
+  const by = (id: GameCol['id']) => setSort((s) => (s.by === id ? { by: id, desc: !s.desc } : { by: id, desc: !['title', 'slug', 'parent', 'genre', 'mode', 'city', 'rank'].includes(id) }));
+  const download = () => {
+    const lines = [GAME_COLS.map((c) => cell(c.label)).join(','), ...list.map((g) => GAME_COLS.map((c) => cell(c.csv(g, ranked.get(g.id)!))).join(','))];
+    const url = URL.createObjectURL(new Blob([`${lines.join('\n')}\n`], { type: 'text/csv;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = `gamemog-games-${day(Date.now())}.csv`; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+  return (
+    <section className="card flush">
+      <div className="tools">
+        <input className="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter by title, slug, genre, mode or city" aria-label="Filter games" />
+        <p className="tools-t">{list.length} of {games.length} games</p>
+        <button type="button" className="dl" onClick={download}>Download CSV</button>
+      </div>
+      <div className="gtab">
+        <table className="lt">
+          <thead>
+            <tr>
+              {GAME_COLS.map((c) => (
+                <th key={c.id} scope="col" className={`${c.left ? 'l' : ''}${sort.by === c.id ? ' on' : ''}`} aria-sort={sort.by === c.id ? (sort.desc ? 'descending' : 'ascending') : 'none'}>
+                  <button type="button" onClick={() => by(c.id)}>{c.label}{sort.by === c.id ? (sort.desc ? ' \u2193' : ' \u2191') : ''}</button>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {list.map((g) => (
+              <tr key={g.id} className={g.hidden ? 'off' : undefined}>
+                {GAME_COLS.map((c) => <td key={c.id} className={c.left ? 'l' : undefined}>{c.show(g, ranked.get(g.id)!)}</td>)}
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr>
+              {GAME_COLS.map((c) => (
+                <td key={c.id} className={c.left ? 'l' : undefined}>
+                  {c.id === 'title' ? `Total, ${list.length} games` : c.id === 'likePct' ? (up + down ? `${Math.round((up / (up + down)) * 100)}%` : '-') : c.total ? sum(c.id as keyof AdminGame).toLocaleString('en-US') : ''}
+                </td>
+              ))}
+            </tr>
+          </tfoot>
+        </table>
+        {!list.length && <p className="fine">No games match.</p>}
+      </div>
+    </section>
   );
 }
 

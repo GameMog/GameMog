@@ -11,6 +11,7 @@ import { storyStore } from '@/lib/storykit-store';
 import { storyReconcile, storyTownsAdmin } from '@/lib/storykit-publish';
 import { Dashboard } from './dashboard';
 import { backupsAdmin } from '@/lib/backups';
+import { adminGames } from '@/lib/admin-games';
 import path from 'node:path';
 import { builderMode } from '@/lib/hometown-build/access';
 import { builderDeps, builderStatus } from '@/lib/hometown-build/server';
@@ -68,5 +69,5 @@ export default async function AdminPage() {
   // the newest nightly snapshot and the owner's download of it (lib/backups.ts)
   let backups = null;
   try { backups = backupsAdmin(path.join(process.cwd(), 'data')); } catch (e) { console.error('admin: backups', String((e as Error).message).slice(0, 200)); }
-  return <Dashboard reconcile={reconcile} backups={backups} storyTowns={storyTowns} towns={towns} stats={all} worlds={adminWorlds()} builds={builds} scores={adminScores()} active={activeNow()} reports={kartReports()} perf={perf} slots={slots} loop={dareLoop(now)} mc={mc} storykit={storykit} />;
+  return <Dashboard reconcile={reconcile} backups={backups} storyTowns={storyTowns} towns={towns} stats={all} games={adminGames()} worlds={adminWorlds()} builds={builds} scores={adminScores()} active={activeNow()} reports={kartReports()} perf={perf} slots={slots} loop={dareLoop(now)} mc={mc} storykit={storykit} />;
 }

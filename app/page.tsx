@@ -3,7 +3,7 @@ import { Fragment } from 'react';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { SiteHeader, SiteFooter, Icon } from './header';
-import { Tile, short } from './tile';
+import { Tile } from './tile';
 import { HeroFilm, type Film } from './hero-film';
 import { HeroReel, type ReelClip } from './hero-reel';
 import { Rail as Shelf } from './rail';
@@ -157,7 +157,6 @@ function Reel({ worlds, stats }: { worlds: GameRow[]; stats: Record<string, Tile
         <p className="tagline">{game.tagline}</p>
         {game.slug === HERO && HERO_NOTE ? <p className="hnote">{HERO_NOTE}</p> : null}
         <div className="hstats">
-          <span><b>{short(game.plays)}</b> {game.plays === 1 ? 'play' : 'plays'}</span>
           <RecordStat game={game} />
           {mogs ? <span><b>{mogs}</b> {mogs === 1 ? 'Mog' : 'Mogs'}</span> : <span>No Mogs yet</span>}
         </div>
@@ -220,7 +219,6 @@ function Billboard({ game, film, stats }: { game: GameRow; film: Film | null; st
         <p className="tagline">{game.tagline}</p>
         {game.slug === HERO && HERO_NOTE ? <p className="hnote">{HERO_NOTE}</p> : null}
         <div className="hstats">
-          <span><b>{short(game.plays)}</b> {game.plays === 1 ? 'play' : 'plays'}</span>
           <RecordStat game={game} />
           {mogs ? <span><b>{mogs}</b> {mogs === 1 ? 'Mog' : 'Mogs'}</span> : <span>No Mogs yet</span>}
         </div>

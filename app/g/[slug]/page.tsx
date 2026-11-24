@@ -4,7 +4,7 @@ import { playSrc } from '@/lib/play-page';
 import { SiteHeader, SiteFooter } from '../../header';
 import { Tile } from '../../tile';
 import { Cover } from '../../cover';
-import { getGameBySlug, getUnlistedGameBySlug, getGameBySlugForOwner, topScores, listGames, bestTimes, voteCounts, playerStats } from '@/lib/db';
+import { getGameBySlug, getUnlistedGameBySlug, getGameBySlugForOwner, topScores, listGames, bestTimes, voteCounts } from '@/lib/db';
 import { isAdmin } from '../../admin/session';
 import { LADDERS } from '@/lib/worldspec';
 import type { WorldSpec } from '@/lib/worldspec';
@@ -76,10 +76,6 @@ export default async function GamePage({ params, searchParams }: { params: Promi
   const others = listGames(120).filter((g) => g.id !== game.id && g.format === 'race').slice(0, 16);
   const ladder = LADDERS[spec.difficulty];
   const difficulty = spec.difficulty[0].toUpperCase() + spec.difficulty.slice(1);
-  const created = new Date(game.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-  const players = playerStats(game.id).players;
-  const votes = voteCounts(game.id), voteTotal = votes.up + votes.down;
-  const likes = voteTotal ? `${Math.round(votes.up / voteTotal * 100)}%` : 'No votes';
   const mogs = mogsOf(game.id);
 
   const leaderboard = scores.length ? (
@@ -131,18 +127,6 @@ export default async function GamePage({ params, searchParams }: { params: Promi
                   <p style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--ink-2)', maxWidth: 720 }}>
                     {game.tagline} {game.blurb}
                   </p>
-
-                  {/* the spec panel: a label over a value, in a single line */}
-                  <dl className="gstats">
-                    <div><dt>Plays</dt><dd>{game.plays.toLocaleString()}</dd></div>
-                    <div><dt>Players</dt><dd>{players.toLocaleString()}</dd></div>
-                    <div><dt>Likes</dt><dd>{likes}</dd></div>
-                    <div><dt>Mogs</dt><dd>{mogs.length}</dd></div>
-                    <div><dt>Generation</dt><dd>{game.generation}</dd></div>
-                    <div><dt>Created</dt><dd>{created}</dd></div>
-                    <div><dt>Genre</dt><dd>Racing</dd></div>
-                    <div><dt>Rivals</dt><dd>{Math.max(0, spec.racers.length - 1)}</dd></div>
-                  </dl>
 
                   {/* The windows are the game. A player is owed them before they
                       start, not after they lose. */}

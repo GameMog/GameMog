@@ -12,7 +12,7 @@ export const short = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >
 /**
  * GameStop's product card, for a game (docs/design/premium.md): a white card,
  * the art flush to the top at 16:9, a corner badge, a 15/700 name and one
- * compact metadata row, four across a desktop row. Every card is identical
+ * compact metadata row (its Mogs or best time; plays and likes are the owner's alone, on the admin dashboard, 23 Nov), four across a desktop row. Every card is identical
  * in size and rhythm and shows its game's art whole: worlds their wide key
  * art, Classic races their wide drawn cover.
  */
@@ -22,8 +22,6 @@ export function Tile({ g, i = 0, best, stats }: { g: GameRow; i?: number; best?:
   // drawn from their specs at the same shape.
   const custom = g.format === 'custom' || g.format === 'world';
   const spec = custom ? null : (JSON.parse(g.spec) as WorldSpec);
-  const votes = (stats?.up ?? 0) + (stats?.down ?? 0);
-  const liked = votes ? Math.round((100 * stats!.up) / votes) : 0;
   return (
     <Link href={`/g/${g.slug}`} className="tl">
       <div className="th">
@@ -37,8 +35,6 @@ export function Tile({ g, i = 0, best, stats }: { g: GameRow; i?: number; best?:
       <div className="tb">
         <div className="nm">{g.title}</div>
         <div className="mt">
-          {votes > 0 && <span aria-label={`${liked}% liked`}><Icon name="thumbUp" size={13} />{liked}%</span>}
-          <span aria-label={`${g.plays} plays`}><Icon name="players" size={13} />{short(g.plays)}</span>
           {stats?.mogs
             ? <span aria-label={`${stats.mogs} Mogs`}><Icon name="remix" size={13} />{stats.mogs}</span>
             : best ? <span><Icon name="trophy" size={13} />{(best / 1000).toFixed(1)}s</span> : null}

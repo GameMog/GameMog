@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { SiteHeader, SiteFooter } from '../../header';
 import { Tile } from '../../tile';
-import { topScores, listGames, bestTimes, voteCounts, playerStats, type GameRow } from '@/lib/db';
+import { topScores, listGames, bestTimes, voteCounts, type GameRow } from '@/lib/db';
 import { worldControls, worldMode, MODE_PAGE, NO_GM_HOW, kartHow, canMog, type GameMeta } from '@/lib/custom-game';
 import { optionsOf } from '@/lib/world-options';
 import { PlayFrame } from './play-frame';
@@ -83,12 +83,7 @@ export function CustomGamePage({ game, kdiag = null, storyOpen, mogOpen = canMog
   const best = bestTimes();
   // worlds recommend worlds; Classic races live on /classic
   const others = listGames(120).filter((g) => g.id !== game.id && g.format !== 'race').slice(0, 16);
-  const created = new Date(game.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-  const players = playerStats(game.id).players;
-  const votes = voteCounts(game.id), voteTotal = votes.up + votes.down;
-  const likes = voteTotal ? `${Math.round(votes.up / voteTotal * 100)}%` : 'No votes';
   const mogs = mogsOf(game.id);
-  const rivals = (meta.cast ?? []).filter((c) => c.role !== 'player').length;
   const filmBase = `/media/${game.slug}-wide`;
   const hasFilm = existsSync(join(process.cwd(), 'public', 'media', `${game.slug}-wide.mp4`));
   const clock = (ms: number) => { const t = Math.floor(ms / 1000); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
@@ -173,16 +168,6 @@ export function CustomGamePage({ game, kdiag = null, storyOpen, mogOpen = canMog
                   <p style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--ink-2)', maxWidth: 720 }}>
                     {game.tagline} {game.blurb}
                   </p>
-                  <dl className="gstats">
-                    <div><dt>Plays</dt><dd>{game.plays.toLocaleString()}</dd></div>
-                    <div><dt>Players</dt><dd>{players.toLocaleString()}</dd></div>
-                    <div><dt>Likes</dt><dd>{likes}</dd></div>
-                    <div><dt>Mogs</dt><dd>{mogs.length}</dd></div>
-                    <div><dt>Generation</dt><dd>{game.generation}</dd></div>
-                    <div><dt>Created</dt><dd>{created}</dd></div>
-                    <div><dt>Genre</dt><dd>{meta.genre}</dd></div>
-                    {storyWorld ? <div><dt>City</dt><dd>{storyCityLabel}</dd></div> : <div><dt>Rivals</dt><dd>{page ? page.rivals : rivals}</dd></div>}
-                  </dl>
                   <h2 style={{ marginTop: 26, marginBottom: 6 }}>Controls</h2>
                   <p style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--ink-2)', maxWidth: 720 }}>{storyWorld ? ownLine(storyOwn?.controls) ?? STORY_CONTROLS : controls}</p>
                   <h2 style={{ marginTop: 26, marginBottom: 8 }}>Media</h2>
