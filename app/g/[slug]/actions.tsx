@@ -13,7 +13,7 @@ type Sheet = { parent: string | null; run: Record<string, unknown> | null; n: nu
 /**
  * The play button and the row under it, laid out the way Roblox lays out its
  * game page: one large icon button, then Favorite on the left and the vote pair
- * on the right with the ratio drawn between them.
+ * on the right (their counts are only on the admin dashboard).
  *
  * Everything here is real. Votes are stored server-side against an id this
  * browser generates for itself. Favorites have no server because there are no
@@ -28,9 +28,6 @@ const read = <T,>(k: string, d: T): T => {
 const write = (k: string, v: unknown) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 
 const voterId = playerId;
-
-const short = (n: number) =>
-  n >= 1e6 ? `${(n / 1e6).toFixed(1).replace(/\.0$/, '')}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1).replace(/\.0$/, '')}K` : String(n);
 
 export function GameActions({ gameId, slug, title, initial, mog = true, dare = true }: {
   gameId: string; slug: string; title: string; initial: Counts;
@@ -95,8 +92,6 @@ export function GameActions({ gameId, slug, title, initial, mog = true, dare = t
     setFav(next);
   }
 
-  const total = counts.up + counts.down;
-  const ratio = total ? counts.up / total : 0;
 
   return (
     <div className="gactions">
@@ -119,13 +114,10 @@ export function GameActions({ gameId, slug, title, initial, mog = true, dare = t
         )}
         <div className="votes">
           <button className="act" onClick={() => vote(1)} aria-pressed={mine === 1} aria-label="Like">
-            <Icon name="thumbUp" size={24} /><span>{short(counts.up)}</span>
+            <Icon name="thumbUp" size={24} /><span>{mine === 1 ? 'Liked' : 'Like'}</span>
           </button>
-          <div className="votebar" aria-label={total ? `${Math.round(ratio * 100)}% liked` : 'No votes yet'}>
-            <i style={{ width: `${ratio * 100}%` }} />
-          </div>
           <button className="act" onClick={() => vote(-1)} aria-pressed={mine === -1} aria-label="Dislike">
-            <Icon name="thumbDown" size={24} /><span>{short(counts.down)}</span>
+            <Icon name="thumbDown" size={24} /><span>{mine === -1 ? 'Disliked' : 'Dislike'}</span>
           </button>
         </div>
       </div>
