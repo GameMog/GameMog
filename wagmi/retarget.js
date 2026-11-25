@@ -36,17 +36,18 @@ export function gaitPace(clip, v, legRatio = 1) { const sp = gaitSpeed(clip); re
 export const LOCO_URL = 'assets/anim/loco-walk.glb';
 // the gaits by speed: the pack's list (no jog of its own: the walk blends straight into the run), else Dan's
 export const gaitNames = () => LOCO?.gaits || ['idle', 'walk', 'jog', 'run', 'sprint'];
-// a walk style: a cast entry's walk naming one of these plays it as their walk (Mandi's sheet: posture.walk 'swagger');
-// any other name (walk, walkCool, walkHeavy, jog: older sheets) is their walk as before
-export const WALK_STYLES = new Set(['swagger']);
+// a walk style: a cast entry's walk naming one of these plays its clip as their walk (Mandi's sheet: posture.walk
+// 'ual', Quaternius's walk; 'swagger' is there, unused: the owner, Nov 25); any other name (walk, walkCool,
+// walkHeavy, jog: older sheets) is their walk as before
+export const WALK_STYLES = new Map([['swagger', 'swagger'], ['ual', 'walkUal']]);
 const styledCache = new WeakMap();
 export function walkStyled(THREE, clips, style) {
-  if (!style || !WALK_STYLES.has(style)) return clips;
+  const name = style && WALK_STYLES.get(style); if (!name) return clips;
   let per = styledCache.get(clips); if (!per) styledCache.set(clips, (per = new Map()));
-  if (!per.has(style)) { const st = clips.find((c) => c.name === style); per.set(style, st ? clips.map((c) => { if (c.name !== 'walk') return c; const k = st.clone(); k.name = 'walk'; return k; }) : clips); }
+  if (!per.has(style)) { const st = clips.find((c) => c.name === name); per.set(style, st ? clips.map((c) => { if (c.name !== 'walk') return c; const k = st.clone(); k.name = 'walk'; return k; }) : clips); }
   return per.get(style);
 }
-export const walkSpeedOf = (style) => (style && WALK_STYLES.has(style) && LOCO?.speed?.[style]) || gaitSpeed('walk');
+export const walkSpeedOf = (style) => (style && WALK_STYLES.has(style) && LOCO?.speed?.[WALK_STYLES.get(style)]) || gaitSpeed('walk');
 let LOCO = null, locoP = null;
 export function loadLoco(loadGLB) {
   if (!gaitOn()) return Promise.resolve(null);

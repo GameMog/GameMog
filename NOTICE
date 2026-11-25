@@ -66,9 +66,8 @@ Dan's walk, run and idle, and every forged body's on his clips, with a look-arou
 style and a phone call pose: Tripo AI's animation presets "walk", "run", "idle", "look_around", "swagger"
 and "make_a_call_01" (https://www.tripo3d.ai), generated on the owner's paid Tripo account (Tripo's terms:
 paid-plan output belongs to the user, commercial use allowed), retargeted onto Dan's rig; the walk with a
-procedural arm swing.
-Compared with Quaternius's Universal Animation Library (Standard, CC0 1.0; assets-src copy in GameMog),
-whose walk, jog, sprint and idle were not used.
+procedural arm swing. The 'ual' walk style (walkUal) is Quaternius's Universal Animation Library
+(Standard) Walk_Loop, CC0 1.0 (https://quaternius.com), retargeted the same way.
 
 
 Bandai Namco Research Motion Dataset (motion capture)

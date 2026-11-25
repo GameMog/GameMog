@@ -96,14 +96,15 @@ test('the engine uses it: the forged hero and his gaits, the cast, the set and s
 
 test("the locomotion pack: Tripo's walk, run, idle, idleLook, swagger and phoneCall on Dan's 66 bones; speeds, gaits and sources in its extras", () => {
   const b = fs.readFileSync(path.join(ROOT, 'assets/anim/loco-walk.glb')), j = JSON.parse(b.subarray(20, 20 + b.readUInt32LE(12)).toString());
-  assert.deepEqual(j.animations.map((a) => a.name), ['walk', 'run', 'idle', 'idleLook', 'swagger', 'phoneCall']);
+  assert.deepEqual(j.animations.map((a) => a.name), ['walk', 'run', 'idle', 'idleLook', 'swagger', 'phoneCall', 'walkUal']);
   for (const a of j.animations) assert.equal(a.channels.length, 67, a.name);
   const x = j.asset.extras.loco;
   assert.ok(x.speed.walk > 1.0 && x.speed.walk < 1.45, String(x.speed.walk));
   assert.ok(x.speed.run > 3.5 && x.speed.run < 5, String(x.speed.run));
   assert.ok(x.speed.swagger > 1.0 && x.speed.swagger < 1.6, String(x.speed.swagger));
   assert.deepEqual(x.gaits, ['idle', 'walk', 'run', 'sprint']);
-  for (const n of Object.keys(x.from)) assert.match(x.from[n], /Tripo/);
+  for (const n of Object.keys(x.from)) assert.match(x.from[n], n === 'walkUal' ? /Quaternius.*CC0/ : /Tripo/);
+  assert.ok(x.speed.walkUal > 0.8 && x.speed.walkUal < 1.4, String(x.speed.walkUal));
   assert.match(src('wagmi/game.js'), /await loadLoco\(loadGLB\);/);
   assert.match(src('wagmi/game.js'), /gaitNames\(\)\.filter\(\(n\) => n !== 'idle'\)/);
   assert.match(src('wagmi/storyrun/cast.js'), /loadLoco\(loadGLB\)\.then\(\(\) => loadGLB\('assets\/characters\/dan\.glb'\)\)/);
@@ -111,14 +112,15 @@ test("the locomotion pack: Tripo's walk, run, idle, idleLook, swagger and phoneC
 });
 
 test("a walk style: a cast entry's walk naming one (swagger) is their walk; any older name leaves the walk as it was", (t) => {
-  assert.ok(RT.WALK_STYLES.has('swagger'));
+  assert.equal(RT.WALK_STYLES.get('swagger'), 'swagger'); assert.equal(RT.WALK_STYLES.get('ual'), 'walkUal');
   for (const n of ['walk', 'walkCool', 'walkHeavy', 'jog']) assert.ok(!RT.WALK_STYLES.has(n), n);
   if (!THREE) return t.skip('no three.js beside this checkout');
   const c = (name) => new THREE.AnimationClip(name, 1, []);
-  const clips = [c('idle'), c('walk'), c('swagger')];
+  const clips = [c('idle'), c('walk'), c('swagger'), c('walkUal')];
   assert.equal(RT.walkStyled(THREE, clips, 'walkCool'), clips);
   const s = RT.walkStyled(THREE, clips, 'swagger');
-  assert.equal(s.length, 3); assert.equal(s[1].name, 'walk'); assert.notEqual(s[1], clips[1]);
+  assert.equal(s.length, 4); assert.equal(s[1].name, 'walk'); assert.notEqual(s[1], clips[1]);
+  const u = RT.walkStyled(THREE, clips, 'ual'); assert.equal(u[1].name, 'walk'); assert.notEqual(u[1], s[1]);
   assert.equal(RT.walkStyled(THREE, clips, 'swagger'), s);
   assert.match(src('wagmi/game.js'), /const heroStyle = PACK\?\.ok \? PACK\.castOf\?\.\(PACK\.heroName\)\?\.walk : null;/);
   assert.match(src('wagmi/storyrun/cast.js'), /walkStyled\(THREE, rt\.clips, c\.walk\)/);
