@@ -20,7 +20,7 @@ import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
 import { createFace, dropFace } from '../face.js';
 import { relaxArms } from '../combat/suitarms.js';
 import { unhang } from './pack.js';
-import { danOn } from '../retarget.js';
+import { danOn, loadLoco } from '../retarget.js';
 import { polishBody } from './polish.js'; import { importRetry } from '../net.js';
 
 // (8: a set's cutscene stands up to seven at once, the hero's double besides: sets.js)
@@ -44,7 +44,7 @@ export function createCast(W, world) {
   const touch = (name) => { const i = order.indexOf(name); if (i >= 0 && i < order.length - 1) { order.splice(i, 1); order.push(name); } };
   const scene = W.app.scene, cm = W.app.controllerManager;
   let danClips = null;
-  const clipsOfDan = () => danClips || (danClips = loadGLB('assets/characters/dan.glb').catch(() => null));
+  const clipsOfDan = () => danClips || (danClips = loadLoco(loadGLB).then(() => loadGLB('assets/characters/dan.glb')).catch(() => null));
   const entry = (name) => world.castOf(name);
   const cast = {
     color(name) { const c = entry(name); return (c && c.color) || '#FFFFFF'; },

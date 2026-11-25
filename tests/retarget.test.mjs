@@ -93,3 +93,16 @@ test('the engine uses it: the forged hero and his gaits, the cast, the set and s
   assert.match(src('wagmi/retarget.js'), /get\('retarget'\) !== '0'/);
   assert.match(src('wagmi/retarget.js'), /get\('gait'\) !== 'classic'/);
 });
+
+test("the locomotion pack: one walk on Dan's 66 bones (root travel in place), its speed and sources in its extras; loaded before his clips", () => {
+  const b = fs.readFileSync(path.join(ROOT, 'assets/anim/loco-walk.glb')), j = JSON.parse(b.subarray(20, 20 + b.readUInt32LE(12)).toString());
+  assert.deepEqual(j.animations.map((a) => a.name), ['walk']);
+  assert.equal(j.animations[0].channels.length, 67);
+  const x = j.asset.extras.loco;
+  assert.ok(x.speed.walk > 1.0 && x.speed.walk < 1.45, String(x.speed.walk));
+  assert.match(x.from.walk, /Tripo/); assert.match(x.from.walk, /Bandai Namco/);
+  assert.match(src('wagmi/game.js'), /await loadLoco\(loadGLB\);[^\n]*\n\s*const gltf = PACK/);
+  assert.match(src('wagmi/game.js'), /\['walk', 'jog', 'run', 'sprint'\]\.map\(\(n\) => \[n, gaitSpeed\(n\), gaitSpeed\(n\)\]\)/);
+  assert.match(src('wagmi/storyrun/cast.js'), /loadLoco\(loadGLB\)\.then\(\(\) => loadGLB\('assets\/characters\/dan\.glb'\)\)/);
+  assert.match(src('NOTICE'), /loco-walk\.glb/);
+});

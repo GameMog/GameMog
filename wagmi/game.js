@@ -9,7 +9,7 @@ import { loadGLB } from './glb.js';
 import { buildRoadster, createDriver } from './roadster.js';
 import { createStand } from './stand.js';
 import { createPlant } from './plant.js';
-import { danOn, danClips, gaitOn } from './retarget.js';
+import { danOn, danClips, gaitOn, loadLoco, gaitSpeed } from './retarget.js';
 import { drive, installDriveMode } from './audio/drivemode.js';
 import { world } from './world/index.js';
 import { CHASE_START } from './chase-start.js';
@@ -660,6 +660,7 @@ installDriveMode(WAGMI);
 {
   // (a forged hero: Dan's clips put on the body's own rest and its leg length, wagmi/retarget.js; legRatio its leg over his)
   let legRatio = 1, onBody = false;
+  await loadLoco(loadGLB); // (the locomotion pack's walk in place of his: wagmi/retarget.js)
   const gltf = PACK?.ok && PACK.heroGlb ? await PACK.heroGLTF(loadGLB, (dan, g) => { const r = danOn(THREE, dan, g); legRatio = r.legRatio; onBody = true; return r.clips; }) : await loadGLB('assets/characters/dan.glb');
   const body = gltf.scene;
   // (the export's armature node, the parent of the bone 'root', carries a fixed turn of 12.8 deg that no clip moves: 11
@@ -693,7 +694,7 @@ installDriveMode(WAGMI);
   // (a clip the model lacks is left out: a re-export with fewer clips still loads)
   // (a forged hero's legs are not his: each gait's speed times the leg ratio, so a shorter stride turns over faster and her
   // planted foot stays put; Dan's own: 1, as before)
-  const GAITS = [['idle', 0, 1], ['walk', 1.4796, 1.4796], ['jog', 2.9654, 2.9654], ['run', 3.8326, 3.8326], ['sprint', 5.2867, 5.2867]].filter(([n]) => clipOf(n)).map(([n, a, b]) => [n, a * legRatio, n === 'idle' ? b : b * legRatio]);
+  const GAITS = [['idle', 0, 1], ...['walk', 'jog', 'run', 'sprint'].map((n) => [n, gaitSpeed(n), gaitSpeed(n)])].filter(([n]) => clipOf(n)).map(([n, a, b]) => [n, a * legRatio, n === 'idle' ? b : b * legRatio]);
   let gPhase = 0;
   // the fight's stance and footwork, and the speed each step was captured at
   const STEPS = [['fight', 0], ['guardF', 0.76], ['guardB', 0.84], ['guardL', 0.46], ['guardR', 0.66]].filter(([n]) => clipOf(n));

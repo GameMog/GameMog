@@ -60,6 +60,16 @@ the MIT License in LICENSE; they remain under their author's terms.
     ffFinisher) were retargeted from Spiderbench's clips.
 
 
+Locomotion pack (assets/anim/loco-walk.glb, tools/loco/build.mjs)
+------------------------------------------------------------------
+Dan's walk, and every forged body's on his clips: its legs, hips, spine and head are Tripo AI's "walk"
+animation preset (https://www.tripo3d.ai), generated on the owner's paid Tripo account (Tripo's terms:
+paid-plan output belongs to the user, commercial use allowed), retargeted onto Dan's rig; its arms are
+Dan's own walk's (the Bandai Namco Research Motion Dataset's walk_normal, CC BY-NC 4.0: see below).
+Compared with Quaternius's Universal Animation Library (Standard, CC0 1.0; assets-src copy in GameMog),
+whose walk, jog, sprint and idle were not used.
+
+
 Bandai Namco Research Motion Dataset (motion capture)
 ----------------------------------------------------
 Motion data: Bandai Namco Research Motion Dataset, (c) 2022 Bandai Namco Research Inc., CC BY-NC 4.0

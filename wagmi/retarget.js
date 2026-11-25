@@ -22,7 +22,22 @@
 // Dan's gaits and the speed each was captured at on his legs (m/s; wagmi/game.js GAITS): a body walked along a path at
 // v plays its gait at v / (speed x its legRatio), so its planted foot stays put (sets.js, runner.js walks)
 export const GAIT_SPEED = Object.freeze({ walk: 1.4796, jog: 2.9654, run: 3.8326, sprint: 5.2867 });
-export function gaitPace(clip, v, legRatio = 1) { const sp = GAIT_SPEED[clip]; return sp && v > 0 ? Math.max(0.6, Math.min(1.6, v / (sp * (legRatio || 1)))) : 1; }
+// (a gait's speed with the locomotion pack's in: its walk's own)
+export const gaitSpeed = (clip) => LOCO?.speed?.[clip] ?? GAIT_SPEED[clip];
+export function gaitPace(clip, v, legRatio = 1) { const sp = gaitSpeed(clip); return sp && v > 0 ? Math.max(0.6, Math.min(1.6, v / (sp * (legRatio || 1)))) : 1; }
+
+// The locomotion pack (assets/anim/loco-walk.glb, tools/loco/build.mjs): Dan's walk replaced, for him and every body on
+// his clips. Compared Nov 25 (GameMog/Mandi/review/motion-*-v2.png): Tripo's "walk" preset stands tall on straight legs
+// at the heel strike where Dan's (Bandai walk_normal) walks crouched and leaning, but its arms barely swing and stand
+// out; Quaternius UAL's walk, jog, sprint and idle stoop. The walk is Tripo's legs, hips, spine and head under Dan's own
+// walk's arms, time-warped onto its stride; jog, run, sprint and idle stay Dan's. Its speed (the planted foot's, on
+// his legs) travels in its extras (loco.speed). loadLoco(loadGLB) once before Dan's clips are read; ?gait=classic: off
+export const LOCO_URL = 'assets/anim/loco-walk.glb';
+let LOCO = null, locoP = null;
+export function loadLoco(loadGLB) {
+  if (!gaitOn()) return Promise.resolve(null);
+  return (locoP ||= loadGLB(LOCO_URL).then((g) => { const x = g.parser?.json?.asset?.extras?.loco || {}; LOCO = { clips: g.animations, speed: x.speed || {} }; return LOCO; }, (err) => { console.warn('[retarget] loco', err); return null; }));
+}
 
 // the long bones and the joint each one points at
 export const LIMB_ENDS = Object.freeze({
@@ -132,7 +147,10 @@ const hung = new WeakMap();
 // Dan's clips with HANG on them (cached per clip list); ?gait=classic: as they were
 export function danClips(THREE, clips) {
   if (!gaitOn()) return clips;
-  if (!hung.has(clips)) { let out = clips; try { out = hangArms(THREE, clips); } catch (err) { console.warn('[retarget] hang', err); } hung.set(clips, out); }
+  if (!hung.has(clips)) { let out = clips;
+    // (the locomotion pack's clips in place of his by name, then his walks' arms hung in)
+    if (LOCO) { const by = new Map(LOCO.clips.map((c) => [c.name, c])); out = out.map((c) => by.get(c.name) || c); }
+    try { out = hangArms(THREE, out); } catch (err) { console.warn('[retarget] hang', err); } hung.set(clips, out); }
   return hung.get(clips);
 }
 export const gaitOn = () => { try { return new URLSearchParams(globalThis.location?.search || '').get('gait') !== 'classic'; } catch { return true; } };
