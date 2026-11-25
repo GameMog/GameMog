@@ -33,6 +33,7 @@ const TSL = window.NYC.TSL;
 const { Fn, texture, uniform, vec2, vec3, float, max, min, atan, sin, dot, mix, smoothstep, If, Loop, diffuseColor, metalness } = TSL;
 
 const KEY = 'mc.light.v1';
+const OWN = new WeakMap(); // material -> () => its own emissive node, under the bounce (ownEmissive)
 const DBG = new Set((() => { try { return (new URLSearchParams(location.search).get('hqldbg') || '').split(','); } catch (e) { return []; } })());
 const MAX_HEIGHT = 600; // m, above One WTC
 const SLICES = 16;
@@ -97,8 +98,10 @@ const uSize = uniform(new THREE.Vector2(1, 1)); // m the map covers
 const uMpt = uniform(2); // m a texel
 const uReady = uniform(0); // 0 until the map holds the city: the old canyon term meanwhile
 const uBounce = uniform(new THREE.Color(0, 0, 0)); // the irradiance of a surface that sees only buildings
-const uBounceGain = uniform(1.3); // (tuned against the old canyon term's brightness in a midtown street)
+const uBounceGain = uniform(1.5); // (tuned against the old canyon term's brightness in a midtown street)
 const AO_FLOOR = 0.25;
+const BOUNCE_NEUTRAL = 0.5;
+const _grey = new THREE.Color();
 
 // The texture (fixed size for the load, allocated on the first material that asks, so its shaders bind it once):
 // New York's Manhattan frame 2048 x 8192 (4 x 16 km at 2 m, as the fork), else 4096 square, its scale set by build()
@@ -322,7 +325,13 @@ function watchTiles(tm) {
 // Per frame (both engines' loops, high tier only): the bounce follows the time of day, a pending upload goes up
 function update(hemiLight, canyonBounce) {
   if (!_on) return;
-  if (hemiLight) uBounce.value.copy(hemiLight.groundColor).multiplyScalar(hemiLight.intensity * (canyonBounce ?? 0.5));
+  if (hemiLight) {
+    // (the ground colour half way to a neutral warm grey of its own brightness: the fork's terracotta alone read muddy
+    // brown in a shaded street)
+    const g = hemiLight.groundColor, lum = 0.2126 * g.r + 0.7152 * g.g + 0.0722 * g.b;
+    _grey.setRGB(1.0, 0.97, 0.92).multiplyScalar(lum);
+    uBounce.value.copy(g).lerp(_grey, BOUNCE_NEUTRAL).multiplyScalar(hemiLight.intensity * (canyonBounce ?? 0.5));
+  }
   if (M.dirty && performance.now() >= M.flushAt) flush();
 }
 
@@ -395,6 +404,7 @@ function apply(mat, canyon, factor = null, { bounce: withBounce = true } = {}) {
       get() { return sum || (sum = (own || TSL.materialEmissive).add(bounce)); },
       set(v) { own = v; sum = null; }
     });
+    OWN.set(mat, () => own);
   }
   mat.userData.skyOcclusion = true;
   S.materials++;
@@ -416,21 +426,33 @@ function applyOpen(mat, factor = null, opts = {}) {
 // buildings, the street and the traffic round it are what its paint and glass reflect. Here three.js prefilters it
 // for roughness (PMREM) once a cycle of faces, where the fork reads its plain mip chain.
 const HERO_SIZE = 128, HERO_INTERVAL = 2;
+const uHeroGain = uniform(2.2);
+const uHeroSkyFloor = uniform(0.85);
 const H = { rt: null, cam: null, env: null, face: -1, frame: 0, mesh: null, mats: new Map(), faces: 0, ms: 0 };
 const _p = new THREE.Vector3();
 function heroMaterials(root, fn) {
   root.traverse((o) => {
     if (!o.isMesh || !o.material) return;
-    for (const m of Array.isArray(o.material) ? o.material : [o.material]) if (m && m.isNodeMaterial && !m.transparent) fn(m);
+    for (const m of Array.isArray(o.material) ? o.material : [o.material]) if (m && m.isMeshStandardNodeMaterial && !m.transparent) fn(m); // (lit ones: a basic material reads envNode as a texture)
   });
 }
 function heroRelease() {
   for (const [m, prev] of H.mats) { m.envNode = prev; m.needsUpdate = true; }
   H.mats.clear();
 }
-function heroApply(root) {
+function heroApply(root, scene) {
+  // (a material the car shares with anything else, a town's traffic of the same model, is left alone: drawn into the
+  // probe, it would sample the cube it is drawn into)
+  const own = new Set();
+  heroMaterials(root, (m) => own.add(m));
+  const inside = new Set();
+  root.traverse((o) => inside.add(o));
+  if (scene) scene.traverse((o) => {
+    if (inside.has(o) || !o.isMesh || !o.material) return;
+    for (const m of Array.isArray(o.material) ? o.material : [o.material]) own.delete(m);
+  });
   heroMaterials(root, (m) => {
-    if (H.mats.has(m)) return;
+    if (H.mats.has(m) || !own.has(m)) return;
     H.mats.set(m, m.envNode || null);
     m.envNode = H.env;
     m.needsUpdate = true;
@@ -438,7 +460,7 @@ function heroApply(root) {
 }
 // Per frame, after the frame is drawn (both engines' loops). app: window.__NYC_APP
 function heroUpdate(app) {
-  if (!_on || !app || S.heroOff) return;
+  if (!_on || !app || S.heroOff || DBG.has('nohero')) return;
   const cm = app.controllerManager, renderer = app.renderer, scene = app.scene;
   if (!cm || !renderer || !scene) return;
   const ent = cm.getActiveEntity ? cm.getActiveEntity() : null;
@@ -446,10 +468,27 @@ function heroUpdate(app) {
   if (mesh !== H.mesh) { heroRelease(); H.mesh = mesh; H.face = -1; }
   if (!mesh || !mesh.parent) return;
   if (!H.rt) {
-    H.rt = new THREE.CubeRenderTarget(HERO_SIZE, { type: THREE.HalfFloatType, generateMipmaps: false });
+    H.rt = new THREE.CubeRenderTarget(HERO_SIZE, { type: THREE.HalfFloatType, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter });
     H.rt.texture.name = 'output'; // (the MRT below writes its 'output' to the texture of that name)
-    H.cam = new THREE.CubeCamera(0.3, 20000, H.rt);
-    H.env = TSL.cubeTexture(H.rt.texture);
+    H.cam = new THREE.CubeCamera(0.3, 250000, H.rt); // (as far as the sky dome, SkyMesh at 200 km: nearer, the sky was clipped and the cube's sky black)
+    // (not a bare texture node: three hands that to PMREM, which waits for a cube of six loaded images and so never
+    // prefilters a render target's, leaving the car's environment black. Here the material's radiance and irradiance
+    // contexts give the direction and a roughness, read at the mip roughness x log2(size), as the fork's plain mip chain.
+    // HERO_GAIN: the cube is the street's radiance before the grade; the baked open sky it stands in for lit the paint
+    // from every side, and next to it the car read dull and black. Tuned on the Kastell in a shaded street)
+    const tex = H.rt.texture, mips = Math.log2(HERO_SIZE);
+    H.sky = (app.lightingSystem && app.lightingSystem.envRenderTarget && app.lightingSystem.envRenderTarget.texture) || null;
+    const probe = TSL.cubeTexture(tex);
+    H.env = Fn((_, builder) => {
+      const ctx = builder.context;
+      const dir = ctx.getUV ? ctx.getUV(probe, builder) : TSL.reflectVector;
+      const level = ctx.getTextureLevel ? ctx.getTextureLevel(probe, builder) : float(0);
+      const street = probe.sample(dir).level(float(level).mul(mips)).mul(uHeroGain);
+      // (never darker than HERO_SKY_FLOOR of the baked sky it stands in for: the paint keeps the open sky's sheen where
+      // the street is darker than that, and shows the street where it is brighter)
+      const sky = H.sky ? TSL.pmremTexture(H.sky, dir, float(level)).mul(uHeroSkyFloor) : vec3(0);
+      return max(street, sky);
+    })();
   }
   if (H.face >= 0 && (H.frame++ % HERO_INTERVAL) !== 0) return;
   const t0 = performance.now();
@@ -481,22 +520,23 @@ function heroUpdate(app) {
       H.faces++;
     }
   } finally {
-    renderer.setRenderTarget(prevTarget, prevFace, prevMip);
+    // (the MRT put back first: the cube's mips are made as its target is let go, by a pass that must not see our MRT)
     if (renderer.setMRT) renderer.setMRT(prevMRT);
+    renderer.setRenderTarget(prevTarget, prevFace, prevMip);
     mesh.visible = visible;
     if (shadow) shadow.autoUpdate = autoUpdate;
   }
   const first = H.face < 0;
   H.face = (H.face + 1) % 6;
   // (prefiltered again once the cube has all its faces new: after the first capture, then once a cycle)
-  if (first || H.face === 0) H.rt.texture.needsPMREMUpdate = true;
-  if (first) heroApply(mesh);
+  if (first) heroApply(mesh, scene);
   H.ms = H.ms * 0.9 + (performance.now() - t0) * 0.1;
 }
 
 const S = {
   on, wanted, setChoice, savedChoice, choice: savedChoice(), why: null,
-  heroUpdate, hero: H, heroOff: false,
+  heroUpdate, hero: H, heroOff: false, uHeroGain, uHeroSkyFloor,
+  ownEmissive: (mat) => (OWN.has(mat) ? OWN.get(mat)() : mat.emissiveNode),
   build, addColliders, watchTiles, update, apply, applyOpen, visibilityOf, heightAt,
   uniforms: { uOrigin, uSize, uMpt, uReady, uBounce, uBounceGain },
   get map() { return M.tex; }, stats: null, materials: 0, early: 0, tilesWatched: 0, _watched: new Set(),

@@ -1963,7 +1963,9 @@ const roadTarSnakes = Fn(([wxz, px]) => {
  * Lane markings are separate geometry built from the road network (js/road-paint.js).
  */
 function createRoadSurfaceMaterial() {
-  const mat = new THREE.MeshStandardNodeMaterial({
+  // (Mog City, the high quality lighting tier: the water over the asphalt is a clearcoat at night, below)
+  const HQ = !!(window.NYC.HQL && window.NYC.HQL.on());
+  const mat = new (HQ ? THREE.MeshPhysicalNodeMaterial : THREE.MeshStandardNodeMaterial)({
     metalness: 0.24,
     roughness: 0.48
   });
@@ -2129,6 +2131,24 @@ function createRoadSurfaceMaterial() {
     return reflectCol.mul(max(puddle, film.mul(0.35))).mul(roadFresnel).mul(cityUniforms.uInteriorGlow).mul(0.07);
   })();
 
+  if (HQ) {
+    // (Mog City, the high quality lighting tier; after Ben Houston's enhanced Slop New York c3a44b5, MIT) At night the
+    // water on the road is a clearcoat over the asphalt: the puddles a sharp mirror, the damp stains and the film a
+    // softer one, reflecting the street's real lights, signs and SSR instead of the emissive copy of the sky and neon
+    // painted above (switched off where the coat takes over)
+    const night = smoothstep(0.6, 1.15, cityUniforms.uInteriorGlow);
+    // (at night the whole road is wet through, its puddles deepest: a film of 0.65 under them)
+    const water = max(puddle, max(damp.mul(0.85), max(film.mul(0.55), float(0.65)))).mul(night);
+    mat.clearcoatNode = water;
+    mat.clearcoatRoughnessNode = mix(float(0.12), float(0.03), puddle);
+    // (and the base lobe glossed under the water, so SSR, which reads the base's roughness and metalness, mirrors the
+    // signs and the lamps in it)
+    const baseRough = mat.roughnessNode, baseMetal = mat.metalnessNode;
+    mat.roughnessNode = mix(baseRough, float(0.07), water.mul(0.9));
+    mat.metalnessNode = max(baseMetal, waterFresnel.mul(1.6).clamp(0.25, 0.85).mul(water));
+    const painted = window.NYC.HQL.ownEmissive(mat);
+    if (painted) mat.emissiveNode = painted.mul(night.oneMinus());
+  }
   return mat;
 }
 

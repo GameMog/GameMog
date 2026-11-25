@@ -409,6 +409,8 @@ async function initApp() {
   ssrPass.resolutionScale = 0.5;
   ssrPass.blurQuality = 1;
   ssrPass.maxDistance.value = 42;
+  // (Mog City, the high quality lighting tier: rays out to 120 m, as the enhanced Slop New York's; js/sky-occlusion.js)
+  if (window.NYC.HQL && window.NYC.HQL.on()) ssrPass.maxDistance.value = 120;
   ssrPass.thickness.value = 0.85;
   ssrPass.quality.value = 0.35;
   ssrPass.intensity.value = 0.50;

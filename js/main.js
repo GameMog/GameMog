@@ -411,6 +411,9 @@ async function initApp() {
     ssrPass.resolutionScale = 0.5;
     ssrPass.blurQuality = 1;
     ssrPass.maxDistance.value = 42;
+    // (Mog City, the high quality lighting tier: rays out to 120 m, as Ben Houston's enhanced Slop New York reaches 150,
+    // so a wet avenue at night mirrors the signs down the block, js/sky-occlusion.js)
+    if (window.NYC.HQL && window.NYC.HQL.on()) ssrPass.maxDistance.value = 120;
     ssrPass.thickness.value = 0.85;
     // Fewer coarse steps, then refine detected hits to keep reflection edges precise.
     ssrPass.quality.value = 0.25;
