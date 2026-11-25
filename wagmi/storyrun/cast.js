@@ -20,6 +20,7 @@ import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
 import { createFace, dropFace } from '../face.js';
 import { relaxArms } from '../combat/suitarms.js';
 import { unhang } from './pack.js';
+import { danOn } from '../retarget.js';
 import { polishBody } from './polish.js'; import { importRetry } from '../net.js';
 
 // (8: a set's cutscene stands up to seven at once, the hero's double besides: sets.js)
@@ -43,7 +44,7 @@ export function createCast(W, world) {
   const touch = (name) => { const i = order.indexOf(name); if (i >= 0 && i < order.length - 1) { order.splice(i, 1); order.push(name); } };
   const scene = W.app.scene, cm = W.app.controllerManager;
   let danClips = null;
-  const clipsOfDan = () => danClips || (danClips = loadGLB('assets/characters/dan.glb').then((g) => g.animations).catch(() => []));
+  const clipsOfDan = () => danClips || (danClips = loadGLB('assets/characters/dan.glb').catch(() => null));
   const entry = (name) => world.castOf(name);
   const cast = {
     color(name) { const c = entry(name); return (c && c.color) || '#FFFFFF'; },
@@ -139,6 +140,7 @@ export function createCast(W, world) {
     const bones = {}; inner.traverse((o) => { if (o.isBone) bones[o.name] = o; });
     const mixer = new THREE.AnimationMixer(inner);
     const own = g.animations.slice(), names = new Set(own.map((a) => a.name)), suit = !!(nat && nat[2]);
+    let legRatio = 1;
     // (a Suit moves as the fight's Suits do: their pack, Dan's clips retargeted onto thug.glb's rig (combat/index.js),
     // a name of Dan's played as its Suit clip, standing by default: Dan's own clips only move a Suit's head (the rigs share
     // no other bone name), which left him in the rig's bind pose)
@@ -146,7 +148,12 @@ export function createCast(W, world) {
       const pack = await loadGLB('assets/anim/suits-dan.glb').catch(() => null);
       for (const a of pack?.animations || []) { const i = own.findIndex((x) => x.name === a.name); if (i >= 0) own[i] = a; else own.push(a); names.add(a.name); }
       try { relaxArms(own, g.scene); } catch {}
-    } else for (const a of await clipsOfDan()) if (!names.has(a.name)) own.push(a);
+    } else {
+      // (Dan's clips put on this body's own rest, a forged or hand-built body's: wagmi/retarget.js. Mr. Big as he shipped)
+      const dan = await clipsOfDan(), rt = dan && !nat ? danOn(THREE, dan, g) : null;
+      if (rt) legRatio = rt.legRatio;
+      for (const a of rt ? rt.clips : dan?.animations || []) if (!names.has(a.name)) own.push(a);
+    }
     const find = (n) => (n ? THREE.AnimationClip.findByName(own, n) : null);
     const clip = suit ? (n) => find(n) || find(SUIT_CLIP[n]) : find;
     const idle = clip(c.idle) || (suit && find('suitIdle')) || clip('idle') || clip('thugIdle');
@@ -168,8 +175,15 @@ export function createCast(W, world) {
     });
     // (its clips by name, Dan's under its own: a fight's puppet (runner.js STEPS.fight) crossfades them itself)
     f.clip = clip;
+    // (its leg over Dan's: a gait's capture speed times it is the pace its feet stay planted at, sets.js / runner.js walks)
+    f.legRatio = legRatio;
     // (played: evaluated at once, so its bones are the clip's from the first read, not the state they were first bound in: sets.js blend)
-    f.play = (n, loop = true) => { const cl = clip(n); if (!cl) return false; mixer.stopAllAction(); const a = mixer.clipAction(cl); a.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity); a.clampWhenFinished = !loop; a.play(); mixer.update(0); return true; };
+    // (fade > 0: cross-faded from the clip it played last, the way a walk starts and stops; 0, a cut, as before. The action
+    // returned (truthy), so a caller can set its pace)
+    f.play = (n, loop = true, fade = 0) => { const cl = clip(n); if (!cl) return false; const a = mixer.clipAction(cl), prev = f.current;
+      if (fade > 0 && prev && prev !== a && prev.isRunning()) { a.reset(); a.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity); a.clampWhenFinished = !loop; a.setEffectiveTimeScale(1); a.setEffectiveWeight(1); a.play(); prev.crossFadeTo(a, fade, false); }
+      else { mixer.stopAllAction(); a.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity); a.clampWhenFinished = !loop; a.setEffectiveTimeScale(1); a.play(); mixer.update(0); }
+      f.current = a; return a; };
     return f;
   }
   function figureOf(name, root, mixer, bones, clips, face, dispose, nativeP = null) {

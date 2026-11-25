@@ -42,6 +42,7 @@ import { armTo } from '../mission/m3-set.js';
 import { world as cityWorld } from '../world/index.js';
 import { createReach, reachReason } from './reach.js';
 import { closeLock } from './headlock.js';
+import { gaitPace } from '../retarget.js';
 import { beatOf, gapAfter, readingTime, playTurns, DECODE, cutInto } from '../radio/turns.js'; import { reactPools, callTup, OVERLAP_IN } from './talk.js'; import { importRetry } from '../net.js';
 
 const PI = Math.PI;
@@ -830,10 +831,11 @@ export function createRunner(ctx) {
     fig.post = (dt) => {
       if (walk) {
         const tt = now(); if (tt < walk.t0) { placeChair(); pushHands(fig, chair, armTo, hold); return; }
-        if (!walk.started) { walk.started = true; playClip(fig, 'walk'); }
+        // (cross-faded into the walk, at its pace on their legs: the planted foot stays put, wagmi/retarget.js gaitPace)
+        if (!walk.started) { walk.started = true; const a = fig.play ? fig.play('walk', true, 0.3) : playClip(fig, 'walk'); a?.setEffectiveTimeScale?.(gaitPace('walk', Math.hypot(walk.tx - walk.x0, walk.tz - walk.z0) / (walk.dur / 1000), fig.legRatio)); }
         const u = Math.min(1, (tt - walk.t0) / walk.dur), x = walk.x0 + (walk.tx - walk.x0) * u, z = walk.z0 + (walk.tz - walk.z0) * u;
         fig.root.position.set(x, cm.getGroundHeight(x, z, 'person'), z);
-        if (u >= 1) { walk = null; playClip(fig, 'idle'); let0 = now() + 1000; }
+        if (u >= 1) { walk = null; if (fig.play) fig.play('idle', true, 0.35); else playClip(fig, 'idle'); let0 = now() + 1000; }
       }
       placeChair();
       if (chair) { if (!walk && let0 && now() > let0) hold = Math.max(0, hold - (dt || 0.016) / 0.5); pushHands(fig, chair, armTo, hold); }

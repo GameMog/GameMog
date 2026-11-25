@@ -9,6 +9,7 @@ import { loadGLB } from './glb.js';
 import { buildRoadster, createDriver } from './roadster.js';
 import { createStand } from './stand.js';
 import { createPlant } from './plant.js';
+import { danOn, danClips, gaitOn } from './retarget.js';
 import { drive, installDriveMode } from './audio/drivemode.js';
 import { world } from './world/index.js';
 import { CHASE_START } from './chase-start.js';
@@ -657,7 +658,9 @@ installDriveMode(WAGMI);
 //  - hands: a reach for each hand (W.dan.reach), two-bone IK over the pose (holding, lifting, grabbing).
 // The fight sets W.dan.loco, W.dan.timeScale (hit-stop, slow motion) and the pre / post hooks it runs around the pose.
 {
-  const gltf = PACK?.ok && PACK.heroGlb ? await PACK.heroGLTF(loadGLB) : await loadGLB('assets/characters/dan.glb');
+  // (a forged hero: Dan's clips put on the body's own rest and its leg length, wagmi/retarget.js; legRatio its leg over his)
+  let legRatio = 1, onBody = false;
+  const gltf = PACK?.ok && PACK.heroGlb ? await PACK.heroGLTF(loadGLB, (dan, g) => { const r = danOn(THREE, dan, g); legRatio = r.legRatio; onBody = true; return r.clips; }) : await loadGLB('assets/characters/dan.glb');
   const body = gltf.scene;
   // (the export's armature node, the parent of the bone 'root', carries a fixed turn of 12.8 deg that no clip moves: 11
   // deg forward and 6 deg over to his right. Every clip stood him on it, his hips 24 cm ahead of his feet and 12 cm to
@@ -670,7 +673,8 @@ installDriveMode(WAGMI);
   story.dress('dan', body);
   for (const m of person.crowd.meshes) m.visible = false;
   person.mesh.add(body);
-  const mixer = new THREE.AnimationMixer(body), clips = gltf.animations.slice(), A = {};
+  // (Dan's own: his walk's arms hung in at his sides, wagmi/retarget.js HANG; a forged hero's came through danOn with it)
+  const mixer = new THREE.AnimationMixer(body), clips = (onBody ? gltf.animations : danClips(THREE, gltf.animations)).slice(), A = {};
   const clipOf = (n) => THREE.AnimationClip.findByName(clips, n);
   const act = (n) => A[n] || (A[n] = mixer.clipAction(clipOf(n)));
   const bones = {}; body.traverse((o) => { if (o.isBone) bones[o.name] = o; });
@@ -687,7 +691,9 @@ installDriveMode(WAGMI);
   // run_masculinity, sprint dash_masculinity. Each cycle starts on his left foot's strike, so the two blended share one
   // phase (gPhase, below): their feet come down together, the stride the blend's and the pace speed / stride
   // (a clip the model lacks is left out: a re-export with fewer clips still loads)
-  const GAITS = [['idle', 0, 1], ['walk', 1.4796, 1.4796], ['jog', 2.9654, 2.9654], ['run', 3.8326, 3.8326], ['sprint', 5.2867, 5.2867]].filter(([n]) => clipOf(n));
+  // (a forged hero's legs are not his: each gait's speed times the leg ratio, so a shorter stride turns over faster and her
+  // planted foot stays put; Dan's own: 1, as before)
+  const GAITS = [['idle', 0, 1], ['walk', 1.4796, 1.4796], ['jog', 2.9654, 2.9654], ['run', 3.8326, 3.8326], ['sprint', 5.2867, 5.2867]].filter(([n]) => clipOf(n)).map(([n, a, b]) => [n, a * legRatio, n === 'idle' ? b : b * legRatio]);
   let gPhase = 0;
   // the fight's stance and footwork, and the speed each step was captured at
   const STEPS = [['fight', 0], ['guardF', 0.76], ['guardB', 0.84], ['guardL', 0.46], ['guardR', 0.66]].filter(([n]) => clipOf(n));
@@ -825,6 +831,24 @@ installDriveMode(WAGMI);
       return cur;
     };
   }
+  // his weight in a turn and a change of pace (procedural, over the clips; ?gait=classic leaves it off): leaning into a
+  // turn round his feet, as far as his speed times his turn rate asks (a third of the bank it takes not to fall, at
+  // most LEAN.roll), and a little forward as he gets going, back as he pulls up (LEAN.pitch); eased (LEAN.ease /s). Off
+  // standing, in the fight, in the air and in anything that directs him
+  const LEAN = { k: 0.33, roll: 0.16, pitch: 0.07, accel: 0.012, ease: 7 };
+  const leanOn = gaitOn();
+  let leanR = 0, leanP = 0, lastH = null, lastV = 0;
+  function lean(dt, p, v, L, air) {
+    if (!leanOn || dt <= 0) return;
+    const h = p.heading || 0, w = lastH == null ? 0 : Math.atan2(Math.sin(h - lastH), Math.cos(h - lastH)) / dt, a = (v - lastV) / dt;
+    lastH = h; lastV = v;
+    const on = !(L && L.fight) && !air && v > 0.3 && !tracks.length;
+    const r = on ? -Math.max(-LEAN.roll, Math.min(LEAN.roll, Math.atan((v * w) / 9.81) * LEAN.k)) : 0;
+    const pt = on ? Math.max(-LEAN.pitch, Math.min(LEAN.pitch, a * LEAN.accel)) : 0;
+    const e = Math.min(1, dt * LEAN.ease); leanR += (r - leanR) * e; leanP += (pt - leanP) * e;
+    if (Math.abs(leanR) < 1e-4 && Math.abs(leanP) < 1e-4) { if (body.rotation.z || body.rotation.x) { body.rotation.z = 0; body.rotation.x = 0; } leanR = leanP = 0; return; }
+    body.rotation.x = leanP; body.rotation.z = leanR;
+  }
   let directed = false;
   person.label = 'Dan';
   person.model = {
@@ -889,6 +913,7 @@ installDriveMode(WAGMI);
       if (fwOn) act('fight/upper').time = act('fight').time; // (in step with the guard below it)
       mixer.update(d);
       body.position.y = 0;
+      lean(dt, p, v, L, air);
       plant.restore();
       // standing still: not stepping, not in the fight's guard, no move on him (a blow, a vault, down, a pick-up), on
       // the ground, not getting in or out of the car; by the idle's share of the pose

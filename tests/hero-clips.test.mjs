@@ -52,10 +52,13 @@ test("pack.js heroGLTF uses heroClips; Dan himself (no hero GLB) is Dan's file u
   const pack = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/pack.js'), 'utf8');
   const hero = pack.slice(pack.indexOf('W.heroGLTF = async'), pack.indexOf('};', pack.indexOf('W.heroGLTF = async')));
   assert.match(hero, /if \(!W\.heroGlb\) return dan;/);
-  assert.match(hero, /g\.animations = heroClips\(dan\.animations, g\.animations, heroOwnOf\(g\)\);/);
+  // (Dan's clips, put on the body's own rest by the caller's onBody when it gives one: wagmi/retarget.js danOn)
+  assert.match(hero, /g\.animations = heroClips\(onBody \? onBody\(dan, g\) : dan\.animations, g\.animations, heroOwnOf\(g\)\);/);
   const cast = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/cast.js'), 'utf8');
   assert.match(cast, /const own = g\.animations\.slice\(\), names = new Set\(own\.map\(\(a\) => a\.name\)\)/);
-  assert.match(cast, /for \(const a of await clipsOfDan\(\)\) if \(!names\.has\(a\.name\)\) own\.push\(a\);/);
+  // (Dan's under its own, retargeted to a forged body's rest; Mr. Big's as they are)
+  assert.match(cast, /const dan = await clipsOfDan\(\), rt = dan && !nat \? danOn\(THREE, dan, g\) : null;/);
+  assert.match(cast, /for \(const a of rt \? rt\.clips : dan\?\.animations \|\| \[\]\) if \(!names\.has\(a\.name\)\) own\.push\(a\);/);
 });
 
 test("Jensen's hand-built body carries the seated clips by these names (where GameMog's checkout is beside this one)", (t) => {
