@@ -660,7 +660,8 @@
       "walkCool",
       "walkHeavy",
       "jog",
-        "swagger"
+        "swagger",
+        "ual"
      ]
     }
    }
