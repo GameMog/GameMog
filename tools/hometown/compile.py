@@ -2027,13 +2027,21 @@ class World:
         if self.deck_iv(p) is None:
             return None
         G = self.deck_group(p)
-        return self.memo(self.deck_c, G['ckey'], lambda: self._group_profiles(G, False))[self.pkey(p)]
+        got = self.memo(self.deck_c, G['ckey'], lambda: self._group_profiles(G, False))
+        if self.pkey(p) not in got:
+            # (a group whose least member keys another group's solve (a split L4 class re-cut at L3, Chicago's river
+            # decks): solved under its whole member set instead; every town that compiled before is unchanged)
+            got = self.memo(self.deck_c, (G['ckey'], tuple(sorted(G['members']))), lambda: self._group_profiles(G, False))
+        return got[self.pkey(p)]
 
     def deck_base(self, p):
         """The deck's profile solved with its group alone (no deck of another group under it): what a deck of a group
         ranked lower reads, so no two groups ever wait on each other."""
         G = self.deck_group(p)
-        return self.memo(self.base_c, G['ckey'], lambda: self._group_profiles(G, True))[self.pkey(p)]
+        got = self.memo(self.base_c, G['ckey'], lambda: self._group_profiles(G, True))
+        if self.pkey(p) not in got:
+            got = self.memo(self.base_c, (G['ckey'], tuple(sorted(G['members']))), lambda: self._group_profiles(G, True))
+        return got[self.pkey(p)]
 
     def _group_profiles(self, G, base):
         members, free = G['members'], G['free']

@@ -27,6 +27,8 @@ body.wg-vcall #wg .wg-bar { display: none; }
 body.wg-vcall #wg .wg-line { bottom: 92px; }
 body.wg-vcall #wg .wg-sub.vc-muted .t { opacity: .55; font-style: italic; }
 body.wg-vcall #wg .wg-sub.vc-muted .t::before { content: '(muted) '; color: ${RED}; font-style: normal; font-weight: 700; }
+#wg .wg-vc.laptop { border: 14px solid #16171a; border-top-width: 22px; border-radius: 18px; box-shadow: inset 0 0 0 1px #2a2c31; }
+#wg .wg-vc.laptop::before { content: ''; position: absolute; top: -14px; left: 50%; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: #2c3e2f; box-shadow: 0 0 0 2px #0c0d0f; }
 #wg .wg-vc { position: absolute; inset: 0; z-index: 1; pointer-events: none; font-family: 'Barlow Condensed', system-ui, sans-serif; opacity: 0; transition: opacity .35s; }
 #wg .wg-vc.on { opacity: 1; }
 #wg .wg-vc .cover { position: absolute; inset: 0; z-index: 3; background: #0E1014; transition: opacity .5s; display: flex; align-items: center; justify-content: center; font: 600 20px/1 'Barlow Condensed'; letter-spacing: 3px; color: rgba(255,255,255,.6); }
@@ -116,11 +118,11 @@ function webcam(eyes, kind, face) {
 const _hv = new THREE.Vector3();
 const eyesOf = (fig, v) => { const h = fig.head(_hv), e = fig.face?.eyes ? fig.face.eyes(v) : null; return eyesAim(e ? [e.x, e.y, e.z] : null, [h.x, h.y, h.z]); };
 
-export function createVcall(W, { setsOf, castName, heroName, ui, colorOf, tokens = (x) => x, mumble = () => {}, delay, wait, tokOf, kill, log = () => {}, sfx = W.sfx, fold = null }) {
+export function createVcall(W, { setsOf, castName, heroName, ui, colorOf, tokens = (x) => x, mumble = () => {}, delay, wait, tokOf, kill, log = () => {}, sfx = W.sfx, fold: FOLD = null }) {
   const now = () => performance.now() / 1000;
-  function dom() {
+  function dom(laptop = false) {
     if (!styled) { const st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st); styled = true; }
-    const root = document.createElement('div'); root.className = 'wg-vc';
+    const root = document.createElement('div'); root.className = laptop ? 'wg-vc laptop' : 'wg-vc';
     root.innerHTML = `<div class="cover">CONNECTING…</div><div class="top"><span class="ttl"><i></i><span class="tt"></span></span><span class="clk">00:00</span><span class="ppl"></span></div>
       <div class="tiles"></div><div class="share"><div class="bar"></div><div class="sl"></div></div>
       <div class="tools"><span class="mic">${MIC} Mute</span><span>Video</span><span>Share</span><span>Participants</span><span class="leave">Leave</span></div><div class="toast"></div>`;
@@ -129,6 +131,9 @@ export function createVcall(W, { setsOf, castName, heroName, ui, colorOf, tokens
   }
 
   async function play(d, t) {
+    // (a world's foldable phone (calls.style 'fold') holds its vcalls, except one on the hero's laptop (device
+    // 'laptop': Mandi's audition): that one is the full-screen call as before, in a laptop's frame)
+    const fold = d.device === 'laptop' ? null : FOLD;
     const plan = planCall(d, { name: (w) => castName(w) || w, hero: heroName });
     for (const w of plan.warn || []) console.warn('[storyrun] vcall:', w);
     if (plan.error) { console.warn('[storyrun] vcall:', plan.error); return; }
@@ -137,7 +142,7 @@ export function createVcall(W, { setsOf, castName, heroName, ui, colorOf, tokens
     // (each person in an office of their own, sat at its desk, their eyes to the lens)
     const defs = {}, ids = plan.people.map((p, i) => `vc${i}`);
     plan.people.forEach((p, i) => { defs[ids[i]] = { room: 'office-' + p.office, light: p.light || plan.time || null, people: [{ who: p.isHero ? 'player' : p.who, at: [0, 0], face: 0, pose: 'sit', seat: SEAT.y, look: 'lens' }] }; });
-    const root = dom(), tilesEl = root.querySelector('.tiles'), shareEl = root.querySelector('.share'), toastEl = root.querySelector('.toast');
+    const root = dom(d.device === 'laptop'), tilesEl = root.querySelector('.tiles'), shareEl = root.querySelector('.share'), toastEl = root.querySelector('.toast');
     root.querySelector('.tt').textContent = plan.title;
     // (a world's calls on its foldable phone (fold.js): the call open on it, big, in the middle; its tiles inside its screen)
     if (fold) fold.scene(plan.title, `${plan.people.length} on call`);
@@ -311,7 +316,7 @@ export function createVcall(W, { setsOf, castName, heroName, ui, colorOf, tokens
     if (!styled) { const st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st); styled = true; }
     const el = document.createElement('div'); el.className = 'wg-vfeed';
     // (on a world's foldable phone the phone is the picture: this one kept out of sight, and out of the street's way)
-    if (fold) el.className = 'wg-vfeed-fold';
+    if (FOLD) el.className = 'wg-vfeed-fold';
     el.innerHTML = `<div class="nm"><i></i><span>${esc(who)}</span><small></small></div>`;
     const stEl = el.querySelector('small'), norm = (x) => String(x || '').trim().toLowerCase();
     (document.getElementById('wg') || document.body).appendChild(el);
@@ -333,13 +338,13 @@ export function createVcall(W, { setsOf, castName, heroName, ui, colorOf, tokens
         { const tt = now(), dt = Math.min(0.05, Math.max(0, tt - lastF)); lastF = tt; if (wc) cam = wc.at(eyesOf(fig, V), dt); }
         const touch = document.body.classList.contains('touch-enabled'), w = Math.round(Math.min(touch ? 200 : 320, innerWidth * 0.3)), h = Math.round((w * 9) / 16);
         // (on a world's foldable phone (fold.js): drawn into its inner screen's picture, once it has opened)
-        const fr = fold ? fold.rect() : null;
-        const r = fold ? fr : [innerWidth - w - (touch ? 10 : 18), touch ? 70 : 86, w, h], on = !W.cutscene && live() && shown() && !!S.set(id) && !!r;
-        if (!fold) Object.assign(el.style, { left: r[0] + 'px', top: r[1] + 'px', width: w + 'px', height: h + 'px' });
+        const fr = FOLD ? FOLD.rect() : null;
+        const r = FOLD ? fr : [innerWidth - w - (touch ? 10 : 18), touch ? 70 : 86, w, h], on = !W.cutscene && live() && shown() && !!S.set(id) && !!r;
+        if (!FOLD) Object.assign(el.style, { left: r[0] + 'px', top: r[1] + 'px', width: w + 'px', height: h + 'px' });
         el.classList.toggle('on', on);
         el.classList.toggle('live', on && document.querySelector('#wg .wg-sub:not(.hide)')?.dataset.who === who);
-        if (on) { S.feed(fold ? { id, rect: r, cam, blur: !!o.blur, radius: fold.radius() } : { id, rect: r, cam, blur: !!o.blur }); feedOwner = id; } else if (was && feedOwner === id) { S.feed(null); feedOwner = null; }
-        if (fold && on !== was) fold.live(on);
+        if (on) { S.feed(FOLD ? { id, rect: r, cam, blur: !!o.blur, radius: FOLD.radius() } : { id, rect: r, cam, blur: !!o.blur }); feedOwner = id; } else if (was && feedOwner === id) { S.feed(null); feedOwner = null; }
+        if (FOLD && on !== was) FOLD.live(on);
         if (on !== was && !(cardOff && !on)) feedShown(id, on);
         // (the call's status from the caller card, when the card is this caller's: Incoming call, On call, Call waiting)
         // (another caller's card while this one is up: a call waiting, said on this one's name tag, the card being hidden)
@@ -350,7 +355,7 @@ export function createVcall(W, { setsOf, castName, heroName, ui, colorOf, tokens
       raf = requestAnimationFrame(frame);
       await wait(() => !live(), t).catch(() => {});
     } finally {
-      feeds--; feedShown(id, false); if (fold && was) fold.live(false);
+      feeds--; feedShown(id, false); if (FOLD && was) FOLD.live(false);
       cancelAnimationFrame(raf); if (feedOwner === id || !feeds) { S.feed(null); feedOwner = null; } el.remove();
       if (fig) fig.gaze = null;
       // (its office let go, unless a scene has the sets now or another feed still runs: the held call's)

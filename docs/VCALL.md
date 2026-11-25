@@ -70,6 +70,9 @@ phone of Mog City's own (no maker's name, logo or system UI):
 - A `vcall` step plays on the phone too, bigger, in the middle of the screen: its tiles laid out inside the inner
   screen (`layout` on the screen's rect), the call's title and count on its bar; the call's own top bar and controls
   are put away. Everything else in the step (events, turns, skip) is as above.
+- **A call on the hero's laptop** (`"device": "laptop"` on the `vcall` step, 25 Nov 2026): played full screen as a
+  world without the phone plays it (the call's top bar, tiles and controls), inside a laptop's frame (a dark bezel and
+  its webcam dot), never on the phone. Mandi's Revenge's opening audition is one; every other call stays on the phone.
 
 Try it: `/?pack=/tools/storyrun/test-packs/fold-phone.json&nogate&trailer=0&autocard=1&mission=FP-2` (a call on foot,
 then a `vcall`), `&mission=FP-1&autopilot=1&flowfast=1` (a video call at the wheel).
