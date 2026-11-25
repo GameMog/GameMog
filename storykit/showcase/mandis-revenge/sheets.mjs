@@ -28,7 +28,7 @@ export const SHEETS = [
     age: 27, body: 'female', height: 170, build: { frame: 'medium', weight: 'slim', muscle: 'athletic' }, blend: { african: 0.15, asian: 0.0, european: 0.85 },
     skin: { tone: 'light-medium', undertone: 'warm', makeup: 'natural', lipTint: 'rose' }, face: { cheekbones: 'high', eyes: 'hazel', eyeShape: 'almond', mouth: { lips: 'full' } },
     hair: { style: 'long', color: 'brown' }, wardrobe: { top: { item: 'tee', color: '#C9A227' }, bottom: { item: 'skirt', color: '#B07A3A' }, shoes: { item: 'sneakers', color: '#F2B6C6' } },
-    posture: { stance: 'proud', pace: 'quick', gestures: 'tucks her hair back, points with her keys', idle: 'idle', walk: 'walkCool' },
+    posture: { stance: 'proud', pace: 'quick', gestures: 'tucks her hair back, points with her keys', idle: 'idle', walk: 'swagger' }, // (Tripo's swagger: Mog City's locomotion pack, wagmi/retarget.js WALK_STYLES)
     personality: { traits: ['quick', 'loyal', 'wry', 'unflappable'], speech: 'quick and wry, dead calm when she means it' },
     voice: { description: 'warm bright mezzo, quick and wry', pitch: 'mid', rate: 'quick' } }),
   person({ id: 'jay', name: 'Jay', role: "Mandi's ex, who bets on everything", logline: 'Charming, lucky in nothing, forty thousand down on a rubber duck.',
