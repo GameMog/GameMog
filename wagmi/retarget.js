@@ -29,8 +29,9 @@ export function gaitPace(clip, v, legRatio = 1) { const sp = gaitSpeed(clip); re
 // The locomotion pack (assets/anim/loco-walk.glb, tools/loco/build.mjs): Dan's walk replaced, for him and every body on
 // his clips. Compared Nov 25 (GameMog/Mandi/review/motion-*-v2.png): Tripo's "walk" preset stands tall on straight legs
 // at the heel strike where Dan's (Bandai walk_normal) walks crouched and leaning, but its arms barely swing and stand
-// out; Quaternius UAL's walk, jog, sprint and idle stoop. The walk is Tripo's legs, hips, spine and head under Dan's own
-// walk's arms, time-warped onto its stride; jog, run, sprint and idle stay Dan's. Its speed (the planted foot's, on
+// out; Quaternius UAL's walk, jog, sprint and idle stoop. The walk is Tripo's, its relaxed arms kept close to the body
+// with a modest swing put on against the legs (Dan's arms on its stride swung behind the back: rejected); jog, run,
+// sprint and idle stay Dan's. Its speed (the planted foot's, on
 // his legs) travels in its extras (loco.speed). loadLoco(loadGLB) once before Dan's clips are read; ?gait=classic: off
 export const LOCO_URL = 'assets/anim/loco-walk.glb';
 let LOCO = null, locoP = null;

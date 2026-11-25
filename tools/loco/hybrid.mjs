@@ -21,3 +21,38 @@ export function hybridWalk(dan, legs, arms) {
   }
   return { clip: { tracks, dur: legs.dur }, strikes: { legs: sL, arms: sA, cycL, cycA } };
 }
+
+// the walk's arms, option A: Tripo's own (hanging close to the body) with a modest fore-and-aft swing put on, against
+// the legs: each upper arm turned about the body's side-to-side axis by -k x its own side's thigh swing (normalised to
+// `amp` deg at its peak), its forearm `elbow` deg more on the forward swing; option B: Dan's arms, their swing scaled
+const qx = (a) => new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), (a * Math.PI) / 180);
+function worldRot(rig, W, name) { const q = new THREE.Quaternion(); W[rig.ix(name)].decompose(new THREE.Vector3(), q, new THREE.Vector3()); return q; }
+export function swingArms(dan, base, { amp = 18, back = 4, elbow = 10, signal = null } = {}) {
+  const tracks = { ...base.tracks }, times = base.tracks.upperarm01_L.rotation.t, n = times.length;
+  const thigh = { L: [], R: [] }, frames = [];
+  for (let i = 0; i < n; i++) { const W = fk(dan, poseAt(dan, signal || base, times[i])); frames.push(fk(dan, poseAt(dan, base, times[i])));
+    for (const s of ['L', 'R']) { const a = carried(dan, W, dan.ix('upperleg01_' + s), dan.ix('upperleg01_' + s)), b = carried(dan, W, dan.ix('upperleg01_' + s), dan.ix('lowerleg01_' + s)); const d = b.sub(a); thigh[s].push(Math.atan2(d.z, -d.y)); } }
+  for (const s of ['L', 'R']) {
+    const m = thigh[s].reduce((x, y) => x + y, 0) / n, pk = Math.max(...thigh[s].map((x) => Math.abs(x - m))) || 1;
+    const ua = new Float32Array(n * 4), fa = new Float32Array(n * 4);
+    for (let i = 0; i < n; i++) {
+      const x = -(thigh[s][i] - m) / pk, sw = x > 0 ? amp * x : back * x; // (+: arm forward, as its own leg goes back; less back than forward: the hand stays off the back line)
+      const W = frames[i], Wp = worldRot(dan, W, 'shoulder01_' + s), Lua = new THREE.Quaternion().fromArray(base.tracks['upperarm01_' + s].rotation.v, i * 4);
+      const R1 = qx(-sw);
+      Wp.clone().invert().multiply(R1).multiply(Wp).multiply(Lua).toArray(ua, i * 4);
+      const Wfa = worldRot(dan, W, 'lowerarm01_' + s), Wu2 = worldRot(dan, W, 'upperarm02_' + s);
+      const Wu2n = R1.clone().multiply(Wu2), R2 = qx(-elbow * Math.max(0, sw) / amp);
+      Wu2n.invert().multiply(R2).multiply(R1).multiply(Wfa).toArray(fa, i * 4);
+    }
+    tracks['upperarm01_' + s] = { rotation: { t: times, v: ua } }; tracks['lowerarm01_' + s] = { rotation: { t: times, v: fa } };
+  }
+  return { tracks, dur: base.dur };
+}
+// option B: an arm's local turns pulled toward the clip's mean by k (its swing scaled)
+export function scaleArms(clip, k = 0.4) {
+  const tracks = { ...clip.tracks };
+  for (const [bone, tr] of Object.entries(clip.tracks)) { if (!ARM.test(bone) || !tr.rotation) continue; const v = tr.rotation.v, n = v.length / 4;
+    const mean = new THREE.Quaternion(0, 0, 0, 0); for (let i = 0; i < n; i++) { const q = new THREE.Quaternion().fromArray(v, i * 4); if (q.dot(new THREE.Quaternion().fromArray(v, 0)) < 0) q.set(-q.x, -q.y, -q.z, -q.w); mean.x += q.x; mean.y += q.y; mean.z += q.z; mean.w += q.w; } mean.normalize();
+    const o = new Float32Array(v.length); for (let i = 0; i < n; i++) mean.clone().slerp(new THREE.Quaternion().fromArray(v, i * 4), k).toArray(o, i * 4); tracks[bone] = { rotation: { t: tr.rotation.t, v: o } }; }
+  return { tracks, dur: clip.dur };
+}
