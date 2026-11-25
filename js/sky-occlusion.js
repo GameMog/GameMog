@@ -55,6 +55,8 @@ function wanted() {
   try { saved = localStorage.getItem(KEY); } catch (e) { /* private mode */ }
   if (saved === 'on' || saved === 'off') return { on: saved === 'on', why: 'saved' };
   const Q = window.NYC.quality, G = window.mcGfx;
+  // (asked before the engine has picked its tier: off for now, and asked again later, not remembered)
+  if (!Q || !Q.tier) return { on: false, why: 'early', early: true };
   let phone = false;
   try { phone = matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches; } catch (e) { /* old */ }
   const tier = Q && Q.tier, webgpu = !!navigator.gpu && (!Q || Q.backend !== 'webgl2');
@@ -64,6 +66,7 @@ function wanted() {
 function on() {
   if (_on === null) {
     const w = wanted();
+    if (w.early) { S.early++; return false; }
     _on = !!w.on;
     S.why = w.why;
     if (_on) console.log(`[light] high quality lighting on (${w.why})`);
@@ -463,8 +466,11 @@ function heroUpdate(app) {
       H.cam.update(renderer, scene); // all six, the first time
       H.faces += 6;
     } else {
-      renderer.setRenderTarget(H.rt, H.face);
-      renderer.render(scene, H.cam.children[H.face]);
+      if (window.NYC.hideFromProbe) window.NYC.hideFromProbe(H.cam.position);
+      try {
+        renderer.setRenderTarget(H.rt, H.face);
+        renderer.render(scene, H.cam.children[H.face]);
+      } finally { if (window.NYC.showAfterProbe) window.NYC.showAfterProbe(); }
       H.faces++;
     }
   } finally {
@@ -486,7 +492,7 @@ const S = {
   heroUpdate, hero: H, heroOff: false,
   build, addColliders, watchTiles, update, apply, applyOpen, visibilityOf, heightAt,
   uniforms: { uOrigin, uSize, uMpt, uReady, uBounce, uBounceGain },
-  get map() { return M.tex; }, stats: null, materials: 0, tilesWatched: 0, _watched: new Set(),
+  get map() { return M.tex; }, stats: null, materials: 0, early: 0, tilesWatched: 0, _watched: new Set(),
   SLICES, STEPS, MAX_HEIGHT, dbg: DBG
 };
 window.NYC.HQL = S;

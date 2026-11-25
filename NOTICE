@@ -10,6 +10,14 @@ The city this game is built on is Slop New York by Mr.doob, under the MIT Licens
 Some city code is ported from Slop New York's newer commits by Mr.doob, under the same MIT License
 (see LICENSE); each ported part names its commit in a short header comment.
 
+The high quality lighting tier (js/sky-occlusion.js, and the parts of js/tsl-materials.js, cities/sf/js/tsl-materials.js,
+js/cars.js, cities/sf/js/actor-models.js and cities/sf/js/fleet-models.js marked as such) ports the sky occlusion from a
+height map of the buildings, the clearcoat vehicle paint and the hero reflection probe from Ben Houston's enhanced fork of
+Slop New York (https://github.com/bhouston/slop-newyork, branch ssr-brdf, commits aa01158, a924635, a53ddb3, da66163
+and 7f4a50e; write-up https://ben3d.ca/blog/enhanced-slop-new-york-lighting), under the same MIT License (Copyright (c)
+2026 Mr.doob, the fork's licence file; see LICENSE). The skin's light through it (wagmi/storyrun/polish.js) follows the
+translucency term of three.js's MeshSSSNodeMaterial (MIT, Copyright (c) 2010-2026 three.js authors).
+
 
 Map data
 --------
