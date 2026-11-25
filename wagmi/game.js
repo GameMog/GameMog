@@ -9,7 +9,7 @@ import { loadGLB } from './glb.js';
 import { buildRoadster, createDriver } from './roadster.js';
 import { createStand } from './stand.js';
 import { createPlant } from './plant.js';
-import { danOn, danClips, gaitOn, loadLoco, gaitSpeed } from './retarget.js';
+import { danOn, danClips, gaitOn, loadLoco, gaitSpeed, gaitNames, walkStyled, walkSpeedOf } from './retarget.js';
 import { drive, installDriveMode } from './audio/drivemode.js';
 import { world } from './world/index.js';
 import { CHASE_START } from './chase-start.js';
@@ -660,8 +660,10 @@ installDriveMode(WAGMI);
 {
   // (a forged hero: Dan's clips put on the body's own rest and its leg length, wagmi/retarget.js; legRatio its leg over his)
   let legRatio = 1, onBody = false;
+  // (a forged hero's walk style: their cast entry's walk, when it names one, wagmi/retarget.js WALK_STYLES)
+  const heroStyle = PACK?.ok ? PACK.castOf?.(PACK.heroName)?.walk : null;
   await loadLoco(loadGLB); // (the locomotion pack's walk in place of his: wagmi/retarget.js)
-  const gltf = PACK?.ok && PACK.heroGlb ? await PACK.heroGLTF(loadGLB, (dan, g) => { const r = danOn(THREE, dan, g); legRatio = r.legRatio; onBody = true; return r.clips; }) : await loadGLB('assets/characters/dan.glb');
+  const gltf = PACK?.ok && PACK.heroGlb ? await PACK.heroGLTF(loadGLB, (dan, g) => { const r = danOn(THREE, dan, g); legRatio = r.legRatio; onBody = true; return walkStyled(THREE, r.clips, heroStyle); }) : await loadGLB('assets/characters/dan.glb');
   const body = gltf.scene;
   // (the export's armature node, the parent of the bone 'root', carries a fixed turn of 12.8 deg that no clip moves: 11
   // deg forward and 6 deg over to his right. Every clip stood him on it, his hips 24 cm ahead of his feet and 12 cm to
@@ -694,7 +696,7 @@ installDriveMode(WAGMI);
   // (a clip the model lacks is left out: a re-export with fewer clips still loads)
   // (a forged hero's legs are not his: each gait's speed times the leg ratio, so a shorter stride turns over faster and her
   // planted foot stays put; Dan's own: 1, as before)
-  const GAITS = [['idle', 0, 1], ...['walk', 'jog', 'run', 'sprint'].map((n) => [n, gaitSpeed(n), gaitSpeed(n)])].filter(([n]) => clipOf(n)).map(([n, a, b]) => [n, a * legRatio, n === 'idle' ? b : b * legRatio]);
+  const GAITS = [['idle', 0, 1], ...gaitNames().filter((n) => n !== 'idle').map((n) => { const sp = n === 'walk' ? walkSpeedOf(onBody ? heroStyle : null) : gaitSpeed(n); return [n, sp, sp]; })].filter(([n]) => clipOf(n)).map(([n, a, b]) => [n, a * legRatio, n === 'idle' ? b : b * legRatio]);
   let gPhase = 0;
   // the fight's stance and footwork, and the speed each step was captured at
   const STEPS = [['fight', 0], ['guardF', 0.76], ['guardB', 0.84], ['guardL', 0.46], ['guardR', 0.66]].filter(([n]) => clipOf(n));
@@ -850,6 +852,18 @@ installDriveMode(WAGMI);
     if (Math.abs(leanR) < 1e-4 && Math.abs(leanP) < 1e-4) { if (body.rotation.z || body.rotation.x) { body.rotation.z = 0; body.rotation.x = 0; } leanR = leanP = 0; return; }
     body.rotation.x = leanP; body.rotation.z = leanR;
   }
+  // on the phone on foot (a call: storyrun/runner.js): the phoneCall clip's arms, neck and head eased over whatever his
+  // legs do (the locomotion pack's: Tripo's make_a_call_01, the phone at his ear), PHONE.ease /s in and out
+  const PHONE = { ease: 4, bones: /^(spine0[1-3]|neck|head|clavicle|shoulder01|upperarm|lowerarm|wrist|finger)/ };
+  let phoneW = 0, phoneWant = 0, phoneT = 0, phoneI = null;
+  function phoneLayer(dt) {
+    phoneW += (phoneWant - phoneW) * Math.min(1, dt * PHONE.ease);
+    if (phoneW < 0.01) return;
+    if (!phoneI) { const c = clipOf('phoneCall'); if (!c) { phoneWant = phoneW = 0; return; } phoneI = c.tracks.filter((t) => t.name.endsWith('.quaternion') && PHONE.bones.test(t.name)).map((t) => ({ b: bones[t.name.slice(0, -11)], i: t.createInterpolant(), d: c.duration })).filter((x) => x.b); }
+    phoneT += dt; const q = _q2;
+    for (const x of phoneI) { q.fromArray(x.i.evaluate(phoneT % x.d)); x.b.quaternion.slerp(q, phoneW); }
+  }
+  Q.phone = (on) => { phoneWant = on && clipOf('phoneCall') ? 1 : 0; if (on && phoneW < 0.01) phoneT = 0; };
   let directed = false;
   person.label = 'Dan';
   person.model = {
@@ -928,6 +942,7 @@ installDriveMode(WAGMI);
       }
       // the hands' reach, over the pose
       for (const s of ['L', 'R']) { const h = hands[s]; h.w += (h.want - h.w) * Math.min(1, dt * 14); if (h.w > 0.01) { body.updateMatrixWorld(true); ik(s, h); } }
+      phoneLayer(dt);
       Q.post?.(d, p, air);
     },
   };

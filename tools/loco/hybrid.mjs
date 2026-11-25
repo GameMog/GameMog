@@ -3,7 +3,7 @@
 import { poseAt, fk, carried, THREE } from './rig.mjs';
 const ARM = /^(clavicle|shoulder01|upperarm|lowerarm|wrist|finger|metacarpal)/;
 // left heel strike: the left foot furthest forward (z), per cycle
-function strikes(rig, c, N = 240) { const z = []; for (let i = 0; i < N; i++) { const W = fk(rig, poseAt(rig, c, c.dur * i / N)); z.push(carried(rig, W, rig.ix('foot_L'), rig.ix('foot_L')).z - carried(rig, W, rig.ix('root'), rig.ix('root')).z); }
+export function strikes(rig, c, N = 240) { const z = []; for (let i = 0; i < N; i++) { const W = fk(rig, poseAt(rig, c, c.dur * i / N)); z.push(carried(rig, W, rig.ix('foot_L'), rig.ix('foot_L')).z - carried(rig, W, rig.ix('root'), rig.ix('root')).z); }
   const out = []; for (let i = 0; i < N; i++) { const a = z[(i - 1 + N) % N], b = z[i], d = z[(i + 1) % N]; if (b >= a && b > d && b > Math.max(...z) - 0.05) out.push(c.dur * i / N); } return out; }
 const sampleTrack = (tr, t, w) => { const ti = tr.t, v = tr.v; let i = 0; while (i < ti.length - 1 && ti[i + 1] <= t) i++; const j = Math.min(ti.length - 1, i + 1), f = j === i ? 0 : Math.max(0, Math.min(1, (t - ti[i]) / (ti[j] - ti[i])));
   if (w === 4) return new THREE.Quaternion().fromArray(v, i * 4).slerp(new THREE.Quaternion().fromArray(v, j * 4), f).toArray(); return [0, 1, 2].map((k) => v[i * 3 + k] + (v[j * 3 + k] - v[i * 3 + k]) * f); };
@@ -55,4 +55,19 @@ export function scaleArms(clip, k = 0.4) {
     const mean = new THREE.Quaternion(0, 0, 0, 0); for (let i = 0; i < n; i++) { const q = new THREE.Quaternion().fromArray(v, i * 4); if (q.dot(new THREE.Quaternion().fromArray(v, 0)) < 0) q.set(-q.x, -q.y, -q.z, -q.w); mean.x += q.x; mean.y += q.y; mean.z += q.z; mean.w += q.w; } mean.normalize();
     const o = new Float32Array(v.length); for (let i = 0; i < n; i++) mean.clone().slerp(new THREE.Quaternion().fromArray(v, i * 4), k).toArray(o, i * 4); tracks[bone] = { rotation: { t: tr.rotation.t, v: o } }; }
   return { tracks, dur: clip.dur };
+}
+
+// one clip's upper body over another's legs (a seated call's arms and head over a standing idle): the bones from
+// `fromBone` up and out (the spine above it, the neck, head, shoulders, arms) from `upper`, the rest from `lower`,
+// on `lower`'s times (`upper` looped)
+const UPPER = (b) => /^(spine0[1-3]|neck|head|clavicle|shoulder01|upperarm|lowerarm|wrist|finger|metacarpal|jaw|eye|tongue|special)/.test(b);
+export function upperOver(lower, upper) {
+  const tracks = {};
+  for (const [bone, tr] of Object.entries(lower.tracks)) {
+    const u = upper.tracks[bone]?.rotation; if (!UPPER(bone) || !u) { tracks[bone] = tr; continue; }
+    const times = tr.rotation.t, v = new Float32Array(times.length * 4);
+    for (let i = 0; i < times.length; i++) v.set(sampleTrack(u, times[i] % upper.dur, 4), i * 4);
+    tracks[bone] = { rotation: { t: times, v } };
+  }
+  return { tracks, dur: lower.dur };
 }

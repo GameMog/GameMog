@@ -34,10 +34,23 @@ export function gaitPace(clip, v, legRatio = 1) { const sp = gaitSpeed(clip); re
 // sprint and idle stay Dan's. Its speed (the planted foot's, on
 // his legs) travels in its extras (loco.speed). loadLoco(loadGLB) once before Dan's clips are read; ?gait=classic: off
 export const LOCO_URL = 'assets/anim/loco-walk.glb';
+// the gaits by speed: the pack's list (no jog of its own: the walk blends straight into the run), else Dan's
+export const gaitNames = () => LOCO?.gaits || ['idle', 'walk', 'jog', 'run', 'sprint'];
+// a walk style: a cast entry's walk naming one of these plays it as their walk (Mandi's sheet: posture.walk 'swagger');
+// any other name (walk, walkCool, walkHeavy, jog: older sheets) is their walk as before
+export const WALK_STYLES = new Set(['swagger']);
+const styledCache = new WeakMap();
+export function walkStyled(THREE, clips, style) {
+  if (!style || !WALK_STYLES.has(style)) return clips;
+  let per = styledCache.get(clips); if (!per) styledCache.set(clips, (per = new Map()));
+  if (!per.has(style)) { const st = clips.find((c) => c.name === style); per.set(style, st ? clips.map((c) => { if (c.name !== 'walk') return c; const k = st.clone(); k.name = 'walk'; return k; }) : clips); }
+  return per.get(style);
+}
+export const walkSpeedOf = (style) => (style && WALK_STYLES.has(style) && LOCO?.speed?.[style]) || gaitSpeed('walk');
 let LOCO = null, locoP = null;
 export function loadLoco(loadGLB) {
   if (!gaitOn()) return Promise.resolve(null);
-  return (locoP ||= loadGLB(LOCO_URL).then((g) => { const x = g.parser?.json?.asset?.extras?.loco || {}; LOCO = { clips: g.animations, speed: x.speed || {} }; return LOCO; }, (err) => { console.warn('[retarget] loco', err); return null; }));
+  return (locoP ||= loadGLB(LOCO_URL).then((g) => { const x = g.parser?.json?.asset?.extras?.loco || {}; LOCO = { clips: g.animations, speed: x.speed || {}, gaits: Array.isArray(x.gaits) ? x.gaits : null }; return LOCO; }, (err) => { console.warn('[retarget] loco', err); return null; }));
 }
 
 // the long bones and the joint each one points at
@@ -150,7 +163,7 @@ export function danClips(THREE, clips) {
   if (!gaitOn()) return clips;
   if (!hung.has(clips)) { let out = clips;
     // (the locomotion pack's clips in place of his by name, then his walks' arms hung in)
-    if (LOCO) { const by = new Map(LOCO.clips.map((c) => [c.name, c])); out = out.map((c) => by.get(c.name) || c); }
+    if (LOCO) { const by = new Map(LOCO.clips.map((c) => [c.name, c])), have = new Set(out.map((c) => c.name)); out = [...out.map((c) => by.get(c.name) || c), ...LOCO.clips.filter((c) => !have.has(c.name))]; }
     try { out = hangArms(THREE, out); } catch (err) { console.warn('[retarget] hang', err); } hung.set(clips, out); }
   return hung.get(clips);
 }

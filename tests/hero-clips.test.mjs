@@ -58,7 +58,7 @@ test("pack.js heroGLTF uses heroClips; Dan himself (no hero GLB) is Dan's file u
   assert.match(cast, /const own = g\.animations\.slice\(\), names = new Set\(own\.map\(\(a\) => a\.name\)\)/);
   // (Dan's under its own, retargeted to a forged body's rest; Mr. Big's as they are)
   assert.match(cast, /const dan = await clipsOfDan\(\), rt = dan && !nat \? danOn\(THREE, dan, g\) : null;/);
-  assert.match(cast, /for \(const a of rt \? rt\.clips : dan\?\.animations \|\| \[\]\) if \(!names\.has\(a\.name\)\) own\.push\(a\);/);
+  assert.match(cast, /for \(const a of rt \? walkStyled\(THREE, rt\.clips, c\.walk\) : dan\?\.animations \|\| \[\]\) if \(!names\.has\(a\.name\)\) own\.push\(a\);/);
 });
 
 test("Jensen's hand-built body carries the seated clips by these names (where GameMog's checkout is beside this one)", (t) => {

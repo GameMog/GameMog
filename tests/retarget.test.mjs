@@ -82,11 +82,11 @@ test("his walk's arms hung in: the swing kept, only the gaits HANG names change,
 
 test('the engine uses it: the forged hero and his gaits, the cast, the set and street walks', () => {
   const g = src('wagmi/game.js');
-  assert.match(g, /PACK\.heroGLTF\(loadGLB, \(dan, g\) => \{ const r = danOn\(THREE, dan, g\); legRatio = r\.legRatio;/);
-  assert.match(g, /\.map\(\(\[n, a, b\]\) => \[n, a \* legRatio, n === 'idle' \? b : b \* legRatio\]\)/);
+  assert.match(g, /PACK\.heroGLTF\(loadGLB, \(dan, g\) => \{ const r = danOn\(THREE, dan, g\); legRatio = r\.legRatio; onBody = true; return walkStyled\(THREE, r\.clips, heroStyle\); \}\)/);
+  assert.match(g, /\.filter\(\(\[n\]\) => clipOf\(n\)\)\.map\(\(\[n, a, b\]\) => \[n, a \* legRatio, n === 'idle' \? b : b \* legRatio\]\)/);
   assert.match(g, /clips = \(onBody \? gltf\.animations : danClips\(THREE, gltf\.animations\)\)\.slice\(\)/);
   assert.match(g, /lean\(dt, p, v, L, air\);/);
-  assert.match(src('wagmi/storyrun/cast.js'), /f\.legRatio = legRatio;/);
+  assert.match(src('wagmi/storyrun/cast.js'), /f\.legRatio = legRatio \* walkSp;/);
   assert.match(src('wagmi/storyrun/sets.js'), /P\.action\.setEffectiveTimeScale\(gaitPace\(w\.clip \|\| 'walk',/);
   assert.match(src('wagmi/storyrun/runner.js'), /fig\.play\('walk', true, 0\.3\)/);
   // (off switches for a side-by-side: ?retarget=0, ?gait=classic)
@@ -94,15 +94,39 @@ test('the engine uses it: the forged hero and his gaits, the cast, the set and s
   assert.match(src('wagmi/retarget.js'), /get\('gait'\) !== 'classic'/);
 });
 
-test("the locomotion pack: one walk on Dan's 66 bones (root travel in place), its speed and sources in its extras; loaded before his clips", () => {
+test("the locomotion pack: Tripo's walk, run, idle, idleLook, swagger and phoneCall on Dan's 66 bones; speeds, gaits and sources in its extras", () => {
   const b = fs.readFileSync(path.join(ROOT, 'assets/anim/loco-walk.glb')), j = JSON.parse(b.subarray(20, 20 + b.readUInt32LE(12)).toString());
-  assert.deepEqual(j.animations.map((a) => a.name), ['walk']);
-  assert.equal(j.animations[0].channels.length, 67);
+  assert.deepEqual(j.animations.map((a) => a.name), ['walk', 'run', 'idle', 'idleLook', 'swagger', 'phoneCall']);
+  for (const a of j.animations) assert.equal(a.channels.length, 67, a.name);
   const x = j.asset.extras.loco;
   assert.ok(x.speed.walk > 1.0 && x.speed.walk < 1.45, String(x.speed.walk));
-  assert.match(x.from.walk, /Tripo/); assert.match(x.from.walk, /arm swing/);
-  assert.match(src('wagmi/game.js'), /await loadLoco\(loadGLB\);[^\n]*\n\s*const gltf = PACK/);
-  assert.match(src('wagmi/game.js'), /\['walk', 'jog', 'run', 'sprint'\]\.map\(\(n\) => \[n, gaitSpeed\(n\), gaitSpeed\(n\)\]\)/);
+  assert.ok(x.speed.run > 3.5 && x.speed.run < 5, String(x.speed.run));
+  assert.ok(x.speed.swagger > 1.0 && x.speed.swagger < 1.6, String(x.speed.swagger));
+  assert.deepEqual(x.gaits, ['idle', 'walk', 'run', 'sprint']);
+  for (const n of Object.keys(x.from)) assert.match(x.from[n], /Tripo/);
+  assert.match(src('wagmi/game.js'), /await loadLoco\(loadGLB\);/);
+  assert.match(src('wagmi/game.js'), /gaitNames\(\)\.filter\(\(n\) => n !== 'idle'\)/);
   assert.match(src('wagmi/storyrun/cast.js'), /loadLoco\(loadGLB\)\.then\(\(\) => loadGLB\('assets\/characters\/dan\.glb'\)\)/);
   assert.match(src('NOTICE'), /loco-walk\.glb/);
+});
+
+test("a walk style: a cast entry's walk naming one (swagger) is their walk; any older name leaves the walk as it was", (t) => {
+  assert.ok(RT.WALK_STYLES.has('swagger'));
+  for (const n of ['walk', 'walkCool', 'walkHeavy', 'jog']) assert.ok(!RT.WALK_STYLES.has(n), n);
+  if (!THREE) return t.skip('no three.js beside this checkout');
+  const c = (name) => new THREE.AnimationClip(name, 1, []);
+  const clips = [c('idle'), c('walk'), c('swagger')];
+  assert.equal(RT.walkStyled(THREE, clips, 'walkCool'), clips);
+  const s = RT.walkStyled(THREE, clips, 'swagger');
+  assert.equal(s.length, 3); assert.equal(s[1].name, 'walk'); assert.notEqual(s[1], clips[1]);
+  assert.equal(RT.walkStyled(THREE, clips, 'swagger'), s);
+  assert.match(src('wagmi/game.js'), /const heroStyle = PACK\?\.ok \? PACK\.castOf\?\.\(PACK\.heroName\)\?\.walk : null;/);
+  assert.match(src('wagmi/storyrun/cast.js'), /walkStyled\(THREE, rt\.clips, c\.walk\)/);
+});
+
+test('on the phone on foot: the call puts the phone to the hero\'s ear and takes it down after (game.js phoneLayer)', () => {
+  assert.match(src('wagmi/game.js'), /Q\.phone = \(on\) =>/);
+  assert.match(src('wagmi/game.js'), /phoneLayer\(dt\);\n\s*Q\.post\?\.\(d, p, air\);/);
+  assert.match(src('wagmi/storyrun/runner.js'), /const onFoot = !inCar\(\) && W\.dan\?\.phone; if \(onFoot\) W\.dan\.phone\(true\);/);
+  assert.match(src('wagmi/storyrun/runner.js'), /finally \{ talking = false; if \(onFoot\) W\.dan\.phone\(false\);/);
 });

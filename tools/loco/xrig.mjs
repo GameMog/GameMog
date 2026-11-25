@@ -14,7 +14,7 @@ export const MAPS = {
 const SWING = ['L', 'R'].flatMap((s) => [[`clavicle_${s}`, `upperarm01_${s}`], [`upperarm01_${s}`, `lowerarm01_${s}`], [`lowerarm01_${s}`, `wrist_${s}`], [`upperleg01_${s}`, `lowerleg01_${s}`], [`lowerleg01_${s}`, `foot_${s}`]]);
 const SPINE_SWING = [['spine05', 'neck01'], ['neck01', 'head']];
 const decomp = (m) => { const p = new Vector3(), q = new Quaternion(), s = new Vector3(); m.decompose(p, q, s); return { p, q }; };
-export async function retargetClip(dan, srcFile, kind, clipName, { fps = 30, from = 0, to = null, outName = clipName } = {}) {
+export async function retargetClip(dan, srcFile, kind, clipName, { fps = 30, from = 0, to = null, outName = clipName, loop = false } = {}) {
   const M = MAPS[kind], src = await loadRig(srcFile, { rootName: M.root });
   const sIx = (danName) => { const e = M.bones.find(([d]) => d === danName); return e ? src.ix(M.n(e[1])) : -1; };
   // source bind (world, incl. its armature) and facing
@@ -55,6 +55,9 @@ export async function retargetClip(dan, srcFile, kind, clipName, { fps = 30, fro
   const rootLocal = rootP.map((p) => p.clone().sub(aP).divideScalar(aS.x));
   // keep the rotations continuous (no sign flips)
   for (const r of rot) for (let i = 1; i < r.length; i++) if (r[i].dot(r[i - 1]) < 0) r[i].set(-r[i].x, -r[i].y, -r[i].z, -r[i].w);
+  // (loop: the end's difference from the start spread over the cycle, so the last frame is the first: no pop at the seam)
+  if (loop) { for (const r of rot) { const d = r[n - 1].clone().invert().multiply(r[0]); for (let i = 0; i < n; i++) r[i] = r[i].clone().multiply(new Quaternion().slerp(d, i / (n - 1))); }
+    const dp = rootLocal[0].clone().sub(rootLocal[n - 1]); for (let i = 0; i < n; i++) rootLocal[i].addScaledVector(dp, i / (n - 1)); }
   const tracks = {}; dan.names.forEach((nm, b) => { tracks[nm] = { rotation: { t: Float32Array.from(times), v: Float32Array.from(rot[b].flatMap((q) => q.toArray())) } }; });
   tracks.root.translation = { t: Float32Array.from(times), v: Float32Array.from(rootLocal.flatMap((p) => p.toArray())) };
   return { name: outName, clip: { tracks, dur }, speed: speed * 1, swings: sw, legScale: k };

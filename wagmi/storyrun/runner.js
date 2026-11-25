@@ -1724,11 +1724,13 @@ export function createRunner(ctx) {
     M.log.push(['call', who]);
     // (on a world's foldable phone (calls.style 'fold', fold.js) a video call on foot shows its caller on the phone too)
     let talking = true;
+    // (on foot, the phone to the hero's ear while it lasts: game.js W.dan.phone)
+    const onFoot = !inCar() && W.dan?.phone; if (onFoot) W.dan.phone(true);
     if (ui.fold && d.video && who !== heroName) vcallOf().feed(d.video, who, () => talking, tokOf(M.tok), 'vfeed', () => true).catch((err) => console.warn('[storyrun] vcall feed', err));
     try {
       for (const l of lines) await say(castName(l.who), l.text, t, { secs: l.secs, phone: castName(l.who) !== heroName, ...beatIn(l) });
       if (d.choice) return await choose(d.choice, t);
-    } finally { talking = false; ui.caller(null); sfx.play('hangup', { gain: 0.12 }); }
+    } finally { talking = false; if (onFoot) W.dan.phone(false); ui.caller(null); sfx.play('hangup', { gain: 0.12 }); }
   };
   // (jh-polish2 B5, opt-in per world: a world's `calls: { ringOut: 'answer' }` (Jensen Heist's) rings RING_SECS at most
   // (a pack's own `ring` shorter only, never under RING_MIN) and a ring that runs out answers itself; only X or N

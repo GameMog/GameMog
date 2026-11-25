@@ -20,7 +20,7 @@ import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
 import { createFace, dropFace } from '../face.js';
 import { relaxArms } from '../combat/suitarms.js';
 import { unhang } from './pack.js';
-import { danOn, loadLoco } from '../retarget.js';
+import { danOn, loadLoco, walkStyled, walkSpeedOf } from '../retarget.js';
 import { polishBody } from './polish.js'; import { importRetry } from '../net.js';
 
 // (8: a set's cutscene stands up to seven at once, the hero's double besides: sets.js)
@@ -140,7 +140,7 @@ export function createCast(W, world) {
     const bones = {}; inner.traverse((o) => { if (o.isBone) bones[o.name] = o; });
     const mixer = new THREE.AnimationMixer(inner);
     const own = g.animations.slice(), names = new Set(own.map((a) => a.name)), suit = !!(nat && nat[2]);
-    let legRatio = 1;
+    let legRatio = 1, walkSp = 1;
     // (a Suit moves as the fight's Suits do: their pack, Dan's clips retargeted onto thug.glb's rig (combat/index.js),
     // a name of Dan's played as its Suit clip, standing by default: Dan's own clips only move a Suit's head (the rigs share
     // no other bone name), which left him in the rig's bind pose)
@@ -152,7 +152,9 @@ export function createCast(W, world) {
       // (Dan's clips put on this body's own rest, a forged or hand-built body's: wagmi/retarget.js. Mr. Big as he shipped)
       const dan = await clipsOfDan(), rt = dan && !nat ? danOn(THREE, dan, g) : null;
       if (rt) legRatio = rt.legRatio;
-      for (const a of rt ? rt.clips : dan?.animations || []) if (!names.has(a.name)) own.push(a);
+      // (their walk style, when their entry's walk names one: retarget.js WALK_STYLES)
+      for (const a of rt ? walkStyled(THREE, rt.clips, c.walk) : dan?.animations || []) if (!names.has(a.name)) own.push(a);
+      if (rt) walkSp = walkSpeedOf(c.walk) / walkSpeedOf(null);
     }
     const find = (n) => (n ? THREE.AnimationClip.findByName(own, n) : null);
     const clip = suit ? (n) => find(n) || find(SUIT_CLIP[n]) : find;
@@ -176,7 +178,7 @@ export function createCast(W, world) {
     // (its clips by name, Dan's under its own: a fight's puppet (runner.js STEPS.fight) crossfades them itself)
     f.clip = clip;
     // (its leg over Dan's: a gait's capture speed times it is the pace its feet stay planted at, sets.js / runner.js walks)
-    f.legRatio = legRatio;
+    f.legRatio = legRatio * walkSp;
     // (played: evaluated at once, so its bones are the clip's from the first read, not the state they were first bound in: sets.js blend)
     // (fade > 0: cross-faded from the clip it played last, the way a walk starts and stops; 0, a cut, as before. The action
     // returned (truthy), so a caller can set its pace)
