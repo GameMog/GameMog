@@ -171,12 +171,17 @@ function material(kind, o = {}) {
   rough = mix(rough, float(0.06), farGlass);
   let metal = mix(orm.b, paintMetal, paintMask);
   metal = mix(metal, float(0.2), farGlass);
-  mat = o.hero ? new THREE.MeshPhysicalNodeMaterial({ clearcoat: 1, clearcoatRoughness: 0.06 }) : new THREE.MeshStandardNodeMaterial();
+  // (Mog City, the high quality lighting tier, js/sky-occlusion.js: the traffic's paint too a rough dielectric base under a
+  // glossy clearcoat, as Ben Houston's enhanced Slop New York a53ddb3 (MIT), and the sky its street lets through)
+  const HQ = !o.hero && !!(window.NYC.HQL && window.NYC.HQL.on());
+  if (HQ) { rough = mix(rough, liv ? float(0.5) : float(0.42), paintMask); metal = mix(metal, float(0), paintMask); }
+  mat = o.hero || HQ ? new THREE.MeshPhysicalNodeMaterial({ clearcoat: 1, clearcoatRoughness: 0.06 }) : new THREE.MeshStandardNodeMaterial();
   mat.colorNode = col;
   mat.roughnessNode = rough;
   mat.metalnessNode = metal;
   mat.aoNode = mix(orm.r, float(1), paintMask);
-  if (o.hero) mat.clearcoatNode = paintMask.mul(liv ? 0.4 : 1);
+  if (o.hero || HQ) mat.clearcoatNode = paintMask.mul(liv ? 0.4 : 1);
+  if (HQ) window.NYC.HQL.applyOpen(mat, mix(orm.r, float(1), paintMask), { bounce: false });
   if (state) {
     // the lamps: state x brake, y left (+x) indicator, z right, w livery (1 police: its bar flashing; 2 parked: dark)
     const night = smoothstep(0.6, 1.15, glow());

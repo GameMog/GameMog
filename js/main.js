@@ -297,6 +297,12 @@ async function initApp() {
   const cityBlocks = buildCityBlocks(scene);
   markInit('blocks');
   const allColliders = [...landmarkColliders, ...cityBlocks.colliders, ...boroughs.colliders, ...(cityGrid.colliders || [])];
+  // (Mog City, the high quality lighting tier only: the buildings' height map for the sky occlusion, js/sky-occlusion.js.
+  // The landmarks are drawn into it as their meshes: their colliders are boxes wider than their towers)
+  if (window.NYC.HQL && window.NYC.HQL.on()) {
+    window.NYC.HQL.build(allColliders, { skip: new Set(landmarkColliders), meshRoot: scene.getObjectByName('ManhattanLandmarks') });
+    markInit('skyOcclusion');
+  }
 
   // (Mog City: the buildings' and the bridges' colliders keep the trees clear of them, after Slop New York 565a6c4; not
   // the parks' fences and lawn hoops, car-only walls the trees stand inside)
@@ -1015,6 +1021,7 @@ async function initApp() {
     if (streetDetails.update) streetDetails.update(cameraSystem.camera);
     lightingSystem.update(cameraSystem.currentPos);
     mapSystem.update();
+    if (window.NYC.HQL) window.NYC.HQL.update(lightingSystem.hemiLight, window.NYC.cityUniforms?.uCanyonBounce?.value);
     if (warmedUp) updateSceneCulling(cameraSystem.camera.position); // the warm-up frame draws every chunk
 
     // Render frame via TSL RenderPipeline (SSR + Bloom)
@@ -1038,6 +1045,8 @@ async function initApp() {
       markInit('warmup');
     }
     renderPipeline.render();
+    // (Mog City, the high quality lighting tier only: a face of the player vehicle's reflection probe, after the frame)
+    if (warmedUp && window.NYC.HQL) window.NYC.HQL.heroUpdate(window.__NYC_APP);
     lastWork = performance.now() - workStart;
     if (!warmedUp) {
       warmedUp = true;

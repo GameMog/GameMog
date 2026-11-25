@@ -1083,7 +1083,12 @@ function personLooks(info) {
  * stitching, pockets, buttons, ties, belts), hands (palms, nails) and a per-person jaw & nose.
  */
 function createPersonMaterial(pose, detail = 1, formal = false) {
-  const mat = new THREE.MeshStandardNodeMaterial({ metalness: 0 });
+  // (Mog City, the high quality lighting tier, js/sky-occlusion.js: the near level's clothes and skin get a sheen lobe,
+  // fibres and fine hair catching the light at grazing angles, tinted by their own colour; skin's specular IOR 1.4)
+  const HQ = !!(window.NYC.HQL && window.NYC.HQL.on());
+  const mat = HQ && detail ? new THREE.MeshPhysicalNodeMaterial({ metalness: 0, ior: 1.4, sheen: 1, sheenRoughness: 0.65 })
+    : new THREE.MeshStandardNodeMaterial({ metalness: 0 });
+  if (HQ && detail) mat.sheenColorNode = window.NYC.TSL.diffuseColor.rgb.mul(0.45).add(0.03);
   const base = int(instanceIndex).mul(STRIDE);
   const info = pose.element(base.add(STRIDE - 1)); // seed, female, girth, hair
 
@@ -1162,6 +1167,8 @@ function createPersonMaterial(pose, detail = 1, formal = false) {
   if (formal) vInfo.formal = true;
   if (detail) dressNear(mat, vInfo);
   else dressFar(mat, vInfo);
+  // (and the sky the street lets through, as the city's: js/sky-occlusion.js)
+  if (HQ) window.NYC.HQL.applyOpen(mat);
   return mat;
 }
 

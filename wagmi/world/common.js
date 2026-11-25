@@ -601,6 +601,8 @@ export function createWorld(city) {
       // (a city's own grid when its adapter has one: a Hometown package's compiled 512 m tiles, wagmi/world/pkg.js;
       // else the city in memory sliced, ?tileSize= m a side)
       tm = createTileManager(city.tileSource ? city.tileSource(W) : createMemoryTileSource(W, { size: +q.get('tileSize') || 256 }));
+      // (the high quality lighting's sky occlusion adds each tile's buildings to its height map as it loads: js/sky-occlusion.js)
+      try { N().HQL?.watchTiles?.(tm); } catch (e) { /* never in the way */ }
     }
     return tm;
   }
