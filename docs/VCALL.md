@@ -49,6 +49,31 @@ own passes with the street), lit green while they talk; gone in a cutscene and w
 While it is up it is the call's one card: its name tag carries the call's status (Incoming call, On call, Call
 waiting), and the caller card under it is put away (`body.wg-vfeed-on`); on hold or out of the car, the card is back.
 
+## On a foldable phone (`calls: { style: "fold" }`)
+
+A world may put its calls on a foldable phone instead of the caller card and the car screen's picture (Mandi's
+Revenge, 25 Nov 2026): `"calls": { "style": "fold" }` at the top of the runner pack, beside `ringOut` (`"card"`, or
+left out, is the card as before; every other world is unchanged). `wagmi/storyrun/fold.js` draws a book-style folding
+phone of Mog City's own (no maker's name, logo or system UI):
+
+- **Ringing** (Incoming call, Call waiting): it slides up into the corner folded, its tall narrow cover screen showing
+  the caller's photo (the world's `head-<id>` art, else their initial on their colour), their name, the status, the
+  clock, and answer / decline. Tapping them presses E / X: the call's own keys and rules (runner.js, `ringOut`).
+- **Answered** (any other status): it unfolds on its hinge into the near-square inner screen (a faint crease down the
+  middle, a punch-hole lens): the caller's name and photo, the call's timer, mute / camera / end. A call with `video`
+  draws its caller head and shoulders into the inner screen's picture (`vcall.js feed`, `drawFeed` with the picture's
+  `radius`), phone-sized on purpose; On hold dims it; a call waiting shows as a banner on it. A `video` call on foot (a
+  plain `call` step) is drawn on the phone too.
+- Subtitles stay where they are. Held in a hand: a slight sway (a touch of tilt only while folded). At the wheel it is
+  the smallest, in the corner where the caller card was (on a phone, by the toolbar); on foot a little bigger.
+- **Ended** (the card cleared): it folds and slides away.
+- A `vcall` step plays on the phone too, bigger, in the middle of the screen: its tiles laid out inside the inner
+  screen (`layout` on the screen's rect), the call's title and count on its bar; the call's own top bar and controls
+  are put away. Everything else in the step (events, turns, skip) is as above.
+
+Try it: `/?pack=/tools/storyrun/test-packs/fold-phone.json&nogate&trailer=0&autocard=1&mission=FP-2` (a call on foot,
+then a `vcall`), `&mission=FP-1&autopilot=1&flowfast=1` (a video call at the wheel).
+
 ## The screen
 
 The tiles end above two lines of the subtitle (or the tallest it has been in this call), so a strip's name tags are

@@ -116,7 +116,7 @@ function webcam(eyes, kind, face) {
 const _hv = new THREE.Vector3();
 const eyesOf = (fig, v) => { const h = fig.head(_hv), e = fig.face?.eyes ? fig.face.eyes(v) : null; return eyesAim(e ? [e.x, e.y, e.z] : null, [h.x, h.y, h.z]); };
 
-export function createVcall(W, { setsOf, castName, heroName, ui, colorOf, tokens = (x) => x, mumble = () => {}, delay, wait, tokOf, kill, log = () => {}, sfx = W.sfx }) {
+export function createVcall(W, { setsOf, castName, heroName, ui, colorOf, tokens = (x) => x, mumble = () => {}, delay, wait, tokOf, kill, log = () => {}, sfx = W.sfx, fold = null }) {
   const now = () => performance.now() / 1000;
   function dom() {
     if (!styled) { const st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st); styled = true; }
@@ -139,6 +139,8 @@ export function createVcall(W, { setsOf, castName, heroName, ui, colorOf, tokens
     plan.people.forEach((p, i) => { defs[ids[i]] = { room: 'office-' + p.office, light: p.light || plan.time || null, people: [{ who: p.isHero ? 'player' : p.who, at: [0, 0], face: 0, pose: 'sit', seat: SEAT.y, look: 'lens' }] }; });
     const root = dom(), tilesEl = root.querySelector('.tiles'), shareEl = root.querySelector('.share'), toastEl = root.querySelector('.toast');
     root.querySelector('.tt').textContent = plan.title;
+    // (a world's calls on its foldable phone (fold.js): the call open on it, big, in the middle; its tiles inside its screen)
+    if (fold) fold.scene(plan.title, `${plan.people.length} on call`);
     requestAnimationFrame(() => root.classList.add('on'));
     W.cutscene = true; ui.cine(true); ui.objective?.(null); document.body.classList.add('wg-vcall');
     const D = createDirector(W); let skip = false;
@@ -176,18 +178,23 @@ export function createVcall(W, { setsOf, castName, heroName, ui, colorOf, tokens
       const stage = sharing ? 'share' : mode === 'speaker' ? Math.max(0, list.findIndex((p) => p.who === speaking)) : null;
       // (the tiles end above the subtitle: two lines of it, or the tallest seen this call, over its own gap at the foot)
       { const e = document.querySelector('#wg .wg-sub:not(.hide)'); const sh = e ? e.getBoundingClientRect().height : 0; if (sh > subH) subH = sh; }
-      const L = layout(list.length, w, h, { mode, stage, top: 54, bottom: Math.max(touch ? 132 : 172, (touch ? 78 : 92) + subH + 10), side: touch ? 10 : 16 });
+      // (on the phone: laid out in its screen, where it is this frame (it sways in the hand); none until it has opened)
+      const fs = fold ? fold.screen() : null;
+      if (fold && !fs) { for (const p of people) p.el.style.display = 'none'; if (S.gridOn) S.grid(null); return; }
+      const L = fs ? layout(list.length, fs[2], fs[3], { mode, stage, top: 5, bottom: 5, side: 5, gap: 6 }) : layout(list.length, w, h, { mode, stage, top: 54, bottom: Math.max(touch ? 132 : 172, (touch ? 78 : 92) + subH + 10), side: touch ? 10 : 16 });
+      if (fs) { const o = (r) => r && [Math.round(r[0] + fs[0]), Math.round(r[1] + fs[1]), r[2], r[3]]; L.tiles = L.tiles.map(o); L.stage = o(L.stage); toastEl.style.top = Math.round(fs[1] + 10) + 'px'; }
       const tiles = [];
       list.forEach((p, k) => {
         const r = L.tiles[k];
         Object.assign(p.el.style, { left: r[0] + 'px', top: r[1] + 'px', width: r[2] + 'px', height: r[3] + 'px', display: '' });
         p.el.classList.toggle('sm', r[3] < 170);
         p.el.classList.toggle('live', p.who === active && p.state.in && !p.state.muted);
-        if (p.cam) tiles.push({ id: p.id, rect: r, cam: p.cam, frozen: p.state.frozen, blur: p.state.blur, dim: !p.state.in || !!p.state.leaving, live: p.who === active, slot: k });
+        if (p.cam) tiles.push({ id: p.id, rect: r, cam: p.cam, frozen: p.state.frozen, blur: p.state.blur, dim: !p.state.in || !!p.state.leaving, live: p.who === active, slot: k, ...(fs ? { radius: 8 } : {}) });
       });
       for (const p of people) if (p.state.gone) p.el.style.display = 'none';
       if (sharing && L.stage) Object.assign(shareEl.style, { left: L.stage[0] + 'px', top: L.stage[1] + 'px', width: L.stage[2] + 'px', height: L.stage[3] + 'px' });
       root.querySelector('.ppl').textContent = `${list.filter((p) => p.state.in).length} in call`;
+      if (fold) fold.subtitle(`${list.filter((p) => p.state.in).length} on call`);
       const el = Math.max(0, now() - t0); root.querySelector('.clk').textContent = `${String(Math.floor(el / 60)).padStart(2, '0')}:${String(Math.floor(el % 60)).padStart(2, '0')}`;
       if (toastT && now() > toastT) { toastEl.classList.remove('on'); toastT = 0; }
       if (S.gridOn || tiles.length) S.grid(tiles.length ? tiles : null, { bg: '#0E1014' });
@@ -278,7 +285,7 @@ export function createVcall(W, { setsOf, castName, heroName, ui, colorOf, tokens
       try { await ui.fade?.(1, 0.3); } catch {}
       S.grid(null);
       for (const [w, k] of fx0) W.voice?.fx?.(w, k);
-      root.remove();
+      root.remove(); fold?.scene(null);
       document.body.classList.remove('wg-vcall');
       try { await S.release(); } catch (err) { console.warn('[storyrun] vcall: release', err); }
       D.block(false); await D.release(0);
@@ -303,6 +310,8 @@ export function createVcall(W, { setsOf, castName, heroName, ui, colorOf, tokens
     const S = setsOf(), o = video && typeof video === 'object' ? video : {};
     if (!styled) { const st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st); styled = true; }
     const el = document.createElement('div'); el.className = 'wg-vfeed';
+    // (on a world's foldable phone the phone is the picture: this one kept out of sight, and out of the street's way)
+    if (fold) el.className = 'wg-vfeed-fold';
     el.innerHTML = `<div class="nm"><i></i><span>${esc(who)}</span><small></small></div>`;
     const stEl = el.querySelector('small'), norm = (x) => String(x || '').trim().toLowerCase();
     (document.getElementById('wg') || document.body).appendChild(el);
@@ -323,10 +332,14 @@ export function createVcall(W, { setsOf, castName, heroName, ui, colorOf, tokens
         if (aimed < 2 && now() - t0 > 0.45 * (aimed + 1)) { aimed++; aim(); }
         { const tt = now(), dt = Math.min(0.05, Math.max(0, tt - lastF)); lastF = tt; if (wc) cam = wc.at(eyesOf(fig, V), dt); }
         const touch = document.body.classList.contains('touch-enabled'), w = Math.round(Math.min(touch ? 200 : 320, innerWidth * 0.3)), h = Math.round((w * 9) / 16);
-        const r = [innerWidth - w - (touch ? 10 : 18), touch ? 70 : 86, w, h], on = !W.cutscene && live() && shown() && !!S.set(id);
-        Object.assign(el.style, { left: r[0] + 'px', top: r[1] + 'px', width: w + 'px', height: h + 'px' }); el.classList.toggle('on', on);
+        // (on a world's foldable phone (fold.js): drawn into its inner screen's picture, once it has opened)
+        const fr = fold ? fold.rect() : null;
+        const r = fold ? fr : [innerWidth - w - (touch ? 10 : 18), touch ? 70 : 86, w, h], on = !W.cutscene && live() && shown() && !!S.set(id) && !!r;
+        if (!fold) Object.assign(el.style, { left: r[0] + 'px', top: r[1] + 'px', width: w + 'px', height: h + 'px' });
+        el.classList.toggle('on', on);
         el.classList.toggle('live', on && document.querySelector('#wg .wg-sub:not(.hide)')?.dataset.who === who);
-        if (on) { S.feed({ id, rect: r, cam, blur: !!o.blur }); feedOwner = id; } else if (was && feedOwner === id) { S.feed(null); feedOwner = null; }
+        if (on) { S.feed(fold ? { id, rect: r, cam, blur: !!o.blur, radius: fold.radius() } : { id, rect: r, cam, blur: !!o.blur }); feedOwner = id; } else if (was && feedOwner === id) { S.feed(null); feedOwner = null; }
+        if (fold && on !== was) fold.live(on);
         if (on !== was && !(cardOff && !on)) feedShown(id, on);
         // (the call's status from the caller card, when the card is this caller's: Incoming call, On call, Call waiting)
         // (another caller's card while this one is up: a call waiting, said on this one's name tag, the card being hidden)
@@ -337,7 +350,7 @@ export function createVcall(W, { setsOf, castName, heroName, ui, colorOf, tokens
       raf = requestAnimationFrame(frame);
       await wait(() => !live(), t).catch(() => {});
     } finally {
-      feeds--; feedShown(id, false);
+      feeds--; feedShown(id, false); if (fold && was) fold.live(false);
       cancelAnimationFrame(raf); if (feedOwner === id || !feeds) { S.feed(null); feedOwner = null; } el.remove();
       if (fig) fig.gaze = null;
       // (its office let go, unless a scene has the sets now or another feed still runs: the held call's)

@@ -15,6 +15,9 @@ presentation. It is loaded only with `?pack=`; without it the game is exactly mc
   cp $SK/cast/test-night-shift/*.glb tools/storyrun/test-packs/night-shift/
   mkdir -p tools/storyrun/test-packs/night-shift/voice && cp $SK/packs/test-night-shift/voice/*.ogg tools/storyrun/test-packs/night-shift/voice/
   ```
+- `fold-phone.json`: Fold Call, a world's calls on its foldable phone (`calls: { style: "fold" }`, docs/VCALL.md):
+  FP-1 a video call from Jane at the wheel (`&autopilot=1&flowfast=1&mission=FP-1`), FP-2 on foot a call from Knox
+  that rings until answered (E, or the phone's green button) and then a `vcall` played on the phone (`&mission=FP-2`).
 - `tow.json`: Night Hook, two tows in a vehicle-sheet wrecker (the Story Kit's `wrecker` sheet: tow rig, light bar,
   opening doors): TW-1 hooks a stalled van (a ride of the world's, from its sheet) on 6th Ave and tows it to 11th Ave;
   TW-2 a blue sedan (the city's own body) to Chelsea Park. Both pass under the autopilot (`&autopilot=1&mission=TW-1`).
