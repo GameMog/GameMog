@@ -1421,7 +1421,7 @@ export function createRunner(ctx) {
   // a video call (vcall.js): every person in an office of their own, on their own webcam, in a call's layout; the
   // city held as for a cutscene
   let vcallRun = null;
-  const vcallOf = () => vcallRun || (vcallRun = createVcall(W, { setsOf, castName, heroName, ui, colorOf, tokens, mumble, delay, wait, tokOf, kill, log: (e) => M?.log.push(e), sfx }));
+  const vcallOf = () => vcallRun || (vcallRun = createVcall(W, { setsOf, castName, heroName, ui, colorOf, tokens, mumble, delay, wait, tokOf, kill, log: (e) => M?.log.push(e), sfx, fold: ui.fold || null }));
   STEPS.vcall = async (d, t) => {
     await wrapSpan(t);
     vcallOf();
@@ -1720,10 +1720,13 @@ export function createRunner(ctx) {
     applySet(d.answer);
     ui.caller(who, color, d.role || 'On call');
     M.log.push(['call', who]);
+    // (on a world's foldable phone (calls.style 'fold', fold.js) a video call on foot shows its caller on the phone too)
+    let talking = true;
+    if (ui.fold && d.video && who !== heroName) vcallOf().feed(d.video, who, () => talking, tokOf(M.tok), 'vfeed', () => true).catch((err) => console.warn('[storyrun] vcall feed', err));
     try {
       for (const l of lines) await say(castName(l.who), l.text, t, { secs: l.secs, phone: castName(l.who) !== heroName, ...beatIn(l) });
       if (d.choice) return await choose(d.choice, t);
-    } finally { ui.caller(null); sfx.play('hangup', { gain: 0.12 }); }
+    } finally { talking = false; ui.caller(null); sfx.play('hangup', { gain: 0.12 }); }
   };
   // (jh-polish2 B5, opt-in per world: a world's `calls: { ringOut: 'answer' }` (Jensen Heist's) rings RING_SECS at most
   // (a pack's own `ring` shorter only, never under RING_MIN) and a ring that runs out answers itself; only X or N

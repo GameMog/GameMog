@@ -78,11 +78,17 @@ export async function install(W) {
     const u = def.art && typeof def.art['head-' + id] === 'string' ? world.asset(def.art['head-' + id]) : null;
     if (u && /^[\w:/.-]+$/.test(u)) heads[name] = u;
   }
+  // (a world's calls on a foldable phone, `calls: { style: 'fold' }` (fold.js): the card's calls drive the phone, the
+  // card itself put away; the runner's video calls drawn into its screen (ui.fold, vcall.js). Any other world: none)
+  let fold = null;
+  if (def.calls?.style === 'fold') { try { fold = (await importRetry(() => import('./fold.js'))).createFold(W, { heads }); } catch (e) { console.warn('[storyrun] fold', e); } }
+  ui.fold = fold;
   const caller0 = ui.caller;
   ui.caller = function (name, color, status) {
     const r = caller0.apply(this, arguments);
     const u = name && Object.prototype.hasOwnProperty.call(heads, name) ? heads[name] : null;
     if (u) { const av = document.querySelector('#wg .wg-caller .av'); if (av) { av.textContent = ''; av.style.background = `${color || '#6CB8FF'} url("${u}") center / cover no-repeat`; } }
+    if (fold) fold.caller(name, color, name ? document.querySelector('#wg .wg-caller .s')?.textContent || status : null, name ? document.querySelector('#wg .wg-caller .n')?.textContent || name : null);
     return r;
   };
   const nClips = cast.registerVoices();

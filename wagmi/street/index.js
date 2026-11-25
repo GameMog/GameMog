@@ -202,9 +202,10 @@ export function install(W) {
     if (tickT > 0) {
       tickT -= dt; const on = tickT > 0.3 && !W.cutscene;
       tick.style.opacity = on ? '1' : '0';
-      // (clear of a video call's tile in the same corner: under it, wagmi/street/tick-place.js)
+      // (clear of a video call's tile in the same corner: under it, wagmi/street/tick-place.js; or of a world's
+      // foldable phone, storyrun/fold.js)
       if (on) {
-        const tiles = [...document.querySelectorAll('.wg-vfeed.on')].map((e) => e.getBoundingClientRect());
+        const tiles = [...document.querySelectorAll('.wg-vfeed.on'), ...document.querySelectorAll('#wg .wg-fold.on')].map((e) => e.getBoundingClientRect());
         const w = tick.offsetWidth || 160, h = tick.offsetHeight || 38, right = innerWidth - 28;
         const y = tickTop({ left: right - w, right, top: TICK.TOP, bottom: TICK.TOP + h }, tiles);
         if (tick.style.top !== y + 'px') tick.style.top = y + 'px';

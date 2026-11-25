@@ -315,9 +315,10 @@ export function check(w) {
     bad('credits.cast: [{ name, role }] (24 at most; a name 40 characters, a role 60)');
   if (w.credits && typeof w.credits === 'object' && w.credits.voices != null && (!Array.isArray(w.credits.voices) || w.credits.voices.length > 4
     || w.credits.voices.some((l) => typeof l !== 'string' || l.length > 200))) bad('credits.voices: [lines] (4 at most, 200 characters each)');
-  // (its calls: { ringOut: 'answer' } a ring that runs out is answered (runner.js ringOf), 'decline' as by default)
-  if (w.calls != null && (typeof w.calls !== 'object' || Array.isArray(w.calls) || (w.calls.ringOut != null && !['answer', 'decline'].includes(w.calls.ringOut))))
-    bad("calls: { ringOut: 'answer' | 'decline' }");
+  // (its calls: { ringOut: 'answer' } a ring that runs out is answered (runner.js ringOf), 'decline' as by default;
+  // style 'fold': its calls on a foldable phone (fold.js), 'card' the caller card and car screen as by default)
+  if (w.calls != null && (typeof w.calls !== 'object' || Array.isArray(w.calls) || (w.calls.ringOut != null && !['answer', 'decline'].includes(w.calls.ringOut)) || (w.calls.style != null && !['card', 'fold'].includes(w.calls.style))))
+    bad("calls: { ringOut: 'answer' | 'decline', style: 'card' | 'fold' }");
   // (a mission's medals, rules.js medalOf: { gold | silver | bronze: { secs, damage } })
   for (const m of w.missions || []) {
     const md = m && m.medals;

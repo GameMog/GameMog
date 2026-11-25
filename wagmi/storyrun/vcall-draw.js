@@ -161,7 +161,7 @@ export function createGrid(W) {
     drawFeed(sets) {
       const f = feedOn, S = sets.get(f.id); if (!S) return;
       const r = rtOf('feed', { alpha: true }), [, , w, h] = f.rect;
-      r.mesh.visible = true; size(r, w, h, true); r.U.size.value.set(w, h); r.U.rad.value = 10; r.U.blur.value = f.blur ? 1 : 0; r.U.dim.value = 0;
+      r.mesh.visible = true; size(r, w, h, true); r.U.size.value.set(w, h); r.U.rad.value = f.radius ?? 10; r.U.blur.value = f.blur ? 1 : 0; r.U.dim.value = 0;
       if ((frameNo++ & 1) === 0 || !r.drawn) shoot(S, { cam: f.cam, rect: f.rect, blur: f.blur }, r);
       renderer.setRenderTarget(null);
       // (where the rect is on the screen, in clip space: no lens's place, aim or field of view in it)

@@ -1,0 +1,225 @@
+{
+ "storykit": 1,
+ "id": "test-fold-phone",
+ "title": "Fold Call",
+ "kicker": "NEW YORK",
+ "tagline": "A world's calls on a foldable phone",
+ "city": "ny",
+ "car": "roadster",
+ "hud": {
+  "meters": [
+   {
+    "id": "trust",
+    "label": "TRUST",
+    "kind": "count",
+    "start": 0
+   }
+  ]
+ },
+ "dressing": {
+  "time": "golden",
+  "season": "autumn",
+  "weather": "clear",
+  "holiday": []
+ },
+ "cast": {
+  "Dan": {
+   "color": "#FFFFFF",
+   "role": "a fired first-year associate",
+   "model": "mogcity/dan"
+  },
+  "Jane": {
+   "color": "#6CB8FF",
+   "role": "a hospital data analyst",
+   "model": "mogcity/jane"
+  },
+  "Knox": {
+   "color": "#B6FF3B",
+   "role": "the security crew's lead",
+   "model": "mogcity/suit-knox"
+  }
+ },
+ "hero": "Dan",
+ "places": {
+  "office": {
+   "@": "heraldsq",
+   "name": "Herald Square"
+  },
+  "park": {
+   "@": "chelseapark",
+   "name": "Chelsea Park"
+  }
+ },
+ "acts": [
+  {
+   "id": "act1",
+   "name": "ACT I",
+   "order": [
+    "FP-1",
+    "FP-2"
+   ],
+   "end": {
+    "title": "END OF ACT I",
+    "heading": "Folded",
+    "next": {
+     "text": "Act II soon"
+    }
+   }
+  }
+ ],
+ "missions": [
+  {
+   "id": "FP-1",
+   "title": "Corner Call",
+   "vehicle": "roadster",
+   "start": "@murrayhill",
+   "stakes": "Jane calls while he drives.",
+   "passLine": "Jane hung up.",
+   "steps": [
+    {
+     "type": "drive",
+     "id": "to-sq",
+     "to": "@office",
+     "radius": 10,
+     "objective": "Drive to **Herald Square**.",
+     "checkpoint": true,
+     "during": [
+      {
+       "type": "call",
+       "at": 2,
+       "who": "Jane",
+       "auto": true,
+       "inCar": true,
+       "video": {
+        "office": "kitchen"
+       },
+       "lines": [
+        [
+         "JANE",
+         "Dan. Why is your laptop doing forty down Fifth Avenue?"
+        ],
+        [
+         "DAN",
+         "Because some guys in a van took it."
+        ],
+        [
+         "JANE",
+         "Then drive like you mean it. I'm watching the tracker."
+        ],
+        [
+         "DAN",
+         "I am driving like I mean it."
+        ],
+        [
+         "JANE",
+         "You're doing twenty-five. I can see it."
+        ]
+       ],
+       "wrap": [
+        [
+         "JANE",
+         "See you in a minute."
+        ]
+       ]
+      }
+     ]
+    },
+    {
+     "type": "say",
+     "who": "Dan",
+     "text": "Okay. Herald Square.",
+     "secs": 2
+    }
+   ]
+  },
+  {
+   "id": "FP-2",
+   "title": "Kerb Call",
+   "start": {
+    "@": "park",
+    "mode": "walk"
+   },
+   "stakes": "Knox calls him on foot.",
+   "passLine": "Knox has had his word.",
+   "steps": [
+    {
+     "type": "say",
+     "who": "Dan",
+     "text": "Quiet park. Nice.",
+     "secs": 2
+    },
+    {
+     "type": "call",
+     "who": "Knox",
+     "ring": 14,
+     "video": {
+      "office": "exec"
+     },
+     "lines": [
+      [
+       "KNOX",
+       "This is a performance review, kid. You're failing it."
+      ],
+      [
+       "DAN",
+       "Who gave you this number?"
+      ],
+      [
+       "KNOX",
+       "Your laptop did. It talks a lot."
+      ],
+      [
+       "DAN",
+       "So do you."
+      ]
+     ]
+    },
+    {
+     "type": "vcall",
+     "title": "Knox \u00b7 Video",
+     "layout": "grid",
+     "end": "leave",
+     "people": [
+      {
+       "who": "Knox",
+       "office": "exec"
+      },
+      {
+       "who": "player",
+       "office": "study"
+      }
+     ],
+     "lines": [
+      {
+       "who": "Knox",
+       "text": "Camera on. I like to see who I'm firing."
+      },
+      {
+       "who": "Dan",
+       "text": "I don't work for you."
+      },
+      {
+       "who": "Knox",
+       "text": "Everybody works for somebody, kid."
+      }
+     ]
+    },
+    {
+     "type": "say",
+     "who": "Dan",
+     "text": "Great.",
+     "secs": 2
+    }
+   ]
+  }
+ ],
+ "voice": {
+  "model": "kokoro-82m-v1.0",
+  "dir": "",
+  "cast": {},
+  "lines": []
+ },
+ "calls": {
+  "style": "fold"
+ }
+}
