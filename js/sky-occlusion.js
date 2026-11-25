@@ -97,7 +97,8 @@ const uSize = uniform(new THREE.Vector2(1, 1)); // m the map covers
 const uMpt = uniform(2); // m a texel
 const uReady = uniform(0); // 0 until the map holds the city: the old canyon term meanwhile
 const uBounce = uniform(new THREE.Color(0, 0, 0)); // the irradiance of a surface that sees only buildings
-const uBounceGain = uniform(1);
+const uBounceGain = uniform(1.3); // (tuned against the old canyon term's brightness in a midtown street)
+const AO_FLOOR = 0.25;
 
 // The texture (fixed size for the load, allocated on the first material that asks, so its shaders bind it once):
 // New York's Manhattan frame 2048 x 8192 (4 x 16 km at 2 m, as the fork), else 4096 square, its scale set by build()
@@ -376,9 +377,15 @@ function visibilityNode(fallback) {
 function apply(mat, canyon, factor = null, { bounce: withBounce = true } = {}) {
   if (DBG.has('noapply')) { mat.aoNode = factor ? canyon().mul(factor) : canyon(); return mat; }
   const vis = visibilityNode(canyon()).toVar('skyVis');
-  mat.aoNode = factor ? vis.mul(factor) : vis;
+  // (never below AO_FLOOR: the AO also occludes the specular, and with no SSR to answer it a glass wall in a canyon
+  // went black; the fork's SSR answers that share)
+  const ao = mix(float(AO_FLOOR), float(1), vis);
+  mat.aoNode = factor ? ao.mul(factor) : ao;
   // (the bounce: what a diffuse surface reflects of the buildings' light where they hide the sky; a metal none)
-  const bounce = diffuseColor.rgb.mul(uBounce).mul(uBounceGain).mul(vis.oneMinus()).mul(metalness.oneMinus());
+  // (an irradiance, as the hemisphere light's: through the Lambert BRDF, albedo / pi, as three lights it)
+  // (a metal reflects the buildings it faces instead of the sky the AO took from it: a fifth of the bounce)
+  const albedo = mix(diffuseColor.rgb, vec3(0.2), metalness);
+  const bounce = albedo.mul(uBounce).mul(uBounceGain).mul(1 / Math.PI).mul(vis.oneMinus());
   // (into the emissive term, which three adds after the lights: the material's own emissive node, set before or after
   // this, kept under it)
   if (withBounce && !DBG.has('nobounce')) {
