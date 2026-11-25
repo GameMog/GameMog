@@ -1,0 +1,118 @@
+{
+ "id": "deckhand-blue",
+ "name": "Deckhand Blue",
+ "role": "one of Diego's deckhands, who brawls and says nothing",
+ "logline": "Blue cap, a whistle, no lines.",
+ "identity": {
+  "age": 29,
+  "body": "male",
+  "presentation": "man",
+  "heightCm": 178,
+  "build": {
+   "frame": "medium",
+   "weight": "stocky",
+   "muscle": "athletic"
+  }
+ },
+ "heritage": {
+  "note": "invented person; no real likeness",
+  "blend": {
+   "african": 0.5,
+   "asian": 0,
+   "european": 0.5
+  },
+  "skin": {
+   "tone": "tan",
+   "undertone": "warm",
+   "makeup": "none",
+   "lipTint": "natural"
+  }
+ },
+ "face": {
+  "jaw": "average",
+  "cheeks": "full",
+  "cheekbones": "average",
+  "faceWidth": "average",
+  "nose": {
+   "width": "average",
+   "length": "average",
+   "tip": "average",
+   "bridge": "straight"
+  },
+  "browRidge": "average",
+  "chin": {
+   "projection": "average",
+   "length": "average",
+   "width": "average"
+  },
+  "eyes": "brown",
+  "brows": {
+   "color": "dark-brown",
+   "weight": "average"
+  },
+  "eyeShape": "average",
+  "eyeBags": "none",
+  "mouth": {
+   "lips": "average",
+   "width": "average",
+   "cupidsBow": "average",
+   "corners": "neutral"
+  },
+  "ears": {
+   "size": "average",
+   "angle": "flat"
+  },
+  "skull": {
+   "shape": "oval"
+  },
+  "forehead": "average",
+  "faceLength": "average"
+ },
+ "hair": {
+  "style": "buzz",
+  "color": "black"
+ },
+ "facialHair": {
+  "style": "goatee"
+ },
+ "wardrobe": {
+  "top": {
+   "item": "long-sleeve",
+   "color": "#F2F0EA",
+   "accent": "#1E2A44",
+   "pattern": "stripe"
+  },
+  "bottom": {
+   "item": "loose-trousers",
+   "color": "#1E2A44"
+  },
+  "shoes": {
+   "item": "work-boots",
+   "color": "#3A2A1C"
+  },
+  "headwear": {
+   "item": "knit-beanie",
+   "color": "#2456A6"
+  }
+ },
+ "posture": {
+  "stance": "guarded",
+  "pace": "steady",
+  "gestures": "rolls his shoulders",
+  "idle": "arms",
+  "walk": "walkHeavy"
+ },
+ "personality": {
+  "traits": [
+   "silent",
+   "tough"
+  ],
+  "speech": "says nothing"
+ },
+ "voice": {
+  "id": "deckhand-blue-v1",
+  "description": "grunts only",
+  "pitch": "mid-low",
+  "rate": "steady"
+ }
+}

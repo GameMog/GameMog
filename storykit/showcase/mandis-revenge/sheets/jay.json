@@ -1,0 +1,115 @@
+{
+ "id": "jay",
+ "name": "Jay",
+ "role": "Mandi's ex, who bets on everything",
+ "logline": "Charming, lucky in nothing, forty thousand down on a rubber duck.",
+ "identity": {
+  "age": 30,
+  "body": "male",
+  "presentation": "man",
+  "heightCm": 180,
+  "build": {
+   "frame": "medium",
+   "weight": "average",
+   "muscle": "average"
+  }
+ },
+ "heritage": {
+  "note": "invented person; no real likeness",
+  "blend": {
+   "african": 0.3,
+   "asian": 0,
+   "european": 0.7
+  },
+  "skin": {
+   "tone": "tan",
+   "undertone": "warm",
+   "makeup": "none",
+   "lipTint": "natural"
+  }
+ },
+ "face": {
+  "jaw": "square",
+  "cheeks": "average",
+  "cheekbones": "average",
+  "faceWidth": "average",
+  "nose": {
+   "width": "average",
+   "length": "average",
+   "tip": "average",
+   "bridge": "straight"
+  },
+  "browRidge": "average",
+  "chin": {
+   "projection": "average",
+   "length": "average",
+   "width": "average"
+  },
+  "eyes": "brown",
+  "brows": {
+   "color": "dark-brown",
+   "weight": "average"
+  },
+  "eyeShape": "average",
+  "eyeBags": "none",
+  "mouth": {
+   "lips": "average",
+   "width": "average",
+   "cupidsBow": "average",
+   "corners": "up"
+  },
+  "ears": {
+   "size": "average",
+   "angle": "flat"
+  },
+  "skull": {
+   "shape": "oval"
+  },
+  "forehead": "average",
+  "faceLength": "average"
+ },
+ "hair": {
+  "style": "short-curly",
+  "color": "dark-brown"
+ },
+ "facialHair": {
+  "style": "stubble"
+ },
+ "wardrobe": {
+  "top": {
+   "item": "tee",
+   "color": "#E8E4DA"
+  },
+  "bottom": {
+   "item": "jeans",
+   "color": "#2F3A4C",
+   "pattern": "denim"
+  },
+  "shoes": {
+   "item": "white-sneakers",
+   "color": "#F4F4F0"
+  }
+ },
+ "posture": {
+  "stance": "relaxed",
+  "pace": "restless",
+  "gestures": "rubs the back of his neck, grins when caught",
+  "idle": "shift",
+  "walk": "walk"
+ },
+ "personality": {
+  "traits": [
+   "charming",
+   "guilty",
+   "hopeful",
+   "reckless"
+  ],
+  "speech": "fast when he is guilty, which is always"
+ },
+ "voice": {
+  "id": "jay-v1",
+  "description": "easy sheepish tenor, fast when guilty",
+  "pitch": "mid",
+  "rate": "quick"
+ }
+}

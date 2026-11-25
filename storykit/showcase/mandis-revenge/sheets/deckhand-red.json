@@ -1,0 +1,118 @@
+{
+ "id": "deckhand-red",
+ "name": "Deckhand Red",
+ "role": "one of Diego's deckhands, who brawls and says nothing",
+ "logline": "Red cap, red knuckles, no lines.",
+ "identity": {
+  "age": 33,
+  "body": "male",
+  "presentation": "man",
+  "heightCm": 185,
+  "build": {
+   "frame": "broad",
+   "weight": "average",
+   "muscle": "strong"
+  }
+ },
+ "heritage": {
+  "note": "invented person; no real likeness",
+  "blend": {
+   "african": 0,
+   "asian": 0,
+   "european": 1
+  },
+  "skin": {
+   "tone": "light",
+   "undertone": "warm",
+   "makeup": "none",
+   "lipTint": "natural"
+  }
+ },
+ "face": {
+  "jaw": "square",
+  "cheeks": "average",
+  "cheekbones": "average",
+  "faceWidth": "average",
+  "nose": {
+   "width": "average",
+   "length": "average",
+   "tip": "average",
+   "bridge": "straight"
+  },
+  "browRidge": "average",
+  "chin": {
+   "projection": "average",
+   "length": "average",
+   "width": "average"
+  },
+  "eyes": "brown",
+  "brows": {
+   "color": "dark-brown",
+   "weight": "average"
+  },
+  "eyeShape": "average",
+  "eyeBags": "none",
+  "mouth": {
+   "lips": "average",
+   "width": "average",
+   "cupidsBow": "average",
+   "corners": "neutral"
+  },
+  "ears": {
+   "size": "average",
+   "angle": "flat"
+  },
+  "skull": {
+   "shape": "oval"
+  },
+  "forehead": "average",
+  "faceLength": "average"
+ },
+ "hair": {
+  "style": "buzz",
+  "color": "auburn"
+ },
+ "facialHair": {
+  "style": "full-trimmed"
+ },
+ "wardrobe": {
+  "top": {
+   "item": "long-sleeve",
+   "color": "#F2F0EA",
+   "accent": "#1E2A44",
+   "pattern": "stripe"
+  },
+  "bottom": {
+   "item": "loose-trousers",
+   "color": "#1E2A44"
+  },
+  "shoes": {
+   "item": "work-boots",
+   "color": "#3A2A1C"
+  },
+  "headwear": {
+   "item": "knit-beanie",
+   "color": "#B3261E"
+  }
+ },
+ "posture": {
+  "stance": "guarded",
+  "pace": "steady",
+  "gestures": "cracks his knuckles",
+  "idle": "arms",
+  "walk": "walkHeavy"
+ },
+ "personality": {
+  "traits": [
+   "silent",
+   "tough"
+  ],
+  "speech": "says nothing"
+ },
+ "voice": {
+  "id": "deckhand-red-v1",
+  "description": "grunts only",
+  "pitch": "low",
+  "rate": "steady"
+ }
+}

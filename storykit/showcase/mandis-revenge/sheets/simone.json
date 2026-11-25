@@ -1,0 +1,119 @@
+{
+ "id": "simone",
+ "name": "Simone Vance",
+ "role": "casting director, impossible to impress",
+ "logline": "Bored, chic, and right about everything until the very end.",
+ "identity": {
+  "age": 44,
+  "body": "female",
+  "presentation": "woman",
+  "heightCm": 174,
+  "build": {
+   "frame": "small",
+   "weight": "thin",
+   "muscle": "average"
+  }
+ },
+ "heritage": {
+  "note": "invented person; no real likeness",
+  "blend": {
+   "african": 0,
+   "asian": 0,
+   "european": 1
+  },
+  "skin": {
+   "tone": "very-light",
+   "undertone": "cool",
+   "makeup": "lipstick",
+   "lipTint": "red"
+  }
+ },
+ "face": {
+  "jaw": "average",
+  "cheeks": "average",
+  "cheekbones": "high",
+  "faceWidth": "average",
+  "nose": {
+   "width": "average",
+   "length": "average",
+   "tip": "average",
+   "bridge": "straight"
+  },
+  "browRidge": "average",
+  "chin": {
+   "projection": "average",
+   "length": "average",
+   "width": "average"
+  },
+  "eyes": "grey-blue",
+  "brows": {
+   "color": "dark-brown",
+   "weight": "average"
+  },
+  "eyeShape": "average",
+  "eyeBags": "none",
+  "mouth": {
+   "lips": "thin",
+   "width": "average",
+   "cupidsBow": "average",
+   "corners": "down"
+  },
+  "ears": {
+   "size": "average",
+   "angle": "flat"
+  },
+  "skull": {
+   "shape": "oval"
+  },
+  "forehead": "average",
+  "faceLength": "average"
+ },
+ "hair": {
+  "style": "bob-tucked",
+  "color": "platinum"
+ },
+ "facialHair": {
+  "style": "none"
+ },
+ "wardrobe": {
+  "top": {
+   "item": "long-sleeve",
+   "color": "#111111"
+  },
+  "bottom": {
+   "item": "trousers",
+   "color": "#111111"
+  },
+  "shoes": {
+   "item": "dress",
+   "color": "#111111"
+  }
+ },
+ "props": [
+  {
+   "kind": "round-glasses"
+  }
+ ],
+ "posture": {
+  "stance": "upright",
+  "pace": "slow",
+  "gestures": "a half-sigh, one finger raised",
+  "idle": "arms",
+  "walk": "walkCool"
+ },
+ "personality": {
+  "traits": [
+   "bored",
+   "chic",
+   "clipped",
+   "secretly kind"
+  ],
+  "speech": "cool and clipped, a half-sigh in every note"
+ },
+ "voice": {
+  "id": "simone-v1",
+  "description": "cool clipped alto with a sigh",
+  "pitch": "mid-low",
+  "rate": "slow"
+ }
+}

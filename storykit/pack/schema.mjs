@@ -56,12 +56,13 @@ export const ANCHORS = ['none', 'old-boss', 'young-hero', 'grandmother', 'grandf
   'young-mother', 'club-promoter', 'veteran'];
 // what a mission asks the player to do; gate.ts VERBS says which ride (or none) can do each
 export const VERBS = ['drive', 'walk', 'boost', 'hop', 'dash', 'ram', 'escape', 'chase', 'tail', 'follow', 'carry', 'sneak', 'deliver', 'pedal', 'lean', 'wheelie', 'tow', 'fight'];
-export const STOCK_CARS = ['trailhand', 'vandal', 'roadster', 'gt', 'wedge'];
+export const STOCK_CARS = ['trailhand', 'vandal', 'roadster', 'gt', 'wedge', 'gwagon'];
 // stock cars only GameMog's own showcase worlds drive (gate.ts rule 15): gt, Mog City's Vantor GT (wagmi/storyrun/gt.js: a black
 // rear-engined coupe with the roadster's handling and boost), which the runner gets as car { model: 'mogcity/gt' }; wedge, Mog
 // City's Tensore (wagmi/storyrun/wedge.js: a lime wedge supercar with scissor doors, no badges, on the same handling;
-// Jensen Heist's), which the runner gets as car { model: 'mogcity/wedge' }
-export const SHOWCASE_CARS = ['gt', 'wedge'];
+// Jensen Heist's), which the runner gets as car { model: 'mogcity/wedge' }; gwagon, Mog City's Kastell (wagmi/storyrun/gwagon.js:
+// a black luxury off-roader with no badges; Mandi's Revenge's), which the runner gets as car { model: 'mogcity/gwagon' }
+export const SHOWCASE_CARS = ['gt', 'wedge', 'gwagon'];
 // the player's car as the creator picked it on Create (hero-cars.mjs: no imports, so /create's page can read it too)
 export { HERO_CARS, HERO_CAR_IDS } from './hero-cars.mjs';
 import { HERO_CAR_IDS } from './hero-cars.mjs';
@@ -106,7 +107,7 @@ export const LIMITS = { bytes: 160_000, acts: 3, missions: 9, steps: 60, cast: 1
 // builder's or the store's. It may be longer than a Create: up to 5 acts of up to 8 missions (15+ in all), longer
 // missions, more lines, a longer opening. Everything else (places, verbs, kinds, words, voices) is gated the same.
 export const SHOWCASE = { bytes: 640_000, acts: 5, missionsPerAct: 8, steps: 120, lines: 2400, cast: 24, openingSecs: [30, 150], openingShots: 24, openingLines: [2, 16], places: 48 };
-export const SHOWCASE_PACKS = ['pickup-time', 'jensen-heist'];
+export const SHOWCASE_PACKS = ['pickup-time', 'jensen-heist', 'mandis-revenge'];
 // a video call (Mog City wagmi/storyrun/vcall.js, 18 Nov): every conversation can be one: each person in an office of
 // their own, head and shoulders on their webcam, in a call's layout (tiles, names, the one talking lit, subtitles), with
 // the call's own life between the lines (VCALL_EVENTS). gate.ts vcallProblems holds its rules
@@ -239,6 +240,7 @@ const STEPS = fx(['drive', 'stops', 'pursuit', 'tail', 'tow', 'timer', 'fight', 
   vcall: step('vcall', {
     title: S(40, { description: "the call's name in its top bar ('Q3 Board Sync')" }), layout: E(['grid', 'speaker'], { description: 'grid: equal tiles; speaker: whoever talks fills the stage, the rest in a strip' }),
     end: E(['leave', 'drop'], { description: 'how it ends: you leave the meeting, or the call drops' }), time: E(['day', 'golden', 'night'], { description: "the light through every office's window (else the mission's time)" }),
+    device: E(['laptop'], { description: "laptop: the call on the hero's laptop, full screen (a world whose calls are on its foldable phone, calls.style 'fold', still plays this one as a laptop call: an audition, a meeting at a desk)" }),
     people: A(O({
       who: { ...R('slug'), description: "a cast id with a body, or 'player'" }, office: E(VCALL_OFFICES, { description: "the office they sit in: exec (a corner office, the skyline), startup (an open-plan loft), backstage (a stage manager's room), boardroom (the long table), kitchen (a home kitchen), study (walnut and books, Mr. Big's), van (a broadcast van's back), greenroom (an arena's green room); away from a desk: truck (a food truck's kitchen), diner (a diner booth), lot (a lot out back, a loading dock), green (a lawn by a station, a bench), car (a car's front seat), house (row one of an arena's seats). The tile's sub says where they are, so it names the office drawn behind them" }),
       label: S(24, { description: 'the name on their tile (else the cast name)' }), sub: S(32, { description: 'a second line on the tag: a title or a company (invented names only)' }),
@@ -434,7 +436,8 @@ export const SCHEMA = {
       cast: A(O({ name: S(40), role: S(60) }, ['name']), 24, 1, { description: "the cast as credited (Starring, two columns): each person's display name and a short role; left out, each cast member's role made a credit" }),
       voices: A(S(200), 4, 1, { description: "the voices' credit lines (what made them, and under what licence); left out, no model is named" }) }, ['lines'],
       { description: "the end credits, rolled after STORY COMPLETE and the title (any key skips them): Mog City adds the cast and their roles, the voices, the map's data and Ockams Inc. around these lines" }),
-    calls: O({ ringOut: E(['answer', 'decline'], { description: "a ring that runs out with no key pressed: answer (the call plays, the ring 4 s at most) or decline (the decline set and the voicemail, the default)" }) }, [],
+    calls: O({ ringOut: E(['answer', 'decline'], { description: "a ring that runs out with no key pressed: answer (the call plays, the ring 4 s at most) or decline (the decline set and the voicemail, the default)" }),
+      style: E(['card', 'fold'], { description: "how the calls are shown: card (the caller card and the car screen's picture, the default) or fold (on Mog City's foldable phone, wagmi/storyrun/fold.js: ringing folded, answered unfolded, a vcall on its inner screen)" }) }, [],
       { description: "the phone's calls (Mog City's wagmi/storyrun runner.js)" }),
     base: O({ engine: E(ENGINES), city: E(CITIES), cityBuild: S(40, { pattern: '^[a-z]{2,8}-[a-z0-9.-]{1,30}$' }),
       hometown: O({ place: S(80, { pattern: '^[a-z0-9][a-z0-9-]{1,79}$' }), compiler: S(30, { pattern: '^[a-z0-9][a-z0-9.-]{0,29}$' }), tiles: S(64, { pattern: '^[0-9a-f]{16,64}$' }),
@@ -488,7 +491,7 @@ export const SCHEMA = {
       model: E(PET_MODELS, { description: 'a shipped pet from the cast registry (mogcity/moon: Moon, a small white fluffy dog); without one a dog is built the same way in its coat and size' }),
       follows: { ...B, description: 'stays with its owner, the hero, as the player plays: trots after them on foot, rides in the car beside them, sits when they stop' } }, ['id', 'name', 'species']), LIMITS.pets),
     vehicles: A({ oneOf: [
-      O({ stock: E(STOCK_CARS, { description: "one of the stock cars as it is (trailhand and vandal: their sheets in storykit/vehicles; roadster: Mog City's own; gt: Mog City's Vantor GT, wedge: Mog City's Tensore, a showcase's only)" }), id: R('rideId'), paint: { ...R('colour'), description: "its paint, as '#76B900': the hero's stock car is built in it (paint only, no livery or logo); the gt's or the wedge's body colour" },
+      O({ stock: E(STOCK_CARS, { description: "one of the stock cars as it is (trailhand and vandal: their sheets in storykit/vehicles; roadster: Mog City's own; gt: Mog City's Vantor GT, wedge: Mog City's Tensore, gwagon: Mog City's Kastell, a showcase's only)" }), id: R('rideId'), paint: { ...R('colour'), description: "its paint, as '#76B900': the hero's stock car is built in it (paint only, no livery or logo); the gt's or the wedge's body colour" },
         label: S(32, { description: "gt only: the speed panel's name for it (\"John's car\")" }), plate: S(8, { pattern: '^[A-Z0-9 ]{0,8}$', description: 'gt only: its plate' }) }, ['stock']),
       { $ref: VEHICLE_SHEET }
     ] }, LIMITS.vehicles, 1),

@@ -1,0 +1,114 @@
+{
+ "id": "mandi",
+ "name": "Mandi Reyes",
+ "role": "hero: an aspiring model, still in her audition bikini",
+ "logline": "Rescued her ex for years and swore she would quit. One more night.",
+ "identity": {
+  "age": 27,
+  "body": "female",
+  "presentation": "woman",
+  "heightCm": 170,
+  "build": {
+   "frame": "medium",
+   "weight": "slim",
+   "muscle": "athletic"
+  }
+ },
+ "heritage": {
+  "note": "invented person; no real likeness",
+  "blend": {
+   "african": 0.15,
+   "asian": 0,
+   "european": 0.85
+  },
+  "skin": {
+   "tone": "light-medium",
+   "undertone": "warm",
+   "makeup": "natural",
+   "lipTint": "rose"
+  }
+ },
+ "face": {
+  "jaw": "average",
+  "cheeks": "average",
+  "cheekbones": "high",
+  "faceWidth": "average",
+  "nose": {
+   "width": "average",
+   "length": "average",
+   "tip": "average",
+   "bridge": "straight"
+  },
+  "browRidge": "average",
+  "chin": {
+   "projection": "average",
+   "length": "average",
+   "width": "average"
+  },
+  "eyes": "hazel",
+  "brows": {
+   "color": "dark-brown",
+   "weight": "average"
+  },
+  "eyeShape": "almond",
+  "eyeBags": "none",
+  "mouth": {
+   "lips": "full",
+   "width": "average",
+   "cupidsBow": "average",
+   "corners": "neutral"
+  },
+  "ears": {
+   "size": "average",
+   "angle": "flat"
+  },
+  "skull": {
+   "shape": "oval"
+  },
+  "forehead": "average",
+  "faceLength": "average"
+ },
+ "hair": {
+  "style": "long",
+  "color": "brown"
+ },
+ "facialHair": {
+  "style": "none"
+ },
+ "wardrobe": {
+  "top": {
+   "item": "tee",
+   "color": "#C9A227"
+  },
+  "bottom": {
+   "item": "skirt",
+   "color": "#B07A3A"
+  },
+  "shoes": {
+   "item": "sneakers",
+   "color": "#F2B6C6"
+  }
+ },
+ "posture": {
+  "stance": "proud",
+  "pace": "quick",
+  "gestures": "tucks her hair back, points with her keys",
+  "idle": "idle",
+  "walk": "walkCool"
+ },
+ "personality": {
+  "traits": [
+   "quick",
+   "loyal",
+   "wry",
+   "unflappable"
+  ],
+  "speech": "quick and wry, dead calm when she means it"
+ },
+ "voice": {
+  "id": "mandi-v1",
+  "description": "warm bright mezzo, quick and wry",
+  "pitch": "mid",
+  "rate": "quick"
+ }
+}

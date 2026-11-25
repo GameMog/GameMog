@@ -1,0 +1,121 @@
+{
+ "id": "brick",
+ "name": "Brick",
+ "role": "Diego's huge, gentle enforcer, who knits",
+ "logline": "Apologises before every shove; knits between jobs.",
+ "identity": {
+  "age": 38,
+  "body": "male",
+  "presentation": "man",
+  "heightCm": 196,
+  "build": {
+   "frame": "broad",
+   "weight": "heavy",
+   "muscle": "strong"
+  }
+ },
+ "heritage": {
+  "note": "invented person; no real likeness",
+  "blend": {
+   "african": 0.7,
+   "asian": 0,
+   "european": 0.3
+  },
+  "skin": {
+   "tone": "dark-brown",
+   "undertone": "warm",
+   "makeup": "none",
+   "lipTint": "natural"
+  }
+ },
+ "face": {
+  "jaw": "heavy",
+  "cheeks": "average",
+  "cheekbones": "average",
+  "faceWidth": "average",
+  "nose": {
+   "width": "average",
+   "length": "average",
+   "tip": "average",
+   "bridge": "straight"
+  },
+  "browRidge": "strong",
+  "chin": {
+   "projection": "average",
+   "length": "average",
+   "width": "average"
+  },
+  "eyes": "brown",
+  "brows": {
+   "color": "dark-brown",
+   "weight": "average"
+  },
+  "eyeShape": "average",
+  "eyeBags": "none",
+  "mouth": {
+   "lips": "average",
+   "width": "average",
+   "cupidsBow": "average",
+   "corners": "up"
+  },
+  "ears": {
+   "size": "average",
+   "angle": "flat"
+  },
+  "skull": {
+   "shape": "oval"
+  },
+  "forehead": "average",
+  "faceLength": "average"
+ },
+ "hair": {
+  "style": "shaved",
+  "color": "black"
+ },
+ "facialHair": {
+  "style": "short-boxed"
+ },
+ "wardrobe": {
+  "top": {
+   "item": "suit-jacket",
+   "color": "#14161A"
+  },
+  "bottom": {
+   "item": "suit-trousers",
+   "color": "#14161A"
+  },
+  "shoes": {
+   "item": "dress",
+   "color": "#0E0E0E"
+  },
+  "over": [
+   {
+    "item": "scarf",
+    "color": "#D98BA8",
+    "accent": "#F3E1EA"
+   }
+  ]
+ },
+ "posture": {
+  "stance": "guarded",
+  "pace": "slow",
+  "gestures": "holds his hands up to say sorry first",
+  "idle": "arms",
+  "walk": "walkHeavy"
+ },
+ "personality": {
+  "traits": [
+   "polite",
+   "gentle",
+   "huge",
+   "loyal"
+  ],
+  "speech": "soft slow bass, polite to a fault"
+ },
+ "voice": {
+  "id": "brick-v1",
+  "description": "soft slow bass, polite",
+  "pitch": "low",
+  "rate": "slow"
+ }
+}

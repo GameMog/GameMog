@@ -102,6 +102,13 @@
       "decline"
      ],
      "description": "a ring that runs out with no key pressed: answer (the call plays, the ring 4 s at most) or decline (the decline set and the voicemail, the default)"
+    },
+    "style": {
+     "enum": [
+      "card",
+      "fold"
+     ],
+     "description": "how the calls are shown: card (the caller card and the car screen's picture, the default) or fold (on Mog City's foldable phone, wagmi/storyrun/fold.js: ringing folded, answered unfolded, a vcall on its inner screen)"
     }
    },
    "description": "the phone's calls (Mog City's wagmi/storyrun runner.js)"
@@ -1649,9 +1656,10 @@
          "vandal",
          "roadster",
          "gt",
-         "wedge"
+         "wedge",
+         "gwagon"
         ],
-        "description": "one of the stock cars as it is (trailhand and vandal: their sheets in storykit/vehicles; roadster: Mog City's own; gt: Mog City's Vantor GT, wedge: Mog City's Tensore, a showcase's only)"
+        "description": "one of the stock cars as it is (trailhand and vandal: their sheets in storykit/vehicles; roadster: Mog City's own; gt: Mog City's Vantor GT, wedge: Mog City's Tensore, gwagon: Mog City's Kastell, a showcase's only)"
        },
        "id": {
         "$ref": "#/$defs/rideId"
@@ -5146,6 +5154,12 @@
         "night"
        ],
        "description": "the light through every office's window (else the mission's time)"
+      },
+      "device": {
+       "enum": [
+        "laptop"
+       ],
+       "description": "laptop: the call on the hero's laptop, full screen (a world whose calls are on its foldable phone, calls.style 'fold', still plays this one as a laptop call: an audition, a meeting at a desk)"
       },
       "people": {
        "type": "array",

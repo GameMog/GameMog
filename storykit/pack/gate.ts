@@ -131,6 +131,7 @@ export const STOCK: Record<string, Ride> = {
   roadster: { id: 'roadster', label: 'Roadster', family: 'car4', abilities: new Set(['boost']), seats: 2, stock: 'roadster' },
   gt: { id: 'gt', label: 'Vantor GT', family: 'car4', abilities: new Set(['boost']), seats: 2, stock: 'gt' },
   wedge: { id: 'wedge', label: 'Tensore', family: 'car4', abilities: new Set(['boost']), seats: 2, stock: 'wedge' },
+  gwagon: { id: 'gwagon', label: 'Kastell', family: 'car4', abilities: new Set(['boost']), seats: 4, stock: 'gwagon' },
 };
 const FOOT: Ride = { id: 'on-foot', label: 'on foot', family: 'foot', abilities: new Set(['dash']), seats: 1 };
 const TWO_WHEEL: Family[] = ['motorbike', 'scooter', 'bicycle'];

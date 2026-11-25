@@ -1,0 +1,118 @@
+{
+ "id": "bernie",
+ "name": "Bernie Szabo",
+ "role": "Mandi's small-time agent, always double-parked",
+ "logline": "Takes every call from his car; his signal always cuts out at the worst moment.",
+ "identity": {
+  "age": 64,
+  "body": "male",
+  "presentation": "man",
+  "heightCm": 168,
+  "build": {
+   "frame": "medium",
+   "weight": "heavy",
+   "muscle": "soft"
+  }
+ },
+ "heritage": {
+  "note": "invented person; no real likeness",
+  "blend": {
+   "african": 0,
+   "asian": 0,
+   "european": 1
+  },
+  "skin": {
+   "tone": "light",
+   "undertone": "neutral",
+   "makeup": "none",
+   "lipTint": "natural"
+  }
+ },
+ "face": {
+  "jaw": "average",
+  "cheeks": "jowly",
+  "cheekbones": "average",
+  "faceWidth": "average",
+  "nose": {
+   "width": "wide",
+   "length": "average",
+   "tip": "average",
+   "bridge": "straight"
+  },
+  "browRidge": "average",
+  "chin": {
+   "projection": "average",
+   "length": "average",
+   "width": "average"
+  },
+  "eyes": "brown",
+  "brows": {
+   "color": "dark-brown",
+   "weight": "average"
+  },
+  "eyeShape": "average",
+  "eyeBags": "heavy",
+  "mouth": {
+   "lips": "average",
+   "width": "average",
+   "cupidsBow": "average",
+   "corners": "neutral"
+  },
+  "ears": {
+   "size": "average",
+   "angle": "flat"
+  },
+  "skull": {
+   "shape": "oval"
+  },
+  "forehead": "average",
+  "faceLength": "average"
+ },
+ "hair": {
+  "style": "balding",
+  "color": "grey"
+ },
+ "facialHair": {
+  "style": "none"
+ },
+ "wardrobe": {
+  "top": {
+   "item": "suit-jacket",
+   "color": "#6E6A5E"
+  },
+  "bottom": {
+   "item": "suit-trousers",
+   "color": "#6E6A5E"
+  },
+  "shoes": {
+   "item": "dress",
+   "color": "#3B2A1E"
+  }
+ },
+ "props": [
+  {
+   "kind": "glasses"
+  }
+ ],
+ "posture": {
+  "stance": "slouched",
+  "pace": "restless",
+  "gestures": "mops his brow, waves the phone",
+  "idle": "phone",
+  "walk": "walkHeavy"
+ },
+ "personality": {
+  "traits": [
+   "frantic",
+   "big-hearted",
+   "optimistic"
+  ],
+  "speech": "gravelly and frantic, with a wheeze"
+ },
+ "voice": {
+  "id": "bernie-v1",
+  "description": "gravelly frantic older man",
+  "pitch": "mid-low",
+  "rate": "quick"
+ }
+}

@@ -9,6 +9,7 @@ import { runnerPackOf } from './storykit-pack.ts';
 import { ownRecord, OWN_RECORD } from './storykit-own-world.ts';
 import { showcaseProblems, SHOWCASE_ID, SHOWCASE_RECORD } from './storykit-showcase.ts';
 import { jhProblems, jhGate, jhBodyProblems, JH_RECORD, JH_DIR, BODIES, BODY_SOURCES, JH_CREDIT } from './storykit-showcase-jensen.ts';
+import { mrGate, PREMIUM } from './storykit-showcase-mandi.ts';
 import { gatePack, toRunnerPack, lineHash, type GateResult } from '../storykit/pack/gate.ts';
 import { PLACES, CAM_POINTS } from '../storykit/pack/cities.ts';
 import { SCHEMA, SHOWCASE, SHOWCASE_PACKS, MOGCITY_STUBS, HERO_CARS, HERO_CAR_IDS, SET_ROOMS } from '../storykit/pack/schema.mjs';
@@ -361,6 +362,16 @@ export function runStoryPackChecks(ok: Ok) {
       Object.entries(man.clips as Record<string, any>).every(([k, c]) => c.file.startsWith(k + '.') && k.startsWith(c.hash) && existsSync(`public/storykit/packs/${id}/voice/${c.file}`)));
     { const ogg = new Uint8Array(80); ogg.set([0x4f, 0x67, 0x67, 0x53]); const r1 = saveVoiceClip('.', id, '00000000-00000000.ogg', ogg), r2 = saveVoiceClip('.', id, '../x.ogg', ogg), r3 = saveVoiceClip('.', id, `${vp.lines[0].clip}.ogg`, new Uint8Array(80));
       ok(`${id}: the voice store takes only a current line's clip, by name and kind (no line, a path, not Ogg: refused)`, !r1.ok && r1.status === 409 && !r2.ok && r2.status === 400 && !r3.ok && r3.status === 415); }
+  }
+  // Mandi's Revenge (25 Nov): a showcase in a hometown (Chicago), gated with its town's table and pinned to it; its calls
+  // on the foldable phone, the hero in the Kastell; its two leads are private premium bodies, so no GLB of theirs is here
+  {
+    const { g, town } = mrGate(), P = g.pack;
+    ok("mandis-revenge: passes its town's gate as a showcase (Chicago), pinned to that town", g.ok && !g.warnings.length && JSON.stringify(P?.base?.hometown?.tiles) === JSON.stringify(town.tileSet.hash), g.problems.concat(g.warnings).slice(0, 3).join(' | '));
+    ok("mandis-revenge: the calls are on the foldable phone and the hero drives the Kastell (stock gwagon), the audition on her laptop", !!P && P.calls?.style === 'fold' && P.vehicles.find((v: any) => v.id === P.ride)?.stock === 'gwagon'
+      && P.acts[0].missions[0].steps[0].type === 'vcall' && P.acts[0].missions[0].steps[0].device === 'laptop');
+    const glbs = readdirSync('public/storykit', { recursive: true }).map(String).filter((f) => /\.glb$/.test(f) && PREMIUM.some((id) => new RegExp(`(^|/)(mr-)?${id}\\.glb$`).test(f)));
+    ok("mandis-revenge: no premium body (Mandi's, Jay's) is in the public repo", !glbs.length, glbs.join(' '));
   }
   // Jensen Heist (18 Nov): a showcase in a hometown (San Jose), gated with its town's table; its record waits for the
   // bodies and the voices (the migration waits with it), and is held current once written

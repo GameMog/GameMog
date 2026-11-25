@@ -1,0 +1,119 @@
+{
+ "id": "kiki",
+ "name": "Kiki Moss",
+ "role": "Mandi's best friend, a nail tech who livestreams everything",
+ "logline": "Runs half of the city group chats from her salon chair.",
+ "identity": {
+  "age": 26,
+  "body": "female",
+  "presentation": "woman",
+  "heightCm": 160,
+  "build": {
+   "frame": "small",
+   "weight": "average",
+   "muscle": "average"
+  }
+ },
+ "heritage": {
+  "note": "invented person; no real likeness",
+  "blend": {
+   "african": 0.9,
+   "asian": 0,
+   "european": 0.1
+  },
+  "skin": {
+   "tone": "brown",
+   "undertone": "warm",
+   "makeup": "lipstick",
+   "lipTint": "berry"
+  }
+ },
+ "face": {
+  "jaw": "average",
+  "cheeks": "full",
+  "cheekbones": "average",
+  "faceWidth": "average",
+  "nose": {
+   "width": "average",
+   "length": "average",
+   "tip": "average",
+   "bridge": "straight"
+  },
+  "browRidge": "average",
+  "chin": {
+   "projection": "average",
+   "length": "average",
+   "width": "average"
+  },
+  "eyes": "dark-brown",
+  "brows": {
+   "color": "dark-brown",
+   "weight": "average"
+  },
+  "eyeShape": "average",
+  "eyeBags": "none",
+  "mouth": {
+   "lips": "full",
+   "width": "average",
+   "cupidsBow": "average",
+   "corners": "up"
+  },
+  "ears": {
+   "size": "average",
+   "angle": "flat"
+  },
+  "skull": {
+   "shape": "oval"
+  },
+  "forehead": "average",
+  "faceLength": "average"
+ },
+ "hair": {
+  "style": "box-braids",
+  "color": "black"
+ },
+ "facialHair": {
+  "style": "none"
+ },
+ "wardrobe": {
+  "top": {
+   "item": "hoodie",
+   "color": "#C8A2E8"
+  },
+  "bottom": {
+   "item": "track-pants",
+   "color": "#2B2B33"
+  },
+  "shoes": {
+   "item": "white-sneakers",
+   "color": "#F4F4F0"
+  }
+ },
+ "props": [
+  {
+   "kind": "phone"
+  }
+ ],
+ "posture": {
+  "stance": "relaxed",
+  "pace": "quick",
+  "gestures": "films everything, waves her nails",
+  "idle": "phone",
+  "walk": "walk"
+ },
+ "personality": {
+  "traits": [
+   "loud",
+   "loyal",
+   "nosy",
+   "funny"
+  ],
+  "speech": "fast, cuts in with \"girl\" and \"hold on\""
+ },
+ "voice": {
+  "id": "kiki-v1",
+  "description": "fast bright alto",
+  "pitch": "mid",
+  "rate": "quick"
+ }
+}
