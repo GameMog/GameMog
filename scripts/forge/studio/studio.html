@@ -106,7 +106,8 @@ for (const p of props) if (p.kind === 'glasses' && fm) {
   bindFrame.add(G); info.props.push('glasses');
 }
 const pack = q.get('clips') ? await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(q.get('clips')) : null;
-const CLIPS = (pack && castClips(THREE, pack.animations, extras)) || gltf.animations;
+// (forge v2.4: the limbs put on this body's rest from the pack's danBind, as Mog City's wagmi/retarget.js does; ?rest=0 off)
+const CLIPS = (pack && castClips(THREE, pack.animations, extras, { body: M, ref: pack.parser.json.asset?.extras?.forge?.danBind, rest: q.get('rest') !== '0' })) || gltf.animations;
 const mixer = new THREE.AnimationMixer(M); let action = null;
 const pose = (clip, t) => { const c = THREE.AnimationClip.findByName(CLIPS, clip) || CLIPS[0]; if (action) action.stop(); action = mixer.clipAction(c); action.reset().play(); mixer.setTime(t);
   // (in place: the root's travel off for framing, its height kept)
