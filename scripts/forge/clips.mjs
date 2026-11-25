@@ -47,6 +47,6 @@ if (LOCO && (await import('node:fs')).existsSync(LOCO)) {
       A.addSampler(S).addChannel(doc.createAnimationChannel().setTargetNode(node).setTargetPath(ch.getTargetPath()).setSampler(S)); } }
   locoFrom = LR.getAsset().extras?.loco || null;
 }
-R.getAsset().extras = { forge: { clipPack: true, loco: locoFrom, from: SRC.split('/').pop(), clips: R.listAnimations().map((a) => a.getName()), danBind, licence: "Dan's clips as shipped in Mog City: Bandai Namco Research Motion Dataset, CC BY-NC 4.0 (GameMog is free, no paid tier). The walk (forge.loco): legs, hips, spine and head from Tripo AI's 'walk' preset (the owner's paid Tripo account; Tripo's terms: paid-plan output is the user's, commercial use allowed), arms Dan's Bandai walk_normal. Quaternius UAL (CC0 1.0) compared, not used." } };
+R.getAsset().extras = { forge: { clipPack: true, loco: locoFrom, from: SRC.split('/').pop(), clips: R.listAnimations().map((a) => a.getName()), danBind, licence: "Dan's clips as shipped in Mog City: Bandai Namco Research Motion Dataset, CC BY-NC 4.0 (GameMog is free, no paid tier). The walk (forge.loco): Tripo AI's 'walk' preset (the owner's paid Tripo account; Tripo's terms: paid-plan output is the user's, commercial use allowed) with a procedural arm swing. Quaternius UAL (CC0 1.0) compared, not used." } };
 await io.write(OUT, doc);
 console.log(JSON.stringify({ clips: R.listAnimations().length, nodes: R.listNodes().length, channels: R.listAnimations().reduce((a, x) => a + x.listChannels().length, 0) }));
