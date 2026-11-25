@@ -83,7 +83,8 @@ test("his walk's arms hung in: the swing kept, only the gaits HANG names change,
 test('the engine uses it: the forged hero and his gaits, the cast, the set and street walks', () => {
   const g = src('wagmi/game.js');
   assert.match(g, /PACK\.heroGLTF\(loadGLB, \(dan, g\) => \{ const r = danOn\(THREE, dan, g\); legRatio = r\.legRatio; onBody = true; return walkStyled\(THREE, r\.clips, heroStyle\); \}\)/);
-  assert.match(g, /\.filter\(\(\[n\]\) => clipOf\(n\)\)\.map\(\(\[n, a, b\]\) => \[n, a \* legRatio, n === 'idle' \? b : b \* legRatio\]\)/);
+  assert.match(g, /\.filter\(\(\[n\]\) => clipOf\(n\)\)\.map\(\(\[n, a, b\]\) => \[n, a \* legRatio, n === 'idle' \? b : b \* legRatio, n === 'walk' && !gaitNames\(\)\.includes\('jog'\) \? a \* legRatio \* WALK_HOLD : 0\]\)/);
+  assert.match(g, /a0 = a\[3\] \|\| a\[1\]/);
   assert.match(g, /clips = \(onBody \? gltf\.animations : danClips\(THREE, gltf\.animations\)\)\.slice\(\)/);
   assert.match(g, /lean\(dt, p, v, L, air\);/);
   assert.match(src('wagmi/storyrun/cast.js'), /f\.legRatio = legRatio \* walkSp;/);
@@ -102,7 +103,8 @@ test("the locomotion pack: Tripo's walk, run, idle, idleLook, swagger and phoneC
   assert.ok(x.speed.walk > 1.0 && x.speed.walk < 1.45, String(x.speed.walk));
   assert.ok(x.speed.run > 3.5 && x.speed.run < 5, String(x.speed.run));
   assert.ok(x.speed.swagger > 1.0 && x.speed.swagger < 1.6, String(x.speed.swagger));
-  assert.deepEqual(x.gaits, ['idle', 'walk', 'run', 'sprint']);
+  assert.deepEqual(x.gaits, ['idle', 'walk', 'run']);
+  assert.match(src('wagmi/game.js'), /const GAIT_TOP = GAITS\.some\(\(\[n\]\) => n === 'sprint'\) \? 1\.6 : 1\.85;/);
   for (const n of Object.keys(x.from)) assert.match(x.from[n], n === 'walkUal' ? /Quaternius.*CC0/ : /Tripo/);
   assert.ok(x.speed.walkUal > 0.8 && x.speed.walkUal < 1.4, String(x.speed.walkUal));
   assert.match(src('wagmi/game.js'), /await loadLoco\(loadGLB\);/);

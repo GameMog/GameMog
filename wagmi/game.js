@@ -696,8 +696,14 @@ installDriveMode(WAGMI);
   // (a clip the model lacks is left out: a re-export with fewer clips still loads)
   // (a forged hero's legs are not his: each gait's speed times the leg ratio, so a shorter stride turns over faster and her
   // planted foot stays put; Dan's own: 1, as before)
-  const GAITS = [['idle', 0, 1], ...gaitNames().filter((n) => n !== 'idle').map((n) => { const sp = n === 'walk' ? walkSpeedOf(onBody ? heroStyle : null) : gaitSpeed(n); return [n, sp, sp]; })].filter(([n]) => clipOf(n)).map(([n, a, b]) => [n, a * legRatio, n === 'idle' ? b : b * legRatio]);
+  const WALK_HOLD = 1.45;
+  const GAITS = [['idle', 0, 1], ...gaitNames().filter((n) => n !== 'idle').map((n) => { const sp = n === 'walk' ? walkSpeedOf(onBody ? heroStyle : null) : gaitSpeed(n); return [n, sp, sp]; })].filter(([n]) => clipOf(n)).map(([n, a, b]) => [n, a * legRatio, n === 'idle' ? b : b * legRatio, n === 'walk' && !gaitNames().includes('jog') ? a * legRatio * WALK_HOLD : 0]);
   let gPhase = 0;
+  // (no jog between them: the walk holds, its pace up, to WALK_HOLD of its own speed before it blends into the run. In
+  // game Mandi's walk (0.85 m/s on her legs) was a quarter run at a walking stick's 1.5 m/s)
+  // (a clip's pace at most GAIT_TOP of its own: 1.6, or 1.85 when the run is the top gait (the locomotion pack has no
+  // sprint: Tripo's run carries a Shift dash, its cadence up rather than Dan's crouched dash under it))
+  const GAIT_TOP = GAITS.some(([n]) => n === 'sprint') ? 1.6 : 1.85;
   // the fight's stance and footwork, and the speed each step was captured at
   const STEPS = [['fight', 0], ['guardF', 0.76], ['guardB', 0.84], ['guardL', 0.46], ['guardR', 0.66]].filter(([n]) => clipOf(n));
   const LOCO = [...GAITS.map((g) => g[0]), ...STEPS.map((s) => s[0])];
@@ -854,7 +860,8 @@ installDriveMode(WAGMI);
   }
   // on the phone on foot (a call: storyrun/runner.js): the phoneCall clip's arms, neck and head eased over whatever his
   // legs do (the locomotion pack's: Tripo's make_a_call_01, the phone at his ear), PHONE.ease /s in and out
-  const PHONE = { ease: 4, bones: /^(spine0[1-3]|neck|head|clavicle|shoulder01|upperarm|lowerarm|wrist|finger)/ };
+  // (the clip's spine is left out: it is a seated take, and in game its spine bent Jensen over his feet, 25 Nov)
+  const PHONE = { ease: 4, bones: /^(neck|head|clavicle|shoulder01|upperarm|lowerarm|wrist|finger)/ };
   let phoneW = 0, phoneWant = 0, phoneT = 0, phoneI = null;
   function phoneLayer(dt) {
     phoneW += (phoneWant - phoneW) * Math.min(1, dt * PHONE.ease);
@@ -882,14 +889,14 @@ installDriveMode(WAGMI);
       const v = L ? L.speed : Math.abs(p.speed);
       // the street's gaits: which, by speed (the two nearest blended), and how fast its clip runs
       let k = 0; while (k < GAITS.length - 1 && v > GAITS[k + 1][1]) k++;
-      const a = GAITS[k], b = GAITS[Math.min(GAITS.length - 1, k + 1)], f = b === a ? 0 : Math.min(1, Math.max(0, (v - a[1]) / (b[1] - a[1])));
+      const a = GAITS[k], b = GAITS[Math.min(GAITS.length - 1, k + 1)], a0 = a[3] || a[1], f = b === a ? 0 : Math.min(1, Math.max(0, (v - a0) / (b[1] - a0)));
       const want = {};
       for (const [n] of GAITS) want[n] = n === a[0] ? 1 - f : n === b[0] ? f : 0;
       // (one phase for the moving gaits: it goes round at the speed over the blend's stride (a clip's stride: its speed
       // times its cycle), its pace clamped as each clip's was (0.6-1.6 of its own); each clip shown at that phase)
       { let S = 0, D = 0, wt = 0;
         for (const [g, x] of [[a, 1 - f], [b, f]]) if (g[1] && x > 0) { const cy = act(g[0]).getClip().duration; S += g[2] * cy * x; D += cy * x; wt += x; }
-        if (wt > 0) { S /= wt; D /= wt; gPhase = (gPhase + (d * Math.max(0.6, Math.min(1.6, (v * D) / S || 0))) / D) % 1; }
+        if (wt > 0) { S /= wt; D /= wt; gPhase = (gPhase + (d * Math.max(0.6, Math.min(GAIT_TOP, (v * D) / S || 0))) / D) % 1; }
         for (const [n, th] of GAITS) if (th) { const x = act(n); x.timeScale = 0; x.time = gPhase * x.getClip().duration; } }
       // the fight's: the guard standing, the footwork by direction (cosine shares) as he moves; running, the gaits
       const fight = L && L.fight && v < 3.2 ? 1 : 0;

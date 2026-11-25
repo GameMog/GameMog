@@ -35,7 +35,8 @@ const clips = [walk, run, idle, { name: 'idleLook', clip: look.clip }, swagger, 
 const speed = Object.fromEntries([walk, run, swagger, ual].map((r) => [r.name, +natural(dan, r.clip).toFixed(4)]));
 const T = 'Tripo AI animation preset (generated on the owner\'s paid Tripo account; Tripo\'s terms: paid-plan output is the user\'s, commercial use allowed)';
 await writePack(OUT, clips.map((r) => ({ name: r.name, clip: r.clip })), { loco: { clips: clips.map((r) => r.name), speed,
-  // (the gaits by speed with this pack in: no jog of its own, the walk blends straight into the run)
-  gaits: ['idle', 'walk', 'run', 'sprint'],
+  // (the gaits by speed with this pack in: no jog of its own, the walk blends straight into the run; no sprint: in game
+  // Mandi's full-stick 4.4 m/s fell in Dan's crouched dash (her run 3.6 on her legs), so the run takes the top too)
+  gaits: ['idle', 'walk', 'run'],
   from: { walk: T + ' "walk", with a procedural arm swing', run: T + ' "run"', idle: T + ' "idle"', idleLook: T + ' "look_around"', swagger: T + ' "swagger"', phoneCall: T + ' "make_a_call_01" (upper body) over "idle"', walkUal: 'Quaternius Universal Animation Library (Standard) Walk_Loop, CC0 1.0' } } });
 console.log(JSON.stringify({ out: OUT, speed, durs: Object.fromEntries(clips.map((r) => [r.name, +r.clip.dur.toFixed(3)])) }));
