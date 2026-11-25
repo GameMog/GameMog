@@ -115,7 +115,11 @@ installDriveMode(WAGMI);
   // that fails to load)
   // (the wedge, { model: 'mogcity/wedge' }: the Tensore's body, wagmi/storyrun/wedge.js, on the same interface)
   const WEDGE = MODEL && PACK.modelCar.model === 'mogcity/wedge';
+  // (the Kastell, { model: 'mogcity/gwagon' }: a black luxury off-roader, wagmi/storyrun/gwagon.js, the same interface
+  // on an SUV's numbers, its own rs.fit below)
+  const GWAGON = MODEL && PACK.modelCar.model === 'mogcity/gwagon';
   let modelRs = MODEL && WEDGE ? await importRetry(() => import('./storyrun/wedge.js')).then((m) => m.buildWedge(THREE, PACK.modelCar)).catch((err) => { console.warn('[storyrun] car body', err); return null; })
+    : MODEL && GWAGON ? await importRetry(() => import('./storyrun/gwagon.js')).then((m) => m.buildGwagon(THREE, PACK.modelCar)).catch((err) => { console.warn('[storyrun] car body', err); return null; })
     : MODEL && PACK.modelCar.body !== 'built' ? await importRetry(() => import('./storyrun/vantor.js')).then((m) => m.buildVantor(THREE, PACK.modelCar)).catch((err) => { console.warn('[storyrun] car body', err); return null; }) : null;
   if (MODEL && !modelRs) try { modelRs = MODEL.buildGT(THREE, PACK.modelCar); } catch (err) { console.warn('[storyrun] car model', err); }
   // (its own default paint; a Mog's, wagmi/story; a story world's stock car in the world's carPaint, storyrun/pack.js)
@@ -134,7 +138,8 @@ installDriveMode(WAGMI);
   // (kept small: at a cruise the car fills as much of the frame as parked, on the boost a little less). (jh-drive: the
   // lens 58 degrees parked, 65 at its 76 mph top, 71 on the boost at 125, the boom brought in by as much as the lens
   // widens to cruise, so the car keeps its size while the street stretches past it: js/cameras.js DRIVE)
-  const S = sheetRs || horseRs ? 1 : modelRs ? 1.05 : 1.1;
+  // (a model built at its real size, the Kastell, rs.trueSize: as it is)
+  const S = sheetRs || horseRs || modelRs?.trueSize ? 1 : modelRs ? 1.05 : 1.1;
   rs.group.scale.setScalar(S); rs.anchor.scale.setScalar(1 / S); rs.scale = S;
   for (const k of Object.keys(rs.seat)) rs.seat[k] = rs.seat[k].map((v) => v * S);
   Object.assign(rs, { length: rs.length * S, width: rs.width * S, height: rs.height * S });
@@ -178,7 +183,10 @@ installDriveMode(WAGMI);
   car.noHandbrake = () => !!WAGMI.thrusters?.unlocked?.hop;
   if (sheetRs) RIDE.fitSheet(car, rs);
   // (a model keeps every number of the roadster's but its own box, axles and name)
-  if (modelRs) { const B = modelRs.body; Object.assign(car, { body: { hx: B.hx * S, z0: B.z0 * S, z1: B.z1 * S, top: B.top * S }, axle: modelRs.axle * S, label: PACK.modelCar.label || (WEDGE ? 'Tensore' : 'Vantor GT') }); }
+  if (modelRs) { const B = modelRs.body; Object.assign(car, { body: { hx: B.hx * S, z0: B.z0 * S, z1: B.z1 * S, top: B.top * S }, axle: modelRs.axle * S, label: PACK.modelCar.label || modelRs.label || (WEDGE ? 'Tensore' : 'Vantor GT') }); }
+  // (and a model with numbers of its own, the Kastell's SUV handling, gwagon.js fit: its weight, pace, turn, springs, brakes,
+  // camera, class (no boost) and engine voice in place of the roadster's)
+  if (modelRs?.fit) modelRs.fit(car);
   // (the wedge's dents: a hit's dent, by what it hit and where (wagmi/crash/damage.js), is pushed into its own painted
   // panels, wagmi/storyrun/wedge.js dent, never its cabin; the damage hands it there, car.roadster.dent)
   // (the horse: its box, framing, paces, handling and name; its own way over the ground in place of the car's physics,
@@ -1289,7 +1297,7 @@ if (MOUNT) try { HORSE.install(WAGMI, { THREE, rs, rider: drv, drive: HD, ride }
 //     idle(dt)   (game.js's tick: the horse stood by)
 if (ALONG && HORSE && WAGMI.stableRs && HD && !MOUNT) {
   const carRs = rs, horseRs = WAGMI.stableRs, drvCar = drv, drvHorse = seated(HORSE.createRider(THREE, horseRs, Q));
-  const CAR_KEYS = ['kind', 'vclass', 'label', 'body', 'axle', 'mass', 'chaseDistance', 'chaseHeight', 'chase', 'topSpeed', 'boostSpeed', 'accel', 'boostAccel', 'boostLaunch', 'springs', 'rolling', 'drag', 'coast', 'brake', 'boostBrake', 'noBoost', 'handling', 'words', 'stopV', 'headY', 'dial'];
+  const CAR_KEYS = ['kind', 'vclass', 'label', 'body', 'axle', 'mass', 'chaseDistance', 'chaseHeight', 'chase', 'topSpeed', 'boostSpeed', 'accel', 'boostAccel', 'boostLaunch', 'springs', 'rolling', 'drag', 'coast', 'brake', 'boostBrake', 'noBoost', 'handling', 'words', 'stopV', 'headY', 'dial', 'voice'];
   let keep = null;
   const activeKind = () => (car.kind === 'horse' ? 'horse' : 'car');
   // (a ride's body: the car's with every mission ride it has worn (wagmi/storyrun/ride.js wearRide, on the chassis beside it))

@@ -136,7 +136,7 @@ export function wearRide(THREE, car, sheet) {
     // (the driver's seat and the wheel he holds back in the hero car's own places)
     for (const [o, p] of st.base.seatAt || []) o.position.copy(p);
     for (const k of WORN_KEYS) car[k] = st.base.car[k];
-    car.dial = st.base.dial;
+    car.dial = st.base.dial; car.voice = st.base.voice;
     car.handling = { ...st.base.handling };
     rs.update = st.base.update; rs.setThrust = st.base.setThrust;
     st.id = null;
@@ -146,7 +146,7 @@ export function wearRide(THREE, car, sheet) {
       // (the hero car's own meshes, not the seat anchor's subtree: the driver sits on that)
       const meshes = [], skip = new Set(); rs.anchor?.traverse((o) => skip.add(o));
       rs.group.traverse((o) => { if (o.isMesh && !skip.has(o)) meshes.push([o, o.visible]); });
-      st.base = { meshes, car: Object.fromEntries(WORN_KEYS.map((k) => [k, car[k]])), dial: car.dial, handling: { ...car.handling }, update: rs.update, setThrust: rs.setThrust };
+      st.base = { meshes, car: Object.fromEntries(WORN_KEYS.map((k) => [k, car[k]])), dial: car.dial, voice: car.voice, handling: { ...car.handling }, update: rs.update, setThrust: rs.setThrust };
     }
     let w = st.rigs[id];
     if (!w) {
@@ -163,6 +163,7 @@ export function wearRide(THREE, car, sheet) {
     car.label = w.label || sheet.label || car.label; car.dial = null;
     weigh(car, sheet, w.springs || null, vehicleClass(sheet));
     setClass(car, vehicleClass(sheet));
+    car.voice = null;   // (its class's engine, not the hero car's own voice: the Kastell's V8, gwagon.js)
     // (the hero rig still runs (its wheel the hands hold), its flame off; the sheet's body turns its own wheels)
     rs.update = (dt, v, s) => { st.base.update.call(rs, dt, v, s); w.update(dt, v, s); };
     rs.setThrust = (a, b) => { st.base.setThrust.call(rs, 0, 0); w.setThrust?.(a, b); };

@@ -41,7 +41,7 @@ export function horseAlongOf(def) {
 }
 const STOCK = new Set(['roadster', 'trailhand', 'vandal']);
 // the hero cars Mog City builds in code besides Dan's roadster, by the name a world's `car.model` gives (wagmi/storyrun/gt.js)
-export const MODEL_CARS = new Set(['mogcity/gt', 'mogcity/wedge', 'mogcity/horse']);
+export const MODEL_CARS = new Set(['mogcity/gt', 'mogcity/wedge', 'mogcity/gwagon', 'mogcity/horse']);
 const MAX_BYTES = 1_000_000, MAX_TEXT = 600;
 const q = new URLSearchParams(location.search);
 const COLOUR = /^#[0-9A-Fa-f]{6}$/;
@@ -347,7 +347,8 @@ export function check(w) {
   if (w.carPaint != null && (!COLOUR.test(w.carPaint) || typeof w.car !== 'string')) bad('carPaint');
   // (a Mog City model as the hero's car: { model: 'mogcity/gt', paint?, plate?, label?, body? }, wagmi/storyrun/gt.js;
   // it wears the downloaded body, wagmi/storyrun/vantor.js; body: 'built' the one built in code, gt.js. 'mogcity/wedge': the
-  // Tensore, the lime wedge with scissor doors, wagmi/storyrun/wedge.js, on the same handling)
+  // Tensore, the lime wedge with scissor doors, wagmi/storyrun/wedge.js, on the same handling. 'mogcity/gwagon': the
+  // Kastell, the black luxury off-roader, wagmi/storyrun/gwagon.js, on an SUV's handling)
   if (w.car && typeof w.car === 'object' && MODEL_CARS.has(w.car.model)) {
     if (w.car.paint != null && !COLOUR.test(w.car.paint)) bad('car.paint');
     if (w.car.plate != null && (typeof w.car.plate !== 'string' || !/^[A-Z0-9 ]{0,8}$/.test(w.car.plate))) bad('car.plate');

@@ -524,6 +524,38 @@ test("the wedge (the Tensore, Jensen's car): a world's model car { model: 'mogci
   assert.match(fs.readFileSync(path.join(ROOT, 'assets/CREDITS.md'), 'utf8'), /assets\/vehicles\/wedge\/wedge\.glb/);
 });
 
+test("the Kastell (Mandi's car): a world's model car { model: 'mogcity/gwagon' }, its own body, credited, badge-free, an SUV's numbers", async () => {
+  const native = JSON.parse(fs.readFileSync(path.join(ROOT, 'tools/storyrun/test-packs/native.json'), 'utf8'));
+  const w = (f) => { const x = structuredClone(native); f(x); return check(x); };
+  assert.deepEqual(w((x) => { x.car = { model: 'mogcity/gwagon', label: "Mandi's car", paint: '#0B0C0E' }; }), []);
+  assert.ok(w((x) => { x.car = { model: 'mogcity/gwagon', paint: 'black' }; }).includes('car.paint'));
+  assert.deepEqual(check(JSON.parse(fs.readFileSync(path.join(ROOT, 'tools/storyrun/test-packs/gwagon-day.json'), 'utf8'))), []);
+  const src = fs.readFileSync(path.join(ROOT, 'wagmi/game.js'), 'utf8'), gw = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/gwagon.js'), 'utf8');
+  assert.match(src, /import\('\.\/storyrun\/gwagon\.js'\)\)\.then\(\(m\) => m\.buildGwagon\(THREE, PACK\.modelCar\)\)/);
+  assert.match(src, /if \(modelRs\?\.fit\) modelRs\.fit\(car\);/);
+  // (an SUV: no boost, its own engine, dents as the Tensore's)
+  assert.match(gw, /setClass\(car, 'suv'\)/); assert.match(gw, /car\.voice = 'v8suv'/); assert.match(gw, /modelDents\(THREE, rs, g\)/);
+  assert.match(gw, /GWAGON_CREDIT = \{[^}]*DemuriaGT[^}]*CC BY 4\.0/);
+  const glb = fs.readFileSync(path.join(ROOT, 'assets/vehicles/gwagon/gwagon.glb'));
+  const jl = glb.readUInt32LE(12), gj = JSON.parse(glb.subarray(20, 20 + jl).toString('utf8'));
+  assert.equal((gj.images || []).length, 0, 'no texture of the source is shipped');
+  assert.ok(!(gj.nodes || []).some((n) => /logo|badge|emblem|crest|star/i.test(n.name || '')), 'no badge mesh');
+  for (const c of ['FL', 'FR', 'BL', 'BR']) assert.ok(gj.nodes.some((n) => n.name === `wheel_${c}_rim`), `its ${c} wheel`);
+  for (const sd of ['L', 'R']) assert.ok(gj.nodes.some((n) => n.name === `door_${sd}_Paint`), `its ${sd} door`);
+  for (const n of ['Seat_L', 'Steering_wheel_rim', 'Dash']) assert.ok(gj.nodes.some((x) => x.name === n), n);
+  // the brand rule: no real maker's or model's name in what ships or the scripts that make it
+  const { REAL_NAMES } = await import('../wagmi/storyrun/vehicles/classes.js');
+  const words = (t) => ' ' + String(t).toLowerCase().replace(/['’]s\b/g, '').replace(/[^a-z0-9]+/g, ' ') + ' ';
+  const named = (t) => REAL_NAMES.filter((n) => words(t).includes(' ' + n + ' '));
+  const credits = fs.readFileSync(path.join(ROOT, 'assets/vehicles/gwagon/CREDITS.md'), 'utf8');
+  for (const [where, t] of [['gwagon.glb asset', JSON.stringify(gj.asset)], ['gwagon.glb names', JSON.stringify([gj.nodes, gj.meshes, gj.materials].map((l) => (l || []).map((x) => x.name)))],
+    ['gwagon.js', gw], ['pack.mjs', fs.readFileSync(path.join(ROOT, 'tools/vehicles/gwagon/pack.mjs'), 'utf8')], ['build.py', fs.readFileSync(path.join(ROOT, 'tools/vehicles/gwagon/build.py'), 'utf8')],
+    ['CREDITS.md', credits], ['LICENSE.txt', fs.readFileSync(path.join(ROOT, 'assets/vehicles/gwagon/LICENSE.txt'), 'utf8')]]) {
+    assert.deepEqual(named(t), [], `${where} names no real maker or model`);
+  }
+  assert.match(fs.readFileSync(path.join(ROOT, 'assets/CREDITS.md'), 'utf8'), /assets\/vehicles\/gwagon\/gwagon\.glb/);
+});
+
 test("the wedge's dents come through the damage model once: damage.js hands a costed dent to the car's own, repair puts it back", () => {
   const dm = fs.readFileSync(path.join(ROOT, 'wagmi/crash/damage.js'), 'utf8'), src = fs.readFileSync(path.join(ROOT, 'wagmi/game.js'), 'utf8'), wd = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/wedge.js'), 'utf8');
   assert.match(dm, /typeof car\.roadster\.dent === 'function'/);

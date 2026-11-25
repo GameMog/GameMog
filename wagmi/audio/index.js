@@ -145,7 +145,7 @@ export function install(W) {
     // leaves; the squeal's corner pull the tyres' own when it has them, c.latF)
     const slipK = Math.min(1, Math.max(0, (Math.abs(c.slip || 0) - 0.07) / 0.3)) * Math.min(1, Math.abs(c.speed) / 6);
     const slide = Math.max(c.hb || c.handbrake || c.drifting ? Math.min(1, Math.hypot(c.speed, c.slipV || 0) / 8) : 0, slipK, Math.min(1, Math.max(0, (Math.hypot(c.vx || 0, c.vz || 0) - 2) / 6)));
-    return { on, speed: c.speed, throttle, boost: !!k.boost && !c.noBoost, voice: c.noBoost ? c.vclass || 'sedan' : null, latAcc: Number.isFinite(c.latF) ? Math.abs(c.latF) : C.lat, slide, rough: parkAt(c.position.x, c.position.z) ? 0.8 : side ? 0.5 : 0, jolt: on && Math.abs(dy) > 0.05 ? Math.min(1, Math.abs(dy) * 4) : 0 };
+    return { on, speed: c.speed, throttle, boost: !!k.boost && !c.noBoost, voice: c.noBoost ? c.vclass && (c.voice || c.vclass) || 'sedan' : null, latAcc: Number.isFinite(c.latF) ? Math.abs(c.latF) : C.lat, slide, rough: parkAt(c.position.x, c.position.z) ? 0.8 : side ? 0.5 : 0, jolt: on && Math.abs(dy) > 0.05 ? Math.min(1, Math.abs(dy) * 4) : 0 };
   }
 
   let last = performance.now(), inside = -1;

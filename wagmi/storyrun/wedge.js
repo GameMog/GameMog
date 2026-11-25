@@ -247,6 +247,23 @@ export async function buildWedge(THREE, o = {}) {
   // the hit (4.5 m/s a ding, 22 and up a deep crease), each place no further in than its cap however often it is hit.
   // Each mesh's geometry is its own copy (the downloaded model's is shared by its loader's cache), its positions floats
   // (above), taken on its first dent and put back on a repair.
+  modelDents(THREE, rs, g);
+
+  // its box, for all that runs into it or round it
+  g.updateMatrixWorld(true);
+  const bb = new THREE.Box3(); for (const m of meshes) bb.expandByObject(m);
+  const lo = g.worldToLocal(bb.min.clone()), hi = g.worldToLocal(bb.max.clone());
+  const hx = Math.max(Math.abs(lo.x), Math.abs(hi.x));
+  return Object.assign(rs, {
+    length: hi.z - lo.z, width: 2 * hx, height: hi.y, body: { hx, z0: lo.z - 0.02, z1: hi.z + 0.03, top: hi.y }, ext: holder, kind: 'wedge', label: 'Tensore',
+  });
+}
+
+// (the dents of a world's ready-made model car, its body pushed in where it is hit: the Tensore's and the Kastell's
+// (wagmi/storyrun/gwagon.js). rs: its rig (rs.wheels, kept clear); g: its group, whose meshes with a userData.mat (its
+// model's own, its wheels' aside) are its skins. Sets rs.dent and rs.repair)
+export function modelDents(THREE, rs, g) {
+  const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
   const skins = [];
   const _q = V3();
   g.traverse((m) => { if (m.isMesh && m.userData.mat != null && !/^wheel_/.test(m.name) && m.geometry?.attributes?.position) skins.push({ m, done: null, pos0: null, nor0: null }); });
@@ -341,13 +358,4 @@ export async function buildWedge(THREE, o = {}) {
       s.done.fill(0); m.geometry.boundingSphere = null; m.geometry.boundingBox = null;
     }
   };
-
-  // its box, for all that runs into it or round it
-  g.updateMatrixWorld(true);
-  const bb = new THREE.Box3(); for (const m of meshes) bb.expandByObject(m);
-  const lo = g.worldToLocal(bb.min.clone()), hi = g.worldToLocal(bb.max.clone());
-  const hx = Math.max(Math.abs(lo.x), Math.abs(hi.x));
-  return Object.assign(rs, {
-    length: hi.z - lo.z, width: 2 * hx, height: hi.y, body: { hx, z0: lo.z - 0.02, z1: hi.z + 0.03, top: hi.y }, ext: holder, kind: 'wedge', label: 'Tensore',
-  });
 }
