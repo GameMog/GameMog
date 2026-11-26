@@ -34,6 +34,13 @@ async function face() {
   return faceMod;
 }
 
+// the GLB's baked face targets on the skin primitive, by name (mesh.extras.targetNames): { name: Float32Array(n*3) }
+export function bakedTargets(R, skinPr, n) {
+  const mesh = R.listMeshes().find((m) => m.listPrimitives().includes(skinPr)), names = mesh?.getExtras()?.targetNames || [], out = {}, t = [];
+  skinPr.listTargets().forEach((tg, i) => { const a = tg.getAttribute('POSITION'), k = names[i]; if (!a || !k || a.getCount() !== n) return; const o = new Float32Array(n * 3); for (let v = 0; v < n; v++) { a.getElement(v, t); o[v * 3] = t[0]; o[v * 3 + 1] = t[1]; o[v * 3 + 2] = t[2]; } out[k] = o; });
+  return out;
+}
+
 export async function talkGate(doc) {
   const R = doc.getRoot(), forged = R.getAsset().extras?.forge?.landmarks || null;
   // (the body: every primitive drawing from the skin's list of points, as the engine's morphFace takes it)
@@ -48,9 +55,20 @@ export async function talkGate(doc) {
   if (!fm) return { pass: true, note: 'no face (no skin or eyes)' };
   const by = Object.fromEntries(meshes.slice().reverse().map((m) => [m.material.name, m])), mo = (m, k) => m?.geometry.morphAttributes.position?.find((a) => a.name === k)?.array;
   const J = mo(by.skin, 'jaw'), L = mo(by.skin, 'lip'), verts = (m) => (m ? [...new Set(m.geometry.index.array)] : []);
-  const at = (v, jaw, lip) => [P[v * 3] + (J ? J[v * 3] * jaw + L[v * 3] * lip : 0), P[v * 3 + 1] + (J ? J[v * 3 + 1] * jaw + L[v * 3 + 1] * lip : 0), P[v * 3 + 2] + (J ? J[v * 3 + 2] * jaw + L[v * 3 + 2] * lip : 0)];
+  let at = (v, jaw, lip) => [P[v * 3] + (J ? J[v * 3] * jaw + L[v * 3] * lip : 0), P[v * 3 + 1] + (J ? J[v * 3 + 1] * jaw + L[v * 3 + 1] * lip : 0), P[v * 3 + 2] + (J ? J[v * 3 + 2] * jaw + L[v * 3 + 2] * lip : 0)];
+  // (a BAKED face, the engine's face contract (MogCity docs/FACE-CONTRACT.md, wagmi/face-baked.js): the GLB's own morph
+  // targets drive the mouth, as the engine drives them, not face.js's made ones: jawOpen = min(0.6, jaw x 0.55 / 0.45)
+  // (no visemes) or x 0.55 more with them, mouthClose 0.08 shut, and the resting smile REST_SMILE 0.28 on mouthSmile*
+  // with cheekSquint* 0.55 and eyeSquint* 0.3 of it)
+  const baked = bakedTargets(R, skinPr, n);
+  if (baked.jawOpen) {
+    const vis = ['viseme_aa', 'viseme_PP', 'viseme_E'].filter((k) => baked[k]).length >= 3, SM = 0.28;
+    const rest = new Float32Array(n * 3); for (const [k, f] of [['mouthSmileLeft', SM], ['mouthSmileRight', SM], ['cheekSquintLeft', SM * 0.55], ['cheekSquintRight', SM * 0.55], ['eyeSquintLeft', SM * 0.3], ['eyeSquintRight', SM * 0.3]]) if (baked[k]) for (let i = 0; i < n * 3; i++) rest[i] += baked[k][i] * f;
+    const JO = baked.jawOpen;
+    at = (v, jaw) => { const k = Math.min(0.6, jaw * (0.55 / 0.45) * (vis ? 0.55 : 1)); return [0, 1, 2].map((c) => P[v * 3 + c] + rest[v * 3 + c] + JO[v * 3 + c] * k); };
+  }
   const ey = fm.eyes[0].c.y, eyeFront = fm.eyes[0].c.z + fm.eyes[0].r, F = fm.found, partY = ey - F.parting[0][1] / 1000, lipZ = eyeFront + F.lipZ / 1000;
-  const out = { found: { partingMm: F.parting[0][1], lipZMm: F.lipZ } }; let pass = true;
+  const out = { found: { partingMm: F.parting[0][1], lipZMm: F.lipZ }, ...(baked.jawOpen ? { baked: Object.keys(baked).length } : {}) }; let pass = true;
 
   /* tongue: the lower list's points on the tongue's band of the teeth texture (its rows 416-512 of 512: v >= 0.8) */
   { const lo = verts(by.teethLow);
