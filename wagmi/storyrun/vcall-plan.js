@@ -117,12 +117,14 @@ export function faceOf(height) {
 // (charlook, a world's `look: 'cinematic'`: the same framing through a portrait lens, about 50 mm (a full frame's height
 // seen through 26 degrees: 52 mm) for the close, from further back, so the nose and the brow are not pushed at the lens
 // the way a laptop's wide lens pushes them; the lens a touch over the eyes' drop, never up the nose)
-export const PORTRAIT = { close: { fov: 26, drop: 0.0 }, low: { fov: 28, drop: 0.06 }, wide: { fov: 32, drop: 0 } };
+// (and the eyes on the upper third of the tile, `up` of its height over the middle, not EYES_UP's 42% from the top:
+// head and shoulders as a portrait is framed, the owner's lead, 25 Nov)
+export const PORTRAIT = { close: { fov: 26, drop: 0.0, up: 0.165 }, low: { fov: 28, drop: 0.06, up: 0.15 }, wide: { fov: 32, drop: 0, up: 0.13 } };
 export function camOf(head, kind = 'close', { face = FACE, portrait = false } = {}) {
   const [x, y, z] = head, F = portrait ? { ...(FRAME[kind] || FRAME.close), ...(PORTRAIT[kind] || PORTRAIT.close) } : FRAME[kind] || FRAME.close;
   const fc = Number.isFinite(face) ? Math.max(0.16, Math.min(0.32, face)) : FACE;
   const H = fc / F.frac, d = H / (2 * Math.tan((F.fov * Math.PI) / 360));
-  return { pos: [x + 0.035, y - F.drop, z + Math.sqrt(Math.max(0, d * d - F.drop * F.drop))], look: [x, y - EYES_UP * H, z], fov: F.fov };
+  return { pos: [x + 0.035, y - F.drop, z + Math.sqrt(Math.max(0, d * d - F.drop * F.drop))], look: [x, y - (F.up ?? EYES_UP) * H, z], fov: F.fov };
 }
 // a webcam's aim on someone's eyes: their face's own (its landmarks, face.js eyes()) unless those are not where eyes can
 // be, more than EYES_OFF m from their head bone; then the head bone's, EYES_HEAD m over it. Intern Two's landmarks put

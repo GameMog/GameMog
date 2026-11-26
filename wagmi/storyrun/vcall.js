@@ -117,7 +117,28 @@ function webcam(eyes, kind, face) {
 }
 // (their eyes as their face found them, or their head bone's where those are not plausible: vcall-plan.js eyesAim)
 const _hv = new THREE.Vector3();
-const eyesOf = (fig, v) => { const h = fig.head(_hv), e = fig.face?.eyes ? fig.face.eyes(v) : null; return eyesAim(e ? [e.x, e.y, e.z] : null, [h.x, h.y, h.z]); };
+const eyesOf = (fig, v) => { if (charLook()) { const m = meshEyes(fig, v); if (m) return m; } const h = fig.head(_hv), e = fig.face?.eyes ? fig.face.eyes(v) : null; return eyesAim(e ? [e.x, e.y, e.z] : null, [h.x, h.y, h.z]); };
+// (charlook) their eyes where their eyeballs are drawn: a few of the eye mesh's own points, skinned as the frame draws
+// them. Mandi's landmarks put her eyes 12 cm over the eyeballs and her head bone sits at them, so a webcam framed on
+// either had her eyes at 44% of the tile, not the third it asks for
+const _ev = new THREE.Vector3();
+function meshEyes(fig, v) {
+  if (fig._eyeIdx === undefined) {
+    fig._eyeIdx = null;
+    fig.root.traverse((o) => {
+      if (fig._eyeIdx || !o.isSkinnedMesh || o.material?.name !== 'eyes' || !o.geometry?.attributes?.position) return;
+      const ix = o.geometry.index, n = ix ? ix.count : o.geometry.attributes.position.count, pick = [];
+      for (let k = 0; k < 24; k++) { const j = Math.floor((k + 0.5) * n / 24); pick.push(ix ? ix.getX(j) : j); }
+      fig._eyeIdx = { mesh: o, pick };
+    });
+  }
+  const E = fig._eyeIdx; if (!E || !E.mesh.visible) return null;
+  v.set(0, 0, 0);
+  for (const i of E.pick) { E.mesh.getVertexPosition(i, _ev); v.add(_ev.applyMatrix4(E.mesh.matrixWorld)); }
+  v.multiplyScalar(1 / E.pick.length);
+  const h = fig.head(_hv);
+  return Math.hypot(v.x - h.x, v.y - h.y, v.z - h.z) < 0.3 ? [v.x, v.y, v.z] : null;
+}
 
 export function createVcall(W, { setsOf, castName, heroName, ui, colorOf, tokens = (x) => x, mumble = () => {}, delay, wait, tokOf, kill, log = () => {}, sfx = W.sfx, fold: FOLD = null }) {
   const now = () => performance.now() / 1000;
@@ -178,7 +199,11 @@ export function createVcall(W, { setsOf, castName, heroName, ui, colorOf, tokens
     const frame = () => {
       raf = requestAnimationFrame(frame);
       { const tt = now(), dt = Math.min(0.05, Math.max(0, tt - lastF)); D.skipStep(dt, ui); lastF = tt; if (follow) follow(dt); }
-      const list = shown(), w = innerWidth, h = innerHeight, touch = document.body.classList.contains('touch-enabled');
+      // (a laptop's call sits inside the laptop's bezel (its border): laid out in the screen within it, and each picture
+      // drawn where its tile is, the bezel's width in from the page's edge; the tiles were laid out on the whole page
+      // and drawn 14 px left and 22 px up of their frames, spilling over their tops)
+      const bx = root.clientLeft || 0, by = root.clientTop || 0;
+      const list = shown(), w = bx || by ? root.clientWidth || innerWidth : innerWidth, h = bx || by ? root.clientHeight || innerHeight : innerHeight, touch = document.body.classList.contains('touch-enabled');
       const speaking = active || last;
       const mode = sharing ? 'speaker' : plan.layout;
       const stage = sharing ? 'share' : mode === 'speaker' ? Math.max(0, list.findIndex((p) => p.who === speaking)) : null;
@@ -195,7 +220,7 @@ export function createVcall(W, { setsOf, castName, heroName, ui, colorOf, tokens
         Object.assign(p.el.style, { left: r[0] + 'px', top: r[1] + 'px', width: r[2] + 'px', height: r[3] + 'px', display: '' });
         p.el.classList.toggle('sm', r[3] < 170);
         p.el.classList.toggle('live', p.who === active && p.state.in && !p.state.muted);
-        if (p.cam) tiles.push({ id: p.id, rect: r, cam: p.cam, frozen: p.state.frozen, blur: p.state.blur, dim: !p.state.in || !!p.state.leaving, live: p.who === active, slot: k, ...(fs ? { radius: 8 } : {}) });
+        if (p.cam) tiles.push({ id: p.id, rect: fs || !(bx || by) ? r : [r[0] + bx, r[1] + by, r[2], r[3]], cam: p.cam, frozen: p.state.frozen, blur: p.state.blur, dim: !p.state.in || !!p.state.leaving, live: p.who === active, slot: k, ...(fs ? { radius: 8 } : {}) });
       });
       for (const p of people) if (p.state.gone) p.el.style.display = 'none';
       if (sharing && L.stage) Object.assign(shareEl.style, { left: L.stage[0] + 'px', top: L.stage[1] + 'px', width: L.stage[2] + 'px', height: L.stage[3] + 'px' });

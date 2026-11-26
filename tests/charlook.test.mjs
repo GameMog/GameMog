@@ -62,3 +62,29 @@ test('a close shot on a face brought to its eye level; a wide, low or high shot 
   const run = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/runner.js'), 'utf8');
   assert.match(run, /if \(charLook\(\) && !fr && scL/);
 });
+
+test('the portrait framing puts the eyes on the upper third of the tile', () => {
+  // (the eyes' height over the look point as a share of the frame's height at their distance: up)
+  for (const kind of Object.keys(FRAME)) {
+    const c = camOf([0, 1.4, 0], kind, { portrait: true }), d = c.pos[2], H = 2 * d * Math.tan((c.fov * Math.PI) / 360);
+    const fromTop = 0.5 - (1.4 - c.look[1]) / H;
+    assert.ok(fromTop > 0.3 && fromTop < 0.38, `${kind} ${fromTop}`);
+  }
+  const vc = src('wagmi/storyrun/vcall.js');
+  // (a laptop's bezel: the tiles laid out inside it and each picture drawn on its tile)
+  assert.match(vc, /const bx = root\.clientLeft \|\| 0, by = root\.clientTop \|\| 0;/);
+  assert.match(vc, /rect: fs \|\| !\(bx \|\| by\) \? r : \[r\[0\] \+ bx, r\[1\] \+ by, r\[2\], r\[3\]\]/);
+  // (under the look, the webcam on the eye mesh itself)
+  assert.match(vc, /if \(charLook\(\)\) \{ const m = meshEyes\(fig, v\); if \(m\) return m; \}/);
+});
+
+test("the eyes' own layers (a GLB's eyeOcclusion and tearLine) are finished on every look; garments painted on skin keep their colour", () => {
+  const pol = src('wagmi/storyrun/polish.js');
+  assert.match(pol, /const isEyeOcc = \(m\) => m\?\.userData\?\.kind === 'eyeOcclusion' \|\| m\?\.name === 'eyeOcclusion';/);
+  assert.match(pol, /const isTear = \(m\) => m\?\.userData\?\.kind === 'tearLine' \|\| m\?\.name === 'tearLine';/);
+  assert.match(pol, /\} else if \(eyes && !r8 && isEyeOcc\(m\)\) \{/);
+  assert.match(pol, /n = new THREE\.MeshBasicNodeMaterial\(\);/);
+  // (the skin's own layers kept off a print: the wrap and the light through, the sheen, the grade under the look)
+  assert.match(pol, /const mk = builder\.material\.userData\?\.skinMask \? skinMask\(diffuseContribution\) : float\(1\);/);
+  assert.match(pol, /if \(charLook\(\)\) \{ n\.colorNode = vec4\(mix\(c0grade, n\.colorNode\.rgb, skinMask\(c0grade\)\), materialColor\.a\); garmentSafe\(n\); \}/);
+});

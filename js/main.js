@@ -228,7 +228,9 @@ async function initApp() {
     antialias: quality.antialias !== false,
     powerPreference: 'high-performance',
     reversedDepthBuffer: true,
-    forceWebGL: !gpuOk
+    forceWebGL: !gpuOk,
+    // (?gputime: the GPU's own time per pass, for a profile: renderer.resolveTimestampsAsync(); off, as before)
+    trackTimestamp: new URLSearchParams(location.search).has('gputime')
   });
   renderer.setPixelRatio(1.0);
   renderer.setSize(window.innerWidth, window.innerHeight);
