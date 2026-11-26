@@ -24,6 +24,7 @@ import { createGrid } from './vcall-draw.js';
 import { tileHand } from './tilehands.js';
 import { armTo } from '../mission/m3-set.js';
 import { subLine } from '../face.js';
+import { gaitPace } from '../retarget.js';
 import { RectAreaLightTexturesLib } from 'three/addons/lights/RectAreaLightTexturesLib.js';
 
 const PI = Math.PI;
@@ -475,6 +476,8 @@ export function createSets(W, { cast, castName, heroName, idleOf = () => null })
       if (w.t0 == null) { w.t0 = t + (w.after || 0); w.from = [P.x, P.z]; w.going = false; }
       const k = Math.min(1, Math.max(0, (t - w.t0) / (w.secs || 3)));
       if (k > 0 && !w.going && k < 1) { w.going = true; blend(P, w.clip || 'walk', 0.25); }
+      // (the gait at the walk's own pace on their legs, so the planted foot stays put: wagmi/retarget.js gaitPace)
+      if (w.going && P.action) P.action.setEffectiveTimeScale(gaitPace(w.clip || 'walk', Math.hypot(w.to[0] - w.from[0], w.to[1] - w.from[1]) / (w.secs || 3), P.fig.legRatio));
       const x = w.from[0] + (w.to[0] - w.from[0]) * k, z = w.from[1] + (w.to[1] - w.from[1]) * k;
       P.fig.root.position.x = x; P.fig.root.position.z = z; if (P.blob) { P.blob.position.x = x; P.blob.position.z = z; }
       if (w.going) { const h = Math.atan2(w.to[0] - w.from[0], w.to[1] - w.from[1]); P.fig.root.rotation.y = h; P.fig.heading = h; }

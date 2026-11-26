@@ -77,7 +77,9 @@ test('the runner keeps every set close on its face, and a clip cut in is evaluat
   assert.ok(at > 0 && cam > at && frame > cam);
   const sets = src('wagmi/storyrun/sets.js');
   assert.match(sets, /f\.mixer\.stopAllAction\(\); a\.play\(\); if \(!P\.started\) \{ a\.time = Math\.random\(\) \* cl\.duration; P\.started = true; \} f\.mixer\.update\(0\); \}/);
-  assert.match(src('wagmi/storyrun/cast.js'), /mixer\.stopAllAction\(\); const a = mixer\.clipAction\(cl\);[^\n]*a\.play\(\); mixer\.update\(0\); return true; \};/);
+  // (a cut: everything stopped, the clip played and evaluated at once; a fade > 0 (a walk's start and stop) cross-fades)
+  assert.match(src('wagmi/storyrun/cast.js'), /else \{ mixer\.stopAllAction\(\); a\.setLoop\([^\n]*a\.play\(\); mixer\.update\(0\); \}/);
+  assert.match(src('wagmi/storyrun/cast.js'), /f\.play = \(n, loop = true, fade = 0\) =>/);
 });
 
 test('someone hidden in a set\'s people is not seen until a shot\'s act shows them (ST1: Jensen in the wings before his walk on)', () => {

@@ -90,10 +90,15 @@ export const POLISH = {
   mend: { arm: '^(upperarm|lowerarm|wrist|finger)' },
 };
 
-const CARD = /^(hair|hairShell|brows|lashes|beard)$/;
+const CARD = /^(hair|hairShell|hairCards|brows|lashes|beard)$/;
 // (the cards of a head of hair; a buzz's shell over the scalp (hairShell: short hairs stippled on the skull, the forged
 // captain's under his cap) keeps its own cut and light, soft edges only: eased, its stipple read as coral)
 const HAIR = /^hair$/;
+// (mandi-hair: a GLB can flag its strand cards outright (extras.hair = true on the material: the forge's FiberBake cards,
+// named anything): drawn as hair whatever their name; and, on a tier without MSAA, their cut hashed (alphaHash, the
+// texture's alpha as the chance a pixel is drawn) instead of a hard cut, flagged cards only: no other body changes)
+const flagged = (m) => m?.userData?.hair === true;
+const isHairMat = (m) => HAIR.test(m?.name || '') || flagged(m);
 const done = new WeakMap(), shaped = new WeakSet();
 
 // (?polish=0: every body as its GLB has it, for a look at the difference; ?polish=r8: r8's finish only)
@@ -105,7 +110,7 @@ export function polishBody(inner, { msaa = typeof window === 'undefined' || wind
   if (OFF) return out;
   const r8 = MODE === 'r8';
   const head = r8 ? null : headFrame(inner);
-  if (head && hair) inner.traverse((o) => { if (o.isMesh && HAIR.test(o.material?.name || '') && shapeHair(o, head)) out.hair++; });
+  if (head && hair) inner.traverse((o) => { if (o.isMesh && isHairMat(o.material) && shapeHair(o, head)) out.hair++; });
   if (head && cloth && !r8) { out.cloth = collarWeights(inner); out.mended = mendCoat(inner); }
   // (the skin's band on every primitive its material draws, and the line's two colours once a material)
   const lines = new Map();
@@ -118,8 +123,8 @@ export function polishBody(inner, { msaa = typeof window === 'undefined' || wind
     if (!m || m.userData?.polished) return m;
     if (done.has(m)) return done.get(m);
     let n = m;
-    if (hair && CARD.test(m.name || '') && (m.alphaTest > 0 || m.transparent)) {
-      n = r8 || m.name === 'hairShell' ? r8Card(m, msaa) : softCard(m, msaa, HAIR.test(m.name) && !!o.geometry.attributes.tangent); out.cards++;
+    if (hair && (CARD.test(m.name || '') || flagged(m)) && (m.alphaTest > 0 || m.transparent)) {
+      n = r8 || m.name === 'hairShell' ? r8Card(m, msaa) : softCard(m, msaa, isHairMat(m) && !!o.geometry.attributes.tangent); out.cards++;
     } else if (skin && m.name === 'skin' && !m.normalMap && m.map) {
       n = r8 ? r8Skin(m) : skinOf(m, lines.get(m) || null, !!head, ageOf(inner, m)); out.skin++;
     } else if (eyes && !r8 && m.name === 'eyes' && m.map && !m.isMeshPhysicalMaterial) {
@@ -201,7 +206,7 @@ function shapeHair(mesh, head) {
 // hair, brows, lashes and beard: soft cut edges (alpha to coverage on the texture's own alpha, eased round the GLB's cut,
 // under the MSAA; the low tier keeps the alpha test), their relief and sheen calmed; the hair lit as strands (hairShaded)
 function softCard(m, msaa, strands) {
-  const H = POLISH.hair, isHair = HAIR.test(m.name);
+  const H = POLISH.hair, isHair = isHairMat(m);
   const n = strands ? new HairMaterial() : new THREE.MeshPhysicalNodeMaterial();
   for (const k of ['name', 'color', 'map', 'roughness', 'roughnessMap', 'metalness', 'metalnessMap', 'side', 'vertexColors', 'specularIntensity', 'specularColor', 'envMapIntensity'])
     if (m[k] !== undefined && k in n) n[k] = m[k] && m[k].isColor ? m[k].clone() : m[k];
@@ -228,7 +233,8 @@ function softCard(m, msaa, strands) {
     const sw = m.name === 'beard' ? Math.min(H.soft, 0.07) : H.soft;
     n.opacityNode = smoothstep(float(cut - sw), float(cut + sw), a);
     n.maskNode = a.greaterThan(Math.max(0.02, cut - sw));
-  } else { n.colorNode = vec4(rgb, a); n.alphaTest = cut; }
+  } else if (flagged(m)) { n.colorNode = vec4(rgb, a); n.alphaHash = true; n.alphaTest = 0; }
+  else { n.colorNode = vec4(rgb, a); n.alphaTest = cut; }
   // (its shadow cut as before)
   n.maskShadowNode = a.greaterThan(cut);
   if (isHair) { n.roughness = Math.max(m.roughness ?? 0.6, H.rough); n.specularIntensity = (m.specularIntensity ?? 1) * H.spec * (light ? L7.spec : 1); }
