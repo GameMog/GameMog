@@ -134,3 +134,15 @@ test('on the phone on foot: the call puts the phone to the hero\'s ear and takes
   assert.match(src('wagmi/storyrun/runner.js'), /const onFoot = !inCar\(\) && W\.dan\?\.phone; if \(onFoot\) W\.dan\.phone\(true\);/);
   assert.match(src('wagmi/storyrun/runner.js'), /finally \{ talking = false; if \(onFoot\) W\.dan\.phone\(false\);/);
 });
+
+test('a body\'s own pose fix: Mandi\'s sheet asks for her sit and phone takes only; no other body, no other clip', async () => {
+  const PF = await import('../wagmi/pose-fix.js');
+  const g = (x) => ({ parser: { json: { asset: { extras: x } } } });
+  assert.deepEqual(PF.poseFixOf(g({ forge: { landmarks: { sheet: 'mandi' } } })), { sit: 'lady', sitTalk: 'lady', phone: 'ear', phoneCall: 'ear' });
+  assert.equal(PF.poseFixOf(g({ forge: { landmarks: { sheet: 'lola' } } })), null);
+  assert.equal(PF.poseFixOf(g({})), null);
+  assert.deepEqual(PF.poseFixOf(g({ poseFix: { sit: 'lady', walk: 'nope' } })), { sit: 'lady' });
+  // (the walk, the owner's UAL walk and every other clip are never in the list)
+  for (const k of Object.keys(PF.POSE_FIX.mandi)) assert.ok(!/walk|run|idle/i.test(k));
+  assert.match(src('wagmi/retarget.js'), /poseFixOf\(bodyGltf\)/);
+});

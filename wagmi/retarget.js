@@ -17,7 +17,9 @@
 //   import { danOn } from './retarget.js';
 //   const { clips, legRatio } = danOn(THREE, danGltf, bodyGltf, danClips);
 // legRatio: the body's leg over Dan's: a gait's capture speed times it is the speed its feet stay planted at.
-// Off with ?retarget=0 (the clips as they were, for comparison).
+// Off with ?retarget=0 (the clips as they were, for comparison). A body that asks for it then has its seated and phone
+// takes put right for its own build (pose-fix.js: Mandi's sit, sitTalk, phone and phoneCall; off with ?posefix=0).
+import { poseFixOf, fixPoses } from './pose-fix.js';
 
 // Dan's gaits and the speed each was captured at on his legs (m/s; wagmi/game.js GAITS): a body walked along a path at
 // v plays its gait at v / (speed x its legRatio), so its planted foot stays put (sets.js, runner.js walks)
@@ -187,7 +189,10 @@ export function danOn(THREE, danGltf, bodyGltf, clips = danClips(THREE, danGltf.
       const legRatio = legS && legD ? (legD * sc(bodyGltf)) / (legS * sc(danGltf)) : 1;
       const splay = Number(bodyGltf.parser?.json?.asset?.extras?.forge?.post?.clips?.armSplay ?? bodyGltf.parser?.json?.asset?.extras?.forge?.landmarks?.armSplay ?? 0) || 0;
       const parentOf = (n) => dst.bones.get(n)?.parent || null;
-      out = { clips: retargetClips(THREE, clips, { corr, parentOf, rootScale, splay: Math.max(0, Math.min(12, splay)) }), legRatio, rootScale, deg, on: true };
+      let rc = retargetClips(THREE, clips, { corr, parentOf, rootScale, splay: Math.max(0, Math.min(12, splay)) });
+      // (a body's own corrections to the seated and phone takes, where it asks for them: pose-fix.js; Mandi, 26 Nov)
+      const fix = poseFixOf(bodyGltf); if (fix) try { rc = fixPoses(THREE, rc, bodyGltf, fix); } catch (err) { console.warn('[retarget] pose fix', err); }
+      out = { clips: rc, legRatio, rootScale, deg, on: true, poseFix: fix };
     }
   } catch (err) { console.warn('[retarget]', err); }
   per.set(clips, out);
