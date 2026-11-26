@@ -42,6 +42,7 @@ import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
 import { loadGLB } from '../wagmi/glb.js';
 import { createFace } from '../wagmi/face.js';
 import { polishBody, polishReady, POLISH } from '../wagmi/storyrun/polish.js';
+import { setScene as rigScene } from '../wagmi/storyrun/charlight.js';
 
 const q = new URLSearchParams(location.search);
 const list = (q.get('a') || 'dan').split(',').filter(Boolean), view = q.get('view') || 'close', mood = q.get('light') || 'day';
@@ -78,6 +79,8 @@ async function column(src0, i) {
   Object.assign(sun.shadow.camera, { left: -3, right: 3, top: 3, bottom: -3, near: 0.5, far: 30 }); scene.add(sun, sun.target);
   const floor = new THREE.Mesh(new THREE.CircleGeometry(8, 64), new THREE.MeshStandardMaterial({ color: '#77736C', roughness: 0.9 }));
   floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+  // (?look=cinematic: the people's own lighting rig, charlight.js, as a set's (the street's: the city's, in play))
+  rigScene(scene, street ? 'city' : 'set', { mood: night ? 'night' : golden ? 'golden' : 'day', sunDir: sun.position.clone().normalize() });
   // (each column its own load: the polish changes a body's geometry in place, and loadGLB shares one parse per address)
   const g = await loadGLB(url + '?col=' + i);
   const root = new THREE.Group(), inner = skClone(g.scene); root.add(inner);

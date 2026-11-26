@@ -34,6 +34,7 @@ import { CREDITS } from '../credits.js';
 import { world as cityWorld } from '../world/index.js';
 import { createDirector } from '../mission/cine.js'; import { importRetry } from '../net.js';
 import { keyShotOf, hoodShot, rideOffShot } from './keyshots.js';
+import { setScene as rigScene } from './charlight.js';
 
 const Q = new URLSearchParams(location.search);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -118,6 +119,8 @@ export async function install(W) {
   if (Object.values(def.cast || {}).some((c) => c && c.pet && c.pet.follows)) {
     try { pets = (await importRetry(() => import('./pet.js'))).createPets(W, world); } catch (e) { console.warn('[storyrun] pets', e); }
   }
+  // (charlook: the people's own lighting rig on the city's frame, charlight.js; a world without a look, none)
+  rigScene(W.app.scene, 'city');
   // every frame, as Mog City's missions do (m1.js): the GPS route followed, the HUD told whether he is on foot
   let lastT = performance.now();
   (function frame() {

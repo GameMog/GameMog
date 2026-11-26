@@ -25,6 +25,7 @@ import { tileHand } from './tilehands.js';
 import { armTo } from '../mission/m3-set.js';
 import { subLine } from '../face.js';
 import { gaitPace } from '../retarget.js';
+import { setScene as rigScene, charLook } from './charlight.js';
 import { RectAreaLightTexturesLib } from 'three/addons/lights/RectAreaLightTexturesLib.js';
 
 const PI = Math.PI;
@@ -168,6 +169,9 @@ export function createSets(W, { cast, castName, heroName, idleOf = () => null })
     // (the side the daylight comes from, in the room: the key's side)
     const sunDir = sun ? sun.position.clone().sub(sun.target.position).setY(0).normalize() : V(0, 0, -1);
     const cam = new THREE.PerspectiveCamera(40, 16 / 9, 0.05, 600);
+    // (charlook: the people's own rig, charlight.js, down to its floor here, under the set's own key, fill and rim; its key
+    // on the side of the set's daylight)
+    rigScene(scene, 'set', { mood, sunDir: sun ? sun.position.clone().sub(sun.target.position).normalize() : new THREE.Vector3(0, 0.3, -1).normalize(), keyColor: tint(room.keyColor) });
     const S = { id, def, scene, K, room, mood, people: new Map(), key, fill, rim, sunDir, cam, t0: 0, shown: false, update: () => update(S) };
     return S;
   }
@@ -506,6 +510,22 @@ export function createSets(W, { cast, castName, heroName, idleOf = () => null })
       S.rim.position.set(l[0] - fx * 1.7 - rx * side * 0.9, l[1] + 0.9, l[2] - fz * 1.7 - rz * side * 0.9);
       S.rim.target.position.set(l[0], l[1] - 0.2, l[2]); S.rim.target.updateMatrixWorld();
       S.rim.intensity = (3 + 6 * close) * base * (S.room.rim ?? 1);
+      // (charlook, a world's `look: 'cinematic'`: the portrait key of CharacterPipeline's soft lab (review/lab/
+      // people-soft.html, light=soft): the key 35 degrees round from the lens and 20 over the eyes, 1.8 m out, its edge
+      // all penumbra and its shadow wide; the fill from the other side, low; the rim a third of the set's: the face read
+      // soft, its sockets and the nose's side never cut black, a rim not burning the cheek. A room's own key weight kept)
+      if (charLook()) {
+        const at = (sd, up, d) => [l[0] + (fx * Math.cos(sd) + rx * Math.sin(sd)) * Math.cos(up) * d, l[1] + Math.sin(up) * d, l[2] + (fz * Math.cos(sd) + rz * Math.sin(sd)) * Math.cos(up) * d];
+        const kr = S.room.key != null ? S.room.key / (night ? 2.4 : 1.6) : 1;
+        S.key.position.set(...at(0.61 * side, 0.35, 1.8)); S.key.target.position.set(l[0], l[1], l[2]); S.key.target.updateMatrixWorld();
+        S.key.angle = 0.6; S.key.penumbra = 1; S.key.shadow.radius = 12;
+        S.key.intensity = (4 + 5 * close) * kr;
+        // (the fill a warm neutral at night, not the moon's blue: a blue fill turned the nose's shadow side cold and
+        // bruised on a close shot; a room's own fill colour kept)
+        S.fill.position.set(...at(-0.9 * side, 0.1, 1.6)); S.fill.intensity = (1.0 + 1.0 * close) * (S.room.fill ?? 1);
+        if (night && !S.room.fillColor) S.fill.color.set('#E9DCD2');
+        S.rim.intensity = (1.5 + 1.0 * close) * (S.room.rim ?? 1);
+      }
     }
   }
 

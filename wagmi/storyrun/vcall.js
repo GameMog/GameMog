@@ -17,6 +17,7 @@ import { SEAT } from './offices.js';
 import { feedKey } from './prewarm.js';
 import { playTurns } from '../radio/turns.js';
 import { createDirector } from '../mission/cine.js';
+import { charLook } from './charlight.js';
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const ACCENT = '#B6FF3B', RED = '#EF4444';
@@ -111,7 +112,7 @@ function faceH(fig) {
 // sitting hips put on the seat, the head come up to the lens) is never framed from where it was a moment before
 //   const L = webcam(eyes, kind, face)   L.at(eyes, dt) -> { pos, look, fov }
 function webcam(eyes, kind, face) {
-  const base = camOf(eyes, kind, { face }), lock = closeLock({ rel: 'cam' }, { rel: 'cam' }, base.pos, eyes);
+  const base = camOf(eyes, kind, { face, portrait: !!charLook() }), lock = closeLock({ rel: 'cam' }, { rel: 'cam' }, base.pos, eyes);
   return { base, at(e, dt) { const m = lock ? lock.step(e, dt) : [0, 0, 0]; return { pos: base.pos.map((v, i) => v + m[i]), look: base.look.map((v, i) => v + m[i]), fov: base.fov }; } };
 }
 // (their eyes as their face found them, or their head bone's where those are not plausible: vcall-plan.js eyesAim)

@@ -20,6 +20,8 @@ import { SITE_KINDS } from '../world/common.js';
 import { isSiteRef, siteRefs, SITE_KEYS } from './places.js';
 import { RANCH_MARKS } from './ranch-plan.js';
 import { fleetPickOf } from '../fleet-picks.js'; import { fetchRetry, importRetry } from '../net.js';
+// (a world's `look`: charlight.js reads the same words)
+export const PEOPLE_LOOKS = ['cinematic'];
 // (a hero's wear: wear.js WEARS, kept here too so the check needs no three.js)
 const WEARS = new Set(['rider']);
 
@@ -315,6 +317,9 @@ export function check(w) {
     bad('credits.cast: [{ name, role }] (24 at most; a name 40 characters, a role 60)');
   if (w.credits && typeof w.credits === 'object' && w.credits.voices != null && (!Array.isArray(w.credits.voices) || w.credits.voices.length > 4
     || w.credits.voices.some((l) => typeof l !== 'string' || l.length > 200))) bad('credits.voices: [lines] (4 at most, 200 characters each)');
+  // (how its people are lit and framed, charlight.js: 'cinematic' a lighting rig of their own (a key at eye level, a
+  // fill, a rim) and a portrait lens on its calls; none, as Mog City lights everyone)
+  if (w.look != null && !PEOPLE_LOOKS.includes(w.look)) bad(`look: one of ${PEOPLE_LOOKS.join(', ')}`);
   // (its calls: { ringOut: 'answer' } a ring that runs out is answered (runner.js ringOf), 'decline' as by default;
   // style 'fold': its calls on a foldable phone (fold.js), 'card' the caller card and car screen as by default)
   if (w.calls != null && (typeof w.calls !== 'object' || Array.isArray(w.calls) || (w.calls.ringOut != null && !['answer', 'decline'].includes(w.calls.ringOut)) || (w.calls.style != null && !['card', 'fold'].includes(w.calls.style))))
@@ -407,6 +412,8 @@ export async function load() {
     const errs = check(def);
     if (errs.length) throw new Error('refused: ' + errs.slice(0, 4).join('; '));
     Object.assign(out, { ok: true, hash: h, id: def.id, title: def.title, def, hour: storyHour(def) });
+    // (its people's look, before any of them is built: charlight.js charLook)
+    if (PEOPLE_LOOKS.includes(def.look) && globalThis.window?.NYC) globalThis.window.NYC.charLook = def.look;
   } catch (err) { out.why = String(err.message || err); }
   if (!out.ok) { console.warn('[storyrun] world refused:', out.why); hostError('load', `the world did not load: ${out.why}`); plainTitle(); return out; }
   applyTheme(out.def);

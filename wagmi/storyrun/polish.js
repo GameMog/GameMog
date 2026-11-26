@@ -35,6 +35,7 @@ import {
   Fn, If, materialColor, texture, uv, uniform, attribute, vec2, vec3, vec4, float, dot, smoothstep, max, mix,
   normalize, normalView, normalViewGeometry, positionViewDirection, tangentView, normalMap, BRDF_Lambert, diffuseContribution,
 } from 'three/tsl'; import { textureLoad } from '../net.js';
+import { charLook, rigDirect } from './charlight.js';
 
 /* ------------------------------------------------- the shared detail -- */
 // (people4) the scanned tiles every finished body shares (assets/people/detail: RG a normal's x and y, OpenGL's y up, B
@@ -135,11 +136,30 @@ export function polishBody(inner, { msaa = typeof window === 'undefined' || wind
     // (the high quality lighting tier: skin and cloth layers, hqLayers above)
     if (hqOn()) n = n.name === 'skin' && n !== m ? hqLayers(n, 'skin') : n !== m && n.userData?.fabric ? hqLayers(n, 'cloth') : n;
     if (n !== m) n.userData = { ...m.userData, ...n.userData, polished: true };
+    // (charlook: a world's people lit by their own rig as well, charlight.js; the GLB's own materials left alone)
+    if (n !== m) n = rigged(n);
     done.set(m, n);
     return n;
   };
   inner.traverse((o) => { if (o.isMesh && o.material) o.material = Array.isArray(o.material) ? o.material.map((m) => one(m, o)) : one(o.material, o); });
   return out;
+}
+
+/* ------------------------------------------------------------- the rig -- */
+// (charlook, a world's `look: 'cinematic'`: charlight.js) a finished material's lighting model given the people's rig after
+// its sky light: the key at eye level, the fill and the rim (rigDirect). Its programs keyed apart from an unrigged one's
+function rigged(n) {
+  if (!n?.isNodeMaterial || n.userData?.rig || !charLook()) return n;
+  const base = n.setupLightingModel, key0 = n.customProgramCacheKey;
+  n.setupLightingModel = function (builder) {
+    const lm = base.call(this, builder); if (!lm) return lm;
+    const ind = lm.indirect;
+    lm.indirect = function (b) { ind.call(this, b); rigDirect(this, b); };
+    return lm;
+  };
+  n.customProgramCacheKey = function () { return (key0 ? key0.call(this) : '') + '|charrig'; };
+  n.userData = { ...n.userData, rig: true };
+  return n;
 }
 
 /* ------------------------------------------------------------ the head -- */
