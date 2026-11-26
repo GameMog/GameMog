@@ -34,6 +34,7 @@ import * as THREE from 'three/webgpu';
 import {
   Fn, If, materialColor, texture, uv, uniform, attribute, vec2, vec3, vec4, float, dot, smoothstep, max, mix,
   normalize, normalView, normalViewGeometry, positionViewDirection, tangentView, normalMap, BRDF_Lambert, diffuseContribution,
+  dFdx, dFdy, abs, normalFlat, faceDirection,
 } from 'three/tsl'; import { textureLoad } from '../net.js';
 
 /* ------------------------------------------------- the shared detail -- */
@@ -65,7 +66,14 @@ export const POLISH = {
   hair: { volume: 0.72, mottle: 0.3, crisp: 0.3, kk: [140, 0.03, 30, 0.14, 0.1], strand: 0.8, wrap: 0.3, rough: 0.78, spec: 0.25, soft: 0.2, cut: 0.5,
     // (people7: a light head of hair's: mottle, crisp, the sky's specular, the strands in the sheen, the sheen itself)
     // (people8 r6: mottle 0.75, crisp -0.5: the grandmother's silver still showed its source's swirl and zigzag)
-    light: { mottle: 0.75, crisp: -0.5, spec: 0.5, strand: 0.25, kk: 0.45 } },
+    light: { mottle: 0.75, crisp: -0.5, spec: 0.5, strand: 0.25, kk: 0.45 },
+    // (mandi-hair: a GLB's flagged strand cards (extras.hair): mip, the coverage kept as the texture shrinks (alpha x
+    // 1 + mip * mip, Golus's alpha test fix: a distant head of hair stays a head, not frizz); edge, the coverage of a card
+    // seen edge on (its |n.v| window, and what is left of it below), so a profile is soft strands, not slabs; deep, the
+    // depth (m) at which an under layer is fully under, and depth, how dark its light is there; shadow, how much of the
+    // light a shadow takes (hair passes some of it: the crown's own cards no black patches on each other); kk and wrap,
+    // the sheen's bands (as kk above) and the diffuse's wrap for these cards)
+    cards: { mip: 0.3, edge: [0.04, 0.3], edgeMin: 0.3, deep: 0.035, depth: 0.3, shadow: 0.6, kk: [90, 0.08, 26, 0.2, 0.12], tint: 0.4, wrap: 0.4 } },
   skin: {
     gain: 0.88, sat: 1.08, warm: [1.025, 0.99, 0.975], dark: 0.03, sheen: [0.06, 0.035, 0.025], sheenRough: 0.75,
     // the hairline: the blur's mip level and reach (texels of a 2048 map), the band's coverage window, the line's place
@@ -124,7 +132,7 @@ export function polishBody(inner, { msaa = typeof window === 'undefined' || wind
     if (done.has(m)) return done.get(m);
     let n = m;
     if (hair && (CARD.test(m.name || '') || flagged(m)) && (m.alphaTest > 0 || m.transparent)) {
-      n = r8 || m.name === 'hairShell' ? r8Card(m, msaa) : softCard(m, msaa, isHairMat(m) && !!o.geometry.attributes.tangent); out.cards++;
+      n = r8 || m.name === 'hairShell' ? r8Card(m, msaa) : softCard(m, msaa, isHairMat(m) && !!o.geometry.attributes.tangent, !!o.geometry.userData.hairDepth); out.cards++;
     } else if (skin && m.name === 'skin' && !m.normalMap && m.map) {
       n = r8 ? r8Skin(m) : skinOf(m, lines.get(m) || null, !!head, ageOf(inner, m)); out.skin++;
     } else if (eyes && !r8 && m.name === 'eyes' && m.map && !m.isMeshPhysicalMaterial) {
@@ -195,15 +203,44 @@ function shapeHair(mesh, head) {
     if (Mni) { n.applyMatrix3(Mni).normalize(); f.transformDirection(Mi); }
     N[v * 3] = n.x; N[v * 3 + 1] = n.y; N[v * 3 + 2] = n.z; T[v * 4] = f.x; T[v * 4 + 1] = f.y; T[v * 4 + 2] = f.z;
   }
+  // (mandi-hair: a flagged head of hair's depth under its outer layer in the tangent's w, where the strands' light reads
+  // it: these cards have no normal map, so nothing reads w as the bitangent's sign, and a skinned card with vertex colours
+  // already binds 7 of the 8 vertex buffers WebGPU guarantees: an attribute of its own would take the last one)
+  if (flagged(mesh.material)) { const D = hairDepth(P, g.index.array, M, HC, AB, ab2); for (let v = 0; v < P.count; v++) T[v * 4 + 3] = D[v]; g.userData.hairDepth = true; }
   // (the hair's own copies: the pack's primitives share one list of points)
   g.setAttribute('normal', new THREE.BufferAttribute(N, 3));
   g.setAttribute('tangent', new THREE.BufferAttribute(T, 4));
   return true;
 }
 
+// (mandi-hair) how deep each point of a flagged head of hair lies under its outer layer: the volume's radius at the
+// point against the outermost point's in its direction (bins of the direction round the hair's axis, 24 round by 12 up,
+// each the widest of itself and its neighbours), 0 on top and 1 a few centimetres in; the under layers are lit less
+// (cards.depth), so a head of hair reads as layers with shade between them, not one flat wall of strips. Once a geometry.
+function hairDepth(P, index, M, HC, AB, ab2) {
+  const n = P.count, R = new Float32Array(n), B = new Int16Array(n).fill(-1), A = 24, U = 12, top = new Float32Array(A * U);
+  const p = new THREE.Vector3(), c = new THREE.Vector3(), d = new THREE.Vector3();
+  for (const v of index) {
+    if (B[v] >= 0) continue;
+    p.fromBufferAttribute(P, v); if (M) p.applyMatrix4(M);
+    const t = Math.min(1, Math.max(0, c.copy(p).sub(HC).dot(AB) / ab2)); c.copy(HC).addScaledVector(AB, t);
+    d.copy(p).sub(c); const r = d.length(); if (r < 1e-6) { B[v] = 0; continue; }
+    const az = Math.floor((Math.atan2(d.x, d.z) / (2 * Math.PI) + 0.5) * A) % A, up = Math.min(U - 1, Math.floor((d.y / r * 0.5 + 0.5) * U));
+    B[v] = up * A + az; R[v] = r; top[B[v]] = Math.max(top[B[v]], r);
+  }
+  const wide = new Float32Array(A * U);
+  for (let u = 0; u < U; u++) for (let a = 0; a < A; a++) {
+    let w = 0; for (let du = -1; du <= 1; du++) for (let da = -1; da <= 1; da++) { const uu = u + du; if (uu < 0 || uu >= U) continue; w = Math.max(w, top[uu * A + (a + da + A) % A]); }
+    wide[u * A + a] = w;
+  }
+  const D = new Float32Array(n), S = POLISH.hair.cards.deep;
+  for (let v = 0; v < n; v++) if (B[v] >= 0) D[v] = Math.min(1, Math.max(0, (wide[B[v]] - R[v]) / S));
+  return D;
+}
+
 // hair, brows, lashes and beard: soft cut edges (alpha to coverage on the texture's own alpha, eased round the GLB's cut,
 // under the MSAA; the low tier keeps the alpha test), their relief and sheen calmed; the hair lit as strands (hairShaded)
-function softCard(m, msaa, strands) {
+function softCard(m, msaa, strands, deep = false) {
   const H = POLISH.hair, isHair = isHairMat(m);
   const n = strands ? new HairMaterial() : new THREE.MeshPhysicalNodeMaterial();
   for (const k of ['name', 'color', 'map', 'roughness', 'roughnessMap', 'metalness', 'metalnessMap', 'side', 'vertexColors', 'specularIntensity', 'specularColor', 'envMapIntensity'])
@@ -213,15 +250,20 @@ function softCard(m, msaa, strands) {
   n.userData = { ...m.userData };
   const cut = m.alphaTest > 0 ? m.alphaTest : H.cut;
   if (!m.map) { n.alphaTest = cut; return n; }
-  const tex = texture(m.map), a = tex.a, tint = uniform(m.color ? m.color.clone() : new THREE.Color(1, 1, 1));
+  // (mandi-hair: a flagged card's texture with its colour bled into the cut-away texels, see bleedMap)
+  const map = flagged(m) ? bleedMap(m.map) : m.map; n.map = map;
+  const tex = texture(map), tint = uniform(m.color ? m.color.clone() : new THREE.Color(1, 1, 1));
   // (the colour: the source's broad mottle (its own painted light and shade, the foil's crumple: patches a few
   // centimetres across) taken down, the single strands over it kept a little crisper)
   // (people7: a light head of hair (the forge's hairTone 'light': grey, silver, blond) calmer: more of its mottle taken
   // down, its strands softer against each other, less sheen: the grandmother's silver read as crumpled foil)
   const light = isHair && m.userData?.hairTone === 'light', L7 = POLISH.hair.light;
   let rgb = tex.rgb;
-  if (isHair && H.mottle > 0) { const m2 = texture(m.map).level(2).rgb, m5 = texture(m.map).level(5).rgb; rgb = m5.add(m2.sub(m5).mul(1 - (light ? L7.mottle : H.mottle))).add(tex.rgb.sub(m2).mul(1 + (light ? L7.crisp : H.crisp))).max(0); }
+  const a = tex.a;
+  if (isHair && H.mottle > 0) { const m2 = texture(map).level(2).rgb, m5 = texture(map).level(5).rgb; rgb = m5.add(m2.sub(m5).mul(1 - (light ? L7.mottle : H.mottle))).add(tex.rgb.sub(m2).mul(1 + (light ? L7.crisp : H.crisp))).max(0); }
   rgb = rgb.mul(tint);
+  // (mandi-hair: flagged cards' coverage kept down the mips and thinned on a card seen edge on, see POLISH.hair.cards)
+  const cov = flagged(m) ? cardCoverage(map, a) : a;
   if (msaa) {
     n.alphaToCoverage = true; n.alphaTest = 0;
     // (the coverage eased over the texture's own alpha round the GLB's cut, so a strand's end fades over a few samples)
@@ -229,23 +271,73 @@ function softCard(m, msaa, strands) {
     // (people5 r3: a beard's coverage eased over +-0.07, not +-0.2: its mipped strand cards' faint texels (0.25-0.45)
     // came out a dithered translucent ghost round the beard's edge, the old boss's halo)
     const sw = m.name === 'beard' ? Math.min(H.soft, 0.07) : H.soft;
-    n.opacityNode = smoothstep(float(cut - sw), float(cut + sw), a);
-    n.maskNode = a.greaterThan(Math.max(0.02, cut - sw));
-  } else if (flagged(m)) { n.colorNode = vec4(rgb, a); n.alphaHash = true; n.alphaTest = 0; }
+    n.opacityNode = smoothstep(float(cut - sw), float(cut + sw), cov);
+    n.maskNode = cov.greaterThan(Math.max(0.02, cut - sw));
+  } else if (flagged(m)) { n.colorNode = vec4(rgb, cov); n.alphaHash = true; n.alphaTest = 0; }
   else { n.colorNode = vec4(rgb, a); n.alphaTest = cut; }
   // (its shadow cut as before)
   n.maskShadowNode = a.greaterThan(cut);
+  if (flagged(m) && strands && deep) {
+    const C = H.cards; n.cards = C;
+    // (the under layers' light: the depth under the outer layer (shapeHair: the tangent's w), the sky's light as well as
+    // the lamps')
+    n.underNode = attribute('tangent', 'vec4').w.mul(C.depth).oneMinus();
+    n.aoNode = n.underNode;
+    // (a shadow on hair is not black: some of the light goes through)
+    n.receivedShadowNode = (s) => s.mul(C.shadow).add(1 - C.shadow);
+  }
   if (isHair) { n.roughness = Math.max(m.roughness ?? 0.6, H.rough); n.specularIntensity = (m.specularIntensity ?? 1) * H.spec * (light ? L7.spec : 1); }
   else if (m.specularIntensity != null) n.specularIntensity = m.specularIntensity * 0.7;
   if (strands) {
     n.side = THREE.DoubleSide; n.normalNode = normalViewGeometry;
     // (the strands in the sheen: a strand lighter than the hair round it catches more of it)
     const lum = (c) => dot(c, vec3(0.2126, 0.7152, 0.0722));
-    n.strandNode = lum(tex.rgb).add(0.004).div(lum(texture(m.map).level(4).rgb).add(0.004)).clamp(0.3, 2).sub(1).mul(light ? L7.strand : H.strand).add(1).max(0);
+    n.strandNode = lum(tex.rgb).add(0.004).div(lum(texture(map).level(4).rgb).add(0.004)).clamp(0.3, 2).sub(1).mul(light ? L7.strand : H.strand).add(1).max(0);
     if (light) n.kkScale = L7.kk;
   }
   else if (m.normalMap) { n.normalMap = m.normalMap; n.normalScale = m.normalScale.clone().multiplyScalar(0.35); }
   return n;
+}
+
+// (mandi-hair) a strand card's texture as its mips need it: the texels cut away (alpha ~0) given the strands' own mean
+// colour. A card pack paints them anything (Mandi's: a dark grey at 51 against strands at 203), and the mips and the
+// bilinear filter average them into the strands: a dark rim on every strand up close and, down the mips, the whole head
+// of hair darker and dirtier with distance. Once a texture, at load (a pass over its texels; the original is not drawn).
+const bled = new WeakMap();
+function bleedMap(map) {
+  if (bled.has(map)) return bled.get(map);
+  let out = map;
+  try {
+    const img = map.image, w = img?.width, h = img?.height;
+    if (w && h && typeof OffscreenCanvas !== 'undefined') {
+      const cx = new OffscreenCanvas(w, h).getContext('2d', { willReadFrequently: true });
+      cx.drawImage(img, 0, 0);
+      const px = cx.getImageData(0, 0, w, h).data, sum = [0, 0, 0]; let k = 0;
+      for (let i = 0; i < px.length; i += 4) if (px[i + 3] > 200) { sum[0] += px[i]; sum[1] += px[i + 1]; sum[2] += px[i + 2]; k++; }
+      if (k > 64) {
+        const c = sum.map((v) => Math.round(v / k));
+        for (let i = 0; i < px.length; i += 4) if (px[i + 3] < 8) { px[i] = c[0]; px[i + 1] = c[1]; px[i + 2] = c[2]; }
+        const t = new THREE.DataTexture(new Uint8Array(px.buffer), w, h, THREE.RGBAFormat);
+        for (const key of ['colorSpace', 'wrapS', 'wrapT', 'magFilter', 'anisotropy', 'channel', 'name']) t[key] = map[key];
+        Object.assign(t, { flipY: false, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter, needsUpdate: true });
+        out = t;
+      }
+    }
+  } catch (e) { console.warn('polish: hair texture kept as it is', e); }
+  bled.set(map, out);
+  return out;
+}
+
+// (mandi-hair) a flagged card's coverage: its alpha kept as the texture shrinks (the mip the lens reads, from the uv's
+// own derivatives over the texture's size: x 1 + mip * cards.mip, so the thin strands' alpha, averaged away down the
+// mips, still covers the hair at full-body distance), then thinned on a card seen edge on (its own flat face's |n.v|:
+// the strip's sliver in a profile goes to strands, not a slab's hard edge). A few instructions a pixel, no texture reads.
+function cardCoverage(map, a) {
+  const C = POLISH.hair.cards, img = map.image || {}, size = vec2(img.width || 1024, img.height || 1024);
+  const st = uv(map.channel || 0).mul(size), dx = dFdx(st), dy = dFdy(st);
+  const mip = max(dot(dx, dx), dot(dy, dy)).max(1e-8).log2().mul(0.5).max(0);
+  const edge = smoothstep(C.edge[0], C.edge[1], abs(dot(normalFlat, positionViewDirection))).mul(1 - C.edgeMin).add(C.edgeMin);
+  return a.mul(mip.mul(C.mip).add(1)).mul(edge);
 }
 
 // the hair's light: its diffuse wrapped soft round the volume (hair scatters), its sheen two Kajiya-Kay bands along the
@@ -253,22 +345,27 @@ function softCard(m, msaa, strands) {
 // toward the tip); the sky's reflection through the physical model's own (its specular turned down)
 class HairLighting extends THREE.PhysicalLightingModel {
   direct({ lightDirection: L, lightColor, reflectedLight }, builder) {
-    const H = POLISH.hair, [p1, s1, p2, s2, sh] = H.kk, N = normalView, V = positionViewDirection, st = builder.material.strandNode || float(1);
+    // (mandi-hair: a flagged head of hair (cards, softCard) its own bands and wrap, its under layers' light taken down,
+    // and its flow the same on a card's two faces: the tangent is not turned with the back face (its normal isn't either))
+    const C = builder.material.cards, H = C || POLISH.hair, [p1, s1, p2, s2, sh] = H.kk, N = normalView, V = positionViewDirection, st = builder.material.strandNode || float(1);
+    const under = (x) => C ? x.mul(builder.material.underNode) : x;
     const ndl = N.dot(L), wrap = ndl.add(H.wrap).div(1 + H.wrap).max(0);
-    reflectedLight.directDiffuse.addAssign(wrap.mul(lightColor).mul(BRDF_Lambert({ diffuseColor: diffuseContribution })));
-    const Hv = L.add(V).normalize(), Tn = normalize(tangentView);
+    reflectedLight.directDiffuse.addAssign(under(wrap).mul(lightColor).mul(BRDF_Lambert({ diffuseColor: diffuseContribution })));
+    const Hv = L.add(V).normalize(), Tn = C ? normalize(tangentView).mul(faceDirection) : normalize(tangentView);
     const band = (T, p) => { const th = T.dot(Hv); return th.mul(th).oneMinus().max(0.0001).sqrt().pow(p); };
     const t1 = normalize(Tn.add(N.mul(sh))), t2 = normalize(Tn.sub(N.mul(sh * 1.5)));
     // (no sheen on the side away from the light, nor from a light behind (a rim's light through the hair is not a sheen
     // over its top: it greyed a dark head in a set's close shot); none where the strands face away from the eye)
     const lit = smoothstep(0.0, 0.45, ndl).mul(smoothstep(-0.2, 0.25, N.dot(V))).mul(smoothstep(-0.6, 0.0, L.dot(V)));
-    const spec = vec3(band(t1, p1).mul(s1)).add(band(t2, p2).mul(s2).mul(diffuseContribution.mul(2.2).min(1))).mul(builder.material.kkScale ?? 1);
-    reflectedLight.directSpecular.addAssign(spec.mul(lit).mul(st).mul(lightColor));
+    // (a flagged head of hair's narrow band a little in the hair's own colour (cards.tint): on dark roots a white one read
+    // as grey foil)
+    const spec = (C ? mix(vec3(1), diffuseContribution.mul(2.5).min(1), C.tint).mul(band(t1, p1).mul(s1)) : vec3(band(t1, p1).mul(s1))).add(band(t2, p2).mul(s2).mul(diffuseContribution.mul(2.2).min(1))).mul(builder.material.kkScale ?? 1);
+    reflectedLight.directSpecular.addAssign(under(spec.mul(lit).mul(st)).mul(lightColor));
   }
 }
 class HairMaterial extends THREE.MeshPhysicalNodeMaterial {
   static get type() { return 'HairMaterial'; }
-  constructor(p) { super(p); this.strandNode = null; this.kkScale = 1; }
+  constructor(p) { super(p); this.strandNode = null; this.kkScale = 1; this.cards = null; this.underNode = null; }
   setupLightingModel() { return new HairLighting(); }
 }
 
