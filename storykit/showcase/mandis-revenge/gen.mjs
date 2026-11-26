@@ -623,6 +623,9 @@ const pack = {
     { name: 'Deckhand Red', role: 'deckhand' }, { name: 'Deckhand Blue', role: 'deckhand' }] },
   // (a ring that runs out is answered; the calls on Mog City's foldable phone, MogCity docs/VCALL.md)
   calls: { ringOut: 'answer', style: 'fold' },
+  // (its people lit and framed for the close lens: Mog City's charlight.js, a soft key at eye level, eye-level closes,
+  // a portrait lens on the calls; the owner's "make her as attractive as possible", 25 Nov)
+  look: 'cinematic',
   base: { engine: 'mogcity-1', city: 'hometown', cityBuild: `hometown-${lock.buildId}`.slice(0, 39),
     hometown: { place: lock.place, compiler: lock.buildId, tiles: lock.tiles, formatVersion: lock.formatVersion, grid: lock.grid, domain: lock.domain, origin: lock.origin, k0: lock.k0, gamma0: lock.gamma0, yOffset: lock.yOffset, waterLevel: lock.waterLevel } },
   dressing: { time: 'twilight', season: 'autumn', weather: 'clear', holiday: [] },

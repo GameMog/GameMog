@@ -439,6 +439,7 @@ export const SCHEMA = {
     calls: O({ ringOut: E(['answer', 'decline'], { description: "a ring that runs out with no key pressed: answer (the call plays, the ring 4 s at most) or decline (the decline set and the voicemail, the default)" }),
       style: E(['card', 'fold'], { description: "how the calls are shown: card (the caller card and the car screen's picture, the default) or fold (on Mog City's foldable phone, wagmi/storyrun/fold.js: ringing folded, answered unfolded, a vcall on its inner screen)" }) }, [],
       { description: "the phone's calls (Mog City's wagmi/storyrun runner.js)" }),
+    look: E(['cinematic'], { description: "how its people are lit and framed (Mog City's wagmi/storyrun/charlight.js): cinematic gives them a lighting rig of their own (a soft key at eye level, a fill so the eyes' sockets never go black, a rim, a catchlight), brings a close shot on a face to the face's eye level and puts the calls' webcams on a portrait lens; left out, everyone lit as the city lights them" }),
     base: O({ engine: E(ENGINES), city: E(CITIES), cityBuild: S(40, { pattern: '^[a-z]{2,8}-[a-z0-9.-]{1,30}$' }),
       hometown: O({ place: S(80, { pattern: '^[a-z0-9][a-z0-9-]{1,79}$' }), compiler: S(30, { pattern: '^[a-z0-9][a-z0-9.-]{0,29}$' }), tiles: S(64, { pattern: '^[0-9a-f]{16,64}$' }),
         // (lock v2, the national grid hg1: the session frame the town's descriptor pinned; v3 the same, its tiles the hash

@@ -56,6 +56,7 @@
   "ringOut": "answer",
   "style": "fold"
  },
+ "look": "cinematic",
  "base": {
   "engine": "mogcity-1",
   "city": "hometown",

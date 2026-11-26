@@ -1035,6 +1035,8 @@ export function toRunnerPack(pack: PackV2, opts: { cast?: Record<string, string>
       ...((pack as Json).credits.voices ? { voices: [...(pack as Json).credits.voices] } : {}) } } : {}),
     // (its calls: { ringOut: 'answer' }, a ring that runs out is answered (Mog City's runner.js ringOf); left out, declined)
     ...((pack as Json).calls ? { calls: { ...(pack as Json).calls } } : {}),
+    // (how its people are lit and framed: look 'cinematic', Mog City's charlight.js; left out, as the city lights them)
+    ...((pack as Json).look ? { look: (pack as Json).look } : {}),
     // (a hometown: the town it plays, exactly as base.hometown pins it; Mog City plays it only on a page that loaded that
     // town, wagmi/storyrun/pack.js, comparing it field by field with the bundle's lock, compiler = the bundle's buildId)
     ...(town && pack.base.hometown ? { hometown: pack.base.hometown } : {}),

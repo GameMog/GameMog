@@ -113,6 +113,12 @@
    },
    "description": "the phone's calls (Mog City's wagmi/storyrun runner.js)"
   },
+  "look": {
+   "enum": [
+    "cinematic"
+   ],
+   "description": "how its people are lit and framed (Mog City's wagmi/storyrun/charlight.js): cinematic gives them a lighting rig of their own (a soft key at eye level, a fill so the eyes' sockets never go black, a rim, a catchlight), brings a close shot on a face to the face's eye level and puts the calls' webcams on a portrait lens; left out, everyone lit as the city lights them"
+  },
   "base": {
    "type": "object",
    "additionalProperties": false,
