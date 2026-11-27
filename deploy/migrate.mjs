@@ -2631,6 +2631,24 @@ export const MIGRATIONS = [
       }
     },
   },
+  {
+    // 27 Nov, the owner: Mandi's Revenge's thumbnail is cover B (Mandi and Jay by the Kastell), not the bridge jump.
+    // The cards, the share image and the frame behind Play read art_wide first, so art_wide becomes cover B
+    // (deploy/migrations/mandis-revenge-wide-2.jpg). Only over the jump shot 2026-11-27-mandis-revenge wrote: art the
+    // owner has changed since is left alone.
+    id: '2026-11-27-mandis-revenge-thumb',
+    run(db) {
+      const wide = file('mandis-revenge-wide-2.jpg');
+      if (!wide) throw new Error('deploy/migrations/mandis-revenge-wide-2.jpg is not in this build');
+      const sha = (b) => createHash('sha256').update(b).digest('hex');
+      if (sha(wide) !== '4002bc72021083b902d8cc93879a1d9b02ad8af4370e411b48cdfc10960fbe8a') throw new Error('mandis-revenge-wide-2.jpg is not cover B');
+      const g = db.prepare("SELECT id, art_wide FROM games WHERE slug = 'mandis-revenge'").get();
+      if (!g) return 'left alone: no /g/mandis-revenge';
+      if (!g.art_wide || sha(g.art_wide) !== '20692d5893901b012d883efb9eed2349a12b259584ecb2bcf85342a5dc4d2f2d') return 'left alone: its wide art is not the jump shot';
+      db.prepare('UPDATE games SET art_wide = ? WHERE id = ?').run(wide, g.id);
+      return '/g/mandis-revenge: art_wide is cover B';
+    },
+  },
 ];
 
 /**
