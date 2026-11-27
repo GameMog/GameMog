@@ -340,6 +340,7 @@ export async function install(W) {
     await ui.fade(0.97, 0.6);
     try {
       try { W.app.selectTime('midday'); } catch {}
+      try { const N = window.NYC; N?.Weather?.set('clear', { fade: 0 }); N?.Bascules?.down?.(); } catch {} // (dry; bridges)
       await hud.card({ kicker: def.kicker || '', text: def.title, sub: def.tagline || 'Thanks for playing.' }, flags.autoCard ? 1 : 4);
       // (the end credits (endRoll, rules.js creditsRoll): the title, its cast, the voices, what it is made with, the
       // map's data, the engine, Ockams Inc., rolled over the dark; any key, a click or a tap skips them)

@@ -63,6 +63,8 @@ const CAR_AXLES = { wheelbase: 2.8, track: 1.6 };
 const BIKE_WHEELBASE = 1.05;
 const GRAVITY = 9.81;
 const CAR_GRADE = 0.6; // share of gravity along the slope the car feels (P2.6)
+const LEAP_VY = 12; // m/s: the most a car leaves a bascule's leaf going up (settleCar)
+const LEAF_STEEP = Math.tan((32 * Math.PI) / 180); // a bascule's leaf steeper than this cannot be driven up
 const BIKE_GRADE_UP = 0.9; // ... and the bike going uphill
 const HELI_CEILING = 380;
 const STEP_DOWN = 0.4;
@@ -1051,7 +1053,8 @@ class ThirdPersonControllerManager {
     if (!heli && own) {
       if (!this._dry) this._dry = new WeakMap();
       const dry = this._dry.get(pos);
-      if (inBay(pos.x, pos.z)) {
+      // (a car in a leap off a bascule's leaf is over the river, not in it, till it comes down: bascule.js)
+      if (inBay(pos.x, pos.z) && !(carEntity && carEntity.leap && pos === this.entities.car.position)) {
         // (Mog City: the car's hit on the water, before it is put back: where and how fast, for the game, wagmi/game.js
         // (a town's car goes in: it sinks, and is put back on the road))
         if (carEntity && pos === this.entities.car.position) carEntity.bayHit = { x: pos.x, z: pos.z, speed: carEntity.speed, dryX: dry ? dry.x : pos.x, dryZ: dry ? dry.z : pos.z };
@@ -1061,8 +1064,7 @@ class ThirdPersonControllerManager {
           if (carEntity && carEntity.speed) carEntity.speed *= 0.4;
         }
       } else if (dry) {
-        dry.x = pos.x;
-        dry.z = pos.z;
+        if (!(carEntity && carEntity.leap)) { dry.x = pos.x; dry.z = pos.z; } // (not a spot over the river mid-leap)
       } else {
         this._dry.set(pos, { x: pos.x, z: pos.z });
       }
@@ -1328,9 +1330,45 @@ class ThirdPersonControllerManager {
     const left = g(x + ch * t, z - sh * t), right = g(x - ch * t, z + sh * t);
     const pitch = Math.atan2(front - rear, half * 2), roll = Math.atan2(left - right, t * 2);
     if (c.terrainPitch === undefined) { c.terrainPitch = pitch; c.terrainRoll = roll; c.terrainPitchVel = c.terrainRollVel = 0; }
+    const gy = (front + rear) * 0.5;
+    // (Chicago's bascules, bascule.js: off a rising leaf's tip the car flies, a leap: its speed up the leaf's slope and
+    // the leaf's own lift carried into the air, then gravity, till it comes down on whatever is under it (the far leaf,
+    // the road past it, or the river: wagmi/game.js puts a car in the water). Only off a leaf: every other crest and
+    // step falls as it always has)
+    const BQ = window.NYC.Bascules;
+    // (at most LEAP_VY m/s up: a steep leaf at full speed throws the car a few storeys, not a skyscraper's height)
+    if (!c.leap && c._leafVy > 1.2 && gy < c.position.y - 0.25) c.leap = { vy: Math.min(LEAP_VY, c._leafVy), t: 0, pitch: c.terrainPitch, span: c._leafSpan, at: performance.now() };
+    c._leafVy = 0;
+    if (c.leap) {
+      const L = c.leap;
+      L.t += dt;
+      L.vy -= GRAVITY * dt;
+      c.position.y += L.vy * dt;
+      // (nose follows the flight: up off the lip, down as it falls)
+      dampTowards(c, 'terrainPitch', Math.max(-0.5, Math.min(0.5, Math.atan2(L.vy, Math.max(4, Math.abs(c.speed))) * 0.8)), dt);
+      dampTowards(c, 'terrainRoll', 0, dt);
+      if (c.position.y <= gy) {
+        // down: on its springs with a thump as hard as the fall
+        c.heaveVel -= Math.min(6, Math.max(0, -L.vy) * 0.45);
+        c.position.y = gy;
+        c.fallVel = 0;
+        c.leap = null;
+        c.landed = { vy: L.vy, t: L.t, span: L.span, at: performance.now() };
+      }
+      c.mesh.rotation.order = 'YXZ';
+      c.mesh.rotation.x = -c.terrainPitch;
+      c.mesh.rotation.z = c.terrainRoll;
+      return;
+    }
+    if (BQ && BQ.leafAt) {
+      const lf = BQ.leafAt(x, z, c.position.y);
+      // (its vertical speed up the leaf: along the leaf's way at the car's heading, and the leaf turning under it)
+      if (lf) { c._leafVy = c.speed * lf.slope * (sh * lf.ux + ch * lf.uz) + lf.vLift; c._leafSpan = lf.span; }
+      // (a leaf past LEAF_STEEP is too steep to climb: the tyres give, the car rolls back down it: updateCar)
+      c._leafSteep = !!lf && lf.slope > LEAF_STEEP;
+    } else c._leafSteep = false;
     dampTowards(c, 'terrainPitch', pitch, dt);
     dampTowards(c, 'terrainRoll', roll, dt);
-    const gy = (front + rear) * 0.5;
     if (gy >= c.position.y || !(c.position.y - gy < 1.5)) {
       if (gy - c.position.y > 0.03 && gy - c.position.y < 0.6) c.heaveVel -= (gy - c.position.y) * Math.min(10, 3 + Math.abs(c.speed) * 0.4);
       c.position.y = gy;
@@ -1368,10 +1406,11 @@ class ThirdPersonControllerManager {
 
     const speed0 = c.speed;
     c.speed = driveSpeed(c.speed, throttle, this.keys.boost, dt, drive);
+    if (c.leap) c.speed = speed0; // (in a leap off a bascule's leaf the wheels have nothing to push on: its speed holds)
     // Grade: gravity along the slope (scaled down: the engine & brakes do the rest); a car left without throttle
     // below walking pace holds on the brake instead of rolling
-    if (c.terrainPitch !== undefined && (throttle !== 0 || Math.abs(c.speed) > 1)) {
-      c.speed -= GRAVITY * Math.sin(c.terrainPitch) * CAR_GRADE * dt;
+    if (c.terrainPitch !== undefined && !c.leap && (throttle !== 0 || Math.abs(c.speed) > 1)) {
+      c.speed -= GRAVITY * Math.sin(c.terrainPitch) * (c._leafSteep ? 2.4 : CAR_GRADE) * dt;
     }
     // (what the drive did to its speed, m/s^2: the chassis pitches with it, below)
     const acceleration = dt > 0 ? (c.speed - speed0) / dt : 0;

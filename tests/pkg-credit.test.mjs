@@ -34,15 +34,19 @@ test('package credit: the data sources from PKG.attribution, linked to OpenStree
   for (const s of [repo.firstChild.textContent, repo.title, repo.attrs['aria-label'], repo.href]) assert.ok(!/Slop|github/i.test(s), s);
 });
 
-test('package credit: on the loading screen and for the gate and the pause menu (N.PKG_CREDIT), never a line over the play', () => {
+test('package credit: on the loading screen, in the corner over the play, and for the gate and the pause menu (N.PKG_CREDIT)', () => {
   const { added, loader, N } = page({ name: 'Okemah, OK', attribution: ATTR });
-  assert.equal(added.filter((e) => e.id === 'pkg-map-credit').length, 0, 'no always-on footer line');
+  // (the corner credit over the play: the owner's task of 27 Nov, the 13 Nov blocker: the HUD and the loader hid it)
+  const corner = added.find((e) => e.id === 'pkg-map-credit');
+  assert.ok(corner, 'a small credit in the corner over the play');
+  assert.equal(corner.textContent, '© OpenStreetMap contributors');
+  assert.equal(corner.href, 'https://www.openstreetmap.org/copyright');
   const line = loader.kids.find((e) => e.id === 'pkg-load-credit');
   assert.ok(line, 'the loading screen carries it');
   assert.equal(line.textContent, 'Map data © OpenStreetMap contributors · Overture Maps · USGS 3DEP');
   assert.equal(line.href, 'https://www.openstreetmap.org/copyright');
   assert.equal(N.PKG_CREDIT.short, '© OpenStreetMap contributors · Overture Maps · USGS 3DEP');
-  for (const e of added) if (e.tag === 'style') assert.doesNotMatch(e.textContent, /position:fixed/);
+  for (const e of added) if (e.tag === 'style' && !/#pkg-map-credit\{position:fixed/.test(e.textContent)) assert.doesNotMatch(e.textContent, /position:fixed/);
 });
 
 test('package credit: follows the lines it is given (a WorldCover line; no lines at all)', () => {

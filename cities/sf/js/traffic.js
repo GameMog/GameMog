@@ -863,6 +863,8 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
       const ahead = dx * fx + dz * fz, right = dz * fx - dx * fz;
       if (ahead < -8 || Math.abs(right) > 8 || (v.kAhead !== Infinity && Math.abs(ahead) >= Math.abs(v.kAhead))) continue;
       const c = Math.abs(Math.cos((k.yaw || 0) - v.yaw)), sn = Math.abs(Math.sin((k.yaw || 0) - v.yaw));
+      // (a raised bridge's gate, bascule.js: only for a car going along the bridge, never one on a street past it)
+      if (k.axis && c < 0.6) continue;
       v.kAhead = ahead;
       v.kRight = right;
       v.kW = (k.halfW || 1) * c + (k.halfL || 2.2) * sn;

@@ -298,9 +298,12 @@ class LightingSystem {
 
     this.scene.environmentIntensity = p.envIntensity;
     this.bakeEnvironmentMap();
+    // (js/weather.js: the weather's share of the sky, the haze and the road's dampness, on the preset's own values)
+    if (window.NYC.weatherSky) window.NYC.weatherSky(this, 'apply');
   }
 
   update(focusPos) {
+    if (window.NYC.weatherSky) window.NYC.weatherSky(this, 'update', false); // (js/weather.js: the sun let through the cloud)
     // SunLightShadow automatically fits & texel-snaps its 2 cascades to the view camera frustum
     // every frame inside SunShadowNode.renderShadow(), splitting [near, far] halfway between a uniform and a
     // logarithmic split (the near cascade ends at ~far / 4). Keep far at 300 m at street level so the near cascade

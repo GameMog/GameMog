@@ -4,7 +4,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { FILTERS, cssFilter, filterMatrix, applyMatrix, tagText, fileName, blockedBy } from '../wagmi/mission/photo.js';
+import { FILTERS, cssFilter, filterMatrix, applyMatrix, tagText, fileName, blockedBy, mapCredit } from '../wagmi/mission/photo.js';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const src = (f) => fs.readFileSync(ROOT + f, 'utf8');
@@ -85,4 +85,10 @@ test('the hold: the menu and photo mode share one clock and frame loop; the came
   // (the PNG: drawn and read in one task, the look's matrix, the tag)
   assert.match(ph, /frame\(\); app\.renderPipeline\?\.render\(\);[\s\S]{0,200}x\.drawImage\(canvas, 0, 0\);/);
   assert.match(ph, /c\.toBlob\(r, 'image\/png'\)/);
+});
+
+test('a picture of a town built from open map data carries OpenStreetMap\'s credit; New York\'s and San Francisco\'s none', () => {
+  assert.equal(mapCredit({ PKG: { id: 'us-1714000' } }), '© OpenStreetMap contributors');
+  assert.equal(mapCredit({}), '');
+  assert.equal(mapCredit(undefined), '');
 });

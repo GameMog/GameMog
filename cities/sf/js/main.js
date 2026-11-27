@@ -254,6 +254,9 @@ async function initApp() {
   // 2. Build Scene & Physical Atmospheric Sky / PMREM IBL / 4096x4096 Shadow Lighting
   const scene = new THREE.Scene();
   const lightingSystem = new LightingSystem(scene, renderer);
+  // (js/weather.js: drizzle, rain, river mist and lakefront wind round the camera, sharing the sky's state; off unless
+  // asked: ?weather=, NYC.Weather.set(), a story mission's weather)
+  const weather = window.NYC.createWeather ? window.NYC.createWeather(scene, lightingSystem, renderer) : null;
   markInit('lighting');
   // (perf) The sun's cascades are drawn inside the city's own render (the first lit material's update), after that render
   // has recomputed every world matrix; each cascade's render(scene, ...) recomputed them all again (three's _renderScene:
@@ -324,6 +327,8 @@ async function initApp() {
     ? buildGradeSeparation(scene, roadNetwork)
     : { colliders: [], highwayLanes: [], floorAt: () => null, roofAt: () => Infinity };
   window.NYC.GradeSeparation = gradeSeparation;
+  // (bascule.js: Chicago's river bridges' leaves, bridge houses and their floor, on the decks grade-separation.js cut)
+  const bascules = window.NYC.buildBascules && gradeSeparation.floors ? window.NYC.buildBascules(scene, gradeSeparation) : null;
   if (cityGrid.terrain) cityGrid.terrain.rebuild(); // the portals carved
   markInit('grade');
   await breathe();
@@ -1213,6 +1218,7 @@ async function initApp() {
 
     // Update 3rd-person controllers, camera, signals, traffic & vehicle collisions, building LODs, and dynamic shadow focus
     gamepadControls.update(dt);
+    if (bascules) bascules.update(dt); // (the leaves' angle first: the floor the car drives this frame)
     controllerManager.update(dt, elapsed);
     cameraSystem.update(dt, elapsed);
     updateDebugCamera(rawDt);
@@ -1237,6 +1243,7 @@ async function initApp() {
     if (cityBlocks.updateLights) cityBlocks.updateLights(cameraSystem.camera);
     if (streetDetails.update) streetDetails.update(cameraSystem.camera);
     lightingSystem.update(cameraSystem.currentPos, elapsed);
+    if (weather) weather.update(dt, cameraSystem.camera);
     mapSystem.update();
     if (warmedUp) updateSceneCulling(cameraSystem.camera.position); // the warm-up frame draws every chunk
     if (cityGrid.terrain) cityGrid.terrain.update(cameraSystem.camera.position, elapsed);

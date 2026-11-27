@@ -407,6 +407,15 @@ export function createRunner(ctx) {
   const HOUR_FADE = [0.45, 0.9]; // s: down to black and back up when a mission starts at another hour
   const TITLE_DUE = 5000; // ms: the longest a mission's title card may be due (W.titleDue, game.js cardUp) before it lands
   const setTime = (id) => { try { if (id) app.selectTime(TIME_IDS[id] || id); } catch {} };
+  // (the weather round the camera, js/weather.js: the mission's own `weather`, else the world's dressing.nightWeather
+  // when the mission is at night or dusk, else clear. A new mission starts in its weather at once, under its title)
+  const missionWeather = (def, hour) => {
+    const Wx = globalThis.window?.NYC?.Weather;
+    if (!Wx) return;
+    const night = hour === 'midnight' || hour === 'twilight';
+    const want = def?.weather || (night ? def0.dressing?.nightWeather : null) || 'clear';
+    try { Wx.set(want, { fade: 0 }); } catch (e) { console.warn('[storyrun] weather', e); }
+  };
   // a mission's own time of day (its `time`, or its act's timeline's) is pinned: held through its cutscenes and Mog City's
   // set pieces (which set their own: twilight, golden), put back the moment anything else changes it; a step's own time
   // (place, transition, scene) moves the pin. A mission without one keeps the city's time as its scenes leave it
@@ -1455,8 +1464,132 @@ export function createRunner(ctx) {
     try { W.combat?.hushHud?.(); } catch {}
     for (const el of document.querySelectorAll('#wg .wg-help')) { el.style.transition = 'none'; el.classList.remove('on'); void el.offsetWidth; el.style.transition = ''; }
   }
+  // (a river bridge rising or coming down, Chicago's bascules (cities/sf/js/bascule.js): d { at: a place ('@bridge'), an
+  // [x, z], 'nearest' or a street's name; to: degrees (70 by default, 0 down); dur: s (8); delay: s; ease }. A city with
+  // no bascules: nothing, said once. -> the raise's promise (null: none)
+  const bascules = () => { const B = globalThis.window?.NYC?.Bascules; return B && B.spans?.length ? B : null; };
+  const bridgeRef = (d) => {
+    let ref = d.at ?? 'nearest';
+    try { if (typeof ref === 'object' && !Array.isArray(ref) || (typeof ref === 'string' && ref.startsWith('@'))) { const p = placeOf(ref); ref = [p.x, p.z]; } } catch { ref = 'nearest'; }
+    return ref;
+  };
+  const bridgeCue = (d, o = {}) => {
+    const B = bascules();
+    if (!B) { if (!bridgeCue.said) { bridgeCue.said = true; console.info('[storyrun] bridge: this city has no bascules'); } return null; }
+    return B.raise(bridgeRef(d), { to: d.to ?? 70, dur: d.dur ?? 8, delay: d.delay || 0, ease: d.ease, ...o });
+  };
+  // (the span a step names: the river bridge nearest its place)
+  const bridgeSpan = (d) => {
+    const B = bascules(); if (!B) return null;
+    const ref = bridgeRef(d);
+    const id = Array.isArray(ref) ? B.nearest(ref[0], ref[1]) : typeof ref === 'number' ? ref : (B.spans.find((s) => s.name.toLowerCase().includes(String(ref).toLowerCase())) || {}).id;
+    return B.spans.find((s) => s.id === id) || null;
+  };
+  // (every bridge down, its gates up: a mission's start (a retry finds the bridge as it was), the story's end)
+  const BRIDGE_LAST_CALL = 75; // m from the nearer hinge: the latest the leaves start up under a set piece's near
+  const bridgesDown = () => { try { bascules()?.down?.(); } catch {} };
+  // The bridge as a set piece (M8's "Bridge Up"): with `near` it waits for the hero to come within near m of the span,
+  // and for the car he follows (a tail's) to be over it and off the far side (8 s at most), then the bells ring, its `do`
+  // side steps start (the lines over it) and the leaves rise, timed to be up when he gets there (its dur at most). The
+  // city's cars are held off the span and its approaches until he is over. `jump`: the hero shot when his car leaves the
+  // rising leaf (controllers.js's leap): slow motion over the gap (scale, the share of real time), the lens flying
+  // alongside the car (side 'right' by default, out, ahead (behind it when negative), up m, fov, lead), the far bank's
+  // towers behind it, the car lit by a lent key light (key), handed back once he lands (hold s after). Without near, jump or do: the plain cue (wait: the story waits)
+  STEPS.bridge = async (d, t) => {
+    const s = bridgeSpan(d);
+    if (!s || (!d.near && !d.jump && !(d.do && d.do.length))) { const p = bridgeCue(d); if (d.wait && p) await p; return; }
+    const B = bascules(), tok = M.tok, mx = (s.ax + s.bx) / 2, mz = (s.az + s.bz) / 2;
+    B.set(s.id, 0);
+    const run = (async () => {
+      if (d.near) {
+        await wait(() => dist(me(), mx, mz) < d.near, tok);
+        // (the car he tails goes over first: it floors it (M.tailRush) till it is off the far end; if it is not over by
+        // the time he is LAST_CALL m from the nearer hinge (he caught it up, or passed it), it is put just across: it
+        // made it, the leaves rise behind it)
+        const side = Math.sign((me().x - mx) * s.ux + (me().z - mz) * s.uz) || -1;
+        const over = (p) => ((p.x - mx) * s.ux + (p.z - mz) * s.uz) * side < -(s.L / 2 + 8);
+        const hinge = () => Math.min(dist(me(), s.ax, s.az), dist(me(), s.bx, s.bz));
+        M.tailRush = 34;
+        try {
+          await wait(() => {
+            const T = M.tail; if (!T || !T.pos || over(T.pos)) return true;
+            if (hinge() > (d.lastCall ?? BRIDGE_LAST_CALL)) return false;
+            for (let k = Math.max(0, T.s || 0); k < T.length; k += 2) { const q = T.at(k); if (q && over(q)) { T.place(k + 10); M.log.push(['bridge', 'tail put over']); break; } }
+            return true;
+          }, tok);
+        } finally { M.tailRush = 0; }
+      }
+      sfx.play('bell', { gain: 0.3, times: 8 });
+      juice.alert(d.alert ? tokens(d.alert) : 'Bridge going up', { sub: 'The gates are down. The leaves are rising.', tone: 'yellow', secs: 2.4 });
+      for (const x of d.do || []) side(x, tok, true);
+      // (up by the time he gets there: his way to the nearer hinge at his speed, never longer than its dur)
+      let dur = d.dur ?? 8;
+      const lead = d.near ? 0.5 : 1.1;
+      if (d.near) { const hd = Math.min(dist(me(), s.ax, s.az), dist(me(), s.bx, s.bz)); dur = clamp((hd / Math.max(10, Math.abs(car.speed || 0))) * 0.8 - lead, 1.2, dur); }
+      // (the city's cars off the span and 70 m of road either side of it, till he is over: a queue at the gate in his lane)
+      if (d.near || d.jump) {
+        const rects = [];
+        for (let a = -70; a <= s.L + 70; a += 12) { const x = s.ax + s.ux * a - s.uz * ((s.lo + s.hi) / 2), z = s.az + s.uz * a + s.ux * ((s.lo + s.hi) / 2), r = Math.max(8, (s.hi - s.lo) / 2 + 3); rects.push({ minX: x - r, maxX: x + r, minZ: z - r, maxZ: z + r }); }
+        try { app.trafficSystem.hold?.(rects); } catch {}
+        // (let go 30 s on, or once he is over and 40 m on past the far end)
+        const t1 = now(), along = () => (me().x - mx) * s.ux + (me().z - mz) * s.uz, from = Math.sign(along()) || -1;
+        wait(() => now() - t1 > 30000 || along() * from < -(s.L / 2 + 40), tok)
+          .catch(() => {}).finally(() => { try { app.trafficSystem.hold?.([]); } catch {} });
+      }
+      if (d.jump) jumpShot(s, d.jump === true ? {} : d.jump, tok);
+      return B.raise(s.id, { to: d.to ?? 70, dur, delay: d.delay || 0, ease: d.ease, gateLead: lead, clearMax: d.near ? 1.5 : 5 });
+    })().catch((e) => { if (!(e instanceof Stop)) console.warn('[storyrun] bridge', e); });
+    if (d.wait) await run;
+  };
+  // the hero shot over the gap (STEPS.bridge's jump): once, the first time his car leaves this span's leaf
+  function jumpShot(s, o, tok) {
+    let D = null, start = 0, landed = 0, p0 = null;
+    const scale = clamp(o.scale ?? 0.32, 0.12, 0.9), side0 = o.side === 'left' ? -1 : 1;
+    // (the HUD away for the shot, as a cutscene's, and back with the camera)
+    const release = () => { if (D) { const d0 = D; D = null; keyL.intensity = 0; d0.release(o.release ?? 0.45).catch?.(() => {}); if (!W.cutscene) ui.cine(false); } };
+    wait(() => {
+      const L = car.leap;
+      if (!D) {
+        if (!(L && inCar() && (L.span == null || L.span === s.id))) return false;
+        // (slow motion for about its time in the air: up and down again at its vertical speed, a little more)
+        const air = 2 * Math.max(1, L.vy) / 9.81 + 0.35;
+        try { W.crash?.slowmo?.(Math.min(7, (air / scale) * 0.8), scale); } catch {}
+        start = now(); p0 = { x: car.position.x, y: car.position.y, z: car.position.z, h: car.heading };
+        // (his right is (-fz, fx): x east, z south)
+        const fx = Math.sin(p0.h), fz = Math.cos(p0.h), rx = -fz * side0, rz = fx * side0;
+        // (the lens: `ahead` m along his way from the car (behind it when negative), `out` m to its side, `up` m over
+        // the lip's height (under it when negative: the car against the lit towers and the sky); it flies alongside the
+        // car (track, the default) or stands where the car left the leaf (track: false), and looks `lead` m ahead of it)
+        const ahead = o.ahead ?? -6, out = o.out ?? 14, up = o.up ?? 0, lead = o.lead ?? 6, track = o.track !== false;
+        const lensAt = (q) => (track ? [q.x + fx * ahead + rx * out, Math.max(q.y, p0.y) + up, q.z + fz * ahead + rz * out] : [p0.x + fx * ahead + rx * out, p0.y + up, p0.z + fz * ahead + rz * out]);
+        D = createDirector(W); D.take(); ui.cine(true);
+        D.camera = { pos: lensAt(p0), look: [p0.x + fx * lead, p0.y + 0.9, p0.z + fz * lead], fov: o.fov ?? 44, roll: 0 };
+        // (a black car over a dark river at night reads only by its lamps: the cutscenes' key light (keyL, in the scene from
+        // the start, nothing rebuilt) lent to it, cool as the moon, over it on the lens's side; `key` its strength)
+        keyL.color.set('#C8D6FF'); keyL.distance = 16; keyL.intensity = o.key ?? 60;
+        // (the far bank's bridge houses stand at the far hinge: the lens flies with the car only as far as FAR_STOP m short
+        // of it, then holds there over the river and cranes up CRANE m, so it looks over the houses at the landing)
+        const farHinge = Math.max(((s.ax - p0.x) * fx + (s.az - p0.z) * fz), ((s.bx - p0.x) * fx + (s.bz - p0.z) * fz));
+        const FAR_STOP = 4, CRANE = 6;
+        let hold = null, lift = 0;
+        D.onFrame = (dt = 1 / 60) => { const q = car.position; let L0 = lensAt(q);
+          if (track && !hold && (L0[0] - p0.x) * fx + (L0[2] - p0.z) * fz > farHinge - FAR_STOP) hold = L0;
+          if (hold) { L0 = hold; lift += (CRANE - lift) * Math.min(1, dt * 2.5); }
+          D.camera.pos = [L0[0], L0[1] + lift, L0[2]]; D.camera.look = [q.x + fx * lead, q.y + 0.9, q.z + fz * lead];
+          keyL.position.set(q.x + rx * out * 0.45 - fx * 2, q.y + 3.5, q.z + rz * out * 0.45 - fz * 2); };
+        M.log.push(['jump', s.name, +L.vy.toFixed(1), +(car.speed || 0).toFixed(1)]);
+        W.jumpShot = { span: s.id, at: performance.now(), vy: L.vy, speed: car.speed, lens: D.camera.pos };
+        return false;
+      }
+      if (!landed && !L) landed = now();
+      // (held a beat on the landing, then handed back; never longer than 9 s)
+      if ((landed && now() - landed > (o.hold ?? 0.6) * 1000) || now() - start > 9000) { if (W.jumpShot) W.jumpShot.landed = { at: performance.now(), x: car.position.x, z: car.position.z, wet: !!car.wet }; release(); return true; }
+      return false;
+    }, tok).catch(() => release());
+  }
   STEPS.cutscene = async (d, t) => {
     await wrapSpan(t);
+    if (d.bridge) bridgeCue(d.bridge); // (the M8 jump's leaves rising under the shots)
     if (d.place) { const p = placeOf(d.place); putPlayer(p, inCar() ? 'car' : 'walk'); }
     // (in a set: its room and its people; else on the street with the traffic held)
     if (d.set && typeof d.set === 'object') {
@@ -2772,7 +2905,8 @@ export function createRunner(ctx) {
         const dd = dist(me(), D.pos.x, D.pos.z);
         // (rules.js tailRule: a fair start, it waits for him rolling in a car, or 10 s; then too close / too far)
         const r = tailRule(S, { dd, held: (D.v || 0) < 3, rolling: inCar() && Math.abs(car.speed) > 2.5, ring: d.ring, lostDist: d.lostDist, speed: d.speed, spotTime: d.spotTime, lostTime: d.lostTime }, dt);
-        D.step(dt, r.want);
+        // (a bridge going up ahead (STEPS.bridge): it floors it to be over before the leaves rise, M.tailRush m/s)
+        D.step(dt, M.tailRush ? Math.max(r.want, M.tailRush) : r.want);
         gps.blip('tail', { x: D.pos.x, z: D.pos.z, kind: 'enemy', edge: true, name });
         // (the metres the followed car has left, told to a framing GameMog each second: a long tail is progress, not stuck)
         if (tt - lastLeft > 1000) { lastLeft = tt; host.tell('progress', { mission: M.def.id, step: d.id || null, kind: 'tail', i: M.i, n: M.def.steps.length, left: Math.max(0, Math.round(D.length - D.s)) }); }
@@ -3589,6 +3723,8 @@ export function createRunner(ctx) {
       while (fe && +getComputedStyle(fe).opacity < 0.9 && performance.now() - t1 < 1500) await new Promise((r) => requestAnimationFrame(r));
     }
     if (cp?.pin) pinTo(cp.pin); else if (own) pinTo(own); else setTime(def0.dressing ? (def0.dressing.time || 'day') : null);
+    missionWeather(def, toHour);
+    bridgesDown(); // (a raised river bridge is back down for a new start or a retry: bascule.js)
     if (hourFade) { await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))); try { await ui.fade(0, HOUR_FADE[1]); } catch {} }
     M.live = true;
     // (the title card, unless the mission's first scene draws its own: Mog City's opening ends on ACT I · BAGGED)

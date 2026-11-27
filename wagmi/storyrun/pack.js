@@ -26,7 +26,7 @@ const WEARS = new Set(['rider']);
 export const STEP_KINDS = new Set(['drive', 'stops', 'walk', 'pursuit', 'timer', 'call', 'voicemail', 'voicenote', 'choice', 'cutscene',
   'place', 'set', 'say', 'wait', 'goto', 'end', 'label', 'transition', 'vignette', 'wallet', 'actEnd', 'comfort', 'tail',
   'stealth', 'patrol', 'convoy', 'trigger', 'beat', 'roadblock', 'passenger', 'npc', 'fight', 'dm', 'search', 'scene', 'tow', 'ally', 'car',
-  'collect', 'mount', 'dismount', 'herd', 'sneak', 'flee', 'drove', 'track', 'ambush', 'ride', 'vcall']);
+  'collect', 'mount', 'dismount', 'herd', 'sneak', 'flee', 'drove', 'track', 'ambush', 'ride', 'vcall', 'bridge']);
 // the steps that ride the horse (a world whose car is a car rides one alongside it: wagmi/game.js the two rides)
 export const HORSE_STEPS = new Set(['mount', 'ride']);
 /** A world's horse alongside its car: { label } (its `horse`, else Ranger), or null (no step rides one, or its car is the horse). */
@@ -85,6 +85,9 @@ export function storyHour(def) {
 }
 
 export const BLACKOUTS = ['midtown', 'downtown', 'manhattan'];
+// the weather round the camera a mission may ask for (js/weather.js): its own `weather`, or the world's
+// dressing.nightWeather for each mission at night or dusk that names none (runner.js missionWeather)
+export const WEATHERS = ['clear', 'drizzle', 'rain', 'mist', 'wind'];
 export function asksDressing(d) {
   if (!d || typeof d !== 'object') return false;
   return BLACKOUTS.includes(d.blackout) || (Array.isArray(d.holiday) && d.holiday.includes('christmas')) || ['snow', 'rain', 'storm'].includes(d.weather);
@@ -273,6 +276,15 @@ export function check(w) {
       if (s.type === 'convoy' && !(Array.isArray(s.route) && s.route.length >= 2)) bad(`${m.id} ${at}[${i}]: convoy route`);
       if (s.type === 'ally' && s.to !== 'player' && !(typeof s.to === 'string' || (s.to && typeof s.to === 'object'))) bad(`${m.id} ${at}[${i}]: ally to`);
       if (s.type === 'roadblock' && !s.at) bad(`${m.id} ${at}[${i}]: roadblock at`);
+      // (a river bridge's leaves: cities/sf/js/bascule.js, a step or a cutscene's cue { at, to: 0-80 deg, dur: s })
+      for (const cue of [s.type === 'bridge' ? s : null, s.type === 'cutscene' ? s.bridge : null]) {
+        if (cue == null) continue;
+        if (typeof cue !== 'object' || Array.isArray(cue) || (cue.to != null && !(cue.to >= 0 && cue.to <= 80)) || (cue.dur != null && !(cue.dur > 0 && cue.dur <= 60))
+          || (cue.delay != null && !(cue.delay >= 0 && cue.delay <= 60))) bad(`${m.id} ${at}[${i}]: bridge (to 0-80 deg, dur up to 60 s)`);
+        // (the set piece's: near, m; jump, true or the hero shot's { scale, side, ahead, out, up, fov, hold })
+        if (cue === s && ((s.near != null && !(s.near >= 20 && s.near <= 600)) || (s.jump != null && typeof s.jump !== 'boolean' && (typeof s.jump !== 'object' || Array.isArray(s.jump) || (s.jump.scale != null && !(s.jump.scale >= 0.12 && s.jump.scale <= 0.9)) || (s.jump.side != null && !['left', 'right'].includes(s.jump.side))))))
+          bad(`${m.id} ${at}[${i}]: bridge (near 20-600 m; jump true or { scale 0.12-0.9, side left or right })`);
+      }
       if (s.type === 'convoy' && s.band != null && !(Array.isArray(s.band) && s.band.length === 2 && s.band[0] < s.band[1])) bad(`${m.id} ${at}[${i}]: convoy band`);
       for (const e of creatureStep(s, w.city || 'ny')) bad(`${m.id} ${at}[${i}]: ${e}`);
       shapes(s.during, `${at}[${i}].during`);
@@ -283,6 +295,7 @@ export function check(w) {
     for (const [i, s] of m.steps.entries()) if (s && s.checkpoint != null && typeof s.checkpoint !== 'boolean') bad(`${m.id} steps[${i}]: checkpoint (true or false)`);
     for (const e of siteErrors(m)) bad(`${m.id} ${e}`);
     if (m.vehicle != null && typeof m.vehicle !== 'string') bad(`${m.id}: vehicle`);
+    if (m.weather != null && !WEATHERS.includes(m.weather)) bad(`${m.id}: weather (one of ${WEATHERS.join(', ')})`);
   }
   if (!Array.isArray(w.acts) || !w.acts.length) bad('acts');
   // (the world's UI theme, wagmi/storyrun/theme.js: { theme: 'glass' }; none, Mog City's own look)
@@ -335,6 +348,7 @@ export function check(w) {
     if (typeof d !== 'object' || Array.isArray(d)) bad('dressing');
     else {
       for (const k of ['time', 'season', 'weather']) if (d[k] != null && (typeof d[k] !== 'string' || !/^[a-z-]{1,24}$/.test(d[k]))) bad(`dressing.${k}`);
+      if (d.nightWeather != null && !WEATHERS.includes(d.nightWeather)) bad(`dressing.nightWeather (one of ${WEATHERS.join(', ')})`);
       if (d.blackout != null && !BLACKOUTS.includes(d.blackout)) bad('dressing.blackout');
       if (d.apocalypse != null && d.apocalypse !== false && (!APOCALYPSE.includes(d.apocalypse) || w.city !== 'sf')) bad('dressing.apocalypse: San Francisco only (true, dusk, day or night)');
       if (d.holiday != null && (!Array.isArray(d.holiday) || d.holiday.some((h) => typeof h !== 'string' || !/^[a-z-]{1,24}$/.test(h)))) bad('dressing.holiday');

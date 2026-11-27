@@ -255,6 +255,8 @@
         shared('vehicle-lights.js'),
         shared('pedestrians.js'),
         sf('lighting.js'),
+        // (the weather round the camera: drizzle, rain, river mist, lakefront wind; off unless asked, js/weather.js)
+        shared('weather.js'),
         sf('terrain-mesh.js'),
         sf('region.js'),
         // (the far field for a town from GameMog too: without it a ?town= booted on the old 60 km sea plane)
@@ -271,6 +273,8 @@
         sf('road-network.js'),
         sf('road-paint.js'),
         sf('grade-separation.js'),
+        // (Chicago's river bridges as trunnion bascules: rising leaves, bridge houses, the M8 jump; a town that asks only)
+        sf('bascule.js'),
         sf('traffic.js'),
         sf('sf-transit.js'),
         shared('drive-model.js'),
@@ -299,6 +303,7 @@
         './js/vehicle-lights.js',
         './js/pedestrians.js',
         './js/lighting.js',
+        './js/weather.js',
         './js/city-grid.js',
         './js/boroughs.js',
         './js/fire-escapes.js',

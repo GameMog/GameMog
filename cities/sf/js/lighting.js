@@ -374,6 +374,8 @@ class LightingSystem {
     this.scene.environmentIntensity = p.envIntensity;
     this.bakeEnvironmentMap();
     this.setFogPreset(this.fogPreset);
+    // (js/weather.js: the weather's share of the sky, the haze and the road's dampness, on the preset's own values)
+    if (window.NYC.weatherSky) window.NYC.weatherSky(this, 'apply');
   }
 
   setFogPreset(id) {
@@ -390,6 +392,7 @@ class LightingSystem {
     const p = TIME_PRESETS[this.activePresetId] || TIME_PRESETS.golden;
     const within = this.fogPreset === 'marine' && focusPos ? 1 - Math.max(0, Math.min(1, (focusPos.y - this.uLayerTop.value + 40) / 80)) : 0;
     this.sunLight.intensity = p.sunIntensity * (1 - within * 0.68);
+    if (window.NYC.weatherSky) window.NYC.weatherSky(this, 'update'); // (js/weather.js: the sun let through the cloud)
     this.sky.showSunDisc.value = 1 - within * 0.8;
     // SunLightShadow automatically fits & texel-snaps its 2 cascades to the view camera frustum
     // every frame inside SunShadowNode.renderShadow(), splitting [near, far] halfway between a uniform and a
