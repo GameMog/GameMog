@@ -110,5 +110,9 @@ a line, a text or a scene. These are first targets: a test drive of each mission
    the world names them like any other body, by content address (`/storykit/f/<sha256>.glb`), served from the private
    store to a signed-in player; the pack itself needs no change. The side cast is forged from `sheets/`
    (`node scripts/forge/forge.mjs <out> storykit/showcase/mandis-revenge/sheets/<id>.json`).
-3. **The voices** (`LINES.md`), the art (cover, wide, icon, the headshot sky), the record and the migration, as Jensen
-   Return's.
+3. **The voices** (`LINES.md`), the art (cover, wide, icon, the headshot sky) and the record, as Jensen Return's. The
+   migration is written and waits for them: `deploy/migrate.mjs` `2026-11-27-mandis-revenge` publishes the game HIDDEN
+   from `deploy/migrations/mandis-revenge-story.json` and `mandis-revenge/world.json`, the side cast from
+   `deploy/migrations/mandis-revenge/cast/`, and Mandi's and Jay's bodies (record rows `src: 'private:<sha256>.glb'`)
+   from the server's own `data/storykit-private/<sha256>.glb`, never from the repo; until all are there it is tried
+   again at each boot and never recorded. The record exporter (`storykit-showcase-mandi.ts --export`) is still to write.
