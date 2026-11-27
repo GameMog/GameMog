@@ -138,6 +138,7 @@ function buildRoadNetwork(sidewalks, obstacles) {
       links.push({ li, a, b, name: RG.names[ni], w, lanes, dir, pts, len, tunnel: (flags & 2) !== 0, crooked: (flags & 64) !== 0,
         lf: lf ?? -1, lb: lb ?? -1, elev: Array.isArray(elev) && elev.length > 2 ? elev : null });
     });
+    if (window.NYC.PKG) joinThrough(links);
     const parent = pos.map((_, i) => i);
     const find = (i) => (parent[i] === i ? i : (parent[i] = find(parent[i])));
     for (const l of links) if (l.len < JUNCTION_MERGE) parent[find(l.a)] = find(l.b);
@@ -155,6 +156,42 @@ function buildRoadNetwork(sidewalks, obstacles) {
         s.rg.push(i);
         sum.set(r, s);
       }
+    }
+    // (a Hometown package) A node where only two links of one street meet, the same street on both sides (its width,
+    // lanes and direction of travel), is no junction: the data splits a street where a crosswalk or footway meets it,
+    // often 8-9 m short of the real corner. As a node of its own it became a shape node (bends()), the link from it to
+    // the corner was squeezed between them, and a car waiting at its stop line stood in the crossing road, so that
+    // link was dropped (inTheWay) and the whole one-way street with it (7.): Wells, LaSalle and Clark from Monroe to
+    // Van Buren in Chicago's Loop had no lanes at all, so every route went round. The two links are joined into one
+    // through it (its bends become stations as any link's do). Not through a node with a signal or a stop, on a
+    // tunnel, a deck or Lombard's crooked block
+    function joinThrough(list) {
+      const at = new Map();
+      for (const l of list) for (const i of [l.a, l.b]) at.set(i, [...(at.get(i) || []), l]);
+      const flip = (l) => ({ ...l, a: l.b, b: l.a, dir: -l.dir, lf: l.lb, lb: l.lf, pts: l.pts.slice().reverse(), liA: l.liB ?? l.li, liB: l.liA ?? l.li });
+      const same = (p, q) => p.name === q.name && p.dir === q.dir && Math.abs((p.w || 0) - (q.w || 0)) < 0.15 && p.lanes === q.lanes &&
+        p.lf === q.lf && p.lb === q.lb;
+      const plain = (l) => !l.tunnel && !l.elev && !l.crooked && l.a !== l.b;
+      const quiet = (i) => !(RG.control && RG.control[i]) && !(RG.stopMask && RG.stopMask[i]);
+      let joined = 0;
+      for (const [i, ls] of at) {
+        if (ls.length !== 2 || ls[0] === ls[1] || !quiet(i) || !ls.every(plain)) continue;
+        // (p arrives at the node, q leaves it)
+        const p = ls[0].b === i ? ls[0] : flip(ls[0]);
+        const q = ls[1].a === i ? ls[1] : flip(ls[1]);
+        if (p.a === q.b || !same(p, q)) continue;
+        // (the street goes on through it, bending less than 35° (bends()))
+        const u = p.pts[p.pts.length - 2], v = q.pts[1];
+        const ux = pos[i].x - u.x, uz = pos[i].z - u.z, vx = v.x - pos[i].x, vz = v.z - pos[i].z;
+        if (ux * vx + uz * vz < 0.82 * Math.hypot(ux, uz) * Math.hypot(vx, vz)) continue;
+        const m = { ...p, b: q.b, pts: [...p.pts, ...q.pts.slice(1)], len: p.len + q.len, liA: p.liA ?? p.li, liB: q.liB ?? q.li };
+        for (const l of [ls[0], ls[1]]) list.splice(list.indexOf(l), 1);
+        list.push(m);
+        for (const e of [m.a, m.b]) at.set(e, at.get(e).map((l) => (l === ls[0] || l === ls[1] ? m : l)));
+        at.set(i, []);
+        joined++;
+      }
+      if (window.NYC.DEBUG_ROADS !== false) console.info(`[roads] ${joined} pass-through nodes joined`);
     }
     const junctions = new Map();
     // (a Hometown package: a junction joined from several nodes stands where its widest road's nodes are, not at the
@@ -305,8 +342,9 @@ function buildRoadNetwork(sidewalks, obstacles) {
           crooked: l.crooked,
           // the centreline node & link where traffic arrives at a junction: its far end going forwards, its near end
           // going back
-          arriveFwd: k + 2 === stations.length ? { node: l.b, link: l.li } : null,
-          arriveBack: k === 0 ? { node: l.a, link: l.li } : null
+          // (a link joined through a pass-through node: the link at each end, joinThrough())
+          arriveFwd: k + 2 === stations.length ? { node: l.b, link: l.liB ?? l.li } : null,
+          arriveBack: k === 0 ? { node: l.a, link: l.liA ?? l.li } : null
         });
       }
     }
