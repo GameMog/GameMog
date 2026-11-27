@@ -2649,6 +2649,29 @@ export const MIGRATIONS = [
       return '/g/mandis-revenge: art_wide is cover B';
     },
   },
+  {
+    // 27 Nov: 2026-11-27-mandis-revenge-thumb made art_wide byte-identical to the cover, which titleStoryArt
+    // (lib/storykit-publish.ts) reads as a plain frame: the first request for the cover titled it again, over its own
+    // lettering, and redid the icon the same way. art_wide becomes cover B re-saved (deploy/migrations/mandis-revenge-wide-3.jpg:
+    // the same picture, other bytes, so it is never titled again) and the icon is put back. Only over cover B or the
+    // double-titled pair it made: art the owner has changed since is left alone.
+    id: '2026-11-27-mandis-revenge-thumb-2',
+    run(db) {
+      const wide = file('mandis-revenge-wide-3.jpg'), icon = file('mandis-revenge-icon.jpg');
+      if (!wide || !icon) throw new Error('deploy/migrations/mandis-revenge-{wide-3,icon}.jpg are not in this build');
+      const sha = (b) => createHash('sha256').update(b).digest('hex');
+      if (sha(wide) !== '292c39e399752cd583cb99bc8976432491dc15ef16421573adb0e8f5a2024440') throw new Error('mandis-revenge-wide-3.jpg is not cover B re-saved');
+      if (sha(icon) !== '8cd9bed792026ef0ec1081332c4c57e01804081df359fbac1a691724ceb2f761') throw new Error('mandis-revenge-icon.jpg is not the icon');
+      const g = db.prepare("SELECT id, art_wide, art_icon FROM games WHERE slug = 'mandis-revenge'").get();
+      if (!g) return 'left alone: no /g/mandis-revenge';
+      const w = g.art_wide ? sha(g.art_wide) : null, i = g.art_icon ? sha(g.art_icon) : null;
+      const okWide = ['4002bc72021083b902d8cc93879a1d9b02ad8af4370e411b48cdfc10960fbe8a', '2b7433185dc0c5be3ce1d55167115a9df1f55ae627f1ab8d3a4f8256f35a91fe'];
+      const okIcon = ['8cd9bed792026ef0ec1081332c4c57e01804081df359fbac1a691724ceb2f761', '7a60c53cfbe968ea0fe9f0261e3bc6df64c1180372c6caae3a942d414b56fba8'];
+      if (!okWide.includes(w) || !okIcon.includes(i)) return `left alone: its art is not what the thumb migration left (wide ${w?.slice(0, 12)}, icon ${i?.slice(0, 12)})`;
+      db.prepare('UPDATE games SET art_wide = ?, art_icon = ? WHERE id = ?').run(wide, icon, g.id);
+      return '/g/mandis-revenge: art_wide is cover B (re-saved, never re-titled), the icon put back';
+    },
+  },
 ];
 
 /**
