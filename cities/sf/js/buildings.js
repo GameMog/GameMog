@@ -2207,6 +2207,15 @@ function buildCityBlocks(scene, opts = {}) {
         }
       }
     }
+    // (compiler 0.15.0) each building's highest roof, by its seed: a lower part's or tier's roof is a setback terrace (no
+    // plant room or water tower on it)
+    const seedTop = new Map();
+    if (FI.seed !== undefined) {
+      for (let i = 0; i < header.count; i++) {
+        const sd = table[i * F + FI.seed];
+        if (sd > 0) seedTop.set(sd, Math.max(seedTop.get(sd) ?? -Infinity, table[i * F + 1]));
+      }
+    }
     const polyGeos = [[], [], []]; // outlines by facade material (0 masonry, 1 painted, 2 brick & concrete; San Francisco: all 0)
     let massCount = 0;
 
@@ -2219,9 +2228,15 @@ function buildCityBlocks(scene, opts = {}) {
       // (a mall's part taller than a mall, a tower over its shops: drawn as any other block)
       const mall = PK && kind === 'mall' && roofRec - base < 20;
       const minH = PK ? rec[FI.minH] || 0 : 0;
+      // (compiler 0.15.0) a record's look seed (a hash of its building's row id, shared by the building's parts and its
+      // massing tiers, tools/hometown/massing.py): its walls, trim, facade style and curtain wall are its building's,
+      // and stay so when the compiler adds or drops records round it; an older package hashes the record's index
+      const seed = FI.seed !== undefined ? rec[FI.seed] || 0 : 0;
+      const hi = seed > 0 ? seed : i;
+      const terrace = seed > 0 && roofRec < (seedTop.get(seed) ?? roofRec) - 1;
       const look = PK ? PK.styleFor({
         kind, roofShape: header.roofShapes[rec[FI.roofShape]] || '', wall: header.walls[rec[FI.wall]] || '', wallRGB: rec[FI.wallRGB], roofRGB: rec[FI.roofRGB],
-        region: header.region, hash: (a) => hash(i, a)
+        region: header.region, hash: (a) => hash(hi, a)
       }) : null;
       // (a package house the region gives a flat roof: its walls up to the data's top, which the compiler split into eave
       // and roof)
@@ -2232,9 +2247,9 @@ function buildCityBlocks(scene, opts = {}) {
       const xs = pts.map((p) => p.x), zs = pts.map((p) => p.z);
       const minX = Math.min(...xs), maxX = Math.max(...xs), minZ = Math.min(...zs), maxZ = Math.max(...zs);
       const height = roof - base;
-      const tone = hash(i, base);
+      const tone = hash(hi, base);
       const vict = !PK && victorianBlock(type, height, (minX + maxX) * 0.5, (minZ + maxZ) * 0.5);
-      let { mat, paint } = styleOf(i, type, rec[FI.palette], rec[FI.era], rec[FI.facade], height, vict);
+      let { mat, paint } = styleOf(hi, type, rec[FI.palette], rec[FI.era], rec[FI.facade], height, vict);
       // (South Florida's condo and hotel blocks, the package region 'south-florida': balcony slabs on every storey over
       // pale balcony glass (most) or white / pastel painted concrete, never a dark curtain wall)
       const balcony = PK && header.region === 'south-florida' && kind !== 'church' && kind !== 'warehouse' && kind !== 'house' && kind !== 'rowhouse'
@@ -2453,7 +2468,7 @@ function buildCityBlocks(scene, opts = {}) {
       const crown = rec[2] - roof;
       if (top && topBox && crown > CROWN_MIN && (type === 'tower' || type === 'midrise' || type === 'landmark') && (!PK || look.roof === 'flat')) {
         window.NYC.sfCrown(details, blk, topBox, { roof, crown, storey: storeyH || storeys[mat], bucket: buckets[mat] });
-      } else if (top && top.w >= 6 && top.d >= 6 && !(type === 'rowhouse' || type === 'flats' || type === 'shed') && (!PK || look.roof === 'flat')) {
+      } else if (top && top.w >= 6 && top.d >= 6 && !terrace && !(type === 'rowhouse' || type === 'flats' || type === 'shed') && (!PK || look.roof === 'flat')) {
         // a bulkhead / mechanical penthouse on the largest roof (not on row houses, flats and sheds)
         const hw = Math.min(top.w - 1.2, Math.max(2.4, top.w * range(0.25, 0.45)));
         const hd = Math.min(top.d - 1.2, Math.max(2.4, top.d * range(0.25, 0.45)));
