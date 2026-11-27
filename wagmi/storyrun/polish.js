@@ -140,6 +140,8 @@ export function polishBody(inner, { msaa = typeof window === 'undefined' || wind
     } else if (cloth && !r8 && !noDetail() && fabricOf(m) && sizeOf(o.geometry) > 0.06) {
       n = weave(m, o, fabricOf(m)); out.weave = (out.weave || 0) + 1;
     }
+    // (the high quality lighting tier: skin and cloth layers, hqLayers above)
+    if (hqOn()) n = n.name === 'skin' && n !== m ? hqLayers(n, 'skin') : n !== m && n.userData?.fabric ? hqLayers(n, 'cloth') : n;
     if (n !== m) n.userData = { ...m.userData, ...n.userData, polished: true };
     done.set(m, n);
     return n;
@@ -481,11 +483,44 @@ class SkinLighting extends THREE.PhysicalLightingModel {
     const { lightDirection: L, lightColor, reflectedLight } = input, w = vec3(...POLISH.skin.wrap);
     const ndl = normalView.dot(L), wrapped = vec3(ndl).add(w).div(w.add(1).mul(w.add(1))).max(0), extra = wrapped.sub(ndl.max(0));
     reflectedLight.directDiffuse.addAssign(extra.mul(lightColor).mul(BRDF_Lambert({ diffuseColor: diffuseContribution })));
+    // (Mog City, the high quality lighting tier only, material.userData.hqSSS: light through thin skin seen against it,
+    // the ears and the nose's edge lit red with the sun behind them. The translucency term of three.js's
+    // MeshSSSNodeMaterial (SSSLightingModel, MIT), its thickness a constant: no thickness map on a forged body)
+    if (this.sss) {
+      const T = HQ_SKIN.sss, h = L.add(normalView.mul(T.distortion));
+      const d = positionViewDirection.dot(h.negate()).clamp(0, 1).pow(T.power).mul(T.scale);
+      reflectedLight.directDiffuse.addAssign(d.mul(lightColor).mul(diffuseContribution).mul(vec3(...T.color)));
+    }
   }
 }
+// (Mog City) the high quality lighting tier's skin and cloth layers (js/sky-occlusion.js window.NYC.HQL): the skin's
+// specular IOR 1.4 (F0 ~0.028) and a slight sheen kept, the light through it (sss); the cloth's sheen lobe (fibres
+// catching the light at grazing angles), its colour from the fabric's own
+const HQ_SKIN = { ior: 1.4, sss: { distortion: 0.25, power: 3, scale: 0.5, color: [1.0, 0.32, 0.22] } };
+const HQ_CLOTH = { sheen: 1, sheenRoughness: 0.6, tint: 0.6 };
+const hqOn = () => !!(typeof window !== 'undefined' && window.NYC?.HQL?.on?.());
 class SkinMaterial extends THREE.MeshPhysicalNodeMaterial {
   static get type() { return 'SkinMaterial'; }
-  setupLightingModel() { return new SkinLighting(this.useClearcoat, this.useSheen, this.useIridescence, this.useAnisotropy, this.useTransmission, this.useDispersion); }
+  setupLightingModel() {
+    const l = new SkinLighting(this.useClearcoat, this.useSheen, this.useIridescence, this.useAnisotropy, this.useTransmission, this.useDispersion);
+    l.sss = !!this.userData?.hqSSS;
+    return l;
+  }
+}
+// on the high tier: a finished skin or cloth material given its layers (in place: before its first draw)
+function hqLayers(n, kind) {
+  if (!hqOn() || !n || !n.isMeshPhysicalNodeMaterial) return n;
+  if (kind === 'skin') {
+    n.ior = HQ_SKIN.ior;
+    if (!(n.sheen > 0)) { n.sheen = 1; n.sheenColor = new THREE.Color(0.06, 0.035, 0.025); n.sheenRoughness = 0.75; }
+    if (n instanceof SkinMaterial) n.userData = { ...n.userData, hqSSS: true };
+  } else if (kind === 'cloth' && !(n.sheen > 0)) {
+    n.sheen = HQ_CLOTH.sheen;
+    n.sheenColor = (n.color ? n.color.clone() : new THREE.Color(1, 1, 1)).multiplyScalar(HQ_CLOTH.tint).addScalar(0.08);
+    n.sheenRoughness = HQ_CLOTH.sheenRoughness;
+  }
+  n.userData = { ...n.userData, hqLayers: kind };
+  return n;
 }
 
 const SKIN_KEYS = ['name', 'color', 'map', 'roughness', 'roughnessMap', 'metalness', 'metalnessMap', 'emissive', 'emissiveMap', 'emissiveIntensity', 'aoMap', 'aoMapIntensity',

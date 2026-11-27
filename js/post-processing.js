@@ -15,13 +15,19 @@ const LOOKS = {
 
 // (Mog City) options: the graphics tier's knobs (window.NYC.quality): bloomScale (the bloom's resolution, a share of
 // the canvas: 0.5 as built) and bloomStrength (a factor on every look's bloom: 1 as built)
+// (?tone=: the renderer's exposure for each, AgX matched to ACES's mean frame brightness over five scenes (25 Nov), Neutral not yet measured)
+const TONE_EXPOSURE = { agx: 0.95, neutral: 1.0 };
 function createPostProcessing(renderer, sceneColor, reflections, options = {}) {
   const bloomScale = options.bloomScale ?? 0.5;
   const bloomStrength = options.bloomStrength ?? 1;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  // (Mog City: ?tone=agx | neutral tries three's AgX or Khronos PBR Neutral in place of ACES, this load only, for a look
+  // at them side by side; the exposure set so the frame's overall brightness matches ACES's. Default: ACES as ever)
+  const tone = (() => { try { return new URLSearchParams(location.search).get('tone'); } catch (e) { return null; } })();
+  const TONES = { agx: [THREE.AgXToneMapping, TONE_EXPOSURE.agx], neutral: [THREE.NeutralToneMapping, TONE_EXPOSURE.neutral] };
+  renderer.toneMapping = TONES[tone] ? TONES[tone][0] : THREE.ACESFilmicToneMapping;
   // Exposure is applied before bloom so its threshold follows the image's exposed brightness.
   // RenderPipeline performs ACES and the output color-space conversion exactly once, after this graph.
-  renderer.toneMappingExposure = 1.0;
+  renderer.toneMappingExposure = TONES[tone] ? TONES[tone][1] : 1.0;
 
   const exposure = uniform(1.0);
   const contrast = uniform(1.0);

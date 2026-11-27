@@ -1723,17 +1723,20 @@ function createLoftedCarMaterial(spec, fixedColorHex = null) {
   });
 
   // ---- Roughness & metalness (glossy clearcoat with tight sun highlight & strong SSR/IBL reflection) ---------------
-  const paintRough = mix(float(0.11), float(0.16), isMetallic);
-  const paintMetal = mix(float(0.32), float(0.42), isMetallic).add(fresnel.mul(0.14));
+  // (Mog City, the high quality lighting tier, js/sky-occlusion.js; after Ben Houston's enhanced Slop New York a53ddb3, MIT:
+  // the paint a slightly rough coloured base, never a metal, under a glossy clearcoat that shines and reflects the street)
+  const HQ = !!(window.NYC.HQL && window.NYC.HQL.on() && !window.NYC.HQL.dbg.has('nocars'));
+  const paintRough = HQ ? mix(float(0.5), float(0.4), isMetallic) : mix(float(0.11), float(0.16), isMetallic);
+  const paintMetal = HQ ? float(0.0) : mix(float(0.32), float(0.42), isMetallic).add(fresnel.mul(0.14));
 
   const roughFn = Fn(() => {
     const r = float(0.78).toVar();
     If(isBody.greaterThan(0.5), () => {
       const lowMatte = smoothstep(sillY + 0.10, sillY - 0.01, p.y).mul(0.16);
-      r.assign(paintRough.add(lowMatte));
+      r.assign(HQ ? paintRough : paintRough.add(lowMatte)); // (HQ: the road film dulls the coat instead, below)
     }).ElseIf(isWindow.greaterThan(0.5), () => {
       const { glass, seal } = evalWindowGlass();
-      r.assign(mix(mix(paintRough, float(0.78), seal), float(0.08), glass));
+      r.assign(mix(mix(paintRough, float(0.78), seal), float(HQ ? 0.02 : 0.08), glass));
     }).ElseIf(isAlloyFace.greaterThan(0.5), () => {
       r.assign(mix(float(0.22), float(0.52), isPolice));
     }).ElseIf(isMirror.greaterThan(0.5), () => {
@@ -1800,13 +1803,30 @@ function createLoftedCarMaterial(spec, fixedColorHex = null) {
     return emit;
   });
 
-  const mat = new THREE.MeshStandardNodeMaterial();
+  const mat = HQ ? new THREE.MeshPhysicalNodeMaterial() : new THREE.MeshStandardNodeMaterial();
   mat.envMapIntensity = 1.35;
   if (fixed) mat.userData.carState = stateUniform;
   mat.colorNode = colorFn();
   mat.roughnessNode = roughFn();
   mat.metalnessNode = metalFn();
   mat.emissiveNode = emissiveFn();
+  if (HQ) {
+    // The clearcoat covers the paint only: not the glass, its seals, the mirror glass or the trim; road film on the
+    // sills dulls it
+    mat.clearcoatNode = Fn(() => {
+      const c = float(0.0).toVar();
+      If(isBody.greaterThan(0.5), () => { c.assign(1.0); })
+        .ElseIf(isWindow.greaterThan(0.5), () => { const { glass, seal } = evalWindowGlass(); c.assign(one.sub(seal).mul(one.sub(glass))); })
+        .ElseIf(isMirror.greaterThan(0.5), () => { c.assign(one.sub(smoothstep(0.45, 0.65, n.z.negate()))); });
+      return c;
+    })();
+    mat.clearcoatRoughnessNode = Fn(() => {
+      const r = float(0.04).toVar();
+      If(isBody.greaterThan(0.5), () => { r.assign(float(0.04).add(smoothstep(sillY + 0.10, sillY - 0.01, p.y).mul(0.16))); });
+      return r;
+    })();
+    if (!window.NYC.HQL.dbg.has('nocarao')) window.NYC.HQL.applyOpen(mat, null, { bounce: false });
+  }
 
   _carMaterialCache.set(cacheKey, mat);
   return mat;

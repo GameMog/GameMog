@@ -219,7 +219,7 @@ function setupSceneCulling(scene, roots, shadow = null, quality = {}) {
           if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
           sphere = o.geometry.boundingSphere.clone().applyMatrix4(o.matrixWorld);
         }
-        culled.push({ mesh: o, x: sphere.center.x, y: sphere.center.y, z: sphere.center.z, r: sphere.radius, d: staticFar });
+        culled.push({ mesh: o, x: sphere.center.x, y: sphere.center.y, z: sphere.center.z, r: sphere.radius, d: staticFar, far: true });
         stats.farStatic = (stats.farStatic || 0) + 1;
       });
     }
@@ -384,11 +384,11 @@ function setupSceneCulling(scene, roots, shadow = null, quality = {}) {
     stats.chunks += chunks.length;
     const far = culled.findIndex((c) => c.mesh === mesh);
     if (far < 0) continue;
-    const d = culled[far].d;
+    const d = culled[far].d, isFar = culled[far].far;
     culled.splice(far, 1);
     for (const chunk of chunks) {
       const sphere = chunk.boundingSphere.clone().applyMatrix4(chunk.matrixWorld);
-      culled.push({ mesh: chunk, x: sphere.center.x, y: sphere.center.y, z: sphere.center.z, r: sphere.radius, d });
+      culled.push({ mesh: chunk, x: sphere.center.x, y: sphere.center.y, z: sphere.center.z, r: sphere.radius, d, ...(isFar ? { far: true } : {}) });
     }
   }
 
@@ -409,5 +409,29 @@ function updateSceneCulling(cameraPosition) {
   }
 }
 
-Object.assign(window.NYC, { setupSceneCulling, updateSceneCulling, SHADOW_PROXY_LAYER });
+// (Mog City, the high quality lighting tier's hero probe, js/sky-occlusion.js; after Ben Houston's enhanced Slop New York
+// 7f4a50e, MIT) A face of the probe is a 128 px view, where a metre is a pixel at 64 m: it is drawn without the prop
+// chunks it could not show (beyond PROBE_PROP_RANGE m of their bounds) and without the far static city (the outer
+// boroughs' buildings and the bridges), which were most of its draw calls. hideFromProbe(position) hides them for one
+// render, showAfterProbe() puts back what it hid.
+const PROBE_PROP_RANGE = 60;
+const _probeHidden = [];
+function hideFromProbe(position) {
+  const { x, y, z } = position;
+  for (const c of state.culled) {
+    if (!c.mesh.visible) continue;
+    if (!c.far) { // (the far static city's entries, staticFar, at any distance)
+      const dx = c.x - x, dy = c.y - y, dz = c.z - z;
+      if (Math.sqrt(dx * dx + dy * dy + dz * dz) - c.r < PROBE_PROP_RANGE) continue;
+    }
+    c.mesh.visible = false;
+    _probeHidden.push(c.mesh);
+  }
+}
+function showAfterProbe() {
+  for (const m of _probeHidden) m.visible = true;
+  _probeHidden.length = 0;
+}
+
+Object.assign(window.NYC, { setupSceneCulling, updateSceneCulling, hideFromProbe, showAfterProbe, SHADOW_PROXY_LAYER });
 })();

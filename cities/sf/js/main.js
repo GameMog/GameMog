@@ -305,6 +305,12 @@ async function initApp() {
   markInit('blocks');
   await breathe();
   const allColliders = [...landmarkColliders, ...cityBlocks.colliders, ...(cityGrid.colliders || [])];
+  // (Mog City, the high quality lighting tier only: the buildings' height map for the sky occlusion, js/sky-occlusion.js:
+  // San Francisco's or a Hometown town's, framed round its buildings; a streamed tile's are added as it loads)
+  if (window.NYC.HQL && window.NYC.HQL.on()) {
+    window.NYC.HQL.build(allColliders, { skip: new Set(bridges.colliders) });
+    markInit('skyOcclusion');
+  }
 
   // The road network (road-network.js), for the street furniture & the traffic built on it. Buildings turned along
   // non-grid streets have oriented colliders whose world bounds reach past their lots: they stay inside the property
@@ -408,6 +414,8 @@ async function initApp() {
   ssrPass.resolutionScale = 0.5;
   ssrPass.blurQuality = 1;
   ssrPass.maxDistance.value = 42;
+  // (Mog City, the high quality lighting tier: rays out to 120 m, as the enhanced Slop New York's; js/sky-occlusion.js)
+  if (window.NYC.HQL && window.NYC.HQL.on()) ssrPass.maxDistance.value = 120;
   ssrPass.thickness.value = 0.85;
   ssrPass.quality.value = 0.35;
   ssrPass.intensity.value = 0.50;
@@ -1245,6 +1253,7 @@ async function initApp() {
     lightingSystem.update(cameraSystem.currentPos, elapsed);
     if (weather) weather.update(dt, cameraSystem.camera);
     mapSystem.update();
+    if (window.NYC.HQL) window.NYC.HQL.update(lightingSystem.hemiLight, window.NYC.cityUniforms?.uCanyonBounce?.value);
     if (warmedUp) updateSceneCulling(cameraSystem.camera.position); // the warm-up frame draws every chunk
     if (cityGrid.terrain) cityGrid.terrain.update(cameraSystem.camera.position, elapsed);
 
@@ -1285,6 +1294,8 @@ async function initApp() {
       markInit('warmup');
     }
     renderPipeline.render();
+    // (Mog City, the high quality lighting tier only: a face of the player vehicle's reflection probe, after the frame)
+    if (warmedUp && window.NYC.HQL) window.NYC.HQL.heroUpdate(window.__NYC_APP);
     lastWork = performance.now() - workStart;
     if (warmedUp && window.__NYC_APP.ready && !autoDone) {
       autoSeconds += rawDt; autoFrames.push(rawDt * 1000);

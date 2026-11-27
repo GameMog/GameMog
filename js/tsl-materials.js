@@ -192,6 +192,16 @@ const canyonSkyAONode = Fn(() => {
   return mix(canyonAO, float(1.0), inPark);
 });
 
+// (Mog City) A city material's sky light: on the high quality lighting tier, the sky occlusion of the buildings' height
+// map in place of the canyon term above, the sky they hide filled with their bounce (js/sky-occlusion.js, after Ben
+// Houston's enhanced Slop New York); otherwise exactly the canyon term, as before. factor: the material's own occlusion
+const skyAO = (mat, factor = null) => {
+  const H = window.NYC.HQL;
+  if (H && H.on()) return H.apply(mat, () => canyonSkyAONode(), factor);
+  mat.aoNode = factor ? canyonSkyAONode().mul(factor) : canyonSkyAONode();
+  return mat;
+};
+
 // Material caches to prevent duplicate WebGPU WGSL shader compilation across blocks & landmarks
 const _curtainWallCache = new Map();
 const _preWarCache = new Map();
@@ -551,7 +561,7 @@ function createCurtainWallMaterial(opts = {}) {
   const cWarmLight = color(0xffe1a6);
   const cCanyonBounce = color(0xe89c68);
 
-  mat.aoNode = canyonSkyAONode();
+  skyAO(mat);
 
   // The facade cell and the apartment behind each pane are built once and shared by every output below, so the
   // shader carries a single copy of them (and evaluates the interior mapping once per pixel)
@@ -760,7 +770,7 @@ function createPreWarBuildingMaterial(opts = {}) {
   const halfWinX = (1.0 - windowRatioX) * 0.5;
   const halfWinY = (1.0 - windowRatioY) * 0.5;
 
-  mat.aoNode = canyonSkyAONode();
+  skyAO(mat);
 
   // The facade cell, the window opening and the apartment behind it are built once and shared by every output below,
   // so the shader carries a single copy of them (and evaluates the interior mapping once per pixel)
@@ -1228,6 +1238,14 @@ function createChryslerCrownMaterial() {
  */
 function createCarPaintMaterial(baseHex = 0xffc218) {
   if (_carPaintCache.has(baseHex)) return _carPaintCache.get(baseHex);
+  // (Mog City, the high quality lighting tier: a slightly rough coloured base, not a metal, under a glossy clearcoat, whose
+  // real reflections replace the sky and sun glints painted into the colour below; after Ben Houston's enhanced Slop New
+  // York a53ddb3, MIT)
+  if (window.NYC.HQL && window.NYC.HQL.on()) {
+    const hq = new THREE.MeshPhysicalNodeMaterial({ color: baseHex, metalness: 0, roughness: 0.5, clearcoat: 1, clearcoatRoughness: 0.04 });
+    _carPaintCache.set(baseHex, hq);
+    return hq;
+  }
   const mat = new THREE.MeshStandardNodeMaterial({
     metalness: 0.56,
     roughness: 0.11
@@ -1263,7 +1281,7 @@ function createFoliageMaterial() {
     roughness: 0.82
   });
 
-  mat.aoNode = canyonSkyAONode();
+  skyAO(mat);
 
   // Gentle breeze flutter + subtle tuft silhouette displacement
   mat.positionNode = Fn(() => {
@@ -1342,7 +1360,7 @@ function createTreeBarkMaterial() {
     roughness: 0.88
   });
 
-  mat.aoNode = canyonSkyAONode();
+  skyAO(mat);
 
   mat.colorNode = Fn(() => {
     const wp = positionWorld;
@@ -1496,7 +1514,7 @@ function createTreeMaterial(leafAtlas) {
   mat.normalNode = normalViewGeometry;
 
   // Sky light: street-canyon occlusion, deep inside the crown far less
-  mat.aoNode = canyonSkyAONode().mul(crownAO.mul(0.75).add(0.25));
+  skyAO(mat, crownAO.mul(0.75).add(0.25));
 
   // Light through the leaves: yellow-green, strongest out on the thin shell
   mat.translucencyNode = aData.xyz.mul(vec3(1.0, 1.2, 0.45)).mul(leaf.r.mul(1.5)).mul(crownAO.mul(0.8).add(0.2)).mul(isLeaf);
@@ -1556,7 +1574,7 @@ function createParkPavingMaterial() {
     roughness: 0.86
   });
 
-  mat.aoNode = canyonSkyAONode();
+  skyAO(mat);
 
   mat.colorNode = Fn(() => {
     const wx = positionWorld.x;
@@ -1626,7 +1644,7 @@ function createParkWallMaterial() {
     roughness: 0.9
   });
 
-  mat.aoNode = canyonSkyAONode();
+  skyAO(mat);
 
   const wallField = (wp, n) => {
     const u = wp.x.mul(abs(n.z)).add(wp.z.mul(abs(n.x)));
@@ -1779,7 +1797,7 @@ function createTktsStepMaterial(baseY = 0.24, riserH = 0.18) {
  */
 function createMarbleAshlarMaterial() {
   const mat = new THREE.MeshStandardNodeMaterial({ metalness: 0.0, roughness: 0.6 });
-  mat.aoNode = canyonSkyAONode();
+  skyAO(mat);
   mat.colorNode = Fn(() => {
     const wp = positionWorld;
     const n = normalWorldGeometry;
@@ -1808,7 +1826,7 @@ function createTreeGrateMaterial() {
     roughness: 0.68
   });
 
-  mat.aoNode = canyonSkyAONode();
+  skyAO(mat);
 
   mat.colorNode = Fn(() => {
     const r = length(positionLocal.xz);
@@ -1945,7 +1963,9 @@ const roadTarSnakes = Fn(([wxz, px]) => {
  * Lane markings are separate geometry built from the road network (js/road-paint.js).
  */
 function createRoadSurfaceMaterial() {
-  const mat = new THREE.MeshStandardNodeMaterial({
+  // (Mog City, the high quality lighting tier: the water over the asphalt is a clearcoat at night, below)
+  const HQ = !!(window.NYC.HQL && window.NYC.HQL.on());
+  const mat = new (HQ ? THREE.MeshPhysicalNodeMaterial : THREE.MeshStandardNodeMaterial)({
     metalness: 0.24,
     roughness: 0.48
   });
@@ -1998,7 +2018,7 @@ function createRoadSurfaceMaterial() {
   const viewDir = normalize(cameraPosition.sub(positionWorld));
   const waterFresnel = pow(float(1.0).sub(clamp(viewDir.y, 0.0, 1.0)), 5.0).mul(0.98).add(0.02);
 
-  mat.aoNode = canyonSkyAONode();
+  skyAO(mat);
 
   mat.colorNode = Fn(() => {
     const wx = positionWorld.x;
@@ -2111,6 +2131,24 @@ function createRoadSurfaceMaterial() {
     return reflectCol.mul(max(puddle, film.mul(0.35))).mul(roadFresnel).mul(cityUniforms.uInteriorGlow).mul(0.07);
   })();
 
+  if (HQ) {
+    // (Mog City, the high quality lighting tier; after Ben Houston's enhanced Slop New York c3a44b5, MIT) At night the
+    // water on the road is a clearcoat over the asphalt: the puddles a sharp mirror, the damp stains and the film a
+    // softer one, reflecting the street's real lights, signs and SSR instead of the emissive copy of the sky and neon
+    // painted above (switched off where the coat takes over)
+    const night = smoothstep(0.6, 1.15, cityUniforms.uInteriorGlow);
+    // (at night the whole road is wet through, its puddles deepest: a film of 0.65 under them)
+    const water = max(puddle, max(damp.mul(0.85), max(film.mul(0.55), float(0.65)))).mul(night);
+    mat.clearcoatNode = water;
+    mat.clearcoatRoughnessNode = mix(float(0.12), float(0.03), puddle);
+    // (and the base lobe glossed under the water, so SSR, which reads the base's roughness and metalness, mirrors the
+    // signs and the lamps in it)
+    const baseRough = mat.roughnessNode, baseMetal = mat.metalnessNode;
+    mat.roughnessNode = mix(baseRough, float(0.07), water.mul(0.9));
+    mat.metalnessNode = max(baseMetal, waterFresnel.mul(1.6).clamp(0.25, 0.85).mul(water));
+    const painted = window.NYC.HQL.ownEmissive(mat);
+    if (painted) mat.emissiveNode = painted.mul(night.oneMinus());
+  }
   return mat;
 }
 
@@ -2162,7 +2200,7 @@ function createRoadPaintMaterial() {
   const wet = roadWetMasks(roadPuddleField(positionWorld.x, positionWorld.z)); // same pools & film as the asphalt
   mat.colorNode = vec3(mix(float(1.0), float(0.72), wet.y).mul(mix(float(1.0), float(0.86), wet.z)));
   mat.roughnessNode = mix(mix(float(0.62), float(0.42), wet.z), float(0.2), wet.y);
-  mat.aoNode = canyonSkyAONode();
+  skyAO(mat);
 
   return mat;
 }
@@ -2234,7 +2272,7 @@ function createSidewalkMaterial() {
   const hasCrack = step(0.875, hash2D(flagId.add(vec2(41.7, 9.2)))).mul(float(1.0).sub(replaced));
   const crack = lineAA(crackDist, 0.0012).mul(hasCrack).mul(smoothstep(0.004, 0.02, edgeDist));
 
-  mat.aoNode = canyonSkyAONode();
+  skyAO(mat);
 
   mat.colorNode = Fn(() => {
     const wx = positionWorld.x;
@@ -2314,7 +2352,7 @@ function createCurbMaterial() {
     roughness: 0.72
   });
 
-  mat.aoNode = canyonSkyAONode();
+  skyAO(mat);
 
   mat.colorNode = Fn(() => {
     const wx = positionWorld.x;

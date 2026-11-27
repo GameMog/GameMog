@@ -283,9 +283,13 @@ export function createPause(ui) {
   // (the engine's tiers: San Francisco and the towns have no phone tier; Phone only on a touch screen)
   const GFX = () => GFX_ALL.filter(([k]) => k === 'auto' || ((quality()?.tiers || ['high', 'phone', 'low']).includes(k) && (k !== 'phone' || touchUI())));
   // (the buttons under the choices: Reset what Auto learned, when it lowered the tier here; Reload now)
-  const gfxExtra = () => [...(quality()?.learned?.reason === 'slow' || quality()?.learnedSlow ? ['reset'] : []), 'reload'];
+  // (and the high quality lighting's switch, a computer's only: js/sky-occlusion.js, Auto = on with High; the next load's)
+  const HQL = () => (!touchUI() && window.NYC?.HQL) || null;
+  const LIGHT_NEXT = { auto: 'on', on: 'off', off: 'auto' }, LIGHT_NAME = { auto: 'Auto', on: 'On', off: 'Off' };
+  const gfxExtra = () => [...(HQL() ? ['light'] : []), ...(quality()?.learned?.reason === 'slow' || quality()?.learnedSlow ? ['reset'] : []), 'reload'];
   function gfxDo(x) {
     if (x === 'reset') { try { quality()?.resetLearned?.(); } catch (e) { /* none */ } drawPanel(); return; }
+    if (x === 'light') { const H = HQL(); if (H) { try { H.setChoice(LIGHT_NEXT[H.choice] || 'auto'); } catch (e) { /* none */ } } drawPanel(); return; }
     location.reload();
   }
   function setGfx(k) { const q = quality(); if (!q) return; try { q.set(k); } catch (e) { console.warn('[pause] graphics', e); } gfxPick = k; drawPanel(); }
@@ -341,7 +345,8 @@ export function createPause(ui) {
         ${autoLine ? `<div class="mu" style="margin:0 0 4px;font-size:15px">${autoLine}</div>` : ''}${learnLine ? `<div class="mu" style="margin:0 0 4px;font-size:15px">${learnLine}</div>` : ''}
         ${opts.map(([k, label, note], i) => `<button class="opt${inPanel && i === sub ? ' sel' : ''}${k === cur ? ' cur' : ''}" data-gfx="${k}">${esc(label)}<small>${k === cur ? 'Chosen' : esc(note)}</small></button>`).join('')}
         <div class="mu" style="margin:2px 0 10px;font-size:15px">Changes apply when the game next loads.</div>
-        ${extra.map((x, j) => x === 'reset' ? `<button class="opt${inPanel && sub === opts.length + j ? ' sel' : ''}" data-gfxreset="1">Reset Auto<small>Measure this device again</small></button>`
+        ${extra.map((x, j) => x === 'light' ? `<button class="opt${inPanel && sub === opts.length + j ? ' sel' : ''}" data-gfxlight="1">High quality lighting: ${esc(LIGHT_NAME[HQL()?.choice] || 'Auto')}<small>${HQL()?.on?.() ? 'On now' : 'Off now'} · sky light between the buildings, car reflections · Auto: on with High</small></button>`
+          : x === 'reset' ? `<button class="opt${inPanel && sub === opts.length + j ? ' sel' : ''}" data-gfxreset="1">Reset Auto<small>Measure this device again</small></button>`
           : `<button class="opt${inPanel && sub === opts.length + j ? ' sel' : ''}" data-reload="1">Reload now<small>Progress since the last checkpoint is lost</small></button>`).join('')}
         ${code ? `<div class="mu" style="margin-top:8px;font-size:14px">Machine report code: <b>${esc(code)}</b></div>` : ''}`;
     } else if (id === 'photo') {
@@ -503,6 +508,7 @@ export function createPause(ui) {
     if (t.dataset.ms != null) { inPanel = true; sub = +t.dataset.ms; return replay(sub); }
     if (t.dataset.gfx) { inPanel = true; sub = GFX().findIndex(([k]) => k === t.dataset.gfx); return setGfx(t.dataset.gfx); }
     if (t.dataset.gfxreset) return gfxDo('reset');
+    if (t.dataset.gfxlight) { inPanel = true; sub = GFX().length + gfxExtra().indexOf('light'); return gfxDo('light'); }
     if (t.dataset.reload) return location.reload();
     if (t.dataset.radio || t.dataset.skip) { inPanel = true; const i = radioRows().indexOf(t.dataset.radio ? 'radio' : 'skip'); sub = nVol() + i; return radioAct(i); }
     if (t.dataset.yes) return toTitle();

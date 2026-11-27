@@ -1404,6 +1404,22 @@ function createLoftedCarMaterial(spec, fixedColorHex = null) {
   mat.roughnessNode = rough;
   mat.metalnessNode = spec.hero ? mix(metal, float(.12), one.sub(max(glass, max(lamp, max(isTyre, isAlloy))))) : metal;
   mat.emissiveNode = headlamps.add(tail).add(stop).add(turn).add(sign).mul(CAR_LAMP_POWER).mul(lampsOn);
+  // (Mog City, the high quality lighting tier, js/sky-occlusion.js; after Ben Houston's enhanced Slop New York a53ddb3, MIT:
+  // the paint a slightly rough dielectric base under a glossy clearcoat, which is what shines and reflects the street)
+  if (window.NYC.HQL && window.NYC.HQL.on() && !spec.hero) {
+    const paintMask = one.sub(max(glossy, max(isTyre, max(isAlloy, max(isTrim, max(matte, max(isSign, max(plates, isWindow))))))));
+    const hq = new THREE.MeshPhysicalNodeMaterial();
+    hq.userData = mat.userData;
+    hq.colorNode = col;
+    hq.roughnessNode = mix(rough, float(0.45), paintMask);
+    hq.metalnessNode = mix(metal, float(0), paintMask);
+    hq.clearcoatNode = paintMask;
+    hq.clearcoatRoughnessNode = float(0.05);
+    hq.emissiveNode = mat.emissiveNode;
+    window.NYC.HQL.applyOpen(hq, null, { bounce: false });
+    _carMaterialCache.set(cacheKey, hq);
+    return hq;
+  }
 
   _carMaterialCache.set(cacheKey, mat);
   return mat;
