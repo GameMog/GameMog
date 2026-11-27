@@ -18,6 +18,9 @@
 const { THREE, Terrain } = window.NYC;
 const { createRoadSurfaceMaterial, createMarbleAshlarMaterial, boreY, edgeArc } = window.NYC;
 const bridgeDeckAt = (x, z, upper) => (window.NYC.bridgeDeckAt ? window.NYC.bridgeDeckAt(x, z, upper) : null);
+// (Chicago's bascules, bascule.js: a deck floor's stretch between a bascule's hinges, and a point inside one)
+const basculeClaim = (seg) => (window.NYC.basculeClaim ? window.NYC.basculeClaim(seg) : null);
+const basculeCovers = (x, z) => (window.NYC.basculeCovers ? !!window.NYC.basculeCovers(x, z) : false);
 
 const STEP = 2; // metres between floor height samples (and geometry stations, x2)
 const LANE_HALF = 1.75;
@@ -116,6 +119,8 @@ function buildGradeSeparation(scene, network) {
       ys[k] = boreY(b, edgeArc(e, t - s0)) ?? ground(e.x0 + e.dx * t, e.z0 + e.dz * t);
     }
     const seg = { kind: b.kind, x0: e.x0, z0: e.z0, dx: e.dx, dz: e.dz, rx: e.rx, rz: e.rz, t0, t1, L, R, ys };
+    // (Chicago's river bridges, bascule.js: the stretch a bascule's leaves stand in, cut out of the static deck)
+    seg.cut = basculeClaim(seg);
     floors.push(seg);
     if (b.kind === 'tunnel') buildBore(seg, e, partner);
     else buildDeck(seg, e, partner);
@@ -340,6 +345,7 @@ function buildGradeSeparation(scene, network) {
         const L = -half, R = half;
         const e = { name: RG.names[ni], lanes, from: node(p.x, p.z), to: node(q.x, q.z), span, x0: p.x, z0: p.z, dx, dz, rx: -dz, rz: dx };
         const seg = { kind: 'deck', x0: p.x, z0: p.z, dx, dz, rx: -dz, rz: dx, t0, t1, L, R, ys, linkOnly: true };
+        seg.cut = basculeClaim(seg);
         floors.push(seg);
         buildDeck(seg, e, null);
         deckEnds(seg, e, null);
@@ -348,6 +354,7 @@ function buildGradeSeparation(scene, network) {
     }
   }
   for (const [, d] of [...discAt].sort((p, q) => p[1].x - q[1].x || p[1].z - q[1].z)) {
+    if (basculeCovers(d.x, d.z)) continue; // (a node out on the water under a bascule's leaves: no disc there)
     floors.push({ kind: 'disc', x: d.x, z: d.z, r: d.r, y: d.y });
     const N = 16;
     for (let i = 0; i < N; i++) {
@@ -450,13 +457,18 @@ function buildGradeSeparation(scene, network) {
     const out = [];
     for (let t = seg.t0; t < seg.t1; t += 2 * STEP) out.push(t);
     out.push(seg.t1);
+    // (a bascule's cut: stations at its two ends, so the static deck stops exactly at the hinges)
+    if (seg.cut) { for (const c of seg.cut) if (c > seg.t0 + 0.01 && c < seg.t1 - 0.01 && !out.some((t) => Math.abs(t - c) < 0.01)) out.push(c); out.sort((p, q) => p - q); }
     return out;
   }
+  // (a stretch [ta, tb] of a floor inside its bascule's cut, bascule.js)
+  function inCut(seg, ta, tb) { return !!seg.cut && ta >= seg.cut[0] - 0.01 && tb <= seg.cut[1] + 0.01; }
   // lane lines on a floor: dashed white between lanes going the same way, double yellow between the two directions
   function laneLines(seg, e, partner) {
     const line = (o, w, col, dash) => {
       for (let t = seg.t0 + 1; t < seg.t1 - 1; t += dash ? 12 : 4) {
         const len = Math.min(dash ? 3 : 4, seg.t1 - 1 - t);
+        if (seg.cut && t + len > seg.cut[0] && t < seg.cut[1]) continue; // (the leaves have their own)
         const a = P(seg, t, o - w / 2, 0.03), b = P(seg, t + len, o - w / 2, 0.03), c = P(seg, t + len, o + w / 2, 0.03), d = P(seg, t, o + w / 2, 0.03);
         geo.paint.push({ tri: [...a, ...d, ...c, ...a, ...c, ...b], col });
       }
@@ -519,6 +531,7 @@ function buildGradeSeparation(scene, network) {
     const st = stations(seg);
     for (let i = 0; i + 1 < st.length; i++) {
       const [ta, tb] = [st[i], st[i + 1]];
+      if (inCut(seg, ta, tb)) continue; // (a bascule's leaves stand there: bascule.js)
       quad(geo.road, P(seg, ta, seg.L), P(seg, ta, seg.R), P(seg, tb, seg.R), P(seg, tb, seg.L));
       quad(geo.concrete, P(seg, ta, seg.R, -DECK_T), P(seg, ta, seg.L, -DECK_T), P(seg, tb, seg.L, -DECK_T), P(seg, tb, seg.R, -DECK_T));
       quad(geo.concrete, P(seg, ta, seg.R, -DECK_T), P(seg, tb, seg.R, -DECK_T), P(seg, tb, seg.R), P(seg, ta, seg.R));
@@ -537,6 +550,7 @@ function buildGradeSeparation(scene, network) {
       }
     }
     for (let t = seg.t0 + COLUMN_STEP / 2; t < seg.t1; t += COLUMN_STEP) {
+      if (seg.cut && t > seg.cut[0] - 3 && t < seg.cut[1] + 3) continue; // (no column under a bascule's leaves)
       // (a package's deck: its columns are placed once every deck stands, clear of the roads and decks under it: columns())
       if (seg.kind === 'deck') { columnQ.push({ seg, t }); continue; }
       const [cx, y, cz] = P(seg, t, (seg.L + seg.R) / 2);
@@ -762,6 +776,7 @@ function buildGradeSeparation(scene, network) {
     if (t < s.t0 - 0.5 || t > s.t1 + 0.5) return null;
     const o = px * s.rx + pz * s.rz;
     if (o < s.L || o > s.R) return null;
+    if (s.cut && t > s.cut[0] && t < s.cut[1]) return null; // (a bascule's leaves: their own floor, bascule.js)
     const k = Math.min(s.ys.length - 1, Math.max(0, (t - s.t0) / STEP));
     const i = Math.min(s.ys.length - 2, Math.floor(k));
     return i < 0 ? s.ys[0] : s.ys[i] + (s.ys[i + 1] - s.ys[i]) * (k - i);

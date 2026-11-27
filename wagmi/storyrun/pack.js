@@ -26,7 +26,7 @@ const WEARS = new Set(['rider']);
 export const STEP_KINDS = new Set(['drive', 'stops', 'walk', 'pursuit', 'timer', 'call', 'voicemail', 'voicenote', 'choice', 'cutscene',
   'place', 'set', 'say', 'wait', 'goto', 'end', 'label', 'transition', 'vignette', 'wallet', 'actEnd', 'comfort', 'tail',
   'stealth', 'patrol', 'convoy', 'trigger', 'beat', 'roadblock', 'passenger', 'npc', 'fight', 'dm', 'search', 'scene', 'tow', 'ally', 'car',
-  'collect', 'mount', 'dismount', 'herd', 'sneak', 'flee', 'drove', 'track', 'ambush', 'ride', 'vcall']);
+  'collect', 'mount', 'dismount', 'herd', 'sneak', 'flee', 'drove', 'track', 'ambush', 'ride', 'vcall', 'bridge']);
 // the steps that ride the horse (a world whose car is a car rides one alongside it: wagmi/game.js the two rides)
 export const HORSE_STEPS = new Set(['mount', 'ride']);
 /** A world's horse alongside its car: { label } (its `horse`, else Ranger), or null (no step rides one, or its car is the horse). */
@@ -276,6 +276,12 @@ export function check(w) {
       if (s.type === 'convoy' && !(Array.isArray(s.route) && s.route.length >= 2)) bad(`${m.id} ${at}[${i}]: convoy route`);
       if (s.type === 'ally' && s.to !== 'player' && !(typeof s.to === 'string' || (s.to && typeof s.to === 'object'))) bad(`${m.id} ${at}[${i}]: ally to`);
       if (s.type === 'roadblock' && !s.at) bad(`${m.id} ${at}[${i}]: roadblock at`);
+      // (a river bridge's leaves: cities/sf/js/bascule.js, a step or a cutscene's cue { at, to: 0-80 deg, dur: s })
+      for (const cue of [s.type === 'bridge' ? s : null, s.type === 'cutscene' ? s.bridge : null]) {
+        if (cue == null) continue;
+        if (typeof cue !== 'object' || Array.isArray(cue) || (cue.to != null && !(cue.to >= 0 && cue.to <= 80)) || (cue.dur != null && !(cue.dur > 0 && cue.dur <= 60))
+          || (cue.delay != null && !(cue.delay >= 0 && cue.delay <= 60))) bad(`${m.id} ${at}[${i}]: bridge (to 0-80 deg, dur up to 60 s)`);
+      }
       if (s.type === 'convoy' && s.band != null && !(Array.isArray(s.band) && s.band.length === 2 && s.band[0] < s.band[1])) bad(`${m.id} ${at}[${i}]: convoy band`);
       for (const e of creatureStep(s, w.city || 'ny')) bad(`${m.id} ${at}[${i}]: ${e}`);
       shapes(s.during, `${at}[${i}].during`);

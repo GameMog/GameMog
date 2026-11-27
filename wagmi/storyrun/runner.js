@@ -1464,8 +1464,20 @@ export function createRunner(ctx) {
     try { W.combat?.hushHud?.(); } catch {}
     for (const el of document.querySelectorAll('#wg .wg-help')) { el.style.transition = 'none'; el.classList.remove('on'); void el.offsetWidth; el.style.transition = ''; }
   }
+  // (a river bridge rising or coming down, Chicago's bascules (cities/sf/js/bascule.js): d { at: a place ('@bridge'), an
+  // [x, z], 'nearest' or a street's name; to: degrees (70 by default, 0 down); dur: s (8); delay: s; ease }. A city with
+  // no bascules: nothing, said once. -> the raise's promise (null: none)
+  const bridgeCue = (d) => {
+    const B = globalThis.window?.NYC?.Bascules;
+    if (!B || !B.spans?.length) { if (!bridgeCue.said) { bridgeCue.said = true; console.info('[storyrun] bridge: this city has no bascules'); } return null; }
+    let ref = d.at ?? 'nearest';
+    try { if (typeof ref === 'object' && !Array.isArray(ref) || (typeof ref === 'string' && ref.startsWith('@'))) { const p = placeOf(ref); ref = [p.x, p.z]; } } catch { ref = 'nearest'; }
+    return B.raise(ref, { to: d.to ?? 70, dur: d.dur ?? 8, delay: d.delay || 0, ease: d.ease });
+  };
+  STEPS.bridge = async (d) => { const p = bridgeCue(d); if (d.wait && p) await p; };
   STEPS.cutscene = async (d, t) => {
     await wrapSpan(t);
+    if (d.bridge) bridgeCue(d.bridge); // (the M8 jump's leaves rising under the shots)
     if (d.place) { const p = placeOf(d.place); putPlayer(p, inCar() ? 'car' : 'walk'); }
     // (in a set: its room and its people; else on the street with the traffic held)
     if (d.set && typeof d.set === 'object') {

@@ -327,6 +327,8 @@ async function initApp() {
     ? buildGradeSeparation(scene, roadNetwork)
     : { colliders: [], highwayLanes: [], floorAt: () => null, roofAt: () => Infinity };
   window.NYC.GradeSeparation = gradeSeparation;
+  // (bascule.js: Chicago's river bridges' leaves, bridge houses and their floor, on the decks grade-separation.js cut)
+  const bascules = window.NYC.buildBascules && gradeSeparation.floors ? window.NYC.buildBascules(scene, gradeSeparation) : null;
   if (cityGrid.terrain) cityGrid.terrain.rebuild(); // the portals carved
   markInit('grade');
   await breathe();
@@ -1216,6 +1218,7 @@ async function initApp() {
 
     // Update 3rd-person controllers, camera, signals, traffic & vehicle collisions, building LODs, and dynamic shadow focus
     gamepadControls.update(dt);
+    if (bascules) bascules.update(dt); // (the leaves' angle first: the floor the car drives this frame)
     controllerManager.update(dt, elapsed);
     cameraSystem.update(dt, elapsed);
     updateDebugCamera(rawDt);

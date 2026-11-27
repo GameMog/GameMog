@@ -68,11 +68,12 @@ test('the test worlds pass the checks; bad worlds are refused', () => {
   assert.ok(bad((w) => { w.city = 'sf'; }).some((e) => /city sf/.test(e)));
   assert.ok(bad((w) => { w.storykit = 2; }).length);
   assert.ok(bad((w) => { w.car = 'tank'; }).some((e) => /car/.test(e)));
-  assert.ok(STEP_KINDS.has('scene') && STEP_KINDS.has('tow') && STEP_KINDS.has('collect') && STEP_KINDS.has('ambush') && STEP_KINDS.has('ride') && STEP_KINDS.has('vcall') && STEP_KINDS.size === 49);
-  // (a mission's weather is a checked word: js/weather.js)
+  assert.ok(STEP_KINDS.has('scene') && STEP_KINDS.has('tow') && STEP_KINDS.has('collect') && STEP_KINDS.has('ambush') && STEP_KINDS.has('ride') && STEP_KINDS.has('vcall') && STEP_KINDS.has('bridge') && STEP_KINDS.size === 50);
+  // (a mission's weather and a bridge cue are checked words: js/weather.js, cities/sf/js/bascule.js)
   assert.ok(bad((w) => { w.missions[0].weather = 'hail'; }).some((e) => /weather/.test(e)));
   assert.ok(!bad((w) => { w.missions[0].weather = 'drizzle'; }).some((e) => /weather/.test(e)));
   assert.ok(bad((w) => { w.dressing = { nightWeather: 'snowstorm' }; }).some((e) => /nightWeather/.test(e)));
+  assert.ok(bad((w) => { w.missions[0].steps.push({ type: 'bridge', at: '@x', to: 95 }); }).some((e) => /bridge/.test(e)));
   // (the tow world: a wrecker sheet as the car, a ride of the world's on the hook)
   assert.deepEqual(check(JSON.parse(fs.readFileSync(path.join(ROOT, 'tools/storyrun/test-packs/tow.json'), 'utf8'))), []);
 });
