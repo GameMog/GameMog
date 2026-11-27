@@ -1598,7 +1598,7 @@ export function createRunner(ctx) {
         // (the far bank's bridge houses stand at the far hinge: the lens flies with the car only as far as FAR_STOP m short
         // of it, then holds there over the river and cranes up CRANE m, so it looks over the houses at the landing)
         const farHinge = Math.max(((s.ax - p0.x) * fx + (s.az - p0.z) * fz), ((s.bx - p0.x) * fx + (s.bz - p0.z) * fz));
-        const FAR_STOP = 4, CRANE = 6;
+        const FAR_STOP = 9, CRANE = 9; // (27 Nov: 4 and 6 left the far corner's bridge house roof filling the bottom of the landing, worst on a phone)
         // (the landing, 27 Nov review: held over the river while the Kastell rolled on 30 m and more, the black car went
         // to a few dark pixels on a dark street. Once the lens holds, it zooms after the car so it keeps the size it had
         // in the frame when the lens stopped (to LAND_FOV at the tightest), its look point pulled in onto the car as it
