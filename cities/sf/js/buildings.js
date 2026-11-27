@@ -405,7 +405,7 @@ function buildCityBlocks(scene, opts = {}) {
   // masonry, stone & concrete; 1 painted row houses, flats & apartments (narrow windows, low storeys); 2 brick & concrete
   // warehouses (wide windows, tall storeys). The three curtain walls stay
   if (sf) {
-    facades[0] = [createPreWarBuildingMaterial, { windowWidth: 2.4, floorHeight: 3.7, litProbability: 0.5, warmth: 0.82, seed: 12.4, paint: true }];
+    facades[0] = [createPreWarBuildingMaterial, { windowWidth: 2.4, floorHeight: 3.7, litProbability: 0.5, warmth: 0.82, seed: 12.4, paint: true, modes: !!window.NYC.PKG }];
     facades[1] = [createPreWarBuildingMaterial, { windowWidth: 1.7, floorHeight: 3.3, windowRatioX: 0.56, windowRatioY: 0.62, cornerPier: 0.5, litProbability: 0.45, warmth: 0.88, seed: 27.8, paint: true }];
     facades[2] = [createPreWarBuildingMaterial, { windowWidth: 3.4, floorHeight: 4.4, windowRatioX: 0.7, windowRatioY: 0.6, cornerPier: 0.9, litProbability: 0.15, warmth: 0.7, seed: 41.2, paint: true, muntins: true }];
   }
@@ -2156,6 +2156,36 @@ function buildCityBlocks(scene, opts = {}) {
       return { mat, paint };
     }
 
+    // (Chicago) a package masonry building's facade mode (tsl-materials.js FACADE_MODES, the pre-war material's `modes`): in
+    // the Midwest and the Rust Belt (Chicago's region) its offices, towers and commercial blocks 12 m and up are drawn as
+    // the Loop's: art-deco piers and spandrels (most of the massed setback towers, a third of the other towers), the
+    // Chicago window (the Chicago School's wide fixed pane between two sashes) and post-war ribbon windows on the lower
+    // commercial blocks, plain punched windows on the rest; glazed cream terracotta (the Reliance's and the Wrigley's) on a
+    // share of the light walls 15 m and up, rarely on dark ones and never on red brick. The era tag wins where the data has
+    // one (interwar: deco; post-war and contemporary: ribbon). Other regions, houses and small buildings: plain (0)
+    const FM = window.NYC.FACADE_MODES;
+    const CHICAGO_LIKE = new Set(['northeast-rust', 'plains-midwest']);
+    // (&fmode=N: every eligible building in mode code N, for comparing the modes on one frame)
+    const FORCE_MODE = Number.parseInt(new URLSearchParams(location.search).get('fmode') ?? '', 10);
+    function facadeModeFor(hi, kind, type, height, wallHex, era, massed) {
+      if (!FM || !PK || !CHICAGO_LIKE.has(header.region) || height < 12) return 0;
+      if (!(kind === 'office' || kind === 'tower' || kind === 'shop' || type === 'midrise' || type === 'tower')) return 0;
+      if (Number.isFinite(FORCE_MODE)) return FORCE_MODE;
+      const r = ((wallHex >> 16) & 255) / 255, g = ((wallHex >> 8) & 255) / 255, b = (wallHex & 255) / 255;
+      const lum = 0.299 * r + 0.587 * g + 0.114 * b, red = r > g * 1.22 && r > b * 1.3;
+      const eraName = header.eras ? header.eras[era] : '';
+      const k = hash(hi, 41.3);
+      let mode = FM.plain;
+      if (eraName === 'interwar' && height >= 30) mode = FM.deco;
+      else if (eraName === 'postwar' || eraName === 'contemporary') mode = red ? FM.plain : FM.ribbon;
+      else if (massed) mode = k < 0.72 ? FM.deco : k < 0.86 ? FM.chicago : FM.plain;
+      else if (height >= 45) mode = k < 0.32 ? FM.deco : k < 0.5 ? FM.chicago : k < 0.62 && !red ? FM.ribbon : FM.plain;
+      else mode = k < 0.3 ? FM.chicago : k < 0.44 && !red ? FM.ribbon : FM.plain;
+      const kg = hash(hi, 43.7);
+      const glaze = !red && height >= 15 && kg < (lum > 0.62 ? 0.5 : 0.14) ? FM.glaze : 0;
+      return mode + glaze;
+    }
+
     let awningN = 0, mallN = 0;
     // (r7) how many of an outline's corners bend by 3 to 25 degrees: the vertices of an arc, not a box's corners
     const softCorners = (pts) => {
@@ -2207,13 +2237,13 @@ function buildCityBlocks(scene, opts = {}) {
         }
       }
     }
-    // (compiler 0.15.0) each building's highest roof, by its seed: a lower part's or tier's roof is a setback terrace (no
-    // plant room or water tower on it)
-    const seedTop = new Map();
+    // (compiler 0.15.0) each building's highest roof and its record count, by its seed: a lower part's or tier's roof is
+    // a setback terrace (no plant room or water tower on it); a tower of several records with no roof shape is massed
+    const seedTop = new Map(), seedN = new Map();
     if (FI.seed !== undefined) {
       for (let i = 0; i < header.count; i++) {
         const sd = table[i * F + FI.seed];
-        if (sd > 0) seedTop.set(sd, Math.max(seedTop.get(sd) ?? -Infinity, table[i * F + 1]));
+        if (sd > 0) { seedTop.set(sd, Math.max(seedTop.get(sd) ?? -Infinity, table[i * F + 1])); seedN.set(sd, (seedN.get(sd) || 0) + 1); }
       }
     }
     const polyGeos = [[], [], []]; // outlines by facade material (0 masonry, 1 painted, 2 brick & concrete; San Francisco: all 0)
@@ -2234,6 +2264,7 @@ function buildCityBlocks(scene, opts = {}) {
       const seed = FI.seed !== undefined ? rec[FI.seed] || 0 : 0;
       const hi = seed > 0 ? seed : i;
       const terrace = seed > 0 && roofRec < (seedTop.get(seed) ?? roofRec) - 1;
+      const multi = seed > 0 && (seedN.get(seed) || 0) > 1;
       const look = PK ? PK.styleFor({
         kind, roofShape: header.roofShapes[rec[FI.roofShape]] || '', wall: header.walls[rec[FI.wall]] || '', wallRGB: rec[FI.wallRGB], roofRGB: rec[FI.roofRGB],
         region: header.region, hash: (a) => hash(hi, a)
@@ -2263,6 +2294,8 @@ function buildCityBlocks(scene, opts = {}) {
         mat = kind === 'warehouse' ? 2 : kind === 'church' || kind === 'school' || kind === 'civic' || ((kind === 'office' || kind === 'shop') && height >= 12) || type === 'midrise' || type === 'tower' ? 0 : 1;
       }
       const storeyH = rec[FI.storeyH] || (type === 'tower' ? 3.9 : 0);
+      // (Chicago) its facade mode (facadeModeFor; masonry 0 only), one per building: its parts and tiers share it
+      const fstyle = PK && mat === 0 ? facadeModeFor(hi, kind, type, seed > 0 ? (seedTop.get(seed) ?? roof) - base : height, paint[0], rec[FI.era], multi && kind === 'tower') : 0;
       // (r7, South Florida's towers: one 45 m or taller is banded, its slabs deeper (1.9 m) and half of them with solid
       // white balustrades instead of glass railings; a curved one (6 or more of its outline's corners bend under 25
       // degrees, or no boxes cover it) gets its balconies along its own outline and no podium, so its bands follow the
@@ -2302,15 +2335,16 @@ function buildCityBlocks(scene, opts = {}) {
         const ng = g.index ? g.toNonIndexed() : g;
         ng.deleteAttribute('uv');
         const n = ng.attributes.position.count;
-        const bb = new Float32Array(n * 3);
+        const bb = new Float32Array(n * 4);
         const pw = new Float32Array(n * 4), pt = new Float32Array(n * 4);
         const cw = new THREE.Color(paint[0]), ct = new THREE.Color(paint[1]);
         for (let k = 0; k < n; k++) {
-          bb[k * 3] = base;
+          bb[k * 4] = base;
+          bb[k * 4 + 3] = fstyle;
           pw.set([cw.r, cw.g, cw.b, paint[2]], k * 4);
           pt.set([ct.r, ct.g, ct.b, paint[3]], k * 4);
         }
-        ng.setAttribute('boxBase', new THREE.BufferAttribute(bb, 3));
+        ng.setAttribute('boxBase', new THREE.BufferAttribute(bb, 4));
         ng.setAttribute('paintWall', new THREE.BufferAttribute(pw, 4));
         ng.setAttribute('paintTrim', new THREE.BufferAttribute(pt, 4));
         polyGeos[PK && mat <= 2 ? mat : 0].push(ng);
@@ -2355,7 +2389,7 @@ function buildCityBlocks(scene, opts = {}) {
         const plinth = minH <= 0 && g1 - g0 > PLINTH_MIN ? Math.min(g1 - g0, roof - g0 - (storeyH || storeys[mat])) : 0;
         const box = {
           x: m.cx, y: (bottom + roof) * 0.5, z: m.cz, w: m.w, h: roof - bottom, d: m.d, ry: theta, tone,
-          base: g0, plinth: Math.max(0, plinth), storeyH, paint,
+          base: g0, plinth: Math.max(0, plinth), storeyH, paint, style: fstyle,
           faces: WALLS.map(([lx, lz]) => wallKind(m, lx, lz, shopsFlag > 0))
         };
         // (a package's houses, apartments and public buildings stand back from the road on their lots: every wall but a
