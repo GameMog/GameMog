@@ -1591,7 +1591,16 @@ export function createRunner(ctx) {
         const ahead = o.ahead ?? -6, out = o.out ?? 14, up = o.up ?? 0, lead = o.lead ?? 6, track = o.track !== false;
         const lensAt = (q) => (track ? [q.x + fx * ahead + rx * out, Math.max(q.y, p0.y) + up, q.z + fz * ahead + rz * out] : [p0.x + fx * ahead + rx * out, p0.y + up, p0.z + fz * ahead + rz * out]);
         D = createDirector(W); D.take(); ui.cine(true);
-        D.camera = { pos: lensAt(p0), look: [p0.x + fx * lead, p0.y + 0.9, p0.z + fz * lead], fov: o.fov ?? 44, roll: 0 };
+        // (a phone held upright, 27 Nov review: through the cutscenes' landscape band the jump was a strip across the
+        // middle of the screen, the Kastell small in it. Upright (js/cameras.js portK) the shot fills the tall screen
+        // (band: false) at a lens that sees PORT_HFOV degrees across, its look point pulled in onto the car (PORT_LEAD m
+        // ahead of it) so the car, side on, stays in that narrower width: the car about half the frame's width, the
+        // river under it and the towers over it in the height. Landscape (portK 0): the shot exactly as before)
+        const cs = W.app.cameraSystem, pk = cs && cs.portK ? cs.portK() : 0, PORT_HFOV = 34, PORT_LEAD = 1.5;
+        const fovL = o.fov ?? 44, aspect = (cs && cs.camera && cs.camera.aspect) || 16 / 9;
+        const fovP = Math.min(80, (2 * Math.atan(Math.tan((PORT_HFOV * Math.PI) / 360) / Math.min(1, aspect)) * 180) / Math.PI);
+        const leadK = lead + (PORT_LEAD - lead) * pk;
+        D.camera = { pos: lensAt(p0), look: [p0.x + fx * leadK, p0.y + 0.9, p0.z + fz * leadK], fov: fovL + (fovP - fovL) * pk, roll: 0, ...(pk > 0 ? { band: false } : {}) };
         // (a black car over a dark river at night reads only by its lamps: the cutscenes' key light (keyL, in the scene from
         // the start, nothing rebuilt) lent to it, cool as the moon, over it on the lens's side; `key` its strength)
         keyL.color.set('#C8D6FF'); keyL.distance = 16; keyL.intensity = o.key ?? 60;
@@ -1604,7 +1613,7 @@ export function createRunner(ctx) {
         // in the frame when the lens stopped (to LAND_FOV at the tightest), its look point pulled in onto the car as it
         // does, and the key comes round to the lens's side of the car, nearer and stronger (LAND_KEY), with a reach
         // long enough to light the whole body: its roof, its flank and the road round it read against the street)
-        const fov0 = D.camera.fov, LAND_FOV = 16, LAND_KEY = 1.9;
+        const fov0 = D.camera.fov, LAND_FOV = 16 * (fov0 / fovL), LAND_KEY = 1.9;
         let hold = null, lift = 0, d0 = 0;
         const _k = new THREE.Vector3();
         D.onFrame = (dt = 1 / 60) => { const q = car.position; let L0 = lensAt(q);
@@ -1613,13 +1622,13 @@ export function createRunner(ctx) {
           const pos = [L0[0], L0[1] + lift, L0[2]];
           D.camera.pos = pos;
           if (!hold) {
-            D.camera.look = [q.x + fx * lead, q.y + 0.9, q.z + fz * lead];
+            D.camera.look = [q.x + fx * leadK, q.y + 0.9, q.z + fz * leadK];
             keyL.position.set(q.x + rx * out * 0.45 - fx * 2, q.y + 3.5, q.z + rz * out * 0.45 - fz * 2);
             return;
           }
           const d = Math.max(d0, Math.hypot(q.x - pos[0], q.y - pos[1], q.z - pos[2])), k = d0 / d;
           D.camera.fov = Math.max(LAND_FOV, (2 * Math.atan(Math.tan((fov0 * Math.PI) / 360) * k) * 180) / Math.PI);
-          D.camera.look = [q.x + fx * lead * k, q.y + 0.7, q.z + fz * lead * k];
+          D.camera.look = [q.x + fx * leadK * k, q.y + 0.7, q.z + fz * leadK * k];
           _k.set(pos[0] - q.x, 0, pos[2] - q.z).normalize();
           keyL.position.set(q.x + _k.x * 4.5, q.y + 3.2, q.z + _k.z * 4.5);
           keyL.distance = 22; keyL.intensity = (o.key ?? 60) * LAND_KEY; };
