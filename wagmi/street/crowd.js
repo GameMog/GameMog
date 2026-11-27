@@ -180,6 +180,19 @@ export function createCrowd(W) {
   // hold zones (a cutscene's set, a mission's spot): the city's traffic keeps out of them, so do they
   let holds = [];
   const held = (x, z, m = 0) => { for (const r of holds) if (x > r.minX - m && x < r.maxX + m && z > r.minZ - m && z < r.maxZ + m) return true; return false; };
+  // (Chicago's river bridges, cities/sf/js/bascule.js: a span with its gates down or its leaves up is no place to walk. No
+  // one is put on it, no one walks onto it, and anyone on it is put somewhere else, so nobody rides a rising leaf up into
+  // the air or stands where the deck has swung away. m: metres past its hinges and its sidewalks' outer edges)
+  const upSpan = (x, z, m = 0) => {
+    const B = globalThis.window?.NYC?.Bascules;
+    if (!B || !B.spans || !B.spans.length) return false;
+    for (const s of B.spans) {
+      if (!(s.angle > 0.05 || s.anim || (s.gate && s.gate.want))) continue;
+      const t = (x - s.ax) * s.ux + (z - s.az) * s.uz, o = (x - s.ax) * -s.uz + (z - s.az) * s.ux;
+      if (t > -m && t < s.L + m && o > s.lo - 2.5 - m && o < s.hi + 2.5 + m) return true;
+    }
+    return false;
+  };
 
   // ------------------------------------------------------------------ the people
   const people = [];
@@ -332,7 +345,7 @@ export function createCrowd(W) {
       if (MASK && !world.sidewalkAt(p.x, p.z)) continue;
       const tw = globalThis.window?.NYC?.townWindow; // (a growing town: no one outside its window less 150 m, growing.js)
       if (tw && (p.x < tw.minX || p.x > tw.maxX || p.z < tw.minZ || p.z > tw.maxZ)) continue;
-      if (Math.hypot(p.x - focus.x, p.z - focus.z) < rMin || Math.hypot(p.x - lead.x, p.z - lead.z) > rMax || held(p.x, p.z, 2) || furnitureAt(p.x, p.z, 0.45) || inWall(p.x, p.z) || (hidden && !unseen(p.x, p.z))) continue;
+      if (Math.hypot(p.x - focus.x, p.z - focus.z) < rMin || Math.hypot(p.x - lead.x, p.z - lead.z) > rMax || held(p.x, p.z, 2) || upSpan(p.x, p.z, 4) || furnitureAt(p.x, p.z, 0.45) || inWall(p.x, p.z) || (hidden && !unseen(p.x, p.z))) continue;
       p.placed = true; p.fresh = false; p.rig.placed = false; p.state = 'walk'; p.v = p.walk; p.t = 0; p.flee = 0; p.cross = null; p.shove = null;
       occAdd(p);
       if (Math.random() < 0.1) {
@@ -493,7 +506,7 @@ export function createCrowd(W) {
         // (anywhere at the start or after a jump; else out of sight: one left behind, or one more for busier streets)
         const out = p.fresh || (jump && d > R_IN) ? 'any'
           : budget > 0 && (!p.placed || (d > R_OUT && (!p.vis || (Math.random() < 0.1 && budget-- > 0 && behindWall(p.x, p.z))))) ? 'hidden'
-          : p.placed && holds.length && held(p.x, p.z, 0.5) ? 'held' : null;
+          : p.placed && ((holds.length && held(p.x, p.z, 0.5)) || upSpan(p.x, p.z, 0.5)) ? 'held' : null;
         if (out) {
           if (p.state === 'wait' || p.state === 'cross') leaveCorner(p);
           occAdd(p, -1); p.placed = false;
@@ -627,6 +640,7 @@ export function createCrowd(W) {
     laneXZ(p);
     // a hold zone ahead: back the way they came
     if (holds.length && held(p.x + Math.sin(p.yaw) * 2, p.z + Math.cos(p.yaw) * 2, 0.3)) { p.dir = -p.dir; laneXZ(p); }
+    else if (upSpan(p.x + Math.sin(p.yaw) * 3, p.z + Math.cos(p.yaw) * 3, 0.3)) { p.dir = -p.dir; laneXZ(p); }
     if (p.state === 'walk' && Math.random() < dt * 0.006) { p.state = 'idle'; p.t = rand(3, 14); }
   }
 
