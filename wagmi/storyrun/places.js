@@ -40,12 +40,37 @@ export function siteRefs(m) {
   return out;
 }
 
+// the library keys a world names: its aliases' '@' keys and every '@key' (or { '@': key }) its missions write, an alias
+// itself not counted (a mark of the world's own, { at }, needs nothing of the library)
+export function namedPlaces(world, aliases = (world && world.places) || {}) {
+  const keys = new Set();
+  const own = (k) => Object.prototype.hasOwnProperty.call(aliases, k);
+  const key = (k) => { if (!k || typeof k !== 'string') return; if (own(k)) { const a = aliases[k]; if (a && typeof a['@'] === 'string' && !own(a['@'])) keys.add(a['@']); } else keys.add(k); };
+  for (const a of Object.values(aliases)) if (a && typeof a === 'object' && typeof a['@'] === 'string') key(a['@']);
+  const walk = (v, depth) => {
+    if (!v || depth > 16) return;
+    if (typeof v === 'string') { if (/^@[A-Za-z0-9_-]+$/.test(v)) key(v.slice(1)); return; }
+    if (typeof v !== 'object') return;
+    if (Array.isArray(v)) { for (const x of v) walk(x, depth + 1); return; }
+    if (typeof v['@'] === 'string') key(v['@']);
+    if (typeof v.face === 'string') key(v.face.replace(/^@/, ''));
+    for (const [k, x] of Object.entries(v)) if (k !== '@') walk(x, depth + 1);
+  };
+  for (const m of (world && world.missions) || []) walk(m, 0);
+  return [...keys];
+}
+
 export function createPlaces(W, world) {
   // (the city's place library, laid on its map by the world contract: wagmi/world, ny.js and sf.js, their data in
   // places-ny.js and places-sf.js)
   const lib = cityWorld.places, missing = cityWorld.placesMissing.slice();
-  if (missing.length) console.warn('[storyrun] places not found on the map:', missing.join(', '));
   const aliases = (world && world.places) || {};
+  // (warned of: only the places this world names that the map lacks. The city's library leaves out what no car lane
+  // reaches (a Hometown package's places PLACE_FAR m past the traffic's last lane: Chicago's far half of Navy Pier, 9
+  // places 288-585 m out along Dock St), and a world that names none of them has nothing missing: before, every
+  // Mandi's Revenge run warned of those 9, none of them its own)
+  const named = namedPlaces(world, aliases), lost = named.filter((k) => !lib[k]);
+  if (lost.length) console.warn('[storyrun] places not found on the map:', lost.join(', '));
   // ---- sites (wagmi/world/MISSION-SITES.md)
   const owner = new WeakMap(), done = new Map(), picked = new WeakMap(), loose = new Map(), all = [];
   for (const m of (world && world.missions) || []) for (const r of siteRefs(m)) if (!owner.has(r)) owner.set(r, m);

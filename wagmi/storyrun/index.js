@@ -167,7 +167,7 @@ export async function install(W) {
   let replayAsk = null;
   W.replay = async (id) => { replayAsk = id; runner.M?.tok && (runner.M.tok.dead = true, runner.M.tok.err = null); };
   tell('ready', { gameId: Q.get('game') || null, hash: world.hash, story: { v: 2, ok: true, id: def.id, hash: world.hash, clips: nClips } });
-  console.log('[storyrun]', def.id, `${order.length} missions`, `${nClips} clips`, places.missing.length ? `places missing: ${places.missing.join(',')}` : '');
+  console.log('[storyrun]', def.id, `${order.length} missions`, `${nClips} clips`, places.missing.length ? `${places.missing.length} city places no car lane reaches, left out: ${places.missing.join(',')}` : '');
 
   // what the city wears (dressing.js: a blackout, Christmas, snow or rain), only when the world asks for one; before
   // the time of day below, so the world's times keep its look
