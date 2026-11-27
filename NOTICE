@@ -404,6 +404,8 @@ manhattan-free-roam (Chicago's buildings)
 Portions adapted from manhattan-free-roam (https://github.com/huangserva/manhattan-free-roam), Copyright (c) 2026 The manhattan-free-roam authors, MIT License.
   - tools/hometown/massing.py: the massing of a plain tall outline (setback tiers, a podium and plant-floor crown, a
     copper pyramidal cap), ported from its tools/build-city.mjs massing() and inset().
+  - cities/sf/js/tsl-materials.js (createPreWarBuildingMaterial's window detail): the recessed reveal that slides with
+    the view, the whole floors lit late at night and the crown glow, ported from its src/shaders.js buildingMaterial.
   Each file with ported code carries the line above as a header. The code is used under its MIT License:
 
     Copyright (c) 2026 The manhattan-free-roam authors

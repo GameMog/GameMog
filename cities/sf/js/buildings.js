@@ -2296,6 +2296,11 @@ function buildCityBlocks(scene, opts = {}) {
       const storeyH = rec[FI.storeyH] || (type === 'tower' ? 3.9 : 0);
       // (Chicago) its facade mode (facadeModeFor; masonry 0 only), one per building: its parts and tiers share it
       const fstyle = PK && mat === 0 ? facadeModeFor(hi, kind, type, seed > 0 ? (seedTop.get(seed) ?? roof) - base : height, paint[0], rec[FI.era], multi && kind === 'tower') : 0;
+      // (Chicago) its crown floodlit at night (the pre-war material's crown glow, the fraction of the box's style code):
+      // about half the masonry towers 80 m and up, on their top box only (a massed tower's top tier), warm white or a
+      // cool or amber tint by the building
+      const glowK = PK && mat === 0 && CHICAGO_LIKE.has(header.region) && !terrace && (seed > 0 ? (seedTop.get(seed) ?? roof) : roof) - base >= 80
+        && hash(hi, 51.7) < 0.55 ? 0.1 + 0.8 * hash(hi, 53.3) : 0;
       // (r7, South Florida's towers: one 45 m or taller is banded, its slabs deeper (1.9 m) and half of them with solid
       // white balustrades instead of glass railings; a curved one (6 or more of its outline's corners bend under 25
       // degrees, or no boxes cover it) gets its balconies along its own outline and no podium, so its bands follow the
@@ -2389,7 +2394,7 @@ function buildCityBlocks(scene, opts = {}) {
         const plinth = minH <= 0 && g1 - g0 > PLINTH_MIN ? Math.min(g1 - g0, roof - g0 - (storeyH || storeys[mat])) : 0;
         const box = {
           x: m.cx, y: (bottom + roof) * 0.5, z: m.cz, w: m.w, h: roof - bottom, d: m.d, ry: theta, tone,
-          base: g0, plinth: Math.max(0, plinth), storeyH, paint, style: fstyle,
+          base: g0, plinth: Math.max(0, plinth), storeyH, paint, style: fstyle + glowK,
           faces: WALLS.map(([lx, lz]) => wallKind(m, lx, lz, shopsFlag > 0))
         };
         // (a package's houses, apartments and public buildings stand back from the road on their lots: every wall but a
