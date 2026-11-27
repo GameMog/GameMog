@@ -226,6 +226,9 @@ const M1 = { id: 'OF-1', title: 'Out of Frame', vehicle: 'kastell', start: '@stu
     { type: 'transition', kicker: '7:52 PM', text: "MANDI'S REVENGE", sub: "I said I'd get you back.", secs: 4 },
     { type: 'car', name: 'jaycoupe', car: 'sedan', color: '#B3121F', at: '@jay-lot' },
     { type: 'drive', to: '@jay-lot', objective: "Get to **Jay's lot** under the tracks", during: [B1] },
+    // (the 52 s drive ends before Bernie's call: parked at the lot, the call says its last lines and its wrap before
+    // she gets out, as M3's after the chase; over the moment it hangs up, 30 s at most)
+    { type: 'wait', secs: 30, call: true },
     { type: 'search', at: '@jay-lot', label: "search Jay's car", on: 'place', prop: false, secs: 2, objective: "Search Jay's red coupe." },
     { type: 'dm', from: 'kiki', text: "Girl. GIRL. His story has a boat, a sign, and a man in a white suit. Who is the white suit.", secs: 6 },
     say('mandi', 'A betting slip. Duck Derby. Forty thousand, number seven, "Quackson." He signed it with a heart.'),

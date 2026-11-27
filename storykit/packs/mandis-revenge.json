@@ -2191,6 +2191,11 @@
        ]
       },
       {
+       "type": "wait",
+       "secs": 30,
+       "call": true
+      },
+      {
        "type": "search",
        "at": "@jay-lot",
        "label": "search Jay's car",
