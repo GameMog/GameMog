@@ -151,6 +151,15 @@ export function createAudio() {
         env(g, t, 0.004, v, 0.26); env(g2, t, 0.002, 0.3, 0.04); o.start(t); o.stop(t + 0.32); o2.start(t); o2.stop(t + 0.1);
       });
     },
+    // a river bridge's warning bell (Chicago's bascules, runner.js STEPS.bridge): a struck bell, its inharmonic partials,
+    // clanged `times` times `every` s apart, off to one side
+    bell({ gain: v = 0.3, times = 6, every = 0.55 } = {}) {
+      const t0 = now();
+      for (let r = 0; r < times; r++) [[1, 1, 1.1], [2.71, 0.45, 0.55], [5.37, 0.2, 0.28], [0.5, 0.25, 1.4]].forEach(([m, a, d]) => {
+        const t = t0 + r * every, o = osc('sine', 742 * m), g = gain(0, pan(-0.35)); o.connect(g); send(g, 0.35);
+        env(g, t, 0.002, v * a, d); o.start(t); o.stop(t + d + 0.05);
+      });
+    },
     // a notification: two soft notes
     ding({ gain: v = 0.2 } = {}) { const t0 = now(); [[1318.5, 0], [1760, 0.11]].forEach(([f, d]) => { const o = osc('sine', f), g = gain(0); o.connect(g); send(g, 0.2); env(g, t0 + d, 0.004, v, 0.5); o.start(t0 + d); o.stop(t0 + d + 0.6); }); },
     // the call dropping

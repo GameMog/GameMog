@@ -58,7 +58,8 @@ const MODES = {
 };
 const DAMP = 0.42; // the road's wetness never goes past this in any mode (cityUniforms.uRoadWetness: 1 is a downpour's mirror)
 
-const state = { mode: 'clear', intensity: 0, target: 0, want: 'clear', fade: 2.5 };
+const state = { mode: 'clear', intensity: 0, target: 0, want: 'clear', fade: 2.5, shelter: 0 };
+const SHELTER_H = 16; // m: a deck at most this far over the camera shelters it (the drops round it fade out)
 
 // The sky's share of the weather (called by lighting.js after it applies a preset, and after its every-frame update with
 // the sun's intensity it set): k is how much of the weather is on, 0..1
@@ -281,6 +282,15 @@ function createWeather(scene, lightingSystem, renderer) {
     let floorY = g - 1 - (m.low || 0) * 0.5;
     floorY = Math.max(floorY, ca.y - U.box.value.y * 0.7);
     U.base.value = floorY;
+    // (sheltered: under a deck over the camera, the lower level's or a bridge's, or a tunnel's roof, the drops fade out
+    // round it, so it never rains under Lower Wacker; cities/sf/js/grade-separation.js roofAt)
+    const G = window.NYC.GradeSeparation;
+    let roofed = false;
+    // (asked for a point 3 m under the lens: a chase camera rides a metre or two under the deck over it, inside the band
+    // roofAt counts as on that deck)
+    try { if (G && G.roofAt) { const r = G.roofAt(ca.x, ca.z, ca.y - 3); roofed = Number.isFinite(r) && r > ca.y - 0.5 && r - ca.y < SHELTER_H; } } catch { /* no floors */ }
+    state.shelter += ((roofed ? 1 : 0) - state.shelter) * Math.min(1, dt * 3);
+    U.k.value = state.intensity * (1 - state.shelter);
 
     camera.updateMatrixWorld();
     VP.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
@@ -355,7 +365,7 @@ function createWeather(scene, lightingSystem, renderer) {
       cut();
       return api;
     },
-    get: () => ({ mode: state.mode, want: state.want, intensity: +state.intensity.toFixed(3), drops: mesh.visible ? geo.instanceCount : 0, pool: POOL }),
+    get: () => ({ mode: state.mode, want: state.want, intensity: +state.intensity.toFixed(3), shelter: +state.shelter.toFixed(2), drops: mesh.visible ? geo.instanceCount : 0, pool: POOL }),
     cut,
     update
   };

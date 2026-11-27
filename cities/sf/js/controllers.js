@@ -1337,7 +1337,7 @@ class ThirdPersonControllerManager {
     // step falls as it always has)
     const BQ = window.NYC.Bascules;
     // (at most LEAP_VY m/s up: a steep leaf at full speed throws the car a few storeys, not a skyscraper's height)
-    if (!c.leap && c._leafVy > 1.2 && gy < c.position.y - 0.25) c.leap = { vy: Math.min(LEAP_VY, c._leafVy), t: 0, pitch: c.terrainPitch };
+    if (!c.leap && c._leafVy > 1.2 && gy < c.position.y - 0.25) c.leap = { vy: Math.min(LEAP_VY, c._leafVy), t: 0, pitch: c.terrainPitch, span: c._leafSpan, at: performance.now() };
     c._leafVy = 0;
     if (c.leap) {
       const L = c.leap;
@@ -1353,7 +1353,7 @@ class ThirdPersonControllerManager {
         c.position.y = gy;
         c.fallVel = 0;
         c.leap = null;
-        c.landed = { vy: L.vy, t: L.t };
+        c.landed = { vy: L.vy, t: L.t, span: L.span, at: performance.now() };
       }
       c.mesh.rotation.order = 'YXZ';
       c.mesh.rotation.x = -c.terrainPitch;
@@ -1363,7 +1363,7 @@ class ThirdPersonControllerManager {
     if (BQ && BQ.leafAt) {
       const lf = BQ.leafAt(x, z, c.position.y);
       // (its vertical speed up the leaf: along the leaf's way at the car's heading, and the leaf turning under it)
-      if (lf) c._leafVy = c.speed * lf.slope * (sh * lf.ux + ch * lf.uz) + lf.vLift;
+      if (lf) { c._leafVy = c.speed * lf.slope * (sh * lf.ux + ch * lf.uz) + lf.vLift; c._leafSpan = lf.span; }
       // (a leaf past LEAF_STEEP is too steep to climb: the tyres give, the car rolls back down it: updateCar)
       c._leafSteep = !!lf && lf.slope > LEAF_STEEP;
     } else c._leafSteep = false;

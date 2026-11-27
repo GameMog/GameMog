@@ -281,6 +281,9 @@ export function check(w) {
         if (cue == null) continue;
         if (typeof cue !== 'object' || Array.isArray(cue) || (cue.to != null && !(cue.to >= 0 && cue.to <= 80)) || (cue.dur != null && !(cue.dur > 0 && cue.dur <= 60))
           || (cue.delay != null && !(cue.delay >= 0 && cue.delay <= 60))) bad(`${m.id} ${at}[${i}]: bridge (to 0-80 deg, dur up to 60 s)`);
+        // (the set piece's: near, m; jump, true or the hero shot's { scale, side, ahead, out, up, fov, hold })
+        if (cue === s && ((s.near != null && !(s.near >= 20 && s.near <= 600)) || (s.jump != null && typeof s.jump !== 'boolean' && (typeof s.jump !== 'object' || Array.isArray(s.jump) || (s.jump.scale != null && !(s.jump.scale >= 0.12 && s.jump.scale <= 0.9)) || (s.jump.side != null && !['left', 'right'].includes(s.jump.side))))))
+          bad(`${m.id} ${at}[${i}]: bridge (near 20-600 m; jump true or { scale 0.12-0.9, side left or right })`);
       }
       if (s.type === 'convoy' && s.band != null && !(Array.isArray(s.band) && s.band.length === 2 && s.band[0] < s.band[1])) bad(`${m.id} ${at}[${i}]: convoy band`);
       for (const e of creatureStep(s, w.city || 'ny')) bad(`${m.id} ${at}[${i}]: ${e}`);

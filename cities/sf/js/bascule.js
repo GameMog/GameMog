@@ -329,7 +329,7 @@ function covers(x, z, pad = 1) {
 // Built once the grade floors stand: the leaves, the houses, the floor and the API
 function buildBascules(scene, grade) {
   const spans = findSpans().filter((s) => s.segs.length && s.hi > s.lo);
-  const api = { spans, list, nearest, set, raise, angle, update, floorAt: leafFloor, leafAt, covers };
+  const api = { spans, list, nearest, set, raise, angle, update, floorAt: leafFloor, leafAt, covers, gates, down };
   window.NYC.Bascules = api;
   if (!spans.length) return api;
   const N = window.NYC, T = N.Terrain;
@@ -379,6 +379,8 @@ function buildBascules(scene, grade) {
       s.leaves.push(leaf);
     }
     buildHouses(s);
+    // (the gates across the road at each end, built the first time the span rises: gateArms)
+    s.gate = { k: 0, want: 0, arms: null, blockers: null };
   }
 
   function buildLeaf(leaf) {
@@ -478,6 +480,113 @@ function buildBascules(scene, grade) {
   // ── the floor: each leaf's surface, at its angle ──
   // (for something at height y over (x, z): the leaf's surface there when y is within the band over it; inside a span's
   // footprint the static floors (a disc at a node on the water, a deck the traffic left out) do not count)
+  // ── the gates: a striped arm over each half of the road at each end, GATE_BACK m back from the hinge on the land, on
+  // a post with a red lamp that flashes while the bridge is not down. They come down before the leaves move (raise():
+  // GATE_LEAD s), the city's traffic holds at them (trafficBlockers) and the leaves wait for the span to empty of cars
+  // (CLEAR_MAX s at most); they go up once the leaves are back down. A car driven through a lowered arm snaps it up
+  // and out of its way (it stays up till the gates reset). Built for a span the first time it rises (a few dozen meshes)
+  const GATE_BACK = 7.5, GATE_LEAD = 1.1, GATE_SECS = 1.0, CLEAR_MAX = 5, ARM_H = 1.05;
+  const gateGeo = new THREE.BoxGeometry(1, 1, 1);
+  const armWhite = new THREE.MeshStandardNodeMaterial({ color: 0xf2f0ea, roughness: 0.5, metalness: 0 });
+  const armRed = new THREE.MeshStandardNodeMaterial({ color: 0xc81e1e, roughness: 0.5, metalness: 0 });
+  const postMat = new THREE.MeshStandardNodeMaterial({ color: 0x2e3436, roughness: 0.6, metalness: 0.3 });
+  const lampMat = new THREE.MeshStandardNodeMaterial({ color: 0x3a0505, roughness: 0.4, metalness: 0, emissive: 0xff2010, emissiveIntensity: 0 });
+  // (a point in the span's frame: t m along it from hinge a, o m across it, v = (-uz, ux))
+  const frameAt = (s, t, o) => ({ x: s.ax + s.ux * t - s.uz * o, z: s.az + s.uz * t + s.ux * o });
+  function gateArms(s) {
+    if (s.gate.arms) return s.gate.arms;
+    const arms = [], g = new THREE.Group();
+    g.name = `Bascule gates ${s.name}`;
+    g.position.set(s.ax, 0, s.az);
+    g.rotation.y = Math.atan2(-s.uz, s.ux);
+    const mk = (mat, sx, sy, sz, x, y, z, parent) => { const m = new THREE.Mesh(gateGeo, mat); m.scale.set(sx, sy, sz); m.position.set(x, y, z); m.castShadow = true; parent.add(m); return m; };
+    for (const end of [0, 1]) {
+      const t = end ? s.L + GATE_BACK : -GATE_BACK, y = end ? s.yB : s.yA;
+      // (two arms, one from each kerb to just short of the middle of the road)
+      for (const side of [-1, 1]) {
+        const o = side < 0 ? s.lo + 0.35 : s.hi - 0.35, len = Math.max(2, s.width / 2 - 0.9), dir = side < 0 ? 1 : -1, SEG = 1.2;
+        mk(postMat, 0.32, ARM_H + 0.25, 0.32, t, y + (ARM_H + 0.25) / 2, o, g);
+        mk(lampMat, 0.26, 0.26, 0.26, t, y + ARM_H + 0.42, o, g);
+        const pivot = new THREE.Group();
+        pivot.position.set(t, y + ARM_H, o);
+        g.add(pivot);
+        for (let k = 0; k * SEG < len; k++) {
+          const a = k * SEG, b = Math.min(len, a + SEG);
+          mk(k % 2 ? armWhite : armRed, 0.12, 0.14, b - a, 0, 0, dir * (a + b) / 2, pivot);
+        }
+        arms.push({ pivot, dir, up: 0, broken: false, base: frameAt(s, t, o), tip: frameAt(s, t, o + dir * len), y: y + ARM_H });
+      }
+    }
+    group.add(g);
+    s.gate.group = g;
+    return (s.gate.arms = arms);
+  }
+  // (the city's traffic holds at the gates: a row of blockers across the road at each (traffic.js blockers), each only
+  // for a car going along the span's axis (axis: true), never one on a street that runs past the gate)
+  function trafficBlockers(s, on) {
+    const TS = window.__NYC_APP && window.__NYC_APP.trafficSystem;
+    if (!TS || !Array.isArray(TS.blockers)) return;
+    if (on && !s.gate.blockers) {
+      s.gate.blockers = [];
+      const yaw = Math.atan2(s.ux, s.uz);
+      for (const t of [-GATE_BACK - 1.5, s.L + GATE_BACK + 1.5]) {
+        for (let o = s.lo + 1.6; o <= s.hi - 1.6 + 1e-6; o += 3.2) {
+          const p = frameAt(s, t, o);
+          s.gate.blockers.push({ x: p.x, z: p.z, yaw, halfW: 1.7, halfL: 0.4, vx: 0, vz: 0, axis: true, bascule: s.id });
+        }
+      }
+      TS.blockers.push(...s.gate.blockers);
+    } else if (!on && s.gate.blockers) {
+      for (const b of s.gate.blockers) { const k = TS.blockers.indexOf(b); if (k >= 0) TS.blockers.splice(k, 1); }
+      s.gate.blockers = null;
+    }
+  }
+  // (the city's cars between the gates: the leaves wait for them to drive off)
+  function carsOn(s) {
+    const TS = window.__NYC_APP && window.__NYC_APP.trafficSystem;
+    if (!TS) return 0;
+    let n = 0;
+    for (const list of [TS.cars, TS.buses]) for (const v of list || []) {
+      if (!v || v.disabled || !Number.isFinite(v.x)) continue;
+      const t = (v.x - s.ax) * s.ux + (v.z - s.az) * s.uz, o = (v.x - s.ax) * -s.uz + (v.z - s.az) * s.ux;
+      if (t > -GATE_BACK + 1 && t < s.L + GATE_BACK - 1 && o > s.lo - 1 && o < s.hi + 1) n++;
+    }
+    return n;
+  }
+  function gatesUpdate(s, dt) {
+    const G = s.gate;
+    if (!G) return;
+    const want = G.want;
+    if (want || G.k > 0) {
+      const arms = gateArms(s);
+      G.k = Math.max(0, Math.min(1, G.k + (want ? 1 : -1) * dt / GATE_SECS));
+      const e = G.k * G.k * (3 - 2 * G.k);
+      const cm = window.__NYC_APP && window.__NYC_APP.controllerManager, car = cm && cm.entities && cm.entities.car;
+      for (const a of arms) {
+        // (driven through: the arm snaps up and out of the car's way)
+        if (!a.broken && e > 0.5 && car && car.position && Math.abs(car.position.y - a.y) < 2.4) {
+          const px = car.position.x, pz = car.position.z, dx = a.tip.x - a.base.x, dz = a.tip.z - a.base.z, L2 = dx * dx + dz * dz;
+          const k = Math.max(0, Math.min(1, ((px - a.base.x) * dx + (pz - a.base.z) * dz) / L2));
+          if (Math.hypot(px - (a.base.x + dx * k), pz - (a.base.z + dz * k)) < 1.6) a.broken = true;
+        }
+        a.up = a.broken ? Math.min(1, a.up + dt * 6) : 0;
+        // (down: the boom across the road; up: standing on its post; snapped: a little past upright)
+        const down = e * (1 - a.up);
+        a.pivot.rotation.x = -a.dir * (Math.PI / 2) * (1 - down) - a.dir * 0.3 * a.up;
+      }
+      // (the lamps flash while the gates are down)
+      lampMat.emissiveIntensity = G.k > 0.05 && Math.sin((performance.now() / 1000) * Math.PI * 2.2) > 0 ? 3.2 : 0.05;
+      if (!want && G.k <= 0) for (const a of arms) { a.broken = false; a.up = 0; }
+    }
+    trafficBlockers(s, want === 1 || s.angle > 0.2);
+  }
+  // (every span down at once, its gates up: a story's mission start and its end)
+  function down() { for (const s of spans) if (s.angle > 0 || s.anim || (s.gate && s.gate.want)) set(s.id, 0); }
+  function gates(ref) {
+    const s = spanOf(ref);
+    return s && s.gate ? { want: s.gate.want, k: +s.gate.k.toFixed(2), snapped: (s.gate.arms || []).filter((a) => a.broken).length, blockers: (s.gate.blockers || []).length, carsOn: carsOn(s) } : null;
+  }
+
   const gFloor = grade.floorAt, gOnDeck = grade.onDeckAt;
   grade.floorAt = (x, z, y) => {
     const s = covers(x, z, 0.6);
@@ -534,34 +643,46 @@ function buildBascules(scene, grade) {
     for (const l of s.leaves) { l.phi = l.rest + a; l.pivot.rotation.z = l.phi; }
     for (const c of s.walls || []) c.maxY = s.angle > 2 ? -1e9 : c._maxY;
   }
+  // (set: at once, and the gates with it: down while the leaves are up, up at rest)
   function set(ref, deg) {
     const s = spanOf(ref);
     if (!s) return null;
+    if (s.anim && s.anim.res) s.anim.res(s.id);
     s.anim = null;
     for (const l of s.leaves) l.omega = 0;
     apply(s, deg);
+    if (s.gate) { s.gate.want = s.angle > 0 ? 1 : 0; if (s.angle > 0) s.gate.k = 1; }
     return s.id;
   }
-  // raise (or lower) to `to` degrees over `dur` s after `delay` s; ease 'inOut' (default), 'linear' or 'out'
+  // raise (or lower) to `to` degrees over `dur` s after `delay` s; ease 'inOut' (default), 'linear' or 'out'. From rest
+  // the gates come down first (GATE_LEAD s, o.gateLead) and the leaves wait for the span to empty of the city's cars
+  // (o.clearMax s at most); back down at 0, the gates go up again
   function raise(ref, o = {}) {
     const s = spanOf(ref ?? 'nearest');
     if (!s) return Promise.resolve(null);
     const to = Math.max(0, Math.min(MAX_DEG, o.to ?? 70)), dur = Math.max(0.05, o.dur ?? 8);
-    return new Promise((res) => { s.anim = { from: s.angle, to, dur, t: -(o.delay || 0), ease: o.ease || 'inOut', res }; });
+    const fromRest = s.angle < 0.5 && to > 0;
+    if (s.gate && to > 0) s.gate.want = 1;
+    const lead = fromRest ? Math.max(0, o.gateLead ?? GATE_LEAD) : 0;
+    if (s.anim && s.anim.res) s.anim.res(s.id);
+    return new Promise((res) => { s.anim = { from: s.angle, to, dur, t: -(o.delay || 0) - lead, ease: o.ease || 'inOut', res, fromRest, clearMax: o.clearMax ?? CLEAR_MAX, held: 0 }; });
   }
   function update(dt) {
     for (const s of spans) {
+      gatesUpdate(s, dt);
       const A = s.anim;
       if (!A) continue;
+      // (the leaves wait at rest while a city car is still on the span, clearMax s at most)
+      if (A.fromRest && A.t < 0 && A.t + dt >= 0 && A.held < A.clearMax && carsOn(s)) { A.held += dt; continue; }
       A.t += dt;
-      if (A.t < 0) continue;
+      if (A.t < 0) { A.from = s.angle; continue; }
       const k = Math.min(1, A.t / A.dur);
       const e = A.ease === 'linear' ? k : A.ease === 'out' ? 1 - (1 - k) * (1 - k) : k * k * (3 - 2 * k);
       const before = s.angle;
       apply(s, A.from + (A.to - A.from) * e);
       const w = dt > 0 ? (((s.angle - before) * Math.PI) / 180) / dt : 0;
       for (const l of s.leaves) l.omega = w;
-      if (k >= 1) { s.anim = null; for (const l of s.leaves) l.omega = 0; A.res(s.id); }
+      if (k >= 1) { s.anim = null; for (const l of s.leaves) l.omega = 0; if (s.gate && s.angle <= 0) s.gate.want = 0; A.res(s.id); }
     }
   }
 }
