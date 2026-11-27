@@ -632,7 +632,7 @@ for (const m of [M1, M2, M3, M4, M5, M6, M7, M8]) { const [g, s, b] = MEDALS[m.i
 const pack = {
   storykit: 2, id: 'mandis-revenge', title: "Mandi's Revenge", kicker: 'CHICAGO, IL', tagline: "I said I'd get you back. I never said I'd take you back.",
   credits: { lines: [
-    'Every person in this story is invented. Built from CC0 MakeHuman parts.',
+    'Every person in this story is invented. Mandi and Jay are original models made for this game; the rest of the cast is built from CC0 MakeHuman parts.',
     "The Kastell: Mog City's own black off-roader, with no maker's badges; a look-alike with no connection to any car maker.",
   ],
   cast: [
