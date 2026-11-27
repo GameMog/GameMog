@@ -62,7 +62,12 @@ const cast = [
 // The Loop and the river from compiler 0.14.0's downtown box (the core step moved it from the Census point onto the
 // Loop). Each one is a lot or a park on the street; the nearest sensitive place in the town's data is in the README.
 const places = {
-  studio: { '@': 'park19', name: "Mandi's block, by the tracks" },
+  // (27 Nov, the owner: "M1 move to street level". Her lot was park19, a lot on Lower Wacker: the drive to Jay's lot
+  // looped 4.9 km to get up and out. A lot on S Wabash Ave under the tracks instead, on the street: the way to Jay's lot
+  // is down Wabash and along Van Buren under the tracks, 1.1 km. Nowhere nearer park19 has a direct way to it: the traffic
+  // graph has no lane south from Monroe to Van Buren on Wells, LaSalle or Clark, so every route from the Loop's north
+  // half to S Franklin St goes round by the West Loop)
+  studio: { '@': 'parking28', name: "Mandi's block, by the tracks" },
   'jay-lot': { '@': 'parking251', name: "Jay's lot, under the tracks" },
   salon: { '@': 'parking108', name: "Kiki's salon" },
   warehouse: { '@': 'parking15', name: 'the warehouse lot' },
@@ -77,6 +82,9 @@ const places = {
   upstream: { '@': 'park152', name: 'the north branch, upstream' },
   // (M8's run-up: Michigan Ave north of the river, the limo's way onto the bridge going south, a straight 200 m to the
   // north leaf's hinge; the bridge itself is the bascule nearest parking73, Michigan Ave's: MogCity cities/sf/js/bascule.js)
+  // (M8's chase starts here, 27 Nov (the owner: "cut to 60 seconds"): E Ohio St, a block west of Michigan Ave, the limo
+  // ahead: east on Ohio, then south down Michigan Ave onto the bridge, 0.8 km; from upstream it was 2.3 km)
+  'ohio': { '@': 'parking83', name: 'E Ohio St, north of the river' },
   'north-ave': { '@': 'bank212', name: 'Michigan Ave, north of the river' },
   bridge: { '@': 'parking73', name: 'the river bridge' },
   dawn: { '@': 'park137', name: 'the riverwalk at dawn' },
@@ -543,7 +551,7 @@ const M7 = { id: 'DN-7', title: 'Double or Nothing', vehicle: 'kastell', start: 
 // ── Mission 8: Bridge Up ──
 const D3 = { type: 'vcall', id: 'd3', title: 'DV · Private Line', time: 'night', layout: 'speaker', people: [
   { who: 'diego', office: 'car', label: 'Diego Vale', sub: 'the limo · leaving', cam: 'low' },
-  { who: P, office: 'car', label: 'Mandi', sub: 'the riverbank', cam: 'low' }],
+  { who: P, office: 'car', label: 'Mandi', sub: 'E Ohio St', cam: 'low' }],
   lines: [
     V('diego', 'Brava. Truly. A thousand sevens. I could not have staged it better.'),
     V(P, "You're running."),
@@ -587,14 +595,14 @@ const FINAL = { type: 'vcall', id: 'final', title: "Velvet Lake Casting · Swim 
     V(P, 'No.'),
   ] };
 
-const M8 = { id: 'BU-8', title: 'Bridge Up', vehicle: 'kastell', start: '@upstream', time: 'midnight', weather: 'rain', card: 'slam', verbs: ['drive', 'tail', 'fight'],
+const M8 = { id: 'BU-8', title: 'Bridge Up', vehicle: 'kastell', start: '@ohio', time: 'midnight', weather: 'rain', card: 'slam', verbs: ['drive', 'tail', 'fight'],
   stakes: 'Diego is leaving with the cash. The bridges go up at eleven.', passLine: "I said I'd get you back. I never said I'd take you back.",
   steps: [
     { type: 'transition', kicker: '10:58 PM', text: 'THE RIVER BRIDGES' },
     D3,
     // (the bridge first, so a retry from its checkpoint arms it again: it waits for her near it, then rises)
     JUMP,
-    { type: 'tail', name: "Diego's white limo", car: 'sedan', color: '#F4F2EC', route: ['@upstream', '@north-ave', '@bridge'], ahead: 60, speed: 20, ring: 10, spotTime: 10, lostDist: 320,
+    { type: 'tail', name: "Diego's white limo", car: 'sedan', color: '#F4F2EC', route: ['@ohio', '@north-ave', '@bridge'], ahead: 60, speed: 20, ring: 10, spotTime: 10, lostDist: 220,
       objective: 'Catch the limo before the bridge.',
       during: [SAYAT(4, 'jay', "He's got a tiny flag on the hood. That's how you know he's evil."), SAYAT(30, 'mandi', 'Hold on to something.'),
         SAYAT(34, 'jay', "I'm holding the sponge!")] },

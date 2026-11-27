@@ -239,7 +239,7 @@
  },
  "places": {
   "studio": {
-   "@": "park19",
+   "@": "parking28",
    "name": "Mandi's block, by the tracks"
   },
   "jay-lot": {
@@ -289,6 +289,10 @@
   "upstream": {
    "@": "park152",
    "name": "the north branch, upstream"
+  },
+  "ohio": {
+   "@": "parking83",
+   "name": "E Ohio St, north of the river"
   },
   "north-ave": {
    "@": "bank212",
@@ -4110,7 +4114,7 @@
      "id": "BU-8",
      "title": "Bridge Up",
      "vehicle": "kastell",
-     "start": "@upstream",
+     "start": "@ohio",
      "time": "midnight",
      "weather": "rain",
      "card": "slam",
@@ -4145,7 +4149,7 @@
          "who": "player",
          "office": "car",
          "label": "Mandi",
-         "sub": "the riverbank",
+         "sub": "E Ohio St",
          "cam": "low"
         }
        ],
@@ -4230,7 +4234,7 @@
        "car": "sedan",
        "color": "#F4F2EC",
        "route": [
-        "@upstream",
+        "@ohio",
         "@north-ave",
         "@bridge"
        ],
@@ -4238,7 +4242,7 @@
        "speed": 20,
        "ring": 10,
        "spotTime": 10,
-       "lostDist": 320,
+       "lostDist": 220,
        "objective": "Catch the limo before the bridge.",
        "during": [
         {
