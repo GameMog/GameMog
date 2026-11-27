@@ -659,7 +659,9 @@
       "walk",
       "walkCool",
       "walkHeavy",
-      "jog"
+      "jog",
+        "swagger",
+        "ual"
      ]
     }
    }
