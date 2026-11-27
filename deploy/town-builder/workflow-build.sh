@@ -32,8 +32,8 @@ set -euo pipefail
 # points: every story place's ax, az where a person on foot is sent, outdoors and clear of buildings); re-pinned for release r10
 # (MogCity r10-misc; tools/hometown unchanged since r8, so the same compiler and buildId); then compiler 0.13.0 (release
 # r13, MogCity stage0: stage 0's OSM roofs, colours, materials and street props; a new buildId); now compiler 0.13.2 (MogCity chcomp: twin carriageways on one grade, multipolygon
-# halls, at-grade tunnels; a new buildId); now compiler 0.14.0 (MogCity jh-box-compiler: the core step of the box rule, big cities centred on their downtown; a new buildId), on the branch below
-MOGCITY_SHA=0902da00dad61702f89503692fe23c1efbfea0e5
+# halls, at-grade tunnels; a new buildId); then compiler 0.14.0 (MogCity jh-box-compiler: the core step of the box rule, big cities centred on their downtown; a new buildId); now compiler 0.15.0 (MogCity mandi-integrate: Chicago's setback and crown massing, the river deck fix; a new buildId, htc-0.15.0-hg1-bcc421b02 for Chicago). LOCAL ONLY (27 Nov): this commit is not on GitHub yet, so a production build cannot fetch it until the owner pushes the compiler; on the branch below
+MOGCITY_SHA=b5c79c40d3d82dc047c3d32f6d34b8cdc43ff66d
 # the branch that carries it: fetched when the commit cannot be fetched by its SHA alone (the checkout is still the SHA)
 MOGCITY_REF="${HOMETOWN_MOGCITY_REF:-hometown-compiler}"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
