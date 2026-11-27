@@ -14,7 +14,7 @@
 //   phone.show(screen, data) / phone.hide()      feed, incoming, video, ended, tracker
 //   caller(name, colour, status) / caller(null) · dm(from, text) · counter(label, value) / counter(null)
 //   passed({ title, stats, reward, note }) · ko()
-//   failed(reason, { skip, tip, retryLabel, skipLabel, quitLabel }) -> Promise<'retry'|'quit'|'skip'>   the reason, a
+//   failed(reason, { skip, tip, retryLabel, skipLabel, quitLabel, restart, restartLabel }) -> Promise<'retry'|'restart'|'quit'|'skip'>   the reason, a
 //                                                TIP (objective-style parts, key caps and all) and the choices, each label
 //                                                'Main: sub' ('Retry: the tail': RETRY big, 'the tail' small under it)
 //   fade(to, secs) · gate({ when, onStart, hold, fine, credit }) -> Promise (up once when() is true; any key or a click starts. Over
@@ -34,11 +34,11 @@
 //                                                counting within `reach` m; step() true once held through
 //   offer({ title, note, options: [{ key, label, run }] }) / offer(null)   a small prompt of real help (top left), its
 //                                                options on the number keys (held off the city's own while it is up)
-import { createPause } from './pause.js';
+import { createPause } from './pause.js'; import { createPhoto } from './photo.js';
 import { janePortrait } from './jane.js';
 // (the story pack: every string these methods show is S.t of what they are given, a speaker's label S.name of its id;
 // with Mog City's own pack each returns what it is given, wagmi/story/index.js)
-import { S as story } from '../story/index.js';
+import { S as story } from '../story/index.js'; import { importRetry } from '../net.js'; import { readable } from './contrast.js';
 export const COLORS = { yellow: '#FFC93C', green: '#4ADE80', red: '#EF4444', blue: '#6CB8FF', acid: '#B6FF3B', white: '#FFFFFF' };
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -139,7 +139,7 @@ body.wg-cine .wg-place { bottom: calc(var(--bar) + 3.2vh); }
 .wg-cap { position: absolute; left: 5vw; bottom: calc(var(--bar) + 10vh); opacity: 0; transform: translateX(-18px); transition: opacity .35s, transform .5s cubic-bezier(.2,.7,.2,1); z-index: 3; border-left: 4px solid var(--c, #fff); padding: 2px 0 2px 14px; }
 .wg-cap.on { opacity: 1; transform: none; }
 .wg-cap .n { font: italic 800 54px/0.95 'Barlow Condensed'; text-transform: uppercase; letter-spacing: 1px; }
-.wg-cap .r { margin-top: 6px; font: 700 15px/1 'Barlow Condensed'; letter-spacing: 3px; text-transform: uppercase; color: var(--c, #fff); }
+.wg-cap .r { margin-top: 6px; font: 700 15px/1 'Barlow Condensed'; letter-spacing: 3px; text-transform: uppercase; color: var(--c, #fff); display: inline-block; padding: 3px 8px 2px; border-radius: 5px; background: rgba(8,10,14,0.62); }
 
 /* (wrapped at about half the screen: a long line never reaches the speed panel or the radar) */
 .wg-line { position: absolute; left: 50%; bottom: 158px; transform: translateX(-50%); width: min(max(52vw, 320px), 820px, calc(100vw - 32px)); text-align: center; z-index: 4; }
@@ -175,8 +175,11 @@ body.wg-story .wg-help { top: 20px; }
 .wg-obj { font-size: 26px; }
 .wg-sub b { font-weight: 700; letter-spacing: .5px; margin-right: 8px; }
 .wg-obj.hide, .wg-sub.hide { opacity: 0; }
+/* (a cutscene's line on a plate of its own, so it reads over anything the shot puts behind it: a white certificate, the
+   lit screen, a lamp; the glass theme has its own) */
+html:not(.ui-glass) body.wg-cine #wg .wg-sub { display: table; margin: 0 auto; padding: 6px 16px 8px; border-radius: 8px; background: rgba(8,10,14,0.66); font-size: clamp(24px, 1.75vw, 30px); }
 
-.wg-help { position: absolute; left: 20px; top: 92px; max-width: 360px; padding: 12px 16px; background: rgba(8,10,14,0.62); border-radius: 10px; font: 600 17px/1.3 'Barlow Condensed'; opacity: 0; transform: translateY(-6px); transition: opacity .3s, transform .3s; z-index: 4; backdrop-filter: blur(6px); }
+.wg-help { position: absolute; left: 20px; top: 92px; max-width: 360px; padding: 12px 16px; background: rgba(8,10,14,0.84); border-left: 3px solid #FFC93C; border-radius: 10px; font: 600 17px/1.3 'Barlow Condensed'; opacity: 0; transform: translateY(-6px); transition: opacity .3s, transform .3s; z-index: 4; backdrop-filter: blur(6px); }
 .wg-help.on { opacity: 1; transform: none; }
 #wg kbd { display: inline-block; min-width: 22px; padding: 0 6px; margin: 0 2px; border: 1px solid rgba(255,255,255,.55); border-radius: 5px; background: rgba(255,255,255,.12); font: 700 15px/20px 'Barlow Condensed'; text-align: center; }
 
@@ -279,6 +282,9 @@ body.wg-offering #wg .wg-help { opacity: 0 !important; }
 
 .wg-big { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 8; opacity: 0; transition: opacity .5s; }
 .wg-big.on { opacity: 1; }
+/* (the M4 look review's round 6: over a lit scene, the fail title's letters had the string lights inside them. A dark
+   scrim behind the cards, deepest under the words, the scene still there round the edges) */
+.wg-big:not(.wg-ep) { background: radial-gradient(ellipse 62% 58% at 50% 48%, rgba(5,7,11,.78), rgba(5,7,11,.55) 55%, rgba(5,7,11,.3)); }
 .wg-big .h { font: italic 800 84px/1 'Barlow Condensed'; letter-spacing: 1px; text-shadow: 0 4px 24px rgba(0,0,0,.6); transform: scale(1.15); transition: transform .6s cubic-bezier(.2,.7,.2,1); }
 .wg-big.on .h { transform: none; }
 .wg-big .t { font: 700 34px/1.1 'Barlow Condensed'; margin-top: 6px; text-shadow: 0 2px 10px rgba(0,0,0,.6); }
@@ -292,13 +298,16 @@ body.wg-offering #wg .wg-help { opacity: 0 !important; }
 .wg-big button { font: 700 20px/1 'Barlow Condensed'; letter-spacing: 2px; text-transform: uppercase; color: #fff; padding: 12px 26px; border-radius: 10px; border: 1px solid rgba(255,255,255,.25); background: rgba(8,10,14,0.62); cursor: pointer; }
 .wg-big button.sel, .wg-big button:hover { background: #FFC93C; color: #0A0C10; border-color: #FFC93C; }
 /* (the fail screen's tip, and what each choice does, small under its name; not Episode 1's end card, episode.js) */
-.wg-big:not(.wg-ep) .tip { margin-top: 12px; max-width: min(620px, calc(100vw - 32px)); padding: 10px 14px; background: rgba(8,10,14,.62); border-left: 3px solid #FFC93C; border-radius: 10px; font: 600 19px/1.3 'Barlow Condensed'; text-align: left; }
+.wg-big:not(.wg-ep) .tip { margin-top: 12px; max-width: min(620px, calc(100vw - 32px)); padding: 10px 14px; background: rgba(8,10,14,.88); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); border-left: 3px solid #FFC93C; border-radius: 10px; font: 600 19px/1.3 'Barlow Condensed'; text-align: left; }
 .wg-big:not(.wg-ep) .tip b { display: block; font: 700 12px/1 'Barlow Condensed'; letter-spacing: 2.5px; color: #FFC93C; margin-bottom: 5px; }
 .wg-big:not(.wg-ep) .why { text-align: center; padding: 0 16px; }
 .wg-big:not(.wg-ep) .choices { flex-wrap: wrap; justify-content: center; max-width: calc(100vw - 32px); }
 .wg-big:not(.wg-ep) button small { display: block; margin-top: 5px; font: 600 14px/1.15 'Barlow Condensed'; letter-spacing: .5px; text-transform: none; opacity: .85; }
 /* (while it is up the fight's own layer goes, its lesson card, prompts and arrows under the words, and a phone's stick) */
 body.wg-failing #wf, body.wg-failing #touch-controls, body.wg-failing .touch-look-hint { opacity: 0 !important; visibility: hidden; transition: opacity .3s, visibility 0s .3s; }
+/* (the car's F prompt is the street's, never a screen's: not over the start gate's 'Click or press any key to start', the
+   instant title under it, or MISSION FAILED's buttons. Colter Land, 16 Nov: "F · Get in" sat under the gate's line) */
+body.wg-failing #wg-prompt, body:has(#wg .wg-gate.on) #wg-prompt, body:has(#wg-boot:not(.off)) #wg-prompt { visibility: hidden !important; }
 body.wg-ko #canvas-container { filter: grayscale(.85) contrast(1.05); transition: filter .6s; }
 #canvas-container { transition: filter .8s; }
 
@@ -557,13 +566,13 @@ export function createUI() {
 
   let objHtml = null, subOn = false;
   // the step and his mode: what is asked of him follows both (see step() at the top)
-  let stepId = null, base = null, baseSecs = 7, ask = false, askT = 0, helpMode = null;
+  let stepId = null, said1 = null, base = null, baseSecs = 7, ask = false, askT = 0, helpMode = null;
   const askText = /^\s*get (back )?in(to)? (your|the|a) (car|vehicle)/i;
   const isCarAsk = (parts) => !!parts && askText.test(plain(parts));
   // (a help about the car's door: getting out is for the car, getting in is for on foot)
   const modeOf = (text) => { const s = plain(text); return /\bget out\b/i.test(s) ? 'car' : /\bget (back )?in(to)? (a|your|the) (car|vehicle)\b/i.test(s) ? 'foot' : null; };
   const modeNow = () => { const cm = window.WAGMI?.app?.controllerManager; return cm ? (cm.activeMode === 'car' ? 'car' : 'foot') : null; };
-  let offerKeys = null;
+  let offerKeys = null, offerNow = null;
   (function watch() {
     requestAnimationFrame(watch);
     const W = window.WAGMI; if (!W || W.paused) return;
@@ -608,7 +617,7 @@ export function createUI() {
     placeOff() { placeEl.classList.remove('on'); },
     caption(name, role = '', color = '#FFFFFF', secs = 2.8) {
       if (!name) { capEl.classList.remove('on'); return; }
-      capEl.style.setProperty('--c', color);
+      capEl.style.setProperty('--c', readable(color)); // (lightened until it reads: contrast.js)
       capEl.querySelector('.n').textContent = story.t(name); capEl.querySelector('.r').textContent = story.t(role);
       capEl.classList.remove('on'); void capEl.offsetWidth; capEl.classList.add('on');
       later('cap', secs * 1000, () => capEl.classList.remove('on'));
@@ -621,12 +630,12 @@ export function createUI() {
       // (the label the speaker's name as the story has it; the id kept on the line for whoever asks who speaks: face.js
       // subLine. The words come already as the story has them: the say loops' S.line)
       // (the words in a span of their own, so a theme can set them under the name and bring each line in; radio: a line
-      // over the radio or a phone, for a theme to mark)
-      subEl.innerHTML = (speaker ? `<b style="color:${color}">${esc(story.name(speaker).toUpperCase())}</b>` : '') + `<span class="t">${esc(text)}</span>`;
+      // over the radio or a phone, for a theme to mark; the name's colour lightened until it reads, contrast.js)
+      subEl.innerHTML = (speaker ? `<b style="color:${readable(color)}">${esc(story.name(speaker).toUpperCase())}</b>` : '') + `<span class="t">${esc(text)}</span>`;
       subEl.dataset.who = speaker || ''; subEl.classList.toggle('radio', !!radio);
       subOn = true; subEl.classList.remove('hide'); objEl.classList.add('hide');
       const last = said[said.length - 1];
-      if (!last || last[2] !== text) { said.push([speaker, color, text]); if (said.length > 12) said.shift(); }
+      if (!last || last[2] !== text) { said.push([speaker, readable(color), text]); if (said.length > 12) said.shift(); }
     },
     // the objective: the line for a few seconds, the tracker until the next one (track: false leaves the tracker be)
     objective(parts, secs = 7, { track: keep = true } = {}) {
@@ -639,7 +648,7 @@ export function createUI() {
       }
       if (keep) track(parts || null);
       if (!parts) { objHtml = null; objEl.classList.add('hide'); return; }
-      objHtml = rich(parts); objEl.innerHTML = `<span class="t">${objHtml}</span>`;
+      const html = rich(parts); if (window.WAGMI?.calmHud && keep && said1 && said1[0] === stepId && said1[1] === html) return; if (keep) said1 = [stepId, html]; objHtml = html; objEl.innerHTML = `<span class="t">${objHtml}</span>`; // (calm-hud.js: said once a step)
       if (!subOn) objEl.classList.remove('hide');
       // (a theme may hold the line shorter, --wg-obj-secs: the tracker keeps it, the line only announces it)
       const cap = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--wg-obj-secs'));
@@ -707,10 +716,13 @@ export function createUI() {
       ui.offer(null);
     },
     get stepId() { return stepId; },
+    // (the offer up now, the very object it was given, or null: its maker takes it down once it no longer fits)
+    offering: () => offerNow,
     // real help after a genuine stall: { title, note, options: [{ key: '1', label, run }] }, up for secs (null: down)
     offer(o, secs = 14) {
       if (offerKeys) { removeEventListener('keydown', offerKeys, true); offerKeys = null; }
       clearTimeout(timers.get('offer'));
+      offerNow = o && o.options?.length ? o : null;
       if (!o || !o.options?.length) { offerEl.classList.remove('on'); document.body.classList.remove('wg-offering'); return; }
       offerEl.innerHTML = `<div class="h">${esc(story.t(o.title || 'Need a hand?'))}</div>${o.note ? `<div class="n">${rich(o.note)}</div>` : ''}
         ${o.options.map((p, i) => `<button type="button" data-i="${i}"><kbd>${esc(p.key)}</kbd><span>${rich(p.label)}</span></button>`).join('')}<div class="x">Or just carry on.</div>`;
@@ -761,10 +773,11 @@ export function createUI() {
     },
     // tip: what would have helped, for this reason (objective-style parts); each label 'Main: sub', the sub what the
     // choice does ('Retry: the tail', 'Skip the tail: start at the yard'); none: RETRY, QUIT, SKIP as they were
-    failed(reason, { skip = false, tip = null, retryLabel = '', skipLabel = '', quitLabel = '' } = {}) {
+    failed(reason, { skip = false, tip = null, retryLabel = '', skipLabel = '', quitLabel = '', restart = false, restartLabel = '' } = {}) {
       window.mcStat?.('fail', reason);
-      const opts = ['retry', 'quit', ...(skip ? ['skip'] : [])];
-      const labels = { retry: retryLabel, quit: quitLabel, skip: skipLabel };
+      // (restart: a mission retried from a checkpoint offers its start as well, 'restart', beside Retry)
+      const opts = ['retry', ...(restart ? ['restart'] : []), 'quit', ...(skip ? ['skip'] : [])];
+      const labels = { retry: retryLabel, restart: restartLabel || 'Restart: from the start', quit: quitLabel, skip: skipLabel };
       const choice = (o, i) => {
         const s = String(story.t(labels[o]) || ''), at = s.indexOf(': '), main = at < 0 ? s || o : s.slice(0, at), sub = at < 0 ? '' : s.slice(at + 2);
         return `<button data-o="${o}" class="${i === 0 ? 'sel' : ''}"><span class="m">${esc(main)}</span>${sub ? `<small>${esc(sub)}</small>` : ''}</button>`;
@@ -822,7 +835,7 @@ export function createUI() {
       // (the live city under it drifting, the camera eased in from the opening's first frame once the still is out and
       // back onto it with the start: wagmi/gate-drift.js, fetched now, nothing waiting on it)
       const drift = { d: null, live: false, stopped: false };
-      import('../gate-drift.js').then((m) => { if (drift.stopped) return; drift.d = m.createGateDrift(); if (drift.live) drift.d.live(); }).catch((err) => console.warn('[gate] drift', err));
+      importRetry(() => import('../gate-drift.js')).then((m) => { if (drift.stopped) return; drift.d = m.createGateDrift(); if (drift.live) drift.d.live(); }).catch((err) => console.warn('[gate] drift', err));
       const driftLive = () => { drift.live = true; drift.d?.live(); };
       const isReady = () => { try { return !!when(); } catch { return false; } };
       let shown = false, live = !T;
@@ -970,5 +983,7 @@ export function createUI() {
   };
   // the pause menu (Esc or P), with the brief's key (B)
   try { ui.pause = createPause(ui); } catch (err) { console.warn('[wagmi] pause', err); }
+  // photo mode (O, or Pause > Photo mode): the pause menu's hold, a free camera, a PNG with the world's tag
+  try { ui.photo = createPhoto(ui); } catch (err) { console.warn('[wagmi] photo', err); }
   return ui;
 }

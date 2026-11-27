@@ -15,18 +15,25 @@
 //   { room: 'bank-office' | 'school' | 'hideout' | 'pizzeria' | 'apartment' | 'garage' | 'steps' | 'park' | 'lobby'
 //            | 'plaza' | 'alley', light: 'day' | 'golden' | 'night' (else the city's time),
 //     people: [{ who, at: [x, z], face: <who> | degrees, pose: <clip>, walk: { to: [x, z], secs, after }, hug: <who>,
-//                hold: { who, side } (a hand in theirs), y }] }
+//                hold: { who, side } (a hand in theirs), y, hidden (not seen until an act shows them) }] }
 import * as THREE from 'three/webgpu';
 import { kit, blobTexture } from './setkit.js';
 import { ROOMS } from './rooms.js';
+import { OFFICE_ROOMS } from './offices.js';
+import { createGrid } from './vcall-draw.js';
+import { tileHand } from './tilehands.js';
 import { armTo } from '../mission/m3-set.js';
 import { subLine } from '../face.js';
+import { gaitPace } from '../retarget.js';
+import { setScene as rigScene, charLook } from './charlight.js';
 import { RectAreaLightTexturesLib } from 'three/addons/lights/RectAreaLightTexturesLib.js';
 
 const PI = Math.PI;
 const MH_ARM = ['upperarm01_', 'lowerarm01_', 'wrist_'];
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const now = () => performance.now() / 1000;
+// (a call's office on the car screen: its shadow maps at most this many px, feedShadows)
+export const FEED_SHADOW = 1024;
 // a pose's clip (Dan's names; the cast's bodies carry Dan's clips: cast.js); kneel and crouch are made here (arms():
 // idle's upper body over legs bent by the two-bone reach); the sitting ones put the hips on the seat's mark
 const SIT = new Set(['sit', 'sitTalk']);
@@ -45,6 +52,10 @@ export function createSets(W, { cast, castName, heroName, idleOf = () => null })
   const rp = app.renderPipeline, render0 = rp.render.bind(rp);
   rp.render = function (...a) {
     try {
+      // (a video call: every participant's office drawn through their own webcam into their tile, vcall-draw.js)
+      if (grid.on) { grid.draw(sets, { direct, render0, args: a }); return; }
+      // (a call on the car's screen: its office drawn into its picture, then the city's frame as ever)
+      if (grid.feedOn) grid.drawFeed(sets);
       if (active && frameCam) {
         const S = active, c = frameCam;
         S.cam.position.set(c.pos[0], c.pos[1], c.pos[2]); S.cam.up.set(0, 1, 0); S.cam.lookAt(c.look[0], c.look[1], c.look[2]); if (c.roll) S.cam.rotateZ(c.roll);
@@ -55,15 +66,40 @@ export function createSets(W, { cast, castName, heroName, idleOf = () => null })
         if (sp && !direct) {
           const ssr = app.postFX.ssrPass, s0 = sp.scene, c0 = sp.camera, i0 = ssr ? ssr.intensity.value : 0;
           sp.scene = S.scene; sp.camera = S.cam; if (ssr) ssr.intensity.value = 0;
-          try { return render0(...a); } finally { sp.scene = s0; sp.camera = c0; if (ssr) ssr.intensity.value = i0; }
+          const g0 = gradeOn(S.room.grade);
+          try { return render0(...a); } finally { sp.scene = s0; sp.camera = c0; if (ssr) ssr.intensity.value = i0; gradeOff(g0); }
         }
         renderer.setRenderTarget(null); renderer.render(S.scene, S.cam);
         return;
       }
-    } catch (e) { console.warn('[storyrun] set draw', e); if (!direct) { direct = true; return; } active = null; }
+    } catch (e) { console.warn('[storyrun] set draw', e); if (!direct) { direct = true; return; } if (grid.on && ++gridFails > 3) grid.set(null); active = null; }
     return render0(...a);
   };
   let direct = false;
+  // (a room's own grade for its frame, room.grade { split, saturation, balance: [r, g, b] }: the street's look given back
+  // after it. jh-polish2 A7, the keynote stage: the street's warm-highlight split pushed a face under the stage's bright
+  // key towards orange, stage-room.js)
+  const GRADE_KEYS = ['split', 'saturation'];
+  function gradeOn(g) {
+    const C = g && app.postFX?.colorGrade; if (!C) return null;
+    const was = {};
+    for (const k of GRADE_KEYS) if (Number.isFinite(g[k]) && C[k]?.value != null) { was[k] = C[k].value; C[k].value = g[k]; }
+    if (Array.isArray(g.balance) && g.balance.length === 3 && C.balance?.value) { was.balance = C.balance.value.toArray(); C.balance.value.set(...g.balance); }
+    return { C, was };
+  }
+  function gradeOff(o) {
+    if (!o) return;
+    for (const [k, v] of Object.entries(o.was)) { if (k === 'balance') o.C.balance.value.set(...v); else o.C[k].value = v; }
+  }
+  const grid = createGrid(W); let gridFails = 0;
+  const pooling = new Set(); // (pool(): call offices being built now)
+  // (one frame of a set through the city's frame (the draw above), its lens at the room's middle; whoever was drawn is
+  // put back)
+  function primeFrame(S) {
+    const a0 = active, f0 = frameCam;
+    active = S; frameCam = { pos: [0, 1.6, 3], look: [0, 1.2, 0], fov: 50 };
+    try { rp.render(); } catch (e) { console.warn('[storyrun] set prime', e); } finally { active = a0; frameCam = f0; }
+  }
 
   function moodOf(def) {
     if (def.light) return def.light;
@@ -75,14 +111,16 @@ export function createSets(W, { cast, castName, heroName, idleOf = () => null })
   // (the area lights' tables, once: a window's daylight is one)
   let ltc = false;
   function build(id, def) {
-    const builder = ROOMS[def.room];
+    const builder = ROOMS[def.room] || OFFICE_ROOMS[def.room];
     if (!builder) { console.warn('[storyrun] no set room', def.room); return null; }
     const mood = moodOf(def), night = mood === 'night', golden = mood === 'golden';
     const scene = new THREE.Scene(); scene.name = 'storyrun-set-' + id;
     const K = kit(scene, { night, golden });
     const room = builder(K, def) || {};
     scene.background = new THREE.Color(room.sky || (night ? '#070A14' : golden ? '#E9C9A0' : '#BFD6EE'));
-    scene.environment = app.scene.environment || null; scene.environmentIntensity = night ? 0.16 : (room.env ?? 0.5);
+    scene.environment = app.scene.environment || null; scene.environmentIntensity = night ? (room.envNight ?? 0.16) : (room.env ?? 0.5);
+    // (a room's haze: its air thick enough to show depth, the stage's beams in it)
+    if (room.fog) scene.fog = new THREE.FogExp2(room.fog.color || '#10141C', room.fog.density ?? 0.02);
     // the light, as Mr. Big's study is lit and a film's interior is: low sky fill (the corners go dark), the sun
     // through the windows with its shadows (the blinds' stripes, the people's own), each window's daylight an area
     // light into the room (soft, wide, cool), the room's practicals warm and blooming, and on the people a key, a fill
@@ -120,14 +158,20 @@ export function createSets(W, { cast, castName, heroName, idleOf = () => null })
       scene.add(sl, sl.target);
     }
     // the people's key (soft shadows on the face and the body), fill and rim: placed every frame with the lens (update)
-    const key = new THREE.SpotLight(night ? '#FFD2A0' : golden ? '#FFE0B8' : '#FFF2E2', 0, 4.5, 0.42, 0.95, 2);
+    // (a room may give its own: keyColor, fillColor; the keynote stage's key is the truss's warm white, stage-room.js,
+    // where the night's amber turned a face orange under the stage's own white keys)
+    const tint = (c) => (typeof c === 'string' && /^#[0-9A-Fa-f]{6}$/.test(c) ? c : null);
+    const key = new THREE.SpotLight(tint(room.keyColor) || (night ? '#FFD2A0' : golden ? '#FFE0B8' : '#FFF2E2'), 0, 4.5, 0.42, 0.95, 2);
     key.castShadow = true; key.shadow.mapSize.set(1024, 1024); key.shadow.bias = -0.0006; key.shadow.normalBias = 0.015; key.shadow.radius = 6; key.shadow.camera.near = 0.2; key.shadow.camera.far = 7;
-    const fill = new THREE.PointLight(night ? '#8EA2D8' : '#FFE9D2', 0, 5, 2);
+    const fill = new THREE.PointLight(tint(room.fillColor) || (night ? '#8EA2D8' : '#FFE9D2'), 0, 5, 2);
     const rim = new THREE.SpotLight(night ? '#A9C0FF' : golden ? '#FFC98A' : '#F2F6FF', 0, 7, 0.6, 0.9, 2);
     scene.add(key, key.target, fill, rim, rim.target);
     // (the side the daylight comes from, in the room: the key's side)
     const sunDir = sun ? sun.position.clone().sub(sun.target.position).setY(0).normalize() : V(0, 0, -1);
     const cam = new THREE.PerspectiveCamera(40, 16 / 9, 0.05, 600);
+    // (charlook: the people's own rig, charlight.js, down to its floor here, under the set's own key, fill and rim; its key
+    // on the side of the set's daylight)
+    rigScene(scene, 'set', { mood, sunDir: sun ? sun.position.clone().sub(sun.target.position).normalize() : new THREE.Vector3(0, 0.3, -1).normalize(), keyColor: tint(room.keyColor) });
     const S = { id, def, scene, K, room, mood, people: new Map(), key, fill, rim, sunDir, cam, t0: 0, shown: false, update: () => update(S) };
     return S;
   }
@@ -158,7 +202,12 @@ export function createSets(W, { cast, castName, heroName, idleOf = () => null })
     const a = f.mixer.clipAction(cl);
     if (P.action === a && a.isRunning()) return true;
     a.reset(); a.setLoop(THREE.LoopRepeat, Infinity); a.clampWhenFinished = false; a.enabled = true; a.setEffectiveTimeScale(1); a.setEffectiveWeight(1);
-    if (!P.action || fade <= 0) { f.mixer.stopAllAction(); a.play(); if (!P.started) { a.time = Math.random() * cl.duration; P.started = true; } }
+    // (a cut to a clip: everything stopped, the new one played and evaluated at once. Stopping a mixer's last action puts
+    // its bones back to the state they were saved in when they were first bound (three.js restoreOriginalState), and a
+    // lens worked out before the next frame read the head there. Earlier in a full M8 run the hero's double is first bound
+    // low (sat in H1's call office); his head then read 1.0 m against 1.5 m drawn, and Jensen's closes in ST4 framed his
+    // belt. A run from ST3 skips the call and read it 0.2 m high instead, 19 Nov)
+    if (!P.action || fade <= 0) { f.mixer.stopAllAction(); a.play(); if (!P.started) { a.time = Math.random() * cl.duration; P.started = true; } f.mixer.update(0); }
     else { a.play(); P.action.crossFadeTo(a, fade, false); }
     P.action = a; P.clipName = name; return true;
   }
@@ -177,10 +226,23 @@ export function createSets(W, { cast, castName, heroName, idleOf = () => null })
     // (down on one knee, or crouched: idle's upper body over legs bent here, arms())
     P.kneel = P.pose === 'kneel' || P.pose === 'crouch' ? P.pose : null;
     phoneOf(P);
+    // (sitting from a walk, crossfaded: the hips measured on the sitting clip at its full weight, then the walk put back
+    // and faded into it. Measured mid-fade they were the standing hips, and the body went 0.4 m down into the seat: ST3,
+    // Marge walking to the mahogany chair sat sunk to her shoulders behind the barrier, 19 Nov)
+    let sat = false;
+    const prev = P.action;
+    if (SIT.has(P.pose) && P.seat != null && f.mixer && fade > 0 && prev && f.clip?.(clipOf(P))) {
+      const t0 = prev.time; P.action = null; blend(P, clipOf(P), 0);
+      f.root.position.set(P.x, 0, P.z); f.mixer.update(0.016); f.root.updateMatrixWorld(true);
+      const hip = f.bones?.root || f.bones?.pelvis;
+      if (hip) { hip.getWorldPosition(_v); P.y = P.seat - _v.y + (P.y0 || 0); sat = true; }
+      P.action.stop(); prev.reset(); prev.time = t0; prev.setEffectiveWeight(1); prev.play(); P.action = prev;
+      f.root.position.y = P.y;
+    }
     let ok = blend(P, clipOf(P), fade);
     if (!ok) ok = blend(P, 'idle', fade);
     // (sitting: his hips on the seat's mark, y the seat's height)
-    if (SIT.has(P.pose) && P.seat != null && f.mixer) {
+    if (!sat && SIT.has(P.pose) && P.seat != null && f.mixer) {
       f.root.position.set(P.x, 0, P.z); f.mixer.update(0.016); f.root.updateMatrixWorld(true);
       const hip = f.bones?.root || f.bones?.pelvis;
       if (hip) { hip.getWorldPosition(_v); P.y = P.seat - (_v.y - 0) + (P.y0 || 0); f.root.position.y = P.y; }
@@ -207,13 +269,15 @@ export function createSets(W, { cast, castName, heroName, idleOf = () => null })
     if (!fig) { console.warn('[storyrun] set: no body for', raw); return; }
     if (!moved.has(fig)) moved.set(fig, { parent: fig.root.parent, pos: fig.root.position.clone(), rot: fig.root.rotation.y, h: fig.heading, vis: fig.root.visible });
     S.scene.add(fig.root);
-    const P = { name: raw, fig, x: p.at?.[0] ?? 0, z: p.at?.[1] ?? 0, y: p.y || 0, y0: p.y || 0, face: p.face, pose: p.pose, seat: p.seat, walk: p.walk || null, hug: p.hug || null, hold: p.hold || null, hand: p.hand || null, look: p.look || (p.pose === 'phone' ? 'prop' : null), autoLook: !p.look && p.pose === 'phone', k: p.k, idle: p.idle || idleOf(raw) || null };
+    // (hidden: in the set, not seen until a shot's act shows them. It was read only from an act, so ST1's Jensen, hidden
+    // for his walk on, stood in the wings from the first shot with his head in Marge's close, 19 Nov)
+    const P = { name: raw, fig, x: p.at?.[0] ?? 0, z: p.at?.[1] ?? 0, y: p.y || 0, y0: p.y || 0, face: p.face, pose: p.pose, seat: p.seat, hidden: !!p.hidden, walk: p.walk || null, hug: p.hug || null, hold: p.hold || null, hand: p.hand || null, look: p.look || (p.pose === 'phone' ? 'prop' : null), autoLook: !p.look && p.pose === 'phone', k: p.k, idle: p.idle || idleOf(raw) || null };
     if (p.prop) P.prop = propOf(S, p.prop);
     const blob = new THREE.Mesh(new THREE.PlaneGeometry(isHero || !/milo/i.test(raw) ? 0.9 : 0.6, isHero || !/milo/i.test(raw) ? 0.9 : 0.6), new THREE.MeshBasicMaterial({ map: blobTexture(), transparent: true, depthWrite: false }));
     blob.rotation.x = -PI / 2; blob.renderOrder = 1; S.scene.add(blob); P.blob = blob;
     P.isHero = isHero; S.people.set(raw, P);
     // (their arms after their clip, every frame: a hug, a hand held)
-    fig.post = () => { if (active === S) arms(S, P); };
+    fig.post = () => { if (active === S || S.inGrid) arms(S, P); };
   }
   function act(S, list) {
     for (const a of list || []) {
@@ -306,6 +370,8 @@ export function createSets(W, { cast, castName, heroName, idleOf = () => null })
       try { armTo(B, side, t, pole, P.hand.k ?? 1, MH_ARM); } catch {}
     }
     rest(S, P);
+    // (in a call's tile: the talk clip's hands kept under the chin and in close, tilehands.js)
+    if (S.inGrid && !P.hand && !P.hold && !(P.hug && !P.walk)) tileArms(P);
     if (P.prop) holdProp(P);
     if (P.hold) {
       const O = S.people.get(castName(P.hold.who) || P.hold.who); if (!O) return;
@@ -339,6 +405,25 @@ export function createSets(W, { cast, castName, heroName, idleOf = () => null })
       try { armTo(B, side, tg, pole, P.restW * 0.8, MH_ARM); } catch {}
     }
   }
+  // (a call's tile: each wrist the clip puts up past the chin, toward the lens or out wide brought back inside the tile's
+  // bounds (tilehands.js), its arm reached there over the clip's own elbow (the pole the elbow itself, so the arm keeps
+  // its bend and nothing jumps as a hand crosses a bound); a hand inside them is the clip's)
+  const _e = V(), _t = V(), _p = V();
+  function tileArms(P) {
+    const B = P.fig.bones, f = P.fig; if (!B?.wrist_L || !B?.wrist_R || !B?.upperarm01_L || !B?.lowerarm01_L) return;
+    f.root.updateMatrixWorld(true);
+    const h = f.heading ?? P.h ?? 0, fwd = [Math.sin(h), Math.cos(h)], left = [Math.cos(h), -Math.sin(h)];
+    const eyes = f.face?.eyes ? f.face.eyes(_e) : f.head(_e), eyesY = eyes.y;
+    for (const side of ['L', 'R']) {
+      const w = B['wrist_' + side], sh = B['upperarm01_' + side], el = B['lowerarm01_' + side]; if (!w || !sh || !el) continue;
+      w.getWorldPosition(_a); sh.getWorldPosition(_b);
+      const out = side === 'L' ? left : [-left[0], -left[1]];
+      const t = tileHand({ wrist: [_a.x, _a.y, _a.z], shoulder: [_b.x, _b.y, _b.z], eyesY, fwd, out });
+      if (!t) continue;
+      el.getWorldPosition(_p); _p.x += out[0] * 0.08; _p.z += out[1] * 0.08; _p.y -= 0.06;
+      try { armTo(B, side, _t.set(t[0], t[1], t[2]), _p.clone(), 1, MH_ARM); } catch {}
+    }
+  }
   // a thing in a hand (made here, small): a phone lit with a call, Milo's dinosaur walkie-talkie
   function propOf(S, kind) {
     const g = new THREE.Group(), std = (o) => new THREE.MeshStandardMaterial({ roughness: 0.4, ...o });
@@ -363,7 +448,27 @@ export function createSets(W, { cast, castName, heroName, idleOf = () => null })
     const side = V().crossVectors(up, ax).normalize();
     P.prop.matrix.makeBasis(side, up, ax); P.prop.quaternion.setFromRotationMatrix(P.prop.matrix); P.prop.position.copy(at);
   }
+  // (a person this drawn set stands taken back into it: a body is one object and stands in one set at a time. A call's
+  // office pooled for a later call on the car's screen (pool(), under the mission's title, not awaited) stood PH-1's
+  // Marge in its own scene while the opening call k1 had her in her tile, then gave her body back to the street: her
+  // tile drew the backstage office with nobody in it for the whole call (day audit, 22 Nov). Each drawn frame now puts
+  // its people back in it, posed as it has them, unless a live set that is not a pool holds the body (update()))
+  function reclaim(S) {
+    for (const P of S.people.values()) {
+      const fig = P.fig; if (!fig || fig.root.parent === S.scene) continue;
+      const holder = [...sets.values()].find((O) => O !== S && !O.pooled && O.scene === fig.root.parent);
+      if (holder && (holder === active || holder.inGrid)) continue;
+      if (!moved.has(fig)) moved.set(fig, { parent: fig.root.parent, pos: fig.root.position.clone(), rot: fig.root.rotation.y, h: fig.heading, vis: fig.root.visible });
+      S.scene.add(fig.root); fig.root.visible = !P.hidden;
+      fig.post = () => { if (active === S || S.inGrid) arms(S, P); };
+      place(S, P); pose(S, P);
+      S.reclaimed = (S.reclaimed || 0) + 1; note('reclaim', S.id, P.name);
+    }
+  }
   function update(S) {
+    // (a call's tile or the car screen's picture only: a cutscene's set has its own hand-over, use(), and a set built
+    // behind the dip for the next scene takes the hero's double into it to compile him there)
+    if (S.inGrid && active !== S) reclaim(S);
     // (the set's own clock: it stops while a name card holds someone's frame, and the whole frame holds with them)
     const t1 = now(), dt = Math.min(0.1, t1 - (S.last || t1)); S.last = t1;
     const held = [...S.people.values()].some((P) => P.fig.hold && !P.heldBySet);
@@ -375,18 +480,23 @@ export function createSets(W, { cast, castName, heroName, idleOf = () => null })
       if (w.t0 == null) { w.t0 = t + (w.after || 0); w.from = [P.x, P.z]; w.going = false; }
       const k = Math.min(1, Math.max(0, (t - w.t0) / (w.secs || 3)));
       if (k > 0 && !w.going && k < 1) { w.going = true; blend(P, w.clip || 'walk', 0.25); }
+      // (the gait at the walk's own pace on their legs, so the planted foot stays put: wagmi/retarget.js gaitPace)
+      if (w.going && P.action) P.action.setEffectiveTimeScale(gaitPace(w.clip || 'walk', Math.hypot(w.to[0] - w.from[0], w.to[1] - w.from[1]) / (w.secs || 3), P.fig.legRatio));
       const x = w.from[0] + (w.to[0] - w.from[0]) * k, z = w.from[1] + (w.to[1] - w.from[1]) * k;
       P.fig.root.position.x = x; P.fig.root.position.z = z; if (P.blob) { P.blob.position.x = x; P.blob.position.z = z; }
       if (w.going) { const h = Math.atan2(w.to[0] - w.from[0], w.to[1] - w.from[1]); P.fig.root.rotation.y = h; P.fig.heading = h; }
-      if (k >= 1 && w.going) { w.going = false; P.x = w.to[0]; P.z = w.to[1]; P.walk = null; P.hugT0 = t; if (w.then) { P.pose = w.then; } pose(S, P, 0.35); for (const Q of S.people.values()) if (typeof Q.face === 'string' && !Q.walk) { Q.h = heading(S, Q); Q.fig.root.rotation.y = Q.h; Q.fig.heading = Q.h; } }
+      if (k >= 1 && w.going) { w.going = false; P.x = w.to[0]; P.z = w.to[1]; P.walk = null; P.hugT0 = t; if (w.then) { P.pose = w.then; } if (typeof P.face === 'number') { P.h = heading(S, P); P.fig.root.rotation.y = P.h; P.fig.heading = P.h; } pose(S, P, 0.35); for (const Q of S.people.values()) if (typeof Q.face === 'string' && !Q.walk) { Q.h = heading(S, Q); Q.fig.root.rotation.y = Q.h; Q.fig.heading = Q.h; } }
     }
+    // (the room's own motion: a stage's beams and its house, rooms.js tick)
+    if (S.room.tick) { try { S.room.tick(dt, t, S); } catch (e) { if (!S.tickErr) { S.tickErr = true; console.warn('[storyrun] set tick', e); } } }
     // (who is talking: their talk, the others' idle, crossfaded)
     talkPoses(S);
     // (the people's key, fill and rim with the lens: round the point it looks at, the key 40 degrees off the lens's
     // axis on the daylight's side and above the eyes, the fill low on the other side, the rim behind them, high, on
     // the far side; strong on a close shot, gentle on a wide one, where the room's own light does the work)
-    if (frameCam) {
-      const p = frameCam.pos, l = frameCam.look, dx = p[0] - l[0], dz = p[2] - l[2], dy = p[1] - l[1], n = Math.hypot(dx, dy, dz) || 1, h = Math.hypot(dx, dz) || 1;
+    const fc = S.fcam || frameCam;
+    if (fc) {
+      const p = fc.pos, l = fc.look, dx = p[0] - l[0], dz = p[2] - l[2], dy = p[1] - l[1], n = Math.hypot(dx, dy, dz) || 1, h = Math.hypot(dx, dz) || 1;
       const fx = dx / h, fz = dz / h, rx = fz, rz = -fx;
       // (the key's side: the side of the lens the daylight comes from; a set may fix it)
       const side = S.room.keySide ?? (rx * S.sunDir.x + rz * S.sunDir.z >= 0 ? 1 : -1);
@@ -400,30 +510,192 @@ export function createSets(W, { cast, castName, heroName, idleOf = () => null })
       S.rim.position.set(l[0] - fx * 1.7 - rx * side * 0.9, l[1] + 0.9, l[2] - fz * 1.7 - rz * side * 0.9);
       S.rim.target.position.set(l[0], l[1] - 0.2, l[2]); S.rim.target.updateMatrixWorld();
       S.rim.intensity = (3 + 6 * close) * base * (S.room.rim ?? 1);
+      // (charlook, a world's `look: 'cinematic'`: the portrait key of CharacterPipeline's soft lab (review/lab/
+      // people-soft.html, light=soft): the key 35 degrees round from the lens and 20 over the eyes, 1.8 m out, its edge
+      // all penumbra and its shadow wide; the fill from the other side, low; the rim a third of the set's: the face read
+      // soft, its sockets and the nose's side never cut black, a rim not burning the cheek. A room's own key weight kept)
+      if (charLook()) {
+        const at = (sd, up, d) => [l[0] + (fx * Math.cos(sd) + rx * Math.sin(sd)) * Math.cos(up) * d, l[1] + Math.sin(up) * d, l[2] + (fz * Math.cos(sd) + rz * Math.sin(sd)) * Math.cos(up) * d];
+        const kr = S.room.key != null ? S.room.key / (night ? 2.4 : 1.6) : 1;
+        S.key.position.set(...at(0.61 * side, 0.35, 1.8)); S.key.target.position.set(l[0], l[1], l[2]); S.key.target.updateMatrixWorld();
+        S.key.angle = 0.6; S.key.penumbra = 1; S.key.shadow.radius = 12;
+        S.key.intensity = (4 + 5 * close) * kr;
+        // (the fill a warm neutral at night, not the moon's blue: a blue fill turned the nose's shadow side cold and
+        // bruised on a close shot; a room's own fill colour kept)
+        S.fill.position.set(...at(-0.9 * side, 0.1, 1.6)); S.fill.intensity = (1.0 + 1.0 * close) * (S.room.fill ?? 1);
+        if (night && !S.room.fillColor) S.fill.color.set('#E9DCD2');
+        S.rim.intensity = (1.5 + 1.0 * close) * (S.room.rim ?? 1);
+      }
     }
   }
 
+  // (a set built: its room, its scans in before anything is compiled (a prop does not pop in on the first frame), its
+  // people stood up and posed)
+  async function raise(id, def) {
+    const S = build(id, def); if (!S) return null;
+    S.id = id;
+    try { await Promise.race([S.K.ready(), new Promise((r) => setTimeout(r, 12000))]); } catch {}
+    try { S.baked = S.K.bake(); } catch (e) { console.warn('[storyrun] set bake', e); }
+    for (const p of def.people || []) await stand(S, p);
+    for (const P of S.people.values()) place(S, P);
+    for (const P of S.people.values()) { place(S, P); pose(S, P); }
+    return S;
+  }
+  // (a set compiled for a call's tile targets, its people over its blurred office as well (vcall-draw.js shoot()); its
+  // hidden people shown for it)
+  async function tileWarm(S, hold) {
+    const shown = [];
+    for (const P of S.people.values()) if (P.fig && !P.fig.root.visible) { P.fig.root.visible = true; shown.push(P.fig.root); }
+    S.cam.position.set(0, 1.6, 3); S.cam.lookAt(0, 1.2, 0);
+    try { for (const rt of grid.warmTargets()) await app.warm(S.scene, { scene: S.scene, camera: S.cam, target: rt, hold }); }
+    finally { for (const r of shown) r.visible = false; }
+  }
+  // (a call's office drawn only into the car screen's small picture (pool(), a feed's prepare { tile, hold: false }):
+  // its daylight's shadow map at FEED_SHADOW px, not the room's 2048 (a 320 x 180 picture shows no more of it). The
+  // feed draws the office every other frame while he drives, its shadow pass with it, the first of them on the street's
+  // frame (jh-polish2 A4): a quarter of the map to make and to draw. Only before its first draw: a map already made is
+  // left as it is)
+  function feedShadows(S) {
+    if (S.feedShadows) return; S.feedShadows = true;
+    S.scene.traverse((o) => { if (o.isLight && o.castShadow && o.shadow && !o.shadow.map && o.shadow.mapSize.x > FEED_SHADOW) o.shadow.mapSize.set(FEED_SHADOW, FEED_SHADOW); });
+  }
+  // (a pooled office's bodies let go by it: the cast may let them go again past its MAX)
+  function unpin(S) { for (const nm of S.pins || []) cast.pin?.(nm, false); S.pins = null; }
+  // (a body back where it was before a set took it)
+  function giveBack(fig) {
+    const m = fig && moved.get(fig); if (!m) return;
+    fig.post = null; fig.hold = false; if (fig.face) fig.face.look = null;
+    m.parent ? m.parent.add(fig.root) : app.scene.add(fig.root); fig.root.position.copy(m.pos); fig.root.rotation.set(0, m.rot, 0); fig.heading = m.h; fig.root.visible = m.vis; try { fig.play?.('idle'); } catch {}
+    moved.delete(fig);
+  }
+  // (a set's own geometry, materials and drawn textures let go; the library's scans and the shared city layers are
+  // kept for the next set)
+  function dropSet(S) {
+    const mats = new Set();
+    S.scene.traverse((o) => { if (o.isMesh && !o.isSkinnedMesh && o.parent && !o.userData.keep) { o.geometry?.dispose?.(); for (const m of [].concat(o.material || [])) mats.add(m); } });
+    for (const m of mats) { for (const k of Object.keys(m)) { const t = m[k]; if (t?.isTexture && !t.userData?.keep) t.dispose(); } m.dispose?.(); }
+  }
+
   /* ------------------------------------------------------------- the API -- */
+  // (what the pool did, the last 40: for a look at it, W.sets.log)
+  const log = [];
+  const note = (...a) => { log.push([+now().toFixed(2), ...a]); if (log.length > 40) log.shift(); };
   const api = {
+    log,
     get active() { return active; },
+    // (for a look at it: the call's tiles and the car screen's picture, vcall-draw.js)
+    get draw() { return grid; },
     // (for a look at it: the drawn set's people)
     get people() { return active ? active.people : null; },
     has: (id) => sets.has(id),
-    async prepare(defs) {
+    // { hold: false }: compiled without holding the city's loop (main.js warm()), for a call's office prepared while he
+    // drives (vcall.js feed()): its picture is put up once it is ready, the street never frozen for it
+    async prepare(defs, { tile = false, prime = false, hold = true } = {}) {
+      const built = new Set();
       for (const [id, def] of Object.entries(defs || {})) {
         if (!def || sets.has(id)) continue;
-        const S = build(id, def); if (!S) continue;
-        sets.set(id, S);
-        // (its scans in before anything is compiled: a prop does not pop in on the first frame)
-        try { await Promise.race([S.K.ready(), new Promise((r) => setTimeout(r, 12000))]); } catch {}
-        try { S.baked = S.K.bake(); } catch (e) { console.warn('[storyrun] set bake', e); }
-        for (const p of def.people || []) await stand(S, p);
-        for (const P of S.people.values()) place(S, P);
-        for (const P of S.people.values()) { place(S, P); pose(S, P); }
+        const S = await raise(id, def); if (!S) continue;
+        sets.set(id, S); built.add(S);
+        if (tile && !hold) feedShadows(S);
       }
       // (the pipelines built now, not on the set's first frame: each set's materials under its own lights)
-      for (const S of sets.values()) { S.cam.position.set(0, 1.6, 3); S.cam.lookAt(0, 1.2, 0); try { await renderer.compileAsync(S.scene, S.cam); } catch (e) { console.warn('[storyrun] set compile', e); } }
+      // (loadfix: for the target the set is drawn into, the city's scene pass (main.js warm(): its colour, normal and
+      // metalRough attachments, its samples), the frames held meanwhile. Compiled for the canvas, the hair's cards came
+      // out with one output for the pass's three, a pipeline WebGPU rejects (renderPipeline_hair: 'targets[1]'), and
+      // nothing was ready for the set's real first frame. Straight onto the canvas when the set is drawn so (direct))
+      // (its hidden people too, shown for the compile: ST-8's Jensen, hidden in st1 until he walks on, built his
+      // pipelines on the frame he did)
+      for (const S of sets.values()) {
+        if (S.pooled) continue; // (a call's office kept for later, already compiled for its tile: pool())
+        S.cam.position.set(0, 1.6, 3); S.cam.lookAt(0, 1.2, 0);
+        // (and everything in it with its frustum culling off, as the city's own precompile has it: compileAsync() and
+        // the frame drawn only build what the lens sees, and the warm-up's lens, at the room's middle, had ST-8's stage
+        // half behind it: Wesley Trout's first close-up held a 220 ms frame mid-scene)
+        const shown = [], culled = [];
+        for (const P of S.people.values()) if (P.fig && !P.fig.root.visible) { P.fig.root.visible = true; shown.push(P.fig.root); }
+        S.scene.traverseVisible((o) => { if (o.frustumCulled) { o.frustumCulled = false; culled.push(o); } });
+        try {
+          // (a set that is drawn only into a call's tile (a feed's office, mid-drive) is not compiled for the scene
+          // pass as well: that was a second hold of the loop for pipelines it never uses)
+          if (tile && !hold && app.warm && !direct) {}
+          else if (app.warm && !direct) await app.warm(S.scene, { scene: S.scene, camera: S.cam, hold }); else await renderer.compileAsync(S.scene, S.cam);
+          // (prime: a set built now drawn once as well, through the city's real frame, behind the dip it is prepared
+          // under (only there: the frame goes to the screen). A frame's draw objects (the buffers and bindings of each
+          // mesh, per lens and target) are made on the first frame that draws it, compiled or not: ST-8's st2 and
+          // st3 held a 230-260 ms frame on their first, and st1's culled people the frame each was first in shot)
+          if (prime && built.has(S) && !direct) primeFrame(S);
+          // (tile: a video call's office, drawn into its tile's own target, not the scene pass: compiled for that too,
+          // its people over its blurred office as well (vcall-draw.js shoot()). ST-8's h1 call held a 140-180 ms frame
+          // as it opened, the RC review)
+          if (tile && app.warm && !S.tileWarmed) { S.tileWarmed = true; await tileWarm(S, hold); }
+        } catch (e) { console.warn('[storyrun] set compile', e); }
+        finally { for (const r of shown) r.visible = false; for (const o of culled) o.frustumCulled = true; }
+      }
     },
+    // pool({ key: def }): the mission's calls on the car's screen, their offices built and compiled for the tile while
+    // its opening card is up (runner.js prewarm(), prewarm.js feedList()), kept until a call takes one (adopt()). Their
+    // people go back where they were once compiled (a caller seen in the street before their call is not stood in an
+    // office meanwhile): the pipelines stay, held by the office's own meshes and the bodies' (a pipeline is let go only
+    // when nothing uses it). Offices pooled for another mission are let go
+    async pool(defs, { hold = false } = {}) {
+      const want = new Set(Object.keys(defs || {}));
+      for (const [id, S] of [...sets]) if (S.pooled && !want.has(id)) { sets.delete(id); unpin(S); dropSet(S); }
+      let n = 0, room = Math.max(0, 8 - (cast.live?.length || 0)); // (never past the cast's room: cast.js keeps 8)
+      for (const [id, def] of Object.entries(defs || {})) {
+        if (!def || sets.has(id) || pooling.has(id)) continue;
+        const names = (def.people || []).map((p) => castName(p.who) || p.who), fresh = names.filter((n) => !cast.get?.(n));
+        if (fresh.length > room) { note('pool-skip', id, 'room'); continue; }
+        room -= fresh.length;
+        pooling.add(id);
+        let S = null;
+        try { S = await raise(id, def); } finally { pooling.delete(id); }
+        if (!S) continue;
+        S.pooled = true; sets.set(id, S);
+        feedShadows(S);
+        // (its people's bodies kept for it by the cast until its call takes it, or it is let go: unpin())
+        S.pins = [...S.people.values()].filter((P) => !P.isHero && P.fig).map((P) => P.name); for (const nm of S.pins) cast.pin?.(nm, true);
+        const culled = [];
+        S.scene.traverseVisible((o) => { if (o.frustumCulled) { o.frustumCulled = false; culled.push(o); } });
+        try { if (app.warm && !direct) { S.tileWarmed = true; await tileWarm(S, hold); } } catch (e) { console.warn('[storyrun] set pool', e); }
+        finally { for (const o of culled) o.frustumCulled = true; }
+        // (its people back where they were; stood in it again when a call takes it)
+        // (one made for it hidden under the street where he is, as prewarm() leaves a body)
+        const me = app.controllerManager?.getActiveEntity?.()?.position;
+        // (a body a live set holds meanwhile (the call that rang as the pool was built: PH-1's k1 and its Marge) is left
+        // standing there, not given back to the street from under it)
+        for (const P of S.people.values()) {
+          const holder = P.fig && [...sets.values()].find((O) => O !== S && !O.pooled && O.people.has(P.name) && O.people.get(P.name).fig === P.fig);
+          if (holder) { const H = holder.people.get(P.name); holder.scene.add(P.fig.root); P.fig.root.visible = !H.hidden; P.fig.post = () => { if (active === holder || holder.inGrid) arms(holder, H); }; place(holder, H); pose(holder, H); note('pool-keep', id, P.name, holder.id); continue; }
+          giveBack(P.fig); if (fresh.includes(P.name) && P.fig) { P.fig.root.visible = false; if (me) P.fig.root.position.set(me.x, (me.y || 0) - 60, me.z); }
+        }
+        note('pool', id);
+        n++;
+      }
+      return n;
+    },
+    // a pooled office (pool()) taken by a call as its set `id` (vcall.js feed()): its people stood in it again
+    adopt(key, id) {
+      const S = sets.get(key);
+      if (!S || !S.pooled || sets.has(id)) { note('adopt-miss', key, !S ? 'none' : !S.pooled ? 'taken' : 'has'); return false; }
+      // (a body the cast has let go since (cast.js keeps 8): the office is let go too, the call builds its own)
+      const lost = [...S.people.values()].filter((P) => !P.fig || (!P.isHero && cast.get?.(P.name) !== P.fig));
+      if (lost.length) { note('adopt-miss', key, 'body', lost.map((P) => P.name + (cast.get?.(P.name) ? ':other' : ':gone')).join(',')); sets.delete(key); unpin(S); dropSet(S); return false; }
+      sets.delete(key); sets.set(id, S); S.pooled = false; S.id = id; unpin(S); note('adopt', key);
+      // (compiled for its tile again as its call takes it, its people stood in it: what was compiled under the card was
+      // built for the office's lights as they were then, and the lights' cache key is not the same by the call (PH-1's
+      // Marge: every material of the office and her body built again on the street's frame as the picture came up,
+      // 180-207 ms at 4.6 m/s, jh-polish4 A4). prepare() does it without holding the loop and the picture comes up after)
+      S.tileWarmed = false;
+      for (const P of S.people.values()) {
+        const fig = P.fig; if (!fig) continue;
+        if (!moved.has(fig)) moved.set(fig, { parent: fig.root.parent, pos: fig.root.position.clone(), rot: fig.root.rotation.y, h: fig.heading, vis: fig.root.visible });
+        S.scene.add(fig.root); fig.root.visible = !P.hidden;
+        fig.post = () => { if (active === S || S.inGrid) arms(S, P); };
+        place(S, P); pose(S, P);
+      }
+      return true;
+    },
+    pooled: (key) => !!sets.get(key)?.pooled,
     use(id) {
       const S = id ? sets.get(id) : null;
       if (S && !S.shown) { S.shown = true; S.clock = 0; S.last = now(); for (const P of S.people.values()) if (P.walk) P.walk.t0 = null; }
@@ -437,6 +709,14 @@ export function createSets(W, { cast, castName, heroName, idleOf = () => null })
     // who stands in the drawn set by that name (the hero's double for the hero)
     figure(name) { const P = active?.people.get(name === 'player' ? heroName : castName(name) || name); return P ? P.fig : null; },
     frame(c) { frameCam = c; },
+    // a video call's tiles (vcall-draw.js): [{ id, rect: [x, y, w, h] css px, cam: { pos, look, fov }, frozen, blur,
+    // dim }] drawn in place of the city's frame, or null (back to the city / a single set)
+    grid(tiles, opt) { grid.set(tiles, opt); },
+    get gridOn() { return grid.on; },
+    // a call on the car's screen (vcall-draw.js feed): { id, rect, cam, blur } or null
+    feed(f) { grid.feed(f); },
+    // a set by its id (its scene, its lens, its people: a call's webcam is framed on them)
+    set: (id) => sets.get(id) || null,
     // a camera point in the set: 'player' (the hero's double's head) or { rel: <who>, right, up, fwd } (runner.js camPt's)
     point(ref, fallbackUp = 1.5) {
       const S = active; if (!S) return null;
@@ -449,17 +729,17 @@ export function createSets(W, { cast, castName, heroName, idleOf = () => null })
       return [base.x + Math.sin(h) * fw - Math.cos(h) * r, base.y + (ref.up || 0), base.z + Math.cos(h) * fw + Math.sin(h) * r];
     },
     async release() {
-      active = null; frameCam = null;
+      active = null; frameCam = null; grid.set(null); grid.feed(null); grid.dispose();
       for (const [fig, m] of moved) { fig.post = null; fig.hold = false; if (fig.face) fig.face.look = null; m.parent ? m.parent.add(fig.root) : app.scene.add(fig.root); fig.root.position.copy(m.pos); fig.root.rotation.set(0, m.rot, 0); fig.heading = m.h; fig.root.visible = m.vis; try { fig.play?.('idle'); } catch {} }
       if (hero) { hero.root.visible = false; }
       moved.clear();
       // (the set's own geometry, materials and drawn textures let go; the library's scans and the shared city layers
       // are kept for the next set)
-      const mats = new Set();
-      for (const S of sets.values()) S.scene.traverse((o) => { if (o.isMesh && !o.isSkinnedMesh && o.parent && !o.userData.keep) { o.geometry?.dispose?.(); for (const m of [].concat(o.material || [])) mats.add(m); } });
-      for (const m of mats) { for (const k of Object.keys(m)) { const t = m[k]; if (t?.isTexture && !t.userData?.keep) t.dispose(); } m.dispose?.(); }
-      sets.clear();
+      // (the mission's pooled call offices are kept: pool())
+      for (const [id, S] of [...sets]) if (!S.pooled) { sets.delete(id); dropSet(S); }
     },
   };
+  // (for a look at it from the page: the pool's log, the sets)
+  W.sets = api;
   return api;
 }

@@ -26,11 +26,17 @@ Add these to the URL to jump straight to what you're working on (combine them wi
 |---|---|
 | `?nointro` | Free roam: no title screen, no cutscene, no mission |
 | `?nogate` | No title screen: the opening plays at once |
+| `&freedrive` (with a story world's `pack=`) | The world with no story: its town, car, hero and time of day, free roam from behind the wheel, no opening and no mission (for driving tests in San Jose, Colter Land, SF 2040) |
 | `?m1=car`, `drive`, `arrival`, `fight`, `search` | Mission 1 (*Bagged*) from that checkpoint |
 | `?m2=start`, `go`, `tail`, `yard`, `fight`, `chase`, `crash`, `phone` | Mission 2 (*Burner*) from that checkpoint |
 | `?m2=handoff` | After Mission 1: by the Suits' van at Chelsea Park, Jane's DM, then the drive to Bryant Park with her on the car phone |
 | `?m3=garage`, `square`, `rigs`, `escape`, `return` | Mission 3 (*Occupied*) from that checkpoint |
 | `?m3=handoff` | After Mission 2: at twilight by Gears' garage on W 22nd St, its G on the radar |
+| `?m4=bench`, `seaport`, `recon`, `grab`, `run`, `flight`, `ferry`, `call` | Mission 4 (*Shredder*) from that part: Rook's bench, the drive to the Seaport, the artist's mark, the grab, the run to the helicopter, the flight, the walk to the last ferry, the call on its stern |
+| `?m4=run&autopilot=1` (or `flight`, `ferry`, `call`) | Mission 4's escape as a test drive: the run, the flight through the rings into the landing ring, the walk to the ferry, every scene played; no target it cannot reach |
+| `?m4=handoff` | After Mission 3: by Gears' garage at dusk, Rook's R on the radar |
+| `?m4=end` | The END OF EPISODE 1 card, as Mission 4 leaves him |
+| `?m4=morning` | After Mission 4: the next morning at Pier 11, the car on South St, Mission 5's teaser on the radar |
 | `?trailer=1` | Play the cold-open trailer before the opening (it is off by default) |
 | `?trailer=only` | Play only the trailer; add `&trat=20` to start 20 seconds in |
 | `?gfx=high`, `phone`, `low` | Force a graphics tier for this load |

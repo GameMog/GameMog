@@ -16,12 +16,19 @@ const SPLIT = join(OUT, '..', 'c1280'); mkdirSync(SPLIT, { recursive: true }); m
 const LAMP = { none: 0, head: 1, tail: 2, brake: 3, blink: 4, reverse: 5, beacon: 6, sign: 7 };
 const FLAG = { interior: 1, inner: 2, wheel: 4, glass: 8, plate: 16 };
 
-// the vehicles the game uses: pack, its root node, the engine's id, and flip (its nose the other way along its length)
+// the vehicles the game uses: pack, its root node, the engine's id, flip (its nose the other way along its length) and
+// drive (one a player drives: its steering wheel found, steerOf; the service vehicles, which no one drives, have none)
 export const C1280 = {
   bus: { pack: 'civil', root: 'citybus', flip: true }, schoolbus: { pack: 'civil', root: 'school_bus', flip: true }, ambulance: { pack: 'civil', root: 'ambulance' },
   firetruck: { pack: 'civil', root: 'fire_truck', flip: true }, garbage: { pack: 'civil', root: 'garbage_truck' }, mailvan: { pack: 'civil', root: 'postvan' },
-  utility: { pack: 'civil', root: 'rdservtruck', flip: true }, tow: { pack: 'civil', root: 'towtruck', flip: true }, police20: { pack: 'civil', root: 'police_sedan', flip: true },
-  taxi20: { pack: 'civil', root: 'taxi' }, minivan20: { pack: 'passenger', root: 'minivan body', wheels: /^Wheel_D/ },
+  utility: { pack: 'civil', root: 'rdservtruck', flip: true }, tow: { pack: 'civil', root: 'towtruck', flip: true }, police20: { pack: 'civil', root: 'police_sedan', flip: true, drive: true },
+  taxi20: { pack: 'civil', root: 'taxi', drive: true }, minivan20: { pack: 'passenger', root: 'minivan body', wheels: /^Wheel_D/, drive: true },
+  // (the hero-grade big ones, 16 Nov, the owner: "car doesn't look good, maybe we can find new ones": a full-size
+  // pickup, a full-size SUV and a short 4x4 for the ranch and mountain towns; paint: its body's own colour found and
+  // marked, so a story's or the traffic's paint goes on it, wagmi/../fleet-models.js)
+  pickup20: { pack: 'passenger', root: 'Pickup Body', wheels: /^Wheel_E/, paint: true, drive: true },
+  suv20: { pack: 'passenger', root: 'SUV Body', wheels: /^Wheel_/, flip: true, paint: true, drive: true },
+  offroad20: { pack: 'passenger', root: 'Offroad Body', wheels: /^Wheel_G/, flip: true, paint: true, drive: true },
 };
 const PACKS = { civil: 'gm-car-c1280-civil-pack.glb', passenger: 'gm-car-c1280-passenger-pack.glb' };
 
@@ -36,6 +43,16 @@ function pieces(p) {
   const comps = new Map();
   for (let t = 0; t < p.idx.length / 3; t++) { const r = find(weld[p.idx[t * 3]]); let c = comps.get(r); if (!c) comps.set(r, (c = { tris: [], lo: [Infinity, Infinity, Infinity], hi: [-Infinity, -Infinity, -Infinity] })); c.tris.push(t); for (let k = 0; k < 3; k++) { const v = p.idx[t * 3 + k]; for (let a = 0; a < 3; a++) { const x = p.pos[v * 3 + a]; if (x < c.lo[a]) c.lo[a] = x; if (x > c.hi[a]) c.hi[a] = x; } } }
   return [...comps.values()].map((c) => ({ ...c, c: c.lo.map((v, a) => (v + c.hi[a]) / 2), s: c.lo.map((v, a) => c.hi[a] - v) }));
+}
+
+// the steering wheel on the driver's side (+x): the body's own piece of it, a ring 0.3 to 0.5 m across, short in height and
+// depth, in the cabin's height; its middle, where a driver's hands hold it (wagmi/fleet-car.js moves the wheel he holds
+// onto it). null when the body has none
+function steerOf(a) {
+  const c = pieces(a).filter((k) => k.c[0] > 0.15 && k.c[0] < 0.7 && k.c[1] > 0.6 && k.c[1] < 1.6 && k.c[2] > -0.6 && k.c[2] < 1.6 && k.s[0] > 0.3 && k.s[0] < 0.5 && k.s[1] < 0.3 && k.s[2] < 0.15);
+  if (!c.length) return null;
+  const w = c.sort((p, q) => q.tris.length - p.tris.length)[0];
+  return w.c.map((v) => +v.toFixed(3));
 }
 
 async function texture(doc, sha) { for (const t of doc.getRoot().listTextures()) if (sha1s(t.getImage()) === sha) return t.getImage(); return null; }
@@ -110,12 +127,127 @@ async function buildOne(id, def, docs) {
 }
 
 // ---- textures: the vehicle's own base (hi 1024 / lo 512), its ORM (512 / 256), its decals (alpha), the shared optics --
+// (the body's own paint, def.paint, marked in the base texture's alpha, 0.5 (the rest 1): fleet-models.js puts a story's
+// or the traffic's paint there, shaded as the texture is. The paint is the body's glossy, non-metal surface (the pack's
+// metal-rough map: its paint is gloss, its trim rough plastic or chrome) of the body's own colour:
+//  - a coloured body: its colour the one covering most of the body's surface (each triangle's texel at its middle, by
+//    its area); a texel is paint when it is that hue, however dark its baked shading (the pickup's tailgate and lower
+//    rear corners are baked near black-green: a lightness test left them the pack's green under a story's paint)
+//  - a black or grey body (the full-size SUV): no hue to tell paint from trim, so its gloss does: the glossy grey texels
+//    as light as the body's paint (a panel line or a black seal much darker than it stays as drawn)
+// The marked texels' colour is then the paint's own colour shaded, its baked shading lifted at the dark end (a panel
+// baked near black would stay near black under any paint, the tailgate black under a white repaint); the runtime reads
+// the shading back as the texel's lightness against the paint's colour)
+const lin = (c) => { c /= 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+const srgb = (x) => { x = Math.max(0, Math.min(1, x)); return Math.round(255 * (x <= 0.0031308 ? x * 12.92 : 1.055 * Math.pow(x, 1 / 2.4) - 0.055)); };
+const lumOf = (r, g, b) => 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+const satOf = (c) => { const mx = Math.max(...c), mn = Math.min(...c); return mx > 0 ? (mx - mn) / mx : 0; };
+// (gloss: the metal-rough map's roughness under 0.3 and metalness under 0.5, the material's factors applied)
+const GLOSS_R = 0.3, GLOSS_M = 0.5;
+async function paintMask(v, img, W, H, mrImg) {
+  const glossAt = (i) => !mrImg || (mrImg[i * 3 + 1] * mrImg.rf < GLOSS_R * 255 && mrImg[i * 3 + 2] * mrImg.mf < GLOSS_M * 255);
+  const hist = new Map(), grey = [];
+  let total = 0;
+  for (const p of v.parts.body) {
+    if (!p.uv) continue;
+    for (let t = 0; t < p.idx.length / 3; t++) {
+      const a = p.idx[t * 3], b = p.idx[t * 3 + 1], c = p.idx[t * 3 + 2];
+      const P = (i, k) => p.pos[i * 3 + k];
+      const ux = P(b, 0) - P(a, 0), uy = P(b, 1) - P(a, 1), uz = P(b, 2) - P(a, 2), vx = P(c, 0) - P(a, 0), vy = P(c, 1) - P(a, 1), vz = P(c, 2) - P(a, 2);
+      const area = 0.5 * Math.hypot(uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx);
+      let u = (p.uv[a * 2] + p.uv[b * 2] + p.uv[c * 2]) / 3, w = (p.uv[a * 2 + 1] + p.uv[b * 2 + 1] + p.uv[c * 2 + 1]) / 3;
+      u -= Math.floor(u); w -= Math.floor(w);
+      const px = Math.min(H - 1, Math.floor(w * H)) * W + Math.min(W - 1, Math.floor(u * W)), o = px * 3, r = img[o], g = img[o + 1], bl = img[o + 2];
+      total += area;
+      const k = `${r >> 4},${g >> 4},${bl >> 4}`; const e = hist.get(k) || { a: 0, r: 0, g: 0, b: 0 };
+      e.a += area; e.r += r * area; e.g += g * area; e.b += bl * area; hist.set(k, e);
+      if (glossAt(px) && satOf([r, g, bl]) < 0.2) grey.push({ a: area, l: lumOf(r, g, bl), c: [r, g, bl] });
+    }
+  }
+  // (the coloured bins only: black trim, tyres, the cabin and the underbody cover more than the paint on some bodies)
+  const all = [...hist.values()];
+  const col = all.map((e) => ({ ...e, c: [e.r / e.a, e.g / e.a, e.b / e.a] })).filter((e) => lumOf(...e.c) >= 0.012 && satOf(e.c) >= 0.2).sort((x, y) => y.a - x.a);
+  const nrm = (r, g, b) => { const l = Math.hypot(r, g, b) || 1; return [r / l, g / l, b / l]; };
+  let ref = null, A = 0, kind = null;
+  if (col[0]) {
+    // (its neighbours in colour join it: the paint's colour the mean of the bins within its hue)
+    const T0 = nrm(...col[0].c); let rr = 0, gg = 0, bb = 0;
+    for (const e of col) { const q = nrm(...e.c); if (q[0] * T0[0] + q[1] * T0[1] + q[2] * T0[2] > 0.99) { A += e.a; rr += e.r; gg += e.g; bb += e.b; } }
+    if (A >= total * 0.08) { ref = [rr / A, gg / A, bb / A]; kind = 'hue'; }
+  }
+  if (!ref && mrImg && grey.length) {
+    // (a black or grey body: its paint's lightness the area's median over its glossy grey surface, above the black of
+    // its seals and panel lines)
+    const g2 = grey.filter((q) => q.l > 0.004).sort((x, y) => x.l - y.l), ga = g2.reduce((s, q) => s + q.a, 0);
+    let acc = 0, med = null; for (const q of g2) { acc += q.a; if (acc >= ga / 2) { med = q; break; } }
+    if (med && ga >= total * 0.2) { const L = med.l; const near = g2.filter((q) => q.l > L * 0.5 && q.l < L * 2); const na = near.reduce((s, q) => s + q.a, 0); ref = [0, 1, 2].map((k) => near.reduce((s, q) => s + q.c[k] * q.a, 0) / na); A = ga; kind = 'gloss'; }
+  }
+  if (!ref) return { ref: [0, 0, 0], refLum: 0, sat: 0, mask: null };
+  const refLum = lumOf(...ref), sat = satOf(ref), R = nrm(...ref), refLin = ref.map(lin);
+  const mask = Buffer.alloc(W * H), rgb = Buffer.from(img);
+  let n = 0;
+  for (let i = 0; i < W * H; i++) {
+    const r = img[i * 3], g = img[i * 3 + 1], b = img[i * 3 + 2], q = nrm(r, g, b), mx = Math.max(r, g, b);
+    const cos = q[0] * R[0] + q[1] * R[1] + q[2] * R[2], l = lumOf(r, g, b) / refLum;
+    let on = false;
+    if (kind === 'hue') on = (cos > 0.985 && l > 0.15 && l < 3.5) || (glossAt(i) && mx >= 8 && cos > 0.96 && l < 3.5);
+    else on = glossAt(i) && satOf([r, g, b]) < 0.2 && l > 0.19 && l < 4;
+    if (!on) continue;
+    mask[i] = 1; n++;
+    // (the shading lifted at the dark end: 0 -> 0.55, 1 -> 1, lighter as it was)
+    const s = Math.min(l, 2.2), s2 = s < 1 ? 0.55 + 0.45 * s : s;
+    for (let k = 0; k < 3; k++) rgb[i * 3 + k] = srgb(refLin[k] * s2);
+  }
+  return { ref, refLum, sat, mask, rgb, kind, share: n / (W * H), cover: A / total };
+}
+const hex = (c) => '#' + c.map((x) => Math.round(x).toString(16).padStart(2, '0')).join('');
+
 async function texFiles(v, out) {
   const files = {};
   const body = v.parts.body[0], decal = v.parts.decal[0];
   const mat = body.matRef, base = mat.getBaseColorTexture(), mr = mat.getMetallicRoughnessTexture();
+  // (the paint, measured on the full-size texture once)
+  let pm = null;
+  if (v.def.paint) {
+    const r = await sharp(Buffer.from(base.getImage())).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+    const mrFull = mr ? await sharp(Buffer.from(mr.getImage())).removeAlpha().resize(r.info.width, r.info.height, { kernel: 'nearest' }).raw().toBuffer() : null;
+    if (mrFull) { mrFull.rf = mat.getRoughnessFactor(); mrFull.mf = mat.getMetallicFactor(); }
+    pm = await paintMask(v, r.data, r.info.width, r.info.height, mrFull);
+    if (pm) { pm.W = r.info.width; pm.H = r.info.height; }
+    v.paint = pm && pm.mask ? { ref: hex(pm.ref), share: +pm.share.toFixed(3) } : null;
+    console.log(v.id.padEnd(10), 'paint', pm ? `${hex(pm.ref)} sat ${pm.sat.toFixed(2)} lum ${pm.refLum.toFixed(3)} cover ${((pm.cover || 0) * 100).toFixed(0)}% ${pm.mask ? 'marked ' + (pm.share * 100).toFixed(1) + '% of the texture' : 'none marked'} (${pm.kind || '-'})` : 'none');
+  }
+  // (a separate wheel material, the passenger pack's: its own texture, ORM and all, the wheels drawn with it)
+  const wmat = v.parts.wheel[0] && v.parts.wheel[0].matRef, wbase = wmat && wmat.getBaseColorTexture();
   for (const [tag, s] of [['', 1024], ['-lo', 512]]) {
-    await sharp(Buffer.from(base.getImage())).removeAlpha().resize(s, s, { kernel: 'lanczos3' }).webp({ quality: 85, effort: 6 }).toFile(`${out}/${v.id}${tag}.webp`);
+    if (pm && pm.mask) {
+      // (the mask at this size: a texel marked where most of the full-size texels under it are)
+      const alpha = Buffer.alloc(s * s), fx = pm.W / s, fy = pm.H / s;
+      for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+        let n = 0, m = 0;
+        for (let yy = Math.floor(y * fy); yy < Math.floor((y + 1) * fy); yy++) for (let xx = Math.floor(x * fx); xx < Math.floor((x + 1) * fx); xx++) { n++; m += pm.mask[yy * pm.W + xx]; }
+        alpha[y * s + x] = m * 2 > n ? 128 : 255;
+      }
+      // (the colour resized on its own first: sharp's removeAlpha would otherwise drop the mask joined after it)
+      // (from the paint's own colour written over its texels, pm.rgb)
+      const rgb = await sharp(pm.rgb, { raw: { width: pm.W, height: pm.H, channels: 3 } }).resize(s, s, { kernel: 'lanczos3' }).raw().toBuffer();
+      await sharp(rgb, { raw: { width: s, height: s, channels: 3 } }).joinChannel(alpha, { raw: { width: s, height: s, channels: 1 } })
+        .webp({ quality: 85, effort: 6, alphaQuality: 100, exact: true }).toFile(`${out}/${v.id}${tag}.webp`);
+    } else await sharp(Buffer.from(base.getImage())).removeAlpha().resize(s, s, { kernel: 'lanczos3' }).webp({ quality: 85, effort: 6 }).toFile(`${out}/${v.id}${tag}.webp`);
+    if (wbase) {
+      const ws = s / 2, wmr = wmat.getMetallicRoughnessTexture();
+      await sharp(Buffer.from(wbase.getImage())).removeAlpha().resize(ws, ws, { kernel: 'lanczos3' }).webp({ quality: 85, effort: 6 }).toFile(`${out}/${v.id}-wheel${tag}.webp`);
+      const mrW = wmr ? await sharp(Buffer.from(wmr.getImage())).removeAlpha().resize(ws / 2, ws / 2).raw().toBuffer() : null;
+      const ow = Buffer.alloc((ws / 2) * (ws / 2) * 3), rfw = wmat.getRoughnessFactor(), mfw = wmat.getMetallicFactor();
+      for (let i = 0; i < (ws / 2) * (ws / 2); i++) { ow[i * 3] = 255; ow[i * 3 + 1] = mrW ? Math.round(mrW[i * 3 + 1] * rfw) : Math.round(255 * rfw); ow[i * 3 + 2] = mrW ? Math.round(mrW[i * 3 + 2] * mfw) : Math.round(255 * mfw); }
+      await sharp(ow, { raw: { width: ws / 2, height: ws / 2, channels: 3 } }).webp({ quality: 88 }).toFile(`${out}/${v.id}-wheel-orm${tag}.webp`);
+      v.wheelTex = true;
+    }
+    if (wbase && !v.darkUV) {
+      const r = await sharp(Buffer.from(base.getImage())).removeAlpha().resize(256, 256).raw().toBuffer();
+      let best = 1e9, bi = 0; for (let i = 0; i < 256 * 256; i++) { const l = r[i * 3] + r[i * 3 + 1] + r[i * 3 + 2]; if (l < best) { best = l; bi = i; } }
+      v.darkUV = [((bi % 256) + 0.5) / 256, (Math.floor(bi / 256) + 0.5) / 256];
+    }
     // (ORM: no occlusion, the metal-rough's roughness (G) and metalness (B), times the material's factors)
     const mrImg = mr ? await sharp(Buffer.from(mr.getImage())).removeAlpha().resize(s / 2, s / 2).raw().toBuffer() : null;
     const o = Buffer.alloc((s / 2) * (s / 2) * 3);
@@ -156,6 +288,9 @@ async function finish(v) {
       else if (r > 120 && g < r * 0.55) lamp = z > 0 ? LAMP.blink : LAMP.tail;
       else if (r > 140 && g > r * 0.5 && g < r * 0.85 && b < g * 0.6) lamp = LAMP.blink;
       else if (r + g + b > 330) lamp = z > 0 ? LAMP.head : LAMP.reverse;
+      // (the passenger pack's lenses drawn dark, a smoked tail or a black-rimmed head lamp, read as no colour: its optics
+      // are its lamps alone, so one at the nose is a head lamp and one at the tail a tail lamp)
+      if (lamp === LAMP.none && v.def.pack === 'passenger' && !top) lamp = z > v.bb.hi[2] - 0.7 ? LAMP.head : z < v.bb.lo[2] + 0.7 ? LAMP.tail : LAMP.none;
       return [0, lamp, 0, 0];
     } });
   }
@@ -172,7 +307,9 @@ async function finish(v) {
   const sameRear = WR === WF || Math.abs(WR.idx.length - WF.idx.length) < 3;
   const bodyA = body.arrays(), glassA = glass.arrays(), opticsA = optics.arrays(), decalA = decal.arrays();
   // the far LODs: body and glass (dark), the wheels in place
-  const placed = wheels.map((k) => { const src = k.c[2] > 0 || sameRear ? WF : WR; return transformArrays(src, mul(trans(k.c[0], k.c[1], k.c[2]), k.c[0] < 0 ? rotY(Math.PI) : rotY(0))); });
+  // (wheels of their own texture, v.wheelTex: in the far LODs, drawn with the body's, their uvs on its darkest texel)
+  const darkUV = v.wheelTex ? v.darkUV : null;
+  const placed = wheels.map((k) => { const src = k.c[2] > 0 || sameRear ? WF : WR; const a = transformArrays(src, mul(trans(k.c[0], k.c[1], k.c[2]), k.c[0] < 0 ? rotY(Math.PI) : rotY(0))); if (darkUV) { a.uv = new Float32Array(a.uv.length); for (let i = 0; i < a.uv.length; i += 2) { a.uv[i] = darkUV[0]; a.uv[i + 1] = darkUV[1]; } } return a; });   // (a copy: transformArrays shares the uvs)
   const farGlass = { ...glassA, fl: Uint8Array.from(glassA.fl) };
   const farBase = mergeArrays([bodyA, ...placed]);
   const lod1 = simplify(farBase, 3500, { error: 0.05 });
@@ -189,7 +326,8 @@ async function finish(v) {
     wheels: { front: { x: r3(Math.abs(fk.c[0])), y: r3(fk.c[1]), z: r3(fk.c[2]), r: r3(rOf(fk)), w: r3(wOf(fk)) }, rear: { x: r3(Math.abs(rk.c[0])), y: r3(rk.c[1]), z: r3(rk.c[2]), r: r3(rOf(rk)), w: r3(wOf(rk)) }, rearMesh: !sameRear,
       extra: wheels.filter((k) => k !== fk && k !== rk && k.c[0] > 0).map((k) => ({ x: r3(Math.abs(k.c[0])), y: r3(k.c[1]), z: r3(k.c[2]), rear: Math.abs(k.c[2] - rk.c[2]) < Math.abs(k.c[2] - fk.c[2]) })) },
     head: lampAt(opticsA, LAMP.head), tail: lampAt(opticsA, LAMP.tail),
-    steer: null, livery: null, open: false, paint: null, own: true, decal: decalA.idx.length > 0,
+    steer: v.def.drive ? steerOf(bodyA) : null, livery: null, open: false, paint: v.paint ? v.paint.ref : null, own: true, decal: decalA.idx.length > 0,
+    ...(v.wheelTex ? { wheelTex: true } : {}), ...(v.paint ? { paintable: true } : {}),
     tris: { lod0: body.tris + glass.tris + optics.tris + decal.tris + wheels.reduce((s, k) => s + k.items.reduce((q, w) => q + (w.tris ? w.tris.length : w.p.idx.length / 3), 0), 0), body: body.tris, glass: glass.tris, optics: optics.tris, decal: decal.tris, wheel: WF.idx.length / 3, wheels: wheels.length, lod1: lod1.idx.length / 3 + lod1g.idx.length / 3, lod2: lod2.idx.length / 3 },
   };
   const meshes = [{ name: 'body', arrays: bodyA, mat: 'own' }, { name: 'glass', arrays: glassA, mat: 'glass' }, { name: 'optics', arrays: opticsA, mat: 'optics' }, { name: 'wheel', arrays: WF, mat: 'own' }];

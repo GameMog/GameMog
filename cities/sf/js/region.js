@@ -178,7 +178,8 @@ function decodeRegionRLE(runs, count) {
 async function loadSFRegion(fetchBin) {
   // (a Hometown package, cities/pkg: no regional scenery round it in v0; its own terrain is all the ground there is)
   if (window.NYC.PKG) return null;
-  const response = await fetch(new URL('data/region/manifest.json', window.NYC.BASE || location.href));
+  const at = new URL('data/region/manifest.json', window.NYC.BASE || location.href);
+  const response = await (window.mcNet ? window.mcNet.fetchRetry(at) : fetch(at));
   if (!response.ok) throw Error(`Region manifest: HTTP ${response.status}`);
   const manifest = await response.json();
   if (manifest.version !== 1) throw Error('Unsupported region manifest');

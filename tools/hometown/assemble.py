@@ -306,7 +306,8 @@ def assemble(pid, places, data, store, bid, out_root, window='full', frame=None,
                 ms.append([x, z, mw / (100.0 * k0), md / (100.0 * k0)])
             btable.append((b['id'], [y(b['base']), y(b['roof']), y(b['peak']), start, b['ringCount'], b['theta'], 0, len(ms), b['shops'], b['type'],
                                      b['palette'], b.get('bays', 0), 0, 0, b.get('frontW', 0), b.get('row', 1), 3.4, b['stories'], b.get('facade', 0), b.get('podium', 0),
-                                     b.get('kind', 0), b.get('roofShape', 0), b.get('wall', 0), b.get('wallRGB', 0), b.get('roofRGB', 0), b.get('front', -1), b.get('frontDist', 0), b.get('minH', 0) / 100.0], b, ms))
+                                     b.get('kind', 0), b.get('roofShape', 0), b.get('wall', 0), b.get('wallRGB', 0), b.get('roofRGB', 0), b.get('front', -1), b.get('frontDist', 0), b.get('minH', 0) / 100.0,
+                                     b.get('seed', 0)], b, ms))
         tr = s['trees'].reshape(-1, 4) if s['trees'].size else np.zeros((0, 4), np.int64)
         for u, v, cls, trunk in tr.tolist():
             x, z = S(u + c * TCM, v + r * TCM)

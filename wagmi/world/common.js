@@ -5,7 +5,7 @@
 import { createTileManager } from './tiles.js';
 import { createMemoryTileSource } from './tiles-mem.js';
 import { createFloatingOrigin, floatingOriginWanted } from './origin.js';
-import { laneIndexFor } from './lanes.js';
+import { laneIndexFor } from './lanes.js'; import { importRetry } from '../net.js';
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const query = () => { try { return new URLSearchParams(globalThis.location?.search || ''); } catch { return new URLSearchParams(); } };
 const N = () => globalThis.window?.NYC || {};
@@ -186,7 +186,7 @@ export function createWorld(city) {
   async function navFor() {
     // (made again when the traffic's network is rebuilt: a nav holds that network's corners and arrays)
     const n = net();
-    if (!chaseNav || (n && !chaseNav.fresh(n))) { const { createNav } = await import('../pursuit/nav.js'); chaseNav = createNav(APP()); }
+    if (!chaseNav || (n && !chaseNav.fresh(n))) { const { createNav } = await importRetry(() => import('../pursuit/nav.js')); chaseNav = createNav(APP()); }
     return chaseNav;
   }
   async function route(a, b, mode = 'car') {
@@ -571,6 +571,9 @@ export function createWorld(city) {
     blockAt: (x, z) => N().blockAt?.(x, z) ?? null,
     blocksInRect: (minX, maxX, minZ, maxZ) => N().blocksInRect?.(minX, maxX, minZ, maxZ) ?? [],
     get blocks() { return N().BLOCKS || []; },
+    // (a sidewalk or a paved square by the city's own ground mask: San Francisco's and a Hometown package's; null in New
+    // York, whose sidewalks are its curb islands' raised rims)
+    sidewalkAt: city.sidewalkAt || null,
     get places() { return places(); },
     get placesMissing() { places(); return missing; },
     spawnPoints, findMissionSites, siteKinds: SITE_KINDS,
@@ -598,6 +601,8 @@ export function createWorld(city) {
       // (a city's own grid when its adapter has one: a Hometown package's compiled 512 m tiles, wagmi/world/pkg.js;
       // else the city in memory sliced, ?tileSize= m a side)
       tm = createTileManager(city.tileSource ? city.tileSource(W) : createMemoryTileSource(W, { size: +q.get('tileSize') || 256 }));
+      // (the high quality lighting's sky occlusion adds each tile's buildings to its height map as it loads: js/sky-occlusion.js)
+      try { N().HQL?.watchTiles?.(tm); } catch (e) { /* never in the way */ }
     }
     return tm;
   }

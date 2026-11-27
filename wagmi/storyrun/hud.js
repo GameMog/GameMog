@@ -6,12 +6,14 @@
 //   hud.choice({ prompt, who, color, options: [{ text, locked }], secs }) -> Promise<index | -1 (no answer)>
 //                                  a timed choice over the objective line: number keys, a pad's D-pad (wagmi/pad.js sends
 //                                  arrow keys) and Enter, finger-sized rows; the skip ring's countdown
-//   hud.card({ kicker, text, sub }, secs)   a transition card in the title card's type (ui.title's), over a fade
+//   hud.card({ kicker, text, sub }, secs)   a transition card in the title card's type (ui.title's), over a fade; never
+//                                  drawn over the mission's title (titleClear: it comes up once that has gone)
 //   hud.bar(label, k, note)        a meter bar (0..1) in Mission 2's tail-meter look, bottom right (a passenger's
 //                                  comfort); null: away. While a tail runs and nothing else has the bar, it is the
 //                                  tail's way to go: who is followed, to where, the metres he has left, the bar filling
 //   hud.meters(list)               (a meter with a goal: { label, text: '$430,000 / $1,000,000', k: 0.43 } is the big
 //                                  money pill, its progress under it); hud.delta(label, '+$85,000', good) flashes beside it
+//   hud.roll(sections, { secs })   the end credits (rules.js creditsRoll), rolled over the dark; any key, a click or a tap skips
 //   hud.passed(card, secs)         the story's MISSION PASSED card (rules.js passCard: the title, what was gained, the
 //                                  meter's progress filling from before to after, the pass line, NEXT); a sting with it
 // All text goes in as textContent.
@@ -60,6 +62,9 @@ const CSS = `
 body:not(.touch-enabled) #wg:has(.sr-bar.on) .wg-count { bottom: 292px; }
 body:not(.touch-enabled) #wg:has(.sr-bar.on):has(.wg-count.on) .sr-timer { bottom: 352px; }
 body:not(.touch-enabled) #wg:has(.sr-bar.on):has(.wg-count.on) .sr-meters { bottom: 414px; }
+/* (the clock up, its 40 px time and its label (58 px from 296) well under the meters' column, not behind it: Colter Land's
+   VALLEY card sat over its FIVE SHARP and VAULT labels, 17 Nov) */
+body:not(.touch-enabled) #wg:has(.sr-timer.on):not(:has(.sr-bar.on):has(.wg-count.on)) .sr-meters { bottom: 372px; }
 body.wg-cine #wg .sr-bar, body.wg-paused #wg .sr-bar { opacity: 0; }
 #wg .sr-bar.go { width: auto; min-width: 250px; max-width: min(380px, calc(100vw - 32px)); }
 #wg .sr-bar.go .row { gap: 18px; } #wg .sr-bar.go .row b { color: #fff; font-variant-numeric: tabular-nums; }
@@ -69,10 +74,22 @@ body.touch-enabled #wg:has(.sr-bar.on) .wg-caller { bottom: auto; }
 body.touch-enabled #wg .sr-bar.go { left: var(--wg-l); right: auto; top: auto; bottom: 200px; min-width: 0; max-width: calc(100vw - 32px); }
 body.touch-enabled #wg .sr-bar { right: var(--wg-r); bottom: auto; top: calc(var(--wg-t) + 240px); }
 body.wg-cine #wg .sr-meters, body.wg-cine #wg .sr-timer, body.wg-paused #wg .sr-meters { opacity: 0; }
+/* (a set held on screen between its scenes, a choice in it: the meters show what the choice did) */
+body.wg-cine.wg-linger:not(.wg-paused) #wg .sr-meters { opacity: 1; }
 #wg .sr-meters { transition: opacity .3s; }
 body.touch-enabled #wg .sr-timer { right: var(--wg-r); bottom: auto; top: calc(var(--wg-t) + 120px); }
 body.touch-enabled #wg .sr-meters { right: var(--wg-r); top: calc(var(--wg-t) + 180px); }
 @media (max-width: 700px) { #wg .sr-choice { bottom: 120px; } }
+/* (in a scene, the lower third: on the letterbox's edge, its options side by side, so it is never over the face the
+   shot is on. ST-8's 'Open with...' stood over Jensen's face from 330 to 570 px of a 720 px frame: the RC playtest, P7) */
+body.wg-cine #wg .sr-choice { bottom: calc(var(--bar) + 10px); padding: 10px 14px 10px; width: min(860px, calc(100vw - 32px)); }
+body.wg-cine #wg .sr-choice .p { font-size: 20px; margin-bottom: 8px; }
+body.wg-cine #wg .sr-choice .opts { display: flex; gap: 8px; }
+body.wg-cine #wg .sr-choice .opts button, html.ui-glass body.wg-cine #wg .sr-choice .opts button { flex: 1 1 0; min-width: 0; margin: 0; min-height: 44px; }
+html.ui-glass body.wg-cine #wg .sr-choice { bottom: calc(var(--bar) + 10px); padding: 12px 16px 12px; width: min(900px, calc(100vw - 32px)); }
+html.ui-glass body.wg-cine #wg .sr-choice .p { margin: 4px 0 10px; }
+html.ui-glass body.wg-cine #wg .sr-choice .opts, html.ui-glass body.wg-cine #wg .sr-choice.n2 .opts { display: flex; gap: 10px; }
+@media (max-width: 700px) { body.wg-cine #wg .sr-choice .opts, html.ui-glass body.wg-cine #wg .sr-choice .opts { flex-direction: column; gap: 6px; } }
 #wg .sr-meters > div.goal { flex-direction: column; align-items: flex-end; gap: 4px; padding: 8px 14px 9px; min-width: 230px; }
 #wg .sr-meters > div.goal .v { font-size: 30px; color: #4ADE80; letter-spacing: .5px; font-variant-numeric: tabular-nums; }
 #wg .sr-meters > div.goal i { display: block; width: 100%; height: 6px; border-radius: 3px; overflow: hidden; background: rgba(255,255,255,.14); }
@@ -111,8 +128,77 @@ body.touch-enabled #wg .sr-meters > div.goal { min-width: 0; padding: 5px 10px 6
 body.touch-enabled #wg .sr-meters > div.goal .v { font-size: 20px; }
 body.touch-enabled #wg .sr-meters .l { font-size: 11px; letter-spacing: 2px; }
 body.touch-enabled #wg .sr-pass .box { padding: 10px 16px 12px; } body.touch-enabled #wg .sr-pass .g b { font-size: 30px; }
+/* (the pass's medal, rules.js medalRows: a disc in its metal, its name, the next tier's targets under it) */
+#wg .sr-pass .md { display: flex; align-items: center; gap: 14px; margin: 2px 0 10px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,.14); text-align: left; }
+#wg .sr-pass .md i { flex: none; width: 44px; height: 44px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff8 0, #fff0 42%), var(--md, #3a3f47); box-shadow: inset 0 0 0 3px rgba(0,0,0,.22), 0 2px 10px rgba(0,0,0,.5);
+  transform: scale(.4); opacity: 0; transition: transform .6s cubic-bezier(.2,1.6,.4,1) .7s, opacity .3s .7s; }
+#wg .sr-pass.on .md i { transform: none; opacity: 1; }
+#wg .sr-pass .md.gold { --md: #F5C542; } #wg .sr-pass .md.silver { --md: #C9D1DA; } #wg .sr-pass .md.bronze { --md: #C7834A; } #wg .sr-pass .md.none i { background: rgba(255,255,255,.1); box-shadow: inset 0 0 0 2px rgba(255,255,255,.25); }
+#wg .sr-pass .md .k { font: 700 13px/1 'Barlow Condensed'; letter-spacing: 4px; color: rgba(255,255,255,.6); }
+#wg .sr-pass .md .n { font: 800 30px/1 'Barlow Condensed'; letter-spacing: 1px; color: var(--md, #fff); margin-top: 3px; }
+#wg .sr-pass .md.none .n { color: rgba(255,255,255,.7); font-size: 24px; }
+#wg .sr-pass .md .s { font: 600 15px/1.25 'Barlow Condensed'; color: rgba(255,255,255,.7); margin-top: 3px; }
+/* (the end credits, hud.roll: over the dark, the names rising) */
+#wg .sr-roll { position: absolute; inset: 0; z-index: 22; overflow: hidden; background: #050608; opacity: 0; transition: opacity .8s; pointer-events: none; text-align: center; }
+#wg .sr-roll.on { opacity: 1; pointer-events: auto; }
+#wg .sr-roll .c { position: absolute; left: 50%; top: 100%; width: min(640px, calc(100vw - 32px)); transform: translate(-50%, 0); will-change: transform; }
+#wg .sr-roll .sec { margin: 0 0 56px; }
+#wg .sr-roll .hd { font: 700 15px/1 'Barlow Condensed'; letter-spacing: 6px; text-transform: uppercase; color: #FFC93C; margin-bottom: 14px; }
+#wg .sr-roll .tt { font: italic 800 clamp(44px, 7vw, 80px)/.95 'Barlow Condensed'; text-transform: uppercase; margin-bottom: 8px; }
+#wg .sr-roll .pr { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; font: 700 21px/1.3 'Barlow Condensed'; margin: 0 0 6px; }
+#wg .sr-roll .pr span:first-child { text-align: right; color: rgba(255,255,255,.6); font-weight: 600; } #wg .sr-roll .pr span:last-child { text-align: left; }
+#wg .sr-roll .ln { font: 600 19px/1.4 'Barlow Condensed'; color: rgba(255,255,255,.88); margin: 0 0 8px; }
+#wg .sr-roll .end .ln { font: 800 30px/1 'Barlow Condensed'; letter-spacing: 3px; color: #fff; text-transform: uppercase; }
+#wg .sr-roll .sk { position: absolute; right: 24px; bottom: 20px; font: 700 13px/1 'Barlow Condensed'; letter-spacing: 3px; color: rgba(255,255,255,.45); }
+/* (the cast: two even columns, each credit on one line: rules.js creditRole keeps a role to a few words) */
+#wg .sr-roll .cast .pr { gap: 18px; margin: 0 0 4px; } #wg .sr-roll .cast .pr span { white-space: nowrap; overflow: hidden; }
+body.touch-enabled #wg .sr-roll .pr { grid-template-columns: 1fr; gap: 0; } body.touch-enabled #wg .sr-roll .pr span { text-align: center !important; }
+/* (a story world in a GameMog page's frame, 1146 x 645 or a 4:3 860 x 645, with a mouse: nothing laid over anything.
+   Colter Land's playtest, 16 Nov: the fight's HITS over the meters and the clock, the key row and the line over the
+   radar, the objective twice. The radar's column is 308 px from the left, 24 px kept clear of it: 332 px) */
+@media (min-width: 621px) and (max-height: 860px) {
+  /* (the fight's combo under the toolbar, above the right edge's meters, clock and DOWN count) */
+  body.wg-story:not(.touch-enabled) #wf .wf-combo { top: 84px; }
+}
+@media (min-width: 621px) {
+  /* (the fight's key row between the radar and the right edge, wrapping there: never over the radar or the street chips) */
+  body.wg-story:not(.touch-enabled) #wf .wf-keys { left: 332px; right: 24px; transform: none; width: auto; max-width: none; }
+}
+@media (min-width: 621px) and (max-width: 943px) {
+  /* (narrow: the line from the radar's edge to the right, not 280 px over the radar; in the car above the speed panel) */
+  body.wg-story:not(.wg-cine):not(.touch-enabled) #wg .wg-line { left: 332px; right: 24px; width: auto; transform: none; }
+  body.wg-story[data-mode='car']:not(.wg-cine):not(.touch-enabled) #wg .wg-line { bottom: 140px; }
+}
+/* (small: the line only announces a new objective, the tracker over the radar keeps it) */
+@media (max-height: 860px), (max-width: 1180px) { html:has(> body.wg-story) { --wg-obj-secs: 3; } }
+/* (a small frame, with a mouse: a GameMog page's frame in a narrow window, 640 x 360. The HUD's own corners, toolbar,
+   radar, meters, clock, call, line and fight cards drawn smaller, laid out as the full frame lays them out, so nothing
+   sits over anything. Left as they are: what is drawn on the world (the marker's label, the foes' tags, the pointers)
+   and the health bar, put under the radar where the radar is drawn) */
+@media (min-width: 560px) and (max-height: 559px) { html { --sr-hud-z: 0.8; } }
+@media (min-width: 560px) and (max-height: 439px) { html { --sr-hud-z: 0.6; } }
+body.wg-story:not(.touch-enabled) :is(.hud, #wg > :is(.sr-timer, .sr-meters, .sr-bar, .wg-count, .sr-choice, .wg-line, .wg-caller, .wg-phone, .wg-dm, .wg-turn, .wg-help, .wg-offer, .wg-skip, .wg-place, .wg-hold, .wg-gtitle), #wg > :is(.wg-big, .sr-card, .sr-pass) > *, #wf > :is(.wf-combo, .wf-hint, .wf-lesson, .wf-msg, .wf-keys), #sr-juice, #wg-heat, #wg-padsound, #mc-town-edge, #mc-town-ready) { zoom: var(--sr-hud-z, 1); }
 `;
+// the option lit when a choice comes up: its default (the one its clock picks) when that can be picked, else the first
+// that can
+export function firstSel(options, dflt = null) {
+  if (Number.isInteger(dflt) && dflt >= 0 && dflt < options.length && !options[dflt]?.locked) return dflt;
+  return Math.max(0, options.findIndex((o) => !o.locked));
+}
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// one title at a time: a card waits for the mission's own title (action.js's slam, mission/ui.js's title, both up for
+// about 2.4 s and then fading) to have gone before its words come up. A mission's first step is often a transition card
+// (Jensen Heist: 'BOOTH THREE' slammed in and, at once, '12:41 PM · THE CORNER DINER' over it, the two titles and the two
+// time stamps drawn over each other: the RC playtest, B1, 20 Nov). Waits at most maxMs; returns the ms it waited
+export const TITLE_UP = '#sr-slam.on, #wg .wg-title.on';
+// a card's time on screen after it waited `waitedMs` for a title: half the wait taken off it, never under 1.8 s (nor
+// more than it asked for)
+export const cardSecs = (secs, waitedMs) => (waitedMs > 0 ? Math.min(secs, Math.max(1.8, secs - waitedMs / 2000)) : secs);
+export async function titleClear(busy, wait = sleep, maxMs = 4000, step = 50) {
+  let t = 0;
+  while (t < maxMs && busy()) { await wait(step); t += step; }
+  return t;
+}
 
 export function createHud(ui) {
   if (!document.getElementById('sr-css')) { const st = document.createElement('style'); st.id = 'sr-css'; st.textContent = CSS; document.head.appendChild(st); }
@@ -127,7 +213,7 @@ export function createHud(ui) {
   const tx = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = String(text); return e; };
   const deltas = new Map();
   const fmt = (s) => { s = Math.max(0, Math.ceil(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
-  let choosing = null, cardN = 0;
+  let choosing = null, cardN = 0, choiceN = 0;
   // a clock or a meter never under a call's card: Mog City's count (STOPS 0/3), the clock, then the meters, each moved
   // clear of the caller card (and of what was moved before it), up where the column stacks up from the bottom (a desk),
   // down where it hangs from the top (a phone, body.touch-enabled, where the car's pills down the right edge are in the
@@ -212,6 +298,13 @@ export function createHud(ui) {
       // (head: the big word, MISSION PASSED unless the card says otherwise: an act's end card names the act or the story)
       passEl.append(tx('div', 'h', c.head || 'MISSION PASSED'), tx('div', 't', c.title || ''));
       const box = tx('div', 'box');
+      // (its medal, rules.js medalRows: GOLD, SILVER, BRONZE or NO MEDAL, and what the next one asks)
+      if (c.medal) {
+        const md = tx('div', `md ${c.medal.medal || 'none'}`), w = tx('div');
+        w.append(tx('div', 'k', c.medal.best ? `MEDAL · BEST ${c.medal.best}` : 'MEDAL'), tx('div', 'n', c.medal.label));
+        if (c.medal.hint) w.appendChild(tx('div', 's', c.medal.hint));
+        md.append(tx('i'), w); box.appendChild(md);
+      }
       for (const g of c.gains || []) { const r = tx('div', 'g'); r.append(tx('span', '', g.label)); const b = tx('b', g.good ? '' : 'bad', g.text); r.appendChild(b); box.appendChild(r); }
       for (const [a, b] of c.stats || []) { const r = tx('div', 'st'); r.append(tx('span', '', a), tx('span', '', b)); box.appendChild(r); }
       let fill = null;
@@ -227,6 +320,42 @@ export function createHud(ui) {
       requestAnimationFrame(() => requestAnimationFrame(() => fill?.()));
       await sleep(secs * 1000); passEl.classList.remove('on'); await sleep(500);
     },
+    // the end credits (rules.js creditsRoll's sections), rolled up over the dark at about 46 px a second; any key, a
+    // click or a tap skips them. secs: a fixed length (a test drive's quick flow), else as long as they take
+    async roll(sections, { secs = 0 } = {}) {
+      if (!Array.isArray(sections) || !sections.length) return;
+      const el = tx('div', 'sr-roll'), col = tx('div', 'c');
+      for (const sc of sections) {
+        const d = tx('div', `sec${sc.end ? ' end' : ''}${sc.cast ? ' cast' : ''}`);
+        if (sc.title) d.appendChild(tx('div', 'tt', sc.title));
+        if (sc.head) d.appendChild(tx('div', 'hd', sc.head));
+        for (const l of sc.lines || []) {
+          if (Array.isArray(l)) { const r = tx('div', 'pr'); r.append(tx('span', '', l[1] || ''), tx('span', '', l[0] || '')); d.appendChild(r); }
+          else d.appendChild(tx('div', 'ln', l));
+        }
+        col.appendChild(d);
+      }
+      el.append(col, tx('div', 'sk', 'ANY KEY TO SKIP'));
+      root.appendChild(el);
+      requestAnimationFrame(() => el.classList.add('on'));
+      // (the skip is armed from the first frame: a press during the fade-in ends the roll too)
+      let done = false, raf = 0, res = null;
+      const end = () => { if (done) return; done = true; cancelAnimationFrame(raf); removeEventListener('keydown', key, true); el.removeEventListener('pointerdown', end); res?.(); };
+      const key = (e) => { if (e.repeat) return; e.preventDefault(); e.stopPropagation(); end(); };
+      addEventListener('keydown', key, true); el.addEventListener('pointerdown', end);
+      await Promise.race([sleep(900), new Promise((r) => { res = r; })]);
+      // (rolled till its last section, Ockams Inc., stands in the middle; held there 2.5 s)
+      const H = col.offsetHeight, V = el.offsetHeight || innerHeight, lastH = col.lastChild?.offsetHeight || 0;
+      const dist = Math.max(0, V / 2 + H - lastH / 2 - 56), dur = secs > 0 ? secs : Math.min(90, Math.max(12, dist / 46));
+      if (!done) await new Promise((r) => {
+        res = r;
+        const t0 = performance.now();
+        const hold = secs > 0 ? 0 : 2500;
+        const step = () => { const t = performance.now() - t0, k = Math.min(1, t / (dur * 1000)); col.style.transform = `translate(-50%, ${(-k * dist).toFixed(1)}px)`; if (t >= dur * 1000 + hold) end(); else raf = requestAnimationFrame(step); };
+        raf = requestAnimationFrame(step);
+      });
+      el.classList.remove('on'); await sleep(800); el.remove();
+    },
     // ({ danger: true }: a bar where full is bad (a NOISE bar, how close a chaser is): green low, red high)
     bar(label, k = 1, note = '', { danger = false } = {}) {
       barOwn = label != null;
@@ -240,7 +369,7 @@ export function createHud(ui) {
       barEl.classList.add('on');
     },
     get choosing() { return choosing; },
-    choice({ prompt = '', who = '', color = '#FFC93C', options = [], secs = 0 } = {}) {
+    choice({ prompt = '', who = '', color = '#FFC93C', options = [], secs = 0, dflt = null } = {}) {
       if (choosing) choosing.cancel();
       choiceEl.replaceChildren();
       const h = document.createElement('div'); h.className = 'h';
@@ -260,15 +389,20 @@ export function createHud(ui) {
         if (at > 0 && at < 48) t.append(tx('b', 'm', s.slice(0, at)), tx('i', 'sep', ': '), tx('span', 'c', s.slice(at + 2))); else t.append(tx('span', 'm', s));
         b.append(k, t); opts.appendChild(b); return b;
       });
-      let sel = Math.max(0, options.findIndex((o) => !o.locked));
+      // (the one lit at the start is the one the clock picks if he does nothing: the step's default. ST-8 lit 'The jacket'
+      // while its clock took 'The tents': the RC playtest, B8)
+      let sel = firstSel(options, dflt);
       const mark = () => btns.forEach((b, i) => b.classList.toggle('sel', i === sel));
+      const me = { n0: ++choiceN }; choiceEl.dataset.n = String(me.n0);
       mark(); choiceEl.classList.add('on');
       return new Promise((res) => {
         const t0 = performance.now();
         let timer = 0, done = false;
         const finish = (i) => {
-          if (done) return; done = true; choosing = null;
-          removeEventListener('keydown', onKey, true); cancelAnimationFrame(timer); choiceEl.classList.remove('on');
+          if (done) return; done = true; if (choosing === me) choosing = null;
+          removeEventListener('keydown', onKey, true); cancelAnimationFrame(timer);
+          // (away at once with the pick: the next choice's own panel only ever comes up as itself)
+          if (choiceEl.dataset.n === String(me.n0)) choiceEl.classList.remove('on');
           res(i);
         };
         const pick = (i) => { if (i >= 0 && i < options.length && !options[i].locked) finish(i); };
@@ -280,7 +414,13 @@ export function createHud(ui) {
           if (e.code === 'Enter' && !e.repeat) { e.preventDefault(); e.stopImmediatePropagation(); pick(sel); }
         };
         addEventListener('keydown', onKey, true);
-        btns.forEach((b, i) => b.addEventListener('click', () => pick(i)));
+        // (a press is a pick on its way down, as well as a click: a click can be lost to a mouse-down that the game took
+        // first, as the pointer lock's or the cutscene camera's; story-b's 'Wesley's cone', 1 of 7 clicks, left the clock to
+        // pick 'His resignation': the RC playtest, B8)
+        btns.forEach((b, i) => {
+          b.addEventListener('pointerdown', (e) => { if (e.button === 0 || e.pointerType !== 'mouse') { e.preventDefault(); e.stopPropagation(); pick(i); } });
+          b.addEventListener('click', () => pick(i));
+        });
         const tick = () => {
           if (done) return;
           if (secs > 0 && !window.WAGMI?.paused) {
@@ -291,14 +431,20 @@ export function createHud(ui) {
           timer = requestAnimationFrame(tick);
         };
         tick();
-        choosing = { n: options.length, pick, cancel: () => finish(-1) };
+        Object.assign(me, { n: options.length, pick, cancel: () => finish(-1) }); choosing = me;
       });
     },
     async card({ kicker = '', text = '', sub = '' } = {}, secs = 2.6) {
-      cardEl.querySelector('.k').textContent = kicker; cardEl.querySelector('.t').textContent = text; cardEl.querySelector('.s').textContent = sub;
-      cardEl.querySelector('.r').style.display = kicker ? '' : 'none';
       // (only the last card shown takes it down: a second card while one is up is not cut short by the first's end)
       const my = ++cardN;
+      // (never over the mission's title: after it has gone (TITLE_UP); a newer card asked for meanwhile is the one shown)
+      const waited = await titleClear(() => !!document.querySelector(TITLE_UP));
+      if (my !== cardN) return;
+      // (after a title it waited on, up for less: the two one after the other, not twice the black (ST-8's opening
+      // went 5.6 s to 8.0 with the wait, the RC review))
+      secs = cardSecs(secs, waited);
+      cardEl.querySelector('.k').textContent = kicker; cardEl.querySelector('.t').textContent = text; cardEl.querySelector('.s').textContent = sub;
+      cardEl.querySelector('.r').style.display = kicker ? '' : 'none';
       cardEl.classList.add('on'); await sleep(secs * 1000); if (my === cardN) cardEl.classList.remove('on'); await sleep(450);
     },
     clear() { hud.timer(null); hud.meters([]); hud.bar(null); choosing?.cancel(); passEl.classList.remove('on'); },

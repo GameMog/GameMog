@@ -56,7 +56,7 @@ test('a dressing outside its words is refused', () => {
 
 test('the dressing is imported only when a world asks (index.js), never on the default path (game.js)', () => {
   const index = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/index.js'), 'utf8');
-  assert.match(index, /if \(asksDressing\(def\.dressing\)\) \{\s*try \{ const D = await import\('\.\/dressing\.js'\)/);
+  assert.match(index, /if \(asksDressing\(def\.dressing\)\) \{\s*try \{ const D = await importRetry\(\(\) => import\('\.\/dressing\.js'\)\)/);
   assert.equal((index.match(/dressing\.js/g) || []).length >= 1, true);
   const game = fs.readFileSync(path.join(ROOT, 'wagmi/game.js'), 'utf8');
   assert.doesNotMatch(game, /dressing/);

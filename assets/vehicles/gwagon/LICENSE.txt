@@ -1,0 +1,13 @@
+Model Information:
+* source:	https://sketchfab.com/3d-models/aa1a732d4fdc44e0a20cee312a929d77
+* author:	DemuriaGT (https://sketchfab.com/demuriagt)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+Credit:
+This work is based on a 3D model (https://sketchfab.com/3d-models/aa1a732d4fdc44e0a20cee312a929d77) by DemuriaGT (https://sketchfab.com/demuriagt) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/). Modified.
+
+(The notice of the download, with the work's title left out: it carries a real car maker's and model's names, which
+Mog City does not show. The model's page at the source link above carries it.)

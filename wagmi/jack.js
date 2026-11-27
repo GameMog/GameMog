@@ -45,6 +45,9 @@ export function install(W) {
     if (now - cache.t < 120) return cache.v;
     cache = { t: now, v: null };
     if (cm.activeMode !== 'person' || W.ride?.phase || W.cutscene || W.directed || missionRide()) return null;
+    // (a horse alongside the car as the ride now (wagmi/game.js the two rides): his car stands by; no car taken till he is
+    // back in it, and none while a story step wants the horse, W.rides.lock)
+    if (car.kind === 'horse' || W.rides?.lock === 'horse') return null;
     if (Math.hypot(person.position.x - car.position.x, person.position.z - car.position.z) < 4.2) return null; // (his own: game.js)
     let best = null, bd = REACH;
     for (const v of TS.cars) {

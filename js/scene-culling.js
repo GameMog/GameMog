@@ -157,11 +157,15 @@ function replaceWithChunks(mesh, cell) {
  * - nearShadowsOnly: the far sun cascade draws the building stand-ins only, so beyond the near cascade (~40 m at
  *   street level) only the buildings cast. Each cascade draws its casters again, so this nearly halves the shadow
  *   draws, which is what a phone's CPU pays for.
+ * - propCell (a Hometown town's, cities/sf/js/main.js): the small props' chunks this many times wider. A town's props
+ *   are few (a few hundred hydrants, a thousand lamps) and cheap to draw, so what they cost is the draw calls: the
+ *   view and both cascades draw each chunk in reach, and a wider chunk is fewer of them for the same props.
  */
 function setupSceneCulling(scene, roots, shadow = null, quality = {}) {
   const propScale = quality.propScale ?? 1;
   const propShadows = quality.propShadows !== false;
   const staticFar = quality.staticFar ?? Infinity;
+  const propCell = quality.propCell ?? 1;
   scene.updateMatrixWorld(true);
   const stats = { chunkedMeshes: 0, chunks: 0, proxiedMeshes: 0, proxies: 0, proxyTriangles: 0 };
   const culled = [];
@@ -181,13 +185,14 @@ function setupSceneCulling(scene, roots, shadow = null, quality = {}) {
   for (const mesh of chunkable) {
     // unlit (glowing) props, like signal lenses & lamp bulbs, read from much further away at night
     const glow = mesh.material.isMeshBasicNodeMaterial || mesh.material.type === 'MeshBasicNodeMaterial' ? 3 : 1;
-    const cullDist = Math.max(CULL_MIN, instanceSize(mesh) * CULL_PER_METRE * glow);
+    // (a mesh may ask to go sooner: userData.cullScale, e.g. the signal masts' palm-sized heads, blades and walk signals)
+    const cullDist = Math.max(CULL_MIN, instanceSize(mesh) * CULL_PER_METRE * glow * (mesh.userData.cullScale || 1));
     // big things (sidewalk slabs, light pools...) are kept at any distance: split for the view frustum only (3.)
     if (cullDist > CULL_MAX) {
       largeMeshes.push(mesh);
       continue;
     }
-    const cell = Math.min(600, Math.max(250, cullDist * 0.5));
+    const cell = Math.min(600, Math.max(250, cullDist * 0.5)) * propCell;
     const chunks = replaceWithChunks(mesh, cell);
     for (const chunk of chunks) {
       if (!propShadows) chunk.castShadow = false;
@@ -214,7 +219,7 @@ function setupSceneCulling(scene, roots, shadow = null, quality = {}) {
           if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
           sphere = o.geometry.boundingSphere.clone().applyMatrix4(o.matrixWorld);
         }
-        culled.push({ mesh: o, x: sphere.center.x, y: sphere.center.y, z: sphere.center.z, r: sphere.radius, d: staticFar });
+        culled.push({ mesh: o, x: sphere.center.x, y: sphere.center.y, z: sphere.center.z, r: sphere.radius, d: staticFar, far: true });
         stats.farStatic = (stats.farStatic || 0) + 1;
       });
     }
@@ -379,11 +384,11 @@ function setupSceneCulling(scene, roots, shadow = null, quality = {}) {
     stats.chunks += chunks.length;
     const far = culled.findIndex((c) => c.mesh === mesh);
     if (far < 0) continue;
-    const d = culled[far].d;
+    const d = culled[far].d, isFar = culled[far].far;
     culled.splice(far, 1);
     for (const chunk of chunks) {
       const sphere = chunk.boundingSphere.clone().applyMatrix4(chunk.matrixWorld);
-      culled.push({ mesh: chunk, x: sphere.center.x, y: sphere.center.y, z: sphere.center.z, r: sphere.radius, d });
+      culled.push({ mesh: chunk, x: sphere.center.x, y: sphere.center.y, z: sphere.center.z, r: sphere.radius, d, ...(isFar ? { far: true } : {}) });
     }
   }
 
@@ -404,5 +409,29 @@ function updateSceneCulling(cameraPosition) {
   }
 }
 
-Object.assign(window.NYC, { setupSceneCulling, updateSceneCulling, SHADOW_PROXY_LAYER });
+// (Mog City, the high quality lighting tier's hero probe, js/sky-occlusion.js; after Ben Houston's enhanced Slop New York
+// 7f4a50e, MIT) A face of the probe is a 128 px view, where a metre is a pixel at 64 m: it is drawn without the prop
+// chunks it could not show (beyond PROBE_PROP_RANGE m of their bounds) and without the far static city (the outer
+// boroughs' buildings and the bridges), which were most of its draw calls. hideFromProbe(position) hides them for one
+// render, showAfterProbe() puts back what it hid.
+const PROBE_PROP_RANGE = 60;
+const _probeHidden = [];
+function hideFromProbe(position) {
+  const { x, y, z } = position;
+  for (const c of state.culled) {
+    if (!c.mesh.visible) continue;
+    if (!c.far) { // (the far static city's entries, staticFar, at any distance)
+      const dx = c.x - x, dy = c.y - y, dz = c.z - z;
+      if (Math.sqrt(dx * dx + dy * dy + dz * dz) - c.r < PROBE_PROP_RANGE) continue;
+    }
+    c.mesh.visible = false;
+    _probeHidden.push(c.mesh);
+  }
+}
+function showAfterProbe() {
+  for (const m of _probeHidden) m.visible = true;
+  _probeHidden.length = 0;
+}
+
+Object.assign(window.NYC, { setupSceneCulling, updateSceneCulling, hideFromProbe, showAfterProbe, SHADOW_PROXY_LAYER });
 })();

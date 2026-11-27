@@ -41,15 +41,23 @@ import os from 'node:os';
 import crypto from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { readWav, writeWav, lufs, speechSpan } from './wav.mjs';
-import { trim, voiceChanger, gainDb, squeeze, stretch, whisper } from './dsp.mjs';
+import { trim, voiceChanger, gainDb, squeeze, stretch, whisper, shift } from './dsp.mjs';
 import { readLines, key } from './lines.mjs';
-import { CAST, SAY, DIRECTION, TWEAK } from './cast.mjs';
+import { CAST, SAY, DIRECTION, TWEAK, howOf, HOW_FX } from './cast.mjs';
 import { VOICES, TTS_SAY, ttsSource } from './tts-voices.mjs';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../..');
 const OUT = path.join(ROOT, 'assets/voice'), SRC = path.join(OUT, 'src');
 const SR = 24000, TARGET = -19, MAXK = 1.1, MAXK_TTS = 1.15, FAST = 1.1, WHISPER_DB = -3, HUSH_DB = -2;
 const args = process.argv.slice(2), ALL = args.includes('--all'), ONLY = (args[args.indexOf('--only') + 1] || '').split(',').filter((s) => args.includes('--only') && s);
+// --scenes m2-scenes,m3-scenes,m4-scenes,m4-escape: make again every line of those files' scenes (not a call's), in the
+// scene delivery below; --skip Rook leaves a speaker's lines as they are; --no-say stops the build rather than make a
+// macOS placeholder for any line it makes (a renderer that is missing, a line it could not synthesise)
+const SCENES = (args[args.indexOf('--scenes') + 1] || '').split(',').filter((s) => args.includes('--scenes') && s);
+const SKIP = new Set((args[args.indexOf('--skip') + 1] || '').split(',').filter((s) => args.includes('--skip') && s));
+// --deliver intro: those files' lines get the scene delivery when they are made (with --only), without making them all
+const DELIVER = new Set([...SCENES, ...(args[args.indexOf('--deliver') + 1] || '').split(',').filter((s) => args.includes('--deliver') && s)]);
+const NOSAY = args.includes('--no-say');
 
 // the synthesised voices: who has one (tts/picks.json), and where the local renderer lives (not in the repo)
 const TTSDIR = path.join(ROOT, 'wagmi/radio/build/tts'), PICKS = path.join(TTSDIR, 'picks.json');
@@ -77,6 +85,15 @@ const pickOf = (who) => (picks[who] && VOICES[picks[who]] ? picks[who] : null);
 fs.mkdirSync(OUT, { recursive: true });
 
 const lines = readLines(ROOT);
+// the opening's clock runs slower than its keyed times in its SLOW stretches (wagmi/intro.js: [from, to, k]), so a
+// window there is that much longer in real seconds: each line's room is measured on the real clock
+const SLOW = (() => { const m = /const SLOW = (\[[^;]*\]);/.exec(fs.readFileSync(path.join(ROOT, 'wagmi/intro.js'), 'utf8')); try { return m ? Function(`return ${m[1]}`)() : []; } catch { return []; } })();
+const real = (t) => { let r = t; for (const [a, b, k] of SLOW) if (t > a) r += (Math.min(t, b) - a) * (k - 1); return r; };
+const win = (L) => (L.window ? [real(L.window[0]), real(L.window[1])] : null);
+// a scene line made in the scene delivery (D1/D5): its file one of --scenes, not a call's, not a skipped speaker
+const sceneLine = (L) => !L.call && DELIVER.has(path.basename(L.file || '', '.js')) && !SKIP.has(L.speaker);
+const forced = (L) => !L.call && SCENES.includes(path.basename(L.file || '', '.js')) && !SKIP.has(L.speaker);
+const delivery = (L) => howOf(L);
 const old = fs.existsSync(path.join(OUT, 'manifest.json')) ? JSON.parse(fs.readFileSync(path.join(OUT, 'manifest.json'), 'utf8')) : { lines: [] };
 const oldById = new Map(old.lines.map((l) => [l.id, l]));
 // (a line whose id changed but not its speaker and words: its old entry, if no line of the game has that id now)
@@ -118,7 +135,7 @@ const spoken = (text, extra = []) => { let t = text; for (const [re, s] of [...S
 function isFresh(L) {
   const prev = prevOf(L), c = CAST[L.speaker] || CAST.default;
   const pace = (TWEAK[L.id] || {}).rate || c.rate, pick = pickOf(L.speaker);
-  if (ALL || (ONLY.length && ONLY.includes(L.id)) || !prev || prev.text !== L.text || !fs.existsSync(path.join(ROOT, prev.file))) return false;
+  if (ALL || (ONLY.length && ONLY.includes(L.id)) || forced(L) || !prev || prev.text !== L.text || !fs.existsSync(path.join(ROOT, prev.file))) return false;
   // (a placeholder said faster than a speaker can, by an older build, is made again)
   if (prev.source.startsWith('say:') && +(prev.source.match(/@(\d+)/)?.[1] || 0) > Math.round(pace * MAXK) + 1) return false;
   if (prev.source.startsWith('recording:')) return true;
@@ -139,10 +156,16 @@ for (const L of lines) {
   const pick = pickOf(L.speaker);
   if (fresh.get(L.id) || !pick || recording(L.id)) continue;
   const text = spoken(L.text, TTS_SAY), out = path.join(TTS_LOCAL.render, pick, `${L.id}.wav`), meta = out.replace(/\.wav$/, '.json'), take0 = (TWEAK[L.id] || {}).take || 0;
-  const nx = timed(L) ? nextOf(L) : null, fit = L.window ? +((nx ? nx.window[0] - 0.06 : L.window[1] + 0.4) - L.window[0]).toFixed(3) : null;
-  tts.set(L.id, { pick, out });
+  const nx = timed(L) ? nextOf(L) : null, fit = L.window ? +((nx ? win(nx)[0] - 0.06 : win(L)[1] + 0.4) - win(L)[0]).toFixed(3) : null;
+  // (a scene line: warmer takes, the one nearest its room (tts.py), its delivery's speed on a Kokoro voice; the cache
+  // keyed by all of it, so a line without them keeps its key as before)
+  const sc = sceneLine(L), how = sc ? delivery(L) : null, fx = how ? HOW_FX[how] : null;
+  // (a windowed scene line aims a breath, 0.2 s, short of its room: the next speaker never lands on its last word)
+  const extra = sc ? { scene: true, temperature: 1.0, ...(fit ? { target: +(fit - 0.2).toFixed(3) } : {}), ...(fx && VOICES[pick].engine === 'kokoro' ? { speedK: fx.speed } : {}) } : {};
+  const vk = vkey(pick) + (sc ? `:scene${how ? ':' + how : ''}` : '');
+  tts.set(L.id, { pick, out, how });
   const m = fs.existsSync(meta) && fs.existsSync(out) ? JSON.parse(fs.readFileSync(meta, 'utf8')) : null;
-  if (!m || m.text !== text || m.vkey !== vkey(pick) || m.fit !== fit || (m.take0 || 0) !== take0) ttsJob.push({ id: L.id, voice: pick, text, out, fit, vkey: vkey(pick), take0 });
+  if (!m || m.text !== text || m.vkey !== vk || m.fit !== fit || (m.take0 || 0) !== take0 || (m.target ?? null) !== (extra.target ?? null)) ttsJob.push({ id: L.id, voice: pick, text, out, fit, vkey: vk, take0, ...extra });
 }
 if (args.includes('--dry')) {
   const made = lines.filter((L) => !fresh.get(L.id)), moved = lines.filter((L) => fresh.get(L.id) && prevOf(L).id !== L.id);
@@ -154,6 +177,7 @@ if (args.includes('--dry')) {
 }
 if (ttsJob.length) {
   if (!fs.existsSync(TTS_LOCAL.python)) {
+    if (NOSAY) { console.error(`!! ${ttsJob.length} lines need a synthesised voice but ${TTS_LOCAL.python} is missing (WAGMI_TTS, WAGMI_TTS_MODELS): stopped (--no-say)`); process.exit(1); }
     console.warn(`!! ${ttsJob.length} lines need a synthesised voice but ${TTS_LOCAL.python} is missing (see docs/VOICE-LINES.md): they get macOS placeholders this time`);
     for (const j of ttsJob) tts.delete(j.id);
   } else {
@@ -179,20 +203,28 @@ function synthesised(L, room) {
   const t = tts.get(L.id), w = path.join(tmp, 'tts.wav'), reg = regOf(L);
   execFileSync('afconvert', ['-f', 'WAVE', '-d', `LEI16@${SR}`, '-c', '1', t.out, w]);
   const raw = trim(readWav(w).ch[0], SR);
-  let x = squeeze(raw, SR, reg === 'fast' ? 0.12 : 0.3), k = reg === 'fast' ? FAST : 1;
-  for (const g of [0.12, 0.06]) if (x.length / SR / k > room) x = squeeze(raw, SR, g);
-  if (x.length / SR / k > room) k = Math.max(k, Math.min(MAXK_TTS, x.length / SR / room));
+  // (a scene line, D1/D5: its pauses kept (up to 0.6 s at a full stop, a comma's as it is), tightened only as far as
+  // its room needs, and never sped up: a line still too long runs on and the next one waits for it in the game.
+  // Its delivery's pitch, at most a semitone either way (D9))
+  const sc = sceneLine(L) && reg !== 'fast';
+  let x = squeeze(raw, SR, reg === 'fast' ? 0.12 : sc ? 0.6 : 0.3), k = reg === 'fast' ? FAST : 1;
+  for (const g of sc ? [0.45, 0.3, 0.12] : [0.12, 0.06]) if (x.length / SR / k > room) x = squeeze(raw, SR, g);
+  // (D1: only the fast register is ever sped up; a line of any other still too long for its window runs on, and the
+  // next one waits for it in the game)
+  if (reg === 'fast' && x.length / SR / k > room) k = Math.max(k, Math.min(MAXK_TTS, x.length / SR / room));
   if (k > 1.005) x = stretch(x, 1 / k, SR);
+  const st = sc && t.how ? HOW_FX[t.how]?.st || 0 : 0;
+  if (Math.abs(st) > 0.05) x = shift(x, Math.max(-1, Math.min(1, st)), SR);
   if (reg === 'whisper') x = whisper(x, SR, { seed: seedOf(L.id) });
   const take0 = VOICES[t.pick].engine === 'qwen' ? (TWEAK[L.id] || {}).take || 0 : 0;
-  return { x, source: ttsSource(t.pick) + (take0 ? ` take ${take0}` : '') + regTag(reg) + (k > 1.005 ? ` x${k.toFixed(2)}` : '') };
+  return { x, how: sc ? t.how : null, source: ttsSource(t.pick) + (take0 ? ` take ${take0}` : '') + regTag(reg) + (k > 1.005 ? ` x${k.toFixed(2)}` : '') + (sc ? ` +scene${t.how ? ` how:${t.how}` : ''}${Math.abs(st) > 0.05 ? ` st${st > 0 ? '+' : ''}${st}` : ''}` : '') };
 }
 
 const callOf = (L) => ({ ...(L.call ? { call: L.call } : {}), ...(regOf(L) !== 'normal' ? { register: regOf(L) } : {}) });
 for (const L of lines) {
   const file = `assets/voice/${L.id}.m4a`, prev = prevOf(L), c = CAST[L.speaker] || CAST.default;
   const tw = TWEAK[L.id] || {}, pace = (tw.rate || c.rate) * (regOf(L) === 'fast' ? FAST : 1);
-  const start = timed(L) ? Math.max(L.window[0], ends + 0.04) : 0, nx = timed(L) ? nextOf(L) : null;
+  const start = timed(L) ? Math.max(win(L)[0], ends + 0.04) : 0, nx = timed(L) ? nextOf(L) : null;
   if (fresh.get(L.id)) {
     // (a moved line: its file under its new id)
     if (prev.file !== file) fs.copyFileSync(path.join(ROOT, prev.file), path.join(ROOT, file));
@@ -200,13 +232,14 @@ for (const L of lines) {
     manifest.lines.push({ ...was, id: L.id, file, scene: L.scene, also: L.also, window: L.window, ...(L.call ? { call: L.call } : {}), ...(reg !== 'normal' ? { register: reg } : {}) }); report.push([L.id, prev.id === L.id ? 'kept' : `kept (was ${prev.id})`, prev.dur]); if (timed(L)) ends = start + prev.dur; continue;
   }
   const rec = recording(L.id);
-  let x, source, rate = pace;
+  let x, source, rate = pace, how = null;
   if (rec) { x = rec.x; source = 'recording:' + rec.file; }
-  else if (tts.has(L.id)) ({ x, source } = synthesised(L, !L.window ? Infinity : (nx ? nx.window[0] - 0.06 : L.window[1] + 0.4) - start));
+  else if (tts.has(L.id)) ({ x, source, how } = synthesised(L, !L.window ? Infinity : (nx ? win(nx)[0] - 0.06 : win(L)[1] + 0.4) - start));
   else {
+    if (NOSAY) { console.error(`!! ${L.id} would be a macOS placeholder (say): stopped (--no-say)`); process.exit(1); }
     x = speak(L.text, L.speaker, rate, 0.22, tw);
     // a cutscene line's room: from when it starts until the next line's window opens (a breath short of it)
-    const room = !L.window ? Infinity : (nx ? nx.window[0] - 0.06 : L.window[1] + 0.4) - start;
+    const room = !L.window ? Infinity : (nx ? win(nx)[0] - 0.06 : win(L)[1] + 0.4) - start;
     // (first the pauses tightened, then the words a little quicker, as far as MAXK)
     for (const gap of [0.1, 0.05]) if (x.length / SR > room) x = speak(L.text, L.speaker, rate, gap, tw);
     for (let i = 0; i < 4 && x.length / SR > room && rate < pace * MAXK; i++) { rate = Math.min(pace * MAXK, rate * (x.length / SR / room) * 1.03); x = speak(L.text, L.speaker, rate, 0.05, tw); }
@@ -215,14 +248,17 @@ for (const L of lines) {
   }
   if (c.fx === 'changer') x = voiceChanger(x, SR, c.changer);
   // loudness evened, the peak kept under -1 dBFS (a whisper WHISPER_DB under, a hushed line HUSH_DB)
-  const m = lufs(SR, [x]); gainDb(x, TARGET - m.lufs + (rec ? 0 : (tw.gain || 0) + (regOf(L) === 'whisper' ? WHISPER_DB : regOf(L) === 'hushed' ? HUSH_DB : 0)));
+  // (D5: a scene line at its speaker's own level (CAST level, dB) and its delivery's offset (HOW_FX db: a shout 3 dB up,
+  // a hushed line 4 down), not evened with the rest)
+  const lvl = how ? (c.level || 0) + (HOW_FX[how]?.db || 0) : 0;
+  const m = lufs(SR, [x]); gainDb(x, TARGET - m.lufs + lvl + (rec ? 0 : (tw.gain || 0) + (regOf(L) === 'whisper' ? WHISPER_DB : regOf(L) === 'hushed' ? HUSH_DB : 0)));
   let pk = 0; for (const v of x) pk = Math.max(pk, Math.abs(v)); if (pk > 0.89) gainDb(x, 20 * Math.log10(0.89 / pk));
   const wav = path.join(tmp, `${L.id}.wav`); writeWav(wav, SR, [x]);
   execFileSync('afconvert', ['-f', 'm4af', '-d', 'aac', '-b', '64000', wav, path.join(ROOT, file)]);
   const dur = +(x.length / SR).toFixed(3);
-  manifest.lines.push({ id: L.id, scene: L.scene, speaker: L.speaker, text: L.text, file, dur, fx: c.call || null, ...(L.window ? { window: L.window } : {}), also: L.also, ...callOf(L), source });
-  const over = nx ? start + dur + 0.04 - nx.window[0] : 0;
-  report.push([L.id, source, dur, over > 0 ? `RUNS ${over.toFixed(2)} s INTO THE NEXT LINE (it waits)` : L.window && dur > L.window[1] - L.window[0] ? 'past its subtitle' : '']);
+  manifest.lines.push({ id: L.id, scene: L.scene, speaker: L.speaker, text: L.text, file, dur, fx: c.call || null, ...(L.window ? { window: L.window } : {}), also: L.also, ...callOf(L), ...(how ? { how } : {}), source });
+  const over = nx ? start + dur + 0.04 - win(nx)[0] : 0;
+  report.push([L.id, source, dur, over > 0 ? `RUNS ${over.toFixed(2)} s INTO THE NEXT LINE (it waits)` : L.window && dur > win(L)[1] - win(L)[0] ? 'past its subtitle' : '']);
   if (timed(L)) ends = start + dur;
 }
 // files of lines the game no longer has: left in place, listed

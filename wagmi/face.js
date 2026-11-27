@@ -21,6 +21,7 @@
 // 'Suit-Knox' talks with Knox's lines; a man with no name in the story, the fight's, takes a Suit's line nobody else is
 // on screen to say. (The old stylised body's painted mouth, drawn open over the skin, SUIT_MOUTH, stays for it.)
 import * as THREE from 'three/webgpu';
+import { bakedMeshes, createBakedFace } from './face-baked.js';
 import { attribute, materialColor, uniform, positionGeometry, vec3, float, smoothstep, mix, abs, sqrt, pow, max, min, clamp as tclamp } from 'three/tsl';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
@@ -40,7 +41,7 @@ export function voiceOf(W, speaker) {
     const t = now - (e.at + (e.wait || 0)), dur = (l.dur || 0) - (e.late || 0);
     if (t < -0.05) continue;                       // (waiting for the one before it to finish)
     if (t > dur + 0.08) return null;               // (the newest started is over: so is any before it)
-    return String(l.speaker).toLowerCase() === who ? { level: VO.level ? VO.level() : 0, t, dur, text: l.text } : null;
+    return String(l.speaker).toLowerCase() === who ? { level: VO.level ? VO.level() : 0, t, dur, text: l.text, how: e.how || null, ...(e.muted ? { muted: true } : {}) } : null;
   }
   return null;
 }
@@ -348,7 +349,7 @@ function shadeMouth(m) {
   // (a node material keeps its own kind and nodes, so its light comes with it: a forged body's finished skin,
   // storyrun/polish.js)
   const nm = m.isNodeMaterial ? new m.constructor() : m.isMeshPhysicalMaterial ? new THREE.MeshPhysicalNodeMaterial() : new THREE.MeshStandardNodeMaterial();
-  for (const k of ['name', 'color', 'map', 'normalMap', 'normalMapType', 'normalScale', 'roughness', 'roughnessMap', 'metalness', 'metalnessMap', 'emissive', 'emissiveMap', 'emissiveIntensity', 'bumpMap', 'bumpScale', 'aoMap', 'aoMapIntensity', 'alphaMap', 'alphaTest', 'transparent', 'opacity', 'side', 'envMapIntensity', 'vertexColors', 'flatShading', 'depthWrite', 'depthTest', 'sheen', 'sheenColor', 'sheenRoughness', 'clearcoat', 'clearcoatRoughness', 'specularIntensity', 'specularColor',
+  for (const k of ['name', 'color', 'map', 'normalMap', 'normalMapType', 'normalScale', 'roughness', 'roughnessMap', 'metalness', 'metalnessMap', 'emissive', 'emissiveMap', 'emissiveIntensity', 'bumpMap', 'bumpScale', 'aoMap', 'aoMapIntensity', 'alphaMap', 'alphaTest', 'transparent', 'opacity', 'side', 'envMapIntensity', 'vertexColors', 'flatShading', 'depthWrite', 'depthTest', 'sheen', 'sheenColor', 'sheenRoughness', 'clearcoat', 'clearcoatRoughness', 'specularIntensity', 'specularColor', 'ior',
     ...(m.isNodeMaterial ? ['normalNode', 'roughnessNode', 'metalnessNode', 'emissiveNode', 'opacityNode', 'maskNode', 'maskShadowNode', 'aoNode', 'alphaToCoverage'] : [])])
     if (m[k] !== undefined && k in nm) nm[k] = m[k];
   // (over the skin's own colour node when it has one: a forged body's graded skin, storyrun/polish.js)
@@ -461,10 +462,16 @@ function autoLoop(now) {
 // bones, by name); opt: head (live() turns the head as well as the eyes: Jane's scenes), open (the jaw's cap: the
 // mouth's widest on the loudest syllable; 0.5 is 0.1 rad), gaze (how far the eyes go on their own, rad), fix / hair
 // (faceMorphs), auto (it runs itself; false: only when a scene calls live())
-export function createFace(W, { speaker, inner, bones, head = false, open = 0.5, gaze = 0.22, fix, hair = false, auto: runs = true } = {}) {
-  const { body, fm, morphed } = morphMeshes(inner, { fix, hair });
+// smile: a resting smile, 0..0.4 (a baked face only: face-baked.js; a pack's cast face.smile), at least REST_SMILE unless
+// stern (a pack's cast face.stern)
+export function createFace(W, { speaker, inner, bones, head = false, open = 0.5, gaze = 0.22, fix, hair = false, auto: runs = true, smile = 0, stern = false } = {}) {
+  // (a body with its face's morphs baked in (eyeBlinkLeft, jawOpen, the visemes...: docs/FACE-CONTRACT.md) keeps them
+  // and is driven by them; any other has its own made from the geometry, as before)
+  const baked = bakedMeshes(inner), BK = baked ? createBakedFace(baked, { smile, open, stern }) : null;
+  const { body, fm, morphed } = baked ? { body: baked, fm: null, morphed: [] } : morphMeshes(inner, { fix, hair });
   const setM = (k, x) => { for (const m of morphed) { const i = m.morphTargetDictionary[k]; if (i != null) m.morphTargetInfluences[i] = x; } };
-  const skinM = body.find((m) => m.material.name === 'skin'), headIx = skinM && bones.head ? skinM.skeleton.bones.indexOf(bones.head) : -1;
+  const skinM = baked ? (baked.find((m) => m.isSkinnedMesh && m.material?.name === 'skin') || baked.find((m) => m.isSkinnedMesh) || null) : body.find((m) => m.material.name === 'skin');
+  const headIx = skinM && bones.head ? skinM.skeleton.bones.indexOf(bones.head) : -1;
   const ok = !!(skinM && headIx >= 0);
   const Mh = new THREE.Matrix4(), Mi = new THREE.Matrix4(), tb = V(), mid = fm ? fm.eyes[0].c.clone().add(fm.eyes[1].c).multiplyScalar(0.5) : V(0, 1.64, 0.12);
   // the head's rest frame (the body's bind space) to the world, as the head bone has it now
@@ -492,10 +499,11 @@ export function createFace(W, { speaker, inner, bones, head = false, open = 0.5,
     // whom they talk to (a point, an Object3D, a function; null: the nearest of the other faces in front of them)
     look: null,
     // their mouth, 0 (shut) .. 1 (wide); about 0.35 is talking
-    jaw(k) { L.jaw = clamp(k, 0, 1); setM('jaw', L.jaw); setM('lip', clamp(k * 1.2, 0, 1)); },
+    jaw(k) { L.jaw = clamp(k, 0, 1); if (BK) { BK.jaw(L.jaw); return; } setM('jaw', L.jaw); setM('lip', clamp(k * 1.2, 0, 1)); },
     // { blink 0..1, brow 0..1, lookX -1..1 (their left), lookY -1..1 (up) }
     set(o) {
       Object.assign(fs, o); const b = clamp(fs.blink, 0, 1);
+      if (BK) { BK.blink(b); BK.brow(clamp(fs.brow, 0, 1)); BK.look(fs.lookX, fs.lookY); return; }
       setM('blink', Math.min(1, b * 2)); setM('blink2', Math.max(0, b * 2 - 1)); setM('brow', clamp(fs.brow, 0, 1)); setM('lookX', clamp(fs.lookX, -1, 1)); setM('lookY', clamp(fs.lookY, -1, 1));
     },
     // the head turned toward a world point by k of the way (plus yaw / pitch / roll of its own), the eyes on `eyes` (the
@@ -513,7 +521,8 @@ export function createFace(W, { speaker, inner, bones, head = false, open = 0.5,
       // syllables while their line is up; else shut
       // (face.speaker: whose lines move it; a story world renames a stand-in's face to its own cast name, storyrun/cast.js)
       const who = face.speaker, v = voiceOf(W, who), au = W.audio?.ctx?.state === 'running', rec = o.text ? !!W.voice?.has?.(who, o.text) : !!W.voice;
-      const raw = v ? v.level : o.talking && (!au || !rec) ? chatter(t) : 0;
+      // (a line said on mute, on a video call: nobody hears it, their mouth still moves with it)
+      const raw = v ? (v.muted ? chatter(t) : v.level) : o.talking && (!au || !rec) ? chatter(t) : 0;
       const mouth = L.mouth(raw, dt); L.slow += (mouth - L.slow) * (1 - Math.exp(-dt / 0.18));
       face.jaw(mouth * open);
       // blinks: every 2-6 s, now and then two together; 60 ms down, held 30 ms, 90 ms up
@@ -545,6 +554,8 @@ export function createFace(W, { speaker, inner, bones, head = false, open = 0.5,
       L.brow += ((q ? 0.75 : 0) + (t - L.browT < 0.5 ? 0.45 : 0) - L.brow) * (1 - Math.exp(-dt / 0.12));
       // (looking down, the lids come down with the eyes)
       face.set({ blink: Math.max(b, clamp(-L.ey / LOOK, 0, 1) * 0.3), brow: L.brow, lookX: L.ex / LOOK, lookY: L.ey / LOOK });
+      // (a baked face: its smile (a warm line's grin, the resting one) and the lips' shapes with the words)
+      if (BK) BK.frame({ dt, mouth, how: v?.how || o.how || null, talking: !!v || !!o.talking, text: v?.text || o.text || '', t: v ? v.t : 0, dur: v ? v.dur : 0 });
       return { mouth, blink: b, gaze: L.gaze, brow: L.brow };
     },
     // a blink now (on a cut, a beat)
@@ -556,7 +567,7 @@ export function createFace(W, { speaker, inner, bones, head = false, open = 0.5,
     shown() { let o = inner; while (o) { if (!o.visible) return false; if (o.isScene) return true; o = o.parent; } return false; },
     // the frame's work when nobody else does it (a scene calling live() has it for as long as it does): their mouth with
     // their voice (syllables while their subtitle is up with no voice to follow), their eyes on face.look or else the
-    // nearest face in front of them within 8 m (the one talking, if it is one of them)
+    // nearest face in front of or beside them within 8 m (the one talking, if it is one of them)
     tick(dt) {
       if (face.hold || performance.now() - L.manual < 150 || W.paused) return;
       if (!face.shown()) { if (L.jaw) face.jaw(0); return; }
@@ -568,7 +579,9 @@ export function createFace(W, { speaker, inner, bones, head = false, open = 0.5,
         for (const f of W.faces || []) {
           if (f === face || !f.shown()) continue;
           const p = f.eyes(V()), dv = p.clone().sub(me), dist = dv.length();
-          if (dist < 0.2 || dv.normalize().dot(fwd) < 0.3) continue;
+          // (S1: the partner beside them counts, not only one in front: sat side by side on a bench, their eyes go to
+          // each other, never to the lens; behind them, nobody)
+          if (dist < 0.2 || dv.normalize().dot(fwd) < -0.1) continue;
           // (whoever is talking first: a metre's grace)
           const score = dist - (sub && sub.who.toLowerCase() === String(f.speaker).toLowerCase() ? 1 : 0);
           if (score < bd) { bd = score; best = p; }
@@ -579,6 +592,8 @@ export function createFace(W, { speaker, inner, bones, head = false, open = 0.5,
     },
     rig: fm,
     found: fm?.found,
+    // (a baked face's driver, face-baked.js: its morphs by name; null for a face made here)
+    baked: BK,
   };
   (W.faces || (W.faces = new Set())).add(face);
   // (the game's: the Suits' mouths run in the same loop)

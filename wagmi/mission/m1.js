@@ -18,6 +18,7 @@ import { missions, carry } from './pause.js';
 import { createDirector, keys, angleKeys, spline, travel, handheld, clamp, lerp } from './cine.js';
 import { buildChevron } from './m2-set.js';
 import { S as story } from '../story/index.js';
+import { playTurns, beatOf } from '../radio/turns.js'; import { importRetry } from '../net.js';
 
 const PI = Math.PI;
 const WHITE = '#FFFFFF', ACID = '#B6FF3B', BLUE = '#6CB8FF';
@@ -101,16 +102,13 @@ function createMission(W, { keep = false, quiet = false } = {}) {
       at += ph.length / text.length * secs;
     }
   }
+  // (the words as the story has them: wagmi/story; each held as long as its voice, or its reading time with none, and
+  // handed over to the next as the beat says: radio/turns.js)
   async function say(lines, t = tok) {
-    for (const [who, color, words, pause = 0.25] of lines) {
-      if (t.dead) break;
-      // (the words as the story has them: wagmi/story; held for their reading time, or as long as the voice takes)
-      const text = story.line(who, words);
-      const secs = Math.max(1.4, text.length / 15, (W.voice?.dur(who, text) || 0) + 0.15);
-      ui.sub(who, text, color); voice(who, text, secs);
-      await gsleep(secs * 1000);
-      ui.sub(null); await gsleep(pause * 1000);
-    }
+    await playTurns(W, lines.map(([who, color, words, b]) => ({ who, color, text: story.line(who, words), ...beatOf(b) })), {
+      dead: () => t.dead, sleep: gsleep, hide: () => ui.sub(null),
+      show: (L, i, secs) => { ui.sub(L.who, L.text, L.color); voice(L.who, L.text, secs); },
+    });
   }
   // (Jane's call on the drive, the backstory: mission/calls.js 'm1-drive')
   // At the park with her call still on: it hangs up at once and the scene starts the moment the car is in the marker
@@ -202,8 +200,8 @@ function createMission(W, { keep = false, quiet = false } = {}) {
         nav.step();
       });
       // (in the car: anywhere in the marker at under ~45 mph; it stops there and the scene starts at once)
-      await wait(() => (inCar() ? dist(car.position, DEST.x, DEST.z) < 7 && Math.abs(car.speed) < 20 : dist(P.position, DEST.x, DEST.z) < 6));
-      if (inCar()) { car.speed = 0; car.vx = car.vz = 0; car.angularVel = 0; }
+      await wait(() => (inCar() ? dist(car.position, DEST.x, DEST.z) < 7 && Math.hypot(car.speed, car.slipV || 0) < 20 : dist(P.position, DEST.x, DEST.z) < 6));
+      if (inCar()) { car.speed = 0; car.vx = car.vz = car.slipV = 0; car.angularVel = 0; }
       helps.length = 0; endCall();
       off(); nav.stop(); gps.unblip('tag'); gps.unblip('car');
     },
@@ -427,7 +425,7 @@ function createMission(W, { keep = false, quiet = false } = {}) {
       cues.push([5.5, () => { const hey = story.line('Dan', 'HEY!'); ui.sub('Dan', hey, WHITE); if (!W.voice?.speaks?.('Dan', hey)) sfx.play('shout', { gain: 0.5, f0: 190, vowel: 'e', dur: 0.7 }); }]);
       cues.push([5.7, () => sfx.play('whoosh', { gain: 0.35, dur: 0.6 })]);
       cues.push([6.6, () => ui.sub(null)]);
-      cues.push([T.a4 + 0.6, () => say([['Knox', ACID, "Told you to check your DMs. You didn't check your DMs."], ['Dan', WHITE, 'Been a little busy getting framed.'], ['Knox', ACID, "Nothing personal, kid. It's just extremely personal."]], st)]);
+      cues.push([T.a4 + 0.6, () => say([['Knox', ACID, "Told you to check your DMs. You didn't check your DMs."], ['Dan', WHITE, 'Busy. Getting framed.', { how: 'deadpan' }], ['Knox', ACID, "Nothing personal, kid. It's just extremely personal."]], st)]);
       holds([
         { minX: -1300, maxX: -1143, minZ: 1108, maxZ: 1200 }, { minX: -1143, maxX: -1125, minZ: 1100, maxZ: 1215 },
         { minX: -1140, maxX: -1122, minZ: 1215, maxZ: 1520 }, // (9th Ave south: the SUV's way out)
@@ -536,7 +534,7 @@ function createMission(W, { keep = false, quiet = false } = {}) {
     await sleep(4000);
     // the way on (mission/m2.js): Jane's DM, 'Meet Jane at Bryant Park.', the route to the J and its corona there, the
     // J kept on the radar with a nudge when he wanders; into the corona, Mission 2
-    try { (await import('./m2.js')).handoff(W); } catch (e) { console.error('[m1] hand-off', e); }
+    try { (await importRetry(() => import('./m2.js'))).handoff(W); } catch (e) { console.error('[m1] hand-off', e); }
   }
 
   /* ------------------------------------------------------- the runner -- */

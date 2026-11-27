@@ -34,7 +34,7 @@ const { HEADLIGHTS, createVehicleHeadlight, placeVehicleHeadlight } = window.NYC
 const personGround = (controllers, x, z) => controllers.getGroundHeight(x, z, 'person');
 // (Mog City) on foot the way to go is the camera's (readFootMove, walkToward): how briskly he turns to it, and how
 // lazily the view comes round behind him as he walks away from it
-const FOOT_TURN = 11; // rad/s
+// (how briskly he turns: js/drive-model.js footTurn, jh-drive round 2; it was a flat 11 rad/s)
 const FOOT_FOLLOW = 0.35; // 1/s
 const _footView = new THREE.Vector3();
 const wrapAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
@@ -58,10 +58,14 @@ function driveSpeed(speed, throttle, boost, dt, d) {
   const coasting = Math.max(0, magnitude - deceleration * dt) / (1 + d.drag * magnitude * dt);
   if (!throttle || braking) return Math.sign(speed) * coasting;
   const top = boost ? d.boostSpeed : d.speed, limit = throttle < 0 ? top * d.reverse : top;
-  const pull = Math.abs(throttle) * (boost ? d.boostAccel : d.accel) * dt;
+  // (jh-drive round 2: a boost from below the car's own top pushes with boostLaunch, if it has one, a shove on its
+  // weight; over its top, the boost's own pull as before)
+  const pull = Math.abs(throttle) * (boost ? (d.boostLaunch && magnitude < d.speed ? d.boostLaunch : d.boostAccel) : d.accel) * dt;
   return Math.sign(throttle) * Math.min(Math.max(limit, coasting), magnitude + pull);
 }
 const _drive = {};
+// (Mog City: the car on its tyres, its slide, the handbrake and how it meets a wall: js/drive-model.js)
+const { DriveModel } = window.NYC;
 // (x, z) inside a ring of { x, z } points (its bounds kept on it)
 function inRing(pts, x, z) {
   let b = pts._b;
@@ -282,7 +286,7 @@ class ThirdPersonControllerManager {
       ent.crowd.add(ent.rig, 0);
       ent.crowd.end();
     } else if (this.activeMode === 'car') {
-      ent.vx = ent.vz = ent.angularVel = ent.steerAngle = ent.steerK = 0;
+      ent.vx = ent.vz = ent.slipV = ent.angularVel = ent.steerAngle = ent.steerK = 0;
       ent.pitchVel = ent.rollVel = ent.heaveY = ent.heaveVel = 0;
       ent.chassisPivot.rotation.x = ent.chassisPivot.rotation.z = 0;
       ent.chassisPivot.position.y = 0;
@@ -743,12 +747,13 @@ class ThirdPersonControllerManager {
       new THREE.SphereGeometry(0.036, 8, 8),
       new THREE.MeshBasicNodeMaterial({ color: 0xff2b2b })
     );
-    navRed.position.set(-1.09, 1.54, -4.35);
+    // (the nose is +z, so port, the pilot's left, is +x: red there, green to starboard; they were mirrored)
+    navRed.position.set(1.09, 1.54, -4.35);
     const navGreen = new THREE.Mesh(
       new THREE.SphereGeometry(0.036, 8, 8),
       new THREE.MeshBasicNodeMaterial({ color: 0x22ff66 })
     );
-    navGreen.position.set(1.09, 1.54, -4.35);
+    navGreen.position.set(-1.09, 1.54, -4.35);
     const navTail = new THREE.Mesh(
       new THREE.SphereGeometry(0.042, 8, 8),
       new THREE.MeshBasicNodeMaterial({ color: 0xff3b2b })
@@ -1130,21 +1135,13 @@ class ThirdPersonControllerManager {
           }
         }
 
-        if (carEntity) {
-          const totalVx = sinH * carEntity.speed + (carEntity.vx || 0);
-          const totalVz = cosH * carEntity.speed + (carEntity.vz || 0);
-          const vn = -(totalVx * nx + totalVz * nz);
-          if (vn > 0.5) {
-            const headOn = Math.abs(sinH * nx + cosH * nz);
-            const sideDot = cosH * nx - sinH * nz;
-            carEntity.vx = (carEntity.vx || 0) + nx * vn * 0.42;
-            carEntity.vz = (carEntity.vz || 0) + nz * vn * 0.42;
-            if (headOn > 0.72) {
-              carEntity.speed = -carEntity.speed * 0.25;
-            } else {
-              carEntity.speed *= (1.0 - 0.62 * headOn);
-              carEntity.angularVel = (carEntity.angularVel || 0) + sideDot * (sinH * nx + cosH * nz >= 0 ? -1 : 1) * Math.min(3.2, vn * 0.22);
-            }
+        // (Mog City: the wall against the car's whole velocity, once a contact: bounced a little off it, the rest along it
+        // kept less the scrape, so a glancing hit glances and a square one stops; js/drive-model.js wallKnock. A probe of
+        // the game's (a fake car entity, wagmi/game.js) is only put back out)
+        const knock = carEntity && carEntity === this.entities.car ? DriveModel.wallKnock(carEntity, nx, nz) : null;
+        if (knock && knock.knock) {
+          const { vn, headOn, sideDot } = knock;
+          {
             carEntity.pitchVel = (carEntity.pitchVel || 0) + (sinH * nx + cosH * nz) * Math.min(14.0, vn) * 0.16;
             carEntity.rollVel = (carEntity.rollVel || 0) - sideDot * Math.min(14.0, vn) * 0.22;
             carEntity.heaveVel = (carEntity.heaveVel || 0) + Math.min(1.4, vn * 0.11);
@@ -1209,8 +1206,10 @@ class ThirdPersonControllerManager {
 
   update(dt, elapsed) {
     const heli = this.entities.helicopter;
-    heli.mainRotorPivot.rotation.y += dt * 24.0;
-    heli.tailRotorPivot.rotation.x += dt * 32.0;
+    // (Mog City: heli.rotor, 0 still .. 1 full, for a story's spin-up and wind-down; the sandbox's always full)
+    const spin = heli.rotor ?? 1;
+    heli.mainRotorPivot.rotation.y += dt * 24.0 * spin;
+    heli.tailRotorPivot.rotation.x += dt * 32.0 * spin;
 
     if (this.activeMode === 'person') {
       this.updatePerson(dt, elapsed);
@@ -1290,7 +1289,8 @@ class ThirdPersonControllerManager {
   // makes this frame (less while turning right round)
   walkToward(p, mv, cs, dt) {
     const d = wrapAngle(Math.atan2(mv.x, mv.z) - p.heading);
-    const turn = Math.sign(d) * Math.min(Math.abs(d), FOOT_TURN * dt);
+    // (jh-drive round 2: his weight in the turn, brisk walking, wider at a run: js/drive-model.js footTurn)
+    const turn = Math.sign(d) * Math.min(Math.abs(d), DriveModel.footTurn(p.speed) * dt);
     p.heading += turn;
     if (!(p.viewHeld && p.viewHeld())) {
       cs.orbitYawOffset = wrapAngle(cs.orbitYawOffset - turn);
@@ -1315,7 +1315,8 @@ class ThirdPersonControllerManager {
     let targetSpeed = 0;
     const cs = this._footCam;
     if (cs) {
-      if (mv.mag > 0.02) targetSpeed = maxWalk * mv.mag * this.walkToward(p, mv, cs, dt);
+      // (jh-drive round 2: the stick's tilt walks, jogs, then runs, DriveModel.gait; a key is a jog, Shift a run)
+      if (mv.mag > 0.02) targetSpeed = DriveModel.gait(mv.mag, maxWalk) * this.walkToward(p, mv, cs, dt);
     } else {
       // (no camera to go by: the keys turn him)
       if (this.keys.forward) targetSpeed = maxWalk * this.keys.forward;
@@ -1324,7 +1325,9 @@ class ThirdPersonControllerManager {
       if (this.keys.right) p.heading -= turnRate * dt * this.keys.right;
     }
 
-    p.speed += (targetSpeed - p.speed) * Math.min(1, dt * 10);
+    // (jh-drive round 2: his weight, getting going in about 0.3 s and stopping in a quarter of one, where it was 0.1 s
+    // both ways: js/drive-model.js footSpeed)
+    p.speed = DriveModel.footSpeed(p.speed, targetSpeed, dt);
 
     const wasX = p.position.x, wasZ = p.position.z;
     p.position.x += Math.sin(p.heading) * p.speed * dt;
@@ -1354,41 +1357,25 @@ class ThirdPersonControllerManager {
   }
 
   // (Mog City) Keyboard steering for a car with c.handling { rMin, yawMax, grip, rampIn: [slow, fast], rampOut, vRef }:
-  //  - the key moves a steer (c.steerK, -1..1) at a steady slew: to full lock in rampIn s (the first at walking pace,
-  //    the second from vRef m/s up), so a tap turns it a little and a hold all the way; let go (or the other key) it
-  //    comes back to the middle in rampOut s, quicker than it went;
-  //  - full lock turns it, by speed: a tight circle of rMin m at walking pace (turning out of a corner), no faster than
-  //    yawMax rad/s, and no harder than grip m/s² sideways (less lock the faster it goes: no twitch flat out);
-  //  - its front wheels at the angle that turn takes (c.steerAngle). Returns full lock's yaw rate now (rad/s).
+  // js/drive-model.js steer (moved there for both cities' controllers and the tests; as it was but in a handbrake spin)
   steerHandled(c, input, dt) {
-    const H = c.handling;
-    const v = Math.abs(c.speed);
-    let s = c.steerK || 0;
-    if (input * s < 0 || Math.abs(input) < Math.abs(s)) {
-      s += Math.max(-dt / H.rampOut, Math.min(dt / H.rampOut, input - s));
-    } else {
-      const k = Math.min(1, v / H.vRef);
-      const T = H.rampIn[0] + (H.rampIn[1] - H.rampIn[0]) * k;
-      s += Math.max(-dt / T, Math.min(dt / T, input - s));
-    }
-    c.steerK = s;
-    const full = (u) => Math.min(u / H.rMin, H.yawMax, H.grip / Math.max(u, 0.1));
-    const yawFull = full(v);
-    if (v > 0.2) c.heading += s * yawFull * (c.speed >= 0 ? 1 : -1) * dt;
-    const u = Math.max(v, 1.5);
-    c.steerAngle = s * Math.atan(((c.axle || 1.45) * 2 * full(u)) / u);
-    return yawFull;
+    return DriveModel.steer(c, input, dt);
   }
 
   updateCar(dt) {
     const c = this.entities.car;
+    // (put somewhere else since the last update (a teleport, a restart, the road again): no slide carried there)
+    if (c._at && Math.hypot(c.position.x - c._at.x, c.position.z - c._at.z) > 6) c.slipV = 0;
+    const heading0 = c.heading;
     // (Mog City: a car may bring its own pace: topSpeed, boostSpeed, accel, boostAccel; and how it slows: rolling, drag,
     // coast, brake, boostBrake. Its speed from them: driveSpeed, after Slop New York f3132b6, whose numbers are the
     // defaults; without a boostBrake, its brakes are the same either way)
-    const maxSpeed = this.keys.boost ? (c.boostSpeed ?? 36.0) : (c.topSpeed ?? 23.5);
+    // (jh-drive round 2: a car limping on its damage, c.limp a share off its pace: js/drive-model.js DAMAGE)
+    const lk = 1 - (c.limp || 0);
+    const maxSpeed = (this.keys.boost ? (c.boostSpeed ?? 36.0) : (c.topSpeed ?? 23.5)) * lk;
     const brake = c.brake ?? 9.0;
     const drive = Object.assign(_drive, {
-      speed: c.topSpeed ?? 23.5, boostSpeed: c.boostSpeed ?? 36.0, reverse: 0.45, accel: c.accel ?? 14.0, boostAccel: c.boostAccel ?? 21.0,
+      speed: (c.topSpeed ?? 23.5) * lk, boostSpeed: (c.boostSpeed ?? 36.0) * lk, reverse: 0.45, accel: c.accel ?? 14.0, boostAccel: c.boostAccel ?? 21.0, boostLaunch: c.boostLaunch || 0,
       rolling: c.rolling ?? 0.18, drag: c.drag ?? 0.0012, coast: c.coast ?? 0.6, brake, boostBrake: c.boostBrake ?? brake
     });
 
@@ -1427,20 +1414,28 @@ class ThirdPersonControllerManager {
     // the steer only damps it)
     const counter = Math.abs(steerHeld) > 0.2 && steerHeld * (c.speed < 0 ? -1 : 1) * c.angularVel < 0;
     c.angularVel *= Math.exp(-dt * (counter ? 14 : 7.8));
+    // (Mog City: a handled car on its tyres: its slide carried round with its turn and held by its grip, the handbrake
+    // (Space, while it has no hop: wagmi/game.js car.noHandbrake) letting the back go: js/drive-model.js)
+    const handbrake = !!this.keys.up && !(c.noHandbrake && c.noHandbrake());
+    if (c.handling) DriveModel.tyreStep(c, DriveModel.wrap(c.heading - heading0), dt, { hb: handbrake, throttle, steer: c.steerK });
+    else { c.slipV = 0; c._knockCool = Math.max(0, (c._knockCool || 0) - dt); } // (a car without handling: its wall contact still times out)
 
     const prevX = c.position.x;
     const prevZ = c.position.z;
     // In steps of at most half a metre, colliding after each, so a fast car never passes through anything thin (Mog
     // City: c.crash.step, what else it runs into: the traffic, the street furniture, the trees, wagmi/crash)
-    const steps = Math.min(8, Math.max(1, Math.ceil((Math.abs(c.speed) + Math.hypot(c.vx, c.vz)) * dt / 0.5)));
+    const steps = Math.min(8, Math.max(1, Math.ceil((Math.abs(c.speed) + Math.abs(c.slipV) + Math.hypot(c.vx, c.vz)) * dt / 0.5)));
     for (let k = 0; k < steps; k++) {
-      c.position.x += (Math.sin(c.heading) * c.speed + c.vx) * dt / steps;
-      c.position.z += (Math.cos(c.heading) * c.speed + c.vz) * dt / steps;
+      const sh = Math.sin(c.heading), ch = Math.cos(c.heading);
+      c.position.x += (sh * c.speed + ch * c.slipV + c.vx) * dt / steps;
+      c.position.z += (ch * c.speed - sh * c.slipV + c.vz) * dt / steps;
       this.resolveHorizontalCollision(c.position, 1.35, 1.0, c);
       if (c.crash) c.crash.step(dt / steps);
     }
     // (Mog City: nor does it drive into Central Park's water: stopped at its edge)
-    if (this.inParkWater(c.position.x, c.position.z)) { c.position.x = prevX; c.position.z = prevZ; c.speed *= -0.15; c.vx = c.vz = 0; }
+    if (this.inParkWater(c.position.x, c.position.z)) { c.position.x = prevX; c.position.z = prevZ; c.speed *= -0.15; c.vx = c.vz = c.slipV = 0; }
+    c._at = c._at || { x: 0, z: 0 };
+    c._at.x = c.position.x; c._at.z = c.position.z;
     c.vx *= tireGripDamp;
     c.vz *= tireGripDamp;
 
@@ -1461,10 +1456,13 @@ class ThirdPersonControllerManager {
     // (Mog City, after Slop New York f3132b6: nose up as it pulls, down as it slows, level at a steady cruise; full at
     // its accel)
     const targetPitch = -Math.max(-1, Math.min(1, acceleration / drive.accel)) * 0.026;
-    // (a handled car rolls with its turn's sideways pull: 0.048 rad at 30 m/s², as the old way at its top speed)
-    const targetRoll = c.handling ? -c.steerK * yawFull * c.speed * 0.0016 : -c.steerAngle * (c.speed / maxSpeed) * 0.092;
-    const springK = 68.0;
-    const dampC = 11.2;
+    // (a handled car rolls with its tyres' sideways pull: 0.048 rad at 30 m/s², as the old way at its top speed)
+    // (jh-drive round 2: a car with springs of its own, c.springs { roll, k, damp } from its sheet's class and weight
+    // (wagmi/storyrun/ride.js weigh; Dan's in wagmi/game.js): its roll at its tyres' grip, how stiff, how damped)
+    const SP = c.handling && c.springs;
+    const targetRoll = SP ? -Math.max(-SP.rollMax, Math.min(SP.rollMax, (c.latF || 0) * SP.rollGain)) : c.handling ? -(c.latF || 0) * 0.0016 : -c.steerAngle * (c.speed / maxSpeed) * 0.092;
+    const springK = SP ? SP.k : 68.0;
+    const dampC = SP ? SP.damp : 11.2;
     c.pitchVel += ((targetPitch - c.chassisPivot.rotation.x) * springK - c.pitchVel * dampC) * dt;
     c.rollVel += ((targetRoll - c.chassisPivot.rotation.z) * springK - c.rollVel * dampC) * dt;
     c.chassisPivot.rotation.x = Math.max(-0.22, Math.min(0.22, c.chassisPivot.rotation.x + c.pitchVel * dt));
@@ -1574,17 +1572,38 @@ class ThirdPersonControllerManager {
     h.position.z += Math.cos(h.heading) * h.speed * dt;
     h.position.y += h.verticalSpeed * dt;
 
-    h.position.y = Math.max(0.25, Math.min(380, h.position.y));
+    h.position.y = Math.max(h.story ? -2 : 0.25, Math.min(380, h.position.y));
+    // (Mog City story, h.story: a mission's helicopter (wagmi/mission/m4-heli.js). Its floor follows the ground under
+    // its skids, the sidewalks, the parks' walks and lawns, as the SF controller's follows its hills (no skid sunk in a
+    // kerb); h.ceil a soft ceiling; set down with no lift asked for, it is landed (h.landed): it sits on its skids, no
+    // slide, no hover bob, level)
+    let landed = false;
+    if (h.story) {
+      const sn = Math.sin(h.heading), cs = Math.cos(h.heading);
+      let floorY = 0;
+      for (const [ax, az] of [[0, 0], [1.1, 1.9], [-1.1, 1.9], [1.1, -1.6], [-1.1, -1.6]]) floorY = Math.max(floorY, this.getGroundHeight(h.position.x + ax * cs + az * sn, h.position.z - ax * sn + az * cs, 'person'));
+      if (h.ceil && h.position.y > h.ceil) { h.position.y += (h.ceil - h.position.y) * Math.min(1, dt * 2); h.verticalSpeed = Math.min(h.verticalSpeed, 0); }
+      if (h.position.y <= floorY + 0.02) {
+        h.position.y = floorY;
+        h.verticalSpeed = Math.max(h.verticalSpeed, 0);
+        landed = vertInput <= 0;
+        if (landed) { h.position.x -= Math.sin(h.heading) * h.speed * dt; h.position.z -= Math.cos(h.heading) * h.speed * dt; h.speed *= Math.max(0, 1 - dt * 8); }
+      }
+      h.floorY = floorY;
+    }
+    h.landed = landed;
     this.resolveHorizontalCollision(h.position, 4.5, h.position.y);
 
-    const targetPitch = (h.speed / maxHorizSpeed) * 0.24;
-    const targetRoll = -yawInput * 0.28;
+    const targetPitch = landed ? 0 : (h.speed / maxHorizSpeed) * 0.24;
+    const targetRoll = landed ? 0 : -yawInput * 0.28;
     h.pitchAngle += (targetPitch - h.pitchAngle) * Math.min(1, dt * 5);
     h.rollAngle += (targetRoll - h.rollAngle) * Math.min(1, dt * 5);
 
     h.tiltPivot.rotation.x = h.pitchAngle;
     h.tiltPivot.rotation.z = h.rollAngle;
-    h.tiltPivot.position.y = Math.sin(elapsed * 2.6) * 0.18;
+    // (the hover's bob eased out as it nears the ground in a story, none landed)
+    const bob = h.story ? Math.min(1, Math.max(0, (h.position.y - (h.floorY || 0)) / 3)) : 1;
+    h.tiltPivot.position.y = Math.sin(elapsed * 2.6) * 0.18 * bob;
   }
 }
 

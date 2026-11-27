@@ -17,6 +17,7 @@
 //   of the throttle after delay s (switching back from electric). Made at speed, it starts in the gear for that speed.
 //   voice 'v8' (the only one now: the owner picked the V8 all the way up over a V8 with a V10's shriek on top)
 
+import { fetchRetry } from '../net.js';
 export const LOOPS_V8 = [
   // name, firing frequency of the loop (Hz), its length in seconds (the file holds it twice over)
   { name: 'v8-idle', fire: 55.245, secs: 2.0269 },
@@ -40,7 +41,7 @@ const CACHE = new WeakMap();
 export const preloadEngine = (ctx, voice) => loadLoops(ctx, VOICES[voice] || VOICES.v8);
 function loadLoops(ctx, list) {
   let byName = CACHE.get(ctx); if (!byName) CACHE.set(ctx, (byName = {}));
-  return Promise.all(list.map((l) => (byName[l.name] ||= fetch(new URL(l.name + '.m4a', BASE)).then((r) => { if (!r.ok) throw new Error(r.status + ' ' + l.name); return r.arrayBuffer(); }).then((b) => ctx.decodeAudioData(b)))));
+  return Promise.all(list.map((l) => (byName[l.name] ||= fetchRetry(new URL(l.name + '.m4a', BASE)).then((r) => { if (!r.ok) throw new Error(r.status + ' ' + l.name); return r.arrayBuffer(); }).then((b) => ctx.decodeAudioData(b)))));
 }
 
 export function createSupercar(M, out, opt = {}) {

@@ -35,9 +35,9 @@ Credit lines (keep them wherever the cars are shown; the game shows them on its 
 | Files | Credit |
 |---|---|
 | `bus.glb, schoolbus.glb, ambulance.glb, firetruck.glb, garbage.glb, mailvan.glb, utility.glb, tow.glb, police20.glb, taxi20.glb` | "Generic civil service vehicles pack" by Comrade1280, CC BY 4.0, https://sketchfab.com/3d-models/8ff2a13f30914932a70c7950cfa58465 |
-| `minivan20.glb` | "Generic passenger car pack" by Comrade1280, CC BY 4.0, https://sketchfab.com/3d-models/20f9af9b8a404d5cb022ac6fe87f21f5 |
+| `minivan20.glb, pickup20.glb, suv20.glb, offroad20.glb` | "Generic passenger car pack" by Comrade1280, CC BY 4.0, https://sketchfab.com/3d-models/20f9af9b8a404d5cb022ac6fe87f21f5 |
 | `bus-lo.webp, bus-orm-lo.webp, bus-decal-lo.webp, schoolbus-lo.webp, schoolbus-orm-lo.webp, schoolbus-decal-lo.webp, ambulance-lo.webp, ambulance-orm-lo.webp, ambulance-decal-lo.webp, firetruck-lo.webp, firetruck-orm-lo.webp, firetruck-decal-lo.webp, garbage-lo.webp, garbage-orm-lo.webp, mailvan-lo.webp, mailvan-orm-lo.webp, mailvan-decal-lo.webp, utility-lo.webp, utility-orm-lo.webp, utility-decal-lo.webp, tow-lo.webp, tow-orm-lo.webp, police20-lo.webp, police20-orm-lo.webp, police20-decal-lo.webp, taxi20-lo.webp, taxi20-orm-lo.webp, taxi20-decal-lo.webp, c1280-optics-lo.webp` | the civil pack's textures (base colour, occlusion-roughness-metal, decals; the shared lamp sheet) for the vehicles above: "Generic civil service vehicles pack" by Comrade1280, CC BY 4.0, https://sketchfab.com/3d-models/8ff2a13f30914932a70c7950cfa58465 |
-| `minivan20-lo.webp, minivan20-orm-lo.webp` | the minivan's textures: "Generic passenger car pack" by Comrade1280, CC BY 4.0, https://sketchfab.com/3d-models/20f9af9b8a404d5cb022ac6fe87f21f5 |
+| `minivan20-lo.webp, minivan20-orm-lo.webp, minivan20-wheel-lo.webp, minivan20-wheel-orm-lo.webp, pickup20-lo.webp, pickup20-orm-lo.webp, pickup20-wheel-lo.webp, pickup20-wheel-orm-lo.webp, suv20-lo.webp, suv20-orm-lo.webp, suv20-wheel-lo.webp, suv20-wheel-orm-lo.webp, offroad20-lo.webp, offroad20-orm-lo.webp, offroad20-wheel-lo.webp, offroad20-wheel-orm-lo.webp` | the passenger pack's vehicles' textures (body, occlusion-roughness-metal, their wheels'): "Generic passenger car pack" by Comrade1280, CC BY 4.0, https://sketchfab.com/3d-models/20f9af9b8a404d5cb022ac6fe87f21f5 |
 
 ## What was changed (all of them: modified)
 
@@ -51,7 +51,9 @@ Credit lines (keep them wherever the cars are shown; the game shows them on its 
   simplified levels of detail added, and the geometry meshopt-compressed. The paint is the game's own per car.
 - Comrade1280's packs: split into their vehicles (the ones the game uses are here); the civil pack's wheels split from
   the bodies by geometry; re-oriented and re-centred; textures downscaled (normal maps dropped) and WebP-encoded; the
-  lamps tagged; two simplified levels of detail added; geometry meshopt-compressed. Their liveries' words are generic
+  lamps tagged; two simplified levels of detail added; geometry meshopt-compressed. The passenger pack's wheels keep
+  their own (downscaled) textures; the pickup's and the four-by-four's body paint is marked in their textures' alpha
+  so the game can repaint it. Their liveries' words are generic
   (POLICE, TAXI, AMBULANCE, SCHOOL BUS, POSTAL SERVICE, ROAD SERVICE, FIRE DEPARTMENT).
 - Names: the files use generic names (`gt95`, `sedan10`...) and the game only ever calls a car by its kind (a sports
   car, a coupe, a pickup); the models' own titles appear only in these credits.

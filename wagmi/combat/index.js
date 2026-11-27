@@ -64,7 +64,7 @@ import { createNav } from './nav.js';
 import { clamp, smooth, angWrap, yawTo, hdist, rnd, fwd } from './util.js';
 // (the story pack, wagmi/story: here Story, `story` being the fights' own word for the men in the story's scenes)
 import { S as Story } from '../story/index.js';
-import { world } from '../world/index.js';
+import { world } from '../world/index.js'; import { importRetry } from '../net.js';
 
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -101,8 +101,14 @@ export async function install(W) {
     // the glasses (as the opening's first pair: two lenses toed in, a brow bar, the arms back over his ears)
     // (27 Oct: one smooth piece, the size and place of the five boxes it was: each lens a rounded outline a little narrower
     // at the bottom, its top the brow line, bevelled; a bridge between them; rounded arms)
-    const glasses = ((sh, ex) => mergeGeometries([ex(sh(0.056, 0.032, 0.004, 0.0035, 0.009), 0.0075).rotateY(-0.18).translate(-0.034, 0.002, 0), ex(sh(0.056, 0.032, 0.004, 0.0035, 0.009), 0.0075).rotateY(0.18).translate(0.034, 0.002, 0),
-      ex(sh(0.016, 0.005, 0, 0.0022, 0.0022), 0.005).translate(0, 0.012, 0.0005), ...[-1, 1].map((sx) => ex(sh(0.004, 0.006, 0, 0.0018, 0.0018), 0.108).translate(sx * 0.066, 0.01, -0.055))]))(
+    // (14 Nov, the owner's review: fitted to the men's heads, measured at their eyes: 92 to 128 mm wide from 1 to 6 cm
+    // behind the lenses, ears 165 mm. The lenses wrap round a little more (0.24), so their outer edges come back toward
+    // the cheek; the arms run from the lenses' outer edges back along the side of the head, 3 mm off it, flaring out to
+    // the ears: they had run straight back at 66 mm, inside the head, and the lenses hung in front of the face on nothing)
+    const ARM = (sh, ex, sx) => { const x1 = 0.061, z1 = -0.004, x2 = 0.075, z2 = -0.104, L = Math.hypot(x2 - x1, z2 - z1);
+      return ex(sh(0.004, 0.006, 0, 0.0018, 0.0018), L).rotateY(-sx * Math.atan2(x2 - x1, z1 - z2)).translate(sx * (x1 + x2) / 2, 0.01, (z1 + z2) / 2); };
+    const glasses = ((sh, ex) => mergeGeometries([ex(sh(0.056, 0.032, 0.004, 0.0035, 0.009), 0.0075).rotateY(-0.24).translate(-0.034, 0.002, 0), ex(sh(0.056, 0.032, 0.004, 0.0035, 0.009), 0.0075).rotateY(0.24).translate(0.034, 0.002, 0),
+      ex(sh(0.016, 0.005, 0, 0.0022, 0.0022), 0.005).translate(0, 0.012, 0.0005), ARM(sh, ex, -1), ARM(sh, ex, 1)]))(
       (w, h, taper, rt, rb) => { const P = [[-w / 2 + taper, -h / 2, rb], [w / 2 - taper, -h / 2, rb], [w / 2, h / 2, rt], [-w / 2, h / 2, rt]], s = new THREE.Shape();
         P.forEach(([x, y, r], i) => { const [px, py] = P[(i + 3) % 4], [nx, ny] = P[(i + 1) % 4], a = Math.hypot(px - x, py - y), b = Math.hypot(nx - x, ny - y), u = [x + (px - x) * r / a, y + (py - y) * r / a], v = [x + (nx - x) * r / b, y + (ny - y) * r / b]; if (i) s.lineTo(...u); else s.moveTo(...u); s.quadraticCurveTo(x, y, ...v); });
         s.closePath(); return s; },
@@ -747,15 +753,22 @@ export async function install(W) {
   // (or three tries); then a last word and the fight as it is. Once a session: a restart of the checkpoint picks up at
   // the step it reached
   const LESSON = [
-    { key: 'strike', need: 3, title: 'STRIKE', line: `<kbd>LMB</kbd><kbd>J</kbd><span>${Story.html(Story.t('Hit the Suits'))}</span>` },
+    // (whom to hit: Mog City's Suits, or a story world's own word, c.foeLine (wagmi/storyrun: 'Hit them'); read as shown)
+    { key: 'strike', need: 3, title: 'STRIKE', get line() { return `<kbd>LMB</kbd><kbd>J</kbd><span>${Story.html(Story.t(c.foeLine || 'Hit the Suits'))}</span>`; } },
     { key: 'counter', need: 1, title: 'COUNTER', line: '<span>When his <b class="y">!</b> turns yellow</span><kbd>Q</kbd><kbd>L</kbd><span>Counter</span>' },
     { key: 'dodge', need: 1, title: 'DODGE', line: '<span>A red <b class="r">‼</b> can’t be countered</span><kbd>C</kbd><kbd>Space</kbd><span>Dodge</span>' },
   ];
   let lessonAt = 0, lessonEnd = 0;
   c.lesson = null;
-  function lessonShow() { const L = c.lesson; if (!L) return c.hud.lesson(null); const S = LESSON[L.step]; if (S) c.hud.lesson({ step: L.step + 1, of: LESSON.length, title: S.title, line: S.line }); }
+  function lessonShow() { const L = c.lesson; if (!L) return c.hud.lesson(null); const S = LESSON[L.step]; if (S) { L.shownAt = c.rtime; c.hud.lesson({ step: L.step + 1, of: LESSON.length, title: S.title, line: S.line }); } }
+  // (each card up LESSON_MIN s before the next takes it: three quick blows had STRIKE 1/3 gone in a frame, and the
+  // first card a player saw was FIGHT BASICS 2/3, Jensen Heist's CB-2, day audit 22 Nov. A step done sooner is done
+  // then, lessonTick())
+  const LESSON_MIN = 3;
   c.lessonDone = (key, skipped = false) => {
     const L = c.lesson; if (!L || LESSON[L.step]?.key !== key) return;
+    if (!skipped && L.shownAt != null && c.rtime - L.shownAt < LESSON_MIN) { L.due = key; return; }
+    L.due = null;
     L.step++; L.n = 0; L.tries = 0; L.t = 0; lessonAt = L.step; c.globalCd = Math.max(c.globalCd, 1.1);
     if (!skipped) c.sfx('counter');
     if (L.step >= LESSON.length) { c.hud.lesson({ step: 0, of: 0, title: 'NOW TAKE THEM DOWN', line: '<span>Strike, counter on yellow, dodge the red</span>' }); lessonEnd = c.rtime + 3; }
@@ -763,7 +776,12 @@ export async function install(W) {
   };
   // (the lesson's blow: its cue held a beat in slow motion, to read it)
   c.lessonThreat = (t) => { if (!t.e.lessonBlow) return; t.e.lessonBlow = false; t.lesson = true; c.slowmo(t.lead / 0.45, 0.45, 0.25); }; // (real time: the whole cue slowed)
+  // (the lesson ended with its fight (a story's fight step over, wagmi/storyrun runner.js): the card down and the lesson
+  // done for the session, never left up over what comes next nor picked up mid-way by a later fight, which then opened
+  // on 2/3)
+  c.lessonOff = () => { lessonAt = LESSON.length; lessonEnd = 0; if (c.lesson) { c.lesson = null; c.hud.lesson(null); } };
   function lessonTick() {
+    if (c.lesson?.due && c.rtime - (c.lesson.shownAt ?? 0) >= LESSON_MIN) c.lessonDone(c.lesson.due);
     const want = fightOn && c.rules.name === 'lesson' && lessonAt < LESSON.length;
     if (want && !c.lesson) { c.lesson = { step: lessonAt, n: 0, tries: 0, t: 0 }; lessonShow(); }
     else if (!want && c.lesson && c.lesson.step < LESSON.length) { c.lesson = null; c.hud.lesson(null); }
@@ -879,7 +897,7 @@ export async function install(W) {
   };
   c.afterCamera = (rdt) => {
     const t0 = performance.now();
-    c.hud.update(c.fixed ? 1 / 60 : rdt, { threats: c.threats, fighting: fightOn, onFoot: cm.activeMode === 'person' && !P.inVehicle, cutscene: !!W.cutscene });
+    c.hud.update(c.fixed ? 1 / 60 : rdt, { threats: c.threats, fighting: fightOn, onFoot: cm.activeMode === 'person' && !P.inVehicle, cutscene: !!(W.cutscene || W.directed) });
     c.cost += performance.now() - t0;
   };
 
@@ -1023,6 +1041,7 @@ export async function install(W) {
   // ------------------------------------------------------------------ the API
   const api = W.combat = {
     spawnCrew, clear: clearAll, dressSuit: (obj, look = 'a') => c.dressSuit(obj, look, true),
+    hushHud: () => c.hud.hush?.(), // (the fight's help cards out at once: a story set's dip to black)
     props: (x, z, o = {}) => c.items.scatter(x, z, o),
     get enabled() { return c.enabled; }, set enabled(v) { c.enabled = !!v; if (!v) { c.me.reset(); c.input.clear(); } },
     // a mission's hold on a big fight (see the top); null lets go. Returns what is set
@@ -1032,6 +1051,8 @@ export async function install(W) {
     // (a story fight's fierce creatures, SF 2040: the runner sets it here; read inside as c.fierce. Without it the
     // runner's flag sat on this object and never reached the fight)
     get fierce() { return !!c.fierce; }, set fierce(v) { c.fierce = !!v; },
+    // (a story world's word for whom to hit in the lesson, read inside as c.foeLine (wagmi/storyrun): set here, as fierce)
+    get foeLine() { return c.foeLine; }, set foeLine(v) { c.foeLine = v || null; },
     get crews() { return c.crews; },
     nav: c.nav, // (the pathfinding: nav.statsNow(), nav.ready(); ?nav=0 turns it off, ?navdebug draws it)
     player: {
@@ -1100,7 +1121,7 @@ export async function install(W) {
   // own game never loads them)
   { const U = new URLSearchParams(location.search);
     if (world.id === 'sf' || U.get('dev') === 'creatures') {
-      try { const m = await import('../creatures/index.js'); await m.install(W, c); } catch (err) { console.error('[combat] creatures', err); }
+      try { const m = await importRetry(() => import('../creatures/index.js')); await m.install(W, c); } catch (err) { console.error('[combat] creatures', err); }
     } }
   return api;
 }

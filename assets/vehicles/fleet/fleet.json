@@ -4,7 +4,7 @@
  "licence": "CC-BY-4.0 (each model, see models[].licence); NOT covered by the MIT License in LICENSE",
  "credits": "assets/vehicles/fleet/CREDITS.md",
  "built": "tools/vehicles/build-fleet.mjs (from the raw downloads, never committed)",
- "v": "f69268567f",
+ "v": "4fca0f9ccd",
  "kit": {
   "hi": "kit.webp",
   "lo": "kit-lo.webp",
@@ -158,13 +158,61 @@
    "sha256": "ce50aabc0e47b6e0b7547fed761ccfb72421eec0ea6090623450c05506689a7e",
    "bytes": 2890
   },
+  "minivan20-wheel-lo.webp": {
+   "sha256": "3c9b8b77f6924d60f122d80d1bfdf5e1c449c4cc4069dabef6c6ca7ecd7d71a4",
+   "bytes": 3056
+  },
+  "minivan20-wheel-orm-lo.webp": {
+   "sha256": "092dbaa764ec8230a8f96f5a11fcf1a331a5c1a5a6a2002801b96e81637a031c",
+   "bytes": 1486
+  },
   "minivan20.glb": {
-   "sha256": "fd8b9fb5e7340688be44a57b9a23f4bd7f71adf6d83bfda99a6b9ccf0fddd59d",
-   "bytes": 178636
+   "sha256": "585469354252f3f5b1b51970f80ba27b535547fc697cf3b09a7d602564365733",
+   "bytes": 173888
   },
   "muscle69.glb": {
    "sha256": "43763291fbc6c483a96537dcc772ba7b0006ee486f33853bd851f7abddd40b0e",
    "bytes": 224356
+  },
+  "offroad20-lo.webp": {
+   "sha256": "ffbc747a9985d744179b2a181c25b5f77346f75ff78e4bf5401535fce5453aa5",
+   "bytes": 9130
+  },
+  "offroad20-orm-lo.webp": {
+   "sha256": "c34a218938762d916d45fe7aa833193d7e5f50362d32c71192458d742b4f1cbc",
+   "bytes": 4004
+  },
+  "offroad20-wheel-lo.webp": {
+   "sha256": "18e0c23006247d36238240d10b32382db096638a57363e1aa405063c677736d9",
+   "bytes": 2834
+  },
+  "offroad20-wheel-orm-lo.webp": {
+   "sha256": "982b091a0db1d75d28afc25dc2f5a61c392db9b6bf1e8875116235ef126eecaa",
+   "bytes": 1130
+  },
+  "offroad20.glb": {
+   "sha256": "894c48507448d0d8d6960415fbb4ec2eec66f15f999e0135242a666491612712",
+   "bytes": 151520
+  },
+  "pickup20-lo.webp": {
+   "sha256": "e50de79cbb1efc081f5d1bebe52f28d1005cd2b67b89eec9b38d91cc5e355f53",
+   "bytes": 10964
+  },
+  "pickup20-orm-lo.webp": {
+   "sha256": "8ab8cfbcd033ac9e8f4e4648b2144dad0446e2354f39bfbc9c8fa3bc89404812",
+   "bytes": 3034
+  },
+  "pickup20-wheel-lo.webp": {
+   "sha256": "ee36d10c98a442a041968c7a695d004379d7b26409de20fdb4faf5fa7eab9d9d",
+   "bytes": 3000
+  },
+  "pickup20-wheel-orm-lo.webp": {
+   "sha256": "f9df4ff0f598173cbf1dbe4f67b10a043ddc4ecaff5ab9ad52f9f60629e604e8",
+   "bytes": 1242
+  },
+  "pickup20.glb": {
+   "sha256": "bb0a01d736610de0d4148ba2c9c02ef23bb09e198612289be888ca7667346a1f",
+   "bytes": 176576
   },
   "pickup89.glb": {
    "sha256": "17d16cf6e64e035b462d8239995669fcbcee0fd79bf451b1b34fdc83a77782dc",
@@ -183,8 +231,8 @@
    "bytes": 5668
   },
   "police20.glb": {
-   "sha256": "de9f073e5d29c862c8126393b5cdb9f70a4b6cc2181542ba95e3dcb94bcded39",
-   "bytes": 205596
+   "sha256": "84ab7ec04e5f0e5f9d8f94e17eeeff12a9eab1c8dcca383b1e5f416615ea74c1",
+   "bytes": 205612
   },
   "police90.glb": {
    "sha256": "36305dfc2337b51e1c90732f2aef9bf21ec4f3ae38abd391434e607193847b81",
@@ -226,6 +274,26 @@
    "sha256": "a78e38fc60c45552f23170af639e12e3476d48c1e977767051b679ff079a0747",
    "bytes": 210712
   },
+  "suv20-lo.webp": {
+   "sha256": "f6b6c49d621a5258fbf5988cfd3e844431b2e722c7751e49db63619cc329d905",
+   "bytes": 10538
+  },
+  "suv20-orm-lo.webp": {
+   "sha256": "37fac8784a6e4e2bf54e91dda60620f9a3e3e93aca9472c46fc0c419b4d6faec",
+   "bytes": 2964
+  },
+  "suv20-wheel-lo.webp": {
+   "sha256": "ee36d10c98a442a041968c7a695d004379d7b26409de20fdb4faf5fa7eab9d9d",
+   "bytes": 3000
+  },
+  "suv20-wheel-orm-lo.webp": {
+   "sha256": "f9df4ff0f598173cbf1dbe4f67b10a043ddc4ecaff5ab9ad52f9f60629e604e8",
+   "bytes": 1242
+  },
+  "suv20.glb": {
+   "sha256": "9fbab3984216ed771e0ef5e5b52e8eacb684bec4c46df434da6ef11cd85f1fda",
+   "bytes": 191996
+  },
   "taxi20-decal-lo.webp": {
    "sha256": "70aaf3ac9fc4b1d7c9a8759703f46537ac6898d64e8e7bd7a814b3abaf855f6d",
    "bytes": 6304
@@ -239,8 +307,8 @@
    "bytes": 4818
   },
   "taxi20.glb": {
-   "sha256": "4260fbe15a840bcbd090ce6dd37e9741817f5532b6ab1047cb96eac4e76c8ba3",
-   "bytes": 186140
+   "sha256": "471656d613545de1fe746ebd51702d5972dedf8d80aedb58f37b46719093cf10",
+   "bytes": 186156
   },
   "taxi75.glb": {
    "sha256": "a6cf6824e9fc4df633c82fe70e70beba38df68278892b0814f68a549a2f06f4a",
@@ -1001,8 +1069,8 @@
    "sourceSha256": "b846400afc2e1fab96dada90ef359ba47439fc34c745f9ed24815f7502c1f752",
    "sourceBytes": 55961824,
    "part": "police_sedan",
-   "sha256": "de9f073e5d29c862c8126393b5cdb9f70a4b6cc2181542ba95e3dcb94bcded39",
-   "bytes": 205596,
+   "sha256": "84ab7ec04e5f0e5f9d8f94e17eeeff12a9eab1c8dcca383b1e5f416615ea74c1",
+   "bytes": 205612,
    "tris": {
     "lod0": 8430,
     "body": 5456,
@@ -1029,8 +1097,8 @@
    "sourceSha256": "b846400afc2e1fab96dada90ef359ba47439fc34c745f9ed24815f7502c1f752",
    "sourceBytes": 55961824,
    "part": "taxi",
-   "sha256": "4260fbe15a840bcbd090ce6dd37e9741817f5532b6ab1047cb96eac4e76c8ba3",
-   "bytes": 186140,
+   "sha256": "471656d613545de1fe746ebd51702d5972dedf8d80aedb58f37b46719093cf10",
+   "bytes": 186156,
    "tris": {
     "lod0": 7282,
     "body": 4540,
@@ -1057,8 +1125,8 @@
    "sourceSha256": "1d3869f1afa742a1c401850b2e691cc93ce7255ffd1ff25ebcf1250fcba1add0",
    "sourceBytes": 26701140,
    "part": "minivan body",
-   "sha256": "fd8b9fb5e7340688be44a57b9a23f4bd7f71adf6d83bfda99a6b9ccf0fddd59d",
-   "bytes": 178636,
+   "sha256": "585469354252f3f5b1b51970f80ba27b535547fc697cf3b09a7d602564365733",
+   "bytes": 173888,
    "tris": {
     "lod0": 7450,
     "body": 4601,
@@ -1071,6 +1139,90 @@
     "lod2": 563
    },
    "changes": "split from the pack; wheels split from the body by geometry; re-oriented and re-centred to the engine frame; textures downscaled (normal maps dropped) and WebP-encoded; lamps tagged; two simplified LODs added; geometry meshopt-compressed"
+  },
+  "pickup20": {
+   "file": "pickup20.glb",
+   "title": "Generic passenger car pack",
+   "creator": "Comrade1280",
+   "licence": "CC-BY-4.0",
+   "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+   "source": "https://sketchfab.com/3d-models/20f9af9b8a404d5cb022ac6fe87f21f5",
+   "sourceUid": "20f9af9b8a404d5cb022ac6fe87f21f5",
+   "downloaded": "2026-11-14",
+   "sourceFile": "gm-car-c1280-passenger-pack.glb",
+   "sourceSha256": "1d3869f1afa742a1c401850b2e691cc93ce7255ffd1ff25ebcf1250fcba1add0",
+   "sourceBytes": 26701140,
+   "part": "Pickup Body",
+   "sha256": "bb0a01d736610de0d4148ba2c9c02ef23bb09e198612289be888ca7667346a1f",
+   "bytes": 176576,
+   "tris": {
+    "lod0": 6918,
+    "body": 4324,
+    "glass": 158,
+    "optics": 100,
+    "decal": 0,
+    "wheel": 584,
+    "wheels": 4,
+    "lod1": 3620,
+    "lod2": 518
+   },
+   "changes": "split from the pack; wheels split from the body by geometry; re-oriented and re-centred to the engine frame; textures downscaled (normal maps dropped) and WebP-encoded; lamps tagged; two simplified LODs added; geometry meshopt-compressed; the body paint marked in the base texture's alpha and redrawn in its own colour, its baked shading lifted at the dark end, so it can be repainted"
+  },
+  "suv20": {
+   "file": "suv20.glb",
+   "title": "Generic passenger car pack",
+   "creator": "Comrade1280",
+   "licence": "CC-BY-4.0",
+   "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+   "source": "https://sketchfab.com/3d-models/20f9af9b8a404d5cb022ac6fe87f21f5",
+   "sourceUid": "20f9af9b8a404d5cb022ac6fe87f21f5",
+   "downloaded": "2026-11-14",
+   "sourceFile": "gm-car-c1280-passenger-pack.glb",
+   "sourceSha256": "1d3869f1afa742a1c401850b2e691cc93ce7255ffd1ff25ebcf1250fcba1add0",
+   "sourceBytes": 26701140,
+   "part": "SUV Body",
+   "sha256": "9fbab3984216ed771e0ef5e5b52e8eacb684bec4c46df434da6ef11cd85f1fda",
+   "bytes": 191996,
+   "tris": {
+    "lod0": 7951,
+    "body": 5121,
+    "glass": 288,
+    "optics": 206,
+    "decal": 0,
+    "wheel": 584,
+    "wheels": 4,
+    "lod1": 3618,
+    "lod2": 622
+   },
+   "changes": "split from the pack; wheels split from the body by geometry; re-oriented and re-centred to the engine frame; textures downscaled (normal maps dropped) and WebP-encoded; lamps tagged; two simplified LODs added; geometry meshopt-compressed; the body paint marked in the base texture's alpha and redrawn in its own colour, its baked shading lifted at the dark end, so it can be repainted"
+  },
+  "offroad20": {
+   "file": "offroad20.glb",
+   "title": "Generic passenger car pack",
+   "creator": "Comrade1280",
+   "licence": "CC-BY-4.0",
+   "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+   "source": "https://sketchfab.com/3d-models/20f9af9b8a404d5cb022ac6fe87f21f5",
+   "sourceUid": "20f9af9b8a404d5cb022ac6fe87f21f5",
+   "downloaded": "2026-11-14",
+   "sourceFile": "gm-car-c1280-passenger-pack.glb",
+   "sourceSha256": "1d3869f1afa742a1c401850b2e691cc93ce7255ffd1ff25ebcf1250fcba1add0",
+   "sourceBytes": 26701140,
+   "part": "Offroad Body",
+   "sha256": "894c48507448d0d8d6960415fbb4ec2eec66f15f999e0135242a666491612712",
+   "bytes": 151520,
+   "tris": {
+    "lod0": 6502,
+    "body": 4140,
+    "glass": 108,
+    "optics": 86,
+    "decal": 0,
+    "wheel": 542,
+    "wheels": 4,
+    "lod1": 3608,
+    "lod2": 567
+   },
+   "changes": "split from the pack; wheels split from the body by geometry; re-oriented and re-centred to the engine frame; textures downscaled (normal maps dropped) and WebP-encoded; lamps tagged; two simplified LODs added; geometry meshopt-compressed; the body paint marked in the base texture's alpha and redrawn in its own colour, its baked shading lifted at the dark end, so it can be repainted"
   }
  }
 }

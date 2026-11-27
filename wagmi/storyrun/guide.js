@@ -13,7 +13,18 @@
 //   createGuide(W, THREE, { gps, ui, groundY, createMarker }) -> { source, state(), stop() }
 //   guide.source = () => ({ x, z, name, hold: { reach, label } | null, key }) | null   (the runner sets it)
 const YELLOW = '#FFC93C', GREEN = '#4ADE80';
+// the HUD's cards an edge marker keeps off (mission/ui.js, storyrun/hud.js, pursuit/hud.js, index.html's own)
+const HUD_CARDS = '.wg-track:not(.off), #wg .sr-timer, #wg .sr-meters, #wg .wg-caller, #wg .wg-offer, #wg .wg-help, #wg .wg-turn, #wg-heat, .hud-bottom-left, .hud-bottom-right, .hud-top-right';
 export const NEAR = 40, STUCK_SECS = 90, STUCK_FAR = 30;
+// the subtitles' own room (mission/ui.js .wg-line, the objective line and the subtitle under it): kept for them whether
+// a line is up or not, two lines tall over the line's foot, so an edge marker never sits on what someone says (FL-7's
+// 'LOLA'S TRUCK · 71 m' on Lola's line, the truck behind him: the RC playtest, P10). r: the line's box; null: none
+export const SUB_LINES = 2, SUB_LINE_H = 34;
+export function subZone(r) {
+  if (!r || !(r.width > 0)) return null;
+  const bottom = r.bottom + 6, top = Math.min(r.top, r.bottom - SUB_LINES * SUB_LINE_H) - 6;
+  return { left: r.left - 6, right: r.right + 6, top, bottom };
+}
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 // where the marker goes on the screen for a point at NDC (x, y) (behind: the camera looks away from it, its projection
@@ -29,6 +40,33 @@ export function edgeOf(x, y, behind) {
 
 // the stuck watch (see the top): play seconds on one objective on foot, far off. step(dt, key, d, onFoot) -> { secs,
 // stuck, fresh } (fresh: true the frame it first counts as stuck)
+// an edge marker's top (px) moved up or down the edge clear of the HUD's boxes (and the subtitles' room, subZone): the
+// marker Lx..Lx+lw wide and hgt tall; up over a box where there is room above it, else under it
+export function clearTop(Lx, lw, top, hgt, boxes) {
+  for (let k = 0; k < 6; k++) {
+    const r = boxes.find((b) => Lx < b.right + 6 && Lx + lw > b.left - 6 && top < b.bottom + 6 && top + hgt > b.top - 6);
+    if (!r) break;
+    top = r.top - hgt - 8 >= 8 ? r.top - hgt - 8 : r.bottom + 8;
+  }
+  return top;
+}
+
+// the marker (Lx..Lx+lw wide, top..top+hgt) moved off the player's car on the screen (car: its box, px, or null): never
+// a target drawn over him. An edge marker is slid along the bottom edge to the side of the car it points to (a spot
+// behind him: SS-5's 'AWAY · 826 M' sat on the Tensore's boot, day audit 22 Nov); one in view is lifted over the car's
+// roof. -> { dx (px to slide it), top }
+export function clearCar(Lx, lw, top, hgt, car, { edge = false, side = 0, W = Infinity } = {}) {
+  if (!car || !(car.right > car.left)) return { dx: 0, top };
+  const pad = 8, hit = Lx < car.right + pad && Lx + lw > car.left - pad && top < car.bottom + pad && top + hgt > car.top - pad;
+  if (!hit) return { dx: 0, top };
+  if (!edge) return { dx: 0, top: Math.max(8, car.top - hgt - pad) };
+  const mid = (car.left + car.right) / 2, goRight = side > 0 || (side === 0 && Lx + lw / 2 >= mid);
+  let dx = goRight ? car.right + pad - Lx : car.left - pad - (Lx + lw);
+  // (no room that side: the other)
+  if (Lx + dx < 10 || Lx + dx + lw > W - 10) dx = goRight ? car.left - pad - (Lx + lw) : car.right + pad - Lx;
+  return { dx, top };
+}
+
 export function createStuck({ secs = STUCK_SECS, far = STUCK_FAR } = {}) {
   let key = null, t = 0, said = false;
   return {
@@ -104,11 +142,14 @@ export function createGuide(W, THREE, { gps, ui, groundY, createMarker }) {
   beam.group.name = 'wagmi-marker-guide';
   const v = new THREE.Vector3(), vc = new THREE.Vector3();
   const stuck = createStuck();
-  let live = true, last = performance.now(), st = { on: false }, html = '', colour = YELLOW;
-  const hidden = () => W.cutscene || W.paused || document.body.classList.contains('wg-cine') || app.mapSystem?.isFullMapOpen;
+  let live = true, last = performance.now(), st = { on: false }, html = '', colour = YELLOW, lw = 0, hud = [], hudAt = 0;
+  // (sr-rolling: the end credits are up, storyrun/index.js rollCredits: a cutscene ending under them clears wg-cine)
+  const hidden = () => W.cutscene || W.paused || document.body.classList.contains('wg-cine') || document.body.classList.contains('sr-rolling') || app.mapSystem?.isFullMapOpen;
   const api = {
     source: null,
     state: () => ({ ...st }),
+    // (his car's box on the screen as the marker last kept off it, px: clearCar)
+    get carBox() { return carBox; },
     stop() { live = false; el.remove(); css.remove(); beam.hide(); app.scene.remove(beam.group); },
   };
   const off = () => { el.classList.remove('on'); beam.hide(); st = { on: false, stuck: false }; };
@@ -148,10 +189,62 @@ export function createGuide(W, THREE, { gps, ui, groundY, createMarker }) {
     if (!q.inView) arEl.style.transform = `rotate(${q.ang}rad)`;
     const name = esc(String(s.hold && hold ? s.hold.label || s.name : s.name || '').toUpperCase());
     const h = hold ? `Hold <kbd>F</kbd> · <em>${name}</em> · ${Math.round(d)} m` : `${name ? `<em>${name}</em> · ` : ''}${d >= 1000 ? (d / 1000).toFixed(1) + ' km' : Math.round(d) + ' m'}`;
-    if (h !== html) { html = h; lEl.innerHTML = h; }
+    if (h !== html) { html = h; lEl.innerHTML = h; lw = 0; }
+    if (!lw) lw = lEl.offsetWidth || 0;
     // (the marker's middle over the spot: in view, its pin's point on it; at the edge, its arrow)
-    el.style.transform = `translate(${Math.round(sx - 90)}px, ${Math.round(sy - (q.inView ? 26 : 14))}px)`;
+    let top = sy - (q.inView ? 26 : 14);
+    // (its name whole on the screen: slid along its line to stay inside the edges, 10 px in. Colter Land, 17 Nov: 'THE
+    // COPPER SPUR DINER · 184 M' cut off at the left edge over the objective; 'SIXTY MILE SAVINGS · 1.6' at the right)
+    const natural = sx - 90 + Math.max(0, (180 - lw) / 2), Lx = Math.max(10, Math.min(W0 - 10 - lw, sx - lw / 2));
+    lEl.style.transform = Math.abs(Lx - natural) > 0.5 ? `translateX(${Math.round(Lx - natural)}px)` : '';
+    // (at the screen's edge, never over the HUD's own cards, the objective, the timer, a call, the radar: moved up or down
+    // the edge clear of them; in view its pin stays on the spot)
+    if (!q.inView) {
+      if (t - hudAt > 300) { hudAt = t; hud = hudRects(); }
+      top = clearTop(Lx, lw, top, 24 + 2 + 5 + 22, hud);
+    }
+    // (never over his own car: slid off it along the edge, or lifted over its roof, clearCar)
+    let dx = 0;
+    if (!onFoot) {
+      if (t - carAt > 200) { carAt = t; carBox = carRect(cam); }
+      // (the side it goes to held until the spot is clearly the other side: a spot dead behind does not swap it frame by frame)
+      if (Math.abs(q.x) > 0.15) carSide = Math.sign(q.x);
+      const cc = clearCar(Lx, lw, top, 24 + 2 + 5 + 22, carBox, { edge: !q.inView, side: carSide, W: W0 });
+      dx = cc.dx; top = cc.top;
+    }
+    el.style.transform = `translate(${Math.round(sx - 90 + dx)}px, ${Math.round(top)}px)`;
     el.classList.add('on');
+  }
+  // (the player's car on the screen: a car-sized box round him (CAR_BOX: half width, half length, height, m), turned
+  // with his heading, its corners projected, px; null on foot or with a corner behind the lens. Not the mesh's own
+  // bounds: a world's car is a model under the entity, its lights and shadow cards with it)
+  const CAR_BOX = [0.95, 2.2, 1.3], cv = new THREE.Vector3(), cz = new THREE.Vector3();
+  let carAt = 0, carBox = null, carSide = 1;
+  function carRect(cam) {
+    const e = cm.getActiveEntity?.(); if (!e || cm.activeMode !== 'car') return null;
+    const h = e.heading || 0, fx = Math.sin(h), fz = Math.cos(h), [hw, hl, ht] = CAR_BOX, y0 = e.position.y || 0;
+    let l = Infinity, r = -Infinity, tp = Infinity, b = -Infinity;
+    for (let i = 0; i < 8; i++) {
+      const sx = i & 1 ? hw : -hw, sz = i & 2 ? hl : -hl;
+      cv.set(e.position.x + fz * sx + fx * sz, y0 + (i & 4 ? ht : 0), e.position.z - fx * sx + fz * sz);
+      if (cz.copy(cv).applyMatrix4(cam.matrixWorldInverse).z > -0.2) return null;
+      cv.project(cam);
+      const x = (cv.x + 1) / 2 * innerWidth, y = (1 - cv.y) / 2 * innerHeight;
+      l = Math.min(l, x); r = Math.max(r, x); tp = Math.min(tp, y); b = Math.max(b, y);
+    }
+    return { left: l, right: r, top: tp, bottom: b };
+  }
+  // (the HUD's cards on the screen now, their boxes)
+  function hudRects() {
+    const out = [];
+    { const ln = document.querySelector('#wg .wg-line'), z = ln && ln.getClientRects().length ? subZone(ln.getBoundingClientRect()) : null; if (z) out.push(z); }
+    for (const e of document.querySelectorAll(HUD_CARDS)) {
+      if (!e.isConnected || !e.getClientRects().length) continue;
+      const r = e.getBoundingClientRect(); if (r.width < 4 || r.height < 4) continue;
+      if (+getComputedStyle(e).opacity < 0.05) continue;
+      out.push(r);
+    }
+    return out;
   }
   requestAnimationFrame(frame);
   return api;

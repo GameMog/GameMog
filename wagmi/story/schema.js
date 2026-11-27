@@ -75,7 +75,7 @@ export const SCHEMA = /*SCHEMA*/{
       "additionalProperties": {
         "type": "array",
         "prefixItems": [
-          { "enum": ["dan", "jane", "mrbig", "gears", "fiona", "bea", "camp", "knox", "brick", "dash", "mack"] },
+          { "enum": ["dan", "jane", "mrbig", "gears", "fiona", "bea", "camp", "knox", "brick", "dash", "mack", "rook"] },
           { "$ref": "#/$defs/text", "minLength": 1, "maxLength": 220 }
         ],
         "items": false,

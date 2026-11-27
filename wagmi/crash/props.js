@@ -11,24 +11,11 @@
 // in Jolt) and lies however it comes to rest; it can be knocked again. Poles still fall about their foot.
 import * as THREE from 'three/webgpu';
 import { world } from '../world/index.js';
+import { KINDS } from './prop-kinds.js';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
-// per kind: fall (snaps and falls over) or fly; mass (to the car's 2: what knocking it costs the car's speed); snap
-// (m/s: slower than that it stands, solid); r of the fallen thing for the ground
-const KINDS = {
-  mast: { mode: 'fall', mass: 0.5, snap: 7 },
-  cobra: { mode: 'fall', mass: 0.35, snap: 6 },
-  post: { mode: 'fall', mass: 0.15, snap: 4 },
-  hydrant: { mode: 'fly', mass: 0.3, snap: 4, water: true },
-  mailbox: { mode: 'fly', mass: 0.2, snap: 1.5 },
-  basket: { mode: 'fly', mass: 0.03, snap: 0.4 },
-  paperbox: { mode: 'fly', mass: 0.08, snap: 0.8 },
-  barricade: { mode: 'fly', mass: 0.04, snap: 0.4 },
-  stack: { mode: 'fly', mass: 0.1, snap: 1 },
-  cart: { mode: 'fly', mass: 0.35, snap: 1.5 },
-  bench: { mode: 'fly', mass: 0.1, snap: 1.2 },
-  lamp: { mode: 'fall', mass: 0.3, snap: 5 },
-};
+// per kind (prop-kinds.js): fall (snaps and falls over) or fly; mass (to the car's 2: what knocking it costs the car's
+// speed); snap (m/s: slower than that it stands, solid); r of the fallen thing for the ground
 const CELL = 12;
 const key = (ix, iz) => (ix + 4096) * 8192 + (iz + 4096);
 

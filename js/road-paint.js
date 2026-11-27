@@ -88,6 +88,34 @@ function buildRoadPaint(scene, network) {
     else roads.set(key, [e]);
   }
 
+  // Mid-block crosswalks as mapped (GEO.crossings, tools/geo-props.mjs: OpenStreetMap's marked crossings away from the
+  // junctions): on the road whose centre line the node is on, at least a crosswalk clear of either end; the lane lines
+  // of that road stop 0.5 m short of it either side (stage 0's rule, cities/sf/js/road-paint.js). Paint only: the cars
+  // don't yield at them and the crowd doesn't cross at them (traffic.js knows only the junctions' crossings)
+  const midBlock = new Map(); // road (its first edge) -> [s along it, ...]
+  {
+    const C = window.NYC.GEO.crossings || [];
+    const list = [...roads.values()];
+    for (let i = 0; i + 2 < C.length; i += 3) {
+      const x = C[i], z = C[i + 1], acrossAve = C[i + 2] === 0;
+      let best = null;
+      for (const r of list) {
+        const e = r[0];
+        if (acrossAve ? Math.abs(e.dz) < 0.8 : Math.abs(e.dx) < 0.8) continue;
+        const px = x - e.sx, pz = z - e.sz;
+        const u = px * e.dx + pz * e.dz;
+        const d = Math.abs(px * e.rx + pz * e.rz);
+        if (u > CROSSWALK * 1.5 && u < e.len - CROSSWALK * 1.5 && d < e.half + 1.5 && (!best || d < best.d)) best = { e, u, d };
+      }
+      if (!best) continue;
+      const have = midBlock.get(best.e) || [];
+      if (have.some((u) => Math.abs(u - best.u) < CROSSWALK * 2)) continue;
+      have.push(best.u);
+      midBlock.set(best.e, have);
+    }
+  }
+  const lineGaps = []; // [x, z, dx, dz, half-width] across which the lines along a road are cut
+
   for (const [e, back] of roads.values()) {
     const firstLine = lines.length;
     // Lanes of both directions, measured to the right of e, left to right
@@ -132,6 +160,12 @@ function buildRoadPaint(scene, network) {
     // Continental crosswalks curb to curb, between the stop lines and the intersections at both ends
     if (!e.from.shape) across(e, -CROSSWALK / 2, -e.half, e.half, CROSSWALK - 0.3, WHITE, 1.2, 0.5);
     if (!e.to.shape) across(e, e.len + CROSSWALK / 2, -e.half, e.half, CROSSWALK - 0.3, WHITE, 1.2, 0.5);
+
+    for (const u of midBlock.get(e) || []) {
+      across(e, u, -e.half, e.half, CROSSWALK - 0.3, WHITE, 1.2, 0.5);
+      const [cx, cz] = at(e, u, 0);
+      lineGaps.push([cx, cz, e.dx, e.dz, CROSSWALK / 2 + 0.5]);
+    }
 
     for (const [end, node] of [[0, e.from], [1, e.to]]) {
       if (!node.shape) continue;
@@ -204,7 +238,26 @@ function buildRoadPaint(scene, network) {
         next.phase = ((next.phase % next.period) + next.period) % next.period;
         stack.push(next);
       }
-      strip(...line.ends[0], ...line.ends[1], line.w, line.col, line.period, line.duty, line.phase, line.flow);
+      // (cut where a mid-block crosswalk crosses it)
+      const [A, B] = line.ends;
+      const cuts = [];
+      for (const [gx, gz, gdx, gdz, hw] of lineGaps) {
+        if (Math.abs(gdx * (B[0] - A[0]) + gdz * (B[1] - A[1])) < line.len * 0.9) continue;
+        const t = ((gx - A[0]) * (B[0] - A[0]) + (gz - A[1]) * (B[1] - A[1])) / (line.len * line.len);
+        const off = Math.abs(((gx - A[0]) * (B[1] - A[1]) - (gz - A[1]) * (B[0] - A[0])) / line.len);
+        if (t * line.len > -hw && t * line.len < line.len + hw && off < 30) cuts.push([t * line.len - hw, t * line.len + hw]);
+      }
+      if (!cuts.length) {
+        strip(...A, ...B, line.w, line.col, line.period, line.duty, line.phase, line.flow);
+        continue;
+      }
+      cuts.sort((p, q) => p[0] - q[0]);
+      const P = (d) => [A[0] + ((B[0] - A[0]) * d) / line.len, A[1] + ((B[1] - A[1]) * d) / line.len];
+      let a = 0;
+      for (const [g0, g1] of [...cuts, [line.len, line.len]]) {
+        if (g0 - a >= 1) strip(...P(a), ...P(Math.min(g0, line.len)), line.w, line.col, line.period, line.duty, line.phase + a * line.flow, line.flow);
+        a = Math.max(a, g1);
+      }
     }
   }
 

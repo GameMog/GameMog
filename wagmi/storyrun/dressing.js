@@ -29,18 +29,27 @@ const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a)
 
 export function createDressing(W, dressing = {}) {
   if (!asks(dressing)) return null;
-  // (every look here is New York's: Manhattan's streets and avenues, its blocks' and parks' groups, its sets'
-  // corners. Another city (wagmi/world: world.id) wears none of them: the world plays in the city as it is)
-  if (cityWorld.id !== 'ny') { console.info('[storyrun] dressing: New York only; this city is left as it is'); return null; }
+  // (the blackout and Christmas are New York's: Manhattan's streets and avenues, its blocks' and parks' groups, its sets'
+  // corners. The weather is any city's: the rain or snow round the camera, the wet road, the heavier sky and the fog,
+  // a town's (city=pkg) and San Francisco's too (their own lighting: the aerial fog's density, the sun set every frame);
+  // only the snow lying on roofs and streets is New York's alone. Cold Harbor's storm at midnight, 15 Nov)
+  const NY = cityWorld.id === 'ny';
+  if (!NY && !['snow', 'rain', 'storm'].includes(dressing.weather)) { console.info('[storyrun] dressing: New York only; this city is left as it is'); return null; }
   const N = cityWorld.assets, L = cityWorld.look, T = N.TSL, app = W.app, scene = app.scene;
   const { Fn, float, vec2, vec3, vec4, uniform, mix, smoothstep, step, max, min, abs, fract, sin, cos, dot, length, floor, mod,
     positionWorld, normalWorld, cameraPosition, materialColor, attribute, instanceIndex, time, varying, mrt, color } = T;
   const want = {
-    blackout: BLACKOUTS.includes(dressing.blackout) ? dressing.blackout : null,
-    christmas: Array.isArray(dressing.holiday) && dressing.holiday.includes('christmas'),
+    blackout: NY && BLACKOUTS.includes(dressing.blackout) ? dressing.blackout : null,
+    christmas: NY && Array.isArray(dressing.holiday) && dressing.holiday.includes('christmas'),
     weather: ['snow', 'rain', 'storm'].includes(dressing.weather) ? dressing.weather : null,
   };
   const out = { want, ready: false, dark: () => 0, parts: {} };
+  // (the weather's sun and fog: the share of the preset's sun let through the cloud, the fog's density times this)
+  const SUN_K = want.weather === 'snow' ? 0.42 : want.weather === 'storm' ? 0.22 : 0.34;
+  const FOG_K = want.weather === 'snow' ? 3.2 : want.weather === 'storm' ? 3.0 : 2.2;
+  // (a town's or San Francisco's on a phone or a low tier: half the drops (their own city on top of the rain); New York
+  // keeps its own count everywhere, as before)
+  const lowTier = !NY && (() => { try { const q = globalThis.window?.NYC?.quality; return !!(q && q.tier && q.tier !== 'high') || !!globalThis.matchMedia?.('(pointer: coarse)').matches; } catch { return false; } })();
   const U = L.cityUniforms;
   const groups = (names) => names.map((n) => scene.getObjectByName(n)).filter(Boolean);
   const ground = (x, z) => { try { const y = app.controllerManager.getGroundHeight(x, z, 'person'); return Number.isFinite(y) ? y : 0; } catch { return 0; } };
@@ -117,7 +126,7 @@ export function createDressing(W, dressing = {}) {
   const SNOW_GROUPS = [SG.grid, SG.boroughs, SG.landmarks, SG.blocks, SG.streetDetails, SG.traffic, SG.highway];
   function scan() {
     if (want.blackout) for (const g of groups(DARK_GROUPS)) g.traverse((o) => { const m = o.material; if (m && !Array.isArray(m)) patchDark(m, o, g.name); });
-    if (want.weather === 'snow') {
+    if (want.weather === 'snow' && NY) {
       for (const g of [...groups(SNOW_GROUPS), STATIC]) g.traverse((o) => { if (/People/.test(o.name)) return; const m = o.material; if (m && !Array.isArray(m)) patchSnow(m); });
     }
   }
@@ -140,12 +149,17 @@ export function createDressing(W, dressing = {}) {
       U.uRoadWetness.value = snow ? 0.82 : 1.0;
       ls.sky.cloudCoverage.value = snow ? 0.95 : storm ? 0.98 : 0.88;
       ls.sky.cloudDensity.value = snow ? 0.8 : storm ? 0.9 : 0.72;
-      ls.sunLight.intensity *= snow ? 0.42 : storm ? 0.22 : 0.34;
+      // (the sun: New York's is set by the preset; a town's and San Francisco's every frame, lighting.update: there it is
+      // turned down after each update, below)
+      if (NY) ls.sunLight.intensity *= SUN_K;
       ls.hemiLight.intensity *= snow ? 1.12 : 0.9;
-      const f = ls.scene.fog, l = f.color.r * 0.3 + f.color.g * 0.55 + f.color.b * 0.15;
-      f.color.lerp(new THREE.Color(l * (snow ? 1.35 : 1.0), l * (snow ? 1.38 : 1.02), l * (snow ? 1.45 : 1.08)), 0.65);
-      f.density *= snow ? 3.2 : storm ? 3.0 : 2.2;
-      if (ls.uFogDensity) ls.uFogDensity.value = f.density;
+      const f = ls.scene.fog;
+      if (f) {
+        const l = f.color.r * 0.3 + f.color.g * 0.55 + f.color.b * 0.15;
+        f.color.lerp(new THREE.Color(l * (snow ? 1.35 : 1.0), l * (snow ? 1.38 : 1.02), l * (snow ? 1.45 : 1.08)), 0.65);
+        f.density *= FOG_K;
+        if (ls.uFogDensity) ls.uFogDensity.value = f.density;
+      } // (a town's and San Francisco's aerial fog: its share is put on by the setFogPreset wrapper below, which applyPreset calls)
       U.uSunColor.value.lerp(new THREE.Color(0xc8d0d8), 0.5);
       // (snow: a low sun through the snow cloud is pale gold, not the clear evening's salmon; on white snow blue hour's
       // 0xff9466 read pink. Only a warm sun is turned: midday's near-white and the night's moon keep theirs)
@@ -180,6 +194,12 @@ export function createDressing(W, dressing = {}) {
       ap0(id, force);
       if (!same) { try { afterLight(); } catch (e) { console.warn('[dressing] light', e); } }
     };
+    if (!NY && want.weather) {
+      // (a town's and San Francisco's lighting: the sun's intensity set again every frame, the fog's density again by
+      // its fog preset; the weather's share put back on both)
+      if (typeof ls.update === 'function') { const u0 = ls.update.bind(ls); ls.update = (...a) => { const r = u0(...a); ls.sunLight.intensity *= SUN_K; return r; }; }
+      if (typeof ls.setFogPreset === 'function') { const f0 = ls.setFogPreset.bind(ls); ls.setFogPreset = (...a) => { const r = f0(...a); if (ls.uFogDensity && !ls.scene.fog) ls.uFogDensity.value *= FOG_K; return r; }; }
+    }
   }
   if (cg && !cg.__dressed) {
     cg.__dressed = true;
@@ -480,7 +500,7 @@ export function createDressing(W, dressing = {}) {
   let precip = null;
   const camRight = uniform(new THREE.Vector3(1, 0, 0)), camUp = uniform(new THREE.Vector3(0, 1, 0));
   function precipitation(kind) {
-    const snow = kind === 'snow', count = snow ? 9000 : kind === 'storm' ? 13000 : 10000;
+    const snow = kind === 'snow', count = Math.round((snow ? 9000 : kind === 'storm' ? 13000 : 10000) * (lowTier ? 0.5 : 1));
     const box = snow ? new THREE.Vector3(46, 26, 46) : new THREE.Vector3(40, 22, 40);
     const g = new THREE.BufferGeometry(), R = rng(snow ? 77 : 99);
     const seeds = new Float32Array(count * 4 * 4), corners = new Float32Array(count * 4 * 2), idx = new Uint32Array(count * 6);

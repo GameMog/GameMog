@@ -13,7 +13,7 @@
 //     the save (localStorage, per world), the pause menu's Mission select (W.storyList / W.replay); the end card.
 //   - a framing GameMog told what happens (host.js), and the test drive (?autopilot: autopilot.js).
 // URL: ?pack=<world> [&host=<gamemog origin>&game=<id>] [&mission=<ID> [&step=<step id>]] [&opening=0|1] [&nogate] [&autopilot=1 &autoanswer=1
-//      &autochoose=<n> &autocontinue=1 &autocard=1 &flowfast=1 &missionsecs=<s> &skipscenes=<s>] [&keyart=1]
+//      &autochoose=<n> &autocontinue=1 &autocard=1 &flowfast=1 &missionsecs=<s> &skipscenes=<s>] [&keyart=1 [&keyshot=hood|rideoff]]
 import * as THREE from 'three/webgpu';
 import { createUI } from '../mission/ui.js';
 import { createAudio } from '../mission/audio.js';
@@ -28,12 +28,24 @@ import { createHud } from './hud.js';
 import { createRunner } from './runner.js';
 import { tell, result as tellResult, log as hostLog } from './host.js';
 import { showTitle, plainTitle, isOwn, ownTitle } from './title.js';
-import { asksDressing, asksApocalypse } from './pack.js';
-import { passCard } from './rules.js';
-import { createDirector } from '../mission/cine.js';
+import { asksDressing, asksApocalypse, HOURS } from './pack.js';
+import { passCard, medalOf, medalRows, medalRank, creditsRoll } from './rules.js';
+import { CREDITS } from '../credits.js';
+import { world as cityWorld } from '../world/index.js';
+import { createDirector } from '../mission/cine.js'; import { importRetry } from '../net.js';
+import { keyShotOf, hoodShot, rideOffShot } from './keyshots.js';
+import { setScene as rigScene } from './charlight.js';
 
 const Q = new URLSearchParams(location.search);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+
+// the world's opening plays on this start (def.opening: runner.js opening()): on a story's first start (nothing
+// passed, no ?mission=, not a Continue), or asked for (?opening=1); ?opening=0 leaves it out. Plain, for the tests
+export function opensNow(def, Q, k, save, resume = null) {
+  if (!def?.opening || !Array.isArray(def.opening.shots) || !def.opening.shots.length || Q.get('opening') === '0') return false;
+  return Q.get('opening') === '1' || (k === 0 && !resume && !Q.get('mission') && !Object.keys(save?.done || {}).length);
+}
 
 export async function install(W) {
   const world = W.pack;
@@ -67,23 +79,32 @@ export async function install(W) {
     const u = def.art && typeof def.art['head-' + id] === 'string' ? world.asset(def.art['head-' + id]) : null;
     if (u && /^[\w:/.-]+$/.test(u)) heads[name] = u;
   }
+  // (a world's calls on a foldable phone, `calls: { style: 'fold' }` (fold.js): the card's calls drive the phone, the
+  // card itself put away; the runner's video calls drawn into its screen (ui.fold, vcall.js). Any other world: none)
+  let fold = null;
+  if (def.calls?.style === 'fold') { try { fold = (await importRetry(() => import('./fold.js'))).createFold(W, { heads }); } catch (e) { console.warn('[storyrun] fold', e); } }
+  ui.fold = fold;
   const caller0 = ui.caller;
   ui.caller = function (name, color, status) {
     const r = caller0.apply(this, arguments);
     const u = name && Object.prototype.hasOwnProperty.call(heads, name) ? heads[name] : null;
     if (u) { const av = document.querySelector('#wg .wg-caller .av'); if (av) { av.textContent = ''; av.style.background = `${color || '#6CB8FF'} url("${u}") center / cover no-repeat`; } }
+    if (fold) fold.caller(name, color, name ? document.querySelector('#wg .wg-caller .s')?.textContent || status : null, name ? document.querySelector('#wg .wg-caller .n')?.textContent || name : null);
     return r;
   };
   const nClips = cast.registerVoices();
   // the save, per world (never Mog City's own)
   const KEY = `mc.pack.${def.id}.v1`;
   // (`resume`: the mission he was in and its last checkpoint, for Continue: { id, cp } (runner.js snapshot))
-  const save = (() => { try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (s && Array.isArray(s.done)) return { done: Object.fromEntries(s.done.map((id) => [id, true])), meters: s.meters || {}, flags: s.flags || {}, resume: s.resume && typeof s.resume.id === 'string' ? s.resume : null }; } catch {} return { done: {}, meters: {}, flags: {}, resume: null }; })();
-  const writeSave = () => { try { localStorage.setItem(KEY, JSON.stringify({ v: 1, done: Object.keys(save.done), meters: save.meters, flags: save.flags, resume: save.resume, at: Date.now() })); } catch {} };
+  const save = (() => { try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (s && Array.isArray(s.done)) return { done: Object.fromEntries(s.done.map((id) => [id, true])), meters: s.meters || {}, flags: s.flags || {}, resume: s.resume && typeof s.resume.id === 'string' ? s.resume : null, medals: s.medals && typeof s.medals === 'object' && !Array.isArray(s.medals) ? s.medals : {} }; } catch {} return { done: {}, meters: {}, flags: {}, resume: null, medals: {} }; })();
+  const writeSave = () => { try { localStorage.setItem(KEY, JSON.stringify({ v: 1, done: Object.keys(save.done), meters: save.meters, flags: save.flags, resume: save.resume, medals: save.medals, at: Date.now() })); } catch {} };
   const flags = {
     autopilot: Q.has('autopilot'), autoAnswer: Q.has('autoanswer') || Q.has('autopilot'), autoChoose: Q.has('autochoose') ? Math.max(0, +Q.get('autochoose') || 0) : (Q.has('autopilot') ? 0 : null),
     autoCard: Q.has('autocard'), autoContinue: Q.has('autocontinue'), flowFast: Q.has('flowfast'), autoRetry: Q.has('autopilot'), failStop: Q.has('failstop'), stealthFair: Q.has('stealthfair'),
   };
+  // (a calm driving HUD, wagmi/calm-hud.js: the pack's hud.calm, or ?calmhud=1 (=0 off) to try it; a world without it
+  // keeps its HUD as it was)
+  W.calmHud = Q.has('calmhud') ? Q.get('calmhud') !== '0' : def.hud?.calm === true;
   const host = { tell };
   // (every checkpoint reached is saved for Continue, but not a test drive's: it would start the next one mid-story)
   const onCheckpoint = (id, cp) => {
@@ -96,8 +117,10 @@ export async function install(W) {
   // a pet that goes with the hero (pets[] "follows": pet.js), only when the world has one
   let pets = null;
   if (Object.values(def.cast || {}).some((c) => c && c.pet && c.pet.follows)) {
-    try { pets = (await import('./pet.js')).createPets(W, world); } catch (e) { console.warn('[storyrun] pets', e); }
+    try { pets = (await importRetry(() => import('./pet.js'))).createPets(W, world); } catch (e) { console.warn('[storyrun] pets', e); }
   }
+  // (charlook: the people's own lighting rig on the city's frame, charlight.js; a world without a look, none)
+  rigScene(W.app.scene, 'city');
   // every frame, as Mog City's missions do (m1.js): the GPS route followed, the HUD told whether he is on foot
   let lastT = performance.now();
   (function frame() {
@@ -106,9 +129,33 @@ export async function install(W) {
     if (W.paused) return;
     try { W.gps.update(); } catch (e) { console.warn('[storyrun] gps', e); }
     if (pets) try { pets.update(dt); } catch (e) { console.warn('[storyrun] pets', e); pets = null; }
+    if (W.storyrun?.fronts) try { W.storyrun.fronts.update(dt); } catch (e) { console.warn('[storyrun] fronts', e); W.storyrun.fronts = null; }
+    if (W.storyrun?.ranch) W.storyrun.ranch.update(dt);
     document.body.classList.toggle('wg-onfoot', W.app.controllerManager.activeMode !== 'car');
   })();
-  W.storyrun = { world, places, cast, hud, runner, save, pets, host: hostLog, reach: runner.reach, get choosing() { return hud.choosing; } };
+  // the end credits' sections (rules.js creditsRoll), from what the world has when its story ends: its pack, its city's
+  // map data (credits.js: a town's own data only, New York's and San Francisco's their own), whether its lines are
+  // heard (its clips, or Mog City's own recordings of a Mog's lines), and the credits.js lines it carries (the models
+  // its cars wear and its type, added when they are built; the moves its people play; its bodies' finishing detail)
+  const endRoll = () => {
+    const mapSec = CREDITS.find((c) => /^The (map|city)/.test(c.heading));
+    const place = window.NYC?.PKG?.name ? String(window.NYC.PKG.name).split(',')[0] : (cityWorld.id !== 'pkg' && cityWorld.name) || '';
+    const voiced = nClips > 0 || (def.voice?.lines || []).some((l) => l && l.rec && W.voice?.has?.(l.who, l.text));
+    const bodies = Object.values(def.cast || {}).some((c) => c && !c.pet && c.glb);
+    const assets = [];
+    for (const sec of CREDITS) for (const l of sec.lines || []) {
+      if (sec.heading === 'Vehicles' || sec.heading === 'Type' || l.roll === 'moves' || (l.roll === 'bodies' && bodies)) assets.push(l);
+    }
+    return creditsRoll(def, { map: mapSec?.lines || [], place, voiced, assets });
+  };
+  // (rolled as a cinematic: the screen's markers (guide.js's beacon and edge arrow, a horse's tag) are drawn over #wg
+  // and stand aside for wg-cine, as for a cutscene; put back as it was after)
+  const rollCredits = async (roll, secs = 0) => {
+    const was = document.body.classList.contains('wg-cine');
+    ui.cine(true); document.body.classList.add('sr-rolling');
+    try { await hud.roll(roll, { secs }); } finally { document.body.classList.remove('sr-rolling'); if (!was) ui.cine(false); }
+  };
+  W.storyrun = { world, places, cast, hud, runner, save, pets, host: hostLog, reach: runner.reach, endRoll, rollCredits, get choosing() { return hud.choosing; } };
   // the missions in story order (the acts' order lists, then any left out)
   const acts = def.acts || [];
   const byId = new Map(def.missions.map((m) => [m.id, m]));
@@ -120,12 +167,12 @@ export async function install(W) {
   let replayAsk = null;
   W.replay = async (id) => { replayAsk = id; runner.M?.tok && (runner.M.tok.dead = true, runner.M.tok.err = null); };
   tell('ready', { gameId: Q.get('game') || null, hash: world.hash, story: { v: 2, ok: true, id: def.id, hash: world.hash, clips: nClips } });
-  console.log('[storyrun]', def.id, `${order.length} missions`, `${nClips} clips`, places.missing.length ? `places missing: ${places.missing.join(',')}` : '');
+  console.log('[storyrun]', def.id, `${order.length} missions`, `${nClips} clips`, places.missing.length ? `${places.missing.length} city places no car lane reaches, left out: ${places.missing.join(',')}` : '');
 
   // what the city wears (dressing.js: a blackout, Christmas, snow or rain), only when the world asks for one; before
   // the time of day below, so the world's times keep its look
   if (asksDressing(def.dressing)) {
-    try { const D = await import('./dressing.js'); W.storyrun.dressing = D.createDressing(W, def.dressing); } catch (e) { console.warn('[storyrun] dressing', e); }
+    try { const D = await importRetry(() => import('./dressing.js')); W.storyrun.dressing = D.createDressing(W, def.dressing); } catch (e) { console.warn('[storyrun] dressing', e); }
   }
   // (SF 2040: San Francisco after Erebus, wagmi/apocalypse, when a world for 'sf' asks for it in its dressing (or the
   // address has ?apocalypse); loaded only then. Before the time of day below, which it then keeps in its own look)
@@ -133,15 +180,29 @@ export async function install(W) {
     // (its camps kept clear of the story's lairs: 26 m round every boss fight's arena)
     const clear = [];
     for (const m of def.missions || []) for (const st of m.steps || []) if (st.type === 'fight' && st.boss && st.arena) { try { const p = places.at(st.arena); if (p) clear.push([p.cx ?? p.x, p.cz ?? p.z, 26]); } catch {} }
-    try { const A = await import('../apocalypse/index.js'); await A.createApocalypse(W, { time: typeof def.dressing?.apocalypse === 'string' ? def.dressing.apocalypse : Q.get('apocalypse') || 'dusk', clear }); } catch (e) { console.warn('[storyrun] apocalypse', e); }
+    try { const A = await importRetry(() => import('../apocalypse/index.js')); await A.createApocalypse(W, { time: typeof def.dressing?.apocalypse === 'string' ? def.dressing.apocalypse : Q.get('apocalypse') || 'dusk', clear }); } catch (e) { console.warn('[storyrun] apocalypse', e); }
+  }
+  // a story's diner dressed as a diner (fronts.js: its street front, the neon with its own name), when the world has one
+  if (Object.values(def.places || {}).some((a) => /\bdiner\b/i.test(String(a?.name || '')))) {
+    try { const FR = await importRetry(() => import('./fronts.js')); W.storyrun.fronts = FR.createFronts(W, def, places); } catch (e) { console.warn('[storyrun] fronts', e); }
   }
   // a story's night is a lit city night, readable (nightlit.js: its fill, moon and exposure lifted at night only)
-  try { const NL = await import('./nightlit.js'); W.storyrun.nightLit = NL.createNightLit(W, def.dressing || {}); } catch (e) { console.warn('[storyrun] night', e); }
+  try { const NL = await importRetry(() => import('./nightlit.js')); W.storyrun.nightLit = NL.createNightLit(W, def.dressing || {}); } catch (e) { console.warn('[storyrun] night', e); }
+  // a ranch dressed at a place (ranch.js: world.ranches), only when the world asks: built while the gate is up, its place
+  // and marks the ranch's once it stands (places.js setRanch)
+  if (Array.isArray(def.ranches) && def.ranches.length) {
+    try {
+      const RM = await importRetry(() => import('./ranch.js'));
+      const ranch = await RM.createRanches(W, def, places);
+      W.storyrun.ranch = ranch;
+      ranch.ready.then((list) => { if (list.length) places.setRanch(ranch.place); }).catch((e) => console.warn('[storyrun] ranch', e));
+    } catch (e) { console.warn('[storyrun] ranch', e); }
+  }
   // the start: on foot by the car while the gate is up, the city at the world's time of day (a night world's gate at night)
   outBesideCar(W);
   // (a world that says no time at all, in its dressing or its first mission, is in daylight)
   const firstTime = (() => { const first = order[0]?.def; return first?.time || order[0]?.act?.timeline?.[first?.id]?.time || def.dressing?.time || (def.dressing ? 'day' : null); })();
-  { const T = { dusk: 'twilight', night: 'midnight', day: 'midday', morning: 'golden', dawn: 'twilight' }, id = firstTime; try { if (id) W.app.selectTime(T[id] || id); } catch {} }
+  { const T = HOURS, id = firstTime; try { if (id) W.app.selectTime(T[id] || id); } catch {} }
   const gate = Q.has('nogate') ? null : ui.gate({ when: () => W.app.ready, onStart: () => { W.audio?.unlock?.(); sfx.unlock(); }, fine: 'Community entertainment project. Have fun!',
     // (a Hometown town: its map data credited on the title, OSMF's startup screen for a game, cities/pkg/js/pkg-hud.js)
     credit: () => (window.NYC?.PKG ? (window.NYC.PKG_CREDIT ? `Map data ${window.NYC.PKG_CREDIT.short}` : null) : '') });
@@ -149,11 +210,40 @@ export async function install(W) {
   for (let i = 0; i < 600 && !W.app.ready; i++) await sleep(100);
   if (gate) await gate;
   ui.gameTitle(false);
+  // the first mission: ?mission=, else the first not passed
+  let k = Math.max(0, order.findIndex((o) => o.def.id === Q.get('mission')));
+  if (!Q.get('mission')) { const n = order.findIndex((o) => !save.done[o.def.id]); k = n < 0 ? 0 : n; }
+  // Continue: the mission he was in when he left, at its last checkpoint (not with ?mission=, ?step= or a test drive)
+  let resume = null;
+  if (!Q.get('mission') && !Q.get('step') && !flags.autopilot && save.resume && !save.done[save.resume.id]) {
+    const j = order.findIndex((o) => o.def.id === save.resume.id);
+    if (j >= 0) { k = j; resume = save.resume.cp; }
+  }
+  const k0 = k;
+  // (the world's opening plays now: on a story's first start, or asked for)
+  const opens = !Q.has('freedrive') && opensNow(def, Q, k, save, resume);
+  // (from the start's click to the opening's first frame, a cover over the city, the HUD away: the opening's people,
+  // sets and pipelines are made in that time (8-10 s on a first start), and Jensen Heist's player saw it all as live
+  // free roam at midday, the radar, the bar and 'F · Get in', before the cold open (day audit, 22 Nov). runner.js
+  // opening() takes it down on its first shot)
+  if (opens) { W.cutscene = true; ui.cine(true); ui.fade(1, gate ? 0.35 : 0); }
   if (Q.has('nogate')) sfx.unlock?.();
+  // (jh-drive round 2) &freedrive: the world as built (its town, its car, its hero, its time of day) with no story: no
+  // opening, no mission, free roam from behind the wheel, for driving and handling tests (SJ, Colter Land, SF 2040)
+  if (Q.has('freedrive')) {
+    console.info('[storyrun] freedrive: no story');
+    // (behind the wheel once the world has settled: the test drives start from the seat)
+    await sleep(1500);
+    try { if (W.app.controllerManager.activeMode !== 'car') W.ride?.getIn?.(true); } catch (e) { console.warn('[storyrun] freedrive', e); }
+    tell('freedrive', { id: def.id });
+    return;
+  }
 
+  // (the ranch up before the first mission names it; never held more than 25 s)
+  if (W.storyrun.ranch) await Promise.race([W.storyrun.ranch.ready.catch(() => null), sleep(25000)]);
   let autopilot = null;
   if (flags.autopilot) {
-    const { startAutopilot } = await import('./autopilot.js');
+    const { startAutopilot } = await importRetry(() => import('./autopilot.js'));
     autopilot = startAutopilot(W, runner, {
       missionSecs: +(Q.get('missionsecs') || 240), skipScenes: +(Q.get('skipscenes') || 0), realPace: Q.has('realpace'), fair: Q.has('fair'),
       onTimeout: (m, d, i) => { tell('mission-fail', { id: m.id, why: `The test drive timed out at step ${i + 1} (${d?.type}${d?.id ? ' ' + d.id : ''}).`, step: d?.id || null, kind: d?.type || null, timeout: true }); runner.M?.fail?.({ reason: `The test drive timed out at step ${i + 1} (${d?.type}).` }); },
@@ -167,22 +257,11 @@ export async function install(W) {
   // the key art (?keyart=1, a test drive): one frame of the first drive, the HUD hidden, a wide and a square JPEG
   if (Q.has('keyart')) keyArt(W, runner).then((art) => { if (art) { W.storyrun.keyart = { wide: art.wide.slice(0), square: art.square.slice(0) }; tell('keyart', art, [art.wide, art.square]); } else tell('keyart', { wide: null, square: null, why: 'no frame' }); });
 
-  // the first mission: ?mission=, else the first not passed
-  let k = Math.max(0, order.findIndex((o) => o.def.id === Q.get('mission')));
-  if (!Q.get('mission')) { const n = order.findIndex((o) => !save.done[o.def.id]); k = n < 0 ? 0 : n; }
-  // Continue: the mission he was in when he left, at its last checkpoint (not with ?mission=, ?step= or a test drive)
-  let resume = null;
-  if (!Q.get('mission') && !Q.get('step') && !flags.autopilot && save.resume && !save.done[save.resume.id]) {
-    const j = order.findIndex((o) => o.def.id === save.resume.id);
-    if (j >= 0) { k = j; resume = save.resume.cp; }
-  }
-  const k0 = k;
   if (resume) await hud.card({ kicker: 'CONTINUE', text: order[k].def.title, sub: 'From your last checkpoint' }, 2.4);
   // the world's opening (def.opening: runner.js opening()), before Mission 1 as Mog City's opening is before its Mission
   // 1: on a story's first start (nothing passed, no ?mission=), or asked for (?opening=1); ?opening=0 leaves it out
-  if (def.opening && Array.isArray(def.opening.shots) && def.opening.shots.length && Q.get('opening') !== '0'
-    && (Q.get('opening') === '1' || (k === 0 && !resume && !Q.get('mission') && !Object.keys(save.done).length))) {
-    try { await runner.opening(def.opening, { time: firstTime }); } catch (e) { console.warn('[storyrun] opening', e); }
+  if (opens) {
+    try { await runner.opening(def.opening, { time: firstTime, covered: true }); } catch (e) { console.warn('[storyrun] opening', e); W.cutscene = false; ui.cine(false); ui.fade(0, 0.6); }
   }
   const marker = createMarker(THREE, W.app.scene, { color: '#FFC93C', radius: 2.4, height: 2.2, alpha: 0.25 });
   let first = true;
@@ -208,7 +287,12 @@ export async function install(W) {
       const statOf = (x) => (typeof x === 'string' ? STAT[x]?.() : x && x.label ? [x.label, x.stat ? `${r.stats?.[x.stat] ?? 0}${x.of ? '/' + x.of : ''}` : String(x.value ?? '')] : null);
       const stats = Array.isArray(P0.stats) ? P0.stats.map(statOf).filter(Boolean)
         : [['Time', fmt(r.secs)], ...((def.hud?.meters || []).filter((x) => x.kind !== 'hidden').map((x) => [x.label || x.id, String(Math.round(r.state.meters[x.id] ?? 0))]))];
-      tell('mission-end', { id: m.id, how: 'pass', secs: Math.round(r.secs) });
+      // (its medal, from its time and damage against the pack's targets (mission.medals, rules.js medalOf); the best this
+      // device has had kept with the save, local only: no server scoring)
+      const best0 = save.medals[m.id] || null, medal = medalOf(m.medals, r);
+      const mc = medalRows(m.medals, r, best0);
+      if (medal && medalRank(medal) > medalRank(best0)) { save.medals[m.id] = medal; writeSave(); }
+      tell('mission-end', { id: m.id, how: 'pass', secs: Math.round(r.secs), ...(m.medals ? { damage: r.damage ?? 0, medal: medal || 'none', whole: !!r.whole } : {}) });
       tellResult(world, m.id, r.secs);
       // the card: Mog City's own (its stats, as the shipped game's: a world that lists pass.stats, Mog City's own story),
       // else the story's MISSION PASSED (hud.passed): what was gained ('+$85,000'), the meter's way to its goal ('$430,000
@@ -219,8 +303,12 @@ export async function install(W) {
         const nx = order[k + 1]?.def || null;
         const card = passCard({ title: m.title, passLine: m.passLine || '', meters: def.hud?.meters || [], before, after: r.state.meters, next: nx ? { title: nx.title, stakes: nx.stakes } : null });
         W.storyrun.lastCard = card;
-        await hud.passed({ ...card, stats: [['TIME', fmt(r.secs)], ...card.stands] }, flags.autoCard ? 2.2 : 7);
+        if (mc) card.medal = mc;
+        await hud.passed({ ...card, stats: [['TIME', fmt(r.secs)], ...(mc ? mc.rows : []), ...card.stands] }, flags.autoCard ? 2.2 : 7);
       }
+      // (free roam from here to the next mission: the GPS routed to its start at once, its marker over the spot (guide.js,
+      // runner.js nextSource), before its afterword and its between(); the RC playtest, P9)
+      routeNext(order[k + 1]?.def || null);
       // (the act's end card, after its last mission)
       // (after the card: the mission's own afterword, Mog City's way: DMs, a line of his; Mission 2's Jane and Rook)
       await afterPass(m);
@@ -230,7 +318,15 @@ export async function install(W) {
       if (last && act.end) await actEnd(act.end, { holdNext: k === order.length - 1 });
       k++;
     } else if (r.how === 'fail') {
-      tell('mission-end', { id: m.id, how: 'fail', why: r.why, ...(r.reach ? { reach: r.reach } : {}) }); break;
+      tell('mission-end', { id: m.id, how: 'fail', why: r.why, ...(r.reach ? { reach: r.reach } : {}) });
+      // (the test drive's stop, on the page too: it ended there with the hero stood on foot, no objective and nothing
+      // said (Colter Land's WR-1 and RD-2 under ?autopilot=1, 16 Nov). Its MISSION FAILED and why, the drive let go;
+      // Retry plays the mission again, Skip the next one, Quit is free roam. A framing GameMog has its mission-end)
+      autopilot?.stop();
+      const pick = await ui.failed(r.why || 'The test drive stopped here.', { skip: k + 1 < order.length, retryLabel: 'Retry: the mission again', skipLabel: 'Skip: the next mission', quitLabel: 'Quit: free roam' });
+      if (pick === 'retry') continue;
+      if (pick === 'skip') { k++; first = true; continue; }
+      break;
     } else {
       tell('mission-end', { id: m.id, how: 'quit' });
       // (quit: free roam, the mission's start marked again)
@@ -247,7 +343,18 @@ export async function install(W) {
     await ui.fade(0.97, 0.6);
     try {
       try { W.app.selectTime('midday'); } catch {}
+      try { const N = window.NYC; N?.Weather?.set('clear', { fade: 0 }); N?.Bascules?.down?.(); } catch {} // (dry; bridges)
       await hud.card({ kicker: def.kicker || '', text: def.title, sub: def.tagline || 'Thanks for playing.' }, flags.autoCard ? 1 : 4);
+      // (the end credits (endRoll, rules.js creditsRoll): the title, its cast, the voices, what it is made with, the
+      // map's data, the engine, Ockams Inc., rolled over the dark; any key, a click or a tap skips them)
+      // (every story world has them, the standard roll (the owner, 21 Nov); Mog City's own story keeps its own end)
+      if (!isOwn(world)) {
+        try {
+          const roll = endRoll();
+          tell('credits', { id: def.id, sections: roll.length });
+          await rollCredits(roll, flags.autoCard ? 3 : 0);
+        } catch (e) { console.warn('[storyrun] credits', e); }
+      }
       const fin = order[order.length - 1]?.act?.end?.next;
       if (fin) await hud.card({ kicker: fin.kicker || 'NEXT', text: fin.text, sub: fin.sub || '' }, flags.autoCard ? 0.8 : (fin.secs || 3));
     } finally { await ui.fade(0, 0.6); }
@@ -265,11 +372,21 @@ export async function install(W) {
   // (a mission's `between` says how its way in looks, Mog City's J and G: { letter, name, objective, step (the free-roam
   // step its car call belongs to, calls.js: 'free:J' rings m2-handoff), dm: false (its afterword already said it),
   // help, note (the GPS's one stall line: [who, text]), radius, carR (how near a stopped car counts) }; else the giver's letter and a DM of the stakes)
+  // (the GPS on the next mission's start as soon as the last one has passed: the route on the radar, the turn cues,
+  // the marker over the spot. None in a test drive's fast flow, nor for a mission its start is cut to (ride: false))
+  function routeNext(m) {
+    W.nextMission = null;
+    const p = m && !flags.flowFast && m.between?.ride !== false ? places.at(m.start) : null;
+    if (!p) return;
+    W.nextMission = { id: m.id, x: p.x, z: p.z, name: m.between?.name || m.title };
+    try { W.gps.objective(['Go to ', { [p.name || m.title]: 'yellow' }, ' for ', { [m.title]: 'yellow' }, '.'], { x: p.x, z: p.z, name: W.nextMission.name }, { blip: false }); } catch (e) { console.warn('[storyrun] next route', e); }
+  }
   async function between(m) {
-    const p = places.at(m.start); if (!p) return;
+    const p = places.at(m.start); if (!p) { W.nextMission = null; return; }
     const B = m.between || {};
     // (`between.ride: false`: no ride there in free roam, the mission's start is cut to (its card covers it: a new day,
     // a long ride already taken); its radio lines still said, over the start)
+    W.nextMission = B.ride === false ? null : { id: m.id, x: p.x, z: p.z, name: B.name || m.title };
     if (B.ride === false) {
       // (a short fade over the cut, back up once the mission has put him at its start)
       if (B.fade !== false) { try { await ui.fade(1, 0.5); } catch {} setTimeout(() => { try { ui.fade(0, 0.8); } catch {} }, 700); }
@@ -318,12 +435,12 @@ export async function install(W) {
         // (a test drive drives into it: put down by the corona once its call has had a moment)
         if (flags.autopilot && flags.autoContinue && !jumped && performance.now() - t0 > 4000) { jumped = true; W.storyrun.runner.putPlayer({ x: p.x, z: p.z + 3, heading: Math.PI }, 'car'); }
         const d = Math.hypot(e.position.x - p.x, e.position.z - p.z);
-        if (inCar ? d < (B.carR ?? r + 4.5) && Math.abs(car.speed) < 3 : d < r + 0.6) return res();
+        if (inCar ? d < (B.carR ?? r + 4.5) && Math.hypot(car.speed, car.slipV || 0) < 3 : d < r + 0.6) return res();
         requestAnimationFrame(f);
       };
       f();
     });
-    btok.dead = true; ui.sub(null);
+    btok.dead = true; ui.sub(null); W.nextMission = null;
     W.between = wasB === W.between ? null : wasB;
     if (W.gps.stallNote === B.note) W.gps.stallNote = null;
     marker.hide(); W.gps.unblip('next'); W.gps.unblip('car'); W.gps.clear(); ui.objective(null); ui.help(null); hud.meters([]);
@@ -370,10 +487,14 @@ function grab(W) {
     const rp = W.app.renderPipeline, canvas = W.app.renderer?.domElement;
     if (!rp || !canvas) return resolve(null);
     const render = rp.render, own = Object.prototype.hasOwnProperty.call(rp, 'render');
-    let t = 0;
-    const done = (v) => { if (own) rp.render = render; else delete rp.render; clearTimeout(t); resolve(v); };
+    let t = 0, shot = false, over = false;
+    // (once: the frames drawn while the first one is encoded are not taken, and a later grab's hook is never undone by
+    // this one's: the key art's square is a grab of its own, right after the wide)
+    const done = (v) => { if (over) return; over = true; if (own) rp.render = render; else delete rp.render; clearTimeout(t); resolve(v); };
     rp.render = function (...a) {
       const r = render.apply(this, a);
+      if (shot) return r;
+      shot = true;
       try {
         const out = (w, h) => {
           const c = document.createElement('canvas'); c.width = w; c.height = h;
@@ -388,13 +509,22 @@ function grab(W) {
     t = setTimeout(() => done(null), 4000);
   });
 }
-// The key art (GameMog, 5 Nov: story thumbnails "need to pop like the rest"): a hero shot, not the chase camera's view of
-// the car's boot. A few seconds into the first drive the director takes the lens to a low three-quarter front of the hero
-// car (KEY_SHOT: 8 m ahead, 2.6 m to the side, 0.8 m off the road, looking back at the car on a long 30 degree lens), kept
-// on it frame by frame as it drives, the HUD hidden; the side whose line to the car is clear of the street's things is
-// used (cs.segClear), and with neither clear, the chase camera's own view as before. GameMog letters the title over it
-// (lib/story-art.ts). The lens is handed straight back after (a cut): the drive goes on as it was.
+// The key art (GameMog, 5 Nov: story thumbnails "need to pop like the rest"; 16 Nov, the owner: the hero standing next to
+// the ride, as Pickup Time's cast stands by its car). A few seconds into the first drive the car is stopped where it
+// is, the test drive let go of, and the hero stood beside it on foot (the engine's own body and look, idle, as he is
+// out of the car in play), by its front wheel on whichever side is clear (STAND: the road's side first), turned to the
+// lens, the traffic and the pavement's people held off the spot; the director frames both from a low three-quarter
+// front on his side (STAND), the HUD hidden, the warm key light between them. The square is its own shot, the same lens
+// opened out so both are in the middle square. With no clear side, or anything not as it should be, the moving car's
+// hero shot as before (KEY_SHOT: 8 m ahead, 2.6 m to the side, a long 30 degree lens, kept on the car as it drives; its
+// side clear of the street's things, cs.segClear), and with neither, the chase camera's own view. Key art never fails:
+// a frame is always taken. GameMog letters the title over the head of it (lib/story-art.ts). The game after it is not
+// played on (the frame is thrown away), but nothing here throws.
 const KEY_SHOT = { fwd: 8, side: 2.6, up: 0.8, fov: 30, lookUp: 0.85, lookFwd: 0.4, lamp: 9 };
+// (the stand: him `out` m off the car's flank, `fwd` of its length ahead of its middle; the lens `dist` m from the point
+// between them at `ang` off the car's nose toward his side, `up` m high, looking at `lookUp`; the square's lens `sqFov`,
+// on the point between him and the car's nose, so both sit in the middle square)
+const STAND = { out: 0.8, fwd: 0.5, ang: 0.62, dist: 7.6, up: 1.0, lookUp: 1.5, fov: 32, sqFov: 50, lamp: 10 };
 async function keyArt(W, runner) {
   const TRAVEL = new Set(['drive', 'stops', 'pursuit', 'tail', 'tow']);
   for (let i = 0; i < 1800; i++) {
@@ -403,18 +533,117 @@ async function keyArt(W, runner) {
     await sleep(100);
   }
   await sleep(3500);
-  const st = document.createElement('style'); st.textContent = '#wg, #wg-tick, #wg-prompt, .hud, #touch-controls, .hud-bottom-left, .hud-top-right { visibility: hidden !important; }';
+  const st = document.createElement('style'); st.textContent = '#wg, #wg-tick, #wg-prompt, #sr-guide, .hud, #touch-controls, .hud-bottom-left, .hud-top-right { visibility: hidden !important; }';
   document.head.appendChild(st);
-  let D = null;
+  let D = null, S = null;
+  const frames = (n = 2) => new Promise((r) => { const f = () => (--n <= 0 ? r() : requestAnimationFrame(f)); requestAnimationFrame(f); });
   try {
+    // (a staged composition the address asks for, &keyshot=hood | rideoff (keyshots.js), else the stand; either, if it
+    // finds nothing to do, the next)
+    const want = keyShotOf(Q), staged = want === 'hood' ? hoodShot : want === 'rideoff' ? rideOffShot : null;
+    if (staged) S = await staged(W, runner).catch((e) => { console.warn('[storyrun] key ' + want, e); return null; });
+    if (!S) S = await standShot(W, runner).catch((e) => { console.warn('[storyrun] key stand', e); return null; });
+    if (S) {
+      D = S.D;
+      await frames(); await sleep(450);
+      const wide = await grab(W);
+      if (wide) {
+        S.square(); await frames(); await sleep(250);
+        const sq = await grab(W);
+        return { wide: wide.wide, square: sq ? sq.square : wide.square };
+      }
+    }
     D = heroShot(W, runner);
-    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await frames();
     if (D) await sleep(450);
     return await grab(W);
+  } catch (e) {
+    console.warn('[storyrun] key art', e);
+    try { return await grab(W); } catch { return null; }
   } finally {
     st.remove();
+    try { S?.done(); } catch {}
     if (D) { runner.lamp?.(null); D.release(0).catch?.(() => {}); }
   }
+}
+/**
+ * The hero stood by his stopped car and the director on the two of them: { D, square(), done() }, or null with nothing
+ * changed but the car stopped (no car, a horse, not in it, a scene on, no side clear for him and the lens).
+ */
+async function standShot(W, runner) {
+  const app = W.app, cs = app.cameraSystem, cm = app.controllerManager, car = W.car, P = W.person;
+  if (!car || !P?.mesh || cm.activeMode !== 'car' || W.cutscene || W.directed || car.kind === 'horse' || car.wet) return null;
+  const B = car.body || { hx: 1.0, z0: -2.3, z1: 2.4 }, S = STAND;
+  // (the car's own frame: x across it, +x its left, the driver's side; z along it, +z its nose)
+  const toW = (lx, lz) => { const c = Math.cos(car.heading), s = Math.sin(car.heading); return { x: car.position.x + lx * c + lz * s, z: car.position.z - lx * s + lz * c }; };
+  const V = (p, y) => new THREE.Vector3(p.x, y, p.z);
+  const ground = (p) => cm.getGroundHeight(p.x, p.z, 'person');
+  // (somewhere a person stands: no building over it (the way game.js's ride finds a wall), no post or bin, about the car's
+  // own ground: not a ledge, not a hole)
+  const standable = (p) => {
+    const g = ground(p); if (!Number.isFinite(g) || Math.abs(g - car.position.y) > 0.6) return false;
+    const v = new THREE.Vector3(p.x, g, p.z); cm.resolveHorizontalCollision(v, 0.4, g + 1.0); if (Math.hypot(v.x - p.x, v.z - p.z) > 0.02) return false;
+    for (const b of W.crash?.props?.around?.(p.x, p.z, 2) || []) if (!b.taken && Math.hypot(b.x - p.x, b.z - p.z) < (b.w ? Math.max(b.w, b.d) / 2 : b.r || 0.3) + 0.45) return false;
+    return true;
+  };
+  const shot = (side) => {
+    const hero = toW(side * (B.hx + S.out), B.z1 * S.fwd);
+    const mid = toW(side * B.hx * 0.55, B.z1 * 0.3);
+    const a = car.heading + side * S.ang, cam = { x: mid.x + Math.sin(a) * S.dist, z: mid.z + Math.cos(a) * S.dist };
+    return { hero, mid, cam };
+  };
+  // stopped where it is: the test drive let go of the wheel, the car still, its wheels straight
+  W.storyrun?.autopilot?.stop?.();
+  for (const k of ['forward', 'backward', 'left', 'right', 'boost']) try { cm.setTouchInput(k, 0); } catch {}
+  const still = () => Object.assign(car, { speed: 0, vx: 0, vz: 0, angularVel: 0, steerAngle: 0, steerK: 0, halt: 0 });
+  for (let t0 = performance.now(); performance.now() - t0 < 900;) { still(); await new Promise((r) => requestAnimationFrame(r)); }
+  if (cm.activeMode !== 'car' || W.cutscene || W.directed) return null;
+  // (his side: the road's (the driver's) first; his spot and a little round it stood on, the lens's spot open, and the
+  // lens's lines to him and to the car's face clear of the street's things)
+  let side = 0, pick = null;
+  for (const s of [1, -1]) {
+    const c = shot(s), y = car.position.y;
+    if (!standable(c.hero) || !standable(toW(s * (B.hx + S.out + 0.5), B.z1 * S.fwd))) continue;
+    if (!cs.segClear) { side = s; pick = c; break; }
+    const eye = V(c.cam, y + S.up);
+    if (cs.segClear(V(c.hero, y + 1.2), eye, car) > 0.97 && cs.segClear(V(toW(0, B.z1 * 0.8), y + 0.8), eye, car) > 0.97 && cs.segClear(V(c.mid, y + 1.0), eye, car) > 0.97) { side = s; pick = c; break; }
+  }
+  if (!side) return null;
+  // (the traffic and the pavement's people kept off the car, him and the lens: hold zones, as a cutscene's)
+  const xs = [pick.hero.x, pick.cam.x, car.position.x], zs = [pick.hero.z, pick.cam.z, car.position.z], m = 5;
+  const rect = { minX: Math.min(...xs) - m, maxX: Math.max(...xs) + m, minZ: Math.min(...zs) - m, maxZ: Math.max(...zs) + m };
+  try { app.trafficSystem?.hold?.([rect]); } catch {}
+  try { W.street?.crowd?.hold?.([rect]); } catch {}
+  // him out of the car, on his feet beside it (the engine's own on-foot body, as getting out puts him), turned to the lens
+  const face = () => Math.atan2(pick.cam.x - P.position.x, pick.cam.z - P.position.z) - side * 0.18;
+  still();
+  P.position.set(pick.hero.x, ground(pick.hero), pick.hero.z);
+  P.speed = 0; P.verticalVel = 0; P.inVehicle = false; P.mesh.visible = true;
+  app.selectMode('person');
+  P.heading = face(); P.mesh.position.copy(P.position); P.mesh.rotation.y = P.heading;
+  const D = createDirector(W);
+  let fov = S.fov, look = pick.mid;
+  const nose = toW(side * B.hx * 0.6, B.z1), nt = Math.min(1, Math.max(0, +(W.storyrun?.nightLit?.night?.() || 0)));
+  const frame = () => {
+    still();
+    if (cm.activeMode === 'person') { P.speed = 0; P.heading = face(); if (P.mesh) P.mesh.rotation.y = P.heading; }
+    const y = car.position.y, a = car.heading + side * S.ang;
+    D.camera = { pos: [pick.cam.x, y + S.up, pick.cam.z], look: [look.x, y + S.lookUp, look.z], fov, roll: 0, shake: null, band: false };
+    // (the warm key between the lens and the two of them, out in front of him and the car's nose: his face and the
+    // car's lit; stronger and a little lower on a night street (nightlit.js), so all of him reads, not his face alone)
+    const k = { x: (pick.hero.x + nose.x) / 2 + Math.sin(a) * 2.8, z: (pick.hero.z + nose.z) / 2 + Math.cos(a) * 2.8 };
+    runner.lamp?.([k.x, y + 2.2 - 0.5 * nt, k.z], S.lamp * (1 + 2.2 * nt), 9.5 + 3 * nt);
+  };
+  // (a beat on his feet first: the idle running, the driver's seat let go of, the people held off)
+  for (let t0 = performance.now(); performance.now() - t0 < 1200;) { frame(); await new Promise((r) => requestAnimationFrame(r)); }
+  if (cm.activeMode !== 'person' || !P.mesh.visible || W.cutscene) { try { app.trafficSystem?.hold?.([]); W.street?.crowd?.hold?.([]); } catch {} return null; }
+  frame(); D.onFrame = frame; D.take();
+  W.storyrun && (W.storyrun.keyShot = { side, stand: true });
+  return {
+    D,
+    square() { fov = S.sqFov; look = { x: (pick.hero.x + nose.x) / 2, z: (pick.hero.z + nose.z) / 2 }; frame(); },
+    done() { try { app.trafficSystem?.hold?.([]); } catch {} try { W.street?.crowd?.hold?.([]); } catch {} },
+  };
 }
 /** The director on the hero shot, or null (no car, or no clear side): the chase camera's view is shot instead. */
 function heroShot(W, runner) {

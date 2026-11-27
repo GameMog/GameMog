@@ -6,6 +6,8 @@
 //          its clatter up, plus a low diesel thrum and a faint turbo whistle that spools with the load
 //   truck  the same diesel, lower (x0.9) and harder (more thrum, more clatter)
 //   suv    the SUV's petrol six (motors 'suv'), x0.97
+//   v8suv  a world's own luxury off-roader (the Kastell, wagmi/storyrun/gwagon.js: car.voice): the same motor brought
+//          down (x0.8) and louder, a rumble under it, so it reads as a big V8 and not the street's SUVs
 //   sedan  the sedan's petrol four (motors 'sedan')
 // None has pops, crackle, a limiter or the boost's whine: those are the supercar's (supercar.js). Through the cab: a
 // low shelf (+5 dB at 150 Hz, the body's boom) and a low-pass (2.6-5.5 kHz with the load: the bulkhead).
@@ -15,6 +17,7 @@ const KIND = {
   van: { motor: 'bus', pitch: 1.06, gain: 2.6, thrum: 0.16, whistle: 0.012, diesel: true },
   truck: { motor: 'bus', pitch: 0.9, gain: 2.9, thrum: 0.24, whistle: 0.016, diesel: true },
   suv: { motor: 'suv', pitch: 0.97, gain: 2.5, thrum: 0.05, whistle: 0, diesel: false },
+  v8suv: { motor: 'suv', pitch: 0.8, gain: 2.9, thrum: 0.14, whistle: 0, diesel: false },
   sedan: { motor: 'sedan', pitch: 1, gain: 2.4, thrum: 0.03, whistle: 0, diesel: false },
 };
 export const utilityKinds = Object.keys(KIND);

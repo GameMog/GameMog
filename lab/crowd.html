@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mog City: crowd studio</title>
+  <style>html, body { margin: 0; height: 100%; background: #040507; overflow: hidden; } canvas { display: block; }
+    #lab { position: fixed; left: 8px; top: 6px; color: #fff; font: 600 12px system-ui; text-shadow: 0 1px 2px #000; pointer-events: none; }</style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/gh/mrdoob/three.js@bc7d0b3c3838d5da9495b5e603afd77ed3154d57/build/three.webgpu.js",
+        "three/webgpu": "https://cdn.jsdelivr.net/gh/mrdoob/three.js@bc7d0b3c3838d5da9495b5e603afd77ed3154d57/build/three.webgpu.js",
+        "three/tsl": "https://cdn.jsdelivr.net/gh/mrdoob/three.js@bc7d0b3c3838d5da9495b5e603afd77ed3154d57/build/three.tsl.js",
+        "three/addons/": "https://cdn.jsdelivr.net/gh/mrdoob/three.js@bc7d0b3c3838d5da9495b5e603afd77ed3154d57/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+<div id="lab"></div>
+<script type="module">
+// The story runner's house (wagmi/storyrun/crowd-plan.js planned, crowd.js drawn) on its own: the stage set's seats and
+// far tier under a keynote's spill, for looking at the people up close and timing them.
+//   ?cam=x,y,z  ?look=x,y,z  ?fov=33   (the lens; default: the pit looking up at the seats)
+//   ?up=1 (on its feet)   ?t=<seconds> (a frozen frame)   ?gl=1 (WebGL2)   ?n=<copies> (the house drawn n times over, a load test)
+import * as THREE from 'three/webgpu';
+import { planHouse } from '../wagmi/storyrun/crowd-plan.js';
+import { crowd } from '../wagmi/storyrun/crowd.js';
+
+const q = new URLSearchParams(location.search), num = (k, d) => (q.get(k) ? q.get(k).split(',').map(Number) : d);
+const up = q.get('up') === '1', freeze = q.get('t');
+const renderer = new THREE.WebGPURenderer({ antialias: true, forceWebGL: q.get('gl') === '1' });
+renderer.setPixelRatio(1); renderer.setSize(innerWidth, innerHeight); renderer.toneMapping = THREE.ACESFilmicToneMapping;
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#040507'); scene.fog = new THREE.FogExp2('#121722', 0.016);
+scene.add(new THREE.HemisphereLight('#56669A', '#141418', 0.7));
+for (const [at, to, k, c] of [[[-6, 8.6, -1.4], [-4, 1.4, 6.5], 90, '#FFD9B4'], [[6, 8.6, -1.4], [4, 1.4, 6.5], 90, '#FFE2C4'], [[0, 9, -1.4], [0, 3, 14], 70, '#DCE6FF']]) {
+  const s = new THREE.SpotLight(c, k, 38, 0.75, 0.8, 2); s.position.set(...at); s.target.position.set(...to); scene.add(s, s.target);
+}
+{ const p = new THREE.PointLight('#7F92C8', 6, 26, 2); p.position.set(0, 6, 11); scene.add(p); }
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(34, 54), new THREE.MeshStandardMaterial({ color: '#16171C', roughness: 0.95 })); floor.rotation.x = -Math.PI / 2; scene.add(floor);
+const seatM = new THREE.MeshStandardMaterial({ color: '#121317', roughness: 0.95 });
+for (let j = 0; j < 9; j++) { const b = new THREE.Mesh(new THREE.BoxGeometry(32.8, j * 0.42 + 0.001, 0.95), seatM); b.position.set(0, (j * 0.42) / 2, 10.2 + j * 0.95); scene.add(b); }
+const copies = Math.max(1, +q.get('n') || 1), houses = [];
+for (let c = 0; c < copies; c++) { const g = new THREE.Group(); g.position.z = c * 0.001; scene.add(g); houses.push(crowd(g, planHouse({ up, seed: 281 + c }), { up })); }
+const cam = new THREE.PerspectiveCamera(+(q.get('fov') || 33), innerWidth / innerHeight, 0.05, 200);
+cam.position.set(...num('cam', [4.4, 1.62, 3.0])); cam.lookAt(...num('look', [3.4, 2.4, 14]));
+await renderer.init();
+const lab = document.getElementById('lab'); let last = performance.now(), frames = 0, fps = 0;
+window.__crowdLab = { houses, renderer };
+renderer.setAnimationLoop(() => {
+  const now = performance.now(), t = freeze != null ? +freeze : now / 1000;
+  for (const h of houses) h.tick(t, cam);
+  renderer.render(scene, cam);
+  frames++; if (now - last > 1000) { fps = frames * 1000 / (now - last); frames = 0; last = now; const s = houses[0].stats; lab.textContent = `${fps.toFixed(0)} fps · ${renderer.info.render.drawCalls} draws · ${(renderer.info.render.triangles / 1000).toFixed(0)}k tris · house ${s.near}+${s.far} people, ${s.drawCalls} meshes, lod ${s.lod0}/${s.lod1}, ${s.ms.toFixed(2)} ms`; window.__crowdLab.fps = fps; }
+});
+</script>
+</body>
+</html>

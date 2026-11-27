@@ -12,23 +12,38 @@
 //                                     or null, heroGLTF(loadGLB), sheetCar, modelCar, ... }
 import { packUrl, packHash, assetUrl, hostOf } from './allow.js';
 import { watch, error as hostError } from './host.js';
-import { showTitle, plainTitle, isOwn } from './title.js';
+import { showTitle, plainTitle, isOwn, loaderTitle } from './title.js';
 import { applyTheme, THEMES } from './theme.js';
 import { world as cityWorld, CITIES, cityQuery } from '../world/index.js';
 import { townLockMismatch } from '../world/town-src.js';
 import { SITE_KINDS } from '../world/common.js';
 import { isSiteRef, siteRefs, SITE_KEYS } from './places.js';
-import { fleetPickOf } from '../fleet-picks.js';
+import { RANCH_MARKS } from './ranch-plan.js';
+import { fleetPickOf } from '../fleet-picks.js'; import { fetchRetry, importRetry } from '../net.js';
+// (a world's `look`: charlight.js reads the same words)
+export const PEOPLE_LOOKS = ['cinematic'];
 // (a hero's wear: wear.js WEARS, kept here too so the check needs no three.js)
 const WEARS = new Set(['rider']);
 
 export const STEP_KINDS = new Set(['drive', 'stops', 'walk', 'pursuit', 'timer', 'call', 'voicemail', 'voicenote', 'choice', 'cutscene',
   'place', 'set', 'say', 'wait', 'goto', 'end', 'label', 'transition', 'vignette', 'wallet', 'actEnd', 'comfort', 'tail',
   'stealth', 'patrol', 'convoy', 'trigger', 'beat', 'roadblock', 'passenger', 'npc', 'fight', 'dm', 'search', 'scene', 'tow', 'ally', 'car',
-  'collect', 'mount', 'dismount', 'herd', 'sneak', 'flee', 'drove', 'track', 'ambush']);
+  'collect', 'mount', 'dismount', 'herd', 'sneak', 'flee', 'drove', 'track', 'ambush', 'ride', 'vcall', 'bridge']);
+// the steps that ride the horse (a world whose car is a car rides one alongside it: wagmi/game.js the two rides)
+export const HORSE_STEPS = new Set(['mount', 'ride']);
+/** A world's horse alongside its car: { label } (its `horse`, else Ranger), or null (no step rides one, or its car is the horse). */
+export function horseAlongOf(def) {
+  if (!def || typeof def !== 'object') return null;
+  if (def.car && typeof def.car === 'object' && def.car.model === 'mogcity/horse') return null;
+  const any = (list) => (list || []).some((s) => s && (HORSE_STEPS.has(s.type) || any(s.during) || any(s.do)));
+  const named = def.horse && typeof def.horse === 'object' && !Array.isArray(def.horse);
+  if (!named && !(def.missions || []).some((m) => any(m && m.steps))) return null;
+  const label = named && typeof def.horse.name === 'string' && /^[A-Za-z][A-Za-z' .-]{0,23}$/.test(def.horse.name.trim()) ? def.horse.name.trim() : 'Ranger';
+  return { label };
+}
 const STOCK = new Set(['roadster', 'trailhand', 'vandal']);
 // the hero cars Mog City builds in code besides Dan's roadster, by the name a world's `car.model` gives (wagmi/storyrun/gt.js)
-export const MODEL_CARS = new Set(['mogcity/gt', 'mogcity/horse']);
+export const MODEL_CARS = new Set(['mogcity/gt', 'mogcity/wedge', 'mogcity/gwagon', 'mogcity/horse']);
 const MAX_BYTES = 1_000_000, MAX_TEXT = 600;
 const q = new URLSearchParams(location.search);
 const COLOUR = /^#[0-9A-Fa-f]{6}$/;
@@ -41,7 +56,7 @@ async function sha256(buf) {
   try { const d = await crypto.subtle.digest('SHA-256', buf); return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, '0')).join(''); } catch { return null; }
 }
 async function getBytes(url) {
-  const r = await fetch(url, { credentials: 'omit', redirect: 'error', cache: 'no-cache' });
+  const r = await fetchRetry(url, { credentials: 'omit', redirect: 'error', cache: 'no-cache' }, { network: false });
   if (!r.ok) throw new Error(`${r.status}`);
   if (r.url && r.url !== String(url)) throw new Error('redirected');
   const b = await r.arrayBuffer();
@@ -51,7 +66,30 @@ async function getBytes(url) {
 
 // what the city wears that Mog City draws (dressing.js): a blackout in one of these parts of Manhattan, Christmas, snow,
 // rain. Everything else in a world's dressing (its time, its season, other holidays and weather) leaves the city as it is
+// the hour a world opens at, as a lighting preset of the city's (golden, midday, twilight, midnight) or null (a world
+// that says no time at all: the city's own): its first mission's time (the acts' order, then any left out), else its
+// act's timeline for it, else its dressing's; a dressed world that says none is in daylight. index.js puts the city at
+// it under the gate; wagmi/game.js already as the pack arrives, under the title, so a night world never shows the city
+// in daylight first (the owner, 15 Nov, Cold Harbor: "why did it switch to night view")
+export const HOURS = { dusk: 'twilight', night: 'midnight', day: 'midday', morning: 'golden', dawn: 'twilight' };
+const PRESETS = new Set(['golden', 'midday', 'twilight', 'midnight']);
+export function storyHour(def) {
+  if (!def || typeof def !== 'object') return null;
+  const missions = Array.isArray(def.missions) ? def.missions : [], acts = Array.isArray(def.acts) ? def.acts : [];
+  const byId = new Map(missions.map((m) => [m && m.id, m]));
+  let first = null, act = null;
+  for (const a of acts) { for (const id of (a && a.order) || []) if (byId.has(id)) { first = byId.get(id); act = a; break; } if (first) break; }
+  if (!first && missions[0]) { first = missions[0]; act = acts[0] || null; }
+  const t = first?.time || act?.timeline?.[first?.id]?.time || def.dressing?.time || (def.dressing ? 'day' : null);
+  if (typeof t !== 'string') return null;
+  const id = HOURS[t] || t;
+  return PRESETS.has(id) ? id : null;
+}
+
 export const BLACKOUTS = ['midtown', 'downtown', 'manhattan'];
+// the weather round the camera a mission may ask for (js/weather.js): its own `weather`, or the world's
+// dressing.nightWeather for each mission at night (midnight, not dusk's bright twilight) that names none (runner.js missionWeather)
+export const WEATHERS = ['clear', 'drizzle', 'rain', 'mist', 'wind'];
 export function asksDressing(d) {
   if (!d || typeof d !== 'object') return false;
   return BLACKOUTS.includes(d.blackout) || (Array.isArray(d.holiday) && d.holiday.includes('christmas')) || ['snow', 'rain', 'storm'].includes(d.weather);
@@ -159,6 +197,8 @@ export function creatureStep(s, city) {
     if (s.color != null && !COLOUR.test(s.color)) errs.push('colour');
   }
   if (s.type === 'mount' && s.at != null && !isPlaceRef(s.at)) errs.push('at');
+  // (a ride: a drive on the horse, to a place or the nearest of a few)
+  if (s.type === 'ride' && !(isPlaceRef(s.to) || (Array.isArray(s.to) && s.to.length >= 1 && s.to.length <= 6 && s.to.every(isPlaceRef)))) errs.push('to');
   if (s.type === 'herd' && !s.remove && !(s.id && s.at == null && (s.hold || s.walkTo || s.scatter))) {
     if (city !== 'sf') errs.push('wildlife in San Francisco only');
     if (s.creature != null && !['creature-horse', ...CREATURES].includes(s.creature)) errs.push(`no creature ${s.creature}`);
@@ -166,6 +206,25 @@ export function creatureStep(s, city) {
     if (s.count != null && !(Number.isInteger(s.count) && s.count >= 1 && s.count <= 8)) errs.push('count');
   }
   if (s.type === 'herd' && s.walkTo != null && !(isMark(s.walkTo) || isPlaceRef(s.walkTo))) errs.push('walkTo');
+  return errs;
+}
+// a world's ranches (ranch.js) and its places' ranch marks: [] when sound
+export function ranchErrors(w) {
+  const errs = [], P = w && w.places && typeof w.places === 'object' ? w.places : {};
+  if (w.ranches != null) {
+    if (!Array.isArray(w.ranches) || w.ranches.length > 2) errs.push('ranches: up to two');
+    else w.ranches.forEach((r, i) => {
+      const at = `ranches[${i}]`;
+      if (!r || typeof r !== 'object' || Array.isArray(r)) { errs.push(at); return; }
+      for (const k of Object.keys(r)) if (!['at', 'sign', 'brand', 'cattle', 'horses'].includes(k)) errs.push(`${at}: ${k}`);
+      if (typeof r.at !== 'string' || !/^@?[\w-]{1,40}$/.test(r.at)) errs.push(`${at}: at`);
+      if (r.sign != null && (typeof r.sign !== 'string' || r.sign.length > 32)) errs.push(`${at}: sign`);
+      if (r.brand != null && (typeof r.brand !== 'string' || !/^[A-Z]$/.test(r.brand))) errs.push(`${at}: brand`);
+      if (r.cattle != null && !(Number.isInteger(r.cattle) && r.cattle >= 0 && r.cattle <= 16)) errs.push(`${at}: cattle`);
+      if (r.horses != null && !(Number.isInteger(r.horses) && r.horses >= 0 && r.horses <= 6)) errs.push(`${at}: horses`);
+    });
+  }
+  for (const [k, a] of Object.entries(P)) if (a && typeof a === 'object' && a.ranch != null && !RANCH_MARKS.includes(a.ranch)) errs.push(`places.${k}.ranch: one of ${RANCH_MARKS.join(', ')}`);
   return errs;
 }
 // Mog City's own mission phases a step may name by `ref` (runner.js PART_IDS: m2.js / m3.js playPart)
@@ -219,17 +278,32 @@ export function check(w) {
       if (s.type === 'convoy' && !(Array.isArray(s.route) && s.route.length >= 2)) bad(`${m.id} ${at}[${i}]: convoy route`);
       if (s.type === 'ally' && s.to !== 'player' && !(typeof s.to === 'string' || (s.to && typeof s.to === 'object'))) bad(`${m.id} ${at}[${i}]: ally to`);
       if (s.type === 'roadblock' && !s.at) bad(`${m.id} ${at}[${i}]: roadblock at`);
+      // (a river bridge's leaves: cities/sf/js/bascule.js, a step or a cutscene's cue { at, to: 0-80 deg, dur: s })
+      for (const cue of [s.type === 'bridge' ? s : null, s.type === 'cutscene' ? s.bridge : null]) {
+        if (cue == null) continue;
+        if (typeof cue !== 'object' || Array.isArray(cue) || (cue.to != null && !(cue.to >= 0 && cue.to <= 80)) || (cue.dur != null && !(cue.dur > 0 && cue.dur <= 60))
+          || (cue.delay != null && !(cue.delay >= 0 && cue.delay <= 60))) bad(`${m.id} ${at}[${i}]: bridge (to 0-80 deg, dur up to 60 s)`);
+        // (the set piece's: near, m; jump, true or the hero shot's { scale, side, ahead, out, up, fov, hold })
+        if (cue === s && ((s.near != null && !(s.near >= 20 && s.near <= 600)) || (s.jump != null && typeof s.jump !== 'boolean' && (typeof s.jump !== 'object' || Array.isArray(s.jump) || (s.jump.scale != null && !(s.jump.scale >= 0.12 && s.jump.scale <= 0.9)) || (s.jump.side != null && !['left', 'right'].includes(s.jump.side))))))
+          bad(`${m.id} ${at}[${i}]: bridge (near 20-600 m; jump true or { scale 0.12-0.9, side left or right })`);
+      }
       if (s.type === 'convoy' && s.band != null && !(Array.isArray(s.band) && s.band.length === 2 && s.band[0] < s.band[1])) bad(`${m.id} ${at}[${i}]: convoy band`);
       for (const e of creatureStep(s, w.city || 'ny')) bad(`${m.id} ${at}[${i}]: ${e}`);
       shapes(s.during, `${at}[${i}].during`);
     } };
     shapes(m.steps, 'steps');
+    // (a checkpoint: a top-level step marked { checkpoint: true } is where a retry starts from (runner.js snapshot); a
+    // failed attempt after it offers RETRY from it and RESTART from the start. docs/CHECKPOINTS.md)
+    for (const [i, s] of m.steps.entries()) if (s && s.checkpoint != null && typeof s.checkpoint !== 'boolean') bad(`${m.id} steps[${i}]: checkpoint (true or false)`);
     for (const e of siteErrors(m)) bad(`${m.id} ${e}`);
     if (m.vehicle != null && typeof m.vehicle !== 'string') bad(`${m.id}: vehicle`);
+    if (m.weather != null && !WEATHERS.includes(m.weather)) bad(`${m.id}: weather (one of ${WEATHERS.join(', ')})`);
   }
   if (!Array.isArray(w.acts) || !w.acts.length) bad('acts');
   // (the world's UI theme, wagmi/storyrun/theme.js: { theme: 'glass' }; none, Mog City's own look)
   if (w.ui != null && (typeof w.ui !== 'object' || Array.isArray(w.ui) || (w.ui.theme != null && !THEMES.includes(w.ui.theme)))) bad(`ui.theme: one of ${THEMES.join(', ')}`);
+  // (the horse a world rides alongside its car: { name }, wagmi/game.js the two rides)
+  if (w.horse != null && (typeof w.horse !== 'object' || Array.isArray(w.horse) || (w.horse.name != null && (typeof w.horse.name !== 'string' || w.horse.name.length > 24)))) bad('horse: { name } (24 characters at most)');
   for (const mt of w.hud?.meters || []) if (mt && mt.goal != null && !(typeof mt.goal === 'number' && mt.goal > 0)) bad(`hud meter ${mt.id}: goal`);
   // (the opening, before Mission 1: its shots are a cutscene's, plus a place card, a name card and the title)
   if (w.opening != null) {
@@ -246,6 +320,30 @@ export function check(w) {
       if (o.stage != null && (!Array.isArray(o.stage) || o.stage.length > 8 || o.stage.some((x) => !x || typeof x.who !== 'string'))) bad('opening.stage');
     }
   }
+  // (the end credits, rolled after STORY COMPLETE and the title: its own lines, rules.js creditsRoll adds the cast, the
+  // voices, the map's data and Ockams Inc.)
+  if (w.credits != null && (typeof w.credits !== 'object' || Array.isArray(w.credits) || (w.credits.lines != null && (!Array.isArray(w.credits.lines) || w.credits.lines.length > 12
+    || w.credits.lines.some((l) => typeof l !== 'string' || l.length > 160))))) bad('credits: { lines } (12 at most, 160 characters each)');
+  // (its own cast credits, [{ name, role }], and its own voices lines, rules.js creditsRoll)
+  if (w.credits && typeof w.credits === 'object' && w.credits.cast != null && (!Array.isArray(w.credits.cast) || w.credits.cast.length > 24
+    || w.credits.cast.some((c) => !c || typeof c !== 'object' || typeof c.name !== 'string' || c.name.length > 40 || (c.role != null && (typeof c.role !== 'string' || c.role.length > 60)))))
+    bad('credits.cast: [{ name, role }] (24 at most; a name 40 characters, a role 60)');
+  if (w.credits && typeof w.credits === 'object' && w.credits.voices != null && (!Array.isArray(w.credits.voices) || w.credits.voices.length > 4
+    || w.credits.voices.some((l) => typeof l !== 'string' || l.length > 200))) bad('credits.voices: [lines] (4 at most, 200 characters each)');
+  // (how its people are lit and framed, charlight.js: 'cinematic' a lighting rig of their own (a key at eye level, a
+  // fill, a rim) and a portrait lens on its calls; none, as Mog City lights everyone)
+  if (w.look != null && !PEOPLE_LOOKS.includes(w.look)) bad(`look: one of ${PEOPLE_LOOKS.join(', ')}`);
+  // (its calls: { ringOut: 'answer' } a ring that runs out is answered (runner.js ringOf), 'decline' as by default;
+  // style 'fold': its calls on a foldable phone (fold.js), 'card' the caller card and car screen as by default)
+  if (w.calls != null && (typeof w.calls !== 'object' || Array.isArray(w.calls) || (w.calls.ringOut != null && !['answer', 'decline'].includes(w.calls.ringOut)) || (w.calls.style != null && !['card', 'fold'].includes(w.calls.style))))
+    bad("calls: { ringOut: 'answer' | 'decline', style: 'card' | 'fold' }");
+  // (a mission's medals, rules.js medalOf: { gold | silver | bronze: { secs, damage } })
+  for (const m of w.missions || []) {
+    const md = m && m.medals;
+    if (md == null) continue;
+    if (typeof md !== 'object' || Array.isArray(md) || Object.keys(md).some((k) => !['gold', 'silver', 'bronze'].includes(k))
+      || Object.values(md).some((t) => !t || typeof t !== 'object' || !(t.secs > 0 && t.secs <= 7200) || (t.damage != null && !(t.damage >= 0 && t.damage <= 1000)))) bad(`${m.id}: medals`);
+  }
   // (the coda, after the credits: an opening's shape, index.js plays it with runner.opening)
   if (w.coda != null && (typeof w.coda !== 'object' || Array.isArray(w.coda) || !Array.isArray(w.coda.shots) || !w.coda.shots.length || w.coda.shots.length > 24
     || w.coda.shots.some((s) => !s || typeof s !== 'object' || (s.dur != null && !(s.dur > 0 && s.dur <= 15))))) bad('coda');
@@ -255,14 +353,22 @@ export function check(w) {
     if (typeof d !== 'object' || Array.isArray(d)) bad('dressing');
     else {
       for (const k of ['time', 'season', 'weather']) if (d[k] != null && (typeof d[k] !== 'string' || !/^[a-z-]{1,24}$/.test(d[k]))) bad(`dressing.${k}`);
+      if (d.nightWeather != null && !WEATHERS.includes(d.nightWeather)) bad(`dressing.nightWeather (one of ${WEATHERS.join(', ')})`);
       if (d.blackout != null && !BLACKOUTS.includes(d.blackout)) bad('dressing.blackout');
       if (d.apocalypse != null && d.apocalypse !== false && (!APOCALYPSE.includes(d.apocalypse) || w.city !== 'sf')) bad('dressing.apocalypse: San Francisco only (true, dusk, day or night)');
       if (d.holiday != null && (!Array.isArray(d.holiday) || d.holiday.some((h) => typeof h !== 'string' || !/^[a-z-]{1,24}$/.test(h)))) bad('dressing.holiday');
     }
   }
+  // (a ranch dressed at one of its places, ranch.js: up to two; a place alias's `ranch` mark one of the ranch's)
+  for (const e of ranchErrors(w)) bad(e);
   if (w.car != null && !(typeof w.car === 'string' ? STOCK.has(w.car) : w.car && (typeof w.car.sheet === 'object' || MODEL_CARS.has(w.car.model)))) bad('car');
+  // (a stock car's paint, carPaint: '#76B900', any world whose car is a stock one (car: 'roadster'): Mog City's roadster
+  // built in that colour, paint only (wagmi/game.js); a sheet or model car has its own paint, so it is refused there)
+  if (w.carPaint != null && (!COLOUR.test(w.carPaint) || typeof w.car !== 'string')) bad('carPaint');
   // (a Mog City model as the hero's car: { model: 'mogcity/gt', paint?, plate?, label?, body? }, wagmi/storyrun/gt.js;
-  // it wears the downloaded body, wagmi/storyrun/vantor.js; body: 'built' the one built in code, gt.js)
+  // it wears the downloaded body, wagmi/storyrun/vantor.js; body: 'built' the one built in code, gt.js. 'mogcity/wedge': the
+  // Tensore, the lime wedge with scissor doors, wagmi/storyrun/wedge.js, on the same handling. 'mogcity/gwagon': the
+  // Kastell, the black luxury off-roader, wagmi/storyrun/gwagon.js, on an SUV's handling)
   if (w.car && typeof w.car === 'object' && MODEL_CARS.has(w.car.model)) {
     if (w.car.paint != null && !COLOUR.test(w.car.paint)) bad('car.paint');
     if (w.car.plate != null && (typeof w.car.plate !== 'string' || !/^[A-Z0-9 ]{0,8}$/.test(w.car.plate))) bad('car.plate');
@@ -270,6 +376,25 @@ export function check(w) {
     if (w.car.body != null && w.car.body !== 'ext' && w.car.body !== 'built') bad('car.body');
   }
   return errs;
+}
+
+// the forged hero's clips: Dan's, with the body's own clips that Dan lacks; but a body's own seated clips (sit, sitTalk:
+// HERO_OWN) are its own, upright for its proportions (Jensen Heist's hand-built bodies), where Dan's leaned a longer head
+// forward of the chair's line. A body without them sits on Dan's, as before; Dan himself never comes here. (Idempotent:
+// the loaded GLTF is cached, glb.js, so a second call, or the cast's double of the hero on the same file, finds the same)
+// A body may also name more of its clips as its own in its GLB (asset extras heroOwn: ['walk', 'talk', 'cheer'], Jensen
+// Heist's Jensen: his own walk, keynote talk and celebration, retargeted from CC0 clips): those win over Dan's too. A body
+// that names none is as before (its other clips under Dan's: older hand-built bodies carry clips that decode laid flat)
+export const HERO_OWN = new Set(['sit', 'sitTalk']);
+export function heroOwnOf(gltf) {
+  const l = gltf?.asset?.extras?.heroOwn;
+  return Array.isArray(l) ? l.filter((n) => typeof n === 'string' && /^[A-Za-z][\w-]{0,31}$/.test(n)).slice(0, 16) : [];
+}
+export function heroClips(danClips, own, marked = []) {
+  const ownNames = new Set([...HERO_OWN, ...(marked || [])]);
+  const mine = new Map(); for (const c of own || []) if (ownNames.has(c.name) && !mine.has(c.name)) mine.set(c.name, c);
+  const names = new Set(danClips.map((c) => c.name));
+  return [...danClips.map((c) => mine.get(c.name) || c), ...(own || []).filter((c) => !names.has(c.name))];
 }
 
 // a forged body on Dan's clips: the hand-built cast (John, Milo, Pell, the old boss, the young hero) carry an extra node
@@ -294,11 +419,15 @@ export async function load() {
     const h = await sha256(bytes), want = packHash(url);
     if (want && h !== want) throw new Error('its bytes do not match its name');
     const def = JSON.parse(new TextDecoder().decode(bytes));
+    // (its name on the loading screen now, while its town loads behind it: title.js loaderTitle)
+    if (def && typeof def.title === 'string' && !isOwn({ def, url })) loaderTitle(def);
     // (a hometown world is checked against the town the page loaded: index.html's NYC.townReady, the bundle fetched)
     if (def && def.city === 'hometown' && globalThis.window?.NYC?.townReady) await globalThis.window.NYC.townReady;
     const errs = check(def);
     if (errs.length) throw new Error('refused: ' + errs.slice(0, 4).join('; '));
-    Object.assign(out, { ok: true, hash: h, id: def.id, title: def.title, def });
+    Object.assign(out, { ok: true, hash: h, id: def.id, title: def.title, def, hour: storyHour(def) });
+    // (its people's look, before any of them is built: charlight.js charLook)
+    if (PEOPLE_LOOKS.includes(def.look) && globalThis.window?.NYC) globalThis.window.NYC.charLook = def.look;
   } catch (err) { out.why = String(err.message || err); }
   if (!out.ok) { console.warn('[storyrun] world refused:', out.why); hostError('load', `the world did not load: ${out.why}`); plainTitle(); return out; }
   applyTheme(out.def);
@@ -311,15 +440,15 @@ export async function load() {
   const hero = W.castOf(W.heroName);
   // the hero's body: a registry Dan is Dan's own file; a forged hero is their GLB, with Dan's clips on it (one rig)
   W.heroGlb = hero && !hero.model && hero.glb ? W.asset(hero.glb) : null;
-  W.heroGLTF = async (loadGLB) => {
+  // (onBody(dan, g) -> Dan's clips put on this body's rest (wagmi/retarget.js, from game.js); without it, as they are)
+  W.heroGLTF = async (loadGLB, onBody = null) => {
     const dan = await loadGLB('assets/characters/dan.glb');
     if (!W.heroGlb) return dan;
     try {
       const g = await loadGLB(W.heroGlb);
-      const names = new Set(dan.animations.map((c) => c.name));
-      g.animations = [...dan.animations, ...g.animations.filter((c) => !names.has(c.name))];
+      g.animations = heroClips(onBody ? onBody(dan, g) : dan.animations, g.animations, heroOwnOf(g));
       // (their surfaces finished as the cast's are: polish.js)
-      try { (await import('./polish.js')).polishBody(g.scene); } catch (err) { console.warn('[storyrun] hero polish', err); }
+      try { (await importRetry(() => import('./polish.js'))).polishBody(g.scene); } catch (err) { console.warn('[storyrun] hero polish', err); }
       unhang(g.scene);
       return g;
     } catch (err) { console.warn('[storyrun] hero body', err); return dan; }
@@ -327,11 +456,15 @@ export async function load() {
   // the player's car: a vehicle sheet (wagmi/storyrun/vehicles) or a stock one (the roadster is Dan's own)
   W.sheetCar = def.car && typeof def.car === 'object' && def.car.sheet ? def.car.sheet : null;
   W.stockCar = typeof def.car === 'string' ? def.car : null;
+  // (its paint, when the world gives one: carPaint, a stock car's only)
+  W.stockPaint = W.stockCar && typeof def.carPaint === 'string' && COLOUR.test(def.carPaint) ? def.carPaint : null;
   // (or one of Mog City's own models: the Vantor GT, built by wagmi/storyrun/gt.js with the roadster's handling)
   W.modelCar = def.car && typeof def.car === 'object' && MODEL_CARS.has(def.car.model) ? def.car : null;
   // (trailhand and vandal are their sheets: none in this repo yet, so Dan's roadster stands in for them)
   // (the car the creator picked on GameMog's Create, by its generic name: wagmi/fleet-picks.js; in a town wagmi/game.js
   // builds the hero's car as the fleet's realistic model of that name. An unknown name is no pick: today's car)
   W.fleetCar = fleetPickOf(def.fleetCar) ? def.fleetCar : null;
+  // (a horse alongside the car: a world that rides one as well as driving, its mount and ride steps; wagmi/game.js)
+  W.horseAlong = horseAlongOf(def);
   return W;
 }

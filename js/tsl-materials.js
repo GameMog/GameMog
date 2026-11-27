@@ -192,6 +192,16 @@ const canyonSkyAONode = Fn(() => {
   return mix(canyonAO, float(1.0), inPark);
 });
 
+// (Mog City) A city material's sky light: on the high quality lighting tier, the sky occlusion of the buildings' height
+// map in place of the canyon term above, the sky they hide filled with their bounce (js/sky-occlusion.js, after Ben
+// Houston's enhanced Slop New York); otherwise exactly the canyon term, as before. factor: the material's own occlusion
+const skyAO = (mat, factor = null) => {
+  const H = window.NYC.HQL;
+  if (H && H.on()) return H.apply(mat, () => canyonSkyAONode(), factor);
+  mat.aoNode = factor ? canyonSkyAONode().mul(factor) : canyonSkyAONode();
+  return mat;
+};
+
 // Material caches to prevent duplicate WebGPU WGSL shader compilation across blocks & landmarks
 const _curtainWallCache = new Map();
 const _preWarCache = new Map();
@@ -419,10 +429,24 @@ function facadeCell(windowWidth, floorHeight, boxLocal, cornerPier = 0) {
   let wallH = float(1.0);
   let fromTop = float(0.0);
   let boxSeed = float(0.0);
+  // New York as mapped (js/buildings.js DATA): the building's facade colour and its roof's (sRGB, 6 bits a channel),
+  // carried in `faces` above each wall's kind (createFacadeBoxes: faces = kind + 8 * (channel + 1), 0: none; the roof
+  // r * 4096 + g * 64 + b + 1 above the +z wall's kind)
+  let facadeTint = vec4(0.0);
+  let roofTint = vec4(0.0);
 
   if (boxLocal) {
+    const facesRaw = attribute('faces', 'vec4');
+    const packed = floor(facesRaw.add(0.5).div(8.0));
+    // (decoded once a vertex, not a pixel: varyings, constant over an instance)
+    const faces = varying(facesRaw.sub(packed.mul(8.0)), 'vFacesKind'); // WALL_KINDS of the -x, +x, -z & +z walls
+    facadeTint = varying(vec4(pow(packed.xyz.sub(1.0).max(0.0).div(63.0), vec3(2.2)), step(0.5, packed.x)), 'vFacadeTint');
+    const rw = packed.w.sub(1.0);
+    const rr = floor(rw.add(0.5).div(4096.0));
+    const rg = floor(rw.add(0.5).div(64.0)).sub(rr.mul(64.0));
+    const rb = rw.sub(rr.mul(4096.0)).sub(rg.mul(64.0));
+    roofTint = varying(vec4(pow(vec3(rr, rg, rb).max(0.0).div(63.0), vec3(2.2)), step(0.5, packed.w)), 'vRoofTint');
     const box = attribute('box', 'vec4'); // width, height, depth, seed (+ the building's tone in its fraction)
-    const faces = attribute('faces', 'vec4'); // WALL_KINDS of the -x, +x, -z & +z walls
     const wallWidth = mix(box.x, box.z, alongZ);
     // The box-local normal's sign tells which wall this is
     kind = mix(
@@ -489,7 +513,7 @@ function facadeCell(windowWidth, floorHeight, boxLocal, cornerPier = 0) {
   const solid = max(max(inPier.mul(float(1.0).sub(isGroundFloor)), blank), partial);
   return {
     isRoof, uCoord, vCoord, gridV, cellId, cellUV, fw, bayWidth, isGroundFloor, solid, floor0, back, blank, door, tone,
-    wallS, wallW, wallH, fromTop, boxSeed, partial, coping
+    wallS, wallW, wallH, fromTop, boxSeed, partial, coping, facadeTint, roofTint
   };
 }
 
@@ -526,8 +550,8 @@ function createCurtainWallMaterial(opts = {}) {
   });
 
   // The style's parameters are uniforms (not baked-in constants), so every curtain-wall style compiles to one shader
-  const cGlass = uniform(new THREE.Color(glassTint));
-  const cFrame = uniform(new THREE.Color(frameTint));
+  const cGlassU = uniform(new THREE.Color(glassTint));
+  const cFrameU = uniform(new THREE.Color(frameTint));
   const uWindowWidth = uniform(windowWidth);
   const uFloorHeight = uniform(floorHeight);
   const uLitProbability = uniform(litProbability);
@@ -537,11 +561,14 @@ function createCurtainWallMaterial(opts = {}) {
   const cWarmLight = color(0xffe1a6);
   const cCanyonBounce = color(0xe89c68);
 
-  mat.aoNode = canyonSkyAONode();
+  skyAO(mat);
 
   // The facade cell and the apartment behind each pane are built once and shared by every output below, so the
   // shader carries a single copy of them (and evaluates the interior mapping once per pixel)
   const facade = facadeCell(uWindowWidth, uFloorHeight, boxLocal);
+  // (the mapped facade colour on the frames and spandrels, a touch of it in the glass)
+  const cFrame = mix(cFrameU, facade.facadeTint.xyz, facade.facadeTint.w.mul(0.7));
+  const cGlass = mix(cGlassU, facade.facadeTint.xyz.mul(0.5), facade.facadeTint.w.mul(0.3));
   const { isRoof, uCoord, vCoord, gridV, cellId, cellUV, fw, bayWidth, isGroundFloor, blank, tone, partial, coping } = facade;
   // Pane UV inside the mullions & spandrel, the 3D apartment behind it and whether the ground-floor shop is lit
   const winUV = clamp(
@@ -618,7 +645,7 @@ function createCurtainWallMaterial(opts = {}) {
     const canyonGlow = cCanyonBounce.mul(canyonBand.mul(cityUniforms.uCanyonBounce).mul(0.16));
 
     const roofNoise = noise2D(positionWorld.xz.mul(0.35));
-    const roofColor = mix(color(0x202429), color(0x3b4149), roofNoise);
+    const roofColor = mix(mix(color(0x202429), color(0x3b4149), roofNoise), facade.roofTint.xyz.mul(roofNoise.mul(0.2).add(0.85)), facade.roofTint.w.mul(0.85));
 
     const facadeCol = mix(frameBase, glassColor, isGlassPane.mul(float(1.0).sub(isMechFloor))).add(canyonGlow);
     const mechCol = mix(cFrame.mul(0.36), cFrame.mul(0.76), louverStripes);
@@ -743,7 +770,7 @@ function createPreWarBuildingMaterial(opts = {}) {
   const halfWinX = (1.0 - windowRatioX) * 0.5;
   const halfWinY = (1.0 - windowRatioY) * 0.5;
 
-  mat.aoNode = canyonSkyAONode();
+  skyAO(mat);
 
   // The facade cell, the window opening and the apartment behind it are built once and shared by every output below,
   // so the shader carries a single copy of them (and evaluates the interior mapping once per pixel)
@@ -908,7 +935,9 @@ function createPreWarBuildingMaterial(opts = {}) {
       signPaint.assign(vec4(mix(ground, ink, max(letters, border)), cover));
     });
 
-    const wallTint = mix(mix(cStone, backTint, back), signPaint.xyz, signPaint.w);
+    // (the mapped facade colour, js/buildings.js DATA, in place of the style's stone on the street fronts)
+    const stoneCol = mix(cStone, facade.facadeTint.xyz, facade.facadeTint.w.mul(0.85));
+    const wallTint = mix(mix(stoneCol, backTint, back), signPaint.xyz, signPaint.w);
     // Trim stone on the band courses, the storefront fascia and the coping capping every wall
     const trimMix = max(isCornice.mul(0.62).add(isGroundFloor.mul(0.28)), coping.mul(0.8));
     const masonryTint = mix(wallTint, cTrim, trimMix)
@@ -941,7 +970,7 @@ function createPreWarBuildingMaterial(opts = {}) {
 
     const frameCol = masonryTint.mul(0.46).mul(recessShade);
     const roofNoise = noise2D(positionWorld.xz.mul(0.35));
-    const roofCol = mix(cTrim.mul(0.42), cTrim.mul(0.62), roofNoise);
+    const roofCol = mix(mix(cTrim.mul(0.42), cTrim.mul(0.62), roofNoise), facade.roofTint.xyz.mul(roofNoise.mul(0.2).add(0.85)), facade.roofTint.w.mul(0.85));
 
     const wallOrRoof = mix(masonryWeathered, roofCol, isRoof);
     const withFrames = mix(wallOrRoof, frameCol, isWindowOpening.mul(sashMask));
@@ -1101,7 +1130,14 @@ function createFacadeBoxes(material, boxes) {
     if (b.ry) mesh.setMatrixAt(i, matrix.compose(pos.set(b.x, b.y, b.z), quat.setFromAxisAngle(up, b.ry), scale.set(b.w, b.h, b.d)));
     else mesh.setMatrixAt(i, matrix.makeScale(b.w, b.h, b.d).setPosition(b.x, b.y, b.z));
     box.setXYZW(i, b.w, b.h, b.d, ((i * 29) % 1000) + 0.1 + 0.8 * (b.tone ?? 0.5));
-    if (b.faces) faces.setXYZW(i, b.faces[0], b.faces[1], b.faces[2], b.faces[3]);
+    // (js/buildings.js DATA: the mapped facade colour, a channel above each of the first three walls' kinds, and the
+    // roof's above the fourth's, 6 bits a channel, + 1 (0: none); see facadeCell)
+    const f = b.faces || [0, 0, 0, 0];
+    const c6 = (hex, sh) => Math.round((((hex >> sh) & 255) * 63) / 255) + 1;
+    const t = b.tint || 0, rh = b.roofHex || 0;
+    faces.setXYZW(i,
+      f[0] + 8 * (t ? c6(t, 16) : 0), f[1] + 8 * (t ? c6(t, 8) : 0), f[2] + 8 * (t ? c6(t, 0) : 0),
+      f[3] + 8 * (rh ? (c6(rh, 16) - 1) * 4096 + (c6(rh, 8) - 1) * 64 + c6(rh, 0) : 0));
   });
   return mesh;
 }
@@ -1202,6 +1238,14 @@ function createChryslerCrownMaterial() {
  */
 function createCarPaintMaterial(baseHex = 0xffc218) {
   if (_carPaintCache.has(baseHex)) return _carPaintCache.get(baseHex);
+  // (Mog City, the high quality lighting tier: a slightly rough coloured base, not a metal, under a glossy clearcoat, whose
+  // real reflections replace the sky and sun glints painted into the colour below; after Ben Houston's enhanced Slop New
+  // York a53ddb3, MIT)
+  if (window.NYC.HQL && window.NYC.HQL.on()) {
+    const hq = new THREE.MeshPhysicalNodeMaterial({ color: baseHex, metalness: 0, roughness: 0.5, clearcoat: 1, clearcoatRoughness: 0.04 });
+    _carPaintCache.set(baseHex, hq);
+    return hq;
+  }
   const mat = new THREE.MeshStandardNodeMaterial({
     metalness: 0.56,
     roughness: 0.11
@@ -1237,7 +1281,7 @@ function createFoliageMaterial() {
     roughness: 0.82
   });
 
-  mat.aoNode = canyonSkyAONode();
+  skyAO(mat);
 
   // Gentle breeze flutter + subtle tuft silhouette displacement
   mat.positionNode = Fn(() => {
@@ -1316,7 +1360,7 @@ function createTreeBarkMaterial() {
     roughness: 0.88
   });
 
-  mat.aoNode = canyonSkyAONode();
+  skyAO(mat);
 
   mat.colorNode = Fn(() => {
     const wp = positionWorld;
@@ -1470,7 +1514,7 @@ function createTreeMaterial(leafAtlas) {
   mat.normalNode = normalViewGeometry;
 
   // Sky light: street-canyon occlusion, deep inside the crown far less
-  mat.aoNode = canyonSkyAONode().mul(crownAO.mul(0.75).add(0.25));
+  skyAO(mat, crownAO.mul(0.75).add(0.25));
 
   // Light through the leaves: yellow-green, strongest out on the thin shell
   mat.translucencyNode = aData.xyz.mul(vec3(1.0, 1.2, 0.45)).mul(leaf.r.mul(1.5)).mul(crownAO.mul(0.8).add(0.2)).mul(isLeaf);
@@ -1530,7 +1574,7 @@ function createParkPavingMaterial() {
     roughness: 0.86
   });
 
-  mat.aoNode = canyonSkyAONode();
+  skyAO(mat);
 
   mat.colorNode = Fn(() => {
     const wx = positionWorld.x;
@@ -1600,7 +1644,7 @@ function createParkWallMaterial() {
     roughness: 0.9
   });
 
-  mat.aoNode = canyonSkyAONode();
+  skyAO(mat);
 
   const wallField = (wp, n) => {
     const u = wp.x.mul(abs(n.z)).add(wp.z.mul(abs(n.x)));
@@ -1753,7 +1797,7 @@ function createTktsStepMaterial(baseY = 0.24, riserH = 0.18) {
  */
 function createMarbleAshlarMaterial() {
   const mat = new THREE.MeshStandardNodeMaterial({ metalness: 0.0, roughness: 0.6 });
-  mat.aoNode = canyonSkyAONode();
+  skyAO(mat);
   mat.colorNode = Fn(() => {
     const wp = positionWorld;
     const n = normalWorldGeometry;
@@ -1782,7 +1826,7 @@ function createTreeGrateMaterial() {
     roughness: 0.68
   });
 
-  mat.aoNode = canyonSkyAONode();
+  skyAO(mat);
 
   mat.colorNode = Fn(() => {
     const r = length(positionLocal.xz);
@@ -1919,7 +1963,9 @@ const roadTarSnakes = Fn(([wxz, px]) => {
  * Lane markings are separate geometry built from the road network (js/road-paint.js).
  */
 function createRoadSurfaceMaterial() {
-  const mat = new THREE.MeshStandardNodeMaterial({
+  // (Mog City, the high quality lighting tier: the water over the asphalt is a clearcoat at night, below)
+  const HQ = !!(window.NYC.HQL && window.NYC.HQL.on());
+  const mat = new (HQ ? THREE.MeshPhysicalNodeMaterial : THREE.MeshStandardNodeMaterial)({
     metalness: 0.24,
     roughness: 0.48
   });
@@ -1972,7 +2018,7 @@ function createRoadSurfaceMaterial() {
   const viewDir = normalize(cameraPosition.sub(positionWorld));
   const waterFresnel = pow(float(1.0).sub(clamp(viewDir.y, 0.0, 1.0)), 5.0).mul(0.98).add(0.02);
 
-  mat.aoNode = canyonSkyAONode();
+  skyAO(mat);
 
   mat.colorNode = Fn(() => {
     const wx = positionWorld.x;
@@ -2085,6 +2131,24 @@ function createRoadSurfaceMaterial() {
     return reflectCol.mul(max(puddle, film.mul(0.35))).mul(roadFresnel).mul(cityUniforms.uInteriorGlow).mul(0.07);
   })();
 
+  if (HQ) {
+    // (Mog City, the high quality lighting tier; after Ben Houston's enhanced Slop New York c3a44b5, MIT) At night the
+    // water on the road is a clearcoat over the asphalt: the puddles a sharp mirror, the damp stains and the film a
+    // softer one, reflecting the street's real lights, signs and SSR instead of the emissive copy of the sky and neon
+    // painted above (switched off where the coat takes over)
+    const night = smoothstep(0.6, 1.15, cityUniforms.uInteriorGlow);
+    // (at night the whole road is wet through, its puddles deepest: a film of 0.65 under them)
+    const water = max(puddle, max(damp.mul(0.85), max(film.mul(0.55), float(0.65)))).mul(night);
+    mat.clearcoatNode = water;
+    mat.clearcoatRoughnessNode = mix(float(0.12), float(0.03), puddle);
+    // (and the base lobe glossed under the water, so SSR, which reads the base's roughness and metalness, mirrors the
+    // signs and the lamps in it)
+    const baseRough = mat.roughnessNode, baseMetal = mat.metalnessNode;
+    mat.roughnessNode = mix(baseRough, float(0.07), water.mul(0.9));
+    mat.metalnessNode = max(baseMetal, waterFresnel.mul(1.6).clamp(0.25, 0.85).mul(water));
+    const painted = window.NYC.HQL.ownEmissive(mat);
+    if (painted) mat.emissiveNode = painted.mul(night.oneMinus());
+  }
   return mat;
 }
 
@@ -2136,7 +2200,7 @@ function createRoadPaintMaterial() {
   const wet = roadWetMasks(roadPuddleField(positionWorld.x, positionWorld.z)); // same pools & film as the asphalt
   mat.colorNode = vec3(mix(float(1.0), float(0.72), wet.y).mul(mix(float(1.0), float(0.86), wet.z)));
   mat.roughnessNode = mix(mix(float(0.62), float(0.42), wet.z), float(0.2), wet.y);
-  mat.aoNode = canyonSkyAONode();
+  skyAO(mat);
 
   return mat;
 }
@@ -2208,7 +2272,7 @@ function createSidewalkMaterial() {
   const hasCrack = step(0.875, hash2D(flagId.add(vec2(41.7, 9.2)))).mul(float(1.0).sub(replaced));
   const crack = lineAA(crackDist, 0.0012).mul(hasCrack).mul(smoothstep(0.004, 0.02, edgeDist));
 
-  mat.aoNode = canyonSkyAONode();
+  skyAO(mat);
 
   mat.colorNode = Fn(() => {
     const wx = positionWorld.x;
@@ -2288,7 +2352,7 @@ function createCurbMaterial() {
     roughness: 0.72
   });
 
-  mat.aoNode = canyonSkyAONode();
+  skyAO(mat);
 
   mat.colorNode = Fn(() => {
     const wx = positionWorld.x;
@@ -2994,26 +3058,34 @@ function createWaterMaterial() {
 
     // Nearest Manhattan face entered from outside
     const tIsland = float(1e5).toVar();
+    // (Mog City, Mission 4's look review, round 9: where the reflected ray just misses a box's corner the reflection
+    // switched from the lit island to the far shore in one pixel, a hard vertical seam down the river under Battery Park
+    // City. wIsland: how far the ray runs inside the box it hits, so the island's reflection fades out over its last
+    // 200 m of chord instead of stopping at the corner)
+    const wIsland = float(0.0).toVar();
     for (const [x0, z0, x1, z1] of MANHATTAN_BOXES) {
       const ta = vec2(x0, z0).sub(P).mul(inv);
       const tb = vec2(x1, z1).sub(P).mul(inv);
       const tn = max(min(ta.x, tb.x), min(ta.y, tb.y));
       const tf = min(max(ta.x, tb.x), max(ta.y, tb.y));
-      tIsland.assign(min(tIsland, mix(float(1e5), tn, step(0.0, tn).mul(step(tn, tf)))));
+      const hitB = step(0.0, tn).mul(step(tn, tf));
+      const nearer = hitB.mul(step(tn, tIsland));
+      wIsland.assign(mix(wIsland, smoothstep(0.0, 200.0, tf.sub(tn)), nearer));
+      tIsland.assign(min(tIsland, mix(float(1e5), tn, hitB)));
     }
     // Across the rivers: the New Jersey waterfront to the west, Queens & Brooklyn to the east
     const xWest = shoreAt(westShore, P.y).toVar();
     const xEast = shoreAt(eastShore, P.y).toVar();
     const tShoreRaw = mix(xWest, xEast, step(0.0, dir.x)).sub(P.x).mul(inv.x).toVar();
     const tShore = mix(float(8000.0), clamp(tShoreRaw, 60.0, 8000.0), step(0.0, tShoreRaw)).toVar();
-    const onIsland = step(tIsland, tShore);
+    const onIsland = step(tIsland, tShore).mul(wIsland);
     // Park lakes: the walls of buildings around Central Park's rectangle, seen from inside it
     const ca = vec2(CPB.minX, CPB.minZ).sub(P).mul(inv);
     const cb = vec2(CPB.maxX, CPB.maxZ).sub(P).mul(inv);
     const tPark = clamp(min(max(ca.x, cb.x), max(ca.y, cb.y)), 60.0, 4200.0);
     const lake = step(0.5, pond);
 
-    const tHit = mix(min(tIsland, tShore), tPark, lake).toVar();
+    const tHit = mix(mix(tShore, min(tIsland, tShore), onIsland), tPark, lake).toVar();
     const hit = P.add(dir.mul(tHit)).toVar();
     const hRefl = tHit.mul(tanEl); // height up the facades that this reflection sees
     const u = hit.x.add(hit.y); // runs along whichever face was hit

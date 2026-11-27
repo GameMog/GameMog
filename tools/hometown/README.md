@@ -42,6 +42,43 @@ python tools/hometown/compile.py --assemble okemah --window district --frame fra
 python tools/hometown/fetch.py --index                                    # once per Overture release: the file index
 ```
 
+### Test it (a reproducible run)
+
+The tests are plain `unittest` files, one process each, run with the pinned venv's python from the repository root.
+Paths below are relative to the root; `venv/` can live anywhere (the build record names the versions, not the path).
+
+```bash
+# 1. the pinned venv (once): Python 3.14.6 and exactly the four pins, from the hashed lock, wheels only
+python3.14 -m venv venv
+venv/bin/pip install --only-binary :all: --require-hashes -r tools/hometown/requirements.lock
+venv/bin/python tools/hometown/duck.py --install       # duckdb's httpfs + spatial extensions (the only download)
+venv/bin/python -c "import duckdb, numpy, shapely, PIL; print(duckdb.__version__, numpy.__version__, shapely.__version__, PIL.__version__)"
+#    -> 2.0.0 2.5.4 2.2.0 13.0.0 (anything else makes a different buildId: rebuild the venv, never pip install over it)
+
+# 2. the offline tests (synthetic fixtures, no data, no network): every one must pass
+for t in tools/hometown/test_*.py; do venv/bin/python "$t" -q || echo "FAILED $t"; done
+```
+
+The tests that read real towns (`test_frame.py`, `test_assemble_window.py`, `test_tiles_list.py`, `test_mall.py`,
+`test_site_roads.py`, `test_r7.py`, `test_dem_pin.py`) **skip, and say so**, when their data is not there. To run them,
+fetch a test place's regions into a git-ignored folder and point the tests at it (one place is enough; Okemah is the
+smallest; the mall / site-road / r7 tests want Bal Harbour's L4 region `conus:563,648`, fetched the same way with
+`fetch.py --regions "conus:563,648" --data $D/data`):
+
+```bash
+D=.scratch/hometown-test                                                     # any git-ignored folder
+venv/bin/python tools/hometown/fetch.py --index --data $D/data                  # once per Overture release
+venv/bin/python tools/hometown/compile.py --data $D/data --store $D/store --frame okemah --out $D/frame.json
+#    exit 3 with "fetch.py --regions conus:..." on stderr: run that fetch line (with the same --data), then the frame again
+HOMETOWN_TEST_DATA=$D/data HOMETOWN_TEST_STORE=$D/store HOMETOWN_TEST_PLACE=okemah \
+  venv/bin/python tools/hometown/test_frame.py -q                               # (and the other data tests the same way)
+```
+
+The data is open: © OpenStreetMap contributors (ODbL 1.0) via Overture Maps Foundation (CDLA Permissive 2.0 / ODbL by
+theme) and USGS 3DEP (public domain); no account or key. A run's own build is in
+`compile.py --print-build --data $D/data`: two machines with the same pins and the same fetched regions print the same
+buildId, which is what makes a test run (and a town) reproducible.
+
 ### Pre-warm a list of towns (hosting, phase 1)
 
 GameMog's server only serves towns; they are built here, one child process per town, and uploaded. `requirements.txt`
@@ -361,6 +398,11 @@ What OSM maps and Overture carries, read where it is tagged; where it is not, th
   one. Same section and format. On phones the engine brings the town's tree levels nearer (`trees.js TIER_LOD`: the
   Low graphics, `?gfx=phone`, full detail within 52 m and coarse within 210 m; Medium 0.75 of High's), so the extra
   trees cost a phone 4 to 9% more triangles at street level instead of High's 45 to 62%.
+  (r14, engine only) A town's tree field also casts no shadow from a level whose nearest tree is beyond the sun's
+  cascades (their far distance + 60 m: at street level every whole-crown level), and at street level leaves out a
+  tree more than 80 m away and 35 degrees or more outside the side of the view (re-levelled every 15 degrees of
+  turn). Desktop High's draw calls at the test corners come back to r12's (Pittsburgh's corner 440 -> 425, r12 432)
+  with the same trees on screen; `window.NYC.treeTrim = false` turns both off live, for an A/B in one page.
 - `building:levels` was already read (`num_floors`: the height where `height` is missing), and so was `roof_shape` on
   whole buildings. Not read yet: `roof_direction` / `roof_orientation` (fetched; 3% of NYC's parts), `min_floor`.
 

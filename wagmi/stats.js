@@ -10,7 +10,7 @@
 //   time      ms played since the last one, from the start on: only with the tab in view, and not past five minutes
 //             without a key, a click, a touch or the pad. Sent when the tab is hidden or closed, and every 3 minutes
 // No cookie is set and no IP address is kept. Only from mc.gamemog.com, and not from automated browsers or the
-// developer starts and switches (?nointro, ?nogate, ?fight, ?m1= ?m2= ?m3=, ?trailer=only, ?sandbox, ?debug, ?pursuit=,
+// developer starts and switches (?nointro, ?nogate, ?fight, ?m1= ?m2= ?m3= ?m4=, ?trailer=only, ?sandbox, ?debug, ?pursuit=,
 // ?police, ?thrusters=, ?fightrules=). Anywhere else nothing is sent, unless
 // ?statsto=<origin> names a local GameMog (http://localhost:<port> or http://127.0.0.1:<port>), for testing.
 // The hooks call window.mcStat?.(kind, detail). Every step is wrapped: the counts never break or slow the game.
@@ -20,7 +20,7 @@
     let to = '';
     if (location.hostname === 'mc.gamemog.com') {
       if (navigator.webdriver) return;
-      if (['nointro', 'nogate', 'fight', 'fightrules', 'm1', 'm2', 'm3', 'sandbox', 'debug', 'pursuit', 'police', 'thrusters'].some((k) => Q.has(k)) || Q.get('trailer') === 'only') return;
+      if (['nointro', 'nogate', 'fight', 'fightrules', 'm1', 'm2', 'm3', 'm4', 'sandbox', 'debug', 'pursuit', 'police', 'thrusters'].some((k) => Q.has(k)) || Q.get('trailer') === 'only') return;
       to = 'https://gamemog.com';
     } else {
       const s = Q.get('statsto') || '';

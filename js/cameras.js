@@ -46,15 +46,48 @@ if (SCENIC) for (const p of CAMERA_PRESETS) if (SCENIC[p.id]) Object.assign(p, {
 // The follow cameras' lens keeps LENS_PAD m off the buildings (the near plane, 0.35 m out, stays clear of a wall); on
 // foot, LENS_PAD_FOOT (Mog City: the lens a man's height off the pavement had a facade grazing the frame's edge)
 const LENS_PAD = 0.3, LENS_PAD_FOOT = 0.55;
+// (the damage look's sight lines to the crumpled nose keep this far off every box: a town's drawn front stands up to
+// about a metre out from its collision box, probeLook)
+const NOSE_PAD = 1.2;
 // (Mog City) a wall alongside the lens: probes SIDE_A off the view's way either side (wider on a wider lens), SIDE m
 // long, from the lens; a hit edges the view away from it, at most SIDE_MAX rad (keepInView)
 const SIDE_A = 70 * Math.PI / 180, SIDE = 2.2, SIDE_MAX = 0.35;
 // (Mog City) a car's impact spin ridden through (update(): the view keeps its line while the car spins under it and
 // comes round after, at most SPIN_CAP rad behind it, let go at SPIN_BLEED /s but never faster than SPIN_RATE rad/s)
 const SPIN_CAP = 1.2, SPIN_BLEED = 2.6, SPIN_RATE = 1.6;
+// (Mog City, jh-drive) a car's chase view as it turns and slides (its own lens only, entity.chase): the boom trails the
+// turn (DRIVE.lag s of the heading's turn rate, from walking pace to full by DRIVE.vFull m/s) and swings toward the way
+// the car travels when it slides (DRIVE.slide of its slip angle, js/drive-model.js), eased at DRIVE.ease /s; the look
+// point leads into the turn (DRIVE.lead s of the turn rate, at most DRIVE.leadMax rad) and reaches further ahead with
+// speed (DRIVE.far m per m/s, up to DRIVE.farMax), the view's pitch mostly kept (DRIVE.keepPitch). Parked or rolling
+// straight, none of it: the owner's 4 Nov framing as it was. Speed reads in the lens: it widens with speed to cruise
+// (chase.kick), more past it (chase.overKick) and on the boost (chase.boostKick), and the boom comes in by as much as the
+// lens widened up to cruise (DRIVE.hold of it), so the car stays its size on screen while the street stretches past;
+// past cruise and on the boost it is let go a little smaller. A road rumble from DRIVE.rumbleV m/s, more in a slide
+const DRIVE = { lag: 0.07, vFull: 20, slide: 0.55, ease: 5, swingMax: 0.6, lead: 0.16, leadMax: 0.22, far: 0.2, farMax: 7, keepPitch: 0.7, hold: 0.9, rumble: 0.012, rumbleV: 12 };
 // (Mog City) a low thing in the street across the boom (a parked car, a car in traffic, a can: cs.blockers' boxes
 // under OVER_TOP m): the lens rises over it, by the least of these that clears it, before it pulls in or swings round
 const OVER_TOP = 3.5, OVER_LIFTS = [0.5, 1.0, 1.5, 2.0, 2.6];
+// (Mog City) on foot, never straight down on him: walking backwards (S) beside his car, the car across the boom, the
+// lens rose over it with the boom pulled right in and looked down at his feet, the view flipped to a plan from over his
+// head (Jensen Heist's RC playtest, P11). The lens's angle over his chest is held to FOOT_ELEV (50 degrees): it is put
+// out along its own bearing at that angle, as far as that line is clear of what stands round him (at least
+// FOOT_ELEV_MIN m, else the old rise stays, the way out of a corner with no clear way round). Its look is held to
+// FOOT_LOOK (60 degrees) down at most.
+//   footClamp(P, cam, heading, clear) -> { x, y, z } | null   P: his chest; cam: the lens; clear(ux, uy, uz, len): m
+//                                                             of that line from P that is clear; null: leave it be
+const FOOT_ELEV = 0.87, FOOT_ELEV_MIN = 1.6, FOOT_LOOK = 1.05;
+function footClamp(P, cam, heading, clear) {
+  const up = cam.y - P.y;
+  let dx = cam.x - P.x, dz = cam.z - P.z, h = Math.hypot(dx, dz);
+  if (!(up > 0) || Math.atan2(up, h) <= FOOT_ELEV) return null;
+  if (h < 1e-3) { dx = -Math.sin(heading); dz = -Math.cos(heading); h = 1; }
+  const out = up / Math.tan(FOOT_ELEV), L = Math.hypot(out, up);
+  const ux = (dx / h) * (out / L), uy = up / L, uz = (dz / h) * (out / L);
+  const len = Math.min(L, clear(ux, uy, uz, L));
+  if (!(len >= FOOT_ELEV_MIN)) return null;
+  return { x: P.x + ux * len, y: P.y + uy * len, z: P.z + uz * len };
+}
 const wrapA = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 // (Mog City) a follow offset (from the entity) eased toward another in polar form, its yaw and its length, and its
 // height straight: swung round a big turn the boom keeps its length instead of cutting across close to him
@@ -428,28 +461,57 @@ class CameraSystem {
         // long one, and the lens widening with speed and more on the boost, so the car stays big and speed still reads;
         // its shake flat out, below)
         const ch = entity.chase;
-        let dist = ch
-          ? entity.chaseDistance * this.zoomMultiplier + ch.pull * this.smoothedSpeed
-          : entity.chaseDistance * this.zoomMultiplier * (1 + Math.min(0.25, this.smoothedSpeed * 0.01));
-        // (upright: a longer boom, higher, looking lower)
-        const rig = pk ? this.portRig(entity, pk) : null;
-        if (rig) dist *= 1 + rig.pull;
-        let height = entity.chaseHeight * this.zoomMultiplier + Math.sin(this.orbitPitchOffset) * dist * 0.85;
-        if (rig) height += rig.lift * this.zoomMultiplier;
-        const horizDist = Math.cos(this.orbitPitchOffset) * dist + (ch ? 0 : speedLag);
+        // (a car's own lens: wider with speed (see DRIVE), eased; the boom brought in by as much as it widened to cruise)
+        let hold = 1;
+        const wheels = ch && entity.type === 'car' && entity.kind !== 'horse'; // (a horse keeps its own view)
+        // (Mog City, jh-tune2: after a big front crash the lens swings round to the crumpled nose and back, a second and
+        // a bit, wagmi/crash/damage-look.js: yaw rad round the car, pitch up, the boom shorter by pull; null else)
+        const dl = entity.type === 'car' && entity.kind !== 'horse' && this.damageLook && this.damageLook.w > 0 ? this.damageLook : null;
         if (ch) {
-          const kick = ch.kick * Math.min(1, this.smoothedSpeed / ch.vmax) + (entity.boosting ? ch.boostKick : 0);
+          const v = this.smoothedSpeed, over = Math.max(0, Math.min(1, (v - ch.vmax) / Math.max(1, (ch.vtop || ch.vmax * 1.6) - ch.vmax)));
+          const kick = ch.kick * Math.min(1, v / ch.vmax) + (ch.overKick || 0) * over + (entity.boosting ? ch.boostKick : 0);
           this._kick += (kick - this._kick) * (1 - Math.exp(-dt * (kick > this._kick ? 3.0 : 1.4)));
           this.lensFov = ch.fov + this._kick;
           this.camera.fov = this.lensFov;
           this.camera.updateProjectionMatrix();
           this._lens = true;
+          const held = Math.min(Math.max(0, this._kick), ch.kick) * DRIVE.hold, D = Math.PI / 360;
+          if (wheels) hold = Math.tan(ch.fov * D) / Math.tan((ch.fov + held) * D);
         }
+        let dist = ch
+          ? (entity.chaseDistance * this.zoomMultiplier + ch.pull * this.smoothedSpeed) * hold
+          : entity.chaseDistance * this.zoomMultiplier * (1 + Math.min(0.25, this.smoothedSpeed * 0.01));
+        // (upright: a longer boom, higher, looking lower)
+        const rig = pk ? this.portRig(entity, pk) : null;
+        if (rig) dist *= 1 + rig.pull;
+        // (the boom and its height as they stand without the damage look: its probe, probeLook)
+        this._chaseRig = { dist, h0: (entity.chaseHeight * this.zoomMultiplier) * hold + (rig ? rig.lift * this.zoomMultiplier : 0), yaw: totalYaw };
+        if (dl) dist *= 1 - (dl.pull || 0);
+        let height = (entity.chaseHeight * this.zoomMultiplier) * hold + Math.sin(this.orbitPitchOffset + (dl ? dl.pitch || 0 : 0)) * dist * 0.85;
+        if (rig) height += rig.lift * this.zoomMultiplier;
+        const horizDist = Math.cos(this.orbitPitchOffset) * dist + (ch ? 0 : speedLag);
+
+        // (a car's view through its turns and slides: see DRIVE)
+        let boomYaw = totalYaw, lookYaw = totalYaw, far = 0;
+        if (wheels) {
+          const v = Math.abs(entity.speed), k = Math.min(1, v / DRIVE.vFull);
+          const turn = this._carHeading == null || !(dt > 0) ? 0 : wrapA(entity.heading - this._carHeading) / dt;
+          this._carHeading = entity.heading;
+          this._turnRate = (this._turnRate || 0) + (Math.max(-3, Math.min(3, turn)) - (this._turnRate || 0)) * (1 - Math.exp(-dt * 6));
+          const slip = entity.speed > 1 ? Math.atan2(entity.slipV || 0, entity.speed) : 0;
+          const want = Math.max(-DRIVE.swingMax, Math.min(DRIVE.swingMax, -this._turnRate * DRIVE.lag * k + slip * DRIVE.slide));
+          this._swing = (this._swing || 0) + (want - (this._swing || 0)) * (1 - Math.exp(-dt * DRIVE.ease));
+          boomYaw = totalYaw + this._swing;
+          lookYaw = boomYaw + Math.max(-DRIVE.leadMax, Math.min(DRIVE.leadMax, this._turnRate * DRIVE.lead * k));
+          far = Math.min(DRIVE.farMax, this.smoothedSpeed * DRIVE.far);
+        } else { this._swing = 0; this._turnRate = 0; this._carHeading = null; }
+        if (dl) { boomYaw += dl.yaw; lookYaw += dl.yaw; }
+        this._boomYaw = boomYaw;
 
         desiredPos.set(
-          entity.position.x - Math.sin(totalYaw) * horizDist,
+          entity.position.x - Math.sin(boomYaw) * horizDist,
           hills ? entity.position.y + height : Math.max(0.65, entity.position.y + height),
-          entity.position.z - Math.cos(totalYaw) * horizDist
+          entity.position.z - Math.cos(boomYaw) * horizDist
         );
         if (hills) {
           // A hill between the player and the camera shortens the boom: four samples along it, from the player out (Slop
@@ -470,12 +532,22 @@ class CameraSystem {
         // (Mog City: ahead the way the camera faces round him, not the way he faces: dragged round to his front or
         // side, he stays in the middle of the frame)
         const lookUpBias = entity.type === 'helicopter' ? 0.2 : (entity.type === 'car' ? 0.52 : 1.55);
+        // (further ahead at speed, lowered so the view's pitch is mostly the same: see DRIVE)
+        const lookY0 = entity.cameraTargetOffset.y + lookUpBias, ahead = 5.2 + far;
+        const lookY = far > 0 ? lookY0 - (height - lookY0) * (far / (horizDist + 5.2)) * DRIVE.keepPitch : lookY0;
         desiredLook.set(
-          entity.position.x + Math.sin(totalYaw) * 5.2,
-          entity.position.y + entity.cameraTargetOffset.y + lookUpBias,
-          entity.position.z + Math.cos(totalYaw) * 5.2
+          entity.position.x + Math.sin(lookYaw) * ahead,
+          entity.position.y + lookY,
+          entity.position.z + Math.cos(lookYaw) * ahead
         );
         if (rig) desiredLook.y -= rig.drop;
+        // (the damage look: aimed at the crumpled nose, not the road past it)
+        if (dl && dl.aim > 0) {
+          const B = entity.body || { z1: 2.3, top: 1.3 }, nz = (B.z1 || 2.3) * 0.8, k = dl.aim;
+          desiredLook.x += (entity.position.x + Math.sin(entity.heading) * nz - desiredLook.x) * k;
+          desiredLook.y += (entity.position.y + (B.top || 1.3) * 0.5 - desiredLook.y) * k;
+          desiredLook.z += (entity.position.z + Math.cos(entity.heading) * nz - desiredLook.z) * k;
+        }
         break;
       }
 
@@ -676,6 +748,16 @@ class CameraSystem {
         this.camera.position.y += a * (Math.sin(t * 59.7) + 0.5 * Math.sin(t * 97.9));
       }
     }
+    // (the road under it: a low rumble from a jog's pace up, more in a slide; see DRIVE)
+    if (ch && entity.type === 'car' && entity.kind !== 'horse') {
+      const r = Math.max(0, Math.min(1, (this.smoothedSpeed - DRIVE.rumbleV) / 40)) * (1 + 0.8 * (entity.slide || 0) + (entity.hb ? 0.5 : 0));
+      if (r > 0) {
+        const a = DRIVE.rumble * r, t = elapsed ?? performance.now() / 1000;
+        this.camera.position.y += a * (Math.sin(t * 37.1) + 0.6 * Math.sin(t * 23.3 + 1.3));
+        this.camera.position.x += a * 0.5 * Math.sin(t * 29.7 + 0.4) * Math.cos(totalYaw);
+        this.camera.position.z -= a * 0.5 * Math.sin(t * 29.7 + 0.4) * Math.sin(totalYaw);
+      }
+    }
     this.camera.lookAt(this._look);
   }
 
@@ -760,6 +842,44 @@ class CameraSystem {
       if (k > bk + 0.05) { bk = k; best = yaw; }
     }
     return best;
+  }
+
+  // (Mog City, jh-polish A6) the damage look's probe (wagmi/crash/damage-look.js pickView): the chase lens swung yaw rad
+  // round the car (+: to its right) and pitch rad up, the boom shorter by pull: how much of the boom out to it is clear
+  // of the buildings and the street's things (0..1), and whether the crumpled nose is in sight from there (a nose in a
+  // wall seen from the wall's side is not). null when the chase rig has not run yet.
+  probeLook(entity, yaw, pitch = 0, pull = 0) {
+    const R = this._chaseRig;
+    if (!R || !entity || !entity.position) return null;
+    const d = R.dist * (1 - pull), by = R.yaw + yaw;
+    const horiz = Math.cos(this.orbitPitchOffset) * d, height = R.h0 + Math.sin(this.orbitPitchOffset + pitch) * d * 0.85;
+    const E = entity.position, P = this._pivot.set(E.x, E.y + 1.15, E.z);
+    const Q = { x: E.x - Math.sin(by) * horiz, y: E.y + height, z: E.z - Math.cos(by) * horiz };
+    const B = entity.body || { z1: 2.3, top: 1.3, hx: 0.95 }, h = entity.heading, fs = Math.sin(h), fc = Math.cos(h);
+    const near = this.nearBoxes(P, d + 4, entity);
+    let x = Q.x - P.x, y = Q.y - P.y, z = Q.z - P.z, L = Math.hypot(x, y, z);
+    const clear = L < 1e-3 ? 1 : rayClear(P, x / L, y / L, z / L, L, near) / L;
+    // (the nose itself: three points across the front, at its crumple's height, a hand in from its face; the line from
+    // the lens to each, stopping just short of it. A nose in a wall, or behind a ledge it went into, shows from a side
+    // only when two of them are in sight)
+    const nz = (B.z1 || 2.3) - 0.15, ny = E.y + (B.top || 1.3) * 0.45, hx = (B.hx || 0.95) * 0.6;
+    // (here the car's own solids count too: a plaza's raised edge or a fence (carOnly, the lens passes over them) the
+    // nose went into hides it as well as a wall does)
+    const sight = near.map((c) => (c.carOnly ? { ...c, carOnly: false } : c));
+    // (jh-polish2 A6: a town's drawn front stands up to about a metre out from its collision box, so a nose stopped
+    // against the box is inside the drawn wall: each sight line to it has to pass NOSE_PAD m clear of every box, else
+    // that side counts as hidden and the look goes high behind, over the roof (pickView), the way it shows whatever the
+    // wall's drawn depth)
+    const pad = Number.isFinite(this.nosePad) ? this.nosePad : NOSE_PAD;
+    let seen = 0;
+    for (const s of [-1, 0, 1]) {
+      const nx = E.x + fs * nz + fc * hx * s, nzw = E.z + fc * nz - fs * hx * s;
+      x = nx - Q.x; y = ny - Q.y; z = nzw - Q.z; L = Math.hypot(x, y, z);
+      const run = Math.max(0, L - 0.3);
+      if (L < 1e-3 || rayClear(Q, x / L, y / L, z / L, run, sight, pad) >= run - 1e-3) seen++;
+    }
+    const sees = seen >= 2;
+    return { clear, sees };
   }
 
   keepInView(entity, dt) {
@@ -859,8 +979,18 @@ class CameraSystem {
       const fz = Math.cos(entity.heading);
       this._look.lerp(d.set(P.x + fx * 0.8, entity.position.y + 0.2, P.z + fz * 0.8), up * 0.85);
     }
+    // (on foot: never straight down on him, footClamp)
+    if (!car && entity.type === 'person') {
+      const q = footClamp(P, cam, entity.heading, (ux, uy, uz, len) => rayClear(P, ux, uy, uz, len, near, pad));
+      if (q) cam.set(q.x, q.y, q.z);
+      const lx = this._look.x - cam.x, lz = this._look.z - cam.z, lh = Math.hypot(lx, lz);
+      if (Math.atan2(cam.y - this._look.y, lh) > FOOT_LOOK) {
+        if (lh < 0.4) { this._look.x = cam.x + Math.sin(entity.heading) * 0.4; this._look.z = cam.z + Math.cos(entity.heading) * 0.4; }
+        this._look.y = cam.y - Math.tan(FOOT_LOOK) * Math.max(lh, 0.4);
+      }
+    }
   }
 }
 
-Object.assign(window.NYC, { CAMERA_PRESETS, CameraSystem });
+Object.assign(window.NYC, { CAMERA_PRESETS, CameraSystem, footClamp });
 })();

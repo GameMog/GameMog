@@ -16,7 +16,7 @@ import { createPlayerCar } from './playercar.js';
 import { createSteps } from './steps.js';
 import { createMotors } from './motors.js';
 import { warmCrunch } from './crunch.js';
-import { world } from '../world/index.js';
+import { world } from '../world/index.js'; import { importRetry } from '../net.js';
 
 const NOOP = { set() { return NOOP; }, stop() {} };
 
@@ -141,9 +141,11 @@ export function install(W) {
     C.h = h; C.y = c.position.y; C.vx = vx; C.vz = vz;
     const throttle = (+k.forward || 0) - (+k.backward || 0);
     const side = cm.isPointOnSidewalk?.(c.position.x, c.position.z);
-    // (sliding: a handbrake or drift if the car has one, or the sideways slip a knock leaves)
-    const slide = Math.max(c.handbrake || c.drifting ? Math.min(1, Math.abs(c.speed) / 8) : 0, Math.min(1, Math.max(0, (Math.hypot(c.vx || 0, c.vz || 0) - 2) / 6)));
-    return { on, speed: c.speed, throttle, boost: !!k.boost && !c.noBoost, voice: c.noBoost ? c.vclass || 'sedan' : null, latAcc: C.lat, slide, rough: parkAt(c.position.x, c.position.z) ? 0.8 : side ? 0.5 : 0, jolt: on && Math.abs(dy) > 0.05 ? Math.min(1, Math.abs(dy) * 4) : 0 };
+    // (sliding: the handbrake, the tyres' slip past a few degrees (js/drive-model.js c.slip), or the sideways slip a knock
+    // leaves; the squeal's corner pull the tyres' own when it has them, c.latF)
+    const slipK = Math.min(1, Math.max(0, (Math.abs(c.slip || 0) - 0.07) / 0.3)) * Math.min(1, Math.abs(c.speed) / 6);
+    const slide = Math.max(c.hb || c.handbrake || c.drifting ? Math.min(1, Math.hypot(c.speed, c.slipV || 0) / 8) : 0, slipK, Math.min(1, Math.max(0, (Math.hypot(c.vx || 0, c.vz || 0) - 2) / 6)));
+    return { on, speed: c.speed, throttle, boost: !!k.boost && !c.noBoost, voice: c.noBoost ? c.vclass && (c.voice || c.vclass) || 'sedan' : null, latAcc: Number.isFinite(c.latF) ? Math.abs(c.latF) : C.lat, slide, rough: parkAt(c.position.x, c.position.z) ? 0.8 : side ? 0.5 : 0, jolt: on && Math.abs(dy) > 0.05 ? Math.min(1, Math.abs(dy) * 4) : 0 };
   }
 
   let last = performance.now(), inside = -1;
@@ -151,12 +153,14 @@ export function install(W) {
   const cam = { x: 0, z: 0, init: false };
   // (the ride a horse, wagmi/horse: no engine and no cabin; its hoofbeats and its tack from the library's sound packs,
   // fetched now so the first beat is heard. Never imported for a car)
-  const horse = W.car?.kind === 'horse';
+  // (a horse alongside the car, wagmi/game.js the two rides: fetched too; the car entity is a horse only while he rides)
+  const horse = W.car?.kind === 'horse' || !!W.rides?.dual;
+  const onHorse = () => W.car?.kind === 'horse';
   let hooves = null;
-  if (horse) import('../horse/hooves.js').then((m) => { hooves = m.createHooves(W); if (ensure()) import('../library/sounds.js').then((s) => s.preload(M, m.PACKS)); }).catch((err) => console.warn('[audio] hooves', err));
+  if (horse) importRetry(() => import('../horse/hooves.js')).then((m) => { hooves = m.createHooves(W); if (ensure()) importRetry(() => import('../library/sounds.js')).then((s) => s.preload(M, m.PACKS)); }).catch((err) => console.warn('[audio] hooves', err));
   // (and its voice: wagmi/horse/voice.js, the library's horse pack; W.horse.voice for the creatures' roars and tests)
   let voice = null;
-  if (horse) import('../horse/voice.js').then((m) => { voice = m.createVoice(W); W.horseVoice = voice; if (ensure()) import('../library/sounds.js').then((s) => s.preload(M, [m.PACK])); }).catch((err) => console.warn('[audio] horse voice', err));
+  if (horse) importRetry(() => import('../horse/voice.js')).then((m) => { voice = m.createVoice(W); W.horseVoice = voice; if (ensure()) importRetry(() => import('../library/sounds.js')).then((s) => s.preload(M, [m.PACK])); }).catch((err) => console.warn('[audio] horse voice', err));
   function tick(now) {
     requestAnimationFrame(tick);
     const dt = Math.min(0.1, Math.max(0, (now - last) / 1000)); last = now;
@@ -176,7 +180,7 @@ export function install(W) {
       placeT -= dt; if (placeT <= 0) { place(); placeT = 0.25; }
       const P = W.person, c = W.car, inCar = cm.activeMode === 'car';
       // (in a cabin: the street muffled; not on a horse)
-      const cabin = inCar && !horse;
+      const cabin = inCar && !onHorse();
       if (+cabin !== inside) { M.inside(+cabin); inside = +cabin; }
       city.update(dt, where);
       const tr = app.trafficSystem, pe = inCar ? c : P;
@@ -192,11 +196,11 @@ export function install(W) {
       const fy = (b) => (b ? b.matrixWorld.elements[13] - P.position.y : null);
       steps.update(dt, { on: onFoot && !!B, feet: [fy(B?.foot_L), fy(B?.foot_R)], speed: W.directed ? 1.5 : Math.abs(P.speed || 0) || (W.dan?.loco?.speed ?? 0), surface, inAir: Math.abs(P.verticalVel || 0) > 0.5 });
       // the horse's hooves (their heights over its ground), ridden or not
-      if (hooves && c.roadster?.hooves && c.mesh.visible !== false) {
+      if (hooves && onHorse() && c.roadster?.hooves && c.mesh.visible !== false) {
         const S = W.horse?.drive?.S;
         hooves.update(dt, { on: true, hooves: c.roadster.hooves(), base: c.position.y - (S?.jumpY || 0), speed: c.speed || 0, gait: c.roadster.gait, surface: parkAt(c.position.x, c.position.z) ? 'grass' : 'hard', air: !!S?.air, at: c.position });
       }
-      if (voice && c.roadster && c.mesh.visible !== false) {
+      if (voice && onHorse() && c.roadster && c.mesh.visible !== false) {
         const H = W.horse, rs = c.roadster;
         if (H && !H.voice) H.voice = voice;
         voice.update(dt, { mounted: !!H?.mounted, phase: W.ride?.phase || null, gait: rs.gait, speed: c.speed || 0, air: !!H?.drive?.S?.air, one: rs.oneShot?.name || null, rs,

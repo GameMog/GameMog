@@ -204,6 +204,11 @@ function buildRoadPaint(scene, network) {
     };
     const overlaps = (P, Q) => {
       // area of convex P clipped by convex Q (Sutherland-Hodgman) over 0.25 m2
+      // (load-time: quads whose boxes don't meet share no area, the clip below is skipped)
+      let px0 = Infinity, px1 = -Infinity, pz0 = Infinity, pz1 = -Infinity, qx0 = Infinity, qx1 = -Infinity, qz0 = Infinity, qz1 = -Infinity;
+      for (const p of P) { if (p[0] < px0) px0 = p[0]; if (p[0] > px1) px1 = p[0]; if (p[1] < pz0) pz0 = p[1]; if (p[1] > pz1) pz1 = p[1]; }
+      for (const p of Q) { if (p[0] < qx0) qx0 = p[0]; if (p[0] > qx1) qx1 = p[0]; if (p[1] < qz0) qz0 = p[1]; if (p[1] > qz1) qz1 = p[1]; }
+      if (px1 <= qx0 || qx1 <= px0 || pz1 <= qz0 || qz1 <= pz0) return false;
       let out = P;
       let sgn = 0;
       for (let i = 0; i < Q.length; i++) sgn += Q[i][0] * Q[(i + 1) % Q.length][1] - Q[(i + 1) % Q.length][0] * Q[i][1];
@@ -225,6 +230,13 @@ function buildRoadPaint(scene, network) {
     };
 
     const W = CROSSWALK - 0.3;
+    // (load-time: placed crosswalks and bars in a 16 m grid by their box, so each check sees only its neighbours, not
+    // every one in the town)
+    const QC = 16, PG = new Map(), BG = new Map();
+    const qcells = (q, f) => { let a = Infinity, b = -Infinity, c = Infinity, d = -Infinity; for (const [x, z] of q) { if (x < a) a = x; if (x > b) b = x; if (z < c) c = z; if (z > d) d = z; }
+      for (let ix = Math.floor(a / QC); ix <= Math.floor(b / QC); ix++) for (let iz = Math.floor(c / QC); iz <= Math.floor(d / QC); iz++) f(ix * 100000 + iz); };
+    const addQ = (G, q, v) => qcells(q, (k) => { const l = G.get(k); if (l) l.push(v); else G.set(k, [v]); });
+    const anyNear = (G, q, test) => { const seen = new Set(); let hit = false; qcells(q, (k) => { if (hit) return; for (const v of G.get(k) || []) { if (seen.has(v)) continue; seen.add(v); if (test(v)) { hit = true; return; } } }); return hit; };
     const ends = [];
     const stats = { ends: 0, controlled: 0, noClear: 0, onAnother: 0, crosswalks: 0, bars: 0, noBar: 0 };
     for (const [e, back] of roads.values()) {
@@ -254,8 +266,8 @@ function buildRoadPaint(scene, network) {
     // crosswalks: signals first, then the widest roads, the nearest their junction; none on top of one already placed
     const placed = [];
     for (const end of ends.filter((x) => x.xw).sort((p, q) => (q.node.signal ? 1 : 0) - (p.node.signal ? 1 : 0) || q.e.half - p.e.half || p.xw.D - q.xw.D)) {
-      if (placed.some((x) => overlaps(end.xw.q, x.xw.q))) { end.xw = null; stats.onAnother++; }
-      else placed.push(end);
+      if (anyNear(PG, end.xw.q, (x) => overlaps(end.xw.q, x.xw.q))) { end.xw = null; stats.onAnother++; }
+      else { placed.push(end); addQ(PG, end.xw.q, end); }
     }
     const lines = new Map(), bars = new Map(), crosswalks = [], gaps = new Map();
     const barQuads = [];
@@ -271,8 +283,8 @@ function buildRoadPaint(scene, network) {
         let D = end.xw ? Math.max(end.xw.D + W / 2 + 1.25, fb + 0.35) : firstClear(f, node, fb + 0.35, end.Dmax + 1.6, left, f.half);
         if (D !== null) {
           const s = sAt(f, node, D), q = quad(f, s, left + 0.1, f.half - 0.1, 0.45);
-          if (placed.some((x) => x.rk !== end.rk && overlaps(q, x.xw.q)) || barQuads.some((x) => x.rk !== end.rk && overlaps(q, x.q))) D = null;
-          else barQuads.push({ rk: end.rk, q });
+          if (anyNear(PG, q, (x) => x.rk !== end.rk && overlaps(q, x.xw.q)) || anyNear(BG, q, (x) => x.rk !== end.rk && overlaps(q, x.q))) D = null;
+          else { const bq = { rk: end.rk, q }; barQuads.push(bq); addQ(BG, q, bq); }
         }
         bars.set(f, D === null ? null : sAt(f, node, D));
         stats[D === null ? 'noBar' : 'bars']++;
@@ -295,6 +307,7 @@ function buildRoadPaint(scene, network) {
     // (stage 0, compiler 0.13: OSM's mid-block crossings, GEO.streetProps kind 5: a crosswalk across the road the node
     // stands on, where it keeps clear of every crosswalk and stop bar placed above)
     const SP = window.NYC.GEO.streetProps || [];
+    const LOW_DECK = 3.5; // (m: a deck's underside this near the ground over a crossing leaves it out)
     stats.midBlock = 0;
     for (let i = 0; i + 2 < SP.length; i += 3) {
       if (SP[i + 2] !== 5) continue;
@@ -309,9 +322,17 @@ function buildRoadPaint(scene, network) {
       if (s < 1 || s > f.len - 1) continue;
       const [l, r] = curbs(f, s).map((c) => Math.min(c, f.half + 0.3));
       if (l + r < 2) continue;
+      // (r14) not where a deck runs low over it (a ramp's foot: from above its road covers half the zebra, under it a
+      // car's roof clears it by a hand; Pittsburgh's Penn-Lincoln ramp at (-2042, 1006), 2.4 m up)
+      const G = window.NYC.GradeSeparation;
+      if (G && G.roofAt && T && T.loaded && [-l, 0, r].some((o) => {
+        const [px, pz] = at(f, s, o), g = T.groundAt(px, pz);
+        const top = G.roofAt(px, pz, g + 0.3);
+        return Number.isFinite(top) && top - g < LOW_DECK;
+      })) { stats.underDeck = (stats.underDeck || 0) + 1; continue; }
       const q = quad(f, s, -l, r, W);
-      if (placed.some((p) => overlaps(q, p.xw.q)) || barQuads.some((p) => overlaps(q, p.q))) continue;
-      placed.push({ xw: { q } });
+      if (anyNear(PG, q, (p) => overlaps(q, p.xw.q)) || anyNear(BG, q, (p) => overlaps(q, p.q))) continue;
+      { const pe = { xw: { q } }; placed.push(pe); addQ(PG, q, pe); }
       crosswalks.push([f, s, l, r]);
       stats.midBlock++;
       // (the lane and centre lines of its road, both ways, stop 0.5 m short of it either side)

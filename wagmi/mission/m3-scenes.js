@@ -42,7 +42,7 @@ export const SPOT = {
 export const ESCAPE_CAR = [9.5, 2745.3, PI / 2];
 
 /* ------------------------------------------------------------ helpers -- */
-function poser(W, C) {
+export function poser(W, C) {
   const Q = W.dan, P = W.person, cm = W.app.controllerManager;
   const ub = UPRIGHT_BONES.map((n) => Q.bones[n]).filter(Boolean), ub0 = ub.map((b) => b.quaternion.clone());
   return {
@@ -83,14 +83,15 @@ function armTo(W, side, target, pole, w = 1) {
 // (28 Oct: it floated over an open hand with splayed fingers), the opening's grip (wagmi/intro.js): the wrist reached to
 // where the hand holds the phone there, the hand turned palm to the phone's back and across it, the fingers curled round
 // its far edge, the thumb on the glass by its near edge; the phone then glued to the hand
-function holdPhone(W, phone, h, k) {
+// (at: where it is held from his eyes, { fwd, down, side } m; by default low in front of his chest, read in a seat)
+export function holdPhone(W, phone, h, k, at = null) {
   const B = W.dan.bones; if (!B.head) { phone.visible = false; return; }
   const K = keepHand(B);
   if (k <= 0.001) { phone.visible = false; wroteHand(K); return; }
   W.person.mesh.updateMatrixWorld(true);
   const F = V(Math.sin(h), 0, Math.cos(h)), R = V(-Math.cos(h), 0, Math.sin(h));
   const eye = B.head.getWorldPosition(V()).add(V(0, 0.07, 0)).addScaledVector(F, 0.08);
-  const P = eye.clone().addScaledVector(F, 0.3).add(V(0, -0.27, 0)).addScaledVector(R, 0.05);
+  const A = at || { fwd: 0.3, down: 0.27, side: 0.05 }, P = eye.clone().addScaledVector(F, A.fwd).add(V(0, -A.down, 0)).addScaledVector(R, A.side);
   const z = eye.clone().sub(P).normalize(), y = V(0, 1, 0).addScaledVector(z, -z.y).normalize().applyAxisAngle(z, GRIP.roll), x = V().crossVectors(y, z).normalize();
   const sh = B.upperarm01_R.getWorldPosition(V());
   gripPhone(W, phone, P, x, y, z, sh.clone().add(V(0, -1, 0)).addScaledVector(R, 0.5).addScaledVector(F, -0.3), k);
@@ -118,7 +119,7 @@ function keepHand(B) {
   return K;
 }
 const wroteHand = (K) => { for (const s of K) (s.wrote ||= new THREE.Quaternion()).copy(s.b.quaternion); };
-function releasePhone(W) { const B = W.dan?.bones, K = B && handKeep.get(B); if (!K) return; for (const s of K) { if (s.wrote && s.b.quaternion.equals(s.wrote)) s.b.quaternion.copy(s.clean); s.wrote = null; } }
+export function releasePhone(W) { const B = W.dan?.bones, K = B && handKeep.get(B); if (!K) return; for (const s of K) { if (s.wrote && s.b.quaternion.equals(s.wrote)) s.b.quaternion.copy(s.clean); s.wrote = null; } }
 // two-bone reach for any chain (the thumb), the middle joint toward the world point pole, by weight
 function chainTo(b1, b2, b3, target, pole, w) {
   const q1 = b1.quaternion.clone(), q2 = b2.quaternion.clone();
@@ -250,20 +251,22 @@ export function garageScene(W, { U, say, gears, garage }) {
   const at = (f, r, y) => [QX + F[0] * f + Rr[0] * r, G + y, QZ + F[1] * f + Rr[1] * r];
   const T = { inside: 3.6, ring: Infinity, up: null, down: null };
   let ps = null, talkUntil = 0, gearsUp = false;
+  // (the dialogue pass, round 2: eight lines, no briefing. The party's place and the camp in one line of Jane's, the reel
+  // shown, not told (Dan's read of it is the joke), and Gears closes on his thrusters and what Dan is there for (round 3:
+  // his name back); the call still rings on line 3, Fiona's feed on 4, the hang-up on 7 (Gears' close, his single)
   const LINES = [
-    ['Gears', GOLD, 'Cold-gas thrusters. Little puffs of nitrogen. Very safe. Mostly.'],
+    ['Gears', GOLD, 'Cold-gas thrusters. Very safe. Mostly.'],
     ['Dan', WHITE, 'Define mostly.'],
-    ['Gears', GOLD, "I tested them on my van. Van's fine. It's on the roof now."],
-    ['Jane', BLUE, "Dan. Are you watching this? JPBank's throwing a party in Washington Square."],
-    ['Fiona', PINK, 'JPBank loves New York! Free hot dogs! Free tote bags!'],
-    ['Jane', BLUE, 'Right next to the Occupy camp. Now look at their screens.'],
-    ['Jane', BLUE, "It's you. Ten feet tall, three times. 'The bad apple.'"],
-    ['Dan', WHITE, "I'm going to go unplug it."],
-    ['Gears', GOLD, 'Go get your name back, kid.'],
+    ['Gears', GOLD, "I tested them on my van. It's on the roof now."],
+    ['Jane', BLUE, 'Dan. You watching this?'],
+    ['Fiona', PINK, 'JPBank loves New York! Free tote bags!'],
+    ['Jane', BLUE, "That's Washington Square, right by the camp. Now look at the screens."],
+    ['Dan', WHITE, 'Wow. My good side.', { how: 'deadpan', pause: 0.6 }],
+    ['Gears', GOLD, 'Thrusters are on the house, kid. Go get your name back.', { how: 'warm' }],
   ];
   const OTS = { cam: (t, t0) => ({ pos: drift(at(-1.7, 0.72, 1.86), at(-1.55, 0.68, 1.84), 5)(t, t0), look: at(1.5, 0.22, 1.36), fov: 42, shake: 0.3 }) };
   const def = {
-    END: Infinity, exposure: null,
+    END: Infinity, exposure: null, room: 'garage',
     shots: [
       // W 22nd St at midday: the garage's sign, its door half up
       { t: 0, cam: (t, t0) => ({ pos: drift([GX - 12.5, 1.9, GZ - 14.5], [GX - 11, 2.1, GZ - 13.2], 4)(t, t0), look: drift([GX + 0.4, 3.3, GZ], [GX, 3.0, GZ], 4)(t, t0), fov: 46, shake: 0.4 }) },
@@ -276,8 +279,7 @@ export function garageScene(W, { U, say, gears, garage }) {
       // (Jane's two: over his shoulder onto the phone, the shared broadcast in view: the camp, then the reel close)
       { line: 5, t: Infinity, cam: (t, t0) => ({ pos: drift(at(-1.62, 0.7, 1.85), at(-1.4, 0.64, 1.83), 4)(t, t0), look: at(1.5, 0.22, 1.36), fov: 38, shake: 0.3 }) },
       { line: 6, t: Infinity, cam: (t, t0) => ({ pos: drift(at(-1.05, 0.5, 1.79), at(-0.92, 0.46, 1.77), 4)(t, t0), look: at(1.5, 0.22, 1.36), fov: 30, shake: 0.3 }) },
-      { line: 7, t: Infinity, cam: (t, t0) => ({ pos: drift(at(2.9, -1.7, 1.7), at(2.6, -1.6, 1.68), 4)(t, t0), look: at(0, 0, 1.45), fov: 38, shake: 0.3 }) },
-      { line: 8, t: Infinity, cam: (t, t0) => ({ pos: drift([GX - 1.0, GY + 1.5, GZ + 4.3], [GX - 1.05, GY + 1.5, GZ + 4.45], 3)(t, t0), look: [SPOT.gears[0], GY + 1.42, SPOT.gears[1]], fov: 34, shake: 0.3 }) },
+      { line: 7, t: Infinity, cam: (t, t0) => ({ pos: drift([GX - 1.0, GY + 1.5, GZ + 4.3], [GX - 1.05, GY + 1.5, GZ + 4.45], 3)(t, t0), look: [SPOT.gears[0], GY + 1.42, SPOT.gears[1]], fov: 34, shake: 0.3 }) },
     ],
     cues: [
       [0.3, () => { ui.title('ACT II · INSIDERS', 'Occupied', 2.8); sfx?.play('stinger', { gain: 0.35 }); W.audio?.play?.('missionStart'); }],
@@ -562,8 +564,8 @@ export function dumpScene(W, { say, fiona, rally, suv }) {
         rally.camp?.mic(true);
         say([
           ['Bea', BEA, 'Mic check!'], ['Camp', CAMP, 'Mic check!'],
-          ['Bea', BEA, 'Anybody the bank hates this much...'], ['Camp', CAMP, 'Anybody the bank hates this much!'],
-          ['Bea', BEA, '...is somebody we should hear out!'], ['Camp', CAMP, 'Free Dan! Free Dan! Free Dan!'],
+          ['Bea', BEA, 'Who does the bank hate this much?'], ['Camp', CAMP, 'Who does the bank hate this much?'],
+          ['Bea', BEA, 'Him! So we hear him out!'], ['Camp', CAMP, 'Free Dan! Free Dan!'],
         ], st, (who, i) => {
           // ("Free Dan!": back to face the screens, all of them)
           if (i === 5) rally.camp?.mic(false);
@@ -630,7 +632,7 @@ export function homeScene(W, { say, gears, garage }) {
     ['Gears', GOLD, "Ha. Room's upstairs, kid. Get some sleep."],
   ];
   const def = {
-    END: Infinity,
+    END: Infinity, room: 'garage',
     shots: [
       { t: 0, cam: (t, t0) => ({ pos: drift([GX - 10, 2.3, 1596.5], [GX - 9, 2.2, 1597.5], 5)(t, t0), look: [GX - 0.2, 1.5, 1608.5], fov: 40, shake: 0.4 }) },
       { line: 1, t: Infinity, cam: () => ({ pos: [gx - 0.5, G + 1.65, gz - 0.9], look: [qx, G + 1.55, qz], fov: 34, shake: 0.3 }) },

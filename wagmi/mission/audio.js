@@ -95,6 +95,18 @@ export function createAudio() {
       const n = noise(brownBuf), nl = filt('lowpass', 900), ng = gain(0); n.connect(nl); nl.connect(ng); env(ng, t, 0.1, v * 0.5, dur); n.start(t); n.stop(t + dur + 0.1);
       g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.12); g.gain.setValueAtTime(v, t + dur * 0.75); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     },
+    // a shredder over the phone (Mission 4): its grinding drum (saw and gritty noise, a lumpy chop), and with down:
+    // true, the motor spinning down to nothing (its pitch and the chop falling away over dur)
+    shred({ gain: v = 0.22, dur = 2.6, down = false } = {}) {
+      const t = now(), bp = filt('bandpass', 700, 0.9), g = gain(0); bp.connect(g);
+      const chop = osc('square', 9), cg = ctx.createGain(); cg.gain.value = 0.45; const mod = ctx.createGain(); mod.gain.value = 0.55; chop.connect(cg); cg.connect(mod.gain); bp.connect(mod); mod.connect(g);
+      for (const [m, d] of [[1, 0], [1.5, 9]]) { const o = osc('sawtooth', 62 * m); o.detune.value = d; if (down) o.frequency.exponentialRampToValueAtTime(14 * m, t + dur); o.connect(bp); o.start(t); o.stop(t + dur + 0.1); }
+      const n = noise(), nf = filt('bandpass', 1800, 0.7), ng = ctx.createGain(); ng.gain.value = 0.6; n.connect(nf); nf.connect(ng); ng.connect(bp); n.start(t); n.stop(t + dur + 0.1);
+      if (down) chop.frequency.exponentialRampToValueAtTime(0.8, t + dur);
+      chop.start(t); chop.stop(t + dur + 0.1);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.15);
+      if (down) g.gain.exponentialRampToValueAtTime(0.0001, t + dur); else { g.gain.setValueAtTime(v, t + dur - 0.3); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); }
+    },
     // the sliding door: a rolling rattle along the rail, the latch, the thud at the end of travel
     doorSlide({ gain: v = 0.4, dur = 0.55 } = {}) {
       // (the rattle: the envelope, then a gain that a square wave swings between 0.1 and 1, so the level stays the envelope's)
@@ -137,6 +149,15 @@ export function createAudio() {
       for (let r = 0; r < times; r++) notes.forEach((f, i) => {
         const t = t0 + r * 1.5 + i * 0.12, o = osc('sine', f), o2 = osc('triangle', f * 4), g = gain(0, pan(0.1)), g2 = gain(0); o.connect(g); o2.connect(g2); g2.connect(g); send(g, 0.15);
         env(g, t, 0.004, v, 0.26); env(g2, t, 0.002, 0.3, 0.04); o.start(t); o.stop(t + 0.32); o2.start(t); o2.stop(t + 0.1);
+      });
+    },
+    // a river bridge's warning bell (Chicago's bascules, runner.js STEPS.bridge): a struck bell, its inharmonic partials,
+    // clanged `times` times `every` s apart, off to one side
+    bell({ gain: v = 0.3, times = 6, every = 0.55 } = {}) {
+      const t0 = now();
+      for (let r = 0; r < times; r++) [[1, 1, 1.1], [2.71, 0.45, 0.55], [5.37, 0.2, 0.28], [0.5, 0.25, 1.4]].forEach(([m, a, d]) => {
+        const t = t0 + r * every, o = osc('sine', 742 * m), g = gain(0, pan(-0.35)); o.connect(g); send(g, 0.35);
+        env(g, t, 0.002, v * a, d); o.start(t); o.stop(t + d + 0.05);
       });
     },
     // a notification: two soft notes

@@ -1,0 +1,7 @@
+{
+ "design": "Male, about 30 years old, American, a light tenor voice in a normal adult range, a grown man's voice, nervous and quick, speaks softly so nobody overhears, dry and apologetic, close-mic, clean dry studio audio, natural and conversational, not an announcer.",
+ "seed": 2934,
+ "refText": "Okay. Keep walking, and don't look at me. Three years on this door and nobody has ever looked at me twice. That's the whole trick, honestly. Sorry. I talk when I'm nervous.",
+ "take": 0,
+ "model": "Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16"
+}

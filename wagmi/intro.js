@@ -28,7 +28,7 @@ import { createMrBig } from './mission/mrbig.js';
 import { createDirector, keys, angleKeys, spline, travel, rig, odometer, masked, handheld, clamp, smooth, lerp, ease, shotAspect, shotFov } from './mission/cine.js';
 import { createFace } from './face.js';
 import { createTrailer } from './trailer.js';
-import { S as story } from './story/index.js';
+import { S as story } from './story/index.js'; import { importRetry } from './net.js';
 
 const Q = new URLSearchParams(location.search);
 const PI = Math.PI;
@@ -42,6 +42,13 @@ export const MARK = {
 };
 // the speakers' colours
 const WHITE = '#FFFFFF', ACID = '#B6FF3B', BLUE = '#6CB8FF', YELLOW = '#FFC93C';
+// (the owner, 15 Nov: the cutscenes "robotic, stiff". Two stretches of the opening run a little slower than its keyed
+// clock, [from, to, k] in keyed seconds: the Suit's hello, whose first line had been sped up 15 % to fit, and Mr. Big's
+// call, his lines end to end with no room for the beat before "You ran errands". Everything in them, the picture, the
+// people and the subtitles, keeps its keyed times; only the clock under them is slower, the voices not, so each line
+// has k times its room. 3.0 s longer in all. The voice build fits the lines to the same real clock: radio/build/voices.mjs)
+const SLOW = [[25.6, 31.5, 1.18], [50.0, 69.3, 1.1]];
+const slowAt = (t) => { for (const [a, b, k] of SLOW) if (t >= a && t < b) return k; return 1; };
 
 export async function install(W) {
   // Dan's face (wagmi/face.js, 23 Oct round 3): his mouth with his own lines, blinks, his eyes on whom he talks to
@@ -50,11 +57,11 @@ export async function install(W) {
   // (the sandbox's mode keys 1-4 are for the developers: F gets in and out of the car)
   // (not while the stall help is up: its options are on the number keys, and it keeps the city's from them itself)
   addEventListener('keydown', (e) => { if (/^Digit[1-4]$/.test(e.code) && !Q.has('sandbox') && !document.body.classList.contains('wg-offering')) e.stopImmediatePropagation(); }, true);
-  // (?m2= and ?m3= start their missions straight in, as ?nointro: mission/m2.js, m3.js)
-  if (Q.has('nointro') || Q.get('m2') || Q.get('m3')) {
+  // (?m2=, ?m3= and ?m4= start their missions straight in, as ?nointro: mission/m2.js, m3.js, m4.js)
+  if (Q.has('nointro') || Q.get('m2') || Q.get('m3') || Q.get('m4')) {
     document.getElementById('wg-boot')?.remove(); outBesideCar(W);
     // (the city can still pick its own start, in the car, after this: out beside it again once the city is up)
-    if (Q.has('nointro') && !Q.get('m2') && !Q.get('m3')) (async () => { for (let i = 0; i < 600 && !W.app.ready; i++) await new Promise((r) => setTimeout(r, 100)); if (W.app.controllerManager.activeMode !== 'person') outBesideCar(W); })();
+    if (Q.has('nointro') && !Q.get('m2') && !Q.get('m3') && !Q.get('m4')) (async () => { for (let i = 0; i < 600 && !W.app.ready; i++) await new Promise((r) => setTimeout(r, 100)); if (W.app.controllerManager.activeMode !== 'person') outBesideCar(W); })();
     return;
   }
   const ui = (W.ui = createUI()), sfx = (W.sfx = createAudio());
@@ -64,7 +71,7 @@ export async function install(W) {
   // story mode from the first frame: the sandbox's toolbar, telemetry and default route put away (not after the blend)
   ui.story(true); document.body.classList.add('wg-onfoot'); W.app.mapSystem.waypoint = null; W.app.mapSystem.onTeleport = null;
   W.set = dressSet(W);
-  const m1 = await import('./mission/m1.js');
+  const m1 = await importRetry(() => import('./mission/m1.js'));
   // (on foot by his door from the start, out of sight: the game's 'F · Get out' prompt has no business over the gate)
   if (!Q.get('m1')) { place(W, { dan: [112, 386.7, 0] }); W.person.mesh.visible = false; }
   if (Q.get('m1')) { await m1.start(W, { at: Q.get('m1') }); return; }
@@ -76,11 +83,11 @@ export async function install(W) {
   // once, while the city still loads: a start made before it is ready waits for it, and the trailer follows by itself
   // (onStart in the tap, or at once for a start the title kept: the mixer's context, made then or handed the one the
   // title's tap woke, index.html, and the opening's)
-  const save = Q.has('nogate') ? null : await import('./mission/m3-save.js').then((m) => (m.readSave() ? m : null)).catch(() => null);
+  const save = Q.has('nogate') ? null : await importRetry(() => import('./mission/m3-save.js')).then((m) => (m.readSave() ? m : null)).catch(() => null);
   // (a first visit's start: 'Starting…' stays on the gate until the cold open can run at once, rather than a black
   // screen while its music still comes down: hold, set below once the opening's cast is under way)
   let roll = null;
-  const gateOpts = { when: () => W.app.ready, onStart: () => { window.mcStat?.('start'); W.audio?.unlock?.(); sfx.unlock(); }, hold: () => roll?.() ?? null, fine: 'Community entertainment project. Have fun!' };
+  const gateOpts = { when: () => W.app.ready, onStart: () => { window.mcStat?.('start'); window.mcPerf?.mark('gate'); W.audio?.unlock?.(); sfx.unlock(); }, hold: () => roll?.() ?? null, fine: 'Community entertainment project. Have fun!' };
   const gate = Q.has('nogate') ? null : save ? save.saveGate(ui, gateOpts) : ui.gate(gateOpts);
   // the cold open (wagmi/trailer.js; ?trailer=0 leaves it out): its music fetched from when Dan is in (game.js), black
   // on the tap once it can play, played on this set before the opening
@@ -120,7 +127,7 @@ export function outBesideCar(W) {
 export function place(W, { car, dan }) {
   const cm = W.app.controllerManager, c = W.car, p = W.person;
   if (car) {
-    c.position.set(car[0], 0, car[1]); c.heading = car[2]; c.speed = 0; c.vx = c.vz = c.angularVel = c.steerAngle = 0;
+    c.position.set(car[0], cm.getGroundHeight ? cm.getGroundHeight(car[0], car[1], 'car') || 0 : 0, car[1]); c.heading = car[2]; c.speed = 0; c.vx = c.vz = c.slipV = c.angularVel = c.steerAngle = 0; // (y: on the ground under it, a hometown's street is not at 0)
     c.mesh.position.copy(c.position); c.mesh.rotation.y = c.heading;
   }
   if (dan) {
@@ -1209,7 +1216,7 @@ function buildScript(ctx) {
   const duck = keys([[35.95, 1], [36.05, 0.3], [36.95, 0.3], [37.6, 1]]);
   function frame(dt) {
     const seek = Math.abs(t - lastT) > 0.5 || lastT < 0;
-    const sdt = seek ? 0 : dt * rate;
+    const sdt = seek ? 0 : dt * rate / slowAt(t);
     if (seek) eyeS = null;
     // the van
     const vp = vanAt(t);
@@ -1401,8 +1408,8 @@ function buildScript(ctx) {
     W._holdCam?.release(0); W._holdCam = null;
     // (no frame once it has finished: one more would pose him again, phone grip and all, and wake the scene's clips
     // under the game's own)
-    W.directed = (dt) => { if (playing) { t = Math.min(END, t + dt * rate); if (t >= END) return finish(); } D.framed = true; frame(dt); };
-    D.onFrame = (dt) => { if (playing) { t = Math.min(END, t + dt * rate); if (t >= END) return finish(); } frame(dt); };
+    W.directed = (dt) => { if (playing) { t = Math.min(END, t + dt * rate / slowAt(t)); if (t >= END) return finish(); } D.framed = true; frame(dt); };
+    D.onFrame = (dt) => { if (playing) { t = Math.min(END, t + dt * rate / slowAt(t)); if (t >= END) return finish(); } frame(dt); };
     D.take();
     ui.cine(true);
     document.body.classList.add('wg-hidehint');

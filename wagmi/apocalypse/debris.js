@@ -13,7 +13,7 @@
 import * as THREE from 'three/webgpu';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { libModel } from '../storyrun/setkit.js';
-import { world } from '../world/index.js';
+import { world } from '../world/index.js'; import { textureLoad } from '../net.js';
 
 const RADIUS = 230, RELAY = 45;
 const hashI = (n) => { let t = (n + 0x6D2B79F5) >>> 0; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
@@ -214,7 +214,7 @@ function shadowTexture() {
 }
 const SETS = new URL('../../assets/sets/', import.meta.url).href;
 function surface(id) {
-  const L = new THREE.TextureLoader(), load = (f, srgb) => { const t = L.load(SETS + id + '/' + f); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace; t.anisotropy = 4; return t; };
+  const L = new THREE.TextureLoader(), load = (f, srgb) => { const t = textureLoad(L, SETS + id + '/' + f); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace; t.anisotropy = 4; return t; };
   return { map: load('color.jpg', true), normalMap: load('normal.jpg', false), roughnessMap: load('roughness.jpg', false) };
 }
 

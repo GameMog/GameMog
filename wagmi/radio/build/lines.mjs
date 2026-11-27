@@ -1,6 +1,7 @@
 // Mog City: the game's spoken lines, read out of its own source (Node, for the voice build and the line sheet).
 //   wagmi/intro.js        the opening's LINES: ['Speaker', COLOUR, from, to, 'text'] (timed to the cutscene's clock)
-//   wagmi/mission/*.js    say([...]) lines: ['Speaker', COLOUR, 'text', pause?], and ui.sub('Speaker', 'text', ...);
+//   wagmi/mission/*.js    say([...]) lines: ['Speaker', COLOUR, 'text', pause?], the 4th a number or a beat
+//                         { pause, pre, post, overlap, how } (radio/turns.js), and ui.sub('Speaker', 'text', ...);
 //                         a line said from a list, ['Mack', ACID, barks[i]], is each string of that file's
 //                         `const barks = ['...', ...]` (Mack's barks in m2.js)
 //   wagmi/mission/calls.js  Jane's car calls (CALLS), read after the missions (so a line a call took over from a mission
@@ -33,7 +34,7 @@ export function readLines(root) {
   const block = intro.match(/const LINES = \[([\s\S]*?)\n\s*\];/);
   if (block) {
     const re = new RegExp(String.raw`\[\s*(${STR})\s*,\s*[A-Z_]+\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*(${STR})\s*\]`, 'g');
-    for (const m of block[1].matchAll(re)) add('intro', lit(m[1]), lit(m[4]), { window: [+m[2], +m[3]] });
+    for (const m of block[1].matchAll(re)) add('intro', lit(m[1]), lit(m[4]), { window: [+m[2], +m[3]], file: 'intro.js' });
   }
   // the missions, file by file in name order (m1, m2, ...), each in source order; the car calls last
   const dir = path.join(root, 'wagmi/mission');
@@ -41,12 +42,14 @@ export function readLines(root) {
   for (const f of files) {
     const src = fs.readFileSync(path.join(dir, f), 'utf8'), scene = f.replace(/\.js$/, '').replace(/-.*$/, ''); // (m2-scenes.js: m2)
     const calls = f === 'calls.js' ? callBlocks(src) : null;
-    const re = new RegExp(String.raw`\[\s*(${STR})\s*,\s*(?:[A-Z_]+|${STR})\s*,\s*(${STR})\s*(?:,\s*[\d.]+\s*)?\]|ui\.sub\(\s*(${STR})\s*,\s*(${STR})`, 'g');
+    const re = new RegExp(String.raw`\[\s*(${STR})\s*,\s*(?:[A-Z_]+|${STR})\s*,\s*(${STR})\s*(?:,\s*([\d.]+|\{[^{}\[\]]*\})\s*)?\]|ui\.sub\(\s*(${STR})\s*,\s*(${STR})`, 'g');
     for (const m of src.matchAll(re)) {
-      const speaker = lit(m[1] || m[3]), text = lit(m[2] || m[4]);
+      const speaker = lit(m[1] || m[4]), text = lit(m[2] || m[5]);
+      // (a beat's delivery, { how: 'urgent' }: the voice build makes the line in it)
+      const how = m[3] && m[3][0] === '{' ? /\bhow\s*:\s*'([a-z]+)'/.exec(m[3])?.[1] : undefined;
       // (speakers are names: 'Dan', 'Jane', 'Mr. Big'; anything else in that shape is not a line)
       if (!/^[A-Z][A-Za-z .']{0,23}$/.test(speaker) || !/[a-z!?]/i.test(text) || text.length < 2) continue;
-      if (!calls) { add(scene, speaker, text); continue; }
+      if (!calls) { add(scene, speaker, text, { file: f, ...(how ? { how } : {}) }); continue; }
       const c = calls.find((b) => m.index > b.at && m.index < b.end);
       if (!c) { add('calls', speaker, text, { call: '*', part: 'shared', register: 'normal' }); continue; }
       const part = keysAt(src, c.body, m.index + 1).join('.');

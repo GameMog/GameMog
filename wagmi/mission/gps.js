@@ -236,7 +236,7 @@ export function createGPS(W) {
       ms.waypoint = p ? { x: p.x, z: p.z, name: t.name || '' } : null;
       gps.update(true);
     },
-    clear() { gps.to(null); gps.unblip('dest'); },
+    clear() { gps.to(null); gps.unblip('dest'); }, warm() { return walkGraph().ms; }, // (warm: the walking graph built ahead, under a story mission's card, not on its first drive's frame: jh-polish4 A4)
     // the objective and its route together (the rule: a new objective, a new route)
     objective(parts, t = null, { blip = true, secs } = {}) {
       W.ui?.objective(parts, secs);
@@ -273,7 +273,8 @@ export function createGPS(W) {
       if (force || moved || swap || !gps.route || t0 - gps.lastPlan > 1000 || offRoute(p.x, p.z, gps.route) > 25) {
         gps.lastPlan = t0; gps._to = { x: t.x, z: t.z }; gps._foot = foot;
         // (a horse rides a one-way street either way, as a man walks it: the walking route, never round the block)
-        const r = foot && dist(p, t) < FOOT_LINE && lineClear(p, t) ? null : foot ? planWalk({ x: p.x, z: p.z }, t) : W.car?.kind === 'horse' ? planWalk({ x: p.x, z: p.z }, t, true) : plan({ x: p.x, z: p.z }, t, ent.heading);
+        // (in the air, Mission 4's helicopter: the straight line, never the streets)
+        const r = cm.activeMode === 'helicopter' || (foot && dist(p, t) < FOOT_LINE && lineClear(p, t)) ? null : foot ? planWalk({ x: p.x, z: p.z }, t) : W.car?.kind === 'horse' ? planWalk({ x: p.x, z: p.z }, t, true) : plan({ x: p.x, z: p.z }, t, ent.heading);
         // (still on the route it had, a new plan much longer is not taken: crossing a junction straight on, a cross
         // street's lane can look like the way he is going for a moment, and the line must not flick round a block)
         const old = !force && !moved && !swap && r && gps.route && gps.route.length > 2 && offRoute(p.x, p.z, gps.route) < 10 ? onFrom(gps.route, p.x, p.z) : null;
@@ -330,7 +331,7 @@ export function createGPS(W) {
   // the stall watch (see the top): headway is the route getting shorter; the time is play time (the clock stops in the
   // pause menu, and a cutscene starts it over)
   const stall = (() => {
-    let best = Infinity, since = 0, stuckT = 0, lastT = 0, offered = false, noted = false;
+    let best = Infinity, since = 0, stuckT = 0, lastT = 0, offered = false, noted = false, mine = null, mineWhy = null, mineL = Infinity, goingT = 0; const trail = []; // (trail: [t ms, route length], the last STUCK_LOOK s, stuckShows())
     const S = {
       reset(all = false) { best = Infinity; since = now(); stuckT = 0; if (all) { offered = false; noted = false; } },
       step(still = true) {
@@ -343,10 +344,19 @@ export function createGPS(W) {
         // (stuck: the car's own signal when it has one, the one its 'X · Reset car to road' prompt uses: the pedal held,
         // the car going nowhere; else the pedal down with it stood still)
         if (W.carStuck) stuckT = inCar ? W.carStuck() : 0;
-        else stuckT = inCar && (k.forward || k.backward) && Math.abs(car?.speed || 0) < 1.2 ? stuckT + dt : Math.max(0, stuckT - dt * 2);
+        else stuckT = inCar && (k.forward || k.backward) && Math.abs(car?.speed || 0) < 1.2 ? stuckT + dt : Math.max(0, stuckT - dt * 2); trail.push([t, L]); while (trail.length > 2 && t - trail[1][0] > STUCK_LOOK * 1000) trail.shift(); const gain = trail.length && Number.isFinite(trail[0][1]) && Number.isFinite(L) ? trail[0][1] - L : 0, spd = Math.abs(car?.speed || 0);
+        // (the help taken down once it no longer fits: 'Stuck?' when the car has been going again for a second (driven
+        // free, or put back on the road); 'Need a hand?' once the route is getting shorter again. Colter Land's WR-3, 17
+        // Nov: 'Stuck? The car is going nowhere' stayed up its whole 14 s at 34 mph; FL-7's at 16 mph: stuckShows(), STUCK_MPS)
+        { const up = W.ui?.offering?.(); if (mine && up !== mine) mine = null; if (!mine && up && up.title === 'Stuck?') { mine = up; mineWhy = 'stuck'; } } // (any 'Stuck?' up is taken down once he moves)
+        if (mine) {
+          const going = mineWhy === 'stuck' ? !inCar || spd > STUCK_MPS : L < mineL - 25;
+          goingT = going ? goingT + dt : 0;
+          if (goingT > (mineWhy === 'stuck' ? 0.3 : 0)) { W.ui.offer(null); mine = null; }
+        }
         if (offered) return;
         if (t - since > 50000) S.offer('lost');
-        else if (stuckT > 4 && W.recoverCar) S.offer('stuck');
+        else if (stuckT > 4 && W.recoverCar && stuckShows(spd, gain)) S.offer('stuck');
       },
       // the help itself: what fits him now
       offer(why) {
@@ -357,7 +367,9 @@ export function createGPS(W) {
         if (inCar && W.recoverCar) opts.push({ key: String(opts.length + 1), label: W.car?.kind === 'horse' ? `Put ${W.car.label || 'my horse'} back on the road` : 'Put my car back on the road', run: () => { W.recoverCar?.(); S.reset(); } });
         if (M && W.ui?.pause?.restartCurrent) opts.push({ key: String(opts.length + 1), label: 'Restart the checkpoint', run: () => W.ui.pause.restartCurrent() });
         if (!opts.length) return;
+        mineWhy = why; mineL = gps.length || Infinity; goingT = 0;
         ui.offer({ title: why === 'stuck' ? 'Stuck?' : 'Need a hand?', note: why === 'stuck' ? (W.car?.kind === 'horse' ? `${W.car.label || 'The horse'} is going nowhere.` : 'The car is going nowhere.') : null, options: opts });
+        mine = ui.offering?.() || null;
         if (!noted && gps.stallNote && why === 'lost') { noted = true; const [from, text] = gps.stallNote; W.sfx?.play?.('buzz', { gain: 0.14, times: 1 }); W.audio?.play?.('phoneBuzz'); ui.dm(from, text, 8); }
       },
       // the way, again: his own waypoint away, the route planned afresh, the objective's line up, the place's blip pulsing
@@ -476,7 +488,9 @@ export function createGPS(W) {
     const wp = ms.waypoint; if (gps.dest || gps.user || blips.size) ms.waypoint = null;
     const ground = (cm.getActiveEntity().position.y || 0) < 25;
     if (ground && (gps.dest || gps.user || blips.size)) {
-      zoom += ((cm.activeMode === 'person' ? FOOT : GROUND) - zoom) * 0.06;
+      // (jh-drive round 2: in the car, out with its speed as the city's radar does: js/drive-model.js radarZoom)
+      const DM = window.NYC && window.NYC.DriveModel, sz = DM && cm.activeMode === 'car' ? DM.radarZoom(cm.getActiveEntity().speed) : 1;
+      zoom += ((cm.activeMode === 'person' ? FOOT : GROUND / sz) - zoom) * 0.06;
       ms.miniScale = (zoom - 0.08 * GROUND) / 0.92;
     } else zoom = ms.miniScale;
     miniOrig(); ms.waypoint = wp;
@@ -530,3 +544,10 @@ export function createGPS(W) {
   };
   return gps;
 }
+
+// the stuck offer ('Stuck? The car is going nowhere'): only with the car under STUCK_MPS (about 5 mph) and the route no
+// more than STUCK_GAIN m shorter over the last STUCK_LOOK s. The car's own signal (game.js stuckClock: the pedal held,
+// under 2.5 m from where it was 1.5 s ago) fired at FL-7's roadblock as the car pulled away, and the panel stood over
+// it at 16 mph (day audit, 22 Nov). Plain, for the tests: stuckShows(speed m/s, metres gained toward the target)
+export const STUCK_MPS = 2.2, STUCK_GAIN = 3, STUCK_LOOK = 4;
+export const stuckShows = (speed, gain) => Math.abs(+speed || 0) < STUCK_MPS && !((+gain || 0) > STUCK_GAIN);

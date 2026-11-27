@@ -40,7 +40,7 @@ const L = {
   'intro-dan-did-the-ceo-of': 'Did my own CEO just ask me to plead guilty?',
   'intro-dan-okay-you-framed-the': 'Right. Wrong guy to frame.',
   'm1-knox-told-you-to-check': 'We sent you a memo. You never read the memo.',
-  'm1-dan-been-a-little-busy': 'I was busy being framed.',
+  'm1-dan-busy-getting-framed': 'Busy being framed.',
   'm1-knox-nothing-personal-kid-its': "It's just business, kid. Very personal business.",
   'm1-knox-this-is-a-performance': 'Consider this your annual review! It is going badly!',
   'm1-jane-dan-why-is-your': "{dan}, why is your laptop speeding down Fifth Avenue?",

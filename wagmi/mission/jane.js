@@ -442,7 +442,7 @@ export function createJaneRoom(W, J) {
 // (the sheet loaded once, ahead of the first call: until it is in, the feed stays clear and what the card had under it
 // shows, her initial; it is never an empty square)
 let sheetImg = null;
-const sheetReady = () => { if (!sheetImg) { sheetImg = new Image(); sheetImg.src = SHEET.url; } return sheetImg.complete && sheetImg.naturalWidth > 0; };
+const sheetReady = () => { if (!sheetImg) { sheetImg = new Image(); /* (again if the server was busy: js/net-retry.js) */ sheetImg.onerror = () => globalThis.mcNet?.imageRetry(SHEET.url, null).then((im) => { sheetImg = im; }, () => {}); sheetImg.src = SHEET.url; } return sheetImg.complete && sheetImg.naturalWidth > 0; };
 if (typeof window !== 'undefined') sheetReady();
 // (her eyes sit this far down a frame: the tile's crop is centred on them)
 const EYES = 0.45;

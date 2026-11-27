@@ -28,14 +28,13 @@
 //   return  'Go back to the garage.'  Jane calls                                               checkpoint 'return'
 //   home    (a scene) Gears at the door: "in one piece." "Mostly."
 //   then MISSION PASSED (TIME, SCREENS SMASHED, SUITS DOWN, HITS TAKEN, SUPPORTERS +11,240, NEW: bats · cold-gas
-//   thrusters), the save, Rook's DM, and the END OF EPISODE 1 card (episode.js: keep exploring, replay a mission,
-//   share the game; MISSION 4 · COMING SOON). No Mission 4 yet: in free roam after it, Rook's R at Sara D. Roosevelt
-//   Park is the Mission 4 teaser, labelled so (its sign: MISSION 4 COMING SOON), never "a new mission is available"
+//   thrusters), the save, Rook's DM, and his R at Sara D. Roosevelt Park: Mission 4 (mission/m4.js), whose end has
+//   the END OF EPISODE 1 card now
 // Fails: 'Dan got knocked out.', 'You left the fight.', 'The Suits caught you.' Retry, Quit, Skip (after three).
 // Into the G in the dark (Mission 2 ends at dusk), the night in the garage comes first: on the couch, lights out, NEXT
 // MORNING, the sun through the door (m3-scenes.js nightScene); the city's light goes night, then sunrise, then midday.
 // URL: ?m3=garage|square|rigs|escape|return (and handoff: the G at night; night: straight into the night in the
-// garage; rook: the R after it; end: the END OF EPISODE 1 card at the garage, as the mission leaves him).
+// garage; rook: the R after it; end: the END OF EPISODE 1 card, Mission 4's now, shown at the garage).
 import * as THREE from 'three/webgpu';
 import { place, getCast } from '../intro.js';
 import { createGPS } from './gps.js';
@@ -49,9 +48,9 @@ import { buildChevron } from './m2-set.js';
 import { buildRally, buildGarage, buildSUV, buildFiona, buildGears, ARCH, ARENA, GARAGE, SUV_AT } from './m3-set.js';
 import { garageScene, nightScene, rallyScene, dumpScene, homeScene, SPOT, ESCAPE_CAR } from './m3-scenes.js';
 import { watchStory, markDone } from './m3-save.js';
-import { episodeEnd, openMissionSelect } from './episode.js';
 import { clamp } from './cine.js';
 import { S as story } from '../story/index.js';
+import { playTurns, beatOf } from '../radio/turns.js'; import { importRetry } from '../net.js';
 
 const PI = Math.PI;
 const WHITE = '#FFFFFF', BLUE = '#6CB8FF', ACID = '#B6FF3B', PINK = '#FF8AD8', BEA = '#FFB86B', CAMP = '#E8D9B0';
@@ -300,11 +299,11 @@ export async function start(W, { at = 'garage', keep = false } = {}) {
 }
 
 /* ----------------------------------------------------- between missions -- */
-// the way to a mission (GTA's): its contact's letter on the radar, the route, the corona where it starts; no reminders
+// the way to a mission: its contact's letter on the radar, the route, the corona where it starts; no reminders
 // on a timer: after a genuine stall the GPS offers real help once (gps.js), with one gentle line (note); a sign over
 // the corona if it has one (sign: [big, small])
 // (carR: how near a stopped car counts as in it: the curb lane by a door on the building line is ~7.5 m off)
-function between(W, { letter, at, name, objective, note = null, onArrive, radius = 2.2, carR = radius + 4.5, sign = null }) {
+export function between(W, { letter, at, name, objective, note = null, onArrive, radius = 2.2, carR = radius + 4.5, sign = null }) {
   const app = W.app, cm = app.controllerManager, P = W.person, car = W.car, ui = W.ui;
   const gps = W.gps || (W.gps = createGPS(W));
   ui?.step?.('free:' + letter);
@@ -345,7 +344,7 @@ function between(W, { letter, at, name, objective, note = null, onArrive, radius
     if (!inCar && Math.hypot(car.position.x - P.position.x, car.position.z - P.position.z) > 25) gps.blip('car', { x: car.position.x, z: car.position.z, kind: 'car', edge: true, name: car.label || "Dan's car" });
     else gps.unblip('car');
     const d = Math.hypot(p.x - at.x, p.z - at.z);
-    if (!arrived && (inCar ? d < carR && Math.abs(car.speed) < 3 : d < radius && Math.abs(p.y - gy) < 1.2)) { arrived = true; onArrive?.(B); }
+    if (!arrived && (inCar ? d < carR && Math.hypot(car.speed, car.slipV || 0) < 3 : d < radius && Math.abs(p.y - gy) < 1.2)) { arrived = true; onArrive?.(B); }
     if (d > Math.max(radius + 6, carR + 1.5)) arrived = false;
   })();
   W.between?.stop(); W.between = B;
@@ -363,33 +362,22 @@ export function toGarage(W, { quick = false } = {}) {
   });
   if (!quick) W.ui?.help(['A new mission is available. Go to the ', { G: 'yellow' }, ' on the Radar.'], 9);
 }
-// after Mission 3 (Episode 1 over): Rook's R at Sara D. Roosevelt Park, where Mission 4 will start. A teaser, labelled
-// as one everywhere it shows (the objective, the blip's name, the sign over the corona): no stall nudges toward it, and
-// never "a new mission is available" (there isn't one yet). quick: no help line with it (the save's Continue)
-// The drive's call (mission/calls.js 'm4-teaser', once a session): rings when he's rolling in his car on the R's step
+// after Mission 3: Rook's R at Sara D. Roosevelt Park; into its corona, Mission 4 (mission/m4.js). quick: no help line
+// with it (the save's Continue)
+// The drive's call (mission/calls.js 'm4-handoff', once a session): rings when he's rolling in his car on the R's step
 // ('free:R'), wraps 120 m from the bench
 export function toRook(W, { quick = false } = {}) {
-  // (Jane on the car phone on the way, once a session: mission/calls.js 'm4-teaser', its wrap 120 m from the bench)
-  W.calls?.auto('free:R', 'm4-teaser', { wrapR: 120 });
+  W.calls?.auto('free:R', 'm4-handoff', { wrapR: 120 });
   between(W, {
-    letter: 'R', at: R_AT, name: 'Mission 4 (coming soon) · Sara D. Roosevelt Park',
-    objective: [{ 'Mission 4': 'yellow' }, ' is coming soon. It starts at ', { "Rook's": 'blue' }, ' bench.'],
-    sign: ['MISSION 4', 'COMING SOON'],
-    onArrive: () => { W.ui?.place('Sara D. Roosevelt Park', 'Lower East Side · New York', 3); W.ui?.help(['Mission 4 is coming soon. ', { Rook: 'blue' }, ' will meet you here.'], 9); },
+    letter: 'R', at: R_AT, name: 'Rook · Sara D. Roosevelt Park', carR: 9,
+    objective: ['Meet ', { Rook: 'blue' }, ' at ', { 'Sara D. Roosevelt Park': 'yellow' }, '.'],
+    note: ['Jane', "rook's bench is in sara roosevelt park, the R on your radar. he said come alone."],
+    onArrive: (b) => { b.stop(); importRetry(() => import('./m4.js')).then((m) => m.start(W, { at: 'bench' })).catch((e) => console.error('[m4]', e)); },
   });
-  if (!quick) W.ui?.help(['Free roam. ', { 'Mission 4': 'yellow' }, ' is coming soon: its ', { R: 'yellow' }, ' on the Radar is a teaser.'], 8);
+  if (!quick) W.ui?.help(['A new mission is available. Go to the ', { R: 'yellow' }, ' on the Radar.'], 9);
 }
-// the END OF EPISODE 1 card (episode.js) after secs, then: free roam with the teaser's P, or the pause menu's Mission
-// select (the P set too, for a Resume without a replay)
-export async function endEpisode(W, { secs = 0 } = {}) {
-  if (secs) await sleep(secs * 1000);
-  W.ui?.dm?.(null); W.ui?.help?.(null);
-  const choice = await episodeEnd(W);
-  if (W.mission?.running) return choice;
-  if (choice === 'replay') { toRook(W, { quick: true }); openMissionSelect(W); }
-  else toRook(W);
-  return choice;
-}
+// (the END OF EPISODE 1 card is Mission 4's now: mission/m4.js endEpisode; kept here for ?m3=end and old callers)
+export async function endEpisode(W, opts = {}) { return (await importRetry(() => import('./m4.js'))).endEpisode(W, opts); }
 
 /* ---------------------------------------------------------- the mission -- */
 function createMission(W, { keep = false, quiet = false } = {}) {
@@ -422,22 +410,21 @@ function createMission(W, { keep = false, quiet = false } = {}) {
     talking++;
     try { await sayLines(lines, t, onLine); } finally { talking--; }
   }
+  // (each held as long as its voice, or its reading time with none, and handed over as the beat says: radio/turns.js)
+  function mumble(who, text, secs) {
+    if (!VOICE[who] || W.voice?.speaks?.(who, text)) return;
+    const parts = text.match(/[^.?!]+[.?!']*/g) || [text]; let a = 0;
+    for (const ph of parts) { const n = ph.trim().length; if (n) setTimeout(() => sfx?.play('mumble', { f0: VOICE[who] * (0.96 + Math.random() * 0.08), dur: Math.min(0.5, Math.max(0.2, 0.1 + n * 0.02)), gain: 0.24, q: /\?/.test(ph) }), a * 1000 + 30); a += ph.length / text.length * secs; }
+  }
   async function sayLines(lines, t, onLine) {
-    for (let i = 0; i < lines.length; i++) {
-      const [who, color, words, pause = 0.25] = lines[i];
-      if (t.dead) break;
-      // (the words as the story has them: wagmi/story)
-      const text = story.line(who, words);
-      const secs = Math.max(1.4, text.length / 15, (W.voice?.dur?.(who, text) || 0) + 0.15);
-      ui.sub(who, text, color); onLine?.(who, i);
-      if (VOICE[who] && !W.voice?.speaks?.(who, text)) {
-        const parts = text.match(/[^.?!]+[.?!']*/g) || [text]; let a = 0;
-        for (const ph of parts) { const n = ph.trim().length; if (n) setTimeout(() => sfx?.play('mumble', { f0: VOICE[who] * (0.96 + Math.random() * 0.08), dur: Math.min(0.5, Math.max(0.2, 0.1 + n * 0.02)), gain: 0.24, q: /\?/.test(ph) }), a * 1000 + 30); a += ph.length / text.length * secs; }
-      }
-      const talk = setInterval(() => { if (who === 'Jane' && U.call.on) U.call.talk(0.5 + Math.random() * 0.5); }, 90);
-      await gsleep(secs * 1000); clearInterval(talk);
-      ui.sub(null); await gsleep(pause * 1000);
-    }
+    await playTurns(W, lines.map(([who, color, words, b]) => ({ who, color, text: story.line(who, words), ...beatOf(b) })), {
+      dead: () => t.dead, sleep: gsleep, hide: () => ui.sub(null),
+      show: ({ who, text, color }, i, secs) => {
+        ui.sub(who, text, color); onLine?.(who, i); mumble(who, text, secs);
+        const talk = setInterval(() => { if (who === 'Jane' && U.call.on) U.call.talk(0.5 + Math.random() * 0.5); }, 90);
+        return () => clearInterval(talk);
+      },
+    });
   }
   const objective = (parts, target = null) => {
     if (gps.objective) gps.objective(parts, target, { blip: !!target && !target.follow });
@@ -684,10 +671,10 @@ function createMission(W, { keep = false, quiet = false } = {}) {
         if (!called && now() > callAt) { called = true; W.calls?.start('m3-square', { delay: 0, wrapWhen: () => dist(me(), ARCH.x, ARCH.z) < 250 || at5th(me()), hurryWhen: () => dist(me(), ARCH.x, ARCH.z) < 400 }); }
       });
       // (there: by the arch, or stopped on 5th Ave's last stretch in front of it, or on foot near it)
-      try { await wait(() => { const p = me(), d = dist(p, ARCH.x, ARCH.z); return d < 26 || ((d < 60 || at5th(p)) && (!inCar() || Math.abs(car.speed) < 6)); }); }
+      try { await wait(() => { const p = me(), d = dist(p, ARCH.x, ARCH.z); return d < 26 || ((d < 60 || at5th(p)) && (!inCar() || Math.hypot(car.speed, car.slipV || 0) < 6)); }); }
       finally { off(); drive.stop(); pr.stop(); }
       // (there before Jane has told him how to kill the reel: the arrival waits for her, in the car)
-      if (inCar()) { car.speed = 0; car.vx = car.vz = 0; car.angularVel = 0; }
+      if (inCar()) { car.speed = 0; car.vx = car.vz = car.slipV = 0; car.angularVel = 0; }
       endCall('m3-square');
       if (!up) await spawnRally();
     },
@@ -1017,7 +1004,7 @@ function createMission(W, { keep = false, quiet = false } = {}) {
       // carries on); her wrap 150 m from the door, once her protected lines are said; no new extra block inside 300 m
       W.calls?.start('m3-return', { wrapWhen: () => dist(me(), door.x, door.z) < 150, hurryWhen: () => dist(me(), door.x, door.z) < 300 });
       const off = hook(() => { drive.step(); });
-      try { await wait(() => { const d = dist(me(), door.x, door.z); return inCar() ? d < 7 && Math.abs(car.speed) < 20 : d < 2.6; }); if (inCar()) { car.speed = 0; car.vx = car.vz = 0; car.angularVel = 0; } }
+      try { await wait(() => { const d = dist(me(), door.x, door.z); return inCar() ? d < 7 && Math.hypot(car.speed, car.slipV || 0) < 20 : d < 2.6; }); if (inCar()) { car.speed = 0; car.vx = car.vz = car.slipV = 0; car.angularVel = 0; } }
       finally { off(); drive.stop(); m.hide(); app.scene.remove(m.group); }
       // (there before she's said her piece: the home scene waits for her, in the car)
       endCall('m3-return');
@@ -1074,9 +1061,9 @@ function createMission(W, { keep = false, quiet = false } = {}) {
     await gsleep(4500);
     sfx?.play('buzz', { gain: 0.18, times: 2 }); sfx?.play('ding', { gain: 0.14 }); W.audio?.play?.('phoneBuzz');
     ui.dm('Unknown number', "it's rook. you saw the chat. i'm driving your laptop to the shredder at dawn. i was in that crowd today. i'm done. meet me tonight at sara roosevelt park. come alone. -R", 13);
-    // (the DM read, then the end of the episode: its card, and free roam after it)
+    // (the DM read, then the way on: Rook's R, Mission 4. The END OF EPISODE 1 card comes after Mission 4 now)
     await gsleep(5500);
-    await endEpisode(W);
+    toRook(W);
   }
 
   /* ------------------------------------------------------- the runner -- */

@@ -50,6 +50,7 @@ import climate  # noqa: E402
 from sources import Sources, blocks_for, MissingRegion  # noqa: E402
 import rects as rects_mod  # noqa: E402
 import looks  # noqa: E402
+import massing as massing_mod  # noqa: E402
 import cores as cores_table  # noqa: E402
 import shapely.ops  # noqa: E402
 
@@ -116,7 +117,12 @@ import shapely.ops  # noqa: E402
 # locality point of 1,580 big places, by GEOID) is centred on the strongest downtown centre round that core instead
 # (assemble.downtown_box); every other place keeps its box byte for byte and no tile changes; the table's sha256 is in
 # the build record (`cores`)
-COMPILER_VERSION = '0.14.0'
+# 0.15.0 (Chicago's buildings): a plain tall outline (a tower with no parts, no min_height, no roof shape, no holes) is
+# drawn as the massing of its kind (massing.py, ported from manhattan-free-roam, MIT): a masonry tower's setback, an
+# art-deco tower's wedding cake with a copper pyramid on half of them, a glass tower's podium and plant-floor crown;
+# each tier a part, minH its base; the record's new last field `seed` (a hash of the building's row id) gives every
+# record of a building (its parts, its tiers) one look, stable when other records come and go
+COMPILER_VERSION = '0.15.0'
 OVERTURE_RELEASE = '2026-10-21.0'
 TILE, TCM = grid.TILE, grid.TILE_CM
 SIGNAL_REACH = 15.0  # m (stage 0): an OSM traffic_signals node this near a junction, on one of its approaches, signals it
@@ -427,7 +433,9 @@ BFIELDS = ['base', 'roof', 'peak', 'ringStart', 'ringCount', 'theta', 'massStart
            # v4 (appended): what it is, its roof, walls / colours (Overture's when present, else 0: the engine's region
            # palette), the road side (degrees in the session frame, -1 none) and its distance (0.25 m), the base above
            # the ground (parts, canopies)
-           'kind', 'roofShape', 'wall', 'wallRGB', 'roofRGB', 'front', 'frontDist', 'minH']
+           'kind', 'roofShape', 'wall', 'wallRGB', 'roofRGB', 'front', 'frontDist', 'minH',
+           # 0.15.0 (appended): the building's look seed (a hash of its row id, shared by its parts and tiers), 0 none
+           'seed']
 CIVIC = {'church', 'cathedral', 'chapel', 'mosque', 'synagogue', 'temple', 'school', 'university', 'college', 'hospital', 'public',
          'civic', 'government', 'post_office', 'library', 'fire_station', 'police', 'train_station', 'museum', 'courthouse', 'townhall'}
 SHOPS = {'retail', 'commercial', 'supermarket', 'kiosk', 'shop'}
@@ -941,6 +949,28 @@ def shape_building(W, r, rec, near, downtown):
                        'facade': FACADES.index(plk['facade']) if plk['facade'] and ph >= 18 else 0, 'wallRGB': plk['wallRGB'], 'roofRGB': plk['roofRGB']})
         if pg and unary_union([q['g'] for q in pg]).intersection(wg).area >= 0.9 * wg.area:
             rec['parts'] = pg
+    # (0.15.0) a plain tall outline gets the massing of its kind (massing.py, ported from manhattan-free-roam): a tower
+    # with no parts, no min_height, no roof shape, no holes and no landmark's or public building's class is drawn as
+    # tiers, each a part (minH its base) of one look (seed: every tier hashes as the building in the engine)
+    if (kind == 'tower' and not plist and not rec['parts'] and minh <= 0 and not rs and rh is None and len(wg.interiors) == 0
+            and btype != 'landmark' and cls not in CIVIC):
+        kh = lambda i: hash01(rec['gx'] // 100, rec['gs'] // 100, 900 + i)  # noqa: E731
+        fac = FACADES[rec['facade']] if rec['facade'] else ''
+        style = massing_mod.style_of(h, fac, kh)
+        tiers = massing_mod.massing(Polygon(wg.exterior), h, style, kh)
+        if tiers:
+            pg = []
+            for t, q in enumerate(tiers):
+                g = q['g']
+                qpts = neg_ring(list(g.exterior.coords))
+                qth = theta  # (every tier in the building's turn: an inset outline's own dominant side could twist it)
+                qc, qrs = rects_mod.rect_cover(qpts, qth)
+                pg.append({'id': '%s~m%d' % (r['id'], t), 'g': g, 'h': q['h'], 'minH': q['m'], 'theta': qth, 'rects': qrs if qc >= 0.9 else [],
+                           'roofShape': ROOF_SHAPES.index('pyramidal') if q.get('roofH') else 0, 'roofH': q.get('roofH', 0.0),
+                           'wall': rec['wall'], 'facade': FACADES.index('glass') if style == 'glass' else FACADES.index('stone'),
+                           'wallRGB': rec['wallRGB'], 'roofRGB': q.get('roofRGB') or rec['roofRGB'], 'tier': 1, 'crown': q.get('crown', 0)})
+            rec['parts'], rec['massing'] = pg, style
+            rec['podium'] = 0.0
 
 
 def part_roof(px, ph, pmin, half, height_given):
@@ -2027,13 +2057,21 @@ class World:
         if self.deck_iv(p) is None:
             return None
         G = self.deck_group(p)
-        return self.memo(self.deck_c, G['ckey'], lambda: self._group_profiles(G, False))[self.pkey(p)]
+        got = self.memo(self.deck_c, G['ckey'], lambda: self._group_profiles(G, False))
+        if self.pkey(p) not in got:
+            # (a group whose least member keys another group's solve (a split L4 class re-cut at L3, Chicago's river
+            # decks): solved under its whole member set instead; every town that compiled before is unchanged)
+            got = self.memo(self.deck_c, (G['ckey'], tuple(sorted(G['members']))), lambda: self._group_profiles(G, False))
+        return got[self.pkey(p)]
 
     def deck_base(self, p):
         """The deck's profile solved with its group alone (no deck of another group under it): what a deck of a group
         ranked lower reads, so no two groups ever wait on each other."""
         G = self.deck_group(p)
-        return self.memo(self.base_c, G['ckey'], lambda: self._group_profiles(G, True))[self.pkey(p)]
+        got = self.memo(self.base_c, G['ckey'], lambda: self._group_profiles(G, True))
+        if self.pkey(p) not in got:
+            got = self.memo(self.base_c, (G['ckey'], tuple(sorted(G['members']))), lambda: self._group_profiles(G, True))
+        return got[self.pkey(p)]
 
     def _group_profiles(self, G, base):
         members, free = G['members'], G['free']
@@ -2731,7 +2769,10 @@ def _compile_tile(Wd, c, r, dem_files):
         mrec = lambda q: [cm(q[0]) - c * TCM, cm(q[1]) - r * TCM, cm(q[2]), cm(q[3])]  # noqa: E731
         common = {'shops': rec['shops'], 'type': BTYPES.index(rec['btype']), 'palette': rec['pal'], 'fromOverture': 1 if rec['heightFromOverture'] else 0,
                   'downtown': 1 if rec['downtown'] else 0, 'kind': KINDS.index(rec['kind']), 'front': rec['front'], 'frontDist': rec['frontDist'],
-                  'row': rec['row'], 'frontW': round(rec['frontW'], 1), 'bays': rec['bays'], 'podium': rec['podium']}
+                  'row': rec['row'], 'frontW': round(rec['frontW'], 1), 'bays': rec['bays'], 'podium': rec['podium'],
+                  # (0.15.0) the building's look seed, a hash of its row id: its parts and massing tiers share it, and a
+                  # building keeps its look when records are added or dropped round it (the engine hashed the index)
+                  'seed': (zlib.crc32(str(rec['id']).encode()) & 0xffffff) | 1}
         if rec['parts']:
             # (drawn as its parts, in part id order; the parent's outline is not emitted)
             for q in sorted(rec['parts'], key=lambda q: q['id']):
@@ -2741,10 +2782,12 @@ def _compile_tile(Wd, c, r, dem_files):
                     bverts += [cm(x) - c * TCM, cm(z) - r * TCM]
                 # (stage 0: a part with a pitched roof tag: its walls to the eave, the roof up to its top; else flat)
                 qe = q['h'] - q.get('roofH', 0.0)
+                # (0.15.0, a massing tier: its base over the footprint's rise as its walls' top is, so the tiers stack)
+                qmin = q['minH'] + (rise if q.get('tier') and q['minH'] > 0 else 0.0)
                 bout.append(dict(common, id=q['id'], parent=rec['id'], base=cm(base), roof=cm(base + rise + qe),
                                  peak=cm(base + rise + q['h'] + (0.0 if q.get('roofH') else 0.6)),
                                  ringStart=start, ringCount=len(qp), theta=round(q['theta'], 4), stories=max(1, int(round((qe - q['minH']) / 3.4))),
-                                 roofShape=q.get('roofShape', 0), minH=cm(q['minH']), masses=[mrec(m) for m in q['rects']], podium=0,
+                                 roofShape=q.get('roofShape', 0), minH=cm(qmin), masses=[mrec(m) for m in q['rects']], podium=0,
                                  **_looks_out(q)))
             continue
         start = len(bverts) // 2

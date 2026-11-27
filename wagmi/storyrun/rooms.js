@@ -11,6 +11,7 @@
 import * as THREE from 'three/webgpu';
 import { SURF, lettering, drawing, photo, painting } from './setkit.js';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+import { stage } from './stage-room.js';
 
 const PI = Math.PI;
 
@@ -547,4 +548,10 @@ function alley(K, def) {
   };
 }
 
-export const ROOMS = { 'bank-office': bankOffice, school, hideout, pizzeria, apartment, garage, steps, park, lobby, plaza, alley };
+// an arena's keynote stage, from the floor (stage-room.js): the LED wall, the truss's light and haze, the house
+export const ROOMS = { 'bank-office': bankOffice, school, hideout, pizzeria, apartment, garage, steps, park, lobby, plaza, alley, stage };
+
+// (the desk things and the banker's lamp, for the video-call offices: offices.js)
+export { bankersLamp, mug, folders, penPot };
+// (the outdoor ground and the street tree, for the video calls' outdoor offices: offices.js lot and green)
+export { outdoors, tree };

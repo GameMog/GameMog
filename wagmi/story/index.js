@@ -20,9 +20,10 @@
 //   S.result(mission, secs)  a mission passed, told to a framing GameMog (below)
 //   S.id · S.hash · S.isDefault · S.ok · S.pack
 import { validatePack } from './schema.js';
+import { upgradePack } from './upgrade.js';
 import { dress as dressModel } from './dress.js';
 import { makeStory, KNOBS, html } from './make.js';
-import { allowed, hostOf, GAMEMOG } from './allow.js';
+import { allowed, hostOf, GAMEMOG } from './allow.js'; import { fetchRetry } from '../net.js';
 
 const q = new URLSearchParams(location.search);
 const LOCAL = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
@@ -33,8 +34,9 @@ async function sha256(text) {
     return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, '0')).join('');
   } catch { return null; }
 }
-// (no redirects followed: the address checked is the address read; and the response's own url checked again)
-const getText = async (url) => { const r = await fetch(url, { credentials: 'omit', redirect: 'error' }); if (!r.ok) throw new Error(`${r.status} ${url}`); if (r.url && r.url !== String(url)) throw new Error('redirected'); const t = await r.text(); if (t.length > 400000) throw new Error('too large'); return t; };
+// (no redirects followed: the address checked is the address read; and the response's own url checked again. A busy
+// answer asked again, a network error (the redirect refused, a CORS refusal) not: a bad ?story= falls back at once)
+const getText = async (url) => { const r = await fetchRetry(url, { credentials: 'omit', redirect: 'error' }, { network: false }); if (!r.ok) throw new Error(`${r.status} ${url}`); if (r.url && r.url !== String(url)) throw new Error('redirected'); const t = await r.text(); if (t.length > 400000) throw new Error('too large'); return t; };
 
 // the story calls with no pack: everything as written
 function passThrough(why) {
@@ -58,7 +60,8 @@ async function loadStory() {
     else {
       try {
         const [t, lim] = await Promise.all([getText(url), getText(new URL('../../assets/story/limits.json', import.meta.url)).then(JSON.parse)]);
-        const p = JSON.parse(t), v = validatePack(p, base, lim);
+        // (a pack made on an older default: its retired ids brought up to this one first, upgrade.js)
+        const p = upgradePack(JSON.parse(t), base, lim), v = validatePack(p, base, lim);
         if (v.ok) { pack = p; text = t; id = new URL(url).pathname.replace(/^\/|\/story\.json$/g, '').replace(/^tools\/story\/test-packs\//, 'test/').replace(/\.json$/, ''); }
         else { ok = false; why = 'invalid: ' + v.errors.slice(0, 3).join('; '); }
       } catch (err) { ok = false; why = err.message; }

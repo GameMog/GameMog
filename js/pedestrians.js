@@ -989,6 +989,11 @@ const LEG_COLORS_F = [0x1c1c22, 0x30496b, 0x22304a, 0x46413b, 0xcbc4b7, 0x4a2a2e
 const IRIS_COLORS = [0x2a1a10, 0x3a2414, 0x4b301c, 0x5c4828, 0x4c5846, 0x4b6074];
 const LIP_COLORS = [0x8a2c36, 0x74374a, 0xa86d62, 0x93483f];
 const TIE_COLORS = [0x22304e, 0x5a1f2a, 0x2c3a2e, 0x4a4a52];
+// (Mog City, Mission 4's gala: a crowd made with { formal: true }) evening wear only: dark tailored jackets (the women's
+// in jewel tones and ivory too), white or pale shirts, dark trousers, no denim, no coats, knits, hoodies or tees
+const FORMAL_COLORS = [0x16171a, 0x1e2638, 0x2e2f33, 0x1b2230, 0x3e1a20, 0x23232a];
+const FORMAL_COLORS_F = [0x151417, 0x1f2840, 0x5a1e2a, 0x4a2a40, 0x1f3a32, 0xd9d2c3, 0x2a2a31];
+const FORMAL_LEGS = [0x17181c, 0x1d2029, 0x22242c, 0x1b1d26];
 
 // Branchless TSL palette selector from an array of hex colors and a [0..1) hash value
 function pickColorFromPalette(hexArray, tNode) {
@@ -1025,7 +1030,8 @@ function personLooks(info) {
   const grey = step(lane(37.0), 0.1);
   const hair = mix(hairBase, color(GREY_HAIR), grey.mul(0.62));
   // what they wear on top: a casual zip coat (half of them puffers), a tailored jacket, a knit, a hoodie or a tee
-  const st = lane(89.0);
+  // (a formal crowd, info.formal: the tailored jacket only)
+  const st = info.formal ? float(0.4) : lane(89.0);
   const zip = step(st, 0.28);
   const tailored = step(0.28, st).mul(step(st, 0.6));
   const knit = step(0.6, st).mul(step(st, 0.8));
@@ -1037,7 +1043,7 @@ function personLooks(info) {
     const w = lane(salt + 0.5).sub(0.5).mul(0.14);
     return c.mul(lane(salt).mul(0.38).add(0.81)).mul(vec3(w.add(1.0), float(1.0), float(1.0).sub(w)));
   };
-  const coat = shade(
+  const coat = info.formal ? shade(mix(pickColorFromPalette(FORMAL_COLORS, lane(29.0)), pickColorFromPalette(FORMAL_COLORS_F, lane(29.0)), female), 101.0) : shade(
     mix(
       mix(pickColorFromPalette(COAT_COLORS, lane(29.0)), pickColorFromPalette(COAT_COLORS_F, lane(29.0)), female),
       pickColorFromPalette(TOP_COLORS, lane(29.0)),
@@ -1047,14 +1053,17 @@ function personLooks(info) {
   );
   const shirt = pickColorFromPalette(SHIRT_COLORS, lane(71.0));
   const legLane = lane(47.0);
-  const legs = shade(mix(pickColorFromPalette(LEG_COLORS, legLane), pickColorFromPalette(LEG_COLORS_F, legLane), female), 103.0);
-  const denim = step(1 / 6, legLane).mul(step(legLane, 0.5));
+  const legs = info.formal ? shade(pickColorFromPalette(FORMAL_LEGS, legLane), 103.0) : shade(mix(pickColorFromPalette(LEG_COLORS, legLane), pickColorFromPalette(LEG_COLORS_F, legLane), female), 103.0);
+  const denim = info.formal ? float(0.0) : step(1 / 6, legLane).mul(step(legLane, 0.5));
   const bald = step(lane(41.0), 0.08).mul(float(1.0).sub(female));
   const puffer = zip.mul(step(lane(53.0), 0.5));
   // (repair) a beard or stubble (men), shared by both levels so a beard does not vanish at farDistance
   const fh = lane(59.0);
-  const beard = step(0.74, fh).mul(float(1.0).sub(female));
-  const stubble = step(0.42, fh).mul(step(fh, 0.74)).mul(float(1.0).sub(female));
+  // (Mission 4's gala review, round 9: a man with long hair and a full beard read as a bearded woman across the room. In
+  // a formal crowd, long hair (info.w over 0.5, where the long hair starts to grow: dressNear hairAmount) is clean-shaven)
+  const shaven = info.formal ? step(info.w, 0.5) : float(1.0);
+  const beard = step(0.74, fh).mul(float(1.0).sub(female)).mul(shaven);
+  const stubble = step(0.42, fh).mul(step(fh, 0.74)).mul(float(1.0).sub(female)).mul(shaven);
   if (PEOPLE_WORN) {
     // (worn: greyed toward a dusty brown, darker, more so for some than others)
     const k = PEOPLE_WORN.mul(lane(131.0).mul(0.45).add(0.55));
@@ -1073,8 +1082,13 @@ function personLooks(info) {
  * shading, stubble & beards, a soft hairline, sideburns), hair strands, fabric (weave, knit, heather, folds, seams,
  * stitching, pockets, buttons, ties, belts), hands (palms, nails) and a per-person jaw & nose.
  */
-function createPersonMaterial(pose, detail = 1) {
-  const mat = new THREE.MeshStandardNodeMaterial({ metalness: 0 });
+function createPersonMaterial(pose, detail = 1, formal = false) {
+  // (Mog City, the high quality lighting tier, js/sky-occlusion.js: the near level's clothes and skin get a sheen lobe,
+  // fibres and fine hair catching the light at grazing angles, tinted by their own colour; skin's specular IOR 1.4)
+  const HQ = !!(window.NYC.HQL && window.NYC.HQL.on());
+  const mat = HQ && detail ? new THREE.MeshPhysicalNodeMaterial({ metalness: 0, ior: 1.4, sheen: 1, sheenRoughness: 0.65 })
+    : new THREE.MeshStandardNodeMaterial({ metalness: 0 });
+  if (HQ && detail) mat.sheenColorNode = window.NYC.TSL.diffuseColor.rgb.mul(0.45).add(0.03);
   const base = int(instanceIndex).mul(STRIDE);
   const info = pose.element(base.add(STRIDE - 1)); // seed, female, girth, hair
 
@@ -1149,8 +1163,12 @@ function createPersonMaterial(pose, detail = 1) {
   })();
 
   const vInfo = varying(info, 'vPersonInfo');
+  // (a JS flag on the node, read by personLooks: a formal crowd's own material)
+  if (formal) vInfo.formal = true;
   if (detail) dressNear(mat, vInfo);
   else dressFar(mat, vInfo);
+  // (and the sky the street lets through, as the city's: js/sky-occlusion.js)
+  if (HQ) window.NYC.HQL.applyOpen(mat);
   return mat;
 }
 
@@ -1816,14 +1834,14 @@ class PersonCrowd {
    * @param {{ farDistance?: number, castShadow?: boolean, farShadow?: boolean, name?: string }} options - beyond
    *   farDistance (m) people use the far LOD (casting shadows unless farShadow is false); name prefixes the meshes'
    */
-  constructor(maxCount, { farDistance = 34, castShadow = true, farShadow = true, name = 'People' } = {}) {
+  constructor(maxCount, { farDistance = 34, castShadow = true, farShadow = true, name = 'People', formal = false } = {}) {
     this.farDistance = farDistance;
     // (Mog City) Three's WebGL2 backend (no WebGPU: main.js, window.NYC.quality) can't read a person's pose from the
     // storage buffer: a crowd is never drawn there (no layer to be seen on, whatever its visibility)
     const drawable = !(window.NYC.quality && window.NYC.quality.backend === 'webgl2');
     this.lods = [1, 0].map((detail) => {
       const pose = attributeArray(maxCount * STRIDE, 'vec4').toReadOnly();
-      const mesh = new THREE.Mesh(buildPersonGeometry(detail), createPersonMaterial(pose, detail));
+      const mesh = new THREE.Mesh(buildPersonGeometry(detail), createPersonMaterial(pose, detail, formal));
       mesh.name = name + (detail ? 'Near' : 'Far');
       mesh.count = 1; // one (degenerate) person until the first frame, so the pipelines compile up front
       mesh.frustumCulled = false;
@@ -1907,6 +1925,7 @@ const _target = new THREE.Vector3();
 const _pole = new THREE.Vector3();
 const _front = new THREE.Vector3();
 const _fwd = new THREE.Vector3();
+const UP_Y = new THREE.Vector3(0, 1, 0);
 const _bx = new THREE.Vector3();
 const _by = new THREE.Vector3();
 const _bz = new THREE.Vector3();
@@ -2574,6 +2593,57 @@ class PersonRig {
       bendDir(bNew, a, own, g, addS * keep);
       _rq.setFromUnitVectors(b, bNew);
       qF.premultiply(_rq);
+    }
+  }
+
+  /**
+   * (Mog City, 19 Nov) A standing person's hands put where they are wanted, after update() (an arena's pit cheering:
+   * arms up, clapping, a fist pumped, a phone held up; wagmi/storyrun/stage-room.js). hands: [left, right], each null
+   * (that arm as the walk left it) or an { x, y, z } offset from that arm's shoulder joint in the body's own frame (+x its
+   * left, +y up, +z its front, metres at 1.75 m tall: scaled by this person's size); poles likewise, where each elbow
+   * points (default down, out and back). Two-bone reach as ride()'s, the hand's length added to the forearm's.
+   */
+  reach(hands, poles = null) {
+    const s = this.s;
+    const j = this.bind;
+    const a = this.pose;
+    const o = BONE.CHEST * 8;
+    _qChest.set(a[o], a[o + 1], a[o + 2], a[o + 3]);
+    _chest.set(a[o + 4], a[o + 5], a[o + 6]).add(_v2.copy(j[BONE.CHEST]).applyQuaternion(_qChest).multiplyScalar(s));
+    const sy = Math.sin(this.yaw);
+    const cy = Math.cos(this.yaw);
+    _fwd.set(sy, 0, cy);
+    const toWorld = (v, out) => out.set(cy * v.x + sy * v.z, v.y, -sy * v.x + cy * v.z);
+    for (let i = 0; i < 2; i++) {
+      const h = hands[i];
+      if (!h) continue;
+      const side = SIDES[i];
+      _shoulder.copy(j[LIMB.upperArm[i]]).sub(j[BONE.CHEST]).multiplyScalar(s).applyQuaternion(_qChest).add(_chest);
+      toWorld(h, _target).multiplyScalar(s).add(_shoulder);
+      const l1 = UPPER_ARM * s;
+      const l2 = (FOREARM + 0.07) * s;
+      _v.subVectors(_target, _shoulder);
+      let dist = _v.length();
+      const dn = _v.divideScalar(dist || 1);
+      dist = Math.max(Math.abs(l1 - l2) + 1e-3, Math.min((l1 + l2) * 0.999, dist));
+      const p = poles && poles[i];
+      toWorld(p || { x: side * 0.6, y: -1, z: -0.4 }, _pole);
+      _pole.addScaledVector(dn, -_pole.dot(dn));
+      if (_pole.lengthSq() < 1e-8) toWorld({ x: side, y: 0, z: 0 }, _pole);
+      _pole.normalize();
+      const cosA = (l1 * l1 + dist * dist - l2 * l2) / (2 * l1 * dist);
+      const sinA = Math.sqrt(Math.max(0, 1 - cosA * cosA));
+      _knee.copy(_shoulder).addScaledVector(dn, l1 * cosA).addScaledVector(_pole, l1 * sinA);
+      _ankle.copy(_shoulder).addScaledVector(dn, dist);
+      (this.handAt ||= [new THREE.Vector3(), new THREE.Vector3()])[i].copy(_ankle); // (where the hand is: a thing held in it)
+      // (each bone's front kept toward the body's front and up, so a forearm held out level does not lose its roll)
+      _front.copy(_fwd).addScaledVector(UP_Y, 0.8);
+      this.basis(_v2.subVectors(_shoulder, _knee), _front, _qUpper);
+      _qUpper.multiply(qZ(_q, -side * ARM_BIND_ABDUCTION));
+      this.writeBone(LIMB.upperArm[i], _qUpper, _shoulder);
+      this.basis(_v2.subVectors(_knee, _ankle), _front, _q2);
+      _q2.multiply(qZ(_q, -side * ARM_BIND_ABDUCTION));
+      this.writeBone(LIMB.forearm[i], _q2, _knee);
     }
   }
 

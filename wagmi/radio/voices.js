@@ -3,20 +3,22 @@
 // them: ui.sub(speaker, text) shows a line and calls WAGMI.voice.sub(speaker, text), which plays that line's file
 // from the top (once per showing; ui.sub(null) between lines). A call's sound is put on live: Mr. Big's video call, Jane's
 // phone. Speech ducks the radio.
-//   W.voice.has(speaker, text) · dur(speaker, text) (s, 0 if none) · say(speaker, text) · stop(secs) · level() (0..1,
+//   W.voice.has(speaker, text) · dur(speaker, text) (s, 0 if none) · decode(speaker, text) (a promise of its length) ·
+//   breath(speaker, text) (D5, s to wait) · say(speaker, text) · stop(secs) · level() (0..1,
 //   the voice playing now, for mouths and meters) · fx(speaker, 'phone' | 'video' | null) (a speaker's call sound)
+//   cue({ overlap, cut }) · room('street' | 'park' | 'garage' | 'interior' | null): radio/turns.js's hand-over, a scene's room
 //   speaks(speaker, text): the line will be heard (its recording, or the browser's voice for a Mog's changed line: the
 //   mumbles stand aside for both) · synthOn: the browser's voice is speaking · synthLog: what it said
 // A Mog's changed or new line (the story pack, wagmi/story/index.js S.changed: words that are not one of Mog City's
 // lines) has no recording: shown, it is spoken by the browser's speechSynthesis in the character's voice from the pack
 // ({ pitch, rate, prefer }, an English voice picked once per speaker), ducking the music as a recording does. It never
 // goes through the phone or video filters (it is not in the Web Audio graph). Mog City's own pack never gets here.
-import { S as story } from '../story/index.js';
+import { S as story } from '../story/index.js'; import { fetchRetry } from '../net.js';
 
 export async function createVoice(W, out) {
   const key = (speaker, text) => `${String(speaker).toLowerCase()}|${String(text).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()}`;
   let man = { lines: [] };
-  try { const r = await fetch('assets/voice/manifest.json', { cache: 'no-cache' }); if (r.ok) man = await r.json(); } catch {}
+  try { const r = await fetchRetry('assets/voice/manifest.json', { cache: 'no-cache' }); if (r.ok) man = await r.json(); } catch {}
   const byKey = new Map(man.lines.map((l) => [key(l.speaker, l.text), l]));
   const fxOf = {}; // a speaker's call sound, set at run time (else the manifest's)
   const bufs = new Map();
@@ -31,7 +33,7 @@ export async function createVoice(W, out) {
   function load(l) {
     if (!bufs.has(l.id)) {
       if (!graph()) return Promise.reject(new Error('no audio'));
-      bufs.set(l.id, fetch(l.file).then((r) => { if (!r.ok) throw new Error(l.file); return r.arrayBuffer(); }).then((b) => ctx.decodeAudioData(b)).catch((e) => { bufs.delete(l.id); throw e; }));
+      bufs.set(l.id, fetchRetry(l.file).then((r) => { if (!r.ok) throw new Error(l.file); return r.arrayBuffer(); }).then((b) => ctx.decodeAudioData(b)).catch((e) => { bufs.delete(l.id); throw e; }));
     }
     return bufs.get(l.id);
   }
@@ -56,38 +58,70 @@ export async function createVoice(W, out) {
   };
   // (a line that runs on past the next one's subtitle, said at a natural pace, is let finish if it is nearly done: the
   // next one waits for it, up to HOLD s; a line further from done is cut)
+  // (a line cued as an overlap (radio/turns.js: a reply of two words or fewer, flagged) starts at once over the end of the
+  // one before, which plays on under it; a line after a trail-off ('...') cuts in, the one before faded out under it)
   const HOLD = 1.0;
-  let cur = null, shown = null;
+  let cur = null, shown = null, cued = null;
   const live = new Set();
-  function play(l) {
+  // ---- the room (MC5): an in-person line in a scene tagged 'street' | 'park' | 'garage' | 'interior' gets a little of
+  // that place round it (a short synthesised room and the distance's top end rolled off), the dry voice kept under it;
+  // a call's bands (phone, video) are never touched, and no tag (the default) is the dry path as before
+  const ROOMS = { street: { secs: 0.32, decay: 3.2, wet: 0.13, lp: 9000, pre: 0.012 }, park: { secs: 0.22, decay: 4.2, wet: 0.09, lp: 10500, pre: 0.018 },
+    garage: { secs: 0.7, decay: 2.4, wet: 0.2, lp: 7600, pre: 0.008 }, interior: { secs: 0.38, decay: 3.6, wet: 0.14, lp: 11500, pre: 0.005 } };
+  let room = null; const irs = {};
+  function roomOf(tag) {
+    const R = ROOMS[tag]; if (!R || !ctx) return null;
+    if (!irs[tag]) {
+      const n = Math.round(R.secs * ctx.sampleRate), ir = ctx.createBuffer(2, n, ctx.sampleRate), p0 = Math.round(R.pre * ctx.sampleRate);
+      let s = 0x2545f491 ^ tag.length; const rnd = () => { s ^= s << 13; s ^= s >>> 17; s ^= s << 5; return ((s >>> 0) / 4294967296) * 2 - 1; };
+      for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = p0; i < n; i++) d[i] = rnd() * Math.exp((-R.decay * (i - p0)) / (n - p0)) * 0.5; }
+      irs[tag] = ir;
+    }
+    return R;
+  }
+  function play(l, cue = null) {
     if (!graph()) return;
     warm();
     const asked = ctx.currentTime;
     load(l).then((buf) => {
       // (still the line on screen; started late by however long the load took, so it keeps to the picture)
       if (shown !== l) return;
-      const left = cur ? cur.end - ctx.currentTime : 0, wait = left > 0 && left <= HOLD ? left + 0.04 : 0;
+      const over = !!(cue && (cue.overlap || cue.cut));
+      const left = cur ? cur.end - ctx.currentTime : 0, wait = !over && left > 0 && left <= HOLD ? left + 0.04 : 0;
       const late = wait ? 0 : Math.max(0, ctx.currentTime - asked); if (late > buf.duration - 0.2) return;
-      if (!wait) V.stop(0.05);
+      if (cue?.overlap) { /* the line before plays on under this one */ } else if (cue?.cut) V.stop(0.12); else if (!wait) V.stop(0.05);
       if (!l.dur) l.dur = buf.duration; // (a world's clip: its length known once decoded, wagmi/storyrun)
       const src = ctx.createBufferSource(); src.buffer = buf;
       const kind = l.speaker in fxOf ? fxOf[l.speaker] : l.fx;
       // (a story world's line down a phone gets the story's call band; a band takes level with it, given back)
       const fx = l.pack && kind === 'phone' ? 'call' : kind;
-      const g = ctx.createGain(); g.gain.value = fx === 'call' ? 1.3 : 1;
+      // (a line said on mute, a video call's (storyrun/vcall.js): played to nobody, its level kept for the mouth)
+      const muted = !!cue?.mute;
+      const g = ctx.createGain(); g.gain.value = muted ? 0 : fx === 'call' ? 1.3 : 1;
       const chain = filters(fx);
       let n = src; for (const f of chain) { n.connect(f); n = f; } n.connect(g); g.connect(bus);
+      // (in person, in a tagged scene: the room under the dry voice, the top end of the distance rolled off it)
+      const R = !kind && !chain.length && room ? roomOf(room) : null;
+      if (R) {
+        const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = R.lp; lp.Q.value = 0.5;
+        const cv = ctx.createConvolver(); cv.normalize = false; cv.buffer = irs[room];
+        const wet = ctx.createGain(); wet.gain.value = R.wet;
+        g.disconnect(); g.connect(lp); lp.connect(bus); lp.connect(cv); cv.connect(wet); wet.connect(bus);
+      }
+      if (cue?.cut && !muted) { const to = g.gain.value; g.gain.setValueAtTime(0, ctx.currentTime); g.gain.linearRampToValueAtTime(to, ctx.currentTime + 0.08); }
       src.start(ctx.currentTime + wait, late);
       const secs = buf.duration - late;
-      const me = (cur = { src, g, l, end: ctx.currentTime + wait + secs });
+      const me = (cur = { src, g, l, end: ctx.currentTime + wait + secs, how: cue?.how || null });
       live.add(me);
-      V.log.push({ id: l.id, at: +(performance.now() / 1000).toFixed(3), late: +late.toFixed(3), wait: +wait.toFixed(3), intro: W.intro?.t != null ? +W.intro.t.toFixed(2) : null }); if (V.log.length > 60) V.log.shift();
+      V.log.push({ id: l.id, at: +(performance.now() / 1000).toFixed(3), late: +late.toFixed(3), wait: +wait.toFixed(3), intro: W.intro?.t != null ? +W.intro.t.toFixed(2) : null, ...(cue?.how ? { how: cue.how } : {}), ...(muted ? { muted: true } : {}) }); if (V.log.length > 60) V.log.shift();
       src.onended = () => { live.delete(me); if (cur === me) cur = null; };
       if (out.via() === 'mixer') W.audio.duck('music', 0.6, wait + secs + 0.2); else W.radio?.duck?.(0.3, wait + secs + 0.2);
       // (a story world's line dips the effects and the street under it: a creature's roar, a fight's hits, the car's
       // engine or the traffic never bury the words. 14 Nov: the street was left at full level under the cast's lines,
       // the effects dipped 3 dB; both now about 5 dB, the music 8 dB as before)
       if (l.pack && out.via() === 'mixer') { W.audio.duck('sfx', 0.45, wait + secs + 0.2); W.audio.duck('amb', 0.45, wait + secs + 0.2); }
+      // (a tagged scene's place left under its voices, a little down: about 0.6)
+      else if (R && out.via() === 'mixer') W.audio.duck('amb', 0.6, wait + secs + 0.2);
     }).catch(() => {});
   }
   // ---- the browser's voice, for a Mog's changed lines
@@ -137,10 +171,43 @@ export async function createVoice(W, out) {
       if (!text) { shown = null; said = null; return; }
       const l = byKey.get(key(speaker, text));
       // (a Mog's changed line: once per showing, as a recording is; the line before it, recorded or spoken, cut)
-      if (!l) { if (speaker && story.changed(speaker, text) && said !== text + '|' + speaker) { shown = null; V.stop(0.08); speak(speaker, text); } return; }
+      if (!l) { cued = null; if (speaker && story.changed(speaker, text) && said !== text + '|' + speaker) { shown = null; V.stop(0.08); speak(speaker, text); } return; }
       if (shown === l) return;
       if (V.synthOn) try { synth?.cancel(); } catch {}
-      shown = l; play(l);
+      const c = cued; cued = null;
+      shown = l; play(l, c);
+    },
+    // the next line's hand-over (radio/turns.js): { overlap, cut, how }, used by the next sub() only (how alone is kept
+    // too: the line's delivery, on the voices' log, for the faces: face.js voiceOf, a warm line's smile)
+    cue(o) { cued = o && (o.overlap || o.cut || o.how || o.mute) ? { overlap: !!o.overlap, cut: !!o.cut && !o.overlap, how: o.how || null, ...(o.mute ? { mute: true } : {}) } : null; },
+    // (the delivery of the line playing now, or null)
+    get how() { return cur?.how || null; },
+    // the room in-person lines are heard in: 'street' | 'park' | 'garage' | 'interior' | null (dry, the default)
+    room(tag) { room = tag && ROOMS[tag] ? tag : null; return room; },
+    get roomTag() { return room; },
+    // a line's recording decoded now (a promise of its length, s; 0 with none, or no sound yet): a world's clip has no
+    // length until it is, and radio/turns.js waits on this before it puts the line up, so it is held for all of it
+    decode(speaker, text) {
+      const l = byKey.get(key(speaker, text)); if (!l) return Promise.resolve(0);
+      if (l.dur > 0) return Promise.resolve(l.dur);
+      return load(l).then((b) => { if (!(l.dur > 0)) l.dur = b.duration; return l.dur; }).catch(() => 0);
+    },
+    // D5: a short in-breath before a scene's first line, in person (no call band on the speaker, a recording to follow,
+    // the sound up): soft filtered noise, about 0.2 s, in the scene's room. Returns how long to wait before the line
+    breath(speaker, text) {
+      const l = byKey.get(key(speaker, text));
+      if (!l || !graph() || ctx.state !== 'running') return 0;
+      const kind = l.speaker in fxOf ? fxOf[l.speaker] : l.fx; if (kind) return 0;
+      const secs = 0.24, n = Math.round(secs * ctx.sampleRate);
+      if (!irs.breath) { const b = ctx.createBuffer(1, n, ctx.sampleRate), d = b.getChannelData(0); let s = 0x1b873593; for (let i = 0; i < n; i++) { s ^= s << 13; s ^= s >>> 17; s ^= s << 5; d[i] = ((s >>> 0) / 4294967296) * 2 - 1; } irs.breath = b; }
+      try {
+        const src = ctx.createBufferSource(); src.buffer = irs.breath;
+        const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 500;
+        const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1500; bp.Q.value = 0.6;
+        const g = ctx.createGain(), t = ctx.currentTime; g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.035, t + 0.13); g.gain.linearRampToValueAtTime(0, t + secs);
+        src.connect(hp); hp.connect(bp); bp.connect(g); g.connect(bus); src.start(t); src.stop(t + secs + 0.02);
+        return 0.2;
+      } catch { return 0; }
     },
     // a line spoken without a subtitle
     say(speaker, text) { const l = byKey.get(key(speaker, text)); if (!l) return false; shown = l; play(l); return true; },
@@ -157,6 +224,8 @@ export async function createVoice(W, out) {
       return Math.min(1, Math.sqrt(e / data.length) * 3.5);
     },
     fx(speaker, kind) { if (kind === undefined) delete fxOf[speaker]; else fxOf[speaker] = kind; },
+    // (a speaker's call sound set at run time, or undefined: the manifest's; a scene that sets one puts this back after it)
+    fxOf(speaker) { return speaker in fxOf ? fxOf[speaker] : undefined; },
     // a world's own recording of a line (wagmi/storyrun: a Story Kit voice clip, by its URL), played as a recorded line
     // is (its subtitle, the music ducked, the call filters, the speaker's mouth); never over one of Mog City's own
     clip(speaker, text, file, { dur = 0, fx = null } = {}) {

@@ -11,7 +11,15 @@
 //                                refills inside it
 //   speedRule(state, v, dt, o)   a passenger's speed rule: seconds over the limit, a warning, and the fail
 //   passCard(o)                  the MISSION PASSED card's data: what was gained, the meter's progress, what is next
+//   damageOf(o)                  a mission's DAMAGE (0..): what the car took (100 = one car's worth) and 3 a hit on foot
+//   medalOf(medals, r)           the medal a pass earns from its time and damage ('gold' | 'silver' | 'bronze' | null)
+//   medalRows(medals, r, best)   the MISSION PASSED card's medal: { medal, label, rows, hint }
+//   damageText(r)                its DAMAGE row: '3 PTS (1 HIT)', '6 PTS (CAR -6%)' (r.parts: { car, hits })
+//   creditsRoll(def, o)          the story's end credits, the standard roll of every story world, as sections: the
+//                                title, the cast, the voices, what it is made with, the map's data, the engine, Ockams Inc.
 //   avoids(list, x, z)           a point inside one of the GPS's held-off circles (a roadblock's street)
+//   tailStart(o)                 where a tail's followed car starts: ahead of his car, before the first bend (or far: drive there)
+//   tailRule(state, o, dt)       a tail each frame: a fair start, then too close / lost clocks and their warnings
 export const PI = Math.PI;
 export const angWrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
@@ -84,7 +92,7 @@ export function band(state, d, dt, { near = 6, far = 60, drain = 0.12, refill = 
 
 /* -------------------------------------------------------- a passenger's rule -- */
 // v (m/s); max (m/s); grace (s over it before it counts); state: { over (s), warned }. Returns 'ok' | 'warn' | 'over'
-export const MPH = 2.23694;
+export { MPH } from '../speedo.js';
 export function speedRule(state, v, dt, { max = 15, grace = 3 } = {}) {
   if (Math.abs(v) > max) state.over = (state.over || 0) + dt; else state.over = Math.max(0, (state.over || 0) - dt * 0.5);
   if (state.over > grace) return 'over';
@@ -108,5 +116,262 @@ export function passCard({ title = '', passLine = '', meters = [], before = {}, 
   return { title, line: passLine || '', gains, progress: prog, stands, next: next ? { title: next.title || '', sub: next.stakes || next.objective || '' } : null };
 }
 
+/* ------------------------------------------------------------------ medals -- */
+// A mission's medals (the pack's mission.medals): { gold: { secs, damage }, silver: {...}, bronze: {...} }, each tier
+// a time to beat (secs, at most) and a damage to stay under (damage, at most; left out: any). Kept local, on this
+// device only (index.js save.medals): no server scoring.
+export const MEDALS = ['gold', 'silver', 'bronze'];
+export const MEDAL_NAME = { gold: 'GOLD', silver: 'SILVER', bronze: 'BRONZE' };
+const MEDAL_RANK = { gold: 3, silver: 2, bronze: 1 };
+export const medalRank = (m) => MEDAL_RANK[m] || 0;
+// (the damage: the car's knocks as damage.js counts them (taken, the health they cost, 1 = a car's worth, repairs
+// never undo it), as a percentage, and 3 a hit he takes on foot)
+export function damageOf({ car = 0, hits = 0 } = {}) {
+  return Math.max(0, Math.round((+car || 0) * 100 + (+hits || 0) * 3));
+}
+const tierOk = (t) => t && typeof t === 'object' && Number.isFinite(+t.secs) && +t.secs > 0;
+// r: { secs, damage, whole } (whole: played from its start; a checkpoint retry, a Continue or a skip earns none)
+export function medalOf(medals, r = {}) {
+  if (!medals || typeof medals !== 'object' || !r.whole) return null;
+  for (const m of MEDALS) {
+    const t = medals[m];
+    if (!tierOk(t)) continue;
+    if ((+r.secs || 0) <= +t.secs && (t.damage == null || (+r.damage || 0) <= +t.damage)) return m;
+  }
+  return null;
+}
+// (the card's DAMAGE in words that agree with the HUD: its points, then what they are, the car's knocks as the share of
+// a car the HUD's DENTED / BATTERED reads down from, and the hits he took on foot. The card read 'DAMAGE 3' while the
+// HUD read 'DENTED 94%', two scales with one name (day audit, 22 Nov): now '3 PTS (1 HIT)', '6 PTS (CAR -6%)'.
+// r.parts: { car (0..1 of a car), hits }; without it, the points alone)
+export function damageText(r = {}) {
+  const pts = Math.round(+r.damage || 0), p = r.parts && typeof r.parts === 'object' ? r.parts : null;
+  if (!p) return `${pts} PTS`;
+  const car = Math.round((+p.car || 0) * 100), hits = Math.round(+p.hits || 0), what = [];
+  if (car > 0) what.push(`CAR -${car}%`);
+  if (hits > 0) what.push(`${hits} HIT${hits === 1 ? '' : 'S'}`);
+  return what.length ? `${pts} PTS (${what.join(', ')})` : `${pts} PTS`;
+}
+const mmss = (s) => { s = Math.max(0, Math.round(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+// The card's medal: { medal, label ('GOLD', or 'NO MEDAL'), rows ([label, text]: DAMAGE), hint (the next tier's
+// targets: 'GOLD: under 4:30, damage 10 or less'), best (the best this device has had, when better than this one) }
+export function medalRows(medals, r = {}, best = null) {
+  if (!medals || typeof medals !== 'object' || !MEDALS.some((m) => tierOk(medals[m]))) return null;
+  const medal = medalOf(medals, r);
+  const up = MEDALS.filter((m) => tierOk(medals[m]) && medalRank(m) > medalRank(medal)).pop() || null;
+  const t = up ? medals[up] : null;
+  const hint = !r.whole ? 'Medals: play the mission through from its start'
+    : t ? `${MEDAL_NAME[up]}: under ${mmss(t.secs)}${t.damage != null ? `, damage ${Math.round(t.damage)} pts or less` : ''}` : '';
+  return { medal, label: medal ? MEDAL_NAME[medal] : 'NO MEDAL', rows: [['DAMAGE', damageText(r)]], hint,
+    best: best && medalRank(best) > medalRank(medal) ? MEDAL_NAME[best] : null };
+}
+
+/* ----------------------------------------------------------------- credits -- */
+// A cast member's role as a credit, a few words: any ': <the world's title>' after it, any one-word 'hero:' before it
+// and the title as its first words taken off, then all after its first comma (a sheet's 'Cal Mercer, an ex-park
+// ranger ...': the name first, the role after it), any ': <a note>' after a short role ('the Nanny: white hair'), then
+// cut at a word (never mid-word) to 34 characters and 5 words at most (6 when that is all of it): at its first clause's
+// start (who, with, when ...) when there is one, a dangling 'of' or 'and' dropped. 'hero: founder-CEO of Greenlight Silicon, in his black leather
+// jacket' -> 'founder-CEO of Greenlight Silicon'; 'a bail bondsman who once owed John his life' -> 'a bail bondsman'
+const ROLE_WORDS = 5, ROLE_CHARS = 34;
+const DANGLE = /^(of|and|the|a|an|in|at|for|to|from|with|his|her|their|its|my|our|your|who|that|which|when|where|on|by|as|or|but)$/i;
+const BREAK = /^(who|that|which|with|when|where|while|in|on|at|for|from|by|after|before)$/i;
+export function creditRole(r, title = '', name = '') {
+  let t = String(r ?? '').replace(/\s+/g, ' ').trim();
+  const esc = title ? String(title).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') : '';
+  if (esc) t = t.replace(new RegExp(`\\s*:\\s*${esc}\\s*$`, 'i'), '');
+  t = t.replace(/^[A-Za-z][\w-]*\s*:\s*/, '');
+  // ('hero: <the world's title>, founder-CEO of ...': the title as its first words is not a role)
+  if (esc) t = t.replace(new RegExp(`^${esc}\\s*,\\s*`, 'i'), '');
+  // (the name first, the role after it: 'Dr. Nina Mercer, his wife, an ER doctor', 'WARDEN-7, the Preserve's unit')
+  const nm = String(name || '').trim().split(' ')[0].toLowerCase();
+  if (nm && t.includes(',')) {
+    const head = t.slice(0, t.indexOf(',')), words = head.toLowerCase().split(' ');
+    if (words.length <= 4 && words.some((w) => w === nm || w.startsWith(nm + '-') || w.replace(/[^a-z]/g, '') === nm)) t = t.slice(t.indexOf(',') + 1).trim();
+  }
+  if (t.includes(',')) t = t.slice(0, t.indexOf(','));
+  // (a short role and a note after it: 'the Nanny: white hair' -> 'the Nanny'; never the raw note's colon)
+  if (t.includes(':')) { const a = t.slice(0, t.indexOf(':')).trim(); t = a.split(' ').length <= ROLE_WORDS && a ? a : t.replace(/:/g, ''); }
+  // (a relative clause as the whole role: 'who leads the Iron Saints' -> 'leads the Iron Saints')
+  t = t.replace(/^(who|that|which)\s+/i, '');
+  let w = t.trim().split(' ').filter(Boolean);
+  // (a whole role of six short words stays whole: 'the one who is always late'; too long: cut where its first clause
+  // starts, if what is before it is a role of two words or more ('the underboss who lost everything when they ran' ->
+  // 'the underboss'), else at 5 words and 34 characters, a cut's dangling 'of', 'the' or 'for' dropped)
+  if (w.length > ROLE_WORDS + 1 || w.join(' ').length > ROLE_CHARS) {
+    for (let i = 2; i <= ROLE_WORDS && i < w.length; i++) if ((BREAK.test(w[i]) || (i >= 3 && /^[a-z]{4,}ing$/.test(w[i]))) && w.slice(0, i).join(' ').length <= ROLE_CHARS && !/^one$/i.test(w[i - 1])) { w = w.slice(0, i); break; }
+    w = w.slice(0, ROLE_WORDS);
+    while (w.length > 1 && w.join(' ').length > ROLE_CHARS) w.pop();
+    while (w.length > 1 && DANGLE.test(w[w.length - 1])) w.pop();
+  }
+  t = w.join(' ');
+  return t.length > ROLE_CHARS ? t.slice(0, ROLE_CHARS) : t;
+}
+
+// The story's end credits, the standard roll every story world gets (the owner, 21 Nov), built from what the world
+// already has, and a pack's own `credits` ({ lines, cast, voices }) added to it. Rolled after STORY COMPLETE and the
+// title (index.js endRoll, hud.roll). def: the runner pack (its title, kicker, cast: { name: { role, pet } }, voice);
+// o: { map: [{ what, who, licence, engine }] (the engine's own credits for the city: credits.js), place (the map's
+// place: a town's name, New York, San Francisco), voiced (the world's lines are heard: its clips, or Mog City's own
+// recordings; left out: its voice plan has clips), assets: [{ what, who, licence, group }] (what the world carries
+// that asks to be credited: credits.js lines its car, its type and its people add) }.
+// -> [{ head, lines: [[a, b]] | [text] }], the title first and Ockams Inc. last:
+//   the title and kicker · Starring · Voices (its own credit, else 'Voices synthesised' when it is voiced, else none:
+//   never a model it did not use) · Made with (its own lines, then the assets they do not already name) · The map ·
+//   Played on Mog City's story engine · Ockams Inc.
+export function creditsRoll(def, { map = [], place = '', voiced, assets = [] } = {}) {
+  if (!def || typeof def !== 'object') return [];
+  const C = def.credits && typeof def.credits === 'object' && !Array.isArray(def.credits) ? def.credits : {};
+  const S = (x, n = 160) => String(x ?? '').slice(0, n);
+  const str = (l) => typeof l === 'string' && l.trim();
+  const out = [{ head: '', title: S(def.title || 'Untitled', 48), lines: typeof def.kicker === 'string' && def.kicker.trim() ? [S(def.kicker, 24)] : [] }];
+  // (the cast as a credit: the pack's own credits.cast ([{ name, role }]) when it gives one, else each cast member
+  // with a name and its role made a credit, creditRole; never a pet)
+  const given = Array.isArray(C.cast) ? C.cast.filter((c) => c && typeof c.name === 'string' && c.name.trim()) : null;
+  const cast = given && given.length
+    ? given.map((c) => [S(c.name.trim(), 40), creditRole(c.role)])
+    : Object.entries(def.cast && typeof def.cast === 'object' ? def.cast : {}).filter(([n, c]) => n.trim() && c && typeof c === 'object' && !c.pet)
+      .map(([name, c]) => [S(name.trim(), 40), creditRole(c.role, def.title, name)]);
+  if (cast.length) out.push({ head: 'Starring', cast: true, lines: cast.slice(0, 24) });
+  // (the voices: the pack's own credits.voices lines, else its voice record's credit, else, when its lines are heard,
+  // a neutral line; never a model: a world's voice.model is the fallback model, not always the one its clips were made with)
+  const vo = (Array.isArray(C.voices) ? C.voices : []).filter(str).slice(0, 4).map((l) => S(l, 200));
+  if (!vo.length && str(def.voice?.credit)) vo.push(S(def.voice.credit, 200));
+  const heard = voiced ?? (Array.isArray(def.voice?.lines) && def.voice.lines.some((l) => l && (l.clip || l.rec)));
+  if (!vo.length && heard) vo.push('Voices synthesised');
+  if (vo.length) out.push({ head: 'Voices', lines: vo });
+  // (made with: its own lines, then what it carries that asks for a credit (its car's model, its type, its people's
+  // detail and moves), one pair per author and licence, the ones its own lines already name left out)
+  const own = (Array.isArray(C.lines) ? C.lines : []).filter(str).slice(0, 12).map((l) => S(l));
+  const said = own.join(' ').toLowerCase(), groups = new Map();
+  for (const a of Array.isArray(assets) ? assets : []) {
+    if (!a || !str(a.who)) continue;
+    const k = `${a.group || a.what}|${a.licence || ''}`;
+    const g = groups.get(k) || groups.set(k, { what: a.group || a.what, licence: a.licence || '', who: [] }).get(k);
+    if (!g.who.includes(a.who)) g.who.push(a.who);
+  }
+  const made = [...own];
+  for (const g of groups.values()) {
+    if (g.who.every((w) => said.includes(String(w).toLowerCase().replace(/^the\s+/, '').split(/[,(|]/)[0].trim()))) continue;
+    made.push([S(`${g.who.join(', ')}${g.licence ? ` · ${g.licence}` : ''}`, 200), S(g.what, 60)]);
+  }
+  if (made.length) out.push({ head: 'Made with', lines: made.slice(0, 16) });
+  // (a pair is [the credited, what for]: the roll sets what for on the left, the credited on the right)
+  // (the map: only the place's own data (OpenStreetMap, Overture, the elevation...); a line marked engine (credits.js:
+  // the city engine's code, Slop San Francisco or Slop New York) is set under 'Played on' with the story engine)
+  const pr = (l) => [S(`${l.who}${l.licence ? ` · ${l.licence}` : ''}`, 200), S(l.what, 60)];
+  const lns = (map || []).filter((l) => l && l.who);
+  const ml = lns.filter((l) => !l.engine).slice(0, 8).map(pr), el = lns.filter((l) => l.engine).slice(0, 2).map(pr);
+  if (ml.length) out.push({ head: place ? `The map: ${S(place, 60)}` : 'The map', lines: ml });
+  out.push({ head: 'Played on', lines: ["Mog City's story engine", ...el] });
+  out.push({ head: '', lines: ['Ockams Inc.'], end: true });
+  return out;
+}
+
 /* -------------------------------------------------------- the GPS held off -- */
 export const avoids = (list, x, z) => !!list && list.some((c) => Math.hypot(x - c.x, z - c.z) < c.r);
+
+/* ------------------------------------------------------------- a car to tail -- */
+// Where a tail's followed car starts (STEPS.tail): at(s) -> { x, z, h } samples its route by distance, length its
+// metres, car where the hero's car is. More than `far` m from the route's first place: { far: true } (he is driven
+// there first, no lost clock). Otherwise { s0, sHero }: `ahead` m (the pack's, 20..200; 45 by default) on from where
+// he is along the route (or, short of its start, that much less the metres to it), held before its first bend of over
+// `bend` (20 degrees) so it starts in view, and at least `min` (15) m on, so it never starts on top of him.
+export function tailStart({ at, length, car, ahead = 45, far = 96, bend = 20 * PI / 180, min = 15 }) {
+  const p0 = at(0), d0 = Math.hypot(car.x - p0.x, car.z - p0.z);
+  if (d0 > far) return { far: true, d0 };
+  // (where he is along it: the nearest of its first 150 m)
+  let sHero = 0, best = Infinity;
+  for (let s = 0; s <= Math.min(length, 150); s += 1) { const q = at(s), dd = Math.hypot(car.x - q.x, car.z - q.z); if (dd < best) { best = dd; sHero = s; } }
+  let s0 = sHero > 0 ? sHero + ahead : ahead - d0;
+  // (the first bend on from him, against the way it runs 10 m on: its first metres may jog from the place onto its lane)
+  const h0 = at(Math.min(length, sHero + 10)).h;
+  for (let s = sHero + 12; s < Math.min(length, sHero + ahead + 2); s += 2) if (Math.abs(angWrap(at(s).h - h0)) > bend) { s0 = Math.min(s0, s - 2); break; }
+  s0 = clamp(Math.max(s0, sHero + min), 0, Math.max(0, length - 1));
+  return { far: false, s0, sHero, d0 };
+}
+// A tail's rule each frame. state: { t, go, goT, close, far, opened, warnAt } (start it {}); o: { dd (m from him to the
+// followed car), held (it is stopped in traffic, v < 3), rolling (he is in a car above 2.5 m/s), ring, lostDist, speed,
+// spotTime, lostTime }. A fair start (Mission 2's, m2.js): it idles, and no clock runs, till he is rolling in a car or
+// 10 s have passed. Then: too close (inside half the ring, a car's length when it is held up) for spotTime s and it
+// has made him; beyond lostDist for lostTime s and he has lost it; a warning before either, every 3.5 s at most.
+// Returns { want (m/s for it), verdict: 'wait' | 'ok' | 'spotted' | 'lost', warn: 'close' | 'far' | null }
+export function tailRule(state, o, dt) {
+  const ring = o.ring || 25, lostDist = o.lostDist || 160, speed = o.speed || 13, spotTime = o.spotTime || 4, lostTime = o.lostTime || 8;
+  state.t = (state.t || 0) + dt; state.close ??= 0; state.far ??= 0;
+  if (!state.go && (o.rolling || state.t > 10)) { state.go = true; state.goT = state.t; }
+  if (!state.go) return { want: 0, verdict: 'wait', warn: null };
+  const dd = o.dd, want = dd < ring ? speed * 1.4 : dd > lostDist * 0.6 ? speed * 0.5 : speed;
+  // (being close counts once it has pulled away to half the ring, or 6 s after it set off; MM, 5 Nov: Mission 2's van
+  // "spotted" a player parked at its mark. Held up in traffic, one car back at a light is not being made, only on its
+  // bumper is; owner's PT-8 run, 6 Nov)
+  if (dd >= ring * 0.5 || state.t - state.goT > 6) state.opened = true;
+  const tooClose = o.held ? dd < 7 : dd < ring * 0.5;
+  state.close = tooClose && state.opened ? state.close + dt : Math.max(0, state.close - dt);
+  state.far = dd > lostDist ? state.far + dt : 0;
+  let warn = null;
+  if (state.t - (state.warnAt ?? -1e9) > 3.5 && (state.close > spotTime * 0.4 || state.far > lostTime * 0.35)) { state.warnAt = state.t; warn = state.close > 0 ? 'close' : 'far'; }
+  const verdict = state.close > spotTime ? 'spotted' : state.far > lostTime ? 'lost' : 'ok';
+  return { want, verdict, warn };
+}
+
+// a failed mission's retry: from its last checkpoint (a step marked { checkpoint: true }, or a direct start's step),
+// with RESTART from the mission's start beside it; before any checkpoint, RETRY from the start alone (mission/ui.js
+// failed). SS-5's one retry replayed about 5 minutes (the call, the drive, the roadblock, the search, the call) to get
+// back to its chase: the RC playtest, P3
+export function retryChoices(cp) {
+  const at = !!(cp && cp.i > 0);
+  return at ? { retryLabel: 'Retry: from the checkpoint', restart: true, restartLabel: 'Restart: from the start' } : { retryLabel: 'Retry: from the start', restart: false };
+}
+
+// a chase to a place (pursuit goal 'reach') that starts with his car standing: how its crew sets out. Every car
+// behind him (along the way there, else the way he faces), BEHIND_START.min m back or more, on the road and out of
+// view first, and none ahead of him on his road; a calm of BEHIND_START.calm s (none rams him, none nearer than the
+// pursuit's CALM gap unless he is going) so he gets the car rolling. TP-6's chase began with the car standing on the
+// rose garden's lawn and the town's opening put one 30-60 m off and the others on his road ahead, coming at him: they
+// wedged him in on both sides and he was caught in 14 s (the final replay, 20 Nov). A chase to lose, or one started
+// at speed, keeps the town's own opening (BT-3's and SS-5's tuning). Returns the pursuit start()'s extra options, or null
+export const BEHIND_START = { min: 80, calm: 5, standing: 4, near: [40, 120] };
+// (a story's own pressure: the step's `behind` m (BEHIND_START.near, clamped) for the first car instead of min. Jensen
+// Heist's TP-6 chase at heat 2 kept its crew 100 m+ back the whole way, the polish playtest, 21 Nov)
+export const behindMin = (d) => (Number.isFinite(+d?.behind) && d.behind != null ? Math.max(BEHIND_START.near[0], Math.min(BEHIND_START.near[1], +d.behind)) : BEHIND_START.min);
+// (the traffic held off the way there as a standing chase starts (runner.js STEPS.pursuit): base m of it, 25 s, for
+// every chase to a place; open m for up to secs s for one with the behind opening)
+export const CLEAR_WAY = { base: 180, open: 650, secs: 60 };
+// (a chase to lose from a standing car opens the same way only when its step asks, with its own `behind` (Jensen Heist's
+// BT-3, the day audit 22 Nov: the town's opening stood the Directors' SUVs either side of the parked Tensore); a chase to
+// lose without `behind` opens as it always has)
+export const standingOpens = (d) => !!d && ((d.goal === 'reach' && !!d.to) || (d.goal === 'lose' && d.behind != null && Number.isFinite(+d.behind)));
+export function chaseOpening(d, o = {}) {
+  if (!standingOpens(d)) return null;
+  if (!(Math.abs(o.speed || 0) < BEHIND_START.standing)) return null;
+  const h = Number.isFinite(o.routeH) ? o.routeH : Number.isFinite(o.carH) ? o.carH : null;
+  return { ahead: false, calm: BEHIND_START.calm, behind: { min: behindMin(d), ...(h != null ? { h } : {}) } };
+}
+// (the way there as it leaves the car: from the car to the route's first point `ahead` m or more off; null on none)
+export function routeHeading(route, from, ahead = 30) {
+  if (!Array.isArray(route) || !from) return null;
+  for (const q of route) { const dx = q[0] - from.x, dz = q[1] - from.z; if (Math.hypot(dx, dz) >= ahead) return Math.atan2(dx, dz); }
+  return null;
+}
+// (the way there as he will drive it, for a standing start's crew: of the routes planned from the car (runner.js: with
+// the car's heading, against it and with none), the shortest, and the way from the car to its point `at` m along; no
+// route, the bearing to the place. TP-6's Tensore stood on the rose garden's lawn facing away from the market: the plan
+// with its heading set off forward and U-turned, so 'behind along it' put the crew on his real way, ahead of him, and
+// they met him head-on 4-5 s in (the RC review, 20 Nov))
+const pathLen = (r) => { let L = 0; for (let k = 1; k < r.length; k++) L += Math.hypot(r[k][0] - r[k - 1][0], r[k][1] - r[k - 1][1]); return L; };
+export const shortestRoute = (routes) => (Array.isArray(routes) ? routes : []).filter((r) => Array.isArray(r) && r.length > 1).reduce((a, b) => (!a || pathLen(b) < pathLen(a) ? b : a), null);
+export function wayThere(routes, from, to, at = 80) {
+  if (!from) return null;
+  const bearing = to && Math.hypot(to.x - from.x, to.z - from.z) > 1 ? Math.atan2(to.x - from.x, to.z - from.z) : null;
+  const best = shortestRoute(routes);
+  if (!best) return bearing;
+  let L = 0, q = best[best.length - 1];
+  for (let k = 1; k < best.length; k++) {
+    const [ax, az] = best[k - 1], [bx, bz] = best[k], seg = Math.hypot(bx - ax, bz - az);
+    if (L + seg >= at) { const u = (at - L) / (seg || 1); q = [ax + (bx - ax) * u, az + (bz - az) * u]; break; }
+    L += seg;
+  }
+  const dx = q[0] - from.x, dz = q[1] - from.z;
+  return Math.hypot(dx, dz) > 5 ? Math.atan2(dx, dz) : bearing;
+}

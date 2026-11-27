@@ -15,6 +15,9 @@ presentation. It is loaded only with `?pack=`; without it the game is exactly mc
   cp $SK/cast/test-night-shift/*.glb tools/storyrun/test-packs/night-shift/
   mkdir -p tools/storyrun/test-packs/night-shift/voice && cp $SK/packs/test-night-shift/voice/*.ogg tools/storyrun/test-packs/night-shift/voice/
   ```
+- `fold-phone.json`: Fold Call, a world's calls on its foldable phone (`calls: { style: "fold" }`, docs/VCALL.md):
+  FP-1 a video call from Jane at the wheel (`&autopilot=1&flowfast=1&mission=FP-1`), FP-2 on foot a call from Knox
+  that rings until answered (E, or the phone's green button) and then a `vcall` played on the phone (`&mission=FP-2`).
 - `tow.json`: Night Hook, two tows in a vehicle-sheet wrecker (the Story Kit's `wrecker` sheet: tow rig, light bar,
   opening doors): TW-1 hooks a stalled van (a ride of the world's, from its sheet) on 6th Ave and tows it to 11th Ave;
   TW-2 a blue sedan (the city's own body) to Chelsea Park. Both pass under the autopilot (`&autopilot=1&mission=TW-1`).
@@ -52,6 +55,67 @@ presentation. It is loaded only with `?pack=`; without it the game is exactly mc
   (`--dry` lists what it would make, `--prune` deletes clips no line uses; a new speaker needs a voice in the packs file.)
 - `sf-steps.json`: the SF 2040 steps close together by the Ferry Building (a test drive of about a minute): collect in
   the saddle, dismount, collect on foot, mount, a herd, two knights and a held scorpion boss.
+
+- `horse-town.json`: **Ride Out** (a hometown, Bozeman's district: `?city=pkg&town=us-3008950&tc=...&ts=...&tv=district-3578-6179`
+  with a local `&host=`, the address GameMog's play page gives it), a horse alongside the car: Wade drives the ranch
+  truck to Bogert Park, gets out and mounts Dusty (`horse: { name: "Dusty" }`), rides to Soroptomist Park and on down
+  Main Street, gets down, and drives on (the truck brought to the kerb near him: he left it 1 km back). Under the test
+  drive (`&autopilot=1&autocard=1&flowfast=1&mission=HR-1`) it plays through in about 40 s; with `&realpace=1` a
+  player's pace. Mog City's own Dan rides (no forged people, no clips).
+
+### A stock car's paint and the stage set (any world; `node --test tests/storyrun.test.mjs`)
+
+A world whose car is a stock one (`"car": "roadster"`) may give it a paint, `"carPaint": "#76B900"` (a colour, nothing
+else: no livery, no logo): Mog City's roadster is built in it (`wagmi/game.js`; GameMog's `toRunnerPack` writes it from a
+stock vehicle's `paint`). A sheet or model car has its own paint, so `carPaint` is refused there. A car parked while the
+hero walks (an opening, a mission on foot) stands on the ground under it (`intro.js place`), not at 0, so it is there
+on a hometown's streets. A cutscene's set may be `stage` (`stage-room.js`): an arena's keynote stage from the floor, lit
+as a keynote is (a front-of-house key and a cool upstage rim on the presenter, haze in the truss's beams, an LED wall the
+width of the stage glowing with the set's `sign` (a long sign shrinks to fit) and lighting the deck and the front rows),
+the standing pit packed to the barrier (the city's own people, `PersonCrowd`, kept a metre clear of the set's people
+and their walks), the seats rising behind it, phones up, the front row's mahogany chair at [-1, 3.5]; its `house`
+`calm` (watching, swaying) or `up` (on its feet cheering: the rally crowd's takes, a bounce without them). A room may
+carry `fog` (its haze), `envNight`, and a `tick(dt, t, S)` the set calls each frame (sets.js). A cutscene in a set is entered
+through a dip to black (the set built and compiled behind it, the HUD out), and a set is held on its last frame
+through the steps after it that stay in it (a `choice`, a `say`, the next set cutscene: `linger`), so a choice and
+its reply are played in the room, not on the street outside it. Or a video call's office
+as a room of its own, `office-<look>`.
+
+### The street, the calls and the scenes (any world; `node --test tests/storyrun-talk.test.mjs`)
+
+An `npc` may `push: 'chair'` (the executive chair rolled in front of them), wear a `lanyard`, and `walk` from where they
+stand (`fwd` m along the player's heading, `right` m toward the kerb, over `secs`): a plant shown, not told
+(`npc-dress.js`; the chair is gone when the mission ends). A mission's `say` waits (up to 6 s) for a car-phone call's
+line on screen and keeps the call from starting another meanwhile, and a `beat` does too and keeps the call quiet through itself, so a mission's exchange is never cut
+into nor a call's line said twice. A scene (a `vcall` or a `cutscene`) arriving while a call that spans the drive is
+still on at the wheel lets it wrap first (`calls.wrapNow`: its resume line if owed, its wrap, up to 24 s). A call
+waiting's office is built while it rings, and its picture is the call's one card from the moment it is answered; a
+car-screen feed's name tag says a call waiting for someone else. The video call offices are eight: `exec`,
+`startup`, `backstage`, `boardroom`, `kitchen`, `study`, `van` (a broadcast van's back), `greenroom` (an arena's green
+room: the mirror's bulbs, the fruit, a jacket on the rail).
+
+### A horse alongside the car (any world; `node --test tests/storyrun-horse.test.mjs`)
+
+A world whose car is a car and whose story mounts or rides a horse (`mount` / `ride` steps, or a `horse: { name }`;
+`pack.js horseAlongOf`) gets Ranger (by the world's name for him) saddled alongside the car: **the two rides**
+(`wagmi/game.js`, `WAGMI.rides`). One of them is the city's car entity at a time, the one he is in or last left, so
+every step, the GPS, the camera, the fight and the test drive read it as they read SF 2040's horse (`car.kind
+'horse'`); the other stands by where he left it (its body in the street, `wagmi-parked`: solid to him and to the
+traffic; a horse stood by keeps his idle). F beside the one stood by swaps them over and gets him in or up, so the
+player can go from the horse to the car and back at any time on foot. The car's own numbers (box, framing, paces,
+handling, name, lamps, a mission's worn ride) are kept while he rides and put back after.
+- `ride` (`to`, `radius`, `stop`, `objective`, `bonus`, `flag`, `stopTimer`): a drive on the horse; off him, 'Get back
+  on Dusty.' A world with no horse plays it as a drive.
+- `mount` (`at`): the horse is stood at the place's approach (where he can be walked up to, clear of its walls) as the
+  mission starts; in the car, the hero drives to the place's front if over 60 m off, gets out, and climbs up.
+- `dismount`: as before; in the car (not on the horse) it is done at once.
+- Each step's ride (`runner.js rideFor`, `rides.js rideWanted`): a mount or a ride wants the horse; a drive, its
+  stops, a tail, a chase, a tow, a convoy or a passenger the car. In the other one he gets out or down first (the test
+  drive at once); on foot the two are swapped where they stand; one left over 150 m off is brought to him (the horse
+  at his whistle, the car to the nearest kerb). `W.rides.lock` is the wanted ride while the step runs: F at the other
+  does nothing, `W.ride.getIn` swaps to it first (so the test drive's quick get-in mounts the horse for a ride).
+- Each mission starts with the car the ride (a checkpoint with the ride it was taken on); no town car is taken
+  (`wagmi/jack.js`) while he is on the horse or a step wants him.
 
 ### The SF 2040 steps (San Francisco; `node --test tests/storyrun-sf2040.test.mjs`)
 

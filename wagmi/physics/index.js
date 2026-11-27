@@ -10,7 +10,7 @@
 //   const P = createPhysics({ cm, car });  P.want() (load now) · P.ready · P.frame(dt) (once a frame) ·
 //   P.addBox/addCar(...) -> body · P.remove(body) · P.read(body) (its pose into body.p, body.q) · P.impulse(...)
 //   URL ?physics=0: off (the game's own fakes, as before)
-import * as THREE from 'three/webgpu'; import { world } from '../world/index.js';
+import * as THREE from 'three/webgpu'; import { world } from '../world/index.js'; import { fetchRetry, importRetry } from '../net.js';
 
 const VENDOR = new URL('../../js/vendor/jolt/', import.meta.url).href;
 const QS = new URLSearchParams(location.search);
@@ -33,8 +33,18 @@ export function createPhysics({ cm, car }) {
     const t0 = performance.now();
     loading = (async () => {
       try {
-        const mod = await import(VENDOR + 'jolt-physics.wasm.js');
-        J = P.J = await mod.default();
+        // (the module and its .wasm asked for again if the server was busy, a 503 after a release: wagmi/net.js. The
+        // .wasm fetched here and handed to the module (its instantiateWasm hook), so a busy answer is not its own abort)
+        const mod = await importRetry(() => import(VENDOR + 'jolt-physics.wasm.js'), 'jolt-physics.wasm.js');
+        let wasmFailed;
+        const failed = new Promise((res, rej) => { wasmFailed = rej; });
+        const instantiateWasm = (imports, ok) => {
+          fetchRetry(VENDOR + 'jolt-physics.wasm.wasm', { credentials: 'same-origin' })
+            .then((r) => { if (!r.ok) throw new Error('jolt-physics.wasm.wasm: HTTP ' + r.status); return r.arrayBuffer(); })
+            .then((b) => WebAssembly.instantiate(b, imports)).then((r) => ok(r.instance, r.module), wasmFailed);
+          return {};
+        };
+        J = P.J = await Promise.race([mod.default({ instantiateWasm }), failed]);
         const t1 = performance.now();
         setup();
         P.stats.init = Math.round(performance.now() - t1);

@@ -12,6 +12,7 @@
 // A growing town (the production builder, lock v3: tiles = sha256(buildId + the sorted tile ids), the same for every
 // variant): &tv=district-{c}-{r}|full names the variant, its bundle at {host}/towns/{place}/{buildId}/{tiles}/{tv}/
 // (wagmi/world/growing.js plays a district and swaps to full). No tv: the one bundle of a lock v2 town, as before.
+import { fetchRetry } from '../net.js';
 export const GAMEMOG = 'https://gamemog.com';
 export const TOWN_ID = /^us-[0-9]{7}$/;
 export const BUILD_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
@@ -35,7 +36,8 @@ export function townFromQuery(q, here = globalThis.location) {
   return { place, buildId, tiles, tv: tv || null, host, base: `${host}/towns/${place}/${buildId}/${tiles}/${tv ? tv + '/' : ''}` };
 }
 
-export async function loadTown(t, fetchFn = globalThis.fetch) {
+// (fetchRetry: asked for again on a busy answer, wagmi/net.js)
+export async function loadTown(t, fetchFn = fetchRetry) {
   const r = await fetchFn(`${t.base}geodata.json`, { credentials: 'omit', redirect: 'error' });
   if (!r.ok) throw new Error(`town ${t.place}: ${r.status}`);
   const b = await r.json();

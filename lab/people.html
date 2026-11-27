@@ -35,6 +35,7 @@
 //   ?aa=0 (the low tier: no MSAA, the cards cut by their alpha test)   ?brow=<0..1> (every face's brows held raised that far: its brow morph, the forged brow hairs with it; people7)
 //   ?blink=<0..1> (every face's lids held there, its live blinks off: without ?t= a face blinks every 2-6 s, and a shot
 //   taken mid-blink reads as a fault in the lids; people5's nurse)
+//   ?rt=1 (Dan's clips retargeted onto the body's rest, the locomotion pack's gaits: as cast.js plays a forged person)
 //   a body's own switches after a '~', ';' between them: x.glb!~clip=talk;hide=^suit;at=hair:0.6;flat=hair;wire=clothes
 import * as THREE from 'three/webgpu';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
@@ -42,6 +43,8 @@ import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
 import { loadGLB } from '../wagmi/glb.js';
 import { createFace } from '../wagmi/face.js';
 import { polishBody, polishReady, POLISH } from '../wagmi/storyrun/polish.js';
+import { danOn, loadLoco } from '../wagmi/retarget.js';
+import { setScene as rigScene } from '../wagmi/storyrun/charlight.js';
 
 const q = new URLSearchParams(location.search);
 const list = (q.get('a') || 'dan').split(',').filter(Boolean), view = q.get('view') || 'close', mood = q.get('light') || 'day';
@@ -60,7 +63,10 @@ renderer.toneMapping = q.get('tm') === '0' ? THREE.NoToneMapping : THREE.ACESFil
 renderer.setScissorTest(true);
 document.body.appendChild(renderer.domElement); await renderer.init();
 const env = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.03).texture;
-const danClips = loadGLB('../assets/characters/dan.glb').then((g) => g.animations);
+// (?rt=1: Dan's clips retargeted onto each body's own rest with the locomotion pack, as the story runner's cast.js does it)
+const RT = q.get('rt') === '1';
+const danG = (RT ? loadLoco((u) => loadGLB('../' + u)) : Promise.resolve()).then(() => loadGLB('../assets/characters/dan.glb'));
+const danClips = danG.then((g) => g.animations);
 
 const night = mood === 'night', golden = mood === 'golden', street = mood === 'street';
 // the lens on the head: [distance in front, height above the eyes' bone, fov]
@@ -78,6 +84,8 @@ async function column(src0, i) {
   Object.assign(sun.shadow.camera, { left: -3, right: 3, top: 3, bottom: -3, near: 0.5, far: 30 }); scene.add(sun, sun.target);
   const floor = new THREE.Mesh(new THREE.CircleGeometry(8, 64), new THREE.MeshStandardMaterial({ color: '#77736C', roughness: 0.9 }));
   floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+  // (?look=cinematic: the people's own lighting rig, charlight.js, as a set's (the street's: the city's, in play))
+  rigScene(scene, street ? 'city' : 'set', { mood: night ? 'night' : golden ? 'golden' : 'day', sunDir: sun.position.clone().normalize() });
   // (each column its own load: the polish changes a body's geometry in place, and loadGLB shares one parse per address)
   const g = await loadGLB(url + '?col=' + i);
   const root = new THREE.Group(), inner = skClone(g.scene); root.add(inner);
@@ -95,7 +103,8 @@ async function column(src0, i) {
   if (polish) { const t0 = performance.now(); const r = polishBody(inner, only); console.log('polish', path, JSON.stringify(r), (performance.now() - t0).toFixed(1) + ' ms'); window.__polish = (window.__polish || []).concat([{ path, ...r, ms: +(performance.now() - t0).toFixed(1) }]); }
   const bones = {}; inner.traverse((o) => { if (o.isBone) bones[o.name] = o; });
   const own = g.animations.slice(), names = new Set(own.map((a) => a.name));
-  for (const a of await danClips) if (!names.has(a.name)) own.push(a);
+  const rtc = RT && !native ? danOn(THREE, await danG, g).clips : await danClips;
+  for (const a of rtc) if (!names.has(a.name)) own.push(a);
   const mixer = new THREE.AnimationMixer(inner);
   const clip = THREE.AnimationClip.findByName(own, (cq.get('clip') || q.get('clip')) || 'idle') || own[0];
   if (clip && (cq.get('clip') || q.get('clip')) !== 'bind') mixer.clipAction(clip).play();
@@ -128,6 +137,7 @@ async function column(src0, i) {
   };
   place();
   let tris = 0; inner.traverse((o) => { if (o.isMesh && o.visible) tris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; });
+  window.__bones = window.__bones || []; window.__bones[i] = bones;
   return { src: src0, scene, cam, mixer, face, place, tris, held: blink != null };
 }
 const cols = await Promise.all(list.map(column));

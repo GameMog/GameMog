@@ -1,6 +1,6 @@
 // Mog City: the synthesised voices (Node data, for the voice build). The candidates the owner auditions for Dan, Jane and
 // Mr. Big, by name (dan-A .. dan-C, jane-A .. jane-C, mrbig-A .. mrbig-E), and for the side characters (knox-A/B, mack-A/B,
-// gears-A .. gears-E, fiona-A/B, dash-A/B, brick-A/B, bea-A/B, and the Camp's crowd camp-A); the one picked for a speaker is recorded by
+// gears-A .. gears-E, fiona-A/B, dash-A/B, brick-A/B, bea-A/B, rook-A .. rook-E, and the Camp's crowd camp-A); the one picked for a speaker is recorded by
 // `voices.mjs --tts <name>,..` in wagmi/radio/build/tts/picks.json, and wagmi/radio/build/tts.py renders that speaker's
 // lines with it (see docs/VOICE-LINES.md).
 //
@@ -27,6 +27,7 @@ const FIONA_REF = 'Hi, everybody! Oh my gosh, look at all of you! This is the be
 const DASH_REF = 'Sorry, sorry, I\'m here, I\'m here! The train was late, then my phone died, then I went to the wrong park. Did I miss it? Please tell me I didn\'t miss it.';
 const BRICK_REF = 'Let\'s go, let\'s go! Hands up, phones out, nobody past the rope! You, back up. You, you\'re good. Everybody else, keep that energy up!';
 const BEA_REF = 'Alright, everybody, settle down. I taught science for thirty-one years, so I know what not listening sounds like. Soup is at six. Bring a bowl, bring a friend, and bring some patience.';
+const ROOK_REF = 'Okay. Keep walking, and don\'t look at me. Three years on this door and nobody has ever looked at me twice. That\'s the whole trick, honestly. Sorry. I talk when I\'m nervous.';
 // SF 2040 (tools/storyrun/test-packs/sf2040.json, built by pack-voices.mjs): the Mercers and the Ferry Building camp,
 // forty-one days after the impact. Their reference words: in character, not a game line
 const CAL_REF = 'Fed the horse, checked the water, walked the fence line twice. Nothing moving out there tonight. That\'s good. Quiet means we all get a little sleep. I\'ll take first watch.';
@@ -149,6 +150,23 @@ export const VOICES = {
       { voice: 'am_onyx', speed: 1.03, delay: 0.05, gain: -2 }, { voice: 'af_kore', speed: 1.05, delay: 0.04, gain: -3 },
       { voice: 'am_eric', speed: 1.07, delay: 0.06, gain: -3 }, { voice: 'af_jessica', speed: 1.01, delay: 0.025, gain: -4 },
     ] },
+  // Rook: a junior on JPBank's security team who wants out (Mission 4): nervous and quick, but dry; he speaks low so
+  // nobody overhears. Until 15 Nov his lines were the macOS placeholder (Reed, pitched up: the owner, "too robotic").
+  // Five designs (15 Nov), measured on his 13 lines (median F0, the lines' range): A the quiet, wry junior (121 Hz,
+  // 97-128: steady but on Dan's own pitch, about 122), B the same words on another seed (100 Hz, 88-114: under Mr. Big's
+  // 115, by Knox's 105), C older and wearier (107 Hz, 97-114); D a light tenor, nervous (170 Hz, 126-226: clear of the
+  // other men, three lines re-taken in cast.mjs TWEAK), E higher still (203 Hz, 133-253: a boy more than a man).
+  // The pick: D (the owner may re-pick by ear: voices.mjs --tts rook-A, the reference clips in .scratch/voices/refs)
+  'rook-A': { speaker: 'Rook', engine: 'qwen', desc: 'qwen-quiet-wry-junior', seed: 2901, refText: ROOK_REF,
+    design: `Male, about 30 years old, American New Yorker, a grown man's natural mid-range voice, a security guard who wants out, speaks low and quick so nobody overhears, a little nervous, dry wry humour, apologetic, ${STUDIO}` },
+  'rook-B': { speaker: 'Rook', engine: 'qwen', desc: 'qwen-quiet-wry-junior-2', seed: 2912, refText: ROOK_REF,
+    design: `Male, about 30 years old, American New Yorker, a grown man's natural mid-range voice, a security guard who wants out, speaks low and quick so nobody overhears, a little nervous, dry wry humour, apologetic, ${STUDIO}` },
+  'rook-C': { speaker: 'Rook', engine: 'qwen', desc: 'qwen-weary-deadpan', seed: 2923, refText: ROOK_REF,
+    design: `Male, mid 30s, American, a soft, slightly husky mid-range voice, a grown man's voice, weary and deadpan, quiet and quick, a little nervous under the calm, tired of his job, ${STUDIO}` },
+  'rook-D': { speaker: 'Rook', engine: 'qwen', desc: 'qwen-light-tenor-nervous', seed: 2934, refText: ROOK_REF,
+    design: `Male, about 30 years old, American, a light tenor voice in a normal adult range, a grown man's voice, nervous and quick, speaks softly so nobody overhears, dry and apologetic, ${STUDIO}` },
+  'rook-E': { speaker: 'Rook', engine: 'qwen', desc: 'qwen-light-tenor-wry', seed: 2945, refText: ROOK_REF,
+    design: `Male, early 30s, American New Yorker, a slightly high, light mid-range voice, a grown man's voice, quick and a little anxious, wry and self-deprecating, talks low and fast, ${STUDIO}` },
   // ---- SF 2040 (pack-voices.mjs; the picks per pack in wagmi/radio/build/tts/packs/sf2040.json) ----
   // Cal Mercer, the hero: about 40, an ex-park ranger, weathered, quiet and determined, gravel but warm. Picked of 3 (11 Nov,
   // by pitch and how evenly the clone holds it over three lines, .scratch/voice/audition): A a low weathered baritone

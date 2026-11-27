@@ -82,13 +82,13 @@ const PACE = { pickup: 9.4, van: 9, minivan: 9.6, oldsedan: 9.8, coupe: 11.4, mu
 const FMD = (window.NYC.Fleet && window.NYC.Fleet.data && window.NYC.Fleet.data.models) || null;
 const MODEL_FLEETS = {
   rural: { muscle69: 18, gt83: 12, sport99: 10, turbo81: 8, gt95: 7, roadster00: 9,
-    pickup89: 22, sedan80: 13, suv10: 12, sedan10: 9, minivan20: 4, van92: 5, hatch11: 3, box95: 3, utility: 1, mailvan: 1, tow: 1 },
+    pickup20: 14, pickup89: 8, sedan80: 13, suv20: 6, offroad20: 3, suv10: 3, sedan10: 9, minivan20: 4, van92: 5, hatch11: 3, box95: 3, utility: 1, mailvan: 1, tow: 1 },
   resort: { gt95: 16, turbo81: 11, sport99: 14, gt83: 10, roadster00: 14, muscle69: 10,
-    suv10: 15, sedan10: 13, hatch11: 6, city07: 4, minivan20: 4, van92: 3, pickup89: 4, sedan80: 2, box95: 2, taxi75: 3, taxi20: 2, ambulance: 1, mailvan: 1 },
+    suv10: 9, suv20: 6, sedan10: 13, hatch11: 6, city07: 4, minivan20: 4, van92: 3, pickup89: 2, pickup20: 2, sedan80: 2, box95: 2, taxi75: 3, taxi20: 2, ambulance: 1, mailvan: 1 },
   city: { gt95: 14, turbo81: 12, sport99: 16, gt83: 14, roadster00: 10, muscle69: 14,
-    sedan10: 13, hatch11: 8, city07: 6, suv10: 9, sedan80: 3, van92: 4, box95: 3, minivan20: 3, pickup89: 2, taxi75: 3, taxi20: 3, garbage: 1, mailvan: 1, ambulance: 1, utility: 1, firetruck: 0.5 },
+    sedan10: 13, hatch11: 8, city07: 6, suv10: 7, suv20: 2, sedan80: 3, van92: 4, box95: 3, minivan20: 3, pickup89: 2, taxi75: 3, taxi20: 3, garbage: 1, mailvan: 1, ambulance: 1, utility: 1, firetruck: 0.5 },
   suburbs: { gt95: 14, turbo81: 13, sport99: 17, gt83: 15, roadster00: 12, muscle69: 17,
-    suv10: 15, sedan10: 13, minivan20: 7, pickup89: 9, hatch11: 6, city07: 3, sedan80: 5, van92: 3, box95: 2, taxi75: 1, mailvan: 1, utility: 1, tow: 0.5 }
+    suv10: 9, suv20: 6, sedan10: 13, minivan20: 7, pickup89: 4, pickup20: 4, offroad20: 1, hatch11: 6, city07: 3, sedan80: 5, van92: 3, box95: 2, taxi75: 1, mailvan: 1, utility: 1, tow: 0.5 }
 };
 // (the sports cars' paint: bright and dark show colours)
 const SPORTS_PAINTS = [0xb3121a, 0xf2c230, 0xf08a1c, 0x2f63b8, 0x111214, 0xe4e4e0, 0xd8dade, 0x1c8a8c, 0x1f6b3a, 0x7a1e22, 0x6a2fb8, 0x1d3b6c];
@@ -105,7 +105,7 @@ const FLEET = (() => {
   // (the models' mix when their numbers are here, each model's procedural body standing in; else the bodies' own)
   const models = !!FMD;
   const F = FLEETS[region], mix = models ? Object.fromEntries(Object.entries(MODEL_FLEETS[region]).filter(([k]) => FMD[k])) : { ...F.mix };
-  const K = models ? { conv: 'roadster00', suv: 'suv10', pickup: 'pickup89' } : { conv: 'convertible', suv: 'suv', pickup: 'pickup' };
+  const K = models ? { conv: 'roadster00', suv: FMD.suv20 ? 'suv20' : 'suv10', pickup: FMD.pickup20 ? 'pickup20' : 'pickup89' } : { conv: 'convertible', suv: 'suv', pickup: 'pickup' };
   if (snow) {
     // (the models' open car's share goes to the other sports cars, so they still lead)
     const share = models ? mix[K.conv] || 0 : 0, hard = models ? Object.keys(mix).filter((k) => k !== K.conv && FMD[k].group === 'sports') : [];
@@ -863,6 +863,8 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
       const ahead = dx * fx + dz * fz, right = dz * fx - dx * fz;
       if (ahead < -8 || Math.abs(right) > 8 || (v.kAhead !== Infinity && Math.abs(ahead) >= Math.abs(v.kAhead))) continue;
       const c = Math.abs(Math.cos((k.yaw || 0) - v.yaw)), sn = Math.abs(Math.sin((k.yaw || 0) - v.yaw));
+      // (a raised bridge's gate, bascule.js: only for a car going along the bridge, never one on a street past it)
+      if (k.axis && c < 0.6) continue;
       v.kAhead = ahead;
       v.kRight = right;
       v.kW = (k.halfW || 1) * c + (k.halfL || 2.2) * sn;
@@ -1428,13 +1430,54 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
     v.next = null;
   }
 
+  // (how far right it can pull: the right-hand lane toward the curb, any other lane half into the next, which pulls over too)
+  function PULLSF(v) {
+    const L = v.edge && v.edge.lanes; if (!L || !L.length) return 0;
+    let right = true; for (let i = 0; i < L.length; i++) if (L[i] > L[v.lane] + 0.1) right = false;
+    return right ? 1.7 : 1.6;
+  }
+
+  // (jh-drive round 2) Sirens: a police car on a chase (wagmi/pursuit publishes window.NYC.sirens { t, list: [{ x, z, h,
+  // speed }] } each frame) coming up behind within SIREN.reach m on the same road, the same way: the driver ahead slows
+  // to a crawl and pulls over to the right, as far as there is road and room (PULL), holds there till the siren has
+  // gone by (SIREN.hold s after it last heard it close), then eases back into its lane. Never in an intersection, never a
+  // bus (it keeps its stop), never a wreck. sirenStats: { pulled, held } for a test
+  const SIREN = { reach: 60, behind: 6, band: 12, hold: 1.6, crawl: 3.5, every: 0.2 };
+  const sirenStats = { pulled: 0, held: 0 };
+  function sirenBehind(v) {
+    const S = window.NYC && window.NYC.sirens;
+    if (!S || !S.list || !S.list.length || performance.now() - S.t > 700) return false;
+    for (const s of S.list) {
+      const dx = v.x - s.x, dz = v.z - s.z;
+      if (dx * dx + dz * dz > SIREN.reach * SIREN.reach) continue;
+      const hx = Math.sin(s.h), hz = Math.cos(s.h), ahead = dx * hx + dz * hz, across = Math.abs(dx * hz - dz * hx);
+      if (ahead > -SIREN.behind && ahead < SIREN.reach && across < SIREN.band && v.tx * hx + v.tz * hz > 0.5) return true;
+    }
+    return false;
+  }
+  function sirens(v, dt) {
+    v.sirenClock = (v.sirenClock || 0) - dt;
+    if (v.yieldT > 0) v.yieldT -= dt;
+    if (v.sirenClock > 0) return;
+    v.sirenClock = SIREN.every * (0.7 + Math.random() * 0.6);
+    if (v.bus || v.wreck || v.parked) { v.yieldT = 0; v.pull = 0; return; }
+    if (sirenBehind(v)) {
+      if (!(v.yieldT > 0)) { v.pull = v.conn ? 0 : PULLSF(v); sirenStats.pulled++; }
+      else sirenStats.held++;
+      v.yieldT = SIREN.hold;
+    }
+    if (!(v.yieldT > 0)) v.pull = 0;
+  }
   function drive(v, dt) {
     v.laneTimer -= dt;
     if (v.laneTimer <= 0) {
       v.laneTimer = 0.4 + Math.random() * 0.3;
       changeLanes(v);
     }
+    sirens(v, dt); // (jh-drive: pulling over for a siren)
     accelerate(v);
+    // (a siren behind: down to a crawl while it pulls over)
+    if (v.yieldT > 0 && v.speed > SIREN.crawl) v.acc = Math.min(v.acc, -Math.min(6, (v.speed - SIREN.crawl) * 1.5));
     const speed = v.speed;
     v.speed = Math.max(0, v.speed + v.acc * dt);
     let ds = v.speed * dt;
@@ -1467,10 +1510,13 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
     // ease sideways onto the lane centre (after lane changes and knocks), steering the front bumper towards it so the
     // nose doesn't swing on into the next lane, and no faster than the wheels can steer it, though even stopped half
     // way into a lane change a driver edges over
-    const maxLat = Math.min(1.7, 0.3 + (v.bus ? 0.1 : 0.22) * v.speed);
-    const rate = Math.min(1.8, Math.max(v.speed, 1.5) / (v.axle + v.half));
-    const target = clamp(-rate * v.dl, -maxLat, maxLat);
-    v.dlv += clamp(target - v.dlv, -2.5 * dt, 2.5 * dt);
+    // (jh-drive: or onto `pull` metres right of it, pulled over for a siren)
+    const pull = v.pull > 0 && !v.conn ? v.pull : 0;
+    const maxLat = pull ? Math.min(2.2, 0.9 + 0.3 * v.speed) : Math.min(1.7, 0.3 + (v.bus ? 0.1 : 0.22) * v.speed);
+    const rate = pull ? 1.7 : Math.min(1.8, Math.max(v.speed, 1.5) / (v.axle + v.half));
+    const target = clamp(-rate * (v.dl - pull), -maxLat, maxLat);
+    const slew = (pull ? 4.5 : 2.5) * dt;
+    v.dlv += clamp(target - v.dlv, -slew, slew);
     v.dl += v.dlv * dt;
   }
 
@@ -2841,6 +2887,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, opts = {}) {
   return {
     group,
     update,
+    sirenStats, // (jh-drive)
     requestRideJunction,
     releaseRideJunction,
     cars,

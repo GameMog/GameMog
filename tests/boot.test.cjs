@@ -61,8 +61,8 @@ function boot(search) {
 
 test('preloaded URLs match ordered scripts and execution waits for Three.js imports', () => {
   const { scripts, NYC } = boot('');
-  // New York, as ever: its 28 scripts from js/, nyc-geodata.js first and main.js last, no city folder
-  assert.equal(scripts.length, 28);
+  // New York, as ever: its 30 scripts from js/ (nyc-looks.js and nyc-roofs.js since nycdata), nyc-geodata.js first and main.js last, no city folder
+  assert.equal(scripts.length, 30);
   assert.ok(scripts.every((s) => s.startsWith('./js/')));
   assert.match(scripts[0], /^\.\/js\/nyc-geodata\.js\?v=/);
   assert.match(scripts.at(-1), /^\.\/js\/main\.js\?v=/);

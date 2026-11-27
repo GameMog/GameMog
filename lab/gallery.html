@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mog City: the gallery</title>
+  <style>html, body { margin: 0; height: 100%; background: #0B0D12; color: #E9E2D2; font: 600 15px system-ui, sans-serif; }
+    main { max-width: 560px; margin: 0 auto; padding: 32px 16px; } a { color: #F3D27A; } li { margin: 8px 0; } code { color: #9DB8EC; }</style>
+</head>
+<body>
+<main>
+  <h1>The gallery (Mission 4)</h1>
+  <p>Walk it on the Seaport map with Dan's normal controls (WASD or the touch stick, Space to jump, hold F to act).
+  Each link opens the game straight at that point, with the gallery up on South St (wagmi/mission/m4-gallery.js install).</p>
+  <ul id="links"></ul>
+  <p>The clue: Rook says to look at the statue's reflection; from the brass medallion the black glass shows the mark on
+  the back of its crown, and the frame whose cartouche wears that mark holds the High Artwork. A wrong piece trips the
+  alarm and fails it (retried from the door with a fresh deal); add <code>&amp;wrong=alarm</code> for the alarm only.</p>
+  <p>Add <code>&amp;time=twilight</code> for the blue hour, <code>&amp;sigil=star|moon|eye</code> to fix the statue's mark.
+  Any query given to this page is passed on (<code>?go=clue</code> opens the clue straight away).</p>
+</main>
+<script>
+  // (the scenarios: walk up the street to the glass; on the medallion; before the High Artwork; it taken)
+  const q = new URLSearchParams(location.search), base = '../index.html?nogate&nointro&nosave&gallery=';
+  const extra = [...q].filter(([k]) => k !== 'go').map(([k, v]) => '&' + encodeURIComponent(k) + (v ? '=' + encodeURIComponent(v) : '')).join('');
+  const S = [['walk', 'Walk up to it and in'], ['clue', 'On the medallion (the clue)'], ['take', 'Before the High Artwork'], ['cert', 'Taken: the certificate']];
+  const ul = document.getElementById('links');
+  for (const [id, label] of S) { const li = document.createElement('li'), a = document.createElement('a'); a.href = base + id + extra; a.textContent = label; li.appendChild(a); ul.appendChild(li); }
+  if (q.get('go')) location.replace(base + q.get('go') + extra);
+</script>
+</body>
+</html>

@@ -480,13 +480,17 @@ function buildRoadNetwork(sidewalks, obstacles) {
       }
     }
     const rim = (n) => Math.min(n.x - x0, x1 - n.x, n.z - z0, z1 - n.z) < EDGE_RIM;
+    // (a whole town: a deck its window cut off in mid-air ends at a road-closed barrier, grade-separation.js endBarrier.
+    // No turn there: the traffic queued at the barriers (Cold Harbor's Seaside Freeway, PCH). Its edges are dead ends
+    // now, and the roads that lead only to them go with them (7.))
+    const closed = (e, atEnd) => cutOffDeck(e, atEnd ? e.to : e.from, atEnd);
     const starts = new Set(edges.map((e) => e.from)), ends = new Set(edges.map((e) => e.to));
-    const entries = edges.filter((f) => !ends.has(f.from) && rim(f.from));
+    const entries = edges.filter((f) => !ends.has(f.from) && rim(f.from) && !closed(f, false));
     // (one to one, nearest pairs first; the road coming in starts at the leaving road's end node, so that node has a
     // way in and a way on and the traffic treats it as the dead end it turns round at)
     const pairs = [];
     for (const e of edges) {
-      if (starts.has(e.to) || !rim(e.to)) continue;
+      if (starts.has(e.to) || !rim(e.to) || closed(e, true)) continue;
       for (const f of entries) {
         const d = Math.hypot(f.from.x - e.to.x, f.from.z - e.to.z);
         if (f !== e && d < EDGE_TURN && e.dx * f.dx + e.dz * f.dz < -0.8) pairs.push([d, e, f]);
@@ -500,6 +504,7 @@ function buildRoadNetwork(sidewalks, obstacles) {
       usedEntry.add(f);
       f.from = e.to;
     }
+    turnStats.closed = edges.filter((e) => closed(e, true) || closed(e, false)).length;
     turnStats.exits = edges.filter((e) => !starts.has(e.to) && rim(e.to)).length;
     turnStats.entries = entries.length;
     turnStats.paired = edgeTurn.size;
@@ -731,7 +736,8 @@ function buildRoadNetwork(sidewalks, obstacles) {
   for (const e of edges) {
     const n = e.lanes.length;
     // a dead end (the street stops there, or leaves the data box) is the one place to turn round
-    const deadEnd = e.to.out.every((f) => f.to === e.from);
+    // (not at a deck the town's window cut off: a road-closed barrier stands there, and nothing turns at it)
+    const deadEnd = e.to.out.every((f) => f.to === e.from) && !cutOffDeck(e, e.to, true);
     for (const f of e.to.out) {
       if (f.to === e.from && deadEnd) {
         e.moves.push({ to: f, turn: 'U', cross: -1, out: new Array(n).fill(-1) });
@@ -942,7 +948,7 @@ function buildRoadNetwork(sidewalks, obstacles) {
     for (const e of edges) if (redo.has(e.from) || redo.has(e.to)) place(e);
   }
   if (window.NYC.DEBUG_ROADS !== false) {
-    console.info(`[roads] centreline edges: ${genCreated} with clear lanes, ${genShortKept} long enough, ${genShortKept - genLost.length} connected`);
+    console.info(`[roads] centreline edges: ${genCreated} with clear lanes, ${genShortKept} long enough, ${genShortKept - genLost.length} connected` + (turnStats.closed ? `, ${turnStats.closed} at decks closed at the town's edge` : ''));
   }
   for (const e of edges) {
     e.moves = e.moves.filter((m) => comp[m.to.id] === bestComp);
@@ -1058,6 +1064,21 @@ function buildRoadNetwork(sidewalks, obstacles) {
 // or the data's edge)
 const PORTAL_COVER = 3;
 const EDGE_RIM = 60; // m: a package road's end this near the data's edge leaves the data (edgeTurn)
+// A whole town's window box (PKG.window, full), or null: a deck the window cut off ends at it
+const EDGE_AT = 3; // m: a node this near the box's side is on it (grade-separation.js: 1.5 m, its barrier's own test)
+function townBox() {
+  const w = window.NYC.PKG && window.NYC.PKG.window, b = w && w.full !== false && w.box;
+  return b && [b.x0, b.x1, b.z0, b.z1].every(Number.isFinite) ? b : null;
+}
+const onTownEdge = (b, n) => !!b && (Math.abs(n.x - b.x0) < EDGE_AT || Math.abs(n.x - b.x1) < EDGE_AT || Math.abs(n.z - b.z0) < EDGE_AT || Math.abs(n.z - b.z1) < EDGE_AT);
+// Edge e of a package deck ends (atEnd) or starts at node n on the town's edge standing off the ground there: the deck
+// the window cut off, closed by a barrier (grade-separation.js endBarrier: a deck end over DECK_OFF m up)
+function cutOffDeck(e, n, atEnd) {
+  const b = townBox(), T = window.NYC.Terrain;
+  if (!b || !e.bore || e.bore.kind !== 'deck' || !onTownEdge(b, n) || !T || !T.loaded) return false;
+  const y = boreY(e.bore, atEnd ? e.bore.a1 : e.bore.a0);
+  return y != null && y - T.groundAt(n.x, n.z) > DECK_OFF;
+}
 const EDGE_TURN = 150; // m: ... and turns round onto a road coming in within this of it
 const BANK_SETBACK = 8;
 function spans(pts, tunnel, measureOnly = false) {
@@ -1392,5 +1413,5 @@ function buildRoadDebug(net) {
   return lines;
 }
 
-Object.assign(window.NYC, { buildRoadNetwork, buildRoadDebug, CROSSWALK, edgeY, edgeGrade, curveY, boreY, edgeArc, linkPoint, deckOf });
+Object.assign(window.NYC, { buildRoadNetwork, buildRoadDebug, CROSSWALK, edgeY, edgeGrade, curveY, boreY, edgeArc, linkPoint, deckOf, tunnelOf });
 })();

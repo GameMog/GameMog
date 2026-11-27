@@ -8,7 +8,7 @@
 // Conventions: north = -z, east = +x. Every directed edge has a unit direction (dx, dz) and a right normal
 // (rx, rz) = (-dz, dx). Lanes are lateral offsets to the right of the centreline, sorted left to right.
 
-const { ALL_AVENUES, ALL_STREETS, AVENUES, STREETS, ISLAND_BOUNDS, getIslandBoundsAtZ } = window.NYC;
+const { ALL_AVENUES, ALL_STREETS, AVENUES, STREETS, SIGNAL_SITES, ISLAND_BOUNDS, getIslandBoundsAtZ } = window.NYC;
 
 const CELL = 32;
 const Z_MIN = Math.floor(ISLAND_BOUNDS.minZ) - 20; // the detailed island, ~129th St to the Battery
@@ -1125,11 +1125,23 @@ function buildRoadNetwork(sidewalks, obstacles) {
   nodes = nodes.filter((n) => n.in && n.out);
   nodes.forEach((n, i) => (n.id = i));
 
-  // 8. Signalized intersections are exactly the ones with signal heads (street-details.js)
-  for (const a of AVENUES) {
-    for (const s of STREETS) {
-      const n = nodes.find((m) => Math.abs(m.x - a.x) < 4 && Math.abs(m.z - s.z) < 4);
-      if (n) n.signal = true;
+  // 8. Signalized intersections are exactly the ones with signal heads (street-details.js): city-config.js SIGNAL_SITES,
+  //    the midtown core's and the grid's mapped signals (a 25 m grid of the nodes, not a search of them all per site)
+  {
+    const byCell = new Map();
+    for (const m of nodes) {
+      const k = `${Math.floor(m.x / 25)}_${Math.floor(m.z / 25)}`;
+      (byCell.get(k) || byCell.set(k, []).get(k)).push(m);
+    }
+    for (const site of SIGNAL_SITES || []) {
+      let n = null;
+      for (let i = -1; i <= 1 && !n; i++) for (let j = -1; j <= 1 && !n; j++) {
+        for (const m of byCell.get(`${Math.floor(site.x / 25) + i}_${Math.floor(site.z / 25) + j}`) || []) {
+          if (Math.abs(m.x - site.x) < 4 && Math.abs(m.z - site.z) < 4) { n = m; break; }
+        }
+      }
+      // (only where street-details.js placed a mast: site.masts, undefined when no street furniture was built)
+      if (n && (site.masts === undefined || site.masts > 0)) n.signal = true;
     }
   }
 

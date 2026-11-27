@@ -1,0 +1,306 @@
+{
+ "note": "Ids a release retired, kept by hand (tools/story/extract.mjs checks it and carries it into limits.json; wagmi/story/upgrade.js reads it there). lines/copy: a retired id, its successor (to, or null: none), its old words and the release it was last in. reworded: an id kept for new words, and its old words: a pack still holding them gets the new ones.",
+ "lines": {
+  "m2-jane-i-said-bring-it": {
+   "to": "m2-jane-im-on-the-librarys",
+   "speaker": "jane",
+   "text": "I said bring it to Bryant Park. I'm on the library's wifi. It's free and it has a lion.",
+   "since": "r16"
+  },
+  "m2-jane-hold-the-burner-up": {
+   "to": "m2-jane-guarding-a-pretzel-hold",
+   "speaker": "jane",
+   "text": "Hold the burner up. Okay. It has a twin. Same batch, same buyer.",
+   "since": "r16"
+  },
+  "m2-jane-your-face-is-on": {
+   "to": null,
+   "speaker": "jane",
+   "text": "Your face is on four front pages today. {moon}'s jealous.",
+   "since": "r16"
+  },
+  "m2-dan-moon-can-have-them": {
+   "to": "m2-dan-moon-with-you",
+   "speaker": "dan",
+   "text": "{moon} can have them. All four.",
+   "since": "r16"
+  },
+  "m2-jane-the-twin-pinged-twenty": {
+   "to": "m2-jane-there-the-twin-pinged",
+   "speaker": "jane",
+   "text": "The twin pinged twenty minutes ago. A van, idling in Times Square. Seventh and Forty-Seventh.",
+   "since": "r16"
+  },
+  "m2-jane-dont-run-up-to": {
+   "to": "m2-jane-then-dont-run-up",
+   "speaker": "jane",
+   "text": "Don't run up to it. Follow it. It'll take us to the rest of them.",
+   "since": "r16"
+  },
+  "m2-dan-follow-the-van-got": {
+   "to": "m2-dan-thats-their-van-dont",
+   "speaker": "dan",
+   "text": "Follow the van. Got it.",
+   "since": "r16"
+  },
+  "m2-dan-hi-jane-hi-moon": {
+   "to": "m2-dan-hi-moon-is-that",
+   "speaker": "dan",
+   "text": "Hi, {jane}. Hi, {moon}. Great to see you too.",
+   "since": "r16"
+  },
+  "m2-jane-plugging-it-in-look": {
+   "to": "m2-jane-was-plugging-it-in",
+   "speaker": "jane",
+   "text": "Plugging it in. Look: two SIMs, one sale, switched on the same minute. Yours, and its twin.",
+   "since": "r16"
+  },
+  "m4-dan-wheres-my-laptop": {
+   "to": "m4-dan-the-pigeons-have-my",
+   "speaker": "dan",
+   "text": "Where's my laptop?",
+   "since": "r16"
+  },
+  "m4-dan-he-bought-a-painting": {
+   "to": null,
+   "speaker": "dan",
+   "text": "He bought a painting?",
+   "since": "r16"
+  },
+  "m1-dan-been-a-little-busy": {
+   "to": "m1-dan-busy-getting-framed",
+   "speaker": "dan",
+   "text": "Been a little busy getting framed.",
+   "since": "r16"
+  },
+  "m3-gears-cold-gas-thrusters-little": {
+   "to": "m3-gears-cold-gas-thrusters-very",
+   "speaker": "gears",
+   "text": "Cold-gas thrusters. Little puffs of nitrogen. Very safe. Mostly.",
+   "since": "r16"
+  },
+  "m3-jane-dan-are-you-watching": {
+   "to": "m3-jane-dan-you-watching-this",
+   "speaker": "jane",
+   "text": "{dan}. Are you watching this? {bank}'s throwing a party in Washington Square.",
+   "since": "r16"
+  },
+  "m3-jane-right-next-to-the": {
+   "to": "m3-jane-thats-washington-square-right",
+   "speaker": "jane",
+   "text": "Right next to the {occupy} camp. Now look at their screens.",
+   "since": "r16"
+  },
+  "m3-jane-its-you-ten-feet": {
+   "to": null,
+   "speaker": "jane",
+   "text": "It's you. Ten feet tall, three times. 'The bad apple.'",
+   "since": "r16"
+  },
+  "m3-dan-im-going-to-go": {
+   "to": "m3-dan-wow-my-good-side",
+   "speaker": "dan",
+   "text": "I'm going to go unplug it.",
+   "since": "r16"
+  },
+  "m3-gears-go-get-your-name": {
+   "to": "m3-gears-thrusters-are-on-the",
+   "speaker": "gears",
+   "text": "Go get your name back, kid.",
+   "since": "r16"
+  },
+  "m3-bea-anybody-the-bank-hates": {
+   "to": "m3-bea-who-does-the-bank",
+   "speaker": "bea",
+   "text": "Anybody the bank hates this much...",
+   "since": "r16"
+  },
+  "m3-camp-anybody-the-bank-hates": {
+   "to": "m3-camp-who-does-the-bank",
+   "speaker": "camp",
+   "text": "Anybody the bank hates this much!",
+   "since": "r16"
+  },
+  "m3-bea-is-somebody-we-should": {
+   "to": "m3-bea-him-so-we-hear",
+   "speaker": "bea",
+   "text": "...is somebody we should hear out!",
+   "since": "r16"
+  },
+  "m4-jane-head-west-battery-park": {
+   "to": "m4-jane-head-west-to-battery",
+   "speaker": "jane",
+   "text": "Head west. Battery Park City, by the river. Nobody's there at night.",
+   "since": "r16"
+  },
+  "m4-dan-okay-up-is-up": {
+   "to": "m4-dan-okay-which-way-is",
+   "speaker": "dan",
+   "text": "Okay. Up is up. Probably.",
+   "since": "r16"
+  },
+  "m4-mrbig-daniel-youre-on-a": {
+   "to": "m4-mrbig-a-boat-daniel",
+   "speaker": "mrbig",
+   "text": "Daniel. You're on a boat.",
+   "since": "r16"
+  },
+  "m4-rook-locked-in-the-shredder": {
+   "to": "m4-rook-shredder-truck-tonight-he",
+   "speaker": "rook",
+   "text": "Locked in the shredder truck. Two {suits} ride with it. I can't touch it.",
+   "since": "r16"
+  },
+  "m4-rook-but-tonight-mr-big": {
+   "to": null,
+   "speaker": "rook",
+   "text": "But tonight {mrbig} unveils his new trophy. The High Artwork. At the Seaport.",
+   "since": "r16"
+  },
+  "m4-dan-he-called-me-from": {
+   "to": null,
+   "speaker": "dan",
+   "text": "He called me from a leather chair. He has no taste.",
+   "since": "unreleased"
+  },
+  "m4-rook-he-bought-the-high": {
+   "to": null,
+   "speaker": "rook",
+   "text": "He bought the High Artwork. Marzo Quillfeather. He loves it more than people.",
+   "since": "r16"
+  },
+  "m4-rook-to-sign-it-on": {
+   "to": null,
+   "speaker": "rook",
+   "text": "To sign it on camera, his signing key unlocks. Ninety seconds.",
+   "since": "r16"
+  },
+  "m4-dan-and-whoever-holds-the": {
+   "to": null,
+   "speaker": "dan",
+   "text": "And whoever holds the key...",
+   "since": "r16"
+  },
+  "m4-rook-owns-the-high-artwork": {
+   "to": null,
+   "speaker": "rook",
+   "text": "Owns the High Artwork. Take what he loves. Then trade.",
+   "since": "r16"
+  },
+  "m4-rook-wristband-catering-pass-youre": {
+   "to": null,
+   "speaker": "rook",
+   "text": "Wristband. Catering pass. You're a waiter tonight.",
+   "since": "r16"
+  },
+  "m4-dan-i-was-a-waiter": {
+   "to": "m4-dan-rook-got-me-a",
+   "speaker": "dan",
+   "text": "I was a waiter in college. I was bad at it.",
+   "since": "r16"
+  },
+  "m4-rook-be-bad-at-it": {
+   "to": null,
+   "speaker": "rook",
+   "text": "Be bad at it quietly.",
+   "since": "r16"
+  },
+  "m4-rook-his-chopper-waits-at": {
+   "to": null,
+   "speaker": "rook",
+   "text": "His chopper waits at the end of the street to fly the key home. I sent the pilot for coffee.",
+   "since": "r16"
+  },
+  "m4-rook-go-before-somebody-sees": {
+   "to": null,
+   "speaker": "rook",
+   "text": "Go. Before somebody sees us.",
+   "since": "r16"
+  },
+  "m4-fiona-good-evening-seaport-jpbank": {
+   "to": "m4-fiona-good-evening-seaport-who",
+   "speaker": "fiona",
+   "text": "Good evening, Seaport! {bank} loves art! And art loves {bank}!",
+   "since": "r16"
+  },
+  "m4-fiona-hes-joining-us-live": {
+   "to": "m4-fiona-say-hi-everybody",
+   "speaker": "fiona",
+   "text": "He's joining us live from his office. Say hi, everybody!",
+   "since": "r16"
+  },
+  "m4-jane-he-said-i-didnt": {
+   "to": "m4-jane-he-said-that-i",
+   "speaker": "jane",
+   "text": "He said. I didn't. I'm on the phone. That's alone-ish.",
+   "since": "r16"
+  },
+  "m4-jane-youre-a-waiter-tonight": {
+   "to": "m4-jane-nobody-looks-at-the",
+   "speaker": "jane",
+   "text": "You're a waiter tonight. Nobody looks at the waiter. Not even {knox}.",
+   "since": "r16"
+  },
+  "m4-dan-knox-will-be-there": {
+   "to": null,
+   "speaker": "dan",
+   "text": "{knox} will be there?",
+   "since": "r16"
+  },
+  "m4-jane-on-the-door-head": {
+   "to": null,
+   "speaker": "jane",
+   "text": "On the door. Head down, tray up, you're furniture.",
+   "since": "r16"
+  }
+ },
+ "copy": {
+  "m4.objective.fly-to-the": {
+   "to": null,
+   "text": "Fly to the ",
+   "since": "r16"
+  },
+  "m4.objective.riverfront": {
+   "to": null,
+   "text": "riverfront",
+   "since": "r16"
+  },
+  "m4.objective.land-in-the-ring": {
+   "to": null,
+   "text": ". Land in the ring.",
+   "since": "r16"
+  },
+  "m4.help.on-the-riverfront": {
+   "to": null,
+   "text": " on the riverfront.",
+   "since": "r16"
+  },
+  "m4.fail.west-across-downtown-to": {
+   "to": null,
+   "text": " west across downtown to the riverfront: the line on the Radar points the way.",
+   "since": "r16"
+  }
+ },
+ "reworded": {
+  "lines": {
+   "m3-gears-i-tested-them-on": [
+    "I tested them on my van. Van's fine. It's on the roof now."
+   ],
+   "m3-fiona-jpbank-loves-new-york": [
+    "{bank} loves New York! Free hot dogs! Free tote bags!"
+   ],
+   "m3-camp-free-dan-free-dan": [
+    "Free {dan}! Free {dan}! Free {dan}!"
+   ],
+   "m4-fiona-while-the-key-wakes": [
+    "While the key wakes up, tell us what the High Artwork means to you!"
+   ],
+   "m4-mrbig-ninety-seconds-then-i": [
+    "Ninety seconds. Then I sign. Nobody touch anything."
+   ],
+   "m4-jane-mr-big-wont-be": [
+    "{mrbig} won't be. He joins by video, from his office. He hasn't stood in a crowd since the camp."
+   ]
+  }
+ }
+}

@@ -8,6 +8,9 @@
 //                BAND m, no wall, no damage), the line "The rest of town is still being built" near it, traffic and
 //                people placed only inside the window less CLIP m (window.NYC.townWindow: js/traffic.js,
 //                wagmi/street/crowd.js), places and arrivals outside it held back (wagmi/world/pkg.js)
+//   stalled      the poll answers stalled: true or { state: 'error' } (the whole town's build stopped): the edge's haze put down (the far
+//                hills behind it seen) and the line 'This is the edge of town'; polled every 6 x POLL_MS, back as it was
+//                if the build goes on
 //   the swap     GET {host}/api/towns/{place}?build={buildId} (no-store) every POLL_MS; once it answers the whole town
 //                ({ state: 'full' } or { full: true }), the toast "Your whole town is ready", then at the next checkpoint,
 //                mission end or pause (at once inside the boundary band), a FADE_MS fade and the same address with
@@ -30,9 +33,13 @@ export const CLIP = 150;         // m: traffic and people stay this far inside t
 export const POLL_MS = 10000;
 export const FADE_MS = 1200;
 export const POSE_TTL_MS = 5 * 60 * 1000;
-export const WORDS = { edge: 'The rest of town is still being built', ready: 'Your whole town is ready' };
+export const WORDS = { edge: 'The rest of town is still being built', ready: 'Your whole town is ready', stalled: 'This is the edge of town' };
+// (the status answer -> the whole town's build has stopped: nothing is coming, so the district is all there is for now.
+// GameMog's answer for the build says so with `stalled: true` beside the district it serves (its queue row in error),
+// or the town's own answer's { state: 'error' })
+export const buildStalled = (body) => !!body && (body.stalled === true || body.state === 'error');
 
-import { BUILD_ID, TILE_SET } from './town-src.js';
+import { BUILD_ID, TILE_SET } from './town-src.js'; import { fetchRetry } from '../net.js';
 
 const N = () => globalThis.window?.NYC || {};
 
@@ -42,6 +49,13 @@ export function windowBox(P) {
   if (!w || w.full !== false || !w.box) return null;
   const b = w.box;
   return [b.x0, b.z0, b.x1, b.z1].every(Number.isFinite) && b.x1 > b.x0 && b.z1 > b.z0 ? { x0: b.x0, z0: b.z0, x1: b.x1, z1: b.z1 } : null;
+}
+// a whole town's window box (PKG.window.full true), its play area's edge, or null
+export function townEdge(P) {
+  const w = P && P.window;
+  if (!w || w.full !== true || !w.box) return null;
+  const b = w.box;
+  return [b.x0, b.z0, b.x1, b.z1].every(Number.isFinite) && b.x1 > b.x0 + 2 * BAND && b.z1 > b.z0 + 2 * BAND ? { x0: b.x0, z0: b.z0, x1: b.x1, z1: b.z1 } : null;
 }
 // m inside the box (negative: outside), and the outward normal of the nearest edge
 export function edgeOf(b, x, z) {
@@ -55,32 +69,87 @@ export const inWindow = (b, x, z, m = 0) => !b || (x >= b.x0 + m && x <= b.x1 - 
 
 // the soft boundary, one frame: a car slowed and turned back in proportion to how deep in the band it is; anyone past
 // the edge put back on it. Mutates the entity (the controllers' own fields). Returns how deep in the band (0..1).
-export function softBoundary(b, ent, mode, dt) {
+// `wet(x, z, y)` (optional): water there (no deck over it). The boundary never puts anyone in the water: the turn back
+// goes the way whose path ahead stays dry (Cold Harbor, 15 Nov: a car driving out along the west edge at x -5629 was
+// turned north along it, into the harbour at z 1335), and with water both ways it only slows the car, harder the nearer
+// the water; past the edge, a spot on the edge that is water is not where it is put back: its last dry place in the
+// band is (`mem`, the caller's: { dry }). And in the band a car whose way ahead runs into the water is held to a speed it
+// can stop in short of it (a slide along the edge where the edge meets the water stops there). A point looked at past the
+// edge is looked at where the car would be held, on the edge (Cold Harbor's north edge, a 20 m spit with water both
+// sides: turned toward the edge, where the look ahead found dry far-field ground, the car slid along the edge into the
+// water), and the way the car is actually moving (`mem.prev`: a slide along the edge) is looked down as well as its nose.
+export const WET_LOOK = [3, 6, 10, 16, 24, 34]; // m ahead, looked at for water
+export const WET_STOP = { gap: 4, decel: 8 }; // in the band a car heading for the water stops `gap` m short of it
+export function softBoundary(b, ent, mode, dt, wet = null, mem = null) {
   if (!ent || !ent.position) return 0;
   const p = ent.position, e = edgeOf(b, p.x, p.z);
-  if (e.inside >= BAND) return 0;
+  if (e.inside >= BAND) { if (mem) { mem.dry = null; mem.prev = null; } return 0; }
   const t = Math.min(1, Math.max(0, 1 - e.inside / BAND));
+  const isWet = (x, z) => { try { return !!wet && !!wet(Math.min(b.x1 - 1, Math.max(b.x0 + 1, x)), Math.min(b.z1 - 1, Math.max(b.z0 + 1, z)), p.y); } catch { return false; } };
+  // (the water within `d` m along heading h, the way the car moves)
+  const wetAhead = (h, dir) => WET_LOOK.some((d) => isWet(p.x + Math.sin(h) * d * dir, p.z + Math.cos(h) * d * dir));
+  if (wet && mem && e.inside >= 0 && !isWet(p.x, p.z)) mem.dry = { x: p.x, z: p.z };
+  // (the way it moved since the last frame, when it moved: a heading of its own)
+  const prev = mem && mem.prev, moved = prev ? Math.hypot(p.x - prev.x, p.z - prev.z) : 0;
+  const motionH = moved > 0.02 ? Math.atan2(p.x - prev.x, p.z - prev.z) : null;
+  if (mem) mem.prev = { x: p.x, z: p.z };
   if (mode === 'car' || mode === 'cyclist') {
     const fx = Math.sin(ent.heading || 0), fz = Math.cos(ent.heading || 0), out = fx * e.nx + fz * e.nz;
-    const sp = ent.speed || 0;
-    if (out * Math.sign(sp || 1) > 0) {
+    const sp = ent.speed || 0, dir = Math.sign(sp || 1);
+    if (out * dir > 0) {
       // (heading out: slower, and the nose turned toward the inside, the harder the deeper)
       ent.speed = sp * Math.max(0, 1 - 2.2 * t * dt);
       // (d(out)/d(heading) = cos h nx - sin h nz: turn the way that makes the motion less outward)
       const side = Math.cos(ent.heading || 0) * e.nx - Math.sin(ent.heading || 0) * e.nz;
-      ent.heading -= (side >= 0 ? 1 : -1) * Math.sign(sp || 1) * 1.6 * t * dt;
+      let turn = -(side >= 0 ? 1 : -1) * dir;
+      if (wet) {
+        // (where that turn leads, a quarter turn on: water there and not the other way, the other way; water both ways:
+        // no turn, only the brake, harder the nearer the water)
+        const h0 = ent.heading || 0, aWet = wetAhead(h0 + turn * 0.5, dir), bWet = wetAhead(h0 - turn * 0.5, dir);
+        if (aWet && !bWet) turn = -turn;
+        else if (aWet && bWet) {
+          turn = 0;
+          const near = WET_LOOK.findIndex((d) => isWet(p.x + Math.sin(h0) * d * dir, p.z + Math.cos(h0) * d * dir));
+          if (near >= 0) ent.speed *= Math.max(0, 1 - (6 - near) * dt);
+        }
+      }
+      ent.heading -= -turn * 1.6 * t * dt;
       if (Number.isFinite(ent.vx) && Number.isFinite(ent.vz)) {
         const vo = ent.vx * e.nx + ent.vz * e.nz;
         if (vo > 0) { ent.vx -= e.nx * vo * Math.min(1, 3 * t * dt); ent.vz -= e.nz * vo * Math.min(1, 3 * t * dt); }
       }
     }
+    if (wet && Math.abs(ent.speed || 0) > 0.05) {
+      // (the way it is going: water within reach, the speed it may have to stop WET_STOP.gap m short of it)
+      const h = ent.heading || 0, near = (hh, sgn) => WET_LOOK.find((k) => isWet(p.x + Math.sin(hh) * k * sgn, p.z + Math.cos(hh) * k * sgn));
+      const dh = near(h, dir), dm = motionH == null ? undefined : near(motionH, 1);
+      const d = dh == null ? dm : dm == null ? dh : Math.min(dh, dm);
+      if (d != null) {
+        const vmax = Math.sqrt(2 * WET_STOP.decel * Math.max(0, d - WET_STOP.gap)), v = Math.abs(ent.speed);
+        if (v > vmax) {
+          const k = vmax / v;
+          ent.speed *= k;
+          if (Number.isFinite(ent.vx) && Number.isFinite(ent.vz)) { ent.vx *= k; ent.vz *= k; }
+        }
+      }
+    }
   }
-  if (e.inside < 0) { // (past the edge itself: back on it)
-    p.x = Math.min(b.x1, Math.max(b.x0, p.x));
-    p.z = Math.min(b.z1, Math.max(b.z0, p.z));
+  if (e.inside < 0) { // (past the edge itself: back on it, or to its last dry place where the edge is water)
+    const x = Math.min(b.x1, Math.max(b.x0, p.x)), z = Math.min(b.z1, Math.max(b.z0, p.z));
+    if (isWet(x, z) && mem && mem.dry) { p.x = mem.dry.x; p.z = mem.dry.z; } else { p.x = x; p.z = z; }
     if (mode === 'car' && Number.isFinite(ent.speed)) ent.speed *= 0.5;
   }
   return t;
+}
+// water at (x, z) for the boundary: the terrain at or under the water's level (as the car's own bay check,
+// cities/sf/js/controllers.js inBay) with no deck or bridge floor at the car's level over it
+export function wetAt(N = globalThis.window?.NYC) {
+  return (x, z, y) => {
+    const T = N && N.Terrain;
+    if (!T || !T.loaded || !(T.heightAt(x, z) <= T.waterLevel + 0.05)) return false;
+    const f = N.GradeSeparation && N.GradeSeparation.floorAt ? N.GradeSeparation.floorAt(x, z, y) : null;
+    return !(f != null && Number.isFinite(y) && y > f - 2);
+  };
 }
 
 // the town's status answer -> is the whole town ready? (GameMog /api/towns/{place}: { state: 'full' } or { full: true })
@@ -145,7 +214,8 @@ const PILL = 'position:fixed;left:50%;transform:translateX(-50%);z-index:60;poin
 const inControl = () => !!pose() && !document.getElementById('loading-overlay')?.offsetParent && !globalThis.window?.WAGMI?.cutscene;
 
 // boot: called by index.html with the town address and its bundle's PKG, for every town (district or full)
-export function startGrowing({ town, PKG, fetchFn = globalThis.fetch, href = globalThis.location?.href }) {
+// (fetchRetry: asked for again on a busy answer, wagmi/net.js)
+export function startGrowing({ town, PKG, fetchFn = fetchRetry, href = globalThis.location?.href }) {
   mark('mc:town:boot');
   const W = globalThis.window, variant = PKG?.variant || (town?.tv || 'full');
   const box = windowBox(PKG);
@@ -175,7 +245,26 @@ export function startGrowing({ town, PKG, fetchFn = globalThis.fetch, href = glo
       state.restored = true;
     })(0);
   }
-  if (!box) return state;
+  if (!box) {
+    // ---- a whole town: its edge held too, by the same soft boundary (no line, no swap). Past the window there is only
+    // the far field, no roads: a deck the window cut off (Cold Harbor's Seaside Freeway, 45 m up at the town's west edge)
+    // ends at a barrier (cities/sf/js/grade-separation.js), and the car is turned back before it gets there
+    const edge = townEdge(PKG);
+    state.edge = edge;
+    if (edge) {
+      let lastT = performance.now();
+      const wet = wetAt(N()), mem = {};
+      (function frame() {
+        requestAnimationFrame(frame);
+        const t = performance.now(), dt = Math.min(0.1, (t - lastT) / 1000); lastT = t;
+        if (W.WAGMI?.paused || W.WAGMI?.cutscene) return;
+        const cm = app()?.controllerManager, ent = cm?.getActiveEntity?.();
+        if (!ent || !ent.position || cm.activeMode === 'helicopter') return;
+        state.band = softBoundary(edge, ent, cm.activeMode, dt, wet, mem);
+      })();
+    }
+    return state;
+  }
 
   // ---- a district: traffic and people inside the window less CLIP, the line, the boundary, the poll and the swap
   N().townWindow = clipRect(box);
@@ -206,7 +295,21 @@ export function startGrowing({ town, PKG, fetchFn = globalThis.fetch, href = glo
       if (r.ok) {
         const b = await r.json();
         state.last = b && b.state || null;
+        // (a whole town whose build stopped, Colter Land's Bozeman, 16 Nov: the warm haze over the edge (pkg-far.js) stood
+        // for good as a white wall with a hard top across the hills at Blue Hour, and the line said the rest of town was
+        // coming. Stalled: the haze down, the far hills seen, the line plain; asked again a minute on, all back if the
+        // build starts again)
+        const stalled = buildStalled(b);
+        if (stalled !== !!state.stalled) {
+          state.stalled = stalled;
+          line.textContent = stalled ? WORDS.stalled : WORDS.edge;
+          try { const hz = app()?.scene?.getObjectByName?.('PkgGrowingHaze'); if (hz) hz.visible = !stalled; } catch {}
+        }
+        // (stalled: the haze put down on every poll, not only on the change: it can be made after the first answer)
+        if (stalled) { try { const hz = app()?.scene?.getObjectByName?.('PkgGrowingHaze'); if (hz) hz.visible = false; } catch {} }
+        // (a stalled district that names an upgrade to a newer build's whole town still takes it: the stall is this build's)
         const up = world ? upgradeOf(b) : null;
+        if (stalled && !up) { setTimeout(poll, POLL_MS * 6)?.unref?.(); return; } // (unref: a node test is never held open by it)
         if (up || fullReady(b)) {
           state.armed = true; state.upgrade = up;
           toast.style.opacity = '1';
@@ -220,6 +323,7 @@ export function startGrowing({ town, PKG, fetchFn = globalThis.fetch, href = glo
   setTimeout(poll, 1500);
 
   let lastT = performance.now();
+  const wet = wetAt(N()), mem = {};
   (function frame() {
     if (state.swapping) return;
     requestAnimationFrame(frame);
@@ -227,7 +331,7 @@ export function startGrowing({ town, PKG, fetchFn = globalThis.fetch, href = glo
     const cm = app()?.controllerManager, ent = cm?.getActiveEntity?.();
     if (!ent || !ent.position) return;
     const paused = !!W.WAGMI?.paused;
-    state.band = paused ? state.band : softBoundary(box, ent, cm.activeMode, dt);
+    state.band = paused ? state.band : softBoundary(box, ent, cm.activeMode, dt, wet, mem);
     const e = edgeOf(box, ent.position.x, ent.position.z);
     line.style.opacity = e.inside < LINE_AT && !paused && !state.armed ? '1' : '0';
     if (state.armed && (paused || state.band > 0)) swap(paused ? 'pause' : 'boundary');

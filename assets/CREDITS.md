@@ -68,7 +68,9 @@ Dan, Gears, Jane, Fiona and Mr. Big (`assets/characters/*.glb`) are original cha
 people) from [MakeHuman](http://www.makehuman.org)'s base body, clothes and hair (CC0 1.0; Jane and Mr. Big from
 GameMog's CC0 MakeHuman people pack; Mr. Big's glasses, cigar and study are made in code, `wagmi/mission/mrbig.js`). Their everyday clips come from the
 [CMU Graphics Lab Motion Capture Database](http://mocap.cs.cmu.edu) (free for all uses; the data itself may not be
-resold; created with funding from NSF EIA-0196217). Dan's freeflow fight moves are Spiderbench's (see below).
+resold; created with funding from NSF EIA-0196217), except Dan's walk, jog, run, sprint and standing stance, Jane's walk,
+Fiona's run and Fiona's and Gears' standing idles, which are Bandai Namco takes (CC BY-NC 4.0, see Motion capture below).
+Dan's freeflow fight moves are Spiderbench's (see below).
 
 ### The story runner's people: skin and cloth detail (`assets/people/detail/`)
 
@@ -117,7 +119,11 @@ The map data: Central Park's features, the piers, the landmarks' footprints and 
 © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright), under the
 [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/); the borough line, the street centrelines and the parks are
 from [NYC Open Data](https://opendata.cityofnewyork.us) (NYC DCP Borough Boundaries, NYC Street Centerline (CSCL), NYC
-Parks Properties).
+Parks Properties). The street corners as mapped (traffic signals, marked mid-block crossings and street trees, read 15
+Nov 2026) are © OpenStreetMap contributors (ODbL 1.0). The buildings as mapped (heights, facade and roof colours and
+materials, roof shapes) are from [Overture Maps](https://overturemaps.org)' buildings theme, release 2026-10-21.0: only
+the footprints and tags from OpenStreetMap (ODbL 1.0), the heights also from the USGS 3D Elevation Program's lidar
+(public domain); the machine-traced footprints are left out.
 
 ## Street combat
 
@@ -129,8 +135,9 @@ parts.
 
 Motion data: [Bandai Namco Research Motion Dataset](https://github.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset),
 © 2022 Bandai Namco Research Inc., [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/). Retargeted to the
-game's rigs, trimmed to loops and played in place (the Suits' standing idle, walks, runs, side-steps and gestures, the
-rally crowd's dances and cheers, Dan's footwork in a fight). Used under CC BY-NC 4.0 and **not** covered by the MIT
+game's rigs, trimmed to loops and played in place (Dan's walk, jog, run, sprint and standing stance, Jane's walk, Fiona's
+run, Fiona's and Gears' standing idles, the rally crowd's dances and cheers, Dan's footwork in a fight, and the Suits'
+standing idle, walks, runs and side-steps, which are retargets of Dan's). Used under CC BY-NC 4.0 and **not** covered by the MIT
 License: non-commercial use only. `NOTICE` lists exactly which files and what was changed;
 `assets/anim/bandai/LICENSE.txt` is the licence.
 
@@ -138,6 +145,14 @@ License: non-commercial use only. `NOTICE` lists exactly which files and what wa
 
 The trash cans in `assets/props/trash-cans.glb` are "Metal Trash Can" by GurJas Studios, from
 [Poly Haven](https://polyhaven.com/a/metal_trash_can), under [CC0 1.0](https://polyhaven.com/license).
+
+The cow in `assets/props/cow.glb` (a Story Kit world's ranch, `wagmi/storyrun/ranch.js`: its cattle) is the cow of
+"Realtime Rancher's 3D Model Pack" by Lyndon Daniels, from [OpenGameArt](https://opengameart.org/content/realtime-ranchers-3d-model-pack),
+dedicated to the public domain under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/). GameMog turned its
+OBJ into one GLB (facing +z, feet at the ground, 2.45 m long, smooth normals) with its colour (and opacity) and normal
+maps cut to 1024 px WebP. CC0 needs no credit; we give it anyway. The ranch's horses are the library's
+`creature-horse` (Patch, CC0, below); its clutter (`burn-barrel`, `old-tyre`, `dead-trunk`, `shrub`, `blue-drum`) the
+sets' Poly Haven scans; everything else on the ranch is built in code.
 
 ## Sets (the story runner's cutscene sets)
 
@@ -190,6 +205,22 @@ The Vantor GT's downloaded body (`assets/vehicles/vantor/vantor-gt.glb`, used on
 mechanicals removed, simplified and repainted; `assets/vehicles/vantor/CREDITS.md` has the details. The game's car is
 a look-alike named "Vantor GT" and has no connection with any car maker.
 
+The Tensore's downloaded body (`assets/vehicles/wedge/wedge.glb`, used only by a Story Kit world whose car is
+`{ model: 'mogcity/wedge' }`, never by Mog City's own game) is based on a 3D model by
+[ALIEEEN](https://sketchfab.com/ALIEEEN), from
+[Sketchfab](https://sketchfab.com/3d-models/cf52245eb68f48daa909c7ad2a8deaa3), under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Modified: every badge mesh and every texture removed, the
+doors cut free, refinished in the game's own materials; the source was verified against the author's Sketchfab
+original; `assets/vehicles/wedge/CREDITS.md` has the details. The game's car is a look-alike named "Tensore" and has no connection with any car maker.
+
+The Kastell's downloaded body (`assets/vehicles/gwagon/gwagon.glb`, used only by a Story Kit world whose car is
+`{ model: 'mogcity/gwagon' }`, never by Mog City's own game) is based on a low-poly 3D model by
+[DemuriaGT](https://sketchfab.com/demuriagt), from
+[Sketchfab](https://sketchfab.com/3d-models/aa1a732d4fdc44e0a20cee312a929d77), under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Modified: scaled, its palette texture removed and the body
+refinished in the game's own materials, the front doors cut free, a cabin added; `assets/vehicles/gwagon/CREDITS.md` has
+the details. The game's car is a look-alike named "Kastell" and has no connection with any car maker.
+
 
 ### Town cars (`assets/vehicles/fleet/`)
 
@@ -213,8 +244,8 @@ once from a written description and every line cloned from it, run with [mlx-aud
 (MIT). Mr. Big's are synthesised with [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) by hexgrad (Apache-2.0),
 its stock voice bm_lewis, through kokoro-onnx (MIT), heard as it is. The Camp's crowd is eight Kokoro-82M stock voices
 (am_michael, af_sarah, am_adam, af_bella, am_onyx, af_kore, am_eric and af_jessica) saying each line together, mixed into
-one. The voices are invented. Any character's lines not
-yet voiced are placeholders made with the macOS speech voices; `NOTICE` explains their terms, and `docs/VOICE-LINES.md` explains how to replace them.
+one. The voices are invented. `assets/voice/manifest.json` records each line's source, and `docs/VOICE-LINES.md` explains how to
+add or replace voices.
 
 ## Creatures and sound packs (the library)
 

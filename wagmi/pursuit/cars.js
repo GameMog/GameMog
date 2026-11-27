@@ -2,9 +2,11 @@
 // createLoftedCarMaterial), as Mission 1's black SUV is built (wagmi/mission/m1.js buildSUV):
 //   suits   gloss black SUVs and sedans on acid-green rims (#B6FF3B), an acid-green glow on the road under them
 //   police   the city's NYPD cruiser (the sedan in the white and blue livery) with its flashing roof bar
+//   { plain } a story's own crew (an action world's: never Delgado's Suits): the same gloss black bodies on dark
+//            gunmetal rims and no glow (the acid green read as the Tensore's lime on Jensen Heist's Directors, 20 Nov)
 // Each is a few draw calls (one body, a rim per wheel, the glow or the bar), shared geometry and materials. The rims
 // carry two spokes, so a wheel is seen turning.
-//   const c = buildChaseCar(kind, i)  ->  { group, tilt (the body, pitched and rolled), rims, hw, hl, roof, mass, kind }
+//   const c = buildChaseCar(kind, i, { plain })  ->  { group, tilt (the body, pitched and rolled), rims, hw, hl, roof, mass, kind }
 import * as THREE from 'three/webgpu';
 import { world } from '../world/index.js';
 
@@ -17,6 +19,7 @@ function shared() {
   cache.geo = {}; cache.ok = true;
   cache.acid = new THREE.MeshStandardNodeMaterial({ color: ACID, emissive: '#6FA81A', emissiveIntensity: 0.9, roughness: 0.35, metalness: 0.4 });
   cache.chrome = new THREE.MeshStandardNodeMaterial({ color: '#C9CED6', roughness: 0.25, metalness: 0.9 });
+  cache.gunmetal = new THREE.MeshStandardNodeMaterial({ color: '#3A3D42', roughness: 0.35, metalness: 0.85 });
   cache.glow = new THREE.MeshBasicNodeMaterial({ color: new THREE.Color(ACID).multiplyScalar(0.55), transparent: true, opacity: 0.32, depthWrite: false, blending: THREE.AdditiveBlending });
   // (a soft-edged pool: a disc squashed to the car's length, fading out to its rim)
   const g = new THREE.CircleGeometry(1, 28); g.rotateX(-Math.PI / 2);
@@ -74,7 +77,7 @@ function fleetCruiser(i) {
   return { group, tilt, rims: car.wheels.map((w) => w.spin), hw: m.hw * 0.95, hl: Math.max(m.zF, -m.zR), roof: m.height, kind: 'police', mass: 1.7, wheelR: m.wheels.front.r, fleet: model.id };
 }
 
-export function buildChaseCar(kind = 'suits', i = 0) {
+export function buildChaseCar(kind = 'suits', i = 0, o = {}) {
   if (kind === 'police') { try { const f = fleetCruiser(i); if (f) return f; } catch (err) { console.warn('[fleet] cruiser', err); } }
   const C = shared(), N = C.N, police = kind === 'police';
   const group = new THREE.Group(); group.name = `wagmi-chase-${kind}-${i}`;
@@ -96,15 +99,16 @@ export function buildChaseCar(kind = 'suits', i = 0) {
     const m = new THREE.Mesh(new THREE.BoxGeometry(1.9, 1.5, 4.6), new THREE.MeshStandardNodeMaterial({ color: police ? '#f6f9fc' : '#0c0d0f', roughness: 0.4 }));
     m.position.y = 0.95; tilt.add(m);
   }
-  // the rims: acid green on the Suits' cars, plain alloy on the police's
+  // the rims: acid green on the Suits' cars, plain alloy on the police's, gunmetal on a story's own crew's (plain)
+  const plain = !police && !!o.plain;
   const rims = [];
   const wr = spec ? spec.wheelRadius : 0.38, wx = spec ? spec.wheelX : 0.86, wz = spec ? spec.wheelZ : 1.4;
   for (const sx of [-1, 1]) for (const z of [-wz, wz]) {
-    const r = new THREE.Mesh(rimGeo(wr * 0.52), police ? C.chrome : C.acid);
+    const r = new THREE.Mesh(rimGeo(wr * 0.52), police ? C.chrome : plain ? C.gunmetal : C.acid);
     r.position.set(sx * (wx + 0.13), wr, z); tilt.add(r); rims.push(r);
   }
-  if (!police) {
+  if (!police && !plain) {
     const glow = new THREE.Mesh(C.glowGeo, C.glow); glow.scale.set(hw * 1.5, 1, hl * 1.15); glow.position.y = 0.04; glow.renderOrder = 3; group.add(glow);
   }
-  return { group, tilt, rims, hw, hl, roof, kind, mass: police ? 1.6 : specName === 'suv' ? 2.1 : 1.6, wheelR: wr };
+  return { group, tilt, rims, hw, hl, roof, kind, plain, mass: police ? 1.6 : specName === 'suv' ? 2.1 : 1.6, wheelR: wr };
 }

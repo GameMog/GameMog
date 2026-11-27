@@ -95,7 +95,9 @@ const TIME_PRESETS = {
     cloudCoverage: 0.40,
     cloudDensity: 0.42,
     skyExposure: 0.115,
-    nightFactor: 0.28
+    nightFactor: 0.28,
+    // (a Hometown town only: its street floor under the open sky, cityUniforms.uOpenSky; San Francisco keeps its canyons)
+    openSky: 1.0
   },
   midnight: {
     id: 'midnight',
@@ -358,6 +360,8 @@ class LightingSystem {
     if (cityUniforms.uCanyonBounce) {
       cityUniforms.uCanyonBounce.value = p.canyonBounce;
     }
+    // (Colter Land QA #14: a low town's ground at blue hour, lit by the sky it sees, not near black in every shade)
+    if (cityUniforms.uOpenSky) cityUniforms.uOpenSky.value = window.NYC.PKG ? (p.openSky ?? 0) : 0;
 
     // (SF 2040: a preset's sky tint and horizon glow, else none)
     this.uSkyTint.value.setHex(p.skyTint ?? 0xffffff);
@@ -370,6 +374,8 @@ class LightingSystem {
     this.scene.environmentIntensity = p.envIntensity;
     this.bakeEnvironmentMap();
     this.setFogPreset(this.fogPreset);
+    // (js/weather.js: the weather's share of the sky, the haze and the road's dampness, on the preset's own values)
+    if (window.NYC.weatherSky) window.NYC.weatherSky(this, 'apply');
   }
 
   setFogPreset(id) {
@@ -386,6 +392,7 @@ class LightingSystem {
     const p = TIME_PRESETS[this.activePresetId] || TIME_PRESETS.golden;
     const within = this.fogPreset === 'marine' && focusPos ? 1 - Math.max(0, Math.min(1, (focusPos.y - this.uLayerTop.value + 40) / 80)) : 0;
     this.sunLight.intensity = p.sunIntensity * (1 - within * 0.68);
+    if (window.NYC.weatherSky) window.NYC.weatherSky(this, 'update'); // (js/weather.js: the sun let through the cloud)
     this.sky.showSunDisc.value = 1 - within * 0.8;
     // SunLightShadow automatically fits & texel-snaps its 2 cascades to the view camera frustum
     // every frame inside SunShadowNode.renderShadow(), splitting [near, far] halfway between a uniform and a

@@ -4,7 +4,7 @@
 // by wagmi/city.js (free roam) in place of putting him out beside the car; without ?start=chase none of it runs.
 //   CHASE_START          true on a ?start=chase page with no ?pack=
 //   chaseStart(W)        (city.js, once the city is up) him in the car on the road, then the chase
-import { world } from './world/index.js';
+import { world } from './world/index.js'; import { importRetry } from './net.js';
 
 const Q = new URLSearchParams(location.search);
 export const CHASE_START = Q.get('start') === 'chase' && !Q.has('pack');
@@ -52,7 +52,7 @@ function clearAhead(TS, r) {
 export async function chaseStart(W) {
   const app = W.app, cm = app.controllerManager, car = W.car, P = W.person;
   // (intro.js's placing, loaded only now: this module is imported by game.js on every start)
-  const { place: putAt } = await import('./intro.js');
+  const { place: putAt } = await importRetry(() => import('./intro.js'));
   // the road: the through-road nearest where the city put the car
   const at = car?.position || cm.getActiveEntity()?.position || { x: 0, z: 0 };
   // (on the centre of a real lane, the road running on straight ahead of him for 300 m where the city has one)

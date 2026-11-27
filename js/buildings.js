@@ -388,6 +388,144 @@ function buildCityBlocks(scene) {
   const buckets = materials.map(() => []);
   const broadwayBillboards = [];
 
+  // ---------------------------------------------------------------------------------------------------------------
+  // New York as mapped (js/nyc-looks.js, tools/geo-looks.py; Overture Maps, (c) OpenStreetMap contributors, ODbL):
+  // each generated building takes the height, facade colour and material and roof colour of the real building under
+  // its highest part, and a pitched or domed roof where one is mapped over it. Lots near the story's sets keep their
+  // generated heights. Without the file (or with ?looks=off) the blocks are exactly as before.
+  // ---------------------------------------------------------------------------------------------------------------
+  const DATA = (() => {
+    const L = window.NYC.LOOKS;
+    if (!L || /[?&]looks=off\b/.test(location.search)) return null;
+    const n = L.b.length / 6;
+    const bx = new Float32Array(n), bz = new Float32Array(n), hw = new Float32Array(n), hd = new Float32Array(n);
+    const bh = new Float32Array(n), lk = new Uint16Array(n);
+    const CELL = 50;
+    const cells = new Map();
+    const key = (i, j) => i * 65536 + j;
+    const add = (map, x0, x1, z0, z1, idx) => {
+      for (let i = Math.floor(x0 / CELL); i <= Math.floor(x1 / CELL); i++) {
+        for (let j = Math.floor(z0 / CELL); j <= Math.floor(z1 / CELL); j++) {
+          const k = key(i, j);
+          let c = map.get(k);
+          if (!c) map.set(k, (c = []));
+          c.push(idx);
+        }
+      }
+    };
+    let z = 0;
+    for (let i = 0; i < n; i++) {
+      const o = i * 6;
+      z += L.b[o + 1];
+      bx[i] = L.b[o]; bz[i] = z; hw[i] = L.b[o + 2] + 0.5; hd[i] = L.b[o + 3] + 0.5; bh[i] = L.b[o + 4]; lk[i] = L.b[o + 5];
+      add(cells, bx[i] - hw[i], bx[i] + hw[i], bz[i] - hd[i], bz[i] + hd[i], i);
+    }
+    const R = L.roofs || [];
+    const nr = R.length / 9;
+    const roofCells = new Map();
+    for (let i = 0; i < nr; i++) add(roofCells, R[i * 9] / 10, R[i * 9] / 10, R[i * 9 + 1] / 10, R[i * 9 + 1] / 10, i);
+    const roofUsed = new Uint8Array(nr);
+    // the mapped building whose footprint holds (x, z): the smallest one (a courtyard tower inside its podium), or -1
+    function at(x, z) {
+      const c = cells.get(key(Math.floor(x / CELL), Math.floor(z / CELL)));
+      if (!c) return -1;
+      let best = -1, area = Infinity;
+      for (const i of c) {
+        if (Math.abs(x - bx[i]) > hw[i] || Math.abs(z - bz[i]) > hd[i]) continue;
+        const a = hw[i] * hd[i];
+        if (a < area) { area = a; best = i; }
+      }
+      return best;
+    }
+    // the mapped roofs whose centre falls in the world rect (not yet given to another building)
+    function roofsIn(x0, x1, z0, z1) {
+      const out = [];
+      for (let i = Math.floor(x0 / CELL); i <= Math.floor(x1 / CELL); i++) {
+        for (let j = Math.floor(z0 / CELL); j <= Math.floor(z1 / CELL); j++) {
+          for (const r of roofCells.get(key(i, j)) || []) {
+            const x = R[r * 9] / 10, zz = R[r * 9 + 1] / 10;
+            if (roofUsed[r] || x < x0 || x > x1 || zz < z0 || zz > z1) continue;
+            roofUsed[r] = 1;
+            out.push(r);
+          }
+        }
+      }
+      return out;
+    }
+    return { L, R, at, roofsIn, bh, lk, stats: { matched: 0, tinted: 0, heightSet: 0, famSwitch: 0, roofs: 0 } };
+  })();
+  // The story's sets (the opening, every mission's start, sets and targets, Mission 4's gala street, landing and
+  // ferry): lots within r m keep the heights the missions were made on
+  const STORY_KEEP = [
+    [98, 392, 70], [-299, 84, 70], [-590, -480, 60], [-341, 604, 60], [-1922, -1051, 70], [-1554, 1607, 60],
+    [-1139, 1160, 70], [-1200, 1157, 60], [0, 2860, 90], [933, 3561, 60], [908, 5485, 140], [-680, 4950, 70],
+    [-620, 5240, 60], [301, 5770, 60], [747, 5888, 60]
+  ];
+  const nearStory = (x, z) => STORY_KEEP.some(([sx, sz, r]) => (x - sx) ** 2 + (z - sz) ** 2 < r * r);
+  // ... and the lots seen down Mission 4's gala street (South St from the drive's end, past the pavilion, to the far
+  // end of the view) keep their generated look entirely: height, colour and material (m4-set.js PAV, its heading)
+  const LOOK_KEEP = [[908, 5485, 140], [868, 5576, 95], [827, 5667, 95], [787, 5759, 95], [746, 5850, 95]];
+  const keepLook = (x, z) => LOOK_KEEP.some(([sx, sz, r]) => (x - sx) ** 2 + (z - sz) ** 2 < r * r) || nearBowtie(x, z);
+  // The tallest the mapped height may make a building, over its generated one: the phone and low tiers' frame time
+  // follows the city's height (the shadow pass, the overdraw of the towers, the fire escapes' storeys), so there a mapped
+  // height only lowers a building, but for a real tower (150 m and up); on the high tier a building may rise to 1.8x
+  // its generated height, a real tower to 2.5x
+  const lowTier = ['phone', 'low'].includes(window.NYC.quality && window.NYC.quality.tier);
+  const heightCap = (H) => (lowTier ? (H >= 150 ? 1.5 : 1) : H >= 150 ? 2.5 : 1.8);
+  // (the mapped facade colour, at most this bright: a near-white mapped colour washed whole towers out; a curtain
+  // wall's frames darker still, as the city's own glass styles are)
+  const dimTint = (rgb, max = 205) => {
+    const r = (rgb >> 16) & 255, g = (rgb >> 8) & 255, b = rgb & 255, m = Math.max(r, g, b);
+    if (m <= max) return rgb;
+    const k = max / m;
+    return (Math.round(r * k) << 16) | (Math.round(g * k) << 8) | Math.round(b * k);
+  };
+  // (a mapped roof's colour, weathered: half way to its own grey and no brighter than slate; "blue" was sky blue)
+  const muteRoof = (hex) => {
+    const r = (hex >> 16) & 255, g = (hex >> 8) & 255, b = hex & 255, y = 0.3 * r + 0.59 * g + 0.11 * b;
+    return dimTint((Math.round((r + y) * 0.5) << 16) | (Math.round((g + y) * 0.5) << 8) | Math.round((b + y) * 0.5), 150);
+  };
+  // facade class within its family from the mapped colour: masonry 0 limestone / 1 red brick / 2 brownstone, curtain
+  // wall 3 blue-teal / 4 bronze / 5 silver
+  function hsl(rgb) {
+    const r = ((rgb >> 16) & 255) / 255, g = ((rgb >> 8) & 255) / 255, b = (rgb & 255) / 255;
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
+    if (d < 1e-6) return [0, 0, l];
+    const s = d / (1 - Math.abs(2 * l - 1));
+    let h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    h *= 60;
+    if (h < 0) h += 360;
+    return [h, s, l];
+  }
+  // A believable New York palette for the mapped colours (OSM's building:colour / roof:colour are often a word: "blue",
+  // "pink"): toward grey to at most `cap` saturation, or 0 (the mapped colour dropped, the generated look kept) for what
+  // no New York wall or roof is: blues, purples, pinks and mauves; a curtain wall keeps a muted blue-teal, a roof a
+  // copper green
+  const desat = (rgb, cap) => {
+    const s = hsl(rgb)[1];
+    if (s <= cap) return rgb;
+    const r = (rgb >> 16) & 255, g = (rgb >> 8) & 255, b = rgb & 255, y = 0.3 * r + 0.59 * g + 0.11 * b, k = cap / s;
+    const c = (v) => Math.max(0, Math.min(255, Math.round(y + (v - y) * k)));
+    return (c(r) << 16) | (c(g) << 8) | c(b);
+  };
+  const pinkish = (h, s, l) => s > 0.18 && ((h > 255 && h < 335) || ((h >= 335 || h < 15) && l > 0.62));
+  const nycWall = (rgb, glass) => {
+    const [h, s, l] = hsl(rgb);
+    if (pinkish(h, s, l) || (!glass && s > 0.15 && h > 185 && h <= 255)) return 0;
+    return desat(rgb, glass ? 0.3 : 0.42);
+  };
+  const nycRoof = (rgb) => {
+    const [h, s, l] = hsl(rgb);
+    if (pinkish(h, s, l) || (s > 0.12 && h > 185 && h <= 255)) return 0;
+    return desat(rgb, 0.35);
+  };
+  function matFor(glass, rgb) {
+    const [h, s, l] = hsl(rgb);
+    if (!glass) return l < 0.3 ? 2 : (h < 32 || h > 340) && s > 0.22 && l < 0.6 ? 1 : 0;
+    return s < 0.14 || l > 0.6 ? 5 : h > 150 && h < 250 ? 3 : 4;
+  }
+  const dataRoofs = []; // { r (index into DATA.R), cx, cz, L, W, ang, y, wallHex }
+
   // Times Square's bowtie: the Broadway plaza strip (city-config.js GEO.plazas) and 7th Avenue's roadway between 47th
   // and 42nd St. Lots fronting it rise as sheer walls (flushTower) and every podium wall facing it carries billboards
   const TS = (() => {
@@ -405,6 +543,8 @@ function buildCityBlocks(scene) {
       xAt: (z) => ax + ((z - az) / (bz - az)) * (bx - ax)
     };
   })();
+  // (the lots round the bowtie: its sheer walls and billboard podiums keep their generated look, js/nyc-looks.js aside)
+  const nearBowtie = (x, z) => !!TS && z > TS.zN - 25 && z < TS.zS + 25 && (Math.abs(x - TS.xAt(z)) < TS.halfB + 45 || Math.abs(x - TS.x7) < TS.half7 + 45);
   const inBowtie = (x, z) => !!TS && z > TS.zN && z < TS.zS && (Math.abs(x - TS.xAt(z)) < TS.halfB || Math.abs(x - TS.x7) < TS.half7);
   // Does the lot edge at x (dir -1: its west edge, +1: its east edge; in the current frame) look across the sidewalk
   // onto the bowtie?
@@ -627,18 +767,84 @@ function buildCityBlocks(scene) {
       blk.voidLots.push(b.lot);
       return;
     }
-    const mat = b.mat;
-    const storey = storeys[mat];
+    let mat = b.mat;
     const tone = rand();
     let shopsOn = o.shops ?? 'all';
     if (typeof shopsOn === 'number') shopsOn = tone < shopsOn ? 'all' : 'none';
     const shops = { w: shopsOn !== 'none', e: shopsOn !== 'none', n: shopsOn === 'all', s: shopsOn === 'all' };
     let top = parts[0];
+    for (const p of parts) if (p.y1 > top.y1 + EPS || (p.y1 > top.y1 - EPS && rectW(p) * rectD(p) > rectW(top) * rectD(top))) top = p;
+    // The real building under the highest part (DATA above): its height (in whole storeys, within what the lot's
+    // typology carries), its facade's colour and material, its roof's colour, its mapped pitched roofs
+    let tint = null;
+    let roofHex = 0;
+    let pitchedShare = 0;
+    const [twx, twz] = toWorld((top.x0 + top.x1) * 0.5, (top.z0 + top.z1) * 0.5);
+    if (DATA && o.data !== false && !keepLook(twx, twz)) {
+      const wx = twx, wz = twz;
+      const i = DATA.at(wx, wz);
+      if (i >= 0) {
+        DATA.stats.matched++;
+        const [wcls, wrgb0, rrgb0] = DATA.L.looks[DATA.lk[i]];
+        // a curtain wall only where the real one is glass or metal and tall enough to be a tower; masonry where the
+        // real walls are; else the generated family, its class from the mapped colour
+        let glass = mat >= 3;
+        if (wcls === 2 && top.y1 > 30) glass = true;
+        else if (wcls === 1) glass = false;
+        if (glass !== mat >= 3) DATA.stats.famSwitch++;
+        const wrgb = wrgb0 ? nycWall(wrgb0, glass) : 0, rrgb = rrgb0 ? nycRoof(rrgb0) : 0;
+        if ((wrgb0 && !wrgb) || (rrgb0 && !rrgb)) DATA.stats.offPalette = (DATA.stats.offPalette || 0) + 1;
+        if (wrgb) {
+          mat = matFor(glass, wrgb);
+          tint = dimTint(wrgb, mat >= 3 ? 165 : 205);
+          DATA.stats.tinted++;
+        } else if (glass !== mat >= 3) mat = glass ? 3 : 0;
+        roofHex = rrgb ? muteRoof(rrgb) : 0;
+        const H = DATA.bh[i];
+        if (H > 3 && !nearStory(wx, wz) && !(typeof location !== 'undefined' && /[?&]heights=gen\b/.test(location.search))) {
+          const walkup = !!o.fireEscapes || o.roof === 'walkup' || o.roof === 'prewar';
+          const ratio = H / top.y1;
+          if (ratio < 0.8 || ratio > 1.25) {
+            // (the midtown core's street canyons, 8th to 3rd Ave, 59th to 30th St, were tuned for sun at street level:
+            // there a mapped height only lowers a building, unless it is a real tower)
+            const core = wz > streetZ(59) && wz < streetZ(30) && wx > avenueX('8') - 20 && wx < avenueX('3') + 20;
+            const lo = walkup ? 0.7 : 0.6, hi = core && H < 150 ? 1 : Math.min(walkup ? 1.6 : 2.5, heightCap(H));
+            const st = storeys[mat];
+            const target = Math.min(235, Math.max(st, Math.round(Math.min(hi, Math.max(lo, ratio)) * top.y1 / st) * st));
+            const s = target / top.y1;
+            for (const p of parts) { p.y0 *= s; p.y1 *= s; }
+            DATA.stats.heightSet++;
+          }
+        }
+      }
+      // mapped pitched / domed roofs over the highest part
+      const corners = [toWorld(top.x0, top.z0), toWorld(top.x1, top.z1), toWorld(top.x0, top.z1), toWorld(top.x1, top.z0)];
+      const xs = corners.map((c) => c[0]), zs = corners.map((c) => c[1]);
+      const tw = rectW(top), td = rectD(top);
+      for (const r of DATA.roofsIn(Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs))) {
+        const R = DATA.R, k = r * 9;
+        const Lr = Math.min(R[k + 2] / 10, Math.max(tw, td)), Wr = Math.min(R[k + 3] / 10, Math.min(tw, td));
+        // (only a roof that belongs on this roof: its mapped eave within a quarter of the generated roof's height,
+        // low-rise to mid-rise (a tower's mapped crown parts are not a pitched roof), and covering a fair share of it)
+        const eave = R[k + 5] / 10;
+        if (Lr < 3 || Wr < 2.4 || top.y1 > 90 || Math.abs(eave - top.y1) > Math.max(6, top.y1 * 0.25) || (Lr * Wr) / (tw * td) < 0.3) continue;
+        // (the mapped roof's shape and rise, on the generated roof it belongs on: fitted to the highest part's walls,
+        // in its frame, ridge along its long side, so it neither overhangs the street nor leaves a ledge; one a roof)
+        pitchedShare = 1;
+        const [rcx, rcz] = toWorld((top.x0 + top.x1) * 0.5, (top.z0 + top.z1) * 0.5);
+        dataRoofs.push({ cx: rcx, cz: rcz, L: tw, W: td, ang: xf ? xf.th : 0, top, rise: Math.min(R[k + 6] / 10, 14),
+          shape: DATA.L.shapes[R[k + 7]], roofHex: (R[k + 8] && nycRoof(R[k + 8]) ? muteRoof(nycRoof(R[k + 8])) : roofHex) || 0x6a6460,
+          wallHex: tint || [0xd8cdb8, 0xa45a45, 0x765443, 0x3b4c5b, 0x3c3631, 0xb0bcc8][mat] });
+        DATA.stats.roofs++;
+        break;
+      }
+    }
+    const storey = storeys[mat];
     for (const p of parts) {
       const w = p.x1 - p.x0;
       const d = p.z1 - p.z0;
       const h = p.y1 - p.y0;
-      const box = { x: p.x0 + w * 0.5, y: p.y0 + h * 0.5, z: p.z0 + d * 0.5, w, h, d, faces: wallKinds(b, p, shops, o), tone };
+      const box = { x: p.x0 + w * 0.5, y: p.y0 + h * 0.5, z: p.z0 + d * 0.5, w, h, d, faces: wallKinds(b, p, shops, o), tone, tint, roofHex };
       buckets[mat].push(box);
       blk.facadeBoxes.push(box);
       blk.footprints.push({ x0: p.x0, x1: p.x1, z0: p.z0, z1: p.z1, h: p.y1, tone });
@@ -675,11 +881,9 @@ function buildCityBlocks(scene) {
         if (spot) {
           const jx = rectW(spot) * 0.5 - 2.3;
           const jz = rectD(spot) * 0.5 - 2.3;
-          blk.waterTowers.push({
-            x: (spot.x0 + spot.x1) * 0.5 + range(-jx, jx),
-            y: top.y1,
-            z: (spot.z0 + spot.z1) * 0.5 + range(-jz, jz)
-          });
+          // (the dice are rolled either way, so the block stays the same; none under a mapped pitched roof)
+          const wt = { x: (spot.x0 + spot.x1) * 0.5 + range(-jx, jx), y: top.y1, z: (spot.z0 + spot.z1) * 0.5 + range(-jz, jz) };
+          if (pitchedShare < 0.4) blk.waterTowers.push(wt);
           bulkheadArea = spot === top ? null : halves[1];
         }
       }
@@ -692,14 +896,15 @@ function buildCityBlocks(scene) {
         if (hw >= 1.8 && hd >= 1.8) {
           const jx = (aw - hw) * 0.5 - 0.6;
           const jz = (ad - hd) * 0.5 - 0.6;
-          blk.hvacUnits.push({
+          const unit = {
             x: (bulkheadArea.x0 + bulkheadArea.x1) * 0.5 + range(-jx, jx),
             y: top.y1,
             z: (bulkheadArea.z0 + bulkheadArea.z1) * 0.5 + range(-jz, jz),
             w: hw,
             h: o.hvacH ?? (big ? range(3.4, 5.8) : range(2.4, 3.2)),
             d: hd
-          });
+          };
+          if (pitchedShare < 0.4) blk.hvacUnits.push(unit);
         }
       }
     }
@@ -2122,6 +2327,38 @@ function buildCityBlocks(scene) {
     group.add(inst);
   });
 
+  // Mapped pitched, hipped, domed & barrel roofs (DATA above) on the generated roofs they cover, one vertex-coloured
+  // mesh per km square (js/nyc-roofs.js: the Hometown engine's roof())
+  if (dataRoofs.length && window.NYC.createRoofBuilder) {
+    const byCell = new Map();
+    for (const r of dataRoofs) {
+      const k = `${Math.floor(r.cx / 1000)}_${Math.floor(r.cz / 1000)}`;
+      if (!byCell.has(k)) byCell.set(k, window.NYC.createRoofBuilder());
+      const rb = byCell.get(k);
+      rb.roof({ cx: r.cx, cz: r.cz, w: r.L, d: r.W }, r.ang, r.top.y1, Math.min(r.rise, Math.min(r.L, r.W) * 0.9), r.shape, r.roofHex, r.wallHex);
+    }
+    const roofMat = new THREE.MeshStandardNodeMaterial({ vertexColors: true, roughness: 0.82, metalness: 0.05, side: THREE.DoubleSide });
+    for (const [k, rb] of byCell) {
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(rb.pos, 3));
+      g.setAttribute('color', new THREE.Float32BufferAttribute(rb.col, 3));
+      g.computeVertexNormals();
+      g.computeBoundingSphere();
+      const mesh = new THREE.Mesh(g, roofMat);
+      mesh.name = `MappedRoofs_${k}`;
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      group.add(mesh);
+    }
+  }
+  if (DATA) {
+    // (window.NYC.looksStats: what the mapped data changed, and a few of the mapped roofs placed, for checking them)
+    DATA.stats.roofSample = dataRoofs.filter((r, i) => i % Math.max(1, Math.floor(dataRoofs.length / 12)) === 0).slice(0, 12)
+      .map((r) => [Math.round(r.cx), Math.round(r.cz), Math.round(r.top.y1), r.shape]);
+    window.NYC.looksStats = DATA.stats;
+    console.info('[looks]', JSON.stringify(DATA.stats));
+  }
+
   // Billboards: one merged mesh per poster theme
   {
     const byVariant = new Map();
@@ -2313,7 +2550,8 @@ function buildCityBlocks(scene) {
 
   const signThemes = [
     { bg: '#161210', border: '#c89d54', text: 'FIFTH AVE BISTRO · EST. 1928', color: '#ffe4a8' },
-    { bg: '#0c2244', border: '#38b6ff', text: 'GRAMERCY · PHARMACY', color: '#ffffff' },
+    // (Mission 4's look review, round 7: a neighbourhood's name on a pharmacy read as a real shop's; the game's own now)
+    { bg: '#0c2244', border: '#38b6ff', text: 'CORNER PHARMACY · OPEN LATE', color: '#ffffff' },
     { bg: '#142b20', border: '#d4af37', text: 'MANHATTAN BOOKS & ESPRESSO', color: '#fff2cc' },
     { bg: '#280a10', border: '#ff5252', text: 'BROADWAY DELI & GRILL · 24HR', color: '#ffd180' },
     { bg: '#101318', border: '#e0e6ed', text: 'EMPIRE WATCHES · NEW YORK', color: '#f5f9ff' }

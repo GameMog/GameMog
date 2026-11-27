@@ -75,6 +75,7 @@
     "EN-4",
     "EN-5",
     "EN-7",
+    "EN-8",
     "EN-6"
    ]
   }
@@ -454,6 +455,42 @@
      "type": "drive",
      "to": "@office",
      "objective": "Get to **the office**. Now."
+    }
+   ]
+  },
+  {
+   "id": "EN-8",
+   "title": "Shadow",
+   "vehicle": "roadster",
+   "start": "@bank",
+   "time": "midday",
+   "stakes": "Follow the courier. Then the next one, across town.",
+   "passLine": "Two tails, neither saw you.",
+   "steps": [
+    {
+     "type": "tail",
+     "id": "tail-near",
+     "route": [
+      "@bank",
+      "@empire",
+      "@school"
+     ],
+     "name": "the courier",
+     "color": "#6B2E2E",
+     "objective": "Follow **the courier**. Don't get too close.",
+     "checkpoint": true
+    },
+    {
+     "type": "tail",
+     "id": "tail-far",
+     "route": [
+      "@office",
+      "@school"
+     ],
+     "name": "the second courier",
+     "color": "#2E4E6B",
+     "ahead": 60,
+     "objective": "Follow **the second courier**. Don't get too close."
     }
    ]
   }

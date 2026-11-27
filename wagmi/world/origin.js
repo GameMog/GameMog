@@ -72,6 +72,18 @@ export function createFloatingOrigin() {
       if (saved.length < list.length * 2) saved = new Float64Array(list.length * 2);
       O.frozen = list.length; O.frozenMs = +(performance.now() - t0).toFixed(2); O.frozenWalks++;
     }
+    // every recomputed world matrix under `root` moved back by (x, z): a walk with a stack, no matrix maths
+    const stack = [];
+    function unshift(root, x, z) {
+      stack.length = 0;
+      for (const c of root.children) stack.push(c);
+      while (stack.length) {
+        const o = stack.pop();
+        if (o.matrixWorldAutoUpdate !== false) { const e = o.matrixWorld.elements; e[12] += x * e[15]; e[14] += z * e[15]; }
+        const ch = o.children;
+        for (let i = 0; i < ch.length; i++) stack.push(ch[i]);
+      }
+    }
     renderer.render = function (scn, camera, ...rest) {
       if (scn !== scene || depth > 0) return render0(scn, camera, ...rest);
       const cam = app.cameraSystem?.camera;
@@ -92,17 +104,30 @@ export function createFloatingOrigin() {
       }
       if (U) U.value.set(O.x, 0, O.z);
       N.renderOrigin.x = O.x; N.renderOrigin.z = O.z;
-      try { return render0(scn, camera, ...rest); }
+      let drawn = false;
+      try { const r = render0(scn, camera, ...rest); drawn = true; return r; }
       finally {
         const t1 = performance.now();
+        // (perf) the render's own scene.updateMatrixWorld() recomputed every world matrix it reaches, in render space:
+        // each is the absolute one moved by -origin (a translation at the root), so it is put back by adding the origin
+        // to its translation, not by recomputing the whole scene's matrices again (half the matrix work of the frame in
+        // a town far from 0). Not those three never recomputes (matrixWorldAutoUpdate false: the frozen, restored by
+        // hand below, and what hangs under them is recomputed from them); the kept lights, drawn unshifted, recomputed.
+        // The full walk as before if the render did not get through (an exception) or the root was not recomputed
+        const fast = drawn && scene.matrixWorldAutoUpdate !== false && Math.abs(scene.matrixWorld.elements[12] + O.x) < 1e-6 && Math.abs(scene.matrixWorld.elements[14] + O.z) < 1e-6;
         scene.position.x += O.x; scene.position.z += O.z;
         for (const o of kept) { o.position.x -= O.x; o.position.z -= O.z; }
+        if (fast) unshift(scene, O.x, O.z);
         for (let i = 0; i < frozen.length; i++) { const e = frozen[i].matrixWorld.elements; e[12] = saved[2 * i]; e[14] = saved[2 * i + 1]; }
         if (shiftCam) { camera.position.x += O.x; camera.position.z += O.z; camera.updateMatrixWorld(); }
         if (U) U.value.set(0, 0, 0);
         N.renderOrigin.x = 0; N.renderOrigin.z = 0;
         // (every matrix back in the absolute frame before anything reads one)
-        scene.updateMatrixWorld();
+        if (fast) {
+          scene.updateMatrix();
+          scene.matrixWorld.copy(scene.matrix);
+          for (const o of kept) o.updateMatrixWorld(true);
+        } else scene.updateMatrixWorld();
         depth--;
         O.renders++;
         O.shiftMs += performance.now() - t1; // (the cost: matrices put back)

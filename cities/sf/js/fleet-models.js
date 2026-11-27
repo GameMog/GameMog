@@ -28,7 +28,10 @@ const BASE = new URL(D.base, ROOT).href;
 const loaded = new Map(); // id -> model
 const loading = new Map(); // id -> Promise
 let glbMod = null;
-const glb = () => glbMod || (glbMod = import(new URL('wagmi/glb.js', ROOT).href));
+// (window.mcNet, js/net-retry.js: the module again when the server was busy, and asked for anew on the next car if it
+// still did not load)
+const glbUrl = new URL('wagmi/glb.js', ROOT).href;
+const glb = () => glbMod || (glbMod = (window.mcNet ? window.mcNet.importRetry(() => import(glbUrl), 'wagmi/glb.js') : import(glbUrl)).catch((e) => { glbMod = null; throw e; }));
 
 function load(id) {
   if (loaded.has(id)) return Promise.resolve(loaded.get(id));
@@ -55,7 +58,9 @@ function textures() {
   const lo = N.quality && N.quality.tier === 'low';
   const L = new THREE.TextureLoader();
   const one = (f, srgb, onLoad) => {
-    const t = L.load(BASE + f + '?v=' + D.v, onLoad);
+    const url = BASE + f + '?v=' + D.v;
+    // (its image again if the server was busy: js/net-retry.js)
+    const t = L.load(url, onLoad, undefined, () => { if (window.mcNet) window.mcNet.textureRetry(t, url, onLoad); });
     t.flipY = false; // (glTF's uv convention: the atlases are laid out top-down like a glTF's own images)
     t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
     t.anisotropy = 8;
@@ -87,7 +92,9 @@ function ownTextures(id) {
   // (a decal's lettering repainted once loaded where a painter is set, N.fleetDecalPaint[id](image) -> canvas: a town
   // bus's destination sign, traffic.js)
   const repaint = (tx) => { const P = N.fleetDecalPaint && N.fleetDecalPaint[id]; if (!P || !tx.image) return; try { const c = P(tx.image); if (c) { tx.image = c; tx.needsUpdate = true; } } catch (e) { console.warn('[fleet] decal', id, e); } };
-  return (t.own[id] = { base: rep(t.one(`${id}${sfx}.webp`, true)), orm: rep(t.one(`${id}-orm${sfx}.webp`, false)), decal: m.decal ? t.one(`${id}-decal${sfx}.webp`, true, repaint) : null, optics: rep(t.optics) });
+  // (a passenger pack's wheels have a texture of their own, m.wheelTex: drawn with the body's they took its colours)
+  const wheel = m.wheelTex ? { base: rep(t.one(`${id}-wheel${sfx}.webp`, true)), orm: rep(t.one(`${id}-wheel-orm${sfx}.webp`, false)) } : null;
+  return (t.own[id] = { base: rep(t.one(`${id}${sfx}.webp`, true)), orm: rep(t.one(`${id}-orm${sfx}.webp`, false)), decal: m.decal ? t.one(`${id}-decal${sfx}.webp`, true, repaint) : null, optics: rep(t.optics), wheel });
 }
 
 // ---- the materials ---------------------------------------------------------------------------------------------------
@@ -103,7 +110,12 @@ function material(kind, o = {}) {
   const own = o.own ? ownTextures(o.own) : null;
   const { attribute, texture, uv, vec3, float, mix, step, smoothstep, max, min, abs, sin, positionLocal, time, color } = T;
   const fl = attribute('_fleet', 'vec4');
-  const paintMask = step(0.5, fl.x);
+  // (a paintable model of its own textures, m.paintable: its body's paint marked in its base texture's alpha, 0.5,
+  // tools/vehicles/build-c1280.mjs; the paint goes on there, as light or dark as the texture is against its own colour)
+  const ownM = o.own ? D.models[o.own] : null, ownPaint = !!(ownM && ownM.paintable && kind === 'body');
+  const wheelOwn = kind === 'wheel' && own && own.wheel ? own.wheel : null;
+  const base = texture(wheelOwn ? wheelOwn.base : own ? (kind === 'optics' ? own.optics : own.base) : t.kit, uv());
+  const paintMask = ownPaint ? step(base.a, 0.75) : step(0.5, fl.x);
   const lampId = fl.y.mul(255).round();
   const glassKind = fl.z.mul(255).round();
   const is = (v, id) => step(abs(v.sub(id)), 0.25);
@@ -128,15 +140,28 @@ function material(kind, o = {}) {
     mats.set(key, mat);
     return mat;
   }
-  const base = texture(own ? (kind === 'optics' ? own.optics : own.base) : t.kit, uv());
-  const orm = own ? (kind === 'optics' ? T.vec4(1, 0.1, 0, 1) : texture(own.orm, uv())) : texture(t.orm, uv());
+  const orm = wheelOwn ? texture(wheelOwn.orm, uv()) : own ? (kind === 'optics' ? T.vec4(1, 0.1, 0, 1) : texture(own.orm, uv())) : texture(t.orm, uv());
   // the paint: the instance's colour (or the uniform's), the taxi's and the cruiser's their livery's texture
   const U = o.uniforms;
-  const paint = kind === 'wheel' || own ? vec3(1, 1, 1) : o.instanced ? attribute('paintColor', 'vec3') : U.paint;
+  const refC = ownPaint ? new THREE.Color(ownM.paint || '#808080') : null;
+  const paintOf = () => (o.instanced ? attribute('paintColor', 'vec3') : U ? U.paint : color(refC));
+  const paint = ownPaint ? paintOf() : kind === 'wheel' || own ? vec3(1, 1, 1) : paintOf();
   const state = kind === 'wheel' || (own && kind !== 'optics') ? null : o.instanced ? attribute('carState', 'vec4') : U.state;
   const livT = o.livery ? liveryTex(o.livery) : null;
   const liv = livT ? texture(livT, uv()).rgb : null;
-  const paintCol = liv || paint;
+  // (an own paintable body: the paint as light or dark as the texel is against the model's own colour, its shading)
+  const refLum = refC ? Math.max(0.004, 0.2126 * refC.r + 0.7152 * refC.g + 0.0722 * refC.b) : 1;
+  const shade = ownPaint ? min(T.dot(base.rgb, vec3(0.2126, 0.7152, 0.0722)).div(refLum), float(2.2)) : null;
+  let paintCol = liv || (ownPaint ? paint.mul(shade) : paint);
+  // (a car's own second colour (U.second, set by U.setSplit: a story's two-tone, wagmi/fleet-car.js): over the line
+  // U.split.y for a roof, under it for a lower body, a band of half-width U.split.z round it for a beltline; split.x the
+  // kind, 0 none)
+  if (U && U.second && kind === 'body' && !liv) {
+    const sp = U.split, y = positionLocal.y, second = ownPaint ? U.second.mul(shade) : U.second;
+    const band = (a) => step(a - 0.5, sp.x).mul(step(sp.x, a + 0.5));
+    const two = max(band(1).mul(step(sp.y, y)), max(band(2).mul(step(y, sp.y)), band(3).mul(step(sp.y.sub(sp.z), y)).mul(step(y, sp.y.add(sp.z)))));
+    paintCol = mix(paintCol, second, two);
+  }
   // (glass seen as opaque in the far LODs: a dark tint)
   const farGlass = is(glassKind, 1);
   let col = mix(base.rgb, paintCol, paintMask);
@@ -146,12 +171,17 @@ function material(kind, o = {}) {
   rough = mix(rough, float(0.06), farGlass);
   let metal = mix(orm.b, paintMetal, paintMask);
   metal = mix(metal, float(0.2), farGlass);
-  mat = o.hero ? new THREE.MeshPhysicalNodeMaterial({ clearcoat: 1, clearcoatRoughness: 0.06 }) : new THREE.MeshStandardNodeMaterial();
+  // (Mog City, the high quality lighting tier, js/sky-occlusion.js: the traffic's paint too a rough dielectric base under a
+  // glossy clearcoat, as Ben Houston's enhanced Slop New York a53ddb3 (MIT), and the sky its street lets through)
+  const HQ = !o.hero && !!(window.NYC.HQL && window.NYC.HQL.on());
+  if (HQ) { rough = mix(rough, liv ? float(0.5) : float(0.42), paintMask); metal = mix(metal, float(0), paintMask); }
+  mat = o.hero || HQ ? new THREE.MeshPhysicalNodeMaterial({ clearcoat: 1, clearcoatRoughness: 0.06 }) : new THREE.MeshStandardNodeMaterial();
   mat.colorNode = col;
   mat.roughnessNode = rough;
   mat.metalnessNode = metal;
   mat.aoNode = mix(orm.r, float(1), paintMask);
-  if (o.hero) mat.clearcoatNode = paintMask.mul(liv ? 0.4 : 1);
+  if (o.hero || HQ) mat.clearcoatNode = paintMask.mul(liv ? 0.4 : 1);
+  if (HQ) window.NYC.HQL.applyOpen(mat, mix(orm.r, float(1), paintMask), { bounce: false });
   if (state) {
     // the lamps: state x brake, y left (+x) indicator, z right, w livery (1 police: its bar flashing; 2 parked: dark)
     const night = smoothstep(0.6, 1.15, glow());
@@ -179,8 +209,11 @@ function material(kind, o = {}) {
 // a car's own lamp and paint uniforms (not instanced): { id, paint, state, set({ paint, brake, left, right, livery }) }
 let uid = 0;
 function uniforms(paintHex = '#888888') {
-  const U = { id: 'u' + uid++, paint: T.uniform(new THREE.Color(paintHex)), state: T.uniform(new THREE.Vector4(0, 0, 0, 0)) };
+  const U = { id: 'u' + uid++, paint: T.uniform(new THREE.Color(paintHex)), state: T.uniform(new THREE.Vector4(0, 0, 0, 0)),
+    second: T.uniform(new THREE.Color(paintHex)), split: T.uniform(new THREE.Vector4(0, 0, 0, 0)) };
   U.setPaint = (hex) => U.paint.value.set(hex);
+  // (a second colour: kind 'roof' | 'lower' | 'beltline' | 'none', the line's height in the model's frame, the band's half-width)
+  U.setSplit = (kind, hex, y = 0, half = 0.05) => { const k = { roof: 1, lower: 2, beltline: 3 }[kind] || 0; U.split.value.set(k, y, half, 0); if (hex) U.second.value.set(hex); };
   U.setState = (brake = 0, left = 0, right = 0, livery = 0) => U.state.value.set(brake, left, right, livery);
   return U;
 }
@@ -220,7 +253,7 @@ function buildCar(model, o = {}) {
   }
   // (its decals cast no shadow: they lie on the body, which casts it)
   group.traverse((x) => { if (x.isMesh) { x.castShadow = x.name !== 'fleet-decals'; x.receiveShadow = true; x.userData.shared = true; } });
-  return { group, body, glass, wheels, uniforms: U, meta: m, setPaint: U.setPaint, setState: U.setState };
+  return { group, body, glass, wheels, uniforms: U, meta: m, setPaint: U.setPaint, setState: U.setState, setSplit: U.setSplit };
 }
 
 N.Fleet = { data: D, base: BASE, load, get: (id) => loaded.get(id) || null, material, uniforms, textures, buildCar, wheelsOf, plain, LAMP: { head: 1, tail: 2, brake: 3, blink: 4, reverse: 5, beacon: 6, sign: 7 } };

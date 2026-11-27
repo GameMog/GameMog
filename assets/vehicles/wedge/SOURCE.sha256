@@ -1,0 +1,4 @@
+2f416a24ff6fd659edc474f27949441db93f0e340b5b97464ec1a0e253ef7fa7  scene.gltf
+38a83f318319f779d447cb6980091e23665f636833be5b39707aa166a9462bb7  scene.bin
+c1660ab6203c2d2db975f6a02b8fcf6356cc07d97c20092dc7c143b0ccbbb353  sketchfab-original.glb (the author's Sketchfab GLB export)
+22bb1697dbb14f8bd290a5dfe89b3654c4b73babb726c6e93e759aabc4be9e15  geometry (positions, normals, UVs, indices of every primitive, in order; the same for both)

@@ -143,3 +143,29 @@ test('the poll names the world and swaps to the upgrade', async () => {
     delete globalThis.__NYC_APP;
   }
 });
+
+test('a whole town whose build stopped: the edge haze put down and the line plain; back if the build goes on', async () => {
+  assert.ok(G.buildStalled({ state: 'error', stage: 'Not built' }) && G.buildStalled({ variant: 'district-1-2', state: 'district', full: false, stalled: true }));
+  assert.ok(!G.buildStalled({ state: 'district', full: false }) && !G.buildStalled(null));
+  const saved = { location: globalThis.location, document: globalThis.document, sessionStorage: globalThis.sessionStorage, raf: globalThis.requestAnimationFrame, add: globalThis.addEventListener };
+  const els = new Map(), haze = { visible: true };
+  globalThis.location = { replace() {} };
+  globalThis.sessionStorage = { getItem: () => null, setItem() {}, removeItem() {} };
+  globalThis.document = { body: { appendChild(d) { els.set(d.id, d); } }, createElement: () => ({ style: {} }), getElementById: () => null };
+  globalThis.requestAnimationFrame = () => 0;
+  globalThis.addEventListener = () => {};
+  globalThis.__NYC_APP = { scene: { getObjectByName: (n) => (n === 'PkgGrowingHaze' ? haze : null) }, controllerManager: { activeMode: 'car', getActiveEntity: () => ({ position: { x: 1, z: 2 }, heading: 0, speed: 0 }) } };
+  try {
+    const href = `http://localhost:4840/${SEARCH}&tv=district-5805-8582`;
+    const town = T.townFromQuery(new URL(href).searchParams, { hostname: 'localhost' });
+    const fetchFn = async () => ({ ok: true, json: async () => ({ variant: 'district-5805-8582', state: 'district', full: false, stalled: true }) });
+    const st = G.startGrowing({ town, PKG: { ...PKG, variant: 'district-5805-8582' }, fetchFn, href });
+    await new Promise((r) => setTimeout(r, 1700));
+    assert.ok(st.stalled && !st.armed, 'stalled, nothing to swap to');
+    assert.equal(haze.visible, false);
+    assert.equal(els.get('mc-town-edge').textContent, G.WORDS.stalled);
+  } finally {
+    Object.assign(globalThis, { location: saved.location, document: saved.document, sessionStorage: saved.sessionStorage, requestAnimationFrame: saved.raf, addEventListener: saved.add });
+    delete globalThis.__NYC_APP;
+  }
+});

@@ -17,6 +17,8 @@
 //   (a site he walks to, access 'foot', is at its centre: lx, lz keep its lane point, where the way in starts)
 //   prepare(mission) -> [{ i, kind, key, name, x, z, cx, cz }];  sites() -> every site picked so far;  siteName(mission,
 //   id) -> a site's name here (the runner's {site.<id>} in a line or an objective)
+//   setRanch(fn): fn(key, alias) -> a ranch's place for that key (ranch.js: the ranch's own key, an alias's `ranch`
+//   mark) or null
 import { world as cityWorld } from '../world/index.js';
 export { SF_PLACES } from '../world/places-sf.js';
 
@@ -38,12 +40,37 @@ export function siteRefs(m) {
   return out;
 }
 
+// the library keys a world names: its aliases' '@' keys and every '@key' (or { '@': key }) its missions write, an alias
+// itself not counted (a mark of the world's own, { at }, needs nothing of the library)
+export function namedPlaces(world, aliases = (world && world.places) || {}) {
+  const keys = new Set();
+  const own = (k) => Object.prototype.hasOwnProperty.call(aliases, k);
+  const key = (k) => { if (!k || typeof k !== 'string') return; if (own(k)) { const a = aliases[k]; if (a && typeof a['@'] === 'string' && !own(a['@'])) keys.add(a['@']); } else keys.add(k); };
+  for (const a of Object.values(aliases)) if (a && typeof a === 'object' && typeof a['@'] === 'string') key(a['@']);
+  const walk = (v, depth) => {
+    if (!v || depth > 16) return;
+    if (typeof v === 'string') { if (/^@[A-Za-z0-9_-]+$/.test(v)) key(v.slice(1)); return; }
+    if (typeof v !== 'object') return;
+    if (Array.isArray(v)) { for (const x of v) walk(x, depth + 1); return; }
+    if (typeof v['@'] === 'string') key(v['@']);
+    if (typeof v.face === 'string') key(v.face.replace(/^@/, ''));
+    for (const [k, x] of Object.entries(v)) if (k !== '@') walk(x, depth + 1);
+  };
+  for (const m of (world && world.missions) || []) walk(m, 0);
+  return [...keys];
+}
+
 export function createPlaces(W, world) {
   // (the city's place library, laid on its map by the world contract: wagmi/world, ny.js and sf.js, their data in
   // places-ny.js and places-sf.js)
   const lib = cityWorld.places, missing = cityWorld.placesMissing.slice();
-  if (missing.length) console.warn('[storyrun] places not found on the map:', missing.join(', '));
   const aliases = (world && world.places) || {};
+  // (warned of: only the places this world names that the map lacks. The city's library leaves out what no car lane
+  // reaches (a Hometown package's places PLACE_FAR m past the traffic's last lane: Chicago's far half of Navy Pier, 9
+  // places 288-585 m out along Dock St), and a world that names none of them has nothing missing: before, every
+  // Mandi's Revenge run warned of those 9, none of them its own)
+  const named = namedPlaces(world, aliases), lost = named.filter((k) => !lib[k]);
+  if (lost.length) console.warn('[storyrun] places not found on the map:', lost.join(', '));
   // ---- sites (wagmi/world/MISSION-SITES.md)
   const owner = new WeakMap(), done = new Map(), picked = new WeakMap(), loose = new Map(), all = [];
   for (const m of (world && world.missions) || []) for (const r of siteRefs(m)) if (!owner.has(r)) owner.set(r, m);
@@ -107,7 +134,11 @@ export function createPlaces(W, world) {
     if (!loose.has(k)) { const n = nearOf(ref.site.near, null, new Map(), null); loose.set(k, pickSite(ref.site, null, k, n.at, n.implicit, [])); }
     return loose.get(k);
   }
+  // (a ranch dressed at a place, ranch.js: the place and its marks are the ranch's once it is built; before, or with
+  // no plot found, the place as it is)
+  let ranchOf = null;
   function base(key) {
+    if (ranchOf) { const r = ranchOf(key, Object.prototype.hasOwnProperty.call(aliases, key) ? aliases[key] : null); if (r) return r; }
     if (Object.prototype.hasOwnProperty.call(aliases, key)) {
       const a = aliases[key];
       // (a world's own mark on this map: at [x, z, heading in degrees], Mog City's own story's marks, packs/mog-city.json)
@@ -142,5 +173,5 @@ export function createPlaces(W, world) {
   }
   // (a mission's site by its id: its name here, for a line or an objective's {site.<id>})
   const siteName = (m, id) => { const l = prepare(m); const e = l.find((x) => x.id === id); return e ? e.name : null; };
-  return { at, lib, missing, prepare, siteName, sites: () => all.slice() };
+  return { at, lib, missing, aliases, prepare, siteName, sites: () => all.slice(), setRanch: (fn) => { ranchOf = typeof fn === 'function' ? fn : null; } };
 }

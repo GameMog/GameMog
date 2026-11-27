@@ -17,7 +17,7 @@ import { createGPS } from './mission/gps.js';
 import { createFace } from './face.js';
 import { outBesideCar } from './intro.js';
 import { world } from './world/index.js';
-import { CHASE_START, chaseStart } from './chase-start.js';
+import { CHASE_START, chaseStart } from './chase-start.js'; import { importRetry } from './net.js';
 
 const Q = new URLSearchParams(location.search);
 export const CITY = world.id;
@@ -63,7 +63,7 @@ export async function install(W) {
   }
   // (?apocalypse[=dusk|day|night]: SF 2040's San Francisco after Erebus, wagmi/apocalypse; loaded only when asked for)
   if (CITY === 'sf' && Q.has('apocalypse')) {
-    try { const A = await import('./apocalypse/index.js'); await A.createApocalypse(W, { time: Q.get('apocalypse') || 'dusk' }); } catch (e) { console.warn('[city] apocalypse', e); }
+    try { const A = await importRetry(() => import('./apocalypse/index.js')); await A.createApocalypse(W, { time: Q.get('apocalypse') || 'dusk' }); } catch (e) { console.warn('[city] apocalypse', e); }
   }
   console.log(`[wagmi] free roam in ${CITY === 'sf' ? 'San Francisco' : CITY === 'pkg' ? world.name + ' (package ' + world.pkg + ')' : CITY}`);
 }

@@ -33,6 +33,40 @@ const ISO = 0.4;               // the far water's shore: this much of the 3 x 3 
 // (classes, tools/hometown/far.py: 0 land (humid), 1 water, 2 arid, 3 dry (steppe); a humid hillside reads wooded, not
 // rock, below a cliff's slope)
 const COLORS = { land: 0x5c6e3a, arid: 0xb49f7a, dry: 0x857f54, rock: 0x7d776c, woods: 0x3f4a2a, water: 0x40525c, wet: 0x5f6e4f };
+// (montana) snow and forest on the far mountains, drawn per pixel (snowShader: a far post is 64 to 256 m apart, and a
+// snowline blended between posts read as a soft cloud bank sitting on the ridges). SNOW: ground above the snowline, by
+// latitude (an estimate for the cold half of the year: about 3000 m in Colorado, 2250 m round Bozeman, 2100 m at the
+// Canadian line; nothing in the east reaches it), its edge broken up by noise at three scales, lower on the north faces,
+// shed from cliffs and steep rock faces (the ridgelines and gullies read through it). FOREST (the mountain west only,
+// PkgBuildings.pkgRegion): the dark conifer belt (Douglas fir, lodgepole, spruce) on the slopes from TIMBER_LO m under
+// the snowline (lower on the north faces, as on the Bridgers) up to the treeline, in clumps and stringers, the valley's
+// grass and sage below it and rock and krummholz above. CLEAR AIR: a mountain-west town with this much relief in its
+// far field reads 'clear', as an arid one does
+const SNOW_RGB = 0xd3d9e0, ROCK_RGB = 0x6d6760, CONIFER_RGB = 0x1d2a1b, CONIFER2_RGB = 0x2a3a24, CLEAR_RELIEF = 600;
+const TIMBER_LO = 480, TREELINE = 320;
+const snowlineAt = (lat) => Math.min(4200, Math.max(1900, 3300 - 120 * ((Number.isFinite(lat) ? lat : 30) - 37)));
+
+// (montana) the far tiles round a bundle's core, as far.py place_far lists them (tiles_for: each tier's reach past the
+// core, tier A's ring only), by store key; [] without the fields it needs
+const FAR_REACH = { a: 1024, b: 10000, c: 30000 };
+function farKeys(P) {
+  const F = P.far, core = F.core, bid = P.buildId || (P.lock && P.lock.buildId), dom = P.domain || (P.frame && P.frame.domain) || 'conus';
+  if (!Array.isArray(core) || core.length !== 4 || !F.tiers || !bid || !/^[a-z0-9.-]+$/.test(bid) || !/^[a-z]+$/.test(dom)) return [];
+  const out = [];
+  for (const t of ['a', 'b', 'c']) {
+    const T = F.tiers[t] && F.tiers[t].size, L = F.tiers[t] && F.tiers[t].L, R_ = FAR_REACH[t];
+    if (!(T > 0) || !Number.isInteger(L)) continue;
+    const [gx0, gs0, gx1, gs1] = core;
+    const C0 = Math.max(0, Math.floor((gx0 - R_) / T)), R0 = Math.max(0, Math.floor((gs0 - R_) / T));
+    const C1 = Math.floor((gx1 + R_ - 1e-6) / T), R1 = Math.floor((gs1 + R_ - 1e-6) / T);
+    if ((C1 - C0 + 1) * (R1 - R0 + 1) > 400) continue;
+    for (let R = R0; R <= R1; R++) for (let C = C0; C <= C1; C++) {
+      if (t === 'a' && C * T >= gx0 && R * T >= gs0 && (C + 1) * T <= gx1 && (R + 1) * T <= gs1) continue;
+      out.push({ tier: t, C, R, key: `far/${bid}/${P.grid || 'hg1'}-${dom}/${L}/${C}/${R}` });
+    }
+  }
+  return out;
+}
 
 function build(scene) {
   const { THREE, Terrain: T, createWaterMaterial } = N;
@@ -44,6 +78,7 @@ function build(scene) {
   const core = { x0: T.originX, z0: T.originZ, x1: T.originX + (T.w - 1) * T.cell, z1: T.originZ + (T.h - 1) * T.cell };
   // (the package's climate, tools/hometown/climate.py; an older package: the old desert rule)
   const fr = P.frame || {}, clim = P.climate || ((fr.lon0 ?? 0) < -104 && (fr.lat0 ?? 90) < 37.5 ? 'arid' : 'humid');
+  const snowline = snowlineAt(fr.lat0), mountainWest = N.PkgBuildings?.regionAt?.(fr.lon0, fr.lat0) === 'mountain';
   const stats = { fill: true, tiles: 0, triangles: 0, waterTriangles: 0, loadMs: null, error: null, fog: null };
   const landMat = new THREE.MeshStandardNodeMaterial({ vertexColors: true, roughness: 1, metalness: 0, side: THREE.DoubleSide }); // (skirts face either way)
   const flatMat = new THREE.MeshStandardNodeMaterial({ color: debug ? 0x00ff00 : clim === 'arid' ? COLORS.arid : clim === 'dry' ? COLORS.dry : COLORS.land, roughness: 1, metalness: 0 });
@@ -129,6 +164,14 @@ function build(scene) {
   // ---- the far tiles
   const tiers = {}, patches = [], chunks = [];
   let apron = null, farRect = null, lodTier = null;
+  // (montana) a growing town's district bundle lists only the far tiles that were stored when it was written, often none:
+  // its mountains then never showed (Bozeman's district: far.tiles = []). Far tiles are keyed on the grid alone
+  // (far.py: far/{buildId}/hg1-{d}/{L}/{C}/{R}, shared by every variant of the build), so such a bundle asks the store for
+  // the ones round its core that the compiler has written since; a missing one (404) is skipped, never an error
+  if (mode !== '0' && P.far && Array.isArray(P.far.tiles) && !P.far.tiles.length && P.window && P.window.full === false && N.FAR_BASE) {
+    const found = farKeys(P);
+    if (found.length) { P.far.tiles = found; P.far.discover = true; stats.discover = found.length; }
+  }
   if (mode !== '0' && P.far && Array.isArray(P.far.tiles) && P.far.tiles.length && N.fetchBin) {
     const t0 = performance.now();
     load().then(() => { stats.loadMs = Math.round(performance.now() - t0); }, (e) => { stats.error = String(e && e.message || e); console.warn('[pkg-far]', e); });
@@ -183,10 +226,17 @@ function build(scene) {
     // directory's own copies by url, data/far/... under its BASE)
     const farBase = N.FAR_BASE || (Q.get('tileBase') || '/.scratch/hometown/store').replace(/\/?$/, '/');
     await Promise.all(Array.from({ length: 8 }, async () => {
-      while (next < list.length) { const t = list[next++]; got.set(t, await (t.key ? N.fetchBin(new URL(t.key, new URL(farBase, location.href)).href, null, true) : N.fetchBin(t.url))); }
+      while (next < list.length) {
+        const t = list[next++];
+        const p = t.key ? N.fetchBin(new URL(t.key, new URL(farBase, location.href)).href, null, true) : N.fetchBin(t.url);
+        // (a discovered list: a tile not stored yet is left out)
+        if (F.discover) { try { got.set(t, await p); } catch (e) { /* not stored */ } } else got.set(t, await p);
+      }
     }));
     const dec = [];
+    if (F.discover) { stats.discovered = got.size; if (!got.size) return; }
     for (const t of list) {
+      if (!got.has(t)) continue;
       const { header: h, buf, offset } = got.get(t), n = h.n;
       const q = new Uint16Array(buf, offset, n * n), cls = new Uint8Array(buf, offset + 2 * n * n, n * n);
       const size = F.tiers[h.tier].size, step = h.step;
@@ -283,6 +333,14 @@ function build(scene) {
       group.remove(boot); boot.geometry.dispose();
       stats.fill = false;
     }
+    // (montana: snow and the timber belt per pixel, on a far field that reaches within TIMBER_LO m of the snowline; any
+    // other town's far ground keeps its plain vertex colours, the material untouched)
+    let peak = -Infinity;
+    for (const d of dec) for (let i = 0; i < d.H.length; i++) if (d.q[i]) peak = Math.max(peak, d.H[i]);
+    stats.peak = Number.isFinite(peak) ? Math.round(peak + P.yOffset) : null;
+    if (Number.isFinite(peak) && peak + P.yOffset > snowline - (mountainWest ? TIMBER_LO : 0) && N.TSL && Q.get('farSnow') !== '0') {
+      try { snowShader(landMat); stats.snowShader = mountainWest ? 'snow+timber' : 'snow'; } catch (e) { stats.snowShader = 'error ' + String(e && e.message || e); console.warn('[pkg-far] snow', e); }
+    }
     for (const c of chunks) group.add(c.mesh);
     for (const w of water) group.add(w);
     if (tiers.b) N.FLIGHT_BOUNDS = { minX: tiers.b.rect.x0, maxX: tiers.b.rect.x1, minZ: tiers.b.rect.z0, maxZ: tiers.b.rect.z1 };
@@ -290,11 +348,63 @@ function build(scene) {
     let a = 0, all = 0;
     for (const d of dec) if (d.tier === 'b') for (let i = 0; i < d.cls.length; i++) { all++; if (d.cls[i] === 2) a++; }
     stats.fog = all && a / all > 0.5 ? 'clear' : 'haze';
+    // (montana: a mountain-west town under its mountains: the far field rising CLEAR_RELIEF m or more over the town's
+    // own edge reads clear, its ranges sharp at 20 km)
+    let top = -Infinity;
+    for (const d of dec) if (d.tier !== 'a') for (let i = 0; i < d.H.length; i++) if (d.q[i]) top = Math.max(top, d.H[i]);
+    stats.relief = Number.isFinite(top) ? Math.round(top - edgeMin) : null;
+    stats.snowline = Math.round(snowline);
+    if (mountainWest && stats.relief >= CLEAR_RELIEF) stats.fog = 'clear';
     if (stats.fog === 'clear') { N.pkgFarFog = 'clear'; N.setFogPreset?.('clear'); }
     stats.tiles = dec.length;
     stats.tierTiles = Object.fromEntries(order.map((t) => [t, tiers[t].tiles.length]));
     setLod(lodTier || initialLod());
     N.DATA.pkgFar = { tiers: Object.fromEntries(['a', 'b', 'c'].map((t) => [t, tiers[t] ? tiers[t].rect : null])), extent: farRect, stats };
+  }
+
+  // (montana) the far ground's snow, rock and timber, per pixel: from the world height (NAVD88 = y + PKG.yOffset), the
+  // ground's normal (its slope, and its aspect: +z is south in the session frame, so a north face's normal points to -z)
+  // and value noise in metres at 700, 170 and 45 m (a snowline that wanders with the ridges and gullies, never a contour
+  // line). Over the vertex colours (the classes, the valley's grass and sage); never near the town (the timber fades in
+  // from 1.2 to 2.6 km out past the core, so the foothills the town's own ground meets are as they were)
+  function snowShader(mat) {
+    const { Fn, float, vec3, color, attribute, positionWorld, normalWorld, mix, smoothstep, mx_noise_float, max, min, abs, uniform } = N.TSL;
+    const yOff = uniform(P.yOffset || 0), line = uniform(snowline), timber = uniform(mountainWest ? 1 : 0);
+    const cx0 = uniform(core.x0), cx1 = uniform(core.x1), cz0 = uniform(core.z0), cz1 = uniform(core.z1);
+    mat.vertexColors = false;
+    mat.colorNode = Fn(() => {
+      const base = attribute('color', 'vec3');
+      const p = positionWorld, n = normalWorld;
+      const elev = p.y.add(yOff);
+      const n1 = mx_noise_float(vec3(p.x.mul(1 / 700), p.z.mul(1 / 700), 3.1));
+      const n2 = mx_noise_float(vec3(p.x.mul(1 / 170), p.z.mul(1 / 170), 7.7));
+      const n3 = mx_noise_float(vec3(p.x.mul(1 / 45), p.z.mul(1 / 45), 1.3));
+      const flat = n.y, north = min(max(n.z.negate(), 0).div(max(n.y, 0.3)), 1);
+      // snow: the line lower on the north faces and in the hollows the noise picks, shed where the ground is steep
+      const hs = elev.add(150).add(n1.mul(170)).add(n2.mul(70)).add(n3.mul(22)).add(north.mul(190));
+      const hold = smoothstep(0.5, 0.68, flat.add(n3.mul(0.1)).add(n2.mul(0.05)).add(smoothstep(line.add(250), line.add(700), elev).mul(0.12)));
+      const snow = smoothstep(line.sub(18), line.add(18), hs).mul(hold);
+      // the timber belt (mountain west): from TIMBER_LO under the snowline (north faces 260 m lower, the noise's draws
+      // lower still) to the treeline, on slopes, in clumps; fading in away from the town
+      const dx = max(max(cx0.sub(p.x), p.x.sub(cx1)), 0), dz = max(max(cz0.sub(p.z), p.z.sub(cz1)), 0);
+      const away = smoothstep(1200, 2600, dx.mul(dx).add(dz.mul(dz)).sqrt());
+      const lo = line.sub(TIMBER_LO), hi = line.add(TREELINE);
+      const fe = elev.add(north.mul(260)).add(n2.mul(110)).add(n1.mul(80));
+      const belt = smoothstep(lo.sub(50), lo.add(40), fe).mul(float(1).sub(smoothstep(hi.sub(90), hi.add(30), elev.add(n2.mul(90)).add(n3.mul(30)))));
+      const sloped = float(1).sub(smoothstep(0.975, 0.996, flat)).mul(smoothstep(0.42, 0.6, flat));
+      const clumps = smoothstep(-0.4, 0.0, n2.mul(0.8).add(n1.mul(0.4)).add(n3.mul(0.25)).add(north.mul(0.5)));
+      const forest = belt.mul(sloped).mul(clumps).mul(away).mul(timber);
+      const tree = mix(color(CONIFER_RGB), color(CONIFER2_RGB), smoothstep(-0.5, 0.5, n3)).mul(n3.mul(0.1).add(n2.mul(0.08)).add(0.95));
+      // bare rock and scree above the trees and under the snow (the mountain west), and on any face too steep for snow
+      const alpine = smoothstep(hi.sub(60), hi.add(80), elev.add(n2.mul(60))).mul(timber);
+      const rockC = color(ROCK_RGB).mul(n3.mul(0.12).add(n2.mul(0.08)).add(0.95));
+      let c = mix(base, tree, forest);
+      c = mix(c, rockC, max(alpine.mul(0.75), smoothstep(line.sub(120), line, hs).mul(float(1).sub(hold)).mul(0.8)));
+      // the snow: a cold blue-white, its own small drifts
+      const snowC = color(SNOW_RGB).mul(n3.mul(0.04).add(0.98));
+      return mix(c, snowC, snow);
+    })();
+    mat.needsUpdate = true;
   }
 
   // one tile's vertex arrays (posts then skirts), its land index at strides 1 and 2, its water (marching squares) at both
@@ -352,6 +462,10 @@ function build(scene) {
       if (cls[k] === 1) c.copy(cWater);
       if (cls[k] === 0) c.lerp(cWoods, Math.min(1, Math.max(0, (slope - 0.3) / 0.3))).lerp(cRock, Math.min(1, Math.max(0, (slope - 1.2) / 0.6)));
       else c.lerp(cRock, Math.min(1, Math.max(0, (slope - 0.35) / 0.4)));
+      // (montana: counted for the stats only; the snow and the forest are drawn per pixel, snowShader)
+      const elev = H[k] + P.yOffset;
+      if (cls[k] !== 1 && elev > snowline) stats.snowPosts = (stats.snowPosts || 0) + 1;
+      else if (mountainWest && cls[k] !== 1 && slope > 0.1 && elev > snowline - TIMBER_LO && elev < snowline + TREELINE) stats.forestPosts = (stats.forestPosts || 0) + 1;
       // (a little per-post variation: deterministic, by global post position, so shared edges match)
       const gi = d.C * 64 + i, gj = d.R * 64 + j, nz = Math.sin(gi * 12.9898 + gj * 78.233) * 43758.5453, v = 0.93 + 0.1 * (nz - Math.floor(nz));
       c.multiplyScalar(v);
@@ -484,5 +598,5 @@ function build(scene) {
   };
 }
 
-N.PkgFar = { build };
+N.PkgFar = { farKeys, build };
 })();

@@ -34,7 +34,7 @@ export function driveTune(sheet, d) {
     scale: 1.0,
     body: { hx: r2(d.width / 2), z0: r2(d.zR - 0.06), z1: r2(d.zF + 0.08), top: r2(d.height) }, axle: r2(d.wheelbase / 2), mass: r2(mass),
     chaseDistance: r2(2.6 + 0.67 * d.length + Math.min(1.5 * Math.max(0, d.height - 1.4), 0.9)), chaseHeight: r2(0.55 + 0.86 * d.height),
-    chase: { fov: 60, pull: 0.002, kick: r2(0.7 + accel * 0.04), boostKick: r2(1.2 + (boostSpeed - topSpeed) * 0.1), vmax: r2(topSpeed), shake: r2(0.015 + Math.max(0, -C.soft) * 0.03), vtop: r2(boostSpeed + 1) },
+    chase: { fov: 60, pull: 0.002, kick: r2(5.2 + accel * 0.1), overKick: 3, boostKick: r2(1.2 + (boostSpeed - topSpeed) * 0.1), vmax: r2(topSpeed), shake: r2(0.015 + Math.max(0, -C.soft) * 0.03), vtop: r2(boostSpeed + 1) },
     topSpeed: r2(topSpeed), boostSpeed: r2(boostSpeed), accel: r2(accel), boostAccel: r2(boostAccel), reverse: 0.4,
     rolling: r2(0.42 + mass * 0.05), drag: 0.0048, coast: r2(2.2 + mass * 0.08), brake: r2(brakeN), boostBrake: r2(brakeN * 1.45),
     handling: { rMin: r2(rMin), yawMax: r2(yawMax), grip: r2(grip), rampIn: [r2(C.rampIn[0] + heavy), r2(C.rampIn[1] + heavy)], rampOut: r2(C.rampOut + heavy * 0.5), vRef: r2(topSpeed) },
@@ -48,6 +48,8 @@ export function driveTune(sheet, d) {
   };
   // the tail stepping out under power in a turn (yaw kick rad/s², slide m/s² at full power and lock)
   const tail = C.tail > 0 ? { yaw: r2(2.8 * C.tail), slide: r2(19 * C.tail), steerMin: 0.3, vMin: 4, vPeak: r2(topSpeed * 0.4), vSpan: 20 } : null;
+  // (the car's tyres read it: js/drive-model.js, the tail stepping out under power in a turn)
+  if (tail) tune.handling.tail = tail;
   return { tune, springs, tail };
 }
 

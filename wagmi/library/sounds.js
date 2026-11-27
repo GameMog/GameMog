@@ -5,6 +5,7 @@
 //   'pack:<id>/<name>'   e.g. W.audio.play('pack:sounds-impact/footstep_concrete', { pos, vol: 0.8, rate: 0.6 })
 // (wagmi/audio/engine.js looks a name up here when the made-on-the-spot SOUNDS do not have it). A pack is fetched and
 // decoded the first time one of its sounds is asked for, so that first one is silent: preload(M, ids) beforehand.
+import { fetchRetry } from '../net.js';
 const BASE = new URL('../../assets/library/', import.meta.url).href;
 const PACKS = new Map();   // id -> { json, buffer } once decoded
 const LOADING = new Map(); // id -> Promise
@@ -14,9 +15,9 @@ export function loadPack(M, id) {
   if (PACKS.has(id)) return Promise.resolve(PACKS.get(id));
   if (LOADING.has(id)) return LOADING.get(id);
   const p = (async () => {
-    const J = await (await fetch(BASE + id + '/asset.json')).json();
+    const J = await (await fetchRetry(BASE + id + '/asset.json')).json();
     if (J.kind !== 'sounds') throw new Error(`${id} is not a sound pack (${J.kind})`);
-    const bytes = await (await fetch(BASE + id + '/' + J.file)).arrayBuffer();
+    const bytes = await (await fetchRetry(BASE + id + '/' + J.file)).arrayBuffer();
     const buffer = await M.ctx.decodeAudioData(bytes);
     const P = { json: J, buffer };
     PACKS.set(id, P);

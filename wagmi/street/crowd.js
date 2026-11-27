@@ -19,13 +19,55 @@ const POP = 78; // off, GTA's way: the sidewalks ahead of a car filled before it
 const LEAD = 3; // (where he's headed: this many seconds on at his speed, up to 50 m)
 const LANE = [2.2, 4.1]; // m in from the curb: clear of the tree pits and the lamp posts, short of the shop fronts
 const PARK_LANE = [1.0, 2.2]; // (round a park: its perimeter walk, short of the fence or the terrace)
+// how many to a metre of sidewalk at most (of the curb within R_IN of where he's headed), times the streets' busyness
+// (world.crowd): a busy district's, a quieter street's. A town's few curb islands near him once took all of the crowd
+// out (126 people on one 467 m block in Bozeman): they walked its sides in conga lines of 30 or 40. The same number to
+// one side of a block at most, a little over its share (SIDE_K)
+// A Hometown town's only (world.id 'pkg'): New York's and San Francisco's crowds are as they were
+const PER_M = { busy: 0.2, quiet: 0.11 };
+const SIDE_K = 1.6;
+// (jh-polish2 B6, a Hometown story town's downtown: the blocks within STORY.R m of one of the story's own places (its
+// pack's named places: the arena, the market square, the diner) walk as a busy block does, times STORY.K. Jensen
+// Heist's San Jose had a thin downtown: its places' blocks mostly quiet (few shopfronts on them by the town's plan))
+export const STORY = Object.freeze({ R: 170, K: 1.6 });
+// (a town's: how far along a side from the next one along it, in about the same lane, a newcomer is put at least)
+const GAP = 3.5;
 const rand = (a, b) => a + Math.random() * (b - a);
 
 export function createCrowd(W) {
   const app = W.app, cm = app.controllerManager;
   const { PersonCrowd, PersonRig } = world.assets;
   // (the city's blocks, its busy districts and its WALK signals: the world contract's)
-  const { blockAt, blocksInRect } = world, busy = (b) => world.commercial(b.district);
+  const { blockAt, blocksInRect } = world;
+  // (a town's busy blocks: those with three shopfronts or more on them, its main street's (a Hometown package has no
+  // busy districts of its own: cities/sf/js/buildings.js lays out its shops, window.NYC.pkgSignPlan), counted once the
+  // town's buildings are up)
+  let shopsOn = null;
+  const townShops = (b) => {
+    if (!shopsOn) { const plan = globalThis.window?.NYC?.pkgSignPlan; if (!plan) return 0; shopsOn = new Map(); for (const s of plan.shops || []) { const k = blockAt(s.x, s.z); if (k) shopsOn.set(k, (shopsOn.get(k) || 0) + 1); } }
+    return shopsOn.get(b) || 0;
+  };
+  // (r2: nor a lawn, a square or a lot with its shopfronts round it: a block under a third built over, by a grid of
+  // points over it against the buildings' walls (inWall), is never busy, whatever its shops)
+  const builtOf = new Map();
+  const built = (b) => {
+    let f = builtOf.get(b);
+    if (f != null) return f;
+    const P = b.poly, st = Math.max(4, Math.sqrt(b.area / 80));
+    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+    for (const q of P) { minX = Math.min(minX, q.x); maxX = Math.max(maxX, q.x); minZ = Math.min(minZ, q.z); maxZ = Math.max(maxZ, q.z); }
+    let n = 0, w = 0;
+    for (let x = minX + st / 2; x < maxX; x += st) for (let z = minZ + st / 2; z < maxZ; z += st) {
+      let ins = false;
+      for (let i = 0, j = P.length - 1; i < P.length; j = i++) if ((P[i].z > z) !== (P[j].z > z) && x < P[i].x + ((z - P[i].z) * (P[j].x - P[i].x)) / (P[j].z - P[i].z)) ins = !ins;
+      if (!ins) continue;
+      n++; if (inWall(x, z)) w++;
+    }
+    f = n ? w / n : 0;
+    builtOf.set(b, f);
+    return f;
+  };
+  const busy = world.id === 'pkg' ? (b) => townShops(b) >= 3 && built(b) > 0.3 : (b) => world.commercial(b.district);
   const drawn = new PersonCrowd(MAX + EXTRA, { farShadow: false, name: 'StreetPeople' });
   for (const m of drawn.meshes) app.scene.add(m);
   // (a Hometown package's decks: the people on the sidewalks are on the ground, whatever level the player is on)
@@ -66,7 +108,32 @@ export function createCrowd(W) {
   // (r7: nor a town's divided-road median, which the town's traffic (cities/sf/js/traffic.js) marks b.townMedian: the
   // lawn between two carriageways of one street)
   const usable = (b) => !!b && !b.median && !b.townMedian && b.area > 500 && b.area < 80000 && b.poly && b.poly.length >= 3 && b.poly.length < 40;
-  const band = (b) => (b.park > 0.6 ? PARK_LANE : LANE);
+  // (the band they walk in, m in from the curb: the side's own sidewalk where the ground mask shows one (a Hometown
+  // package: a town's sidewalk is 1.5 to 2 m of concrete at the curb, or past a grass strip, with front lawns behind it;
+  // New York's 2.2 to 4.1 m put the town's people out on the lawns), else the city's)
+  const band = (b, k) => { const S = k == null ? null : sidesOf(b)[k]; return S?.band || (b.park > 0.6 ? PARK_LANE : LANE); };
+  const MASK = world.id === 'pkg' && typeof world.sidewalkAt === 'function';
+  // (the sidewalk across a side: where the mask's sidewalk starts and ends along its inward normal, at five points along
+  // it, the middle reading of each; none where fewer than three find one or it's under 0.8 m wide)
+  function maskBand(T) {
+    if (!MASK || T.len < 6) return null;
+    const st = [], en = [];
+    for (const t of [0.2, 0.35, 0.5, 0.65, 0.8]) {
+      let o0 = null, o1 = null;
+      for (let o = 0; o <= 6; o += 0.25) {
+        const on = world.sidewalkAt(T.ox + T.ux * T.len * t + T.nx * o, T.oz + T.uz * T.len * t + T.nz * o);
+        if (on && o0 == null) o0 = o;
+        if (on) o1 = o; else if (o0 != null) break;
+      }
+      if (o0 != null) { st.push(o0); en.push(o1 + 0.25); }
+    }
+    if (st.length < 3) return null;
+    const med = (v) => v.sort((p, q) => p - q)[v.length >> 1], a = med(st), e = med(en);
+    if (e - a < 0.8) return null;
+    // (clear of its edges: 0.3 m in from the curb's side of it, 0.35 short of the lawn's)
+    // (r2: and 3 m across at most: a lot's paving or a square reads as sidewalk for metres in, and they walked out over it)
+    return [a + 0.3, Math.max(a + 0.4, Math.min(e, a + 3) - 0.35)];
+  }
   function sidesOf(b) {
     let S = sides.get(b);
     if (S) return S;
@@ -80,6 +147,7 @@ export function createCrowd(W) {
       S.push({ ox: p.x, oz: p.z, ux, uz, nx: A > 0 ? -uz : uz, nz: A > 0 ? ux : -ux, len, ms: 0, me: 0 });
     }
     // (the corner's mitre: in by o from both edges at o (n1 + n2) / (1 + n1 . n2), cut short at sharp corners)
+    if (MASK) for (const T of S) T.band = maskBand(T);
     for (let i = 0; i < n; i++) {
       const s0 = S[(i - 1 + n) % n], s1 = S[i], d = Math.max(0.25, 1 + s0.nx * s1.nx + s0.nz * s1.nz);
       const mx = (s0.nx + s1.nx) / d, mz = (s0.nz + s1.nz) / d;
@@ -112,6 +180,19 @@ export function createCrowd(W) {
   // hold zones (a cutscene's set, a mission's spot): the city's traffic keeps out of them, so do they
   let holds = [];
   const held = (x, z, m = 0) => { for (const r of holds) if (x > r.minX - m && x < r.maxX + m && z > r.minZ - m && z < r.maxZ + m) return true; return false; };
+  // (Chicago's river bridges, cities/sf/js/bascule.js: a span with its gates down or its leaves up is no place to walk. No
+  // one is put on it, no one walks onto it, and anyone on it is put somewhere else, so nobody rides a rising leaf up into
+  // the air or stands where the deck has swung away. m: metres past its hinges and its sidewalks' outer edges)
+  const upSpan = (x, z, m = 0) => {
+    const B = globalThis.window?.NYC?.Bascules;
+    if (!B || !B.spans || !B.spans.length) return false;
+    for (const s of B.spans) {
+      if (!(s.angle > 0.05 || s.anim || (s.gate && s.gate.want))) continue;
+      const t = (x - s.ax) * s.ux + (z - s.az) * s.uz, o = (x - s.ax) * -s.uz + (z - s.az) * s.ux;
+      if (t > -m && t < s.L + m && o > s.lo - 2.5 - m && o < s.hi + 2.5 + m) return true;
+    }
+    return false;
+  };
 
   // ------------------------------------------------------------------ the people
   const people = [];
@@ -152,26 +233,66 @@ export function createCrowd(W) {
   }
   // a lane in from the curb, mostly keeping to the right of the way they walk (two flows that pass each other)
   function laneFor(p) {
-    const [lo, hi] = band(p.b), mid = (lo + hi) * 0.5;
+    const [lo, hi] = band(p.b, p.k), mid = (lo + hi) * 0.5;
     const S = sidesOf(p.b)[p.k], curbRight = (S.ux * S.nz - S.uz * S.nx) * p.dir > 0;
     return (curbRight === (Math.random() < 0.85)) ? rand(lo, mid) : rand(mid, hi);
   }
 
   // blocks round where he's headed (refreshed as it moves), weighted by their curb length (busier in the commercial districts)
-  let near = [], nearW = 0, nearAt = { x: 1e9, z: 1e9 }, active = MAX, limit = MAX;
+  let near = [], nearW = 0, nearAt = { x: 1e9, z: 1e9 }, active = MAX, limit = MAX, cap = MAX;
+  // (the length of a side within r of (cx, cz): its segment clipped to the circle)
+  function lenWithin(S, cx, cz, r) {
+    const fx = S.ox - cx, fz = S.oz - cz, b = fx * S.ux + fz * S.uz, c = fx * fx + fz * fz - r * r, disc = b * b - c;
+    if (disc <= 0) return 0;
+    const q = Math.sqrt(disc);
+    return Math.max(0, Math.min(S.len, -b + q) - Math.max(0, -b - q));
+  }
+  // (a story town's places, read once the story has them: W.storyrun.places, its pack's aliases)
+  let spots = null;
+  const storyOf = new Map();
+  function storySpots() {
+    if (spots) return spots;
+    const P = W.storyrun?.places, keys = P?.aliases ? Object.keys(P.aliases) : [];
+    if (!keys.length || typeof P.at !== 'function') return null;
+    const out = [];
+    for (const k of keys) { try { const q = P.at('@' + k); if (q && Number.isFinite(q.x) && Number.isFinite(q.z)) out.push(q); } catch {} }
+    return (spots = out);
+  }
+  // (STORY.K for a block near one of them in a town, else 1)
+  const story = (b) => {
+    if (!TOWN) return 1;
+    let k = storyOf.get(b);
+    if (k != null) return k;
+    const S = storySpots(); if (!S) return 1;
+    k = S.some((q) => Math.hypot(q.x - b.cx, q.z - b.cz) < STORY.R) ? STORY.K : 1;
+    storyOf.set(b, k);
+    return k;
+  };
+  // (a metre of this block's sidewalk takes this many at most)
+  const perM = (b) => (busy(b) || story(b) > 1 ? PER_M.busy : PER_M.quiet) * story(b) * (world.crowd ?? 1) * (b.park > 0.6 ? 0.6 : 1);
+  // (how many to a side of a block at most: SIDE_K times its share of its length, 2 at least; no cap outside a town)
+  const TOWN = world.id === 'pkg';
+  const sideCap = (b, S) => (TOWN ? Math.max(2, Math.ceil(S.len * perM(b) * SIDE_K)) : Infinity);
   function refreshNear() {
     if (Math.hypot(lead.x - nearAt.x, lead.z - nearAt.z) < 15) return;
     nearAt = { x: lead.x, z: lead.z };
     // (weighted by curb length, busier in the commercial districts and nearer him)
     near = blocksInRect(lead.x - R_IN, lead.x + R_IN, lead.z - R_IN, lead.z + R_IN).filter(usable).map((b) => {
-      const len = sidesOf(b).reduce((s, S) => s + S.len, 0), d = Math.hypot(b.cx - lead.x, b.cz - lead.z);
-      return { b, len, w: len * (busy(b) ? 1 : 0.6) * (b.park > 0.6 ? 0.5 : 1) / (1 + d / 55) };
+      const S = sidesOf(b), len = S.reduce((s, T) => s + T.len, 0), d = Math.hypot(b.cx - lead.x, b.cz - lead.z);
+      const inLen = S.reduce((s, T) => s + lenWithin(T, lead.x, lead.z, R_IN), 0);
+      // (a town's: weighted as its sidewalks take them, PER_M, so its main street's blocks get their share, not its lawns)
+      return { b, len, inLen, w: len * (TOWN ? perM(b) * 4 : (busy(b) ? 1 : 0.6) * (b.park > 0.6 ? 0.5 : 1)) / (1 + d / 55) };
     });
     nearW = near.reduce((s, n) => s + n.w, 0);
-    // (how many of them are out: all of them in the commercial districts, under half on the quieter streets)
-    const cw = near.reduce((s, n) => s + (busy(n.b) ? n.w : 0), 0);
-    active = Math.min(limit, Math.round(MAX * (world.crowd ?? 1) * (0.45 + 0.55 * (nearW ? cw / nearW : 1))));
+    // (how many of them are out: all of them in the commercial districts, under half on the quieter streets; never more
+    // than the sidewalks round him take, PER_M)
+    const cw = near.reduce((s, n) => s + (busy(n.b) || story(n.b) > 1 ? n.w : 0), 0);
+    cap = TOWN ? Math.round(near.reduce((s, n) => s + n.inLen * perM(n.b), 0)) : MAX;
+    active = Math.min(limit, cap, Math.round(MAX * (world.crowd ?? 1) * (0.45 + 0.55 * (nearW ? cw / nearW : 1))));
   }
+  // how many walk each side of a block now (its sides' records, sidesOf: counted afresh each frame, and as they're placed)
+  const occ = new Map();
+  const occAdd = (p, k = 1) => { if (!p.b || !p.placed) return; const S = sidesOf(p.b)[p.k]; occ.set(S, (occ.get(S) || 0) + k); };
 
   // the view (with a margin for the people's own height and shadows)
   const frustum = new THREE.Frustum(), _pm = new THREE.Matrix4(), _sph = new THREE.Sphere(new THREE.Vector3(), 1.6);
@@ -206,6 +327,10 @@ export function createCrowd(W) {
       const S = sidesOf(n.b);
       let l = Math.random() * n.len, k = 0;
       while (k < S.length - 1 && l > S[k].len) { l -= S[k].len; k++; }
+      // (a side with its share and more on it already: somewhere else; r2: a town's side with no sidewalk of its own (an
+      // alley, a lot's edge, a lawn's): never, they stood about mid-lawn)
+      if ((occ.get(S[k]) || 0) >= sideCap(n.b, S[k])) continue;
+      if (MASK && !S[k].band) continue;
       p.b = n.b; p.k = k; p.dir = Math.random() < 0.5 ? 1 : -1;
       p.home = p.oT = p.o = laneFor(p);
       const a0 = aStart(S[k], p.o) + 0.5, a1 = aEnd(S[k], p.o) - 0.5;
@@ -213,15 +338,20 @@ export function createCrowd(W) {
       p.a = rand(a0, a1);
       if (Math.random() < 0.22) p.a = p.dir > 0 ? a1 - rand(0, 6) : a0 + rand(0, 6); // (near a corner)
       p.a = Math.min(a1, Math.max(a0, p.a));
+      // (not on someone's heels: no one else on this side within GAP of here along it, in about the same lane)
+      if (TOWN && people.some((q) => q !== p && q.placed && q.b === n.b && q.k === k && Math.abs(q.a - p.a) < GAP && Math.abs(q.o - p.o) < 1.1)) continue;
       laneXZ(p);
+      // (r2: and on its sidewalk here, not where the side's runs out (a drive, a lawn's edge))
+      if (MASK && !world.sidewalkAt(p.x, p.z)) continue;
       const tw = globalThis.window?.NYC?.townWindow; // (a growing town: no one outside its window less 150 m, growing.js)
       if (tw && (p.x < tw.minX || p.x > tw.maxX || p.z < tw.minZ || p.z > tw.maxZ)) continue;
-      if (Math.hypot(p.x - focus.x, p.z - focus.z) < rMin || Math.hypot(p.x - lead.x, p.z - lead.z) > rMax || held(p.x, p.z, 2) || furnitureAt(p.x, p.z, 0.45) || inWall(p.x, p.z) || (hidden && !unseen(p.x, p.z))) continue;
+      if (Math.hypot(p.x - focus.x, p.z - focus.z) < rMin || Math.hypot(p.x - lead.x, p.z - lead.z) > rMax || held(p.x, p.z, 2) || upSpan(p.x, p.z, 4) || furnitureAt(p.x, p.z, 0.45) || inWall(p.x, p.z) || (hidden && !unseen(p.x, p.z))) continue;
       p.placed = true; p.fresh = false; p.rig.placed = false; p.state = 'walk'; p.v = p.walk; p.t = 0; p.flee = 0; p.cross = null; p.shove = null;
+      occAdd(p);
       if (Math.random() < 0.1) {
         // standing about: by the shop fronts or at the curb, facing anywhere
-        p.state = 'idle'; p.t = rand(4, 25); p.o = p.oT = Math.random() < 0.6 ? band(p.b)[1] : band(p.b)[0] - 0.3;
-        if (inWall(S[k].ox + S[k].ux * p.a + S[k].nx * p.o, S[k].oz + S[k].uz * p.a + S[k].nz * p.o)) p.o = p.oT = band(p.b)[0];
+        p.state = 'idle'; p.t = rand(4, 25); p.o = p.oT = Math.random() < 0.6 ? band(p.b, k)[1] : band(p.b, k)[0] - 0.3;
+        if (inWall(S[k].ox + S[k].ux * p.a + S[k].nx * p.o, S[k].oz + S[k].uz * p.a + S[k].nz * p.o)) p.o = p.oT = band(p.b, k)[0];
         laneXZ(p); p.yaw = Math.random() * Math.PI * 2;
       }
       return true;
@@ -248,9 +378,9 @@ export function createCrowd(W) {
       const S2 = sidesOf(b2);
       for (let k2 = 0; k2 < S2.length; k2++) {
         const T = S2[k2];
-        if (T.nx * S.nx + T.nz * S.nz < 0.94) continue;
+        if (T.nx * S.nx + T.nz * S.nz < 0.94 || (MASK && !T.band)) continue;
         const o2 = (qx - T.ox) * T.nx + (qz - T.oz) * T.nz, al = (qx - T.ox) * T.ux + (qz - T.oz) * T.uz;
-        if (o2 < 0.5 || o2 > band(b2)[1] + 0.4 || al < -8 || al > T.len + 8 || !walkable(T, o2)) continue;
+        if (o2 < 0.5 || o2 > band(b2, k2)[1] + 0.4 || al < -8 || al > T.len + 8 || !walkable(T, o2)) continue;
         const dir2 = T.ux * dx + T.uz * dz > 0 ? 1 : -1, a2 = dir2 > 0 ? aStart(T, o2) : aEnd(T, o2);
         return { b: b2, k: k2, a: a2, o: o2, dir: dir2, sx: cx - dx * 0.45, sz: cz - dz * 0.45,
           ex: T.ox + T.ux * a2 + T.nx * o2, ez: T.oz + T.uz * a2 + T.nz * o2, dx, dz };
@@ -272,10 +402,12 @@ export function createCrowd(W) {
         if (c) { c.key = key; c.back = back; p.cross = c; p.state = 'wait'; p.t = 0; q.push(p); return; }
       }
     }
-    // round the corner: onto the next side (past any too short to walk at this o)
+    // round the corner: onto the next side (past any too short to walk at this o; r2: in a town, past any with no
+    // sidewalk of its own, and back the way they came where none has one)
     const S = sidesOf(p.b);
-    let k2 = p.k;
-    for (let n = 0; n < S.length; n++) { k2 = (k2 + p.dir + S.length) % S.length; if (walkable(S[k2], p.o)) break; }
+    let k2 = p.k, ok = false;
+    for (let n = 0; n < S.length; n++) { k2 = (k2 + p.dir + S.length) % S.length; if (walkable(S[k2], p.o) && (!MASK || S[k2].band)) { ok = true; break; } }
+    if (MASK && (!ok || k2 === p.k)) { p.dir = -p.dir; p.home = p.oT = laneFor(p); return; }
     p.k = k2; p.a = p.dir > 0 ? aStart(S[k2], p.o) : aEnd(S[k2], p.o);
     p.home = p.oT = laneFor(p);
   }
@@ -299,7 +431,7 @@ export function createCrowd(W) {
   // out of the line of something on their sidewalk at (tx, tz): over to the far side of their walk from it
   function aside(p, tx, tz) {
     if (!p.b || p.body || (p.state !== 'flee' && p.state !== 'walk' && p.state !== 'idle')) return;
-    const S = sidesOf(p.b)[p.k], [lo, hi] = band(p.b), at = (tx - S.ox) * S.nx + (tz - S.oz) * S.nz;
+    const S = sidesOf(p.b)[p.k], [lo, hi] = band(p.b, p.k), at = (tx - S.ox) * S.nx + (tz - S.oz) * S.nz;
     p.home = p.oT = at > p.o ? Math.max(0.6, lo - 1.2) : hi + 0.3;
     p.clearT = 3;
   }
@@ -325,8 +457,8 @@ export function createCrowd(W) {
       if (!usable(b)) continue;
       const S = sidesOf(b);
       for (let k = 0; k < S.length; k++) {
-        const T = S[k], o = Math.min(band(b)[1], Math.max(band(b)[0], (x - T.ox) * T.nx + (z - T.oz) * T.nz));
-        if (!walkable(T, o)) continue;
+        const T = S[k], o = Math.min(band(b, k)[1], Math.max(band(b, k)[0], (x - T.ox) * T.nx + (z - T.oz) * T.nz));
+        if (!walkable(T, o) || (MASK && !T.band)) continue;
         const a = Math.min(aEnd(T, o), Math.max(aStart(T, o), (x - T.ox) * T.ux + (z - T.oz) * T.uz));
         const lx = T.ox + T.ux * a + T.nx * o, lz = T.oz + T.uz * a + T.nz * o, d = Math.hypot(lx - x, lz - z);
         if (d < bd) { bd = d; best = { b, k, a, o, lx, lz }; }
@@ -358,6 +490,8 @@ export function createCrowd(W) {
     camOK = !!camera;
     if (camera) { camera.updateMatrixWorld(); _pm.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse); frustum.setFromProjectionMatrix(_pm); const e = camera.matrixWorld.elements; cam.x = e[12]; cam.y = e[13]; cam.z = e[14]; }
     let budget = jump ? Infinity : 10;
+    occ.clear();
+    for (const p of people) if (p.placed && !p.body) occAdd(p);
     drawn.begin();
     for (const p of enabled ? people : []) {
       // placed somewhere near, kept near where he's headed (those left behind out of sight put back ahead), kept out
@@ -365,17 +499,17 @@ export function createCrowd(W) {
       if (!p.body && p.state !== 'free') {
         // (those over the number for these streets put away once out of sight)
         if (p.i >= active) {
-          if (p.placed && !p.vis) { if (p.state === 'wait' || p.state === 'cross') leaveCorner(p); p.placed = false; }
+          if (p.placed && !p.vis) { if (p.state === 'wait' || p.state === 'cross') leaveCorner(p); occAdd(p, -1); p.placed = false; }
           if (!p.placed) { p.fresh = false; continue; } // (out again later out of sight, or anywhere on a jump)
         }
         const d = p.placed ? Math.hypot(p.x - lead.x, p.z - lead.z) : Infinity;
         // (anywhere at the start or after a jump; else out of sight: one left behind, or one more for busier streets)
         const out = p.fresh || (jump && d > R_IN) ? 'any'
           : budget > 0 && (!p.placed || (d > R_OUT && (!p.vis || (Math.random() < 0.1 && budget-- > 0 && behindWall(p.x, p.z))))) ? 'hidden'
-          : p.placed && holds.length && held(p.x, p.z, 0.5) ? 'held' : null;
+          : p.placed && ((holds.length && held(p.x, p.z, 0.5)) || upSpan(p.x, p.z, 0.5)) ? 'held' : null;
         if (out) {
           if (p.state === 'wait' || p.state === 'cross') leaveCorner(p);
-          p.placed = false;
+          occAdd(p, -1); p.placed = false;
           if (out === 'any') spawn(p, 0, R_IN, false);
           else if (out === 'hidden') { budget--; spawn(p, R_MIN, R_IN, true); }
           else if (!spawn(p, R_MIN, R_IN, true)) spawn(p, 40, R_IN * 1.4, false);
@@ -467,7 +601,7 @@ export function createCrowd(W) {
       let l0 = Infinity, l1 = -Infinity;
       for (const [fx, fz] of [[f.minX, f.minZ], [f.maxX, f.minZ], [f.minX, f.maxZ], [f.maxX, f.maxZ]]) { const l = (fx - S.ox) * S.nx + (fz - S.oz) * S.nz; l0 = Math.min(l0, l); l1 = Math.max(l1, l); }
       const out = l1 + 0.45, inn = l0 - 0.45;
-      const [lo, hi] = band(p.b);
+      const [lo, hi] = band(p.b, p.k);
       p.oT = out < hi + 0.4 && (inn < lo - 1.3 || Math.abs(out - p.o) < Math.abs(inn - p.o)) ? out : Math.max(0.6, inn);
       p.clearT = 1.2;
     } else if ((p.clearT = (p.clearT || 0) - dt) <= 0) p.oT = p.home;
@@ -477,6 +611,24 @@ export function createCrowd(W) {
       const lc = (ob.x - S.ox) * S.nx + (ob.z - S.oz) * S.nz;
       p.oT = Math.min(4.6, Math.max(0.5, p.o >= lc ? lc + ob.r + 0.4 : lc - ob.r - 0.4));
       p.clearT = 1;
+    }
+    // (r2: a town's sidewalk narrows and shifts along a side (a lot's paving, a grass strip): a few times a second, 2 m
+    // ahead, over to the nearest of it within 3 m where their lane runs off it)
+    if (MASK && p.state === 'walk' && (p.swT = (p.swT || 0) - dt) <= 0) {
+      p.swT = 0.3;
+      // (only within the side's own band: following a lot's paving inward would walk them onto the lawn behind it)
+      const [bLo, bHi] = band(p.b, p.k), ah = p.a + p.dir * 2;
+      const on = (o) => o >= Math.max(0, bLo - 0.25) && o <= bHi + 0.25 && world.sidewalkAt(S.ox + S.ux * ah + S.nx * o, S.oz + S.uz * ah + S.nz * o);
+      if (!on(p.oT)) for (let d = 0.25; d <= 3; d += 0.25) {
+        // (somewhere across the stretch of it they come to, not all on its edge)
+        const o0 = on(p.oT - d) ? p.oT - d : on(p.oT + d) ? p.oT + d : null;
+        if (o0 == null) continue;
+        let lo = o0, hi = o0;
+        while (lo > 0 && on(lo - 0.25)) lo -= 0.25;
+        while (hi < o0 + 3 && on(hi + 0.25)) hi += 0.25;
+        p.home = p.oT = Math.min(bHi, Math.max(bLo, hi - lo > 0.8 ? rand(lo + 0.3, hi - 0.3 + 0.25) : (lo + hi + 0.25) / 2));
+        break;
+      }
     }
     if (Math.abs(p.oT - p.o) > 0.01) p.o += Math.sign(p.oT - p.o) * Math.min(Math.abs(p.oT - p.o), dt * (p.state === 'flee' ? 2.5 : 1.1));
     // at a corner: over the street or round it
@@ -488,6 +640,7 @@ export function createCrowd(W) {
     laneXZ(p);
     // a hold zone ahead: back the way they came
     if (holds.length && held(p.x + Math.sin(p.yaw) * 2, p.z + Math.cos(p.yaw) * 2, 0.3)) { p.dir = -p.dir; laneXZ(p); }
+    else if (upSpan(p.x + Math.sin(p.yaw) * 3, p.z + Math.cos(p.yaw) * 3, 0.3)) { p.dir = -p.dir; laneXZ(p); }
     if (p.state === 'walk' && Math.random() < dt * 0.006) { p.state = 'idle'; p.t = rand(3, 14); }
   }
 
@@ -522,6 +675,11 @@ export function createCrowd(W) {
     hold(rects) { holds = (rects || []).slice(); },
     // (SF 2040, wagmi/apocalypse: at most this many of the crowd out, the rest put away once out of sight)
     get limit() { return limit; },
+    // (how many are out round him now, and how many the sidewalks there take: PER_M)
+    get active() { return active; },
+    get cap() { return cap; },
+    // (for the survey: whether a block's busy, and how much of a town's block is built over)
+    busy, built, story,
     set limit(v) { limit = Math.max(0, Math.min(MAX, Math.round(v))); nearAt = { x: 1e9, z: 1e9 }; },
     // (off: none of the crowd's own drawn or moved, those taken over from the city still are; on again, placed afresh)
     get enabled() { return enabled; },

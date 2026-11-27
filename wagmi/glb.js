@@ -5,7 +5,7 @@
 // are shared as they are.
 import * as THREE from 'three/webgpu';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js'; import { loadRetry } from './net.js';
 
 // (a character's alpha-tested parts, his eyes and lashes, cast no shadow, whoever sets castShadow on his body: the sun's
 // cascades draw every caster with one shared material and copy each caster's `alphaTest` onto it, and each switch
@@ -37,12 +37,13 @@ export function gltfLoader() {
   return loader;
 }
 
-// the model at url, loaded once (a failed load is forgotten, so a later call tries again). bytes: the file itself when
+// the model at url, loaded once (a failed load is forgotten, so a later call tries again; a busy answer, a 503 after a
+// release, is tried again at once, wagmi/net.js). bytes: the file itself when
 // the caller has fetched it already (the trailer's cast, wagmi/trailer.js), parsed as it is rather than fetched again
 export function loadGLB(url, bytes = null) {
   let p = cache.get(url);
   if (!p) {
-    p = bytes ? gltfLoader().parseAsync(bytes, url.slice(0, url.lastIndexOf('/') + 1)) : gltfLoader().loadAsync(url);
+    p = bytes ? gltfLoader().parseAsync(bytes, url.slice(0, url.lastIndexOf('/') + 1)) : loadRetry(() => gltfLoader().loadAsync(url), url);
     cache.set(url, p);
     p.catch(() => { if (cache.get(url) === p) cache.delete(url); });
   }

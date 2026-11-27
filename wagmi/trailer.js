@@ -31,7 +31,7 @@ import * as THREE from 'three/webgpu';
 import { createVapor } from './pursuit/vapor.js';
 import { keys, clamp, smooth, lerp, ease, handheld, shotFov } from './mission/cine.js';
 import { dropFace } from './face.js';
-import { S as story } from './story/index.js'; import { world } from './world/index.js';
+import { S as story } from './story/index.js'; import { world } from './world/index.js'; import { fetchRetry, importRetry } from './net.js';
 
 const Q = new URLSearchParams(location.search);
 const PI = Math.PI;
@@ -79,7 +79,7 @@ export function trailerMode() {
 function loadSound() {
   const AC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
   if (!AC || /[?&]noaudio\b/.test(location.search)) return Promise.resolve(null);
-  const get = (url) => fetch(url, { priority: 'low' }).then((r) => { if (!r.ok) throw new Error(url); return r.arrayBuffer(); });
+  const get = (url) => fetchRetry(url, { priority: 'low' }).then((r) => { if (!r.ok) throw new Error(url); return r.arrayBuffer(); });
   const dec = (ab) => new Promise((res, rej) => { const c = new AC(2, 1, 44100); const p = c.decodeAudioData(ab, res, rej); if (p && p.then) p.then(res, rej); });
   return Promise.all([get(MUSIC).then(dec), get(BOSSV).then(dec).catch(() => null)]).then(([mus, boss]) => {
     const sr = mus.sampleRate, n = Math.ceil(END * sr), ch = Math.min(2, mus.numberOfChannels);
@@ -184,8 +184,8 @@ const CAST_GLB = 'assets/characters/jane.glb';
 const cityUp = (W) => new Promise((res) => { const f = () => (W.app?.ready ? res() : setTimeout(f, 150)); f(); });
 function prefetchCast(W, soundP) {
   if (/[?&]nocast\b/.test(location.search)) return { jane: Promise.resolve() };
-  const get = (url) => fetch(url, { priority: 'low' }).then((r) => (r.ok ? r.arrayBuffer() : null)).catch(() => null);
-  const glb = import('./glb.js').catch(() => null);
+  const get = (url) => fetchRetry(url, { priority: 'low' }).then((r) => (r.ok ? r.arrayBuffer() : null)).catch(() => null);
+  const glb = importRetry(() => import('./glb.js')).catch(() => null);
   // (the bytes handed to the loader, not fetched a second time; a failed fetch (null) leaves the loader to fetch it)
   const parse = (url, bytes) => cityUp(W).then(() => glb).then((m) => m?.loadGLB?.(url, bytes)).catch(() => null);
   // (after the music; parsed as soon as its bytes are in)
@@ -216,7 +216,7 @@ function buildCast(W, fetched) {
     if (K.gone) return;
     // Jane at her laptop in her room (a scene of its own: jane.js createJaneRoom), a desk and the laptop before her
     try {
-      const jm = await import('./mission/jane.js');
+      const jm = await importRetry(() => import('./mission/jane.js'));
       if (K.gone) return;
       await fetched.jane;
       if (K.gone) return;
@@ -468,7 +468,7 @@ async function play(W, T, borrow, getPage) {
   let borrowed = false;
   function own() { if (borrowed) { borrowed = false; borrow.off(); } }
   function carPose(x, z, h, o = {}) {
-    car.position.set(x, ground(x, z, 'car') + (o.y || 0), z); car.heading = h; car.speed = 0; car.vx = car.vz = 0;
+    car.position.set(x, ground(x, z, 'car') + (o.y || 0), z); car.heading = h; car.speed = 0; car.vx = car.vz = 0; car.slipV = 0;
     car.mesh.position.copy(car.position); car.mesh.rotation.set(0, h, o.roll || 0); car.mesh.visible = true;
     carState = { speed: o.speed || 0, cold: o.cold || 0, burn: o.burn || 0, steer: o.steer || 0 };
   }

@@ -102,10 +102,12 @@ if (pop) {
 // the camera menu's scenic shots
 for (const [id, cam] of Object.entries(N.SCENIC_CAMERAS)) text(document.querySelector(`#cam-${id} .pop-name`), cam.name);
 
-// No WebGPU here (main.js asks for an adapter first): the city can't run (its terrain, fog and crowd are WebGPU's), so a
-// card in Mog City's own type and gold (wagmi/mission/ui.js) says so and offers New York, which runs on WebGL 2 too
-N.showNeedsWebGPU = function showNeedsWebGPU() {
-  if (document.getElementById('mc-needs-gpu')) return;
+// (loadfix) The graphics card, in Mog City's own type and gold (wagmi/mission/ui.js), over everything: main.js shows it
+// only when the city can't draw at all: 'none', neither WebGPU nor WebGL 2 here; 'reloading', the WebGPU device was lost
+// and the page reloads itself on WebGL 2; 'lost', the graphics were lost again (a Reload button). Titled with the
+// city's own name: a Hometown package's place (cities/pkg), San Francisco otherwise
+N.showNeedsWebGPU = function showNeedsWebGPU(kind = 'none') {
+  document.getElementById('mc-needs-gpu')?.remove();
   const css = document.createElement('style');
   css.textContent = `
 #mc-needs-gpu { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding: 16px; color: #fff; font-family: 'Barlow Condensed', system-ui, sans-serif;
@@ -121,18 +123,31 @@ N.showNeedsWebGPU = function showNeedsWebGPU() {
 #mc-needs-gpu a.main { background: #FFC93C; border-color: #FFC93C; color: #111; }
 #mc-needs-gpu a:focus-visible, #mc-needs-gpu button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }`;
   document.head.appendChild(css);
-  const ny = new URL(location.href);
-  ny.searchParams.delete('city');
-  ny.searchParams.delete('webgpu');
+  const place = N.PKG ? String(N.PKG.name || 'Your town').split(',')[0].trim() : 'San Francisco';
+  const words = place.split(/\s+/);
+  const last = words.length > 1 ? words.pop() : '';
+  const say = {
+    none: ['This browser can\'t draw the 3D city: it has neither WebGPU nor WebGL 2, or they are switched off.',
+      'Open it in a recent Chrome, Edge or Firefox on a computer, with hardware acceleration on.'],
+    reloading: ['The graphics card reset. Reloading in a lighter mode…', ''],
+    lost: ['The graphics card stopped drawing the city.', 'Reload to try again. Closing other tabs or apps that use the graphics card can help.']
+  }[kind] || [];
   const el = document.createElement('div');
   el.id = 'mc-needs-gpu';
   el.setAttribute('role', 'alert');
-  el.innerHTML = `<div class="card"><h2>San <b>Francisco</b></h2><div class="rule"></div>
-    <p>This city runs on WebGPU, and this browser doesn't have it (or has it switched off).</p>
-    <p>Open it in a recent Chrome or Edge on a computer, or play New York, which runs right here.</p>
-    <div class="go"><a class="main" href="">Play New York</a><button type="button">Try again</button></div></div>`;
-  el.querySelector('a.main').href = ny.pathname + ny.search + ny.hash;
-  el.querySelector('button').addEventListener('click', () => location.reload());
+  const card = document.createElement('div'); card.className = 'card';
+  const h = document.createElement('h2'); h.append(words.join(' ') + (last ? ' ' : ''));
+  if (last) { const b = document.createElement('b'); b.textContent = last; h.append(b); }
+  const rule = document.createElement('div'); rule.className = 'rule';
+  card.append(h, rule);
+  for (const line of say) if (line) { const p = document.createElement('p'); p.textContent = line; card.append(p); }
+  if (kind !== 'reloading') {
+    const go = document.createElement('div'); go.className = 'go';
+    const btn = document.createElement('button'); btn.type = 'button'; btn.textContent = kind === 'lost' ? 'Reload' : 'Try again';
+    btn.addEventListener('click', () => location.reload());
+    go.append(btn); card.append(go);
+  }
+  el.append(card);
   document.body.appendChild(el);
   for (const hud of document.querySelectorAll('.hud')) hud.inert = true;
 };

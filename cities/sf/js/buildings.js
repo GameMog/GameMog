@@ -405,7 +405,7 @@ function buildCityBlocks(scene, opts = {}) {
   // masonry, stone & concrete; 1 painted row houses, flats & apartments (narrow windows, low storeys); 2 brick & concrete
   // warehouses (wide windows, tall storeys). The three curtain walls stay
   if (sf) {
-    facades[0] = [createPreWarBuildingMaterial, { windowWidth: 2.4, floorHeight: 3.7, litProbability: 0.5, warmth: 0.82, seed: 12.4, paint: true }];
+    facades[0] = [createPreWarBuildingMaterial, { windowWidth: 2.4, floorHeight: 3.7, litProbability: 0.5, warmth: 0.82, seed: 12.4, paint: true, modes: !!window.NYC.PKG }];
     facades[1] = [createPreWarBuildingMaterial, { windowWidth: 1.7, floorHeight: 3.3, windowRatioX: 0.56, windowRatioY: 0.62, cornerPier: 0.5, litProbability: 0.45, warmth: 0.88, seed: 27.8, paint: true }];
     facades[2] = [createPreWarBuildingMaterial, { windowWidth: 3.4, floorHeight: 4.4, windowRatioX: 0.7, windowRatioY: 0.6, cornerPier: 0.9, litProbability: 0.15, warmth: 0.7, seed: 41.2, paint: true, muntins: true }];
   }
@@ -2156,6 +2156,83 @@ function buildCityBlocks(scene, opts = {}) {
       return { mat, paint };
     }
 
+    // (Chicago) a package masonry building's facade mode (tsl-materials.js FACADE_MODES, the pre-war material's `modes`): in
+    // the Midwest and the Rust Belt (Chicago's region) its offices, towers and commercial blocks 12 m and up are drawn as
+    // the Loop's: art-deco piers and spandrels (most of the massed setback towers, a third of the other towers), the
+    // Chicago window (the Chicago School's wide fixed pane between two sashes) and post-war ribbon windows on the lower
+    // commercial blocks, plain punched windows on the rest; glazed cream terracotta (the Reliance's and the Wrigley's) on a
+    // share of the light walls 15 m and up, rarely on dark ones and never on red brick. The era tag wins where the data has
+    // one (interwar: deco; post-war and contemporary: ribbon). Other regions, houses and small buildings: plain (0)
+    const FM = window.NYC.FACADE_MODES;
+    const CHICAGO_LIKE = new Set(['northeast-rust', 'plains-midwest']);
+    // (&fmode=N: every eligible building in mode code N, for comparing the modes on one frame)
+    const FORCE_MODE = Number.parseInt(new URLSearchParams(location.search).get('fmode') ?? '', 10);
+    function facadeModeFor(hi, kind, type, height, wallHex, era, massed) {
+      if (!FM || !PK || !CHICAGO_LIKE.has(header.region) || height < 12) return 0;
+      if (!(kind === 'office' || kind === 'tower' || kind === 'shop' || type === 'midrise' || type === 'tower')) return 0;
+      if (Number.isFinite(FORCE_MODE)) return FORCE_MODE;
+      const r = ((wallHex >> 16) & 255) / 255, g = ((wallHex >> 8) & 255) / 255, b = (wallHex & 255) / 255;
+      const lum = 0.299 * r + 0.587 * g + 0.114 * b, red = r > g * 1.22 && r > b * 1.3;
+      const eraName = header.eras ? header.eras[era] : '';
+      const k = hash(hi, 41.3);
+      let mode = FM.plain;
+      if (eraName === 'interwar' && height >= 30) mode = FM.deco;
+      else if (eraName === 'postwar' || eraName === 'contemporary') mode = red ? FM.plain : FM.ribbon;
+      else if (massed) mode = k < 0.72 ? FM.deco : k < 0.86 ? FM.chicago : FM.plain;
+      else if (height >= 45) mode = k < 0.32 ? FM.deco : k < 0.5 ? FM.chicago : k < 0.62 && !red ? FM.ribbon : FM.plain;
+      else mode = k < 0.3 ? FM.chicago : k < 0.44 && !red ? FM.ribbon : FM.plain;
+      const kg = hash(hi, 43.7);
+      const glaze = !red && height >= 15 && kg < (lum > 0.62 ? 0.5 : 0.14) ? FM.glaze : 0;
+      return mode + glaze;
+    }
+
+    // (Chicago) a package's flat roof dressed (its largest mass, `top`: a rectangle inside the outline, turned by theta):
+    //  - a water tower on about 15% of the brick lofts 14-75 m tall (blk.waterTowers, drawn by the streamed pools below):
+    //    a cedar barrel on its steel trestle or, on about a third of them, a welded steel tank; near one end of the roof,
+    //    its 2.2 m radius clear of the parapet;
+    //  - 1-4 plant boxes (bulkhead, chillers, fans: blk.hvacUnits) in a row along the roof's long side, 0.8 m clear of
+    //    its edges, sized to the roof, on the other half from a water tower
+    // Every box stays inside the mass, so inside the roof polygon; each is axis-aligned in the block's turn (blk.ry)
+    let waterN = 0, plantN = 0;
+    const waterAt = []; // (for surveys and screenshots: where the water towers stand, x, roof y, z)
+    function pkgRoofClutter(blk, top, theta, roof, height, kind, look, hi) {
+      const cs = Math.cos(theta), sn = Math.sin(theta);
+      const at = (lx, lz) => [top.cx + lx * cs + lz * sn, top.cz - lx * sn + lz * cs];
+      const alongX = top.w >= top.d;
+      const L = alongX ? top.w : top.d, S = alongX ? top.d : top.w;
+      // (local (u along the long side, v across) -> the mass's x / z)
+      const loc = (u, v) => (alongX ? [u, v] : [v, u]);
+      let u0 = -L / 2 + 0.8, u1 = L / 2 - 0.8; // the stretch left for the plant
+      const loft = (look.wall === 'brick') && (kind === 'warehouse' || kind === 'apartment' || kind === 'office' || kind === 'shop')
+        && height >= 14 && height <= 75 && S >= 6.6 && L >= 9;
+      if (loft && hash(hi, 61.1) < 0.15) {
+        const end = hash(hi, 62.3) < 0.5 ? -1 : 1, R = 2.2;
+        const u = end * (L / 2 - R - 0.4), v = (hash(hi, 62.9) - 0.5) * Math.max(0, S - 2 * R - 0.8);
+        const [x, z] = at(...loc(u, v));
+        blk.waterTowers.push({ x, y: roof, z, steel: hash(hi, 63.7) < 0.33 });
+        if (waterN < 400) waterAt.push([Math.round(x), Math.round(roof), Math.round(z)]);
+        waterN++;
+        if (end < 0) u0 = -L / 2 + 2 * R + 1.2; else u1 = L / 2 - 2 * R - 1.2;
+      }
+      const span = u1 - u0;
+      if (span < 2.4 || S < 4) return;
+      const tall = height >= 45;
+      const n = Math.max(1, Math.min(1 + Math.floor(hash(hi, 64.1) * (tall ? 4 : 3)), Math.floor(span / 3.2)));
+      const gap = 1.0, each = (span - gap * (n - 1)) / n;
+      for (let k = 0; k < n; k++) {
+        // (the first the bulkhead, taller on a tower; the rest low units)
+        const bl = Math.max(1.8, Math.min(each, k === 0 ? Math.max(2.6, each * range(0.6, 0.95)) : each * range(0.5, 0.9)));
+        const bs = Math.max(1.6, Math.min(S - 1.6, S * (k === 0 ? range(0.3, 0.5) : range(0.2, 0.38))));
+        const u = u0 + k * (each + gap) + each / 2;
+        const v = (range(-0.5, 0.5)) * Math.max(0, S - 1.6 - bs);
+        const [x, z] = at(...loc(u, v));
+        const [w, d] = loc(bl, bs);
+        const h = k === 0 ? (tall ? range(3.4, 5.8) : range(2.4, 3.2)) : range(1.2, 2.2);
+        blk.hvacUnits.push({ x, y: roof, z, w, h, d });
+        plantN++;
+      }
+    }
+
     let awningN = 0, mallN = 0;
     // (r7) how many of an outline's corners bend by 3 to 25 degrees: the vertices of an arc, not a box's corners
     const softCorners = (pts) => {
@@ -2207,6 +2284,15 @@ function buildCityBlocks(scene, opts = {}) {
         }
       }
     }
+    // (compiler 0.15.0) each building's highest roof and its record count, by its seed: a lower part's or tier's roof is
+    // a setback terrace (no plant room or water tower on it); a tower of several records with no roof shape is massed
+    const seedTop = new Map(), seedN = new Map();
+    if (FI.seed !== undefined) {
+      for (let i = 0; i < header.count; i++) {
+        const sd = table[i * F + FI.seed];
+        if (sd > 0) { seedTop.set(sd, Math.max(seedTop.get(sd) ?? -Infinity, table[i * F + 1])); seedN.set(sd, (seedN.get(sd) || 0) + 1); }
+      }
+    }
     const polyGeos = [[], [], []]; // outlines by facade material (0 masonry, 1 painted, 2 brick & concrete; San Francisco: all 0)
     let massCount = 0;
 
@@ -2219,9 +2305,16 @@ function buildCityBlocks(scene, opts = {}) {
       // (a mall's part taller than a mall, a tower over its shops: drawn as any other block)
       const mall = PK && kind === 'mall' && roofRec - base < 20;
       const minH = PK ? rec[FI.minH] || 0 : 0;
+      // (compiler 0.15.0) a record's look seed (a hash of its building's row id, shared by the building's parts and its
+      // massing tiers, tools/hometown/massing.py): its walls, trim, facade style and curtain wall are its building's,
+      // and stay so when the compiler adds or drops records round it; an older package hashes the record's index
+      const seed = FI.seed !== undefined ? rec[FI.seed] || 0 : 0;
+      const hi = seed > 0 ? seed : i;
+      const terrace = seed > 0 && roofRec < (seedTop.get(seed) ?? roofRec) - 1;
+      const multi = seed > 0 && (seedN.get(seed) || 0) > 1;
       const look = PK ? PK.styleFor({
         kind, roofShape: header.roofShapes[rec[FI.roofShape]] || '', wall: header.walls[rec[FI.wall]] || '', wallRGB: rec[FI.wallRGB], roofRGB: rec[FI.roofRGB],
-        region: header.region, hash: (a) => hash(i, a)
+        region: header.region, hash: (a) => hash(hi, a)
       }) : null;
       // (a package house the region gives a flat roof: its walls up to the data's top, which the compiler split into eave
       // and roof)
@@ -2232,9 +2325,9 @@ function buildCityBlocks(scene, opts = {}) {
       const xs = pts.map((p) => p.x), zs = pts.map((p) => p.z);
       const minX = Math.min(...xs), maxX = Math.max(...xs), minZ = Math.min(...zs), maxZ = Math.max(...zs);
       const height = roof - base;
-      const tone = hash(i, base);
+      const tone = hash(hi, base);
       const vict = !PK && victorianBlock(type, height, (minX + maxX) * 0.5, (minZ + maxZ) * 0.5);
-      let { mat, paint } = styleOf(i, type, rec[FI.palette], rec[FI.era], rec[FI.facade], height, vict);
+      let { mat, paint } = styleOf(hi, type, rec[FI.palette], rec[FI.era], rec[FI.facade], height, vict);
       // (South Florida's condo and hotel blocks, the package region 'south-florida': balcony slabs on every storey over
       // pale balcony glass (most) or white / pastel painted concrete, never a dark curtain wall)
       const balcony = PK && header.region === 'south-florida' && kind !== 'church' && kind !== 'warehouse' && kind !== 'house' && kind !== 'rowhouse'
@@ -2248,6 +2341,13 @@ function buildCityBlocks(scene, opts = {}) {
         mat = kind === 'warehouse' ? 2 : kind === 'church' || kind === 'school' || kind === 'civic' || ((kind === 'office' || kind === 'shop') && height >= 12) || type === 'midrise' || type === 'tower' ? 0 : 1;
       }
       const storeyH = rec[FI.storeyH] || (type === 'tower' ? 3.9 : 0);
+      // (Chicago) its facade mode (facadeModeFor; masonry 0 only), one per building: its parts and tiers share it
+      const fstyle = PK && mat === 0 ? facadeModeFor(hi, kind, type, seed > 0 ? (seedTop.get(seed) ?? roof) - base : height, paint[0], rec[FI.era], multi && kind === 'tower') : 0;
+      // (Chicago) its crown floodlit at night (the pre-war material's crown glow, the fraction of the box's style code):
+      // about half the masonry towers 80 m and up, on their top box only (a massed tower's top tier), warm white or a
+      // cool or amber tint by the building
+      const glowK = PK && mat === 0 && CHICAGO_LIKE.has(header.region) && !terrace && (seed > 0 ? (seedTop.get(seed) ?? roof) : roof) - base >= 80
+        && hash(hi, 51.7) < 0.55 ? 0.1 + 0.8 * hash(hi, 53.3) : 0;
       // (r7, South Florida's towers: one 45 m or taller is banded, its slabs deeper (1.9 m) and half of them with solid
       // white balustrades instead of glass railings; a curved one (6 or more of its outline's corners bend under 25
       // degrees, or no boxes cover it) gets its balconies along its own outline and no podium, so its bands follow the
@@ -2287,15 +2387,16 @@ function buildCityBlocks(scene, opts = {}) {
         const ng = g.index ? g.toNonIndexed() : g;
         ng.deleteAttribute('uv');
         const n = ng.attributes.position.count;
-        const bb = new Float32Array(n * 3);
+        const bb = new Float32Array(n * 4);
         const pw = new Float32Array(n * 4), pt = new Float32Array(n * 4);
         const cw = new THREE.Color(paint[0]), ct = new THREE.Color(paint[1]);
         for (let k = 0; k < n; k++) {
-          bb[k * 3] = base;
+          bb[k * 4] = base;
+          bb[k * 4 + 3] = fstyle;
           pw.set([cw.r, cw.g, cw.b, paint[2]], k * 4);
           pt.set([ct.r, ct.g, ct.b, paint[3]], k * 4);
         }
-        ng.setAttribute('boxBase', new THREE.BufferAttribute(bb, 3));
+        ng.setAttribute('boxBase', new THREE.BufferAttribute(bb, 4));
         ng.setAttribute('paintWall', new THREE.BufferAttribute(pw, 4));
         ng.setAttribute('paintTrim', new THREE.BufferAttribute(pt, 4));
         polyGeos[PK && mat <= 2 ? mat : 0].push(ng);
@@ -2315,6 +2416,9 @@ function buildCityBlocks(scene, opts = {}) {
       // proportion to its span, so the wings of an L-shaped house sit under the main ridge)
       let rise0 = 0, kRise = 0;
       const pitched = PK && look.roof !== 'flat' && count > 0;
+      // (montana: the mountain west's false front, PkgBuildings falseFront: a flat-roofed shop or small office under 16 m
+      // that faces a road; its own cap and sign band stand in for the cornice slab)
+      const ffront = PK && look.falseFront && !mall && count > 0 && height < (look.falseFrontMaxH || 16) && rec[FI.front] >= 0;
       if (pitched) {
         const big = all[biggest];
         const span = Math.min(big.w, big.d) * 0.5;
@@ -2337,7 +2441,7 @@ function buildCityBlocks(scene, opts = {}) {
         const plinth = minH <= 0 && g1 - g0 > PLINTH_MIN ? Math.min(g1 - g0, roof - g0 - (storeyH || storeys[mat])) : 0;
         const box = {
           x: m.cx, y: (bottom + roof) * 0.5, z: m.cz, w: m.w, h: roof - bottom, d: m.d, ry: theta, tone,
-          base: g0, plinth: Math.max(0, plinth), storeyH, paint,
+          base: g0, plinth: Math.max(0, plinth), storeyH, paint, style: fstyle + glowK,
           faces: WALLS.map(([lx, lz]) => wallKind(m, lx, lz, shopsFlag > 0))
         };
         // (a package's houses, apartments and public buildings stand back from the road on their lots: every wall but a
@@ -2382,6 +2486,7 @@ function buildCityBlocks(scene, opts = {}) {
           collider(m, roof);
           pb.roof(m, theta, roof, 0, 'flat', look.roofColor, paint[0], look.parapet);
           pb.mallRoof(m, theta, roof + 0.03, look.roofColor, (a) => hash(i, a + k * 3.17));
+          const colonnaded = new Set();
           WALLS.forEach(([lx, lz], f) => {
             if (faces[f] !== WALL_KINDS.shop || (lx ? m.d : m.w) < 8) return;
             const nx = lx * cs + lz * sn, nz = -lx * sn + lz * cs, half = lx ? m.w * 0.5 : m.d * 0.5, len = lx ? m.d : m.w;
@@ -2398,7 +2503,11 @@ function buildCityBlocks(scene, opts = {}) {
             }
             if (blocked) return;
             for (const c of pb.colonnade(m, theta, lx, lz, g, Math.min(g + G - 0.5, g + 4.6), roof, road ? 1.6 : DEPTH, !road, paint[0], paint[1])) colliders.push(c);
+            colonnaded.add(f);
           });
+          // (its band over the shops dressed on every open wall: courses, a cornice, pilasters where no colonnade carries
+          // them, framed sign panels; PkgBuildings mallBand)
+          if (H - G > 1.2) WALLS.forEach(([lx, lz], f) => { if (faces[f] === WALL_KINDS.shop && (lx ? m.d : m.w) >= 8) pb.mallBand(m, theta, lx, lz, g + G, roof, !colonnaded.has(f), paint[0], paint[1]); });
           mallN++;
           if (!top || m.w * m.d > top.w * top.d) { top = m; topBox = low; }
           continue;
@@ -2407,7 +2516,7 @@ function buildCityBlocks(scene, opts = {}) {
         collider(m, roof);
         if (balcony && !curved && m.w >= 5 && m.d >= 5) pb.balconies(m, theta, box.base + box.plinth, roof, storeyH || storeys[mat], 0xf3f3ef, railHex, slabOut);
         if (pitched) { if (m.w * m.d >= 6 || k === biggest) pb.roof(m, theta, roof, Math.min(rise0, kRise * Math.min(m.w, m.d) * 0.5), look.roof, look.roofColor, paint[0], look.parapet); }
-        else if (mat <= 2 && m.w > 3 && m.d > 3) blk.cornices.push({ x: m.cx, y: roof, z: m.cz, w: m.w + 1.0, h: 0.8, d: m.d + 1.0 });
+        else if (mat <= 2 && m.w > 3 && m.d > 3 && !ffront) blk.cornices.push({ x: m.cx, y: roof, z: m.cz, w: m.w + 1.0, h: 0.8, d: m.d + 1.0 });
         if (!top || m.w * m.d > top.w * top.d) { top = m; topBox = box; }
       }
       if (curved) pb.outlineBalconies(pts, base, roof, storeyH || storeys[mat], 0xf3f3ef, railHex, slabOut);
@@ -2429,20 +2538,30 @@ function buildCityBlocks(scene, opts = {}) {
       // (a package shop: canvas awnings along its longest shop wall; a house: a chimney and a porch on the road side; a
       // church: its tower)
       if (PK && kind === 'shop' && topBox) shopAwnings(blk, topBox, i);
+      if (ffront && biggest >= 0) {
+        const big = all[biggest], fa = (rec[FI.front] * Math.PI) / 180, one = height < 5.5;
+        const rise = one ? 1.9 + 1.4 * hash(i, 31.7) : 1.1 + 1.1 * hash(i, 31.7);
+        if (!pb.falseFront(big, theta, roof, Math.cos(fa), Math.sin(fa), rise, hash(i, 33.1) < (one ? 0.3 : 0.55), paint[0], paint[1]) && big.w > 3 && big.d > 3) {
+          blk.cornices.push({ x: big.cx, y: roof, z: big.cz, w: big.w + 1.0, h: 0.8, d: big.d + 1.0 });
+        }
+      }
       if (pitched && biggest >= 0) {
         const big = all[biggest], fr = rec[FI.front], fa = (fr * Math.PI) / 180;
-        if (look.chimney) pb.chimney(big, theta, roof, kRise * Math.min(big.w, big.d) * 0.5, (a) => hash(i, a));
+        if (look.chimney) pb.chimney(big, theta, roof, look.chimneyFit ? Math.min(rise0, kRise * Math.min(big.w, big.d) * 0.5) : kRise * Math.min(big.w, big.d) * 0.5, (a) => hash(i, a), look.chimneyFit && look.roof);
         if (look.porch && fr >= 0 && rec[FI.frontDist] / 4 >= 3) pb.porch(big, theta, base, roof, Math.cos(fa), Math.sin(fa), look.roofColor, paint[1]);
         if (kind === 'church') pb.tower(big, theta, base, roof, roof + rise0, fr >= 0 ? Math.cos(fa) : 1, fr >= 0 ? Math.sin(fa) : 0, paint[0], look.roofColor);
       }
       const crown = rec[2] - roof;
       if (top && topBox && crown > CROWN_MIN && (type === 'tower' || type === 'midrise' || type === 'landmark') && (!PK || look.roof === 'flat')) {
         window.NYC.sfCrown(details, blk, topBox, { roof, crown, storey: storeyH || storeys[mat], bucket: buckets[mat] });
-      } else if (top && top.w >= 6 && top.d >= 6 && !(type === 'rowhouse' || type === 'flats' || type === 'shed') && (!PK || look.roof === 'flat')) {
-        // a bulkhead / mechanical penthouse on the largest roof (not on row houses, flats and sheds)
-        const hw = Math.min(top.w - 1.2, Math.max(2.4, top.w * range(0.25, 0.45)));
-        const hd = Math.min(top.d - 1.2, Math.max(2.4, top.d * range(0.25, 0.45)));
-        blk.hvacUnits.push({ x: top.cx, y: roof, z: top.cz, w: hw, h: height >= 45 ? range(3.4, 5.8) : range(2.4, 3.2), d: hd });
+      } else if (top && top.w >= 6 && top.d >= 6 && !terrace && !(type === 'rowhouse' || type === 'flats' || type === 'shed') && (!PK || look.roof === 'flat')) {
+        if (PK) pkgRoofClutter(blk, top, theta, roof, height, kind, look, hi);
+        else {
+          // a bulkhead / mechanical penthouse on the largest roof (not on row houses, flats and sheds)
+          const hw = Math.min(top.w - 1.2, Math.max(2.4, top.w * range(0.25, 0.45)));
+          const hd = Math.min(top.d - 1.2, Math.max(2.4, top.d * range(0.25, 0.45)));
+          blk.hvacUnits.push({ x: top.cx, y: roof, z: top.cz, w: hw, h: height >= 45 ? range(3.4, 5.8) : range(2.4, 3.2), d: hd });
+        }
       }
       quadtree.insert(blk);
       allBlocks.push(blk);
@@ -2464,7 +2583,8 @@ function buildCityBlocks(scene, opts = {}) {
       if (me) group.add(me);
       const kinds = {};
       for (let i = 0; i < header.count; i++) { const k = header.kinds[table[i * F + FI.kind]] || 'unknown'; kinds[k] = (kinds[k] || 0) + 1; }
-      console.info(`[roofs] ${header.region}: ${JSON.stringify(pb.stats)} kinds ${JSON.stringify(kinds)} awnings ${awningN} mall masses ${mallN}`);
+      console.info(`[roofs] ${header.region}: ${JSON.stringify(pb.stats)} kinds ${JSON.stringify(kinds)} awnings ${awningN} mall masses ${mallN} water towers ${waterN} plant boxes ${plantN}`);
+      window.NYC.pkgRoofStats = { waterTowers: waterN, plantBoxes: plantN, waterAt };
     }
     // a package's shop signs: named after the town's own streets, name and sides, one name per storefront, none twice
     // within sight (PkgBuildings.signPlan)
@@ -2735,6 +2855,23 @@ function buildCityBlocks(scene, opts = {}) {
   trestleParts.push(riserPipe);
   const legsGeo = mergeGeometries(trestleParts, false);
 
+  // (Chicago) the welded steel tank, a third of a package's water towers (wt.steel): a taller silver-grey drum with a
+  // shallow cone roof and a catwalk ring, on the same trestle
+  const steelMat = new THREE.MeshStandardNodeMaterial({ roughness: 0.48, metalness: 0.55 });
+  steelMat.colorNode = Fn(() => {
+    const u = uv();
+    const seam = smoothstep(0.04, 0.0, abs(fract(u.y.mul(4.0)).sub(0.5)).sub(0.46).abs());
+    const streak = mx_noise_float(vec2(u.x.mul(40.0), u.y.mul(3.0))).mul(0.5).add(0.5);
+    return mix(color(0x9aa1a6), color(0x6d7378), streak.mul(0.35).add(seam.mul(0.4)));
+  })();
+  const steelGeo = new THREE.CylinderGeometry(1.75, 1.75, 4.4, 14);
+  const steelCapGeo = new THREE.ConeGeometry(1.85, 0.8, 14);
+  const steelInst = new THREE.InstancedMesh(steelGeo, steelMat, MAX_WATER_TOWERS);
+  const steelCapInst = new THREE.InstancedMesh(steelCapGeo, legMat, MAX_WATER_TOWERS);
+  steelInst.castShadow = steelInst.receiveShadow = steelCapInst.castShadow = steelCapInst.receiveShadow = true;
+  steelInst.frustumCulled = steelCapInst.frustumCulled = false;
+  steelInst.count = steelCapInst.count = 0;
+  group.add(steelInst, steelCapInst);
   const barrelInst = new THREE.InstancedMesh(barrelGeo, woodMat, MAX_WATER_TOWERS);
   const coneInst = new THREE.InstancedMesh(coneGeo, roofCapMat, MAX_WATER_TOWERS);
   const legsInst = new THREE.InstancedMesh(legsGeo, legMat, MAX_WATER_TOWERS);
@@ -2832,10 +2969,31 @@ function buildCityBlocks(scene, opts = {}) {
     c.width = COLS * CW;
     c.height = rows * CH;
     const ctx = c.getContext('2d');
+    // (17 Nov: a mountain town's Main St read as a modern strip's lit boxes; its region asks for painted boards, PkgBuildings
+    // REGIONS signs: 'western': serif lettering, a shadow line under it, a double rule round it and diamonds at its ends,
+    // on oxblood, forest, navy, black or walnut, in cream, gold or white, with the grain of the board under the paint)
+    const western = window.NYC.PkgBuildings?.REGIONS?.[window.NYC.DATA?.buildings?.header?.region]?.signs === 'western';
+    const WEST = [['#5a1e1a', '#e9d9b0', '#c9a45a'], ['#1f3a2a', '#efe3c2', '#c9a45a'], ['#1d2a40', '#f2ecdc', '#b8b2a0'], ['#151412', '#d9b35c', '#d9b35c'], ['#4a3424', '#f3e6c4', '#e0c78a']];
     signThemes.forEach((st, k) => {
       ctx.save();
       ctx.translate((k % COLS) * CW, Math.floor(k / COLS) * CH);
       ctx.scale(CW / 512, CH / 96);
+      if (western) {
+        const [bg, fg, rule] = WEST[(pkgSigns.themes[k]?.style ?? k) % WEST.length];
+        ctx.fillStyle = bg; ctx.fillRect(0, 0, 512, 96);
+        // (the board's grain, faint under the paint)
+        for (let y = 3; y < 96; y += 7) { ctx.fillStyle = `rgba(0,0,0,${0.05 + ((y * 37) % 11) / 160})`; ctx.fillRect(0, y, 512, 2); }
+        ctx.strokeStyle = rule; ctx.lineWidth = 3; ctx.strokeRect(7, 7, 498, 82); ctx.lineWidth = 1.5; ctx.strokeRect(13, 13, 486, 70);
+        ctx.fillStyle = rule;
+        for (const dx of [26, 486]) { ctx.beginPath(); ctx.moveTo(dx, 40); ctx.lineTo(dx + 6, 48); ctx.lineTo(dx, 56); ctx.lineTo(dx - 6, 48); ctx.closePath(); ctx.fill(); }
+        let px = 40; ctx.font = `700 ${px}px Georgia, 'Times New Roman', serif`;
+        while (px > 16 && ctx.measureText(st.text).width > 420) { px--; ctx.font = `700 ${px}px Georgia, 'Times New Roman', serif`; }
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillText(st.text, 258, 52);
+        ctx.fillStyle = fg; ctx.fillText(st.text, 256, 50);
+        ctx.restore();
+        return;
+      }
       ctx.fillStyle = st.bg;
       ctx.fillRect(0, 0, 512, 96);
       ctx.strokeStyle = st.border;
@@ -2859,8 +3017,11 @@ function buildCityBlocks(scene, opts = {}) {
     const mu = 3 / c.width, mv = 3 / c.height;
     const u = col.add(uv().x.mul(1 - (2 * 3) / CW)).div(float(COLS)).add(mu);
     const v = float(rows - 1).sub(row).add(uv().y.mul(1 - (2 * 3) / CH)).div(float(rows)).add(mv);
-    const sMat = new THREE.MeshBasicNodeMaterial();
+    // (painted boards are lit by the day as the wall they hang on is, a little of their own at night from the shop's
+    // lamps; the lit boxes are lit from within)
+    const sMat = western ? new THREE.MeshStandardNodeMaterial({ roughness: 0.78, metalness: 0 }) : new THREE.MeshBasicNodeMaterial();
     sMat.colorNode = texture(tex, vec2(u, v));
+    if (western && window.NYC.cityUniforms?.uInteriorGlow) sMat.emissiveNode = sMat.colorNode.mul(window.NYC.cityUniforms.uInteriorGlow.mul(0.35));
     const cap = Math.max(1, Math.min(MAX_AWNINGS, pkgSigns.per.reduce((a, b) => a + b, 0)));
     const geo = unitBox.clone();
     const cells = new THREE.InstancedBufferAttribute(new Float32Array(cap), 1);
@@ -2971,7 +3132,7 @@ function buildCityBlocks(scene, opts = {}) {
     activeAwnings.length = 0;
 
     let corniceCount = 0;
-    let wtCount = 0;
+    let wtCount = 0, stCount = 0, legCount = 0;
     let hvacCount = 0;
     let feCount = 0;
     let awningCount = 0;
@@ -2996,13 +3157,22 @@ function buildCityBlocks(scene, opts = {}) {
       }
 
       // 2. Rooftop cedar water towers
-      for (let i = 0; i < blk.waterTowers.length && wtCount < MAX_WATER_TOWERS; i++) {
+      for (let i = 0; i < blk.waterTowers.length && legCount < MAX_WATER_TOWERS; i++) {
         const wt = blk.waterTowers[i];
         dummy.scale.set(1, 1, 1);
 
         dummy.position.set(wt.x, wt.y + 1.3, wt.z);
         dummy.updateMatrix();
-        legsInst.setMatrixAt(wtCount, dummy.matrix);
+        legsInst.setMatrixAt(legCount++, dummy.matrix);
+        if (wt.steel) {
+          dummy.position.set(wt.x, wt.y + 4.6, wt.z);
+          dummy.updateMatrix();
+          steelInst.setMatrixAt(stCount, dummy.matrix);
+          dummy.position.set(wt.x, wt.y + 7.2, wt.z);
+          dummy.updateMatrix();
+          steelCapInst.setMatrixAt(stCount++, dummy.matrix);
+          continue;
+        }
 
         dummy.position.set(wt.x, wt.y + 4.2, wt.z);
         dummy.updateMatrix();
@@ -3079,10 +3249,14 @@ function buildCityBlocks(scene, opts = {}) {
     corniceInst.count = corniceCount;
     flagRange(corniceInst.instanceMatrix, corniceCount);
 
-    legsInst.count = wtCount;
+    legsInst.count = legCount;
+    steelInst.count = stCount;
+    steelCapInst.count = stCount;
+    flagRange(steelInst.instanceMatrix, stCount);
+    flagRange(steelCapInst.instanceMatrix, stCount);
     barrelInst.count = wtCount;
     coneInst.count = wtCount;
-    flagRange(legsInst.instanceMatrix, wtCount);
+    flagRange(legsInst.instanceMatrix, legCount);
     flagRange(barrelInst.instanceMatrix, wtCount);
     flagRange(coneInst.instanceMatrix, wtCount);
 

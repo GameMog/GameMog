@@ -19,7 +19,9 @@ async function inflate(buf) {
 
 // (exact: url is the object itself, no '.gz' added: a Hometown far tile by its store key, pkg-far.js)
 async function fetchBin(url, onBytes, exact = false) {
-  const res = await fetch(new URL(exact ? url : url + '.gz', window.NYC.BASE || location.href)); // (Story Kit: data relative to the city's folder)
+  // (window.mcNet, js/net-retry.js: again on a busy answer, a 503 after a release)
+  const at = new URL(exact ? url : url + '.gz', window.NYC.BASE || location.href); // (Story Kit: data relative to the city's folder)
+  const res = await (window.mcNet ? window.mcNet.fetchRetry(at) : fetch(at));
   if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
   let buf = await res.arrayBuffer();
   if (GZIP(buf)) buf = await inflate(buf);

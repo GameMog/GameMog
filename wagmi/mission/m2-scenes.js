@@ -12,7 +12,7 @@ import * as THREE from 'three/webgpu';
 import { getCast, upright, UPRIGHT_BONES } from '../intro.js';
 import { createDirector, keys, angleKeys, handheld, clamp, lerp, odometer } from './cine.js';
 import { buildJane, buildLaptop } from './jane.js';
-import { S as story } from '../story/index.js';
+import { S as story } from '../story/index.js'; import { importRetry } from '../net.js';
 
 const PI = Math.PI;
 const WHITE = '#FFFFFF', BLUE = '#6CB8FF', ACID = '#B6FF3B';
@@ -22,13 +22,16 @@ export const CRASH = { x: -341, z: 604, h: -2.35 };
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 
 // the shared runner: def = { END, shots: [{ t, cam(t, t0) -> { pos, look, fov, shake } }], cues: [[t, fn]], pose(t, dt),
-// cleanup(), hero: false (Dan left alone), face: where he goes next, for the hand-back (cine.js release) }. END and the
+// cleanup(), hero: false (Dan left alone), face: where he goes next, for the hand-back (cine.js release), room: the place
+// its in-person lines are heard in ('street' | 'park' | 'garage' | 'interior', radio/voices.js) }. END and the
 // shots' t may change as it runs (a scene paced by its lines:
 // a shot starts with its line, the end comes after the last one)
 export async function runScene(W, def) {
   const app = W.app, ui = W.ui, C = await getCast(W), D = createDirector(W), Q = W.dan;
   const grade = app.postFX?.colorGrade, exp0 = grade?.exposure.value ?? 1.04;
   W.cutscene = true; ui.cine(true); ui.objective(null, 7, { track: false }); ui.help(null);
+  // (the place its in-person lines are heard in, def.room: radio/voices.js room(); none, dry as before)
+  const room0 = W.voice?.roomTag ?? null; if (def.room) W.voice?.room?.(def.room);
   if (def.hero !== false) for (const a of Q.mixer._actions) if (!C.qRig.owns(a)) a.setEffectiveWeight(0);
   let t = 0, done = false, skip = false;
   const st = { dead: false };
@@ -54,6 +57,7 @@ export async function runScene(W, def) {
   if (def.hero !== false) { C.qRig.stop(); Q.act('idle').setEffectiveWeight(1); Q.body.rotation.x = 0; }
   try { def.cleanup?.(st); } catch (e) { console.warn('[m2] cleanup', e); }
   delete W.directed; delete W.sceneClock; D.onFrame = null;
+  if (def.room) W.voice?.room?.(room0);
   if (grade) grade.exposure.value = exp0;
   const rel = D.release(skip ? 0.4 : def.blend ?? 1.2, { face: def.face });
   ui.cine(false); W.cutscene = false;
@@ -239,20 +243,21 @@ export function burnerScene(W, { U, say, van }) {
   const Fq = [Math.sin(QH), Math.cos(QH)], Rq = [-Math.cos(QH), Math.sin(QH)]; // his forward, his right
   const at = (f, r, y) => [QX + Fq[0] * f + Rq[0] * r, G + y, QZ + Fq[1] * f + Rq[1] * r];
   const drift = (a, b, secs) => (t, t0) => keys([[t0, a], [t0 + secs, b]], 'linear')(t);
+  // (the dialogue pass, 15 Nov: the batch and the twin are the drive's (calls.js m2-handoff); here the lion, Moon and
+  // her pretzel from the call's wrap, the twin's ping with the van on screen, and a button instead of an order)
   const LINES = [
     ['Jane', BLUE, "Don't look around. I'm not there."],
     ['Dan', WHITE, 'You said Bryant Park.'],
-    ['Jane', BLUE, "I said bring it to Bryant Park. I'm on the library's wifi. It's free and it has a lion."],
-    ['Jane', BLUE, 'Hold the burner up. Okay. It has a twin. Same batch, same buyer.'],
-    ['Jane', BLUE, "Your face is on four front pages today. Moon's jealous."],
-    ['Dan', WHITE, 'Moon can have them. All four.'],
-    ['Jane', BLUE, 'The twin pinged twenty minutes ago. A van, idling in Times Square. Seventh and Forty-Seventh.'],
-    ['Jane', BLUE, "Don't run up to it. Follow it. It'll take us to the rest of them."],
-    ['Dan', WHITE, 'Follow the van. Got it.'],
+    ['Jane', BLUE, "I'm on the library's wifi. It's free and it has a lion.", { how: 'tease' }],
+    ['Dan', WHITE, 'Moon with you?'],
+    ['Jane', BLUE, 'Guarding a pretzel. Hold the burner up.'],
+    ['Jane', BLUE, 'Okay. Its twin just pinged. Seventh and Forty-Seventh.', { how: 'urgent' }],
+    ['Dan', WHITE, "That's their van. Don't tell me to follow it.", { how: 'deadpan' }],
+    ['Jane', BLUE, "Moon says don't run up to it.", { how: 'warm' }],
   ];
   const OTS_R = { cam: (t, t0) => ({ pos: drift(at(-1.75, 0.75, 1.86), at(-1.6, 0.7, 1.84), 5)(t, t0), look: at(1.5, -0.2, 1.36), fov: 42, shake: 0.3 }) };
   const def = {
-    END: Infinity,
+    END: Infinity, room: 'park',
     shots: [
       // over 6th Ave at twilight: the park's trees and fountain, a slow push (ACT I · BAGS / BURNER)
       { t: 0, cam: (t, t0) => ({ pos: drift([-316, 11, 30], [-314.5, 8.5, 48], 5)(t, t0), look: drift([-262, 7, 96], [-268, 4.5, 94], 5)(t, t0), fov: 46, shake: 0.4 }) },
@@ -263,13 +268,12 @@ export function burnerScene(W, { U, say, van }) {
       // (from here each shot comes with its line)
       { line: 1, t: Infinity, cam: (t, t0) => ({ pos: drift(at(1.9, -1.15, 1.66), at(1.75, -1.05, 1.66), 3)(t, t0), look: at(0, 0, 1.6), fov: 30, shake: 0.3 }) },
       { line: 2, t: Infinity, cam: (t, t0) => ({ pos: drift(at(-1.75, -0.75, 1.86), at(-1.6, -0.7, 1.84), 6)(t, t0), look: at(1.5, 0.25, 1.36), fov: 42, shake: 0.3 }) },
-      { line: 3, t: Infinity, cam: (t, t0) => ({ pos: drift(at(6.2, 3.2, 2.3), at(5.6, 2.8, 2.1), 5)(t, t0), look: at(0, 0, 1.2), fov: 34, shake: 0.4 }) },
-      { line: 4, t: Infinity, cam: (t, t0) => ({ pos: drift(at(1.6, -0.95, 1.7), at(1.45, -0.85, 1.7), 6)(t, t0), look: at(0, 0, 1.64), fov: 27, shake: 0.3 }) },
-      { line: 5, t: Infinity, cam: (t, t0) => ({ pos: drift(at(2.5, 1.35, 1.55), at(2.3, 1.25, 1.55), 4)(t, t0), look: at(0, 0, 1.5), fov: 32, shake: 0.35 }) },
+      { line: 3, t: Infinity, cam: (t, t0) => ({ pos: drift(at(1.6, -0.95, 1.7), at(1.45, -0.85, 1.7), 6)(t, t0), look: at(0, 0, 1.64), fov: 27, shake: 0.3 }) },
+      { line: 4, t: Infinity, cam: (t, t0) => ({ pos: drift(at(6.2, 3.2, 2.3), at(5.6, 2.8, 2.1), 5)(t, t0), look: at(0, 0, 1.2), fov: 34, shake: 0.4 }) },
       // cut away: Times Square, the van idling at the curb
-      { line: 6, t: Infinity, cam: (t, t0) => ({ pos: drift([-579, 3.2, -497], [-580, 2.6, -486], 6)(t, t0), look: [VAN_START[0], 1.5, VAN_START[1]], fov: 34, shake: 0.5 }) },
+      { line: 5, t: Infinity, cam: (t, t0) => ({ pos: drift([-579, 3.2, -497], [-580, 2.6, -486], 6)(t, t0), look: [VAN_START[0], 1.5, VAN_START[1]], fov: 34, shake: 0.5 }) },
+      { line: 6, t: Infinity, cam: (t, t0) => ({ pos: drift(at(2.5, 1.35, 1.55), at(2.3, 1.25, 1.55), 4)(t, t0), look: at(0, 0, 1.5), fov: 32, shake: 0.35 }) },
       { line: 7, t: Infinity, ...OTS_R },
-      { line: 8, t: Infinity, cam: (t, t0) => ({ pos: drift(at(2.2, 1.3, 1.6), at(1.9, 1.5, 1.6), 4)(t, t0), look: at(0, 0, 1.52), fov: 32, shake: 0.3 }) },
     ],
     cues: [
       [0.3, () => { ui.title('ACT I · FALL GUY', 'Burner', 2.8); sfx?.play('stinger', { gain: 0.35 }); W.audio?.play?.('missionStart'); }],
@@ -280,10 +284,9 @@ export function burnerScene(W, { U, say, van }) {
         say(LINES, st, (who, i) => {
           const now = W.sceneClock?.t ?? 0;
           for (const sh of def.shots) if (sh.line === i) sh.t = now;
-          if (i === 3) evidence(W, 'sale');
-          if (i === 4) { evidence(W, null); U.call.share(true); }
-          if (i === 6) { U.call.hide(); ui.place('Times Square', '7th Ave & W 47th St', 3); }
-          if (i === 7) { U.call.show(); U.call.share(false); }
+          if (i === 4) evidence(W, 'sale');
+          if (i === 5) { evidence(W, null); U.call.hide(); ui.place('Times Square', '7th Ave & W 47th St', 3); }
+          if (i === 6) { U.call.show(); U.call.share(false); }
         }).finally(() => { const now = W.sceneClock?.t; if (now != null) { def.END = now + 1.6; downAt = now + 0.2; sfx?.play('hangup', { gain: 0.12 }); U.call.hide(); } });
       }],
     ],
@@ -313,13 +316,17 @@ export function burnerScene(W, { U, say, van }) {
 // there); she tells him to follow it. Paced by its lines, ~30 s (his walk up, then six lines). Called by m2.js as
 // burnerMeet(W, { U, say, van, at }): it loads her and plays itself (a promise); it leaves Dan standing by her table,
 // facing his car, and her (Moon with her) at her table until he's gone.
+// (the dialogue pass, 15 Nov, the owner: "stiff and robotic". The twin and its batch are told on the drive here (calls.js
+// m2-handoff); the scene keeps the pretzel the call ended on, the trace and the van, Dan's own reaction to it, and goes
+// out on a joke instead of an order)
 const MEET_LINES = [
   ['Jane', BLUE, "You're late. Sit. Burner, please."],
-  ['Dan', WHITE, 'Hi, Jane. Hi, Moon. Great to see you too.'],
-  ['Jane', BLUE, 'Plugging it in. Look: two SIMs, one sale, switched on the same minute. Yours, and its twin.'],
-  ['Jane', BLUE, 'The twin pinged twenty minutes ago. A van, idling in Times Square. Seventh and Forty-Seventh.'],
-  ['Jane', BLUE, "Don't run up to it. Follow it. It'll take us to the rest of them."],
-  ['Dan', WHITE, 'Follow the van. Got it.'],
+  ['Dan', WHITE, 'Hi, Moon. Is that my pretzel?', { how: 'tease' }],
+  ['Jane', BLUE, 'Was. Plugging it in.', { how: 'deadpan' }],
+  ['Jane', BLUE, 'There. The twin pinged twenty minutes ago. Seventh and Forty-Seventh.', { how: 'urgent' }],
+  ['Dan', WHITE, "That's their van.", { pause: 0.7, how: 'hushed' }],
+  ['Jane', BLUE, "Then don't run up to it, okay? Follow it home.", { how: 'warm' }],
+  ['Dan', WHITE, 'Moon would run up to it.', { how: 'tease' }],
 ];
 export async function burnerMeet(W, { U, say, van, at = J_AT }) {
   const C = await getCast(W), ui = W.ui, sfx = W.sfx, cm = W.app.controllerManager;
@@ -365,7 +372,7 @@ export async function burnerMeet(W, { U, say, van, at = J_AT }) {
   // empty chair hides her from the wide and the two-shot; further out she is under the subtitles), short of his mark, facing
   // out toward the avenue and him; her red lead from her collar to the chair's nearest leg, slack on the ground
   const moon = C.moon, MOON = p(-0.46, -0.52, 0), MH = H + 0.3;
-  const lead = (await import('../moon.js')).buildLeash(THREE, { length: 0.85, radius: 0.0055, color: '#D33A3A' });
+  const lead = (await importRetry(() => import('../moon.js'))).buildLeash(THREE, { length: 0.85, radius: 0.0055, color: '#D33A3A' });
   lead.mesh.visible = false; W.app.scene.add(lead.mesh);
   set.updateMatrixWorld(true);
   const tie = [V(-0.19, 0.07, 0.18), V(0.19, 0.07, 0.18), V(-0.19, 0.07, -0.18), V(0.19, 0.07, -0.18)].map((l) => herChair.localToWorld(l)).sort((a, b) => a.distanceTo(V(MOON[0], G, MOON[2])) - b.distanceTo(V(MOON[0], G, MOON[2])))[0];
@@ -389,7 +396,7 @@ export async function burnerMeet(W, { U, say, van, at = J_AT }) {
   const juH = () => J.bones.head.getWorldPosition(V());
   const def = {
     // (a touch brighter than the street's twilight grade while it plays: faces at a table, not cars under street lamps)
-    END: Infinity, exposure: 1.16,
+    END: Infinity, exposure: 1.16, room: 'park',
     // (handed back facing his car: the next step needs it, and it waits at the park's curb, m2.js start)
     face: () => W.car.position,
     shots: [
@@ -407,8 +414,8 @@ export async function burnerMeet(W, { U, say, van, at = J_AT }) {
       { line: 3, t: Infinity, cam: (t, t0) => ({ pos: drift(p(-0.95, -0.32, 1.3), p(-0.85, -0.28, 1.24), 2.6)(t, t0), look: p(0.02, 0.05, 0.86), fov: 28, shake: 0.2 }) },
       { line: 3.5, t: Infinity, cam: (t, t0) => ({ pos: drift([-579, 3.2, -497], [-580, 2.6, -486], 6)(t, t0), look: [VAN_START[0], 1.5, VAN_START[1]], fov: 34, shake: 0.5 }) },
       // her, close, across the table
-      { line: 4, t: Infinity, cam: (t, t0) => { const h = juH(); return { pos: drift(p(0.8, 0.35, 0), p(0.72, 0.3, 0), 5)(t, t0).map((x, k) => (k === 1 ? h.y + 0.05 : x)), look: [h.x, h.y + 0.02, h.z], fov: 32, shake: 0.25 }; } },
-      { line: 5, t: Infinity, cam: (t, t0) => ({ pos: drift(p(2.4, 1.5, 1.55), p(2.2, 1.3, 1.5), 4)(t, t0), look: p(0.2, -0.2, 1.15), fov: 36, shake: 0.3 }) },
+      { line: 5, t: Infinity, cam: (t, t0) => { const h = juH(); return { pos: drift(p(0.8, 0.35, 0), p(0.72, 0.3, 0), 5)(t, t0).map((x, k) => (k === 1 ? h.y + 0.05 : x)), look: [h.x, h.y + 0.02, h.z], fov: 32, shake: 0.25 }; } },
+      { line: 6, t: Infinity, cam: (t, t0) => ({ pos: drift(p(2.4, 1.5, 1.55), p(2.2, 1.3, 1.5), 4)(t, t0), look: p(0.2, -0.2, 1.15), fov: 36, shake: 0.3 }) },
     ],
     cues: [
       [0.3, () => { ui.title('ACT I · FALL GUY', 'Burner', 2.8); sfx?.play('stinger', { gain: 0.35 }); W.audio?.play?.('missionStart'); }],

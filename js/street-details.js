@@ -22,7 +22,7 @@ const {
   mix
 } = window.NYC.TSL;
 const { mergeGeometries } = window.NYC.Addons;
-const { AVENUES, ALL_AVENUES, STREETS, streetZ, SIGNAL_TIMING, getBlockBounds, blockAt, cityUniforms, fromOldFrame } = window.NYC;
+const { AVENUES, ALL_AVENUES, STREETS, SIGNAL_SITES, streetZ, SIGNAL_TIMING, getBlockBounds, blockAt, cityUniforms, fromOldFrame } = window.NYC;
 const {
   createSteamMaterial,
   createTreeGrateMaterial,
@@ -228,10 +228,13 @@ function buildStreetDetails(scene, colliders = []) {
     return true;
   };
 
-  for (let a = 0; a < AVENUES.length; a++) {
-    const ave = AVENUES[a];
-    for (let s = 0; s < STREETS.length; s++) {
-      const st = STREETS[s];
+  // (every signalised grid intersection, city-config.js SIGNAL_SITES: the midtown core's, then the mapped ones; on the
+  // phone and low tiers a mapped junction has one mast, not the pair, as ~1,400 junctions' masts were a frame cost there)
+  const oneMast = ['phone', 'low'].includes(window.NYC.quality && window.NYC.quality.tier);
+  for (const site of SIGNAL_SITES) {
+    {
+      const ave = { x: site.x, width: site.aveWidth };
+      const st = { z: site.z, width: site.stWidth };
       const cornerOffsetX = ave.width * 0.5 + 1.25;
       const cornerOffsetZ = st.width * 0.5 + 1.25;
 
@@ -239,9 +242,17 @@ function buildStreetDetails(scene, colliders = []) {
       const corners = [
         { sx: 1, sz: -1, armDir: -1 },
         { sx: -1, sz: 1, armDir: 1 }
-      ];
+      ].filter((c) => site.core || (c.sx > 0 ? site.ne : site.sw));
+      // (and where neither of those takes a mast (an odd corner: a plaza, a ramp, a cut corner), one on the NW or SE
+      // corner, its arm over the avenue all the same)
+      corners.push({ sx: -1, sz: -1, armDir: 1, fallback: true }, { sx: 1, sz: 1, armDir: -1, fallback: true });
+      // (site.masts: the masts actually placed here. road-network.js makes a junction a signal only where it is > 0, so
+      // the traffic never stops at a light nobody can see; on phone and low, one mast: the first corner that takes one,
+      // the other tried when the first fails its curb, plaza, arm or pole-clearance check)
+      site.masts = 0;
 
       for (const c of corners) {
+        if ((oneMast && !site.core && site.masts > 0) || (c.fallback && site.masts > 0)) break;
         let px = ave.x + c.sx * cornerOffsetX;
         let pz = st.z + c.sz * cornerOffsetZ;
         if (!isOnCurbIsland(px, pz, 0.55) || inPlaza(px, pz, 1.0)) {
@@ -259,6 +270,7 @@ function buildStreetDetails(scene, colliders = []) {
         if (blockAt(px + c.armDir * 3.1, pz) || !isClearOfPoles(px, pz, 6.0)) continue;
         placedPoles.push({ x: px, z: pz });
         addFootprint(px, pz, 0.5, 0.5);
+        site.masts++;
 
         // Vertical pole (6.4m tall)
         dummy.position.set(px, 3.3, pz);
@@ -496,13 +508,19 @@ function buildStreetDetails(scene, colliders = []) {
 
   addMatrixArrayInstanced(unitCyl, poleMetalMat, poleMatrices);
   addMatrixArrayInstanced(unitBox, poleMetalMat, armMatrices);
-  addMatrixArrayInstanced(signalHousingGeo, nycYellowSignalMat, yellowBoxMatrices);
+  // (nycdata: with ~1,400 signalised junctions the masts' small parts were ~100 more draws a frame; their housings,
+  // blades and walk signals now go at ~2-3 px (scene-culling.js userData.cullScale), the lenses still read from afar)
+  const soon = (inst, k = 0.45) => { if (inst) inst.userData.cullScale = k; return inst; };
+  soon(addMatrixArrayInstanced(signalHousingGeo, nycYellowSignalMat, yellowBoxMatrices));
   addMatrixArrayInstanced(signalLensGeo, aveSignalLensMat, aveLensMatrices, false);
   addMatrixArrayInstanced(signalLensGeo, streetSignalLensMat, streetLensMatrices, false);
-  addMatrixArrayInstanced(unitBox, streetBladeMat, streetBladeMatrices);
-  addMatrixArrayInstanced(walkHousingGeo, nycYellowSignalMat, walkBoxMatrices);
-  addMatrixArrayInstanced(walkPanelGeo, walkSignalGlow, walkBoxMatrices, false);
-  addMatrixArrayInstanced(lampHousingGeo, poleMetalMat, lampHeadMatrices);
+  // (nycdata: the blades, the walk signals and the lamp heads cast no shadow: palm-sized at 3-6 m, their shadows were
+  // a shadow-pass draw per chunk each, and there are ~20x more masts with the mapped signals; they still receive one)
+  const noCast = (inst) => { if (inst) inst.receiveShadow = true; };
+  noCast(soon(addMatrixArrayInstanced(unitBox, streetBladeMat, streetBladeMatrices, false)));
+  noCast(soon(addMatrixArrayInstanced(walkHousingGeo, nycYellowSignalMat, walkBoxMatrices, false)));
+  soon(addMatrixArrayInstanced(walkPanelGeo, walkSignalGlow, walkBoxMatrices, false), 0.3);
+  noCast(addMatrixArrayInstanced(lampHousingGeo, poleMetalMat, lampHeadMatrices, false));
   addMatrixArrayInstanced(lampLensGeo, lampBulbGlow, lampHeadMatrices, false);
   const pedPosts = addMatrixArrayInstanced(pedLampPostGeo, poleMetalMat, pedPostMatrices);
   // ~28k posts: they cast as 4-sided base + shaft (16 triangles instead of 120; scene-culling.js shadow stand-ins)
@@ -1025,6 +1043,38 @@ function buildStreetDetails(scene, colliders = []) {
       }
     }
   }
+  // E. Street trees as mapped (GEO.trees, tools/geo-props.mjs: OpenStreetMap's trees and tree rows), on the sidewalks
+  //    only (the parks keep their own), where no tree above stands within 6 m; the high tier only
+  {
+    const T = window.NYC.GEO.trees || [];
+    // (not on the phone and low tiers: ~4.8k more trees were ~250 more draws a frame there)
+    const phone = ['phone', 'low'].includes(window.NYC.quality && window.NYC.quality.tier);
+    const grid = new Map();
+    const cell = (x, z) => Math.floor(x / 8) * 65536 + Math.floor(z / 8);
+    const put = (x, z) => { const k = cell(x, z); (grid.get(k) || grid.set(k, []).get(k)).push(x, z); };
+    for (const t of treePositions) put(t.x, t.z);
+    const clear = (x, z) => {
+      for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) {
+        const c = grid.get(cell(x, z) + i * 65536 + j);
+        if (c) for (let k = 0; k < c.length; k += 2) if ((c[k] - x) ** 2 + (c[k + 1] - z) ** 2 < 36) return false;
+      }
+      return true;
+    };
+    let added = 0;
+    const off = phone || (typeof location !== 'undefined' && /[?&]mtrees=off\b/.test(location.search));
+    for (let i = 0; !off && i + 1 < T.length; i += 2) {
+      const x = T[i], z = T[i + 1];
+      if (!clear(x, z)) continue;
+      const before = treePositions.length;
+      // (an avenue front: the roadway beside it east or west; else a side-street curb)
+      const acrossX = !blockAt(x - 4, z) || !blockAt(x + 4, z);
+      const r = hashPos(x, 6.7, z);
+      addStreetTree(x, z, 0.6 + r * 0.2, mixSpecies(hashPos(z, 1.7, x), 0.4, 0.35), acrossX,
+        acrossX ? {} : { pitRot: Math.PI / 2, grate: false });
+      if (treePositions.length > before) { put(x, z); added++; }
+    }
+    window.NYC.mappedStreetTrees = added;
+  }
   // Procedural trees (js/trees.js): species skeletons with leaf-spray cards, instanced per spatial cell, species,
   // variant & level of detail, each tree's level following the camera. Only the trees clear of the buildings are
   // planted (Mog City: after Slop New York 565a6c4), and only they get pits, props kept off them and a trunk to hit
@@ -1035,6 +1085,7 @@ function buildStreetDetails(scene, colliders = []) {
   sidewalkTreePositions = sidewalkTreePositions.filter((t) => treeField.sites.has(t));
   const plantedTrees = treePositions.filter((t) => treeField.sites.has(t));
   console.info(`[streetDetails] ${treeField.stats.trees} trees of ${candidateTrees}, ${treeField.stats.smaller} planted smaller to clear the buildings (${sidewalkTreePositions.length} street trees of ${candidateStreetTrees})`);
+  window.NYC.treeField = treeField; // (Mog City: its hide(), for a story set where trees stand)
   window.NYC.treeStats = { planted: treeField.stats.trees, candidates: candidateTrees, smaller: treeField.stats.smaller, street: sidewalkTreePositions.length, streetCandidates: candidateStreetTrees };
 
   const grateMat = createTreeGrateMaterial();
@@ -1248,6 +1299,7 @@ function buildStreetDetails(scene, colliders = []) {
 
   const STREETLIGHT_SPOT_POOL = 36;
   const STREET_POINT_POOL = 48;
+  let lampGrid = null;
   const STREETLIGHT_DIST = 115;
   const STREETLIGHT_DIST_SQ = STREETLIGHT_DIST * STREETLIGHT_DIST;
   const STREET_POINT_DIST = 110;
@@ -1307,9 +1359,23 @@ function buildStreetDetails(scene, colliders = []) {
     const fwdX = -me[8];
     const fwdZ = -me[10];
 
+    // (the lamps in a 100 m grid, built once: only the cells within reach are looked at, not every lamp in the city)
+    if (!lampGrid) {
+      lampGrid = new Map();
+      for (const s of cobraLampSites) {
+        const k = Math.floor(s.x / 100) * 4096 + Math.floor(s.z / 100);
+        (lampGrid.get(k) || lampGrid.set(k, []).get(k)).push(s);
+      }
+    }
     let cobraCount = 0;
-    for (let i = 0; i < cobraLampSites.length; i++) {
-      const s = cobraLampSites[i];
+    const reach = cy < STREETLIGHT_DIST ? Math.sqrt(STREETLIGHT_DIST_SQ - cy * cy) : -1;
+    const ci0 = Math.floor((cx - reach) / 100), ci1 = Math.floor((cx + reach) / 100);
+    const cj0 = Math.floor((cz - reach) / 100), cj1 = Math.floor((cz + reach) / 100);
+    for (let ci = ci0; reach >= 0 && ci <= ci1; ci++) for (let cj = cj0; cj <= cj1; cj++) {
+     const cell = lampGrid.get(ci * 4096 + cj);
+     if (!cell) continue;
+     for (let i = 0; i < cell.length; i++) {
+      const s = cell[i];
       if (s.out) continue; // (Mog City: knocked down, wagmi/crash)
       const dx = s.x - cx;
       const dz = s.z - cz;
@@ -1321,6 +1387,7 @@ function buildStreetDetails(scene, colliders = []) {
       if (effDist >= STREETLIGHT_DIST) continue;
       s._effDist = effDist;
       activeCobras[cobraCount++] = s;
+     }
     }
     activeCobras.length = cobraCount;
     if (cobraCount > 1) activeCobras.sort((a, b) => a._effDist - b._effDist);

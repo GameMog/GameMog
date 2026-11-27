@@ -24,7 +24,7 @@ import { PROFILES, nameOf } from './profiles.js';
 import { CreatureFighter } from './fighter.js';
 import { createHerd } from './herd.js';
 import { warm } from './voice.js';
-import { hdist, yawTo, rnd, fwd } from '../combat/util.js';
+import { hdist, yawTo, rnd, fwd } from '../combat/util.js'; import { importRetry } from '../net.js';
 
 const CAP = 8; // (creatures fighting at once, at most: the ninth waits for one of them to go)
 const Q = new URLSearchParams(location.search);
@@ -39,7 +39,7 @@ export async function install(W, c) {
     if (kits.has(id)) return kits.get(id);
     const p = loadCreature(id, { low: low() }).then(async (kit) => {
       // (a kind with a face (snarl.js: Old Silver's jaw, snarl and scowl): its morphs and mouth made before the precompile)
-      if (PROFILES[id]?.face) try { (await import('./snarl.js')).faceKit(kit, PROFILES[id].face); } catch (err) { console.warn('[creatures] face', id, err); }
+      if (PROFILES[id]?.face) try { (await importRetry(() => import('./snarl.js'))).faceKit(kit, PROFILES[id].face); } catch (err) { console.warn('[creatures] face', id, err); }
       try {
         const probe = kit.make({}), mat = probe.mesh.material.clone(); mat.alphaHash = true;
         const twin = kit.make({}); twin.mesh.material = mat;
@@ -106,7 +106,7 @@ export async function install(W, c) {
     const pos = o.pos, yaw = o.yaw ?? yawTo(pos, P.position);
     const f = new CreatureFighter(c, kit, Pf, { pos, yaw, height: o.height, name: o.name, heavy: o.heavy, stats: o.stats || {}, boss: o.boss || null, hold: o.hold || null });
     // (a role's look over the creature (looks.js): SF 2040's Deacon Vale on the knight)
-    if (o.look) try { (await import('./looks.js')).dressLook(f, o.look); } catch (e) { console.warn('[creatures] look', o.look, e.message); }
+    if (o.look) try { (await importRetry(() => import('./looks.js'))).dressLook(f, o.look); } catch (e) { console.warn('[creatures] look', o.look, e.message); }
     f.crew = h.crew; h.crew.enemies.push(f); c.enemies.push(f); h.fighters.push(f); h.crew.cleared = false;
     if (f.boss) { h.boss = f; c.boss = f; }
     if (h.crew.awake && !o.hold) f.wake(true);

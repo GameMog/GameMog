@@ -36,7 +36,7 @@ characters (a line break is allowed in copy only), and braces only as **tokens**
 | `cast.<suit>.body` | one of the seven men | which man's body and face plays this Suit: the seven must be a permutation (each body once). A new face is not possible (faces are baked in the models) |
 | `cast.<id>.voice` | object | the browser voice for this character's **changed** lines: `pitch` 0.5-1.6, `rate` 0.7-1.4, `prefer` `male`/`female`/`any` (which of the browser's English voices to pick). Unchanged lines keep their recording |
 | `car.paint` | `#RRGGBB` | Dan's car's paint (`#E7E7E3`) |
-| `lines.<id>` | `[speaker, text]` | every spoken line (462), by frozen id. The speaker is fixed (a cast id); the text is the pack's. An opening line must fit its window (limits.json); others at most twice the default length (24 at least, 220 at most) |
+| `lines.<id>` | `[speaker, text]` | every spoken line (540), by frozen id. The speaker is fixed (a cast id: one of the speakers, Rook among them since Mission 4); the text is the pack's. An opening line must fit its window (limits.json); others at most twice the default length (24 at least, 220 at most) |
 | `copy.<id>` | text | every other moggable string: objectives (each string part on its own: `"Follow the "`, the coloured noun `"van"`, `". Don't get too close."`), help, fail reasons, tips and choices, place cards, act and mission titles, captions, DMs, the phone's screens, counters, map labels, canvas signs. Ids read `<scene>.<kind>.<first-words>` |
 | `difficulty` | object | `enemyHp` 0.6-1.6 and `enemyDamage` 0.6-1.6 (multipliers on every Suit), `heroHp` 60-200 (Dan's health, 100), `crewExtra` -1..2 (men added to each fight's crew, at least one stays), `chaseSpeed` 0.8-1.25 (the getaway's pursuers) |
 | `consent` | object, optional | GameMog's consent record (real people, Phase C). Mog City carries it through untouched and never shows it; at most 4000 characters as JSON |
@@ -83,8 +83,18 @@ with a dev `?host=`, the story routes on that host are accepted too (Phase C's d
 - `pack` is the schema version. A change to the schema is `pack: 2`, with a note in
   `MogCity/.scratch/moggable/SCHEMA-FROZEN.md`.
 - `base` names the default pack whose ids a pack uses. Ids are frozen in `assets/story/ids.json`: re-running the
-  extractor keeps an id for the same speaker and words (a line) or the same literal (copy). When a release adds or
-  removes lines or copy, `base` becomes `mog-city@2`, and the game fills a `@1` pack's missing ids from the default.
+  extractor keeps an id for the same speaker and words (a line) or the same literal (copy); a line whose first words stay
+  keeps its id with new words. When a release retires ids (a rewritten scene), `assets/story/retired.json` (kept by
+  hand) lists each one with its successor (`to`, or `null`), its old words and the release it was last in, and each id
+  kept for new words under `reworded` with its old words. `extract.mjs` refuses to run while an id that left `ids.json`
+  is missing from it, checks every successor, and carries the table into `limits.json` as `retired`.
+  `wagmi/story/upgrade.js` `upgradePack(pack, base, limits)` brings a pack made on an older base up to this one before
+  `validatePack`: each retired id dropped (its Mog-written words carried to a successor of the same speaker, within the
+  successor's limit; copy is never carried), a reworded line still in its old default words given the new ones, and the
+  ids the pack lacks filled from the default. A pack holding no retired id is returned as it is, so a current pack is
+  validated exactly as before; `base` stays `mog-city@1` (the schema is unchanged). `tests/story-default.test.mjs`
+  upgrades r16's own default (`tools/story/test-packs/base-r16.json`) and validates it. GameMog copies `upgrade.js`
+  beside its copy of `schema.js` (it imports `render` from it).
 
 ## Tests
 

@@ -10,15 +10,46 @@ The city this game is built on is Slop New York by Mr.doob, under the MIT Licens
 Some city code is ported from Slop New York's newer commits by Mr.doob, under the same MIT License
 (see LICENSE); each ported part names its commit in a short header comment.
 
+The high quality lighting tier (js/sky-occlusion.js, and the parts of js/tsl-materials.js, cities/sf/js/tsl-materials.js,
+js/cars.js, cities/sf/js/actor-models.js and cities/sf/js/fleet-models.js marked as such) ports the sky occlusion from a
+height map of the buildings, the clearcoat vehicle paint and the hero reflection probe from Ben Houston's enhanced fork of
+Slop New York (https://github.com/bhouston/slop-newyork, branch ssr-brdf, commits aa01158, a924635, a53ddb3, da66163
+and 7f4a50e; write-up https://ben3d.ca/blog/enhanced-slop-new-york-lighting), under the same MIT License (Copyright (c)
+2026 Mr.doob, the fork's licence file; see LICENSE). The skin's light through it (wagmi/storyrun/polish.js) follows the
+translucency term of three.js's MeshSSSNodeMaterial (MIT, Copyright (c) 2010-2026 three.js authors).
+
+
+manhattan-free-roam (Chicago's river bridges)
+---------------------------------------------
+Portions adapted from manhattan-free-roam (https://github.com/huangserva/manhattan-free-roam), Copyright (c) 2026 The manhattan-free-roam authors, MIT License.
+  - cities/sf/js/bascule.js: the bridge helpers of its src/bridges.js (Grid, segments, orientedEdge, roadPaths,
+    pointAt, bounds, insideRing, waterMap, shorelineStations and structureBoxes' beam), ported to this engine.
+    The MIT License's text:
+    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+    documentation files (the "Software"), to deal in the Software without restriction, including without limitation
+    the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and
+    to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above
+    copyright notice and this permission notice shall be included in all copies or substantial portions of the
+    Software. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT
+    LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+    SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+    OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+    DEALINGS IN THE SOFTWARE.
 
 Map data
 --------
 The city's geography (js/nyc-geodata.js, made by tools/build-geodata.mjs): Central Park's features,
-the piers, the landmarks' footprints and the New Jersey shore are (c) OpenStreetMap contributors,
-available under the Open Database License (ODbL 1.0, https://opendatacommons.org/licenses/odbl/1-0/;
-https://www.openstreetmap.org/copyright). The borough line, the street centrelines and the parks are
-from NYC Open Data (NYC DCP Borough Boundaries, NYC Street Centerline (CSCL), NYC Parks Properties;
-https://opendata.cityofnewyork.us).
+the piers, the landmarks' footprints, the New Jersey shore and the street corners as mapped (traffic
+signals, marked mid-block crossings and street trees; tools/geo-props.mjs, read 15 Nov 2026) are
+(c) OpenStreetMap contributors, available under the Open Database License (ODbL 1.0,
+https://opendatacommons.org/licenses/odbl/1-0/; https://www.openstreetmap.org/copyright). The borough
+line, the street centrelines and the parks are from NYC Open Data (NYC DCP Borough Boundaries, NYC
+Street Centerline (CSCL), NYC Parks Properties; https://opendata.cityofnewyork.us).
+New York's buildings as mapped (js/nyc-looks.js, made by tools/geo-looks.py: heights, facade and roof
+colours and materials, roof shapes) are from Overture Maps Foundation's buildings theme (release
+2026-10-21.0), the footprints and their tags (c) OpenStreetMap contributors (ODbL 1.0), the heights
+also from the USGS 3D Elevation Program's lidar (a US government work, public domain); Overture's
+machine-traced footprints are left out.
 
 
 Slop San Francisco (?city=sf)
@@ -54,18 +85,33 @@ the MIT License in LICENSE; they remain under their author's terms.
     ffFinisher) were retargeted from Spiderbench's clips.
 
 
+Locomotion pack (assets/anim/loco-walk.glb, tools/loco/build.mjs)
+------------------------------------------------------------------
+Dan's walk, run and idle, and every forged body's on his clips, with a look-around idle, a swagger walk
+style and a phone call pose: Tripo AI's animation presets "walk", "run", "idle", "look_around", "swagger"
+and "make_a_call_01" (https://www.tripo3d.ai), generated on the owner's paid Tripo account (Tripo's terms:
+paid-plan output belongs to the user, commercial use allowed), retargeted onto Dan's rig; the walk with a
+procedural arm swing. The 'ual' walk style (walkUal) is Quaternius's Universal Animation Library
+(Standard) Walk_Loop, CC0 1.0 (https://quaternius.com), retargeted the same way.
+
+
 Bandai Namco Research Motion Dataset (motion capture)
 ----------------------------------------------------
 Motion data: Bandai Namco Research Motion Dataset, (c) 2022 Bandai Namco Research Inc., CC BY-NC 4.0
 (https://creativecommons.org/licenses/by-nc/4.0/; https://github.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset).
 These files are NOT covered by the MIT License in LICENSE; they remain under CC BY-NC 4.0: they may be used and
 shared for non-commercial purposes only, with this credit. The licence's text is in assets/anim/bandai/LICENSE.txt.
-They were changed: retargeted from the dataset's BVH files to this game's rigs (dan.glb's, fiona.glb's, gears.glb's
-and the city's walkers'), trimmed to loops, their travel taken out (in place) and their feet set on the ground;
+They were changed: retargeted from the dataset's BVH files to this game's rigs (dan.glb's, jane.glb's, fiona.glb's,
+gears.glb's, thug.glb's through the Suits' retargets of Dan's clips, and the city's walkers'), trimmed to loops, their travel taken out (in place) and their feet set on the ground;
 Fiona's and Gears' idles are one standing frame held with breathing added; in the game Dan's steps play on his legs
 alone, under his guard.
-  - (The Suits' clips, assets/anim/suits-dan.glb, are not from this dataset: since 29 Oct 2026 they are Dan's own
-    clips (dan.glb's) retargeted onto thug.glb's rig. The dataset's suits.glb pack was removed that day.)
+  - assets/characters/dan.glb: Dan's walk, jog, run and sprint (the takes walk_normal, run_active, run_masculinity
+    and dash_masculinity) and his standing idle's stance (the dataset's neutral stand), retargeted to his rig
+  - assets/characters/jane.glb: Jane's walk, retargeted to her rig
+  - assets/anim/suits-dan.glb: since 29 Oct 2026 the Suits' clips are Dan's own (dan.glb's) retargeted onto thug.glb's
+    rig, so their standing idle, walk, jog, run, sprint and side-steps are retargets of the Dan takes above (each of
+    their other clips comes from wherever the Dan clip it was made from comes). The dataset's own suits.glb pack was
+    removed that day.
   - assets/anim/bandai/rally-crowd-ped.json: the rally crowd's dances and cheers (dataset-1: dance-long,
     dance-short, normal; dataset-2: wave-both-hands, raise-up-both-hands, wave-right-hand; active, youthful)
   - assets/anim/bandai/dan-footwork.glb: Dan's step forward, back-pedal and side-steps in a fight (dataset-1:
@@ -117,10 +163,12 @@ Characters (assets/characters)
     (http://www.makehuman.org, CC0-1.0; Jane from GameMog's CC0 MakeHuman people pack), then shaped,
     dressed, recoloured and texture-baked for the game. Gears' beard and cap, Fiona's megaphone and
     shades and the Suits' glasses and earpieces are made in code.
-  - Their walk, idle, talk, phone and similar clips come from the CMU Graphics Lab Motion Capture
+  - Their talk, phone and similar everyday clips come from the CMU Graphics Lab Motion Capture
     Database (http://mocap.cs.cmu.edu), which Carnegie Mellon University provides free for all uses:
     it may be included in products, but the data itself may not be resold. The database was created
-    with funding from NSF EIA-0196217.
+    with funding from NSF EIA-0196217. Not these: Dan's walk, jog, run, sprint and standing stance,
+    Jane's walk, Fiona's run and Fiona's and Gears' standing idles are Bandai Namco takes, under
+    CC BY-NC 4.0 (see Bandai Namco Research Motion Dataset above).
   - Dan's freeflow fight moves (the ff* clips) are Spiderbench's, retargeted to his rig (see
     Spiderbench above).
 
@@ -285,9 +333,8 @@ Voices (assets/voice)
   - The Camp (the Occupy camp's crowd): synthesised with Kokoro-82M by hexgrad (Apache-2.0), eight of its
     stock voices (am_michael, af_sarah, am_adam, af_bella, am_onyx, af_kore, am_eric and af_jessica), run with
     kokoro-onnx (MIT), each line said by all eight a little apart and mixed into one crowd.
-  - Any character not yet voiced: placeholders made with the macOS speech voices (the `say` command). They
-    are meant to be replaced by recordings or synthesised voices like the others'. assets/voice/manifest.json records each line's source;
-    docs/VOICE-LINES.md is the line sheet and says how to drop new voices in.
+  - assets/voice/manifest.json records each line's source; docs/VOICE-LINES.md is the line sheet and says how to
+    drop new voices in.
 
 People: skin and cloth detail (assets/people/detail)
 ---------------------------------------------------
@@ -331,7 +378,7 @@ Town cars (assets/vehicles/fleet)
       "Generic civil service vehicles pack"  https://sketchfab.com/3d-models/8ff2a13f30914932a70c7950cfa58465
           (bus.glb, schoolbus.glb, ambulance.glb, firetruck.glb, garbage.glb, mailvan.glb, utility.glb, tow.glb, police20.glb, taxi20.glb)
       "Generic passenger car pack"  https://sketchfab.com/3d-models/20f9af9b8a404d5cb022ac6fe87f21f5
-          (minivan20.glb)
+          (minivan20.glb, pickup20.glb, suv20.glb, offroad20.glb)
   Changed: every badge and emblem, the number plates' characters, the tyres' sidewall lettering and the liveries'
   stickers, slogans and numbers removed (a plain POLICE cruiser, a cab with no company name); re-oriented,
   re-centred, merged onto one texture atlas, textures downscaled and WebP-encoded, simplified levels of detail
@@ -386,3 +433,64 @@ Hometown packages (tools/hometown, cities/pkg)
         courtesy, and it is given.
     Revisit this if a package is ever offered for download as data (then ODbL s.4.4 / 4.6 and CDLA s.2.1 apply to
     the file itself), or if the game ever shows the town as a map outside the full map (then that map's corner).
+
+manhattan-free-roam (Chicago's buildings)
+-----------------------------------------
+Portions adapted from manhattan-free-roam (https://github.com/huangserva/manhattan-free-roam), Copyright (c) 2026 The manhattan-free-roam authors, MIT License.
+  - tools/hometown/massing.py: the massing of a plain tall outline (setback tiers, a podium and plant-floor crown, a
+    copper pyramidal cap), ported from its tools/build-city.mjs massing() and inset().
+  - cities/sf/js/tsl-materials.js (createPreWarBuildingMaterial's window detail): the recessed reveal that slides with
+    the view, the whole floors lit late at night and the crown glow, ported from its src/shaders.js buildingMaterial.
+  Each file with ported code carries the line above as a header. The code is used under its MIT License:
+
+    Copyright (c) 2026 The manhattan-free-roam authors
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+    documentation files (the "Software"), to deal in the Software without restriction, including without limitation
+    the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and
+    to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all copies or substantial portions of
+    the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
+    THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+    CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+    IN THE SOFTWARE.
+  Its map data, pictures and other material (its ASSETS.md) are not used: no file of it ships here.
+
+
+oncyber (Mission 4's gallery: wagmi/gallery/frame.js, wagmi/gallery/tokens.js)
+-------------------------------------------------------------------------------
+  Parts of the gallery's art-slot code are adapted from oncyber (https://github.com/oncyberio/oncyber), under the
+  MIT License; each adapted file names what it took in its header. Code only: no oncyber model, avatar, scene, texture,
+  font or other asset is used (oncyber's frontend/public/models/ and cyber/ are not MIT-licensed). Its notice:
+
+  MIT License
+
+  Copyright (c) 2021-2026 Oncyber
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+
+  The gallery's art (the Regent, its statue, its portraits, its sigils) is Mog City's own, drawn in code; it is no
+  real artist's work, style or character. Its art slots can later show a real work by chain, contract and token id,
+  fetched at runtime in the player's browser from the work's own public metadata and image (never copied into this
+  repository or cached on its servers), with a credit line per piece; that is switched off and its list is empty
+  (wagmi/gallery/tokens.js).

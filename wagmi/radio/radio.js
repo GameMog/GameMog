@@ -14,7 +14,7 @@
 // the dial with ?stations=all (a dev switch): the game itself plays no music but the owner's.
 // Two decks (media elements: nothing decoded whole) crossfade at a song's end (and, for the old stations, in step at a
 // short track's loop).
-import { STATIONS } from './stations.js';
+import { STATIONS } from './stations.js'; import { fetchRetry } from '../net.js';
 
 // Mog Music: its folder (beside the page wherever the page is: resolved from this module) and its level (the songs are
 // mastered hot; this sits them about where the old stations' -16 LUFS did; a song's own `gain` in the manifest, if
@@ -90,7 +90,7 @@ export function createRadio(W, out) {
   const blobs = new Map(), urls = new Map(), KEEP = 6;
   const blob = (file) => {
     if (blobs.has(file)) { const p = blobs.get(file); blobs.delete(file); blobs.set(file, p); return p; }
-    blobs.set(file, fetch(file).then((r) => { if (!r.ok) throw new Error(file); return r.blob(); }).then((b) => { const u = URL.createObjectURL(b); urls.set(file, u); return u; }).catch((e) => { blobs.delete(file); throw e; }));
+    blobs.set(file, fetchRetry(file).then((r) => { if (!r.ok) throw new Error(file); return r.blob(); }).then((b) => { const u = URL.createObjectURL(b); urls.set(file, u); return u; }).catch((e) => { blobs.delete(file); throw e; }));
     if (blobs.size > KEEP) {
       const loaded = new Set([...(g ? g.decks.map((d) => d.el.src) : []), boom.d?.src]);
       for (const f of [...blobs.keys()]) {
@@ -151,7 +151,7 @@ export function createRadio(W, out) {
   // list: the manifest's songs; order: the shuffle (every song once a round, a new order each round, never the same
   // song twice running across rounds); pos: where in it; song, at, deck: the song stopped mid-way, to pick up again
   const mog = { list: null, p: null, order: [], pos: -1, song: null, at: 0, deck: null, ask: 0, fails: 0 };
-  const mogLoad = () => mog.p || (mog.p = fetch(MOG_DIR + 'manifest.json').then((r) => { if (!r.ok) throw new Error('no manifest (' + r.status + ')'); return r.json(); })
+  const mogLoad = () => mog.p || (mog.p = fetchRetry(MOG_DIR + 'manifest.json').then((r) => { if (!r.ok) throw new Error('no manifest (' + r.status + ')'); return r.json(); })
     .then((m) => { mog.list = (Array.isArray(m?.songs) ? m.songs : []).filter((x) => x && typeof x.file === 'string' && /^[a-z0-9-]+\.mp3$/.test(x.file)); MOG.tracks = mog.list; return mog.list; })
     // (no list (a fork without the songs, a network blip): nothing to play, asked again in 30 s)
     .catch((e) => { console.warn('[wagmi] Mog Music:', e.message || e); setTimeout(() => { mog.p = null; }, 30000); return []; }));

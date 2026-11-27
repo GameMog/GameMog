@@ -25,7 +25,7 @@ export const CAST = {
   Brick: { voice: 'Rocko (English (US))', rate: 198, pbas: 44, who: 'the Suits\' bouncer at Fiona\'s rally: an earpiece cord, a radio', direction: 'Loud, jumpy, a hype man turned bouncer.' },
   Bea: { voice: 'Samantha', rate: 170, who: 'Ms. Bea: a retired Bronx science teacher in her sixties who runs the Occupy camp\'s kitchen and its people\'s mic; JPBank took her house', direction: 'Warm, unhurried, commanding: a teacher who has never needed a microphone.' },
   Camp: { voice: 'Reed (English (US))', rate: 180, who: 'the Occupy JPBank camp in Washington Square: forty-odd people answering the people\'s mic', direction: 'A crowd, eight voices together in the build: ragged, outdoors, cheerful and loud.' },
-  // (not voiced yet: ready for his lines)
+  // (synthesised since 15 Nov, tts/picks.json: this macOS voice is only the fallback where the local renderer is missing)
   Rook: { voice: 'Reed (English (US))', rate: 205, pbas: 56, who: 'a junior on JPBank\'s security team who wants out (Mission 4)', direction: 'Nervous, quick, apologetic.' },
   default: { voice: 'Reed (English (US))', rate: 190, who: '', direction: '' },
 };
@@ -109,6 +109,10 @@ export const TWEAK = {
   'intro-dan-who-is-this': { take: 4 },
   'm2-dan-hi-jane-hi-moon': { take: 4 },
   'm2-dan-rook-the-getting-weird': { take: 4 },
+  // (rook-D's first takes of these drifted 4-5 semitones off his 170 Hz: 226, 224 and 126 Hz)
+  'm4-rook-owns-the-high-artwork': { take: 4 },
+  'm4-rook-you-came-alone': { take: 4 },
+  'm4-rook-i-was-in-that': { take: 4 },
   'm2-dan-mack-moneybags-did-his': { take: 8 },
   // (the story pass of 27 Oct: the first clones that drifted more than about 4 semitones off their voice, each given the
   // take of takes 4, 8 and 12 nearest its voice: .scratch/polish/voices/takes.mjs, check/rawf0.mjs)
@@ -141,3 +145,26 @@ export const TWEAK = {
   'm2-jane-he-picked-it-he': { redo: true },
   'm2-jane-hang-back-if-they': { redo: true },
 };
+
+// a line's delivery (the dialogue spec's D2 `how`): the line's own (its beat in the source, { how: 'urgent' }), else
+// read off its direction note above, else none. HOW_FX: what each does to a scene line in the build (D5/D9): its pitch
+// (st, semitones, at most 1 either way), a Kokoro voice's speed (at most 8 % either way; a Qwen take is never
+// stretched) and its level against the speaker's own (db: a shout 3 up, a hushed line 4 down)
+export const HOW_FX = {
+  warm: { st: -0.3, speed: 0.97, db: -0.5 }, tease: { st: 0.5, speed: 1.03, db: 0 }, deadpan: { st: -0.6, speed: 0.97, db: -1 },
+  urgent: { st: 0.6, speed: 1.07, db: 1 }, angry: { st: -0.3, speed: 1.04, db: 2 }, shout: { st: 1, speed: 1.05, db: 3 },
+  scared: { st: 0.8, speed: 1.06, db: -0.5 }, hushed: { st: -0.4, speed: 0.95, db: -4 }, hesitant: { st: -0.2, speed: 0.93, db: -1.5 },
+  sad: { st: -0.8, speed: 0.93, db: -2 }, smug: { st: -0.5, speed: 0.96, db: 0 },
+};
+const FROM_NOTE = [
+  [/\bshout|full voice|yell/i, 'shout'], [/\bangry|furious|cold on\b/i, 'angry'], [/\bscared|worried|nervous|panick/i, 'scared'],
+  [/\burgent|out of breath|all business|fast\b|quick\b/i, 'urgent'], [/\bsmug|savour|polished|mock-friendly/i, 'smug'],
+  [/\bteas|taunt|sarcastic|grin/i, 'tease'], [/\bdeadpan|\bdry\b|\bflat\b/i, 'deadpan'], [/\bwarm|fond|tender|sincere/i, 'warm'],
+  [/\bquiet|\blow\b|hush/i, 'hushed'], [/\bdisbelief|hesitan|unsure/i, 'hesitant'], [/\bgrim|\bsad\b|tired/i, 'sad'],
+];
+export function howOf(L) {
+  if (L.how && HOW_FX[L.how]) return L.how;
+  const note = DIRECTION[L.id]; if (!note) return null;
+  for (const [re, how] of FROM_NOTE) if (re.test(note)) return how;
+  return null;
+}
