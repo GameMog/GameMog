@@ -82,7 +82,8 @@
   "time": "twilight",
   "season": "autumn",
   "weather": "clear",
-  "holiday": []
+  "holiday": [],
+  "nightWeather": "drizzle"
  },
  "hero": "mandi",
  "ride": "kastell",
@@ -289,13 +290,13 @@
    "@": "park152",
    "name": "the north branch, upstream"
   },
+  "north-ave": {
+   "@": "bank212",
+   "name": "Michigan Ave, north of the river"
+  },
   "bridge": {
    "@": "parking73",
    "name": "the river bridge"
-  },
-  "bridge-lot": {
-   "@": "parking186",
-   "name": "the lot past the bridge"
   },
   "dawn": {
    "@": "park137",
@@ -2693,6 +2694,7 @@
      "vehicle": "kastell",
      "start": "@warehouse",
      "time": "midnight",
+     "weather": "rain",
      "card": "slam",
      "verbs": [
       "drive",
@@ -3460,6 +3462,7 @@
      "vehicle": "kastell",
      "start": "@south-lot",
      "time": "midnight",
+     "weather": "rain",
      "card": "slam",
      "verbs": [
       "drive",
@@ -3794,6 +3797,7 @@
      "vehicle": "kastell",
      "start": "@salon",
      "time": "midnight",
+     "weather": "mist",
      "card": "slam",
      "verbs": [
       "drive",
@@ -4108,6 +4112,7 @@
      "vehicle": "kastell",
      "start": "@upstream",
      "time": "midnight",
+     "weather": "rain",
      "card": "slam",
      "verbs": [
       "drive",
@@ -4176,17 +4181,61 @@
        ]
       },
       {
-       "type": "tail",
+       "type": "bridge",
+       "id": "bridge-up",
        "checkpoint": true,
+       "at": "@bridge",
+       "to": 12,
+       "dur": 3,
+       "near": 170,
+       "jump": {
+        "scale": 0.3,
+        "side": "right",
+        "ahead": -7,
+        "out": 14,
+        "up": 0.5,
+        "lead": 6,
+        "fov": 44,
+        "key": 80,
+        "hold": 0.7
+       },
+       "do": [
+        {
+         "type": "say",
+         "at": 0.2,
+         "who": "jay",
+         "text": "The bells. Those are the bridge bells.",
+         "wait": false
+        },
+        {
+         "type": "say",
+         "at": 2.6,
+         "who": "jay",
+         "text": "Mandi. Mandi, the bridge is going up. The bridge is going up!",
+         "wait": false
+        },
+        {
+         "type": "say",
+         "at": 5.6,
+         "who": "mandi",
+         "text": "I know.",
+         "wait": false,
+         "how": "deadpan"
+        }
+       ]
+      },
+      {
+       "type": "tail",
        "name": "Diego's white limo",
        "car": "sedan",
        "color": "#F4F2EC",
        "route": [
         "@upstream",
+        "@north-ave",
         "@bridge"
        ],
        "ahead": 60,
-       "speed": 18,
+       "speed": 20,
        "ring": 10,
        "spotTime": 10,
        "lostDist": 320,
@@ -4212,91 +4261,26 @@
          "who": "jay",
          "text": "I'm holding the sponge!",
          "wait": false
-        },
-        {
-         "type": "say",
-         "at": 60,
-         "who": "jay",
-         "text": "The bells. Those are the bridge bells.",
-         "wait": false
         }
        ]
       },
       {
-       "type": "cutscene",
-       "id": "jump",
-       "shots": [
-        {
-         "cam": {
-          "rel": "player",
-          "right": -6,
-          "up": 2.5,
-          "fwd": 18
-         },
-         "look": "player",
-         "fov": 46,
-         "dur": 4,
-         "sub": "THE BRIDGE BELLS. THE LEAVES START TO RISE. THE LIMO MAKES IT ACROSS."
-        },
-        {
-         "cam": {
-          "rel": "player",
-          "right": 5,
-          "up": 1.2,
-          "fwd": -8
-         },
-         "look": {
-          "rel": "player",
-          "fwd": 30
-         },
-         "fov": 50,
-         "dur": 4,
-         "lines": [
-          {
-           "who": "jay",
-           "text": "Mandi. Mandi, the bridge is going up. The bridge is going up!"
-          },
-          {
-           "who": "mandi",
-           "text": "I know.",
-           "how": "deadpan"
-          }
-         ]
-        },
-        {
-         "cam": {
-          "rel": "player",
-          "right": 14,
-          "up": 6,
-          "fwd": 10
-         },
-         "to": {
-          "rel": "player",
-          "right": 10,
-          "up": 9,
-          "fwd": 30
-         },
-         "look": {
-          "rel": "player",
-          "fwd": 20
-         },
-         "fov": 58,
-         "dur": 5,
-         "sub": "THE KASTELL CLEARS THE GAP. THE TOWERS LIT BEHIND HER. A TRAIN CROSSING, FAR OFF."
-        }
-       ]
+       "type": "drive",
+       "to": "@bridge",
+       "radius": 24,
+       "objective": "Pull up on the limo."
       },
       {
        "type": "car",
        "name": "limo8",
        "car": "sedan",
        "color": "#F4F2EC",
-       "at": "@bridge-lot"
+       "at": "@bridge"
       },
       {
        "type": "npc",
        "who": "diego",
-       "at": "@bridge-lot"
+       "at": "@bridge"
       },
       {
        "type": "say",
@@ -4309,7 +4293,7 @@
        "enemies": [
         "diego"
        ],
-       "arena": "@bridge-lot",
+       "arena": "@bridge",
        "win": "ko-all",
        "rules": "lesson",
        "timer": 20,

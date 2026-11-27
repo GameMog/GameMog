@@ -10,6 +10,7 @@ import { ownRecord, OWN_RECORD } from './storykit-own-world.ts';
 import { showcaseProblems, SHOWCASE_ID, SHOWCASE_RECORD } from './storykit-showcase.ts';
 import { jhProblems, jhGate, jhBodyProblems, JH_RECORD, JH_DIR, BODIES, BODY_SOURCES, JH_CREDIT } from './storykit-showcase-jensen.ts';
 import { mrGate, PREMIUM } from './storykit-showcase-mandi.ts';
+import { gateHometown } from '../storykit/hometown/hometown-gate.ts';
 import { gatePack, toRunnerPack, lineHash, type GateResult } from '../storykit/pack/gate.ts';
 import { PLACES, CAM_POINTS } from '../storykit/pack/cities.ts';
 import { SCHEMA, SHOWCASE, SHOWCASE_PACKS, MOGCITY_STUBS, HERO_CARS, HERO_CAR_IDS, SET_ROOMS } from '../storykit/pack/schema.mjs';
@@ -366,10 +367,19 @@ export function runStoryPackChecks(ok: Ok) {
   // Mandi's Revenge (25 Nov): a showcase in a hometown (Chicago), gated with its town's table and pinned to it; its calls
   // on the foldable phone, the hero in the Kastell; its two leads are private premium bodies, so no GLB of theirs is here
   {
-    const { g, town } = mrGate(), P = g.pack;
+    const { g, town, raw } = mrGate(), P = g.pack;
     ok("mandis-revenge: passes its town's gate as a showcase (Chicago), pinned to that town", g.ok && !g.warnings.length && JSON.stringify(P?.base?.hometown?.tiles) === JSON.stringify(town.tileSet.hash), g.problems.concat(g.warnings).slice(0, 3).join(' | '));
     ok("mandis-revenge: the calls are on the foldable phone and the hero drives the Kastell (stock gwagon), the audition on her laptop", !!P && P.calls?.style === 'fold' && P.vehicles.find((v: any) => v.id === P.ride)?.stock === 'gwagon'
       && P.acts[0].missions[0].steps[0].type === 'vcall' && P.acts[0].missions[0].steps[0].device === 'laptop');
+    // (27 Nov: the night's weather and the river bridge, MogCity chicago-weather js/weather.js, cities/sf/js/bascule.js)
+    const m8 = P?.acts.flatMap((a: any) => a.missions).find((m: any) => m.id === 'BU-8'), br = m8?.steps.find((x: any) => x.type === 'bridge');
+    const tail8 = m8?.steps.find((x: any) => x.type === 'tail');
+    ok("mandis-revenge: every night mission drizzles (dressing.nightWeather), and M8's bridge is a set piece: it rises (10-15 degrees) as the Kastell comes down Michigan Ave behind the limo, with the hero shot (jump), before the tail that leads onto it",
+      !!P && P.dressing.nightWeather === 'drizzle' && !!br && br.near > 0 && br.to >= 10 && br.to <= 15 && !!br.jump && !!br.checkpoint && m8.steps.indexOf(br) < m8.steps.indexOf(tail8) && tail8.route.includes('@north-ave') && !m8.steps.some((x: any) => x.type === 'cutscene' && x.id === 'jump'));
+    { const bad = (f: (p: any) => void) => { const q = JSON.parse(JSON.stringify(raw)); f(q); return gateHometown(q, town, { showcase: true }); };
+      const g1 = bad((q) => { q.acts[3].missions[1].weather = 'hail'; }), g2 = bad((q) => { q.dressing.nightWeather = 'snowstorm'; }), g3 = bad((q) => { q.acts[3].missions[1].steps.find((x: any) => x.type === 'bridge').at = '@nowhere'; }),
+        g4 = bad((q) => { q.acts[3].missions[1].steps.find((x: any) => x.type === 'bridge').to = 40; });
+      ok("mandis-revenge: a mission's weather and the night's are closed words, a bridge stands at a place of the town, and a jump off a steep leaf is warned", !g1.ok && !g2.ok && !g3.ok && g4.ok && g4.warnings.some((w: string) => /degrees/.test(w)), [g1.ok, g2.ok, g3.ok, g4.warnings.join(' | ')].join(' / ')); }
     const glbs = readdirSync('public/storykit', { recursive: true }).map(String).filter((f) => /\.glb$/.test(f) && PREMIUM.some((id) => new RegExp(`(^|/)(mr-)?${id}\\.glb$`).test(f)));
     ok("mandis-revenge: no premium body (Mandi's, Jay's) is in the public repo", !glbs.length, glbs.join(' '));
   }

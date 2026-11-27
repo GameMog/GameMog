@@ -75,8 +75,10 @@ const places = {
   'stadium-lot': { '@': 'parking165', name: "the stadium's lot" },
   riverwalk: { '@': 'park62', name: 'the riverwalk' },
   upstream: { '@': 'park152', name: 'the north branch, upstream' },
+  // (M8's run-up: Michigan Ave north of the river, the limo's way onto the bridge going south, a straight 200 m to the
+  // north leaf's hinge; the bridge itself is the bascule nearest parking73, Michigan Ave's: MogCity cities/sf/js/bascule.js)
+  'north-ave': { '@': 'bank212', name: 'Michigan Ave, north of the river' },
   bridge: { '@': 'parking73', name: 'the river bridge' },
-  'bridge-lot': { '@': 'parking186', name: 'the lot past the bridge' },
   dawn: { '@': 'park137', name: 'the riverwalk at dawn' },
 };
 
@@ -329,7 +331,7 @@ const D2 = { type: 'vcall', id: 'd2', title: 'DV · Private Line', time: 'night'
     V('diego', 'Ten o\'clock, leopard. Regards.'),
   ] };
 
-const M3 = { id: 'LL-3', title: 'Lower Level', vehicle: 'kastell', start: '@warehouse', time: 'midnight', card: 'slam', verbs: ['drive', 'escape'],
+const M3 = { id: 'LL-3', title: 'Lower Level', vehicle: 'kastell', start: '@warehouse', time: 'midnight', weather: 'rain', card: 'slam', verbs: ['drive', 'escape'],
   stakes: "Brick wants the van back. He's very polite about it.", passLine: 'Ten o\'clock. Forty thousand. And every single duck.',
   steps: [
     { type: 'transition', kicker: '8:46 PM', text: 'THE WAREHOUSES' },
@@ -465,7 +467,7 @@ const AFTER6 = { type: 'vcall', id: 'a6', title: 'Rescued (Mostly)', time: 'nigh
     V('jay', "...That's fair. That's a fair room."),
   ] };
 
-const M6 = { id: 'WW-6', title: 'Wrong Way Jay', vehicle: 'kastell', start: '@south-lot', time: 'midnight', card: 'slam', verbs: ['drive', 'tail', 'sneak', 'escape'],
+const M6 = { id: 'WW-6', title: 'Wrong Way Jay', vehicle: 'kastell', start: '@south-lot', time: 'midnight', weather: 'rain', card: 'slam', verbs: ['drive', 'tail', 'sneak', 'escape'],
   stakes: "Brick says Jay's washing the limo at the stadium lot. Brick didn't tell you.", passLine: 'Jay is in the car. The jacket is not his.',
   steps: [
     { type: 'transition', kicker: '9:48 PM', text: 'THE LAKEFRONT' },
@@ -518,7 +520,7 @@ const PHONES = { type: 'cutscene', id: 'phones', shots: [
     lines: [L('kiki', 'Forty-one thousand watching. Hold on, hold on, the comments just found out about the keel.'), L('mandi', 'And Diego?'), L('kiki', 'Diego just found out about the comments.')] },
 ] };
 
-const M7 = { id: 'DN-7', title: 'Double or Nothing', vehicle: 'kastell', start: '@salon', time: 'midnight', card: 'slam', verbs: ['drive', 'follow', 'fight'],
+const M7 = { id: 'DN-7', title: 'Double or Nothing', vehicle: 'kastell', start: '@salon', time: 'midnight', weather: 'mist', card: 'slam', verbs: ['drive', 'follow', 'fight'],
   stakes: "The big race. Gloria's ledger, Kiki's stream, and nine hundred and eighty sevens.", passLine: 'A thousand sevens won. The house lost.',
   steps: [
     { type: 'transition', kicker: '10:31 PM', text: 'THE BIG DERBY' },
@@ -552,13 +554,16 @@ const D3 = { type: 'vcall', id: 'd3', title: 'DV · Private Line', time: 'night'
     V(P, 'Jay. Seatbelt.'),
   ] };
 
-const JUMP = { type: 'cutscene', id: 'jump', shots: [
-  { cam: { rel: 'player', right: -6, up: 2.5, fwd: 18 }, look: 'player', fov: 46, dur: 4, sub: 'THE BRIDGE BELLS. THE LEAVES START TO RISE. THE LIMO MAKES IT ACROSS.' },
-  { cam: { rel: 'player', right: 5, up: 1.2, fwd: -8 }, look: { rel: 'player', fwd: 30 }, fov: 50, dur: 4,
-    lines: [L('jay', "Mandi. Mandi, the bridge is going up. The bridge is going up!"), L('mandi', 'I know.', { how: 'deadpan' })] },
-  { cam: { rel: 'player', right: 14, up: 6, fwd: 10 }, to: { rel: 'player', right: 10, up: 9, fwd: 30 }, look: { rel: 'player', fwd: 20 }, fov: 58, dur: 5,
-    sub: 'THE KASTELL CLEARS THE GAP. THE TOWERS LIT BEHIND HER. A TRAIN CROSSING, FAR OFF.' },
-] };
+// (the jump is played, not cut to: the bridge step rises as the Kastell comes down Michigan Ave behind the limo (near),
+// the bells and Jay's lines over it, and the hero shot is the engine's (jump): slow motion as she leaves the north leaf,
+// the lens flying alongside her on the river's side, the Kastell lit against the Loop's towers, handed back as she lands)
+const JUMP = { type: 'bridge', id: 'bridge-up', checkpoint: true, at: '@bridge', to: 12, dur: 3, near: 170,
+  jump: { scale: 0.3, side: 'right', ahead: -7, out: 14, up: 0.5, lead: 6, fov: 44, key: 80, hold: 0.7 },
+  do: [
+    SAYAT(0.2, 'jay', 'The bells. Those are the bridge bells.'),
+    SAYAT(2.6, 'jay', "Mandi. Mandi, the bridge is going up. The bridge is going up!"),
+    SAYAT(5.6, 'mandi', 'I know.', { how: 'deadpan' }),
+  ] };
 
 const FINAL = { type: 'vcall', id: 'final', title: "Velvet Lake Casting · Swim '27 · Look 14", time: 'night', end: 'leave', people: [
   { who: 'simone', office: 'startup', label: 'Simone Vance', sub: 'Velvet Lake Casting' },
@@ -582,20 +587,23 @@ const FINAL = { type: 'vcall', id: 'final', title: "Velvet Lake Casting · Swim 
     V(P, 'No.'),
   ] };
 
-const M8 = { id: 'BU-8', title: 'Bridge Up', vehicle: 'kastell', start: '@upstream', time: 'midnight', card: 'slam', verbs: ['drive', 'tail', 'fight'],
+const M8 = { id: 'BU-8', title: 'Bridge Up', vehicle: 'kastell', start: '@upstream', time: 'midnight', weather: 'rain', card: 'slam', verbs: ['drive', 'tail', 'fight'],
   stakes: 'Diego is leaving with the cash. The bridges go up at eleven.', passLine: "I said I'd get you back. I never said I'd take you back.",
   steps: [
     { type: 'transition', kicker: '10:58 PM', text: 'THE RIVER BRIDGES' },
     D3,
-    { type: 'tail', checkpoint: true, name: "Diego's white limo", car: 'sedan', color: '#F4F2EC', route: ['@upstream', '@bridge'], ahead: 60, speed: 18, ring: 10, spotTime: 10, lostDist: 320,
+    // (the bridge first, so a retry from its checkpoint arms it again: it waits for her near it, then rises)
+    JUMP,
+    { type: 'tail', name: "Diego's white limo", car: 'sedan', color: '#F4F2EC', route: ['@upstream', '@north-ave', '@bridge'], ahead: 60, speed: 20, ring: 10, spotTime: 10, lostDist: 320,
       objective: 'Catch the limo before the bridge.',
       during: [SAYAT(4, 'jay', "He's got a tiny flag on the hood. That's how you know he's evil."), SAYAT(30, 'mandi', 'Hold on to something.'),
-        SAYAT(34, 'jay', "I'm holding the sponge!"), SAYAT(60, 'jay', 'The bells. Those are the bridge bells.')] },
-    JUMP,
-    { type: 'car', name: 'limo8', car: 'sedan', color: '#F4F2EC', at: '@bridge-lot' },
-    { type: 'npc', who: 'diego', at: '@bridge-lot' },
+        SAYAT(34, 'jay', "I'm holding the sponge!")] },
+    // (the limo pulled up just past the bridge, on Michigan Ave: she lands, pulls up on it, and Diego gets out)
+    { type: 'drive', to: '@bridge', radius: 24, objective: 'Pull up on the limo.' },
+    { type: 'car', name: 'limo8', car: 'sedan', color: '#F4F2EC', at: '@bridge' },
+    { type: 'npc', who: 'diego', at: '@bridge' },
     say('diego', 'Leopard. I have never thrown a punch. I would like you to know I am about to.', { wait: true }),
-    { type: 'fight', enemies: ['diego'], arena: '@bridge-lot', win: 'ko-all', rules: 'lesson', timer: 20, objective: 'Settle up with Diego.',
+    { type: 'fight', enemies: ['diego'], arena: '@bridge', win: 'ko-all', rules: 'lesson', timer: 20, objective: 'Settle up with Diego.',
       during: [SAYAT(3, 'diego', 'Was that one? Did I throw one?'), SAYAT(9, 'mandi', 'That was a wave, Diego.'), SAYAT(15, 'diego', 'My loafers! These are Italian!')] },
     say('mandi', "Forty thousand, Diego. Jay's debt. Paid in full, in ducks.", { wait: true }),
     say('jay', "He fell in. He fell in the river with all the sevens. He's fine, he's floating. Everything in there floats."),
@@ -628,7 +636,9 @@ const pack = {
   look: 'cinematic',
   base: { engine: 'mogcity-1', city: 'hometown', cityBuild: `hometown-${lock.buildId}`.slice(0, 39),
     hometown: { place: lock.place, compiler: lock.buildId, tiles: lock.tiles, formatVersion: lock.formatVersion, grid: lock.grid, domain: lock.domain, origin: lock.origin, k0: lock.k0, gamma0: lock.gamma0, yOffset: lock.yOffset, waterLevel: lock.waterLevel } },
-  dressing: { time: 'twilight', season: 'autumn', weather: 'clear', holiday: [] },
+  // (the weather round the camera, MogCity js/weather.js: a drizzle on every night mission; the chases' own rain, the
+  // river's mist: each mission's `weather`)
+  dressing: { time: 'twilight', season: 'autumn', weather: 'clear', holiday: [], nightWeather: 'drizzle' },
   hero: 'mandi', ride: 'kastell', opening,
   hud: { calm: true },
   // (the hero's car: Mog City's Kastell (stock gwagon), the black luxury off-roader, paint only, no badges)

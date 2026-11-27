@@ -236,29 +236,29 @@ recorded; a clip is named by the hash of its text and its voice (`clip` below), 
 | 216 | `BU-8.s1.q2` | Diego Vale | I'm relocating, with the night's take, which is still technically mine. The bridges go up at eleven for the boats. | `be3c7913-116f80ef` |
 | 217 | `BU-8.s1.q5` | Diego Vale | By the time they come down, I am a rumour. Regards to the leopard. | `9d54e3bd-116f80ef` |
 | 218 | `BU-8.s1.q6` | Mandi Reyes | Jay. Seatbelt. | `ec2a7f89-017add21` |
-| 219 | `BU-8.s2.d0` | Jay | He's got a tiny flag on the hood. That's how you know he's evil. | `e439fa59-dba421c0` |
-| 220 | `BU-8.s2.d1` | Mandi Reyes | Hold on to something. | `72670064-017add21` |
-| 221 | `BU-8.s2.d2` | Jay | I'm holding the sponge! | `4d6447a5-dba421c0` |
-| 222 | `BU-8.s2.d3` | Jay | The bells. Those are the bridge bells. | `b9ae219f-dba421c0` |
-| 223 | `BU-8.s3.c1.l0` | Jay | Mandi. Mandi, the bridge is going up. The bridge is going up! | `99e35ba6-dba421c0` |
-| 224 | `BU-8.s3.c1.l1` | Mandi Reyes | I know. | `543caffb-8ea3dc8e` |
-| 225 | `BU-8.s6` | Diego Vale | Leopard. I have never thrown a punch. I would like you to know I am about to. | `ed952f21-116f80ef` |
-| 226 | `BU-8.s7.d0` | Diego Vale | Was that one? Did I throw one? | `a0155c53-116f80ef` |
-| 227 | `BU-8.s7.d1` | Mandi Reyes | That was a wave, Diego. | `7c6f0c91-017add21` |
-| 228 | `BU-8.s7.d2` | Diego Vale | My loafers! These are Italian! | `364343f0-116f80ef` |
-| 229 | `BU-8.s8` | Mandi Reyes | Forty thousand, Diego. Jay's debt. Paid in full, in ducks. | `90e9ae75-017add21` |
-| 230 | `BU-8.s9` | Jay | He fell in. He fell in the river with all the sevens. He's fine, he's floating. Everything in there floats. | `16940f59-dba421c0` |
-| 231 | `BU-8.s10.q0` | Simone Vance | The new client watched Kiki's stream. All of it. You're the face. In the leopard. | `5c1c0cbc-e6c278bb` |
-| 232 | `BU-8.s10.q1` | Mandi Reyes | ...I got it? | `f38358b8-017add21` |
-| 233 | `BU-8.s10.q2` | Simone Vance | You got it. Try to forget your keys more often. | `4b2bf538-273e762f` |
-| 234 | `BU-8.s10.q3` | Bernie Szabo | Can you hear me? Can you hear me? I can hear me! Sweetheart, you're the face! | `55d7214b-99f8d4a1` |
-| 235 | `BU-8.s10.q4` | Bernie Szabo | I'm crying. My signal works and I'm crying. | `283ef2d6-cbe64f3b` |
-| 236 | `BU-8.s10.q5` | Kiki Moss | GIRL! | `5176b1e6-0e472086` |
-| 237 | `BU-8.s10.q6` | Gloria Steele | The ledger is with the river police. I rounded nothing. | `dca36daf-9f569e61` |
-| 238 | `BU-8.s10.q8` | Jay | So... are we back? | `1c1888d3-dba421c0` |
-| 239 | `BU-8.s10.q9` | Mandi Reyes | I said I'd get you back. I never said I'd take you back. | `406b6364-017add21` |
-| 240 | `BU-8.s10.q10` | Jay | Can I at least have the jacket? | `69a176c0-dba421c0` |
-| 241 | `BU-8.s10.q11` | Mandi Reyes | No. | `523d6bdc-017add21` |
+| 219 | `BU-8.s2.d0` | Jay | The bells. Those are the bridge bells. | `b9ae219f-dba421c0` |
+| 220 | `BU-8.s2.d1` | Jay | Mandi. Mandi, the bridge is going up. The bridge is going up! | `99e35ba6-dba421c0` |
+| 221 | `BU-8.s2.d2` | Mandi Reyes | I know. | `543caffb-8ea3dc8e` |
+| 222 | `BU-8.s3.d0` | Jay | He's got a tiny flag on the hood. That's how you know he's evil. | `e439fa59-dba421c0` |
+| 223 | `BU-8.s3.d1` | Mandi Reyes | Hold on to something. | `72670064-017add21` |
+| 224 | `BU-8.s3.d2` | Jay | I'm holding the sponge! | `4d6447a5-dba421c0` |
+| 225 | `BU-8.s7` | Diego Vale | Leopard. I have never thrown a punch. I would like you to know I am about to. | `ed952f21-116f80ef` |
+| 226 | `BU-8.s8.d0` | Diego Vale | Was that one? Did I throw one? | `a0155c53-116f80ef` |
+| 227 | `BU-8.s8.d1` | Mandi Reyes | That was a wave, Diego. | `7c6f0c91-017add21` |
+| 228 | `BU-8.s8.d2` | Diego Vale | My loafers! These are Italian! | `364343f0-116f80ef` |
+| 229 | `BU-8.s9` | Mandi Reyes | Forty thousand, Diego. Jay's debt. Paid in full, in ducks. | `90e9ae75-017add21` |
+| 230 | `BU-8.s10` | Jay | He fell in. He fell in the river with all the sevens. He's fine, he's floating. Everything in there floats. | `16940f59-dba421c0` |
+| 231 | `BU-8.s11.q0` | Simone Vance | The new client watched Kiki's stream. All of it. You're the face. In the leopard. | `5c1c0cbc-e6c278bb` |
+| 232 | `BU-8.s11.q1` | Mandi Reyes | ...I got it? | `f38358b8-017add21` |
+| 233 | `BU-8.s11.q2` | Simone Vance | You got it. Try to forget your keys more often. | `4b2bf538-273e762f` |
+| 234 | `BU-8.s11.q3` | Bernie Szabo | Can you hear me? Can you hear me? I can hear me! Sweetheart, you're the face! | `55d7214b-99f8d4a1` |
+| 235 | `BU-8.s11.q4` | Bernie Szabo | I'm crying. My signal works and I'm crying. | `283ef2d6-cbe64f3b` |
+| 236 | `BU-8.s11.q5` | Kiki Moss | GIRL! | `5176b1e6-0e472086` |
+| 237 | `BU-8.s11.q6` | Gloria Steele | The ledger is with the river police. I rounded nothing. | `dca36daf-9f569e61` |
+| 238 | `BU-8.s11.q8` | Jay | So... are we back? | `1c1888d3-dba421c0` |
+| 239 | `BU-8.s11.q9` | Mandi Reyes | I said I'd get you back. I never said I'd take you back. | `406b6364-017add21` |
+| 240 | `BU-8.s11.q10` | Jay | Can I at least have the jacket? | `69a176c0-dba421c0` |
+| 241 | `BU-8.s11.q11` | Mandi Reyes | No. | `523d6bdc-017add21` |
 | 242 | `OPEN.c1` | Mandi Reyes | Ring light on. Hair done. Laptop at the angle Bernie swears by. Okay, Chicago. Cast me. | `8ba56fcf-017add21` |
 | 243 | `OPEN.c2` | Mandi Reyes | And nobody calls. Not Jay. Especially not Jay. Tonight is about me. | `1cd8b481-8ea3dc8e` |
 | 244 | `OPEN.c3` | Diego Vale | Number seven is the favourite again tonight. He has never once won. Somebody always believes. Pour the champagne. | `5e9cb8a3-5ed1e0b6` |

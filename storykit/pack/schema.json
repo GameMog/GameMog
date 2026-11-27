@@ -291,6 +291,16 @@
      "maxItems": 2,
      "uniqueItems": true
     },
+    "nightWeather": {
+     "enum": [
+      "clear",
+      "drizzle",
+      "rain",
+      "mist",
+      "wind"
+     ],
+     "description": "the weather round the camera for every mission at night or dusk (twilight, midnight) that names none of its own (Mog City js/weather.js): drizzle for a wet night. Left out, clear"
+    },
     "blackout": {
      "enum": [
       "midtown",
@@ -1839,6 +1849,16 @@
           "dawn"
          ],
          "description": "the mission's time of day, pinned: held through its cutscenes and set pieces (left out: the act's timeline's, else the dressing's)"
+        },
+        "weather": {
+         "enum": [
+          "clear",
+          "drizzle",
+          "rain",
+          "mist",
+          "wind"
+         ],
+         "description": "the weather round the camera for this mission (Mog City js/weather.js): drizzle, rain (a chase), mist (on the river), wind (the lakefront), clear; left out, the dressing's nightWeather at night or dusk, else clear"
         },
         "reward": {
          "$ref": "#/$defs/set"
@@ -5057,6 +5077,44 @@
        },
        "description": "a set: the room (or closed exterior) the cutscene is staged in, its light (else the mission's time), its people and where they stand"
       },
+      "bridge": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [
+        "at"
+       ],
+       "properties": {
+        "at": {
+         "$ref": "#/$defs/placeRef",
+         "description": "the river bridge nearest this place"
+        },
+        "to": {
+         "type": "number",
+         "minimum": 0,
+         "maximum": 80,
+         "description": "degrees (70 when left out; 0 brings it down)"
+        },
+        "dur": {
+         "type": "number",
+         "minimum": 0.2,
+         "maximum": 60,
+         "description": "s to get there (8)"
+        },
+        "delay": {
+         "type": "number",
+         "minimum": 0,
+         "maximum": 60
+        },
+        "ease": {
+         "enum": [
+          "inOut",
+          "out",
+          "linear"
+         ]
+        }
+       },
+       "description": "a river bridge rising under the shots (Chicago's bascules, Mog City cities/sf/js/bascule.js): the leaves of the bridge nearest `at` to `to` degrees over `dur` s"
+      },
       "sting": {
        "$ref": "#/$defs/sting"
       },
@@ -5065,6 +5123,192 @@
       },
       "slowmo": {
        "$ref": "#/$defs/slowmo"
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type",
+      "at"
+     ],
+     "properties": {
+      "type": {
+       "const": "bridge"
+      },
+      "id": {
+       "$ref": "#/$defs/stepId"
+      },
+      "if": {
+       "$ref": "#/$defs/cond"
+      },
+      "checkpoint": {
+       "type": "boolean"
+      },
+      "at": {
+       "$ref": "#/$defs/placeRef",
+       "description": "the river bridge nearest this place"
+      },
+      "after": {
+       "$ref": "#/$defs/set"
+      },
+      "goto": {
+       "$ref": "#/$defs/stepId"
+      },
+      "end": {
+       "type": "boolean"
+      },
+      "persist": {
+       "type": "boolean"
+      },
+      "until": {
+       "$ref": "#/$defs/stepId"
+      },
+      "backdrop": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [],
+       "properties": {
+        "place": {
+         "$ref": "#/$defs/placeRef"
+        },
+        "text": {
+         "$ref": "#/$defs/label"
+        },
+        "sub": {
+         "$ref": "#/$defs/line"
+        },
+        "color": {
+         "$ref": "#/$defs/colour"
+        }
+       }
+      },
+      "during": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6
+      },
+      "to": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 80,
+       "description": "degrees (70 when left out; 0 brings it down)"
+      },
+      "dur": {
+       "type": "number",
+       "minimum": 0.2,
+       "maximum": 60,
+       "description": "s to get there (8)"
+      },
+      "delay": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 60
+      },
+      "ease": {
+       "enum": [
+        "inOut",
+        "out",
+        "linear"
+       ]
+      },
+      "near": {
+       "type": "number",
+       "minimum": 20,
+       "maximum": 600,
+       "description": "m: it rises once the hero is this near it (and the car he tails is over it)"
+      },
+      "jump": {
+       "oneOf": [
+        {
+         "type": "boolean"
+        },
+        {
+         "type": "object",
+         "additionalProperties": false,
+         "required": [],
+         "properties": {
+          "scale": {
+           "type": "number",
+           "minimum": 0.12,
+           "maximum": 0.9,
+           "description": "slow motion's share of real time over the gap"
+          },
+          "side": {
+           "enum": [
+            "left",
+            "right"
+           ],
+           "description": "the lens's side of his way"
+          },
+          "track": {
+           "type": "boolean",
+           "description": "the lens flies alongside the car (the default), or stands where it left the leaf (false)"
+          },
+          "ahead": {
+           "type": "number",
+           "minimum": -30,
+           "maximum": 60,
+           "description": "m along his way from the car (behind it when negative)"
+          },
+          "out": {
+           "type": "number",
+           "minimum": 4,
+           "maximum": 60,
+           "description": "m out to the side"
+          },
+          "up": {
+           "type": "number",
+           "minimum": -4,
+           "maximum": 20,
+           "description": "m over the lip's height (under it when negative)"
+          },
+          "fov": {
+           "type": "number",
+           "minimum": 24,
+           "maximum": 80
+          },
+          "lead": {
+           "type": "number",
+           "minimum": 0,
+           "maximum": 20,
+           "description": "m ahead of the car the lens looks"
+          },
+          "key": {
+           "type": "number",
+           "minimum": 0,
+           "maximum": 200,
+           "description": "the light lent to the car for the shot (a black car at night reads only by it)"
+          },
+          "hold": {
+           "type": "number",
+           "minimum": 0,
+           "maximum": 3,
+           "description": "s held on the landing"
+          }
+         }
+        },
+        {
+         "description": "the hero shot when his car leaves the rising leaf: true, or how it is framed"
+        }
+       ]
+      },
+      "wait": {
+       "type": "boolean",
+       "description": "the story waits for the leaves (else it goes on as they rise)"
+      },
+      "do": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/sideStep"
+       },
+       "minItems": 0,
+       "maxItems": 6,
+       "description": "side steps started as it rises: the lines over it"
       }
      }
     },

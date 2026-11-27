@@ -42,6 +42,11 @@ export const CITIES = ['ny', 'sf', 'hometown'];
 export const TIMES = ['golden', 'midday', 'twilight', 'midnight', 'dawn'];
 export const SEASONS = ['spring', 'summer', 'autumn', 'winter'];
 export const WEATHER = ['clear', 'overcast', 'rain', 'storm', 'fog', 'snow'];
+// the weather round the camera (Mog City js/weather.js, any city): a mission's own `weather`, or the world's
+// dressing.nightWeather for each of its missions at night or dusk (twilight, midnight) that names none; else clear.
+// drizzle: the night drizzle; rain: heavier, for a chase; mist: low river mist; wind: lakefront wind and grit.
+// (dressing.weather is another thing: the city's own dressing, Mog City wagmi/storyrun/dressing.js)
+export const SKY_WEATHER = ['clear', 'drizzle', 'rain', 'mist', 'wind'];
 export const HOLIDAYS = ['christmas', 'new-year', 'halloween', 'thanksgiving', 'lunar-new-year', 'valentines', 'independence-day', 'diwali', 'hanukkah', 'pride'];
 // a power cut in part of Manhattan (Mog City wagmi/storyrun/dressing.js): left out, the power is on
 export const BLACKOUTS = ['midtown', 'downtown', 'manhattan'];
@@ -69,7 +74,7 @@ import { HERO_CAR_IDS } from './hero-cars.mjs';
 export const STEP_KINDS = ['drive', 'stops', 'walk', 'pursuit', 'timer', 'call', 'voicemail', 'voicenote', 'choice', 'cutscene',
   'place', 'set', 'say', 'wait', 'goto', 'end', 'label', 'transition', 'vignette', 'wallet', 'actEnd', 'comfort', 'tail',
   'stealth', 'patrol', 'convoy', 'trigger', 'beat', 'roadblock', 'passenger', 'npc', 'fight', 'dm', 'search', 'scene', 'tow', 'ally', 'car',
-  'mount', 'ride', 'dismount', 'vcall'];
+  'mount', 'ride', 'dismount', 'vcall', 'bridge'];
 // the steps on the story's horse (a hometown story on Mog City's engine: its `horse`, saddled alongside the hero's car;
 // Mog City wagmi/game.js the two rides): mount at a place, ride to places, dismount; gate.ts says where they may be used
 export const HORSE_STEPS = ['mount', 'ride', 'dismount'];
@@ -80,7 +85,7 @@ export const MOGCITY_STUBS = ['patrol', 'wallet'];
 // (passenger rides, comfort, convoy, an ally's car, roadblocks, stealth) held for GameMog's own showcase worlds first.
 // lib/storykit-build.ts drops them from its worked example and sends a Create that writes one back
 // (a roadblock was held too, until 14 Nov: a Create writes one now, a gauntlet in a chase, BUILDER.md Set pieces)
-export const CREATE_HELD = [...MOGCITY_STUBS, 'passenger', 'comfort', 'convoy', 'ally', 'stealth', 'car'];
+export const CREATE_HELD = [...MOGCITY_STUBS, 'passenger', 'comfort', 'convoy', 'ally', 'stealth', 'car', 'bridge'];
 // the cast registry (public/storykit/cast/registry.json): shipped, hand-polished people (a GLB with its own clips and face,
 // its recorded lines), voice-only people with recorded lines, and pets. storykit/cast/README.md
 export const CAST_MODELS = Object.entries(REGISTRY.models).filter(([, m]) => m.kind !== 'pet').map(([k]) => k);
@@ -167,6 +172,11 @@ const setDef = O({ room: E(SET_ROOMS), light: E(['day', 'golden', 'night']), sig
   screens: E(['figure', 'sign'], { description: "stage only: the side screens, a stand-in figure under LIVE (figure, the default) or the set's sign" }) }, ['room'],
   { description: "a set: the room (or closed exterior) the cutscene is staged in, its light (else the mission's time), its people and where they stand" });
 const setAct = A(O(setPersonProps, ['who']), 7, 0, { description: "a shot's changes to its set's people as it starts: where they stand, whom they face, their pose, a walk, a hug" });
+// a river bridge's leaves (a bridge step's, a cutscene's cue)
+const BRIDGE_CUE = {
+  at: { ...R('placeRef'), description: 'the river bridge nearest this place' }, to: N(0, 80, { description: 'degrees (70 when left out; 0 brings it down)' }),
+  dur: N(0.2, 60, { description: 's to get there (8)' }), delay: N(0, 60), ease: E(['inOut', 'out', 'linear'])
+};
 // a cutscene shot: `say` + `line` is a cast member's spoken line under the shot (a subtitle until its clip is ready)
 // (or, with no cam, a shot by its grammar: frame, on whom, at whom; the engine works the lens out from where they stand)
 const shot = O({ cam: camRef, to: camRef, look: camRef, lookTo: camRef, dur: N(0.5, 12), fov: N(20, 90), sub: R('line'), say: R('castRef'), line: R('speech'), caption: R('label'), act: setAct, ...DLV,
@@ -235,7 +245,23 @@ const STEPS = fx(['drive', 'stops', 'pursuit', 'tail', 'tow', 'timer', 'fight', 
   voicemail: step('voicemail', { who: R('castRef'), role: S(40), text: R('speech'), secs: N(0.5, 20), time: R('clock'), set: R('set') }, ['who', 'text']),
   voicenote: step('voicenote', { who: R('castRef'), role: S(40), text: R('speech'), secs: N(0.5, 20), time: R('clock'), set: R('set') }, ['who', 'text']),
   choice: step('choice', CHOICE, ['prompt', 'options']),
-  cutscene: step('cutscene', { shots: A(shot, 12, 1), place: R('placeRef'), set: setDef }, ['shots']),
+  cutscene: step('cutscene', { shots: A(shot, 12, 1), place: R('placeRef'), set: setDef,
+    bridge: O(BRIDGE_CUE, ['at'], { description: "a river bridge rising under the shots (Chicago's bascules, Mog City cities/sf/js/bascule.js): the leaves of the bridge nearest `at` to `to` degrees over `dur` s" }) }, ['shots']),
+  // a river bridge (Chicago's bascules in a hometown story on Mog City's engine; another town has none and it passes): the
+  // bridge nearest `at` raised to `to` degrees (0: down) over `dur` s, its gates down first and the city's cars held at
+  // them. With `near` it is a set piece: it waits for the hero to come within near m (and for the car he tails to be over
+  // it), then the bells, its `do` side steps (the lines over it) and the leaves, timed to be up when he gets there; the
+  // city's cars kept off it till he is over. `jump`: the hero shot as his car leaves the rising leaf (slow motion, the lens
+  // to the side of the gap); 10 to 15 degrees is a car's jump, steeper cannot be driven. It never holds the story up
+  // unless `wait`
+  bridge: step('bridge', { ...BRIDGE_CUE,
+    near: N(20, 600, { description: 'm: it rises once the hero is this near it (and the car he tails is over it)' }),
+    jump: ONE(B, O({ scale: N(0.12, 0.9, { description: "slow motion's share of real time over the gap" }), side: E(['left', 'right'], { description: "the lens's side of his way" }),
+      track: { ...B, description: 'the lens flies alongside the car (the default), or stands where it left the leaf (false)' },
+      ahead: N(-30, 60, { description: "m along his way from the car (behind it when negative)" }), out: N(4, 60, { description: 'm out to the side' }), up: N(-4, 20, { description: "m over the lip's height (under it when negative)" }), fov: N(24, 80), lead: N(0, 20, { description: 'm ahead of the car the lens looks' }), key: N(0, 200, { description: "the light lent to the car for the shot (a black car at night reads only by it)" }), hold: N(0, 3, { description: 's held on the landing' }) }), { description: "the hero shot when his car leaves the rising leaf: true, or how it is framed" }),
+    wait: { ...B, description: 'the story waits for the leaves (else it goes on as they rise)' },
+    do: A(R('sideStep'), 6, 0, { description: 'side steps started as it rises: the lines over it' })
+  }, ['at']),
   // a video call (VCALL_*): its people each in an office, its lines and the call's events between them, in order
   vcall: step('vcall', {
     title: S(40, { description: "the call's name in its top bar ('Q3 Board Sync')" }), layout: E(['grid', 'speaker'], { description: 'grid: equal tiles; speaker: whoever talks fills the stage, the rest in a strip' }),
@@ -401,6 +427,7 @@ const mission = O({
   id: R('missionId'), title: S(48), vehicle: R('rideRef'), verbs: A(E(VERBS), 8, 0, { uniqueItems: true }),
   start: R('placeRef'), traffic: N(0, 1), stakes: R('line'), passLine: R('line'), note: R('line'), timerLine: S(80), label: S(24),
   time: E(TIMES, { description: "the mission's time of day, pinned: held through its cutscenes and set pieces (left out: the act's timeline's, else the dressing's)" }),
+  weather: E(SKY_WEATHER, { description: "the weather round the camera for this mission (Mog City js/weather.js): drizzle, rain (a chase), mist (on the river), wind (the lakefront), clear; left out, the dressing's nightWeather at night or dusk, else clear" }),
   reward: R('set'), hiddenMeters: A(R('slug'), 4), next: R('missionId'), hidden: B, steps: A({ $ref: '#/$defs/step' }, LIMITS.steps, 1),
   card: ONE(E(['slam']), { const: false }, { description: "the mission's title card: slam (slammed in with a hit), false (none: its first cutscene titles it); a hometown story slams every one" }),
   medals: O(Object.fromEntries(['gold', 'silver', 'bronze'].map((k) => [k, O({ secs: N(10, 7200, { description: 'the time to beat, in seconds, from the mission\'s start' }), damage: N(0, 1000, { description: "the most damage: what the car takes (100 is a whole car's worth) and 3 a hit on foot; left out, any" }) }, ['secs'])])), [],
@@ -449,6 +476,7 @@ export const SCHEMA = {
         ['place', 'compiler', 'tiles'], { description: "a hometown only (city 'hometown'): the town it plays, pinned (its place id, the build and the tile set's hash; on the national grid also its frame: grid, domain, origin, k0, gamma0, yOffset, waterLevel); copied exactly from the city package, and a Mog keeps it exactly" }) }, ['engine', 'city', 'cityBuild'],
       { description: 'what the story runs on; on a Mog, equal to the parent\'s (locked)' }),
     dressing: O({ time: E(TIMES), season: E(SEASONS), weather: E(WEATHER), holiday: A(E(HOLIDAYS), 2, 0, { uniqueItems: true }),
+      nightWeather: E(SKY_WEATHER, { description: "the weather round the camera for every mission at night or dusk (twilight, midnight) that names none of its own (Mog City js/weather.js): drizzle for a wet night. Left out, clear" }),
       blackout: E(BLACKOUTS, { description: 'the power is out there (midtown: 34th to 59th St; downtown: below 34th St; manhattan: all of it, the boroughs over the rivers lit): dark windows, street lights and billboards, dead signals, emergency cars, stranded cars, generator-lit islands. Left out, the power is on' }) }, ['time', 'season', 'weather']),
     hero: { ...R('castRef'), description: 'the player character (a cast id)' },
     cine: O({ action: { ...B, description: "the action layer: chase cameras, speed lines, near misses held in slow motion, crash beats, title slams. On by itself in a hometown story" } }),

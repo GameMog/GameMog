@@ -90,7 +90,7 @@ export type GateResult = { ok: boolean; problems: string[]; warnings: string[]; 
 export const PACK_ID = (SCHEMA as Schema).$id as string;
 const LIMIT_BYTES = 160_000;
 // the step kinds whose own `at` is a place (not the side step's seconds)
-const AT_PLACE = new Set(['npc', 'roadblock', 'place', 'search', 'car', 'mount']);
+const AT_PLACE = new Set(['npc', 'roadblock', 'place', 'search', 'car', 'mount', 'bridge']);
 /** Mog City's engine (mc.gamemog.com): every Create and Mog is written for it. */
 export const MOGCITY = 'mogcity-1';
 const STUBS = new Set<string>(MOGCITY_STUBS as string[]);
@@ -594,7 +594,17 @@ export function gatePack(input: unknown, opts: { parent?: PackV2 | null; own?: b
         case 'beat': for (const k of ['cam', 'look', 'to', 'lookTo']) cam(s.shot[k], `${at}.shot.${k}`); if (s.say) { who(s.say.who, `${at}.say.who`); line(`${lid}.say`, s.say.who, s.say.text, s.say); } break;
         case 'place': place(s.at, `${at}.at`, 'start'); break;
         case 'transition': if (s.place) place(s.place, `${at}.place`, 'start'); break;
-        case 'cutscene': if (s.place) place(s.place, `${at}.place`, 'any'); if (s.set) { for (const p of setProblems(s.set, `${at}.set`, cast, pack.hero)) refuse(p); s.shots.forEach((sh: Json, j: number) => { for (const p of setShotProblems(s.set, sh, `${at}.shots[${j}]`, pack.hero)) refuse(p); }); } s.shots.forEach((sh: Json, j: number) => { for (const k of ['cam', 'look', 'to', 'lookTo']) cam(sh[k], `${at}.shots[${j}].${k}`); if (sh.line && !sh.say) refuse(`${at}.shots[${j}]: a line needs a speaker (say).`); if (sh.say) { who(sh.say, `${at}.shots[${j}].say`); line(`${lid}.c${j}`, sh.say, sh.line, sh); }
+        // (a river bridge, Chicago's bascules on Mog City's engine: the one nearest its place; a cutscene's cue the same.
+        // Its jump and its slow motion are the hero's car's own, so a jump wants the car)
+        case 'bridge':
+          place(s.at, `${at}.at`, 'any');
+          if (!mc) refuse(`${at}: a river bridge plays on Mog City's engine (base.engine "mogcity-1").`);
+          if (s.jump && m.vehicle === 'on-foot') refuse(`${at}: a bridge's jump is the hero's car's; this mission is on foot.`);
+          if (s.jump && !s.near) warnings.push(`${at}: a jump with no near rises at once; near (m) times the leaves to be up as he gets there.`);
+          if (s.to != null && s.jump && (s.to < 6 || s.to > 24)) warnings.push(`${at}: a jump off a leaf at ${s.to} degrees; 10 to 15 lands a car past the far hinge (steeper throws it, past 32 cannot be climbed).`);
+          break;
+        case 'cutscene': if (s.bridge) { place(s.bridge.at, `${at}.bridge.at`, 'any'); if (!mc) refuse(`${at}.bridge: a river bridge plays on Mog City's engine (base.engine "mogcity-1").`); }
+          if (s.place) place(s.place, `${at}.place`, 'any'); if (s.set) { for (const p of setProblems(s.set, `${at}.set`, cast, pack.hero)) refuse(p); s.shots.forEach((sh: Json, j: number) => { for (const p of setShotProblems(s.set, sh, `${at}.shots[${j}]`, pack.hero)) refuse(p); }); } s.shots.forEach((sh: Json, j: number) => { for (const k of ['cam', 'look', 'to', 'lookTo']) cam(sh[k], `${at}.shots[${j}].${k}`); if (sh.line && !sh.say) refuse(`${at}.shots[${j}]: a line needs a speaker (say).`); if (sh.say) { who(sh.say, `${at}.shots[${j}].say`); line(`${lid}.c${j}`, sh.say, sh.line, sh); }
             // (an exchange in one shot: lines, in place of say + line; DIALOGUE AND SCENE FLOW SPEC v1, S4)
             if (sh.lines) { if (sh.say || sh.line) refuse(`${at}.shots[${j}]: a shot says one line (say + line) or an exchange (lines), not both.`); sh.lines.forEach((l: Json, k: number) => { who(l.who, `${at}.shots[${j}].lines[${k}].who`); line(`${lid}.c${j}.l${k}`, l.who, l.text, l); }); }
             // (a shot is a lens (cam) or a shot by its grammar (frame, on, at: the people it is on stand on the street))
