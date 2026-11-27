@@ -281,6 +281,9 @@ async function initApp() {
   // 2. Build Scene & Physical Atmospheric Sky / PMREM IBL / 4096x4096 Shadow Lighting
   const scene = new THREE.Scene();
   const lightingSystem = new LightingSystem(scene, renderer);
+  // (js/weather.js: drizzle, rain, river mist and lakefront wind round the camera, sharing the sky's state; off unless
+  // asked: ?weather=, NYC.Weather.set(), a story mission's weather)
+  const weather = window.NYC.createWeather ? window.NYC.createWeather(scene, lightingSystem, renderer) : null;
   markInit('lighting');
 
   if (loadingStatus) {
@@ -1014,6 +1017,7 @@ async function initApp() {
     if (cityBlocks.updateLights) cityBlocks.updateLights(cameraSystem.camera);
     if (streetDetails.update) streetDetails.update(cameraSystem.camera);
     lightingSystem.update(cameraSystem.currentPos);
+    if (weather) weather.update(dt, cameraSystem.camera);
     mapSystem.update();
     if (warmedUp) updateSceneCulling(cameraSystem.camera.position); // the warm-up frame draws every chunk
 

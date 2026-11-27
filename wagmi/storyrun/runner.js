@@ -407,6 +407,15 @@ export function createRunner(ctx) {
   const HOUR_FADE = [0.45, 0.9]; // s: down to black and back up when a mission starts at another hour
   const TITLE_DUE = 5000; // ms: the longest a mission's title card may be due (W.titleDue, game.js cardUp) before it lands
   const setTime = (id) => { try { if (id) app.selectTime(TIME_IDS[id] || id); } catch {} };
+  // (the weather round the camera, js/weather.js: the mission's own `weather`, else the world's dressing.nightWeather
+  // when the mission is at night or dusk, else clear. A new mission starts in its weather at once, under its title)
+  const missionWeather = (def, hour) => {
+    const Wx = globalThis.window?.NYC?.Weather;
+    if (!Wx) return;
+    const night = hour === 'midnight' || hour === 'twilight';
+    const want = def?.weather || (night ? def0.dressing?.nightWeather : null) || 'clear';
+    try { Wx.set(want, { fade: 0 }); } catch (e) { console.warn('[storyrun] weather', e); }
+  };
   // a mission's own time of day (its `time`, or its act's timeline's) is pinned: held through its cutscenes and Mog City's
   // set pieces (which set their own: twilight, golden), put back the moment anything else changes it; a step's own time
   // (place, transition, scene) moves the pin. A mission without one keeps the city's time as its scenes leave it
@@ -3589,6 +3598,7 @@ export function createRunner(ctx) {
       while (fe && +getComputedStyle(fe).opacity < 0.9 && performance.now() - t1 < 1500) await new Promise((r) => requestAnimationFrame(r));
     }
     if (cp?.pin) pinTo(cp.pin); else if (own) pinTo(own); else setTime(def0.dressing ? (def0.dressing.time || 'day') : null);
+    missionWeather(def, toHour);
     if (hourFade) { await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))); try { await ui.fade(0, HOUR_FADE[1]); } catch {} }
     M.live = true;
     // (the title card, unless the mission's first scene draws its own: Mog City's opening ends on ACT I · BAGGED)

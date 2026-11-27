@@ -69,6 +69,10 @@ test('the test worlds pass the checks; bad worlds are refused', () => {
   assert.ok(bad((w) => { w.storykit = 2; }).length);
   assert.ok(bad((w) => { w.car = 'tank'; }).some((e) => /car/.test(e)));
   assert.ok(STEP_KINDS.has('scene') && STEP_KINDS.has('tow') && STEP_KINDS.has('collect') && STEP_KINDS.has('ambush') && STEP_KINDS.has('ride') && STEP_KINDS.has('vcall') && STEP_KINDS.size === 49);
+  // (a mission's weather is a checked word: js/weather.js)
+  assert.ok(bad((w) => { w.missions[0].weather = 'hail'; }).some((e) => /weather/.test(e)));
+  assert.ok(!bad((w) => { w.missions[0].weather = 'drizzle'; }).some((e) => /weather/.test(e)));
+  assert.ok(bad((w) => { w.dressing = { nightWeather: 'snowstorm' }; }).some((e) => /nightWeather/.test(e)));
   // (the tow world: a wrecker sheet as the car, a ride of the world's on the hook)
   assert.deepEqual(check(JSON.parse(fs.readFileSync(path.join(ROOT, 'tools/storyrun/test-packs/tow.json'), 'utf8'))), []);
 });

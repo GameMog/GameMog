@@ -85,6 +85,9 @@ export function storyHour(def) {
 }
 
 export const BLACKOUTS = ['midtown', 'downtown', 'manhattan'];
+// the weather round the camera a mission may ask for (js/weather.js): its own `weather`, or the world's
+// dressing.nightWeather for each mission at night or dusk that names none (runner.js missionWeather)
+export const WEATHERS = ['clear', 'drizzle', 'rain', 'mist', 'wind'];
 export function asksDressing(d) {
   if (!d || typeof d !== 'object') return false;
   return BLACKOUTS.includes(d.blackout) || (Array.isArray(d.holiday) && d.holiday.includes('christmas')) || ['snow', 'rain', 'storm'].includes(d.weather);
@@ -283,6 +286,7 @@ export function check(w) {
     for (const [i, s] of m.steps.entries()) if (s && s.checkpoint != null && typeof s.checkpoint !== 'boolean') bad(`${m.id} steps[${i}]: checkpoint (true or false)`);
     for (const e of siteErrors(m)) bad(`${m.id} ${e}`);
     if (m.vehicle != null && typeof m.vehicle !== 'string') bad(`${m.id}: vehicle`);
+    if (m.weather != null && !WEATHERS.includes(m.weather)) bad(`${m.id}: weather (one of ${WEATHERS.join(', ')})`);
   }
   if (!Array.isArray(w.acts) || !w.acts.length) bad('acts');
   // (the world's UI theme, wagmi/storyrun/theme.js: { theme: 'glass' }; none, Mog City's own look)
@@ -335,6 +339,7 @@ export function check(w) {
     if (typeof d !== 'object' || Array.isArray(d)) bad('dressing');
     else {
       for (const k of ['time', 'season', 'weather']) if (d[k] != null && (typeof d[k] !== 'string' || !/^[a-z-]{1,24}$/.test(d[k]))) bad(`dressing.${k}`);
+      if (d.nightWeather != null && !WEATHERS.includes(d.nightWeather)) bad(`dressing.nightWeather (one of ${WEATHERS.join(', ')})`);
       if (d.blackout != null && !BLACKOUTS.includes(d.blackout)) bad('dressing.blackout');
       if (d.apocalypse != null && d.apocalypse !== false && (!APOCALYPSE.includes(d.apocalypse) || w.city !== 'sf')) bad('dressing.apocalypse: San Francisco only (true, dusk, day or night)');
       if (d.holiday != null && (!Array.isArray(d.holiday) || d.holiday.some((h) => typeof h !== 'string' || !/^[a-z-]{1,24}$/.test(h)))) bad('dressing.holiday');
