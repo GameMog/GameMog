@@ -114,11 +114,17 @@ export function faceOf(height) {
   const h = Number.isFinite(height) && height > 0.8 && height < 2.6 ? height : 1.75;
   return Math.max(0.18, Math.min(0.3, h * 0.134));
 }
-export function camOf(head, kind = 'close', { face = FACE } = {}) {
-  const [x, y, z] = head, F = FRAME[kind] || FRAME.close;
+// (charlook, a world's `look: 'cinematic'`: the same framing through a portrait lens, about 50 mm (a full frame's height
+// seen through 26 degrees: 52 mm) for the close, from further back, so the nose and the brow are not pushed at the lens
+// the way a laptop's wide lens pushes them; the lens a touch over the eyes' drop, never up the nose)
+// (and the eyes on the upper third of the tile, `up` of its height over the middle, not EYES_UP's 42% from the top:
+// head and shoulders as a portrait is framed, the owner's lead, 25 Nov)
+export const PORTRAIT = { close: { fov: 26, drop: 0.0, up: 0.165 }, low: { fov: 28, drop: 0.06, up: 0.15 }, wide: { fov: 32, drop: 0, up: 0.13 } };
+export function camOf(head, kind = 'close', { face = FACE, portrait = false } = {}) {
+  const [x, y, z] = head, F = portrait ? { ...(FRAME[kind] || FRAME.close), ...(PORTRAIT[kind] || PORTRAIT.close) } : FRAME[kind] || FRAME.close;
   const fc = Number.isFinite(face) ? Math.max(0.16, Math.min(0.32, face)) : FACE;
   const H = fc / F.frac, d = H / (2 * Math.tan((F.fov * Math.PI) / 360));
-  return { pos: [x + 0.035, y - F.drop, z + Math.sqrt(Math.max(0, d * d - F.drop * F.drop))], look: [x, y - EYES_UP * H, z], fov: F.fov };
+  return { pos: [x + 0.035, y - F.drop, z + Math.sqrt(Math.max(0, d * d - F.drop * F.drop))], look: [x, y - (F.up ?? EYES_UP) * H, z], fov: F.fov };
 }
 // a webcam's aim on someone's eyes: their face's own (its landmarks, face.js eyes()) unless those are not where eyes can
 // be, more than EYES_OFF m from their head bone; then the head bone's, EYES_HEAD m over it. Intern Two's landmarks put
@@ -155,4 +161,20 @@ export function rtKeep(cur, need) {
 export function feedClip([x, y, w, h], W, H) {
   W = Math.max(1, W); H = Math.max(1, H);
   return { cx: ((x + w / 2) / W) * 2 - 1, cy: 1 - ((y + h / 2) / H) * 2, sx: (w / W) * 2, sy: (h / H) * 2 };
+}
+// (charlook, a world's `look: 'cinematic'`) a close shot on a face brought to the face's eye level: a lens written above
+// the head (the pack's `up` over the head's bone, a laptop's or a phone held high) looks down on the face, which deepens
+// the sockets and grows the brow and the nose's shadow (CharacterPipeline's face-rescue pass2: at eye level the same
+// face reads clearly softer). The lens's height held between the eyes and EYE_HIGH degrees above them, its look on the
+// eyes (a touch under), its distance kept. Only a close shot on a person's head (within EYE_NEAR m, its look within
+// EYE_LOOK m of the head and its lens within EYE_SPAN m of the head's height): a written low or high angle stays.
+//   eyeLevel(lens [x,y,z], look [x,y,z], head [x,y,z]) -> { lens, look } (new arrays) or null (left as it is)
+export const EYE_UP = 0.07, EYE_HIGH = 3, EYE_NEAR = 2.6, EYE_LOOK = 0.25, EYE_SPAN = 0.6;
+export function eyeLevel(lens, look, head) {
+  if (![lens, look, head].every((p) => Array.isArray(p) && p.length === 3 && p.every(Number.isFinite))) return null;
+  const d = Math.hypot(lens[0] - look[0], lens[1] - look[1], lens[2] - look[2]);
+  if (!(d > 0.2 && d < EYE_NEAR) || Math.hypot(look[0] - head[0], look[1] - head[1], look[2] - head[2]) > EYE_LOOK || Math.abs(lens[1] - head[1]) > EYE_SPAN) return null;
+  const ey = head[1] + EYE_UP, h = Math.hypot(lens[0] - look[0], lens[2] - look[2]);
+  const y = Math.min(ey + h * Math.tan((EYE_HIGH * Math.PI) / 180), Math.max(ey, lens[1]));
+  return { lens: [lens[0], y, lens[2]], look: [look[0], ey - 0.01, look[2]] };
 }

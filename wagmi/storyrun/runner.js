@@ -42,6 +42,7 @@ import { armTo } from '../mission/m3-set.js';
 import { world as cityWorld } from '../world/index.js';
 import { createReach, reachReason } from './reach.js';
 import { closeLock } from './headlock.js';
+import { charLook } from './charlight.js'; import { eyeLevel } from './vcall-plan.js';
 import { gaitPace } from '../retarget.js';
 import { beatOf, gapAfter, readingTime, playTurns, DECODE, cutInto } from '../radio/turns.js'; import { reactPools, callTup, OVERLAP_IN } from './talk.js'; import { importRetry } from '../net.js';
 
@@ -1278,6 +1279,11 @@ export function createRunner(ctx) {
         // place's name or a look at a spot in the street is as it was written)
         const cl = setRun?.active || !lensOnPerson(s, scL) ? { lens: { A: A0, B: B0 }, how: 'clear' } : clearLens({ A: A0, B: B0, LA, LB }, reach.sight);
         const A = cl.lens.A, B = cl.lens.B;
+        // (charlook, a world's `look: 'cinematic'`: a close shot on a face at the face's eye level, vcall-plan.js eyeLevel)
+        if (charLook() && !fr && scL && typeof scL === 'object' && scL.rel && !(Math.abs(scL.up || 0) > 0.15) && !s.lookTo) {
+          const hd = camPt({ rel: scL.rel }, 1.4);
+          for (const P of B === A ? [A] : [A, B]) { const e = eyeLevel(P, LA, hd); if (e) { P[1] = e.lens[1]; LA[1] = e.look[1]; } }
+        }
         if (cl.how !== 'clear' && cl.how !== 'kept') console.info('[storyrun] lens', cl.how, M?.def?.id || (opening ? 'opening' : '-'), 'shot', si, s.frame || 'cam');
         // (an opening's name card: the lens settles on its person through the first part of the shot, then the frame
         // freezes on them, their body held mid-move, as their name and role come up: openCard())

@@ -33,9 +33,10 @@
 import * as THREE from 'three/webgpu';
 import {
   Fn, If, materialColor, texture, uv, uniform, attribute, vec2, vec3, vec4, float, dot, smoothstep, max, mix,
-  normalize, normalView, normalViewGeometry, positionViewDirection, tangentView, normalMap, BRDF_Lambert, diffuseContribution,
+  normalize, normalView, normalViewGeometry, positionViewDirection, tangentView, normalMap, BRDF_Lambert, diffuseContribution, vertexColor,
   dFdx, dFdy, abs, normalFlat, faceDirection,
 } from 'three/tsl'; import { textureLoad } from '../net.js';
+import { charLook, rigDirect } from './charlight.js';
 
 /* ------------------------------------------------- the shared detail -- */
 // (people4) the scanned tiles every finished body shares (assets/people/detail: RG a normal's x and y, OpenGL's y up, B
@@ -139,15 +140,90 @@ export function polishBody(inner, { msaa = typeof window === 'undefined' || wind
       n = wetEyes(m); out.eyes++;
     } else if (cloth && !r8 && !noDetail() && fabricOf(m) && sizeOf(o.geometry) > 0.06) {
       n = weave(m, o, fabricOf(m)); out.weave = (out.weave || 0) + 1;
+    } else if (eyes && !r8 && isEyeOcc(m)) {
+      n = eyeShade(m); out.eyes++;
+    } else if (eyes && !r8 && isTear(m)) {
+      n = tearLine(m); out.eyes++;
+    } else if (!r8 && charLook() && BODY.test(m.name || '') && !m.isNodeMaterial) {
+      // (charlook: a hand-built body's own skin (its relief map kept: skinOf leaves it), its clear-coated eyes, its teeth
+      // and its garments as the GLB has them, made node materials here so the rig reaches them: the skin on skin's light
+      // (its wrap, and on the high tier its layers), the rest as they are)
+      n = asNode(m, m.name === 'skin' ? SkinMaterial : null); out.rigged = (out.rigged || 0) + 1;
     }
     // (the high quality lighting tier: skin and cloth layers, hqLayers above)
     if (hqOn()) n = n.name === 'skin' && n !== m ? hqLayers(n, 'skin') : n !== m && n.userData?.fabric ? hqLayers(n, 'cloth') : n;
     if (n !== m) n.userData = { ...m.userData, ...n.userData, polished: true };
+    // (charlook: a world's people lit by their own rig as well, charlight.js; the GLB's own materials left alone)
+    if (n !== m) n = rigged(n);
     done.set(m, n);
     return n;
   };
   inner.traverse((o) => { if (o.isMesh && o.material) o.material = Array.isArray(o.material) ? o.material.map((m) => one(m, o)) : one(o.material, o); });
   return out;
+}
+
+/* ------------------------------------------------ the eyes' own layers -- */
+// (a forged head since the pipeline's eyes pass declares them: extras.kind 'eyeOcclusion' and 'tearLine', its alpha in
+// the points' colour) the eye's occlusion: the soft shadow the lids and the lashes cast on the eyeball, drawn as a
+// shadow is, a darkening over what is under it (no light of its own, no specular: the GLB's black PBR film caught the
+// sky and greyed the whites), its alpha the points' (0 at its edge, most at the lids), a little less than painted
+const isEyeOcc = (m) => m?.userData?.kind === 'eyeOcclusion' || m?.name === 'eyeOcclusion';
+const isTear = (m) => m?.userData?.kind === 'tearLine' || m?.name === 'tearLine';
+export const EYE_LAYERS = { occ: 0.85, tear: { rough: 0.04, opacity: 0.9, coat: 1 } };
+function eyeShade(m) {
+  const n = new THREE.MeshBasicNodeMaterial();
+  n.name = m.name; n.transparent = true; n.depthWrite = false; n.side = m.side ?? THREE.FrontSide; n.toneMapped = true;
+  n.colorNode = vec3(0, 0, 0); n.opacityNode = (m.vertexColors ? vertexColor().a : float(1)).mul(materialColor.a).mul(EYE_LAYERS.occ);
+  n.vertexColors = false; n.polygonOffset = true; n.polygonOffsetFactor = -1; n.polygonOffsetUnits = -1;
+  n.userData = { ...m.userData };
+  return n;
+}
+// the tear line: the thin wet edge where the lower lid meets the eye, a clear, glossy film (the key and the sky in it)
+function tearLine(m) {
+  const T = EYE_LAYERS.tear, n = new THREE.MeshPhysicalNodeMaterial();
+  for (const k of ['name', 'color', 'side']) if (m[k] !== undefined) n[k] = m[k] && m[k].isColor ? m[k].clone() : m[k];
+  n.transparent = true; n.depthWrite = false; n.metalness = 0; n.roughness = T.rough; n.clearcoat = T.coat; n.clearcoatRoughness = T.rough;
+  n.opacityNode = (m.vertexColors ? vertexColor().a : float(1)).mul(materialColor.a).mul(T.opacity);
+  n.polygonOffset = true; n.polygonOffsetFactor = -1; n.polygonOffsetUnits = -1;
+  n.userData = { ...m.userData };
+  return n;
+}
+
+// (charlook) a GLB's own material as a node material of the same kind, every property carried over (as three's renderer
+// itself converts one: NodeMaterialLibrary.fromMaterial), so the rig can be added to its light
+const BODY = /^(skin|eyes|teethUp|teethLow|teeth|tongue|lashes|brows|slides|boots|shoes|clothes|overshirt|shirt|top|bottom|bikini|dress|jacket|trousers|shorts|skirt)$/;
+function asNode(m, Cls = null) {
+  const C = Cls || (m.isMeshPhysicalMaterial ? THREE.MeshPhysicalNodeMaterial : m.isMeshStandardMaterial ? THREE.MeshStandardNodeMaterial : null);
+  if (!C) return m;
+  const n = new C();
+  for (const k in m) { if (k === 'uuid' || k === 'id' || k === '_listeners') continue; try { n[k] = m[k]; } catch {} }
+  if (Cls === SkinMaterial) { if (hqOn()) hqLayers(n, 'skin'); garmentSafe(n); }
+  return n;
+}
+
+// (charlook) a skin material's skin-only layers kept off what is painted on it (skinMask): its wrap and its light
+// through (SkinLighting) and its sheen
+function garmentSafe(n) {
+  n.userData = { ...n.userData, skinMask: true };
+  if (n.sheen > 0 && n.sheenColor) { const sc = uniform(n.sheenColor.clone()); n.sheenNode = sc.mul(skinMask(materialColor.rgb)); }
+  return n;
+}
+
+/* ------------------------------------------------------------- the rig -- */
+// (charlook, a world's `look: 'cinematic'`: charlight.js) a finished material's lighting model given the people's rig after
+// its sky light: the key at eye level, the fill and the rim (rigDirect). Its programs keyed apart from an unrigged one's
+function rigged(n) {
+  if (!n?.isNodeMaterial || n.userData?.rig || !charLook()) return n;
+  const base = n.setupLightingModel, key0 = n.customProgramCacheKey;
+  n.setupLightingModel = function (builder) {
+    const lm = base.call(this, builder); if (!lm) return lm;
+    const ind = lm.indirect;
+    lm.indirect = function (b) { ind.call(this, b); rigDirect(this, b); };
+    return lm;
+  };
+  n.customProgramCacheKey = function () { return (key0 ? key0.call(this) : '') + '|charrig'; };
+  n.userData = { ...n.userData, rig: true };
+  return n;
 }
 
 /* ------------------------------------------------------------ the head -- */
@@ -477,11 +553,21 @@ function pores() {
 // skin's light: the physical model's, its diffuse wrapped a little past the shadow's edge, more in red than in blue
 // (light scattered under the skin comes out redder and further on), and as much taken off the lit side as the wrap
 // adds at the edge (energy-conserving wrap: (n.l + w) / (1 + w)^2), so the face is no brighter, only softer
+// (charlook) how much of a skin texel is skin: a garment painted on the skin (Mandi's leopard bikini and its pink trim,
+// a forged swimsuit) keeps its own colour and light, not skin's red scatter, its sheen or its grade. Skin's albedo is warm
+// and ordered red > green >= blue, neither near black nor near white; a print's black and white spots, a pink or a blue
+// fail one of those. 1 skin, 0 not
+export function skinMask(c) {
+  const r = c.r.max(0.0005), Y = dot(c, vec3(0.2126, 0.7152, 0.0722));
+  const warm = smoothstep(0.12, 0.28, c.r.sub(c.b).div(r)), order = smoothstep(-0.1, 0.02, c.g.sub(c.b).div(r)).mul(smoothstep(-0.04, 0.04, c.r.sub(c.g).div(r)));
+  return warm.mul(order).mul(smoothstep(0.008, 0.025, Y)).mul(smoothstep(0.8, 0.95, Y).oneMinus());
+}
 class SkinLighting extends THREE.PhysicalLightingModel {
   direct(input, builder) {
     super.direct(input, builder);
     const { lightDirection: L, lightColor, reflectedLight } = input, w = vec3(...POLISH.skin.wrap);
-    const ndl = normalView.dot(L), wrapped = vec3(ndl).add(w).div(w.add(1).mul(w.add(1))).max(0), extra = wrapped.sub(ndl.max(0));
+    const mk = builder.material.userData?.skinMask ? skinMask(diffuseContribution) : float(1);
+    const ndl = normalView.dot(L), wrapped = vec3(ndl).add(w).div(w.add(1).mul(w.add(1))).max(0), extra = wrapped.sub(ndl.max(0)).mul(mk);
     reflectedLight.directDiffuse.addAssign(extra.mul(lightColor).mul(BRDF_Lambert({ diffuseColor: diffuseContribution })));
     // (Mog City, the high quality lighting tier only, material.userData.hqSSS: light through thin skin seen against it,
     // the ears and the nose's edge lit red with the sun behind them. The translucency term of three.js's
@@ -489,7 +575,7 @@ class SkinLighting extends THREE.PhysicalLightingModel {
     if (this.sss) {
       const T = HQ_SKIN.sss, h = L.add(normalView.mul(T.distortion));
       const d = positionViewDirection.dot(h.negate()).clamp(0, 1).pow(T.power).mul(T.scale);
-      reflectedLight.directDiffuse.addAssign(d.mul(lightColor).mul(diffuseContribution).mul(vec3(...T.color)));
+      reflectedLight.directDiffuse.addAssign(d.mul(mk).mul(lightColor).mul(diffuseContribution).mul(vec3(...T.color)));
     }
   }
 }
@@ -558,6 +644,7 @@ function skinOf(m, line, banded, age = 0.35) {
       return out;
     })();
   }
+  const c0grade = c;
   // (the flush and the blotch: a large, soft variation read off the pores' own relief far down its mips)
   const blot = texture(P, uv().mul(2.3)).level(5).a.sub(0.5).mul(S.blotch * 2).add(1);
   c = c.mul(mix(vec3(1), vec3(...S.flush), band.z)).mul(blot);
@@ -584,6 +671,8 @@ function skinOf(m, line, banded, age = 0.35) {
   n.colorNode = vec4(n.colorNode.rgb.mul(float(1).sub(wr.xy.length().mul(Wk.cavity * wk)).max(0.7)), materialColor.a);
   n.roughnessNode = rough0.mul(q1.b.add(q2.b).mul(0.5).sub(0.5).mul(T.rough).add(1)).mul(band.y.mul(-S.tzone).add(1)).clamp(0.3, 1);
   n.userData.age = age;
+  // (charlook: the grade, the wrap and the sheen on the skin only, never on a garment painted on it: garmentSafe)
+  if (charLook()) { n.colorNode = vec4(mix(c0grade, n.colorNode.rgb, skinMask(c0grade)), materialColor.a); garmentSafe(n); }
   return n;
 }
 
