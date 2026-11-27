@@ -410,11 +410,13 @@ export function createRunner(ctx) {
   const TITLE_DUE = 5000; // ms: the longest a mission's title card may be due (W.titleDue, game.js cardUp) before it lands
   const setTime = (id) => { try { if (id) app.selectTime(TIME_IDS[id] || id); } catch {} };
   // (the weather round the camera, js/weather.js: the mission's own `weather`, else the world's dressing.nightWeather
-  // when the mission is at night or dusk, else clear. A new mission starts in its weather at once, under its title)
+  // when the mission is at night, else clear. A new mission starts in its weather at once, under its title. Not at dusk:
+  // the engine's dusk is its twilight preset, the sun still 21 degrees up and the sky bright, where a drizzle read as
+  // rain out of a clear evening (Mandi's Revenge M1 and M2, 27 Nov); a dusk mission that wants it names its own)
   const missionWeather = (def, hour) => {
     const Wx = globalThis.window?.NYC?.Weather;
     if (!Wx) return;
-    const night = hour === 'midnight' || hour === 'twilight';
+    const night = hour === 'midnight';
     const want = def?.weather || (night ? def0.dressing?.nightWeather : null) || 'clear';
     try { Wx.set(want, { fade: 0 }); } catch (e) { console.warn('[storyrun] weather', e); }
   };
@@ -812,10 +814,28 @@ export function createRunner(ctx) {
       if (q) { x = q.x; z = q.z; }
       else if (M.auto) { const info = { mission: M.def.id, step: M.i, type: 'npc', who, ...(d.at && !d.at.rel ? refInfo(d.at) : {}), x: Math.round(x * 10) / 10, z: Math.round(z * 10) / 10, mode: 'person', why: 'spawn' }; throw new Fail(reachReason(info), 'reach', { reach: info }); }
     }
+    // (never stood in another of the mission's people: several stood at one place (Mandi's Revenge WW-6: Jay and both
+    // deckhands at the stadium lot, the reunion's close-up had a deckhand inside Jay) are spread round it, the first where
+    // the place says, the next on a ring 1.3 m out, then 2.4 m, on ground he can stand on)
+    if (d.at && d.at.rel !== 'player') ({ x, z } = apart(who, x, z));
     const fig = await cast.spawn(who, { x, z, heading: Math.atan2(me().x - x, me().z - z) });
     if (fig) M.npcs.add(who);
     if (fig && (d.push || d.lanyard || d.walk)) npcDress(fig, who, d, x, z);
   };
+  function apart(who, x, z) {
+    const others = [];
+    for (const n of M.npcs) { if (n === who) continue; const f = cast.get(n); if (f && f.root && f.root.visible !== false) others.push(f.root.position); }
+    const free = (qx, qz) => others.every((q) => Math.hypot(q.x - qx, q.z - qz) > 0.95);
+    if (free(x, z)) return { x, z };
+    const toMe = Math.atan2(me().x - x, me().z - z);
+    for (const r of [1.3, 2.4]) for (let k = 0; k < 8; k++) {
+      // (round from beside the first, across the player's line of sight, so the newcomer stands next to him, not behind)
+      const a = toMe + Math.PI / 2 + (k % 2 ? -1 : 1) * Math.ceil(k / 2) * (Math.PI / 4);
+      const qx = x + Math.sin(a) * r, qz = z + Math.cos(a) * r;
+      if (free(qx, qz) && reach.clear(qx, qz)) return { x: qx, z: qz };
+    }
+    return { x, z };
+  }
   // what a person stood on the street has with them (npc-dress.js) and where they go: a lanyard, a chair they push, a
   // walk (from where they stand, in the player's frame: fwd along his heading, right toward the kerb) with their walk
   // clip, then idle; the chair stays where they leave it until the mission ends
@@ -1579,12 +1599,30 @@ export function createRunner(ctx) {
         // of it, then holds there over the river and cranes up CRANE m, so it looks over the houses at the landing)
         const farHinge = Math.max(((s.ax - p0.x) * fx + (s.az - p0.z) * fz), ((s.bx - p0.x) * fx + (s.bz - p0.z) * fz));
         const FAR_STOP = 4, CRANE = 6;
-        let hold = null, lift = 0;
+        // (the landing, 27 Nov review: held over the river while the Kastell rolled on 30 m and more, the black car went
+        // to a few dark pixels on a dark street. Once the lens holds, it zooms after the car so it keeps the size it had
+        // in the frame when the lens stopped (to LAND_FOV at the tightest), its look point pulled in onto the car as it
+        // does, and the key comes round to the lens's side of the car, nearer and stronger (LAND_KEY), with a reach
+        // long enough to light the whole body: its roof, its flank and the road round it read against the street)
+        const fov0 = D.camera.fov, LAND_FOV = 16, LAND_KEY = 1.9;
+        let hold = null, lift = 0, d0 = 0;
+        const _k = new THREE.Vector3();
         D.onFrame = (dt = 1 / 60) => { const q = car.position; let L0 = lensAt(q);
-          if (track && !hold && (L0[0] - p0.x) * fx + (L0[2] - p0.z) * fz > farHinge - FAR_STOP) hold = L0;
+          if (track && !hold && (L0[0] - p0.x) * fx + (L0[2] - p0.z) * fz > farHinge - FAR_STOP) { hold = L0; d0 = Math.max(4, Math.hypot(q.x - L0[0], q.y - L0[1], q.z - L0[2])); }
           if (hold) { L0 = hold; lift += (CRANE - lift) * Math.min(1, dt * 2.5); }
-          D.camera.pos = [L0[0], L0[1] + lift, L0[2]]; D.camera.look = [q.x + fx * lead, q.y + 0.9, q.z + fz * lead];
-          keyL.position.set(q.x + rx * out * 0.45 - fx * 2, q.y + 3.5, q.z + rz * out * 0.45 - fz * 2); };
+          const pos = [L0[0], L0[1] + lift, L0[2]];
+          D.camera.pos = pos;
+          if (!hold) {
+            D.camera.look = [q.x + fx * lead, q.y + 0.9, q.z + fz * lead];
+            keyL.position.set(q.x + rx * out * 0.45 - fx * 2, q.y + 3.5, q.z + rz * out * 0.45 - fz * 2);
+            return;
+          }
+          const d = Math.max(d0, Math.hypot(q.x - pos[0], q.y - pos[1], q.z - pos[2])), k = d0 / d;
+          D.camera.fov = Math.max(LAND_FOV, (2 * Math.atan(Math.tan((fov0 * Math.PI) / 360) * k) * 180) / Math.PI);
+          D.camera.look = [q.x + fx * lead * k, q.y + 0.7, q.z + fz * lead * k];
+          _k.set(pos[0] - q.x, 0, pos[2] - q.z).normalize();
+          keyL.position.set(q.x + _k.x * 4.5, q.y + 3.2, q.z + _k.z * 4.5);
+          keyL.distance = 22; keyL.intensity = (o.key ?? 60) * LAND_KEY; };
         M.log.push(['jump', s.name, +L.vy.toFixed(1), +(car.speed || 0).toFixed(1)]);
         W.jumpShot = { span: s.id, at: performance.now(), vy: L.vy, speed: car.speed, lens: D.camera.pos };
         return false;

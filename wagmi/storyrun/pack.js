@@ -88,7 +88,7 @@ export function storyHour(def) {
 
 export const BLACKOUTS = ['midtown', 'downtown', 'manhattan'];
 // the weather round the camera a mission may ask for (js/weather.js): its own `weather`, or the world's
-// dressing.nightWeather for each mission at night or dusk that names none (runner.js missionWeather)
+// dressing.nightWeather for each mission at night (midnight, not dusk's bright twilight) that names none (runner.js missionWeather)
 export const WEATHERS = ['clear', 'drizzle', 'rain', 'mist', 'wind'];
 export function asksDressing(d) {
   if (!d || typeof d !== 'object') return false;
