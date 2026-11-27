@@ -2186,6 +2186,53 @@ function buildCityBlocks(scene, opts = {}) {
       return mode + glaze;
     }
 
+    // (Chicago) a package's flat roof dressed (its largest mass, `top`: a rectangle inside the outline, turned by theta):
+    //  - a water tower on about 15% of the brick lofts 14-75 m tall (blk.waterTowers, drawn by the streamed pools below):
+    //    a cedar barrel on its steel trestle or, on about a third of them, a welded steel tank; near one end of the roof,
+    //    its 2.2 m radius clear of the parapet;
+    //  - 1-4 plant boxes (bulkhead, chillers, fans: blk.hvacUnits) in a row along the roof's long side, 0.8 m clear of
+    //    its edges, sized to the roof, on the other half from a water tower
+    // Every box stays inside the mass, so inside the roof polygon; each is axis-aligned in the block's turn (blk.ry)
+    let waterN = 0, plantN = 0;
+    const waterAt = []; // (for surveys and screenshots: where the water towers stand, x, roof y, z)
+    function pkgRoofClutter(blk, top, theta, roof, height, kind, look, hi) {
+      const cs = Math.cos(theta), sn = Math.sin(theta);
+      const at = (lx, lz) => [top.cx + lx * cs + lz * sn, top.cz - lx * sn + lz * cs];
+      const alongX = top.w >= top.d;
+      const L = alongX ? top.w : top.d, S = alongX ? top.d : top.w;
+      // (local (u along the long side, v across) -> the mass's x / z)
+      const loc = (u, v) => (alongX ? [u, v] : [v, u]);
+      let u0 = -L / 2 + 0.8, u1 = L / 2 - 0.8; // the stretch left for the plant
+      const loft = (look.wall === 'brick') && (kind === 'warehouse' || kind === 'apartment' || kind === 'office' || kind === 'shop')
+        && height >= 14 && height <= 75 && S >= 6.6 && L >= 9;
+      if (loft && hash(hi, 61.1) < 0.15) {
+        const end = hash(hi, 62.3) < 0.5 ? -1 : 1, R = 2.2;
+        const u = end * (L / 2 - R - 0.4), v = (hash(hi, 62.9) - 0.5) * Math.max(0, S - 2 * R - 0.8);
+        const [x, z] = at(...loc(u, v));
+        blk.waterTowers.push({ x, y: roof, z, steel: hash(hi, 63.7) < 0.33 });
+        if (waterN < 400) waterAt.push([Math.round(x), Math.round(roof), Math.round(z)]);
+        waterN++;
+        if (end < 0) u0 = -L / 2 + 2 * R + 1.2; else u1 = L / 2 - 2 * R - 1.2;
+      }
+      const span = u1 - u0;
+      if (span < 2.4 || S < 4) return;
+      const tall = height >= 45;
+      const n = Math.max(1, Math.min(1 + Math.floor(hash(hi, 64.1) * (tall ? 4 : 3)), Math.floor(span / 3.2)));
+      const gap = 1.0, each = (span - gap * (n - 1)) / n;
+      for (let k = 0; k < n; k++) {
+        // (the first the bulkhead, taller on a tower; the rest low units)
+        const bl = Math.max(1.8, Math.min(each, k === 0 ? Math.max(2.6, each * range(0.6, 0.95)) : each * range(0.5, 0.9)));
+        const bs = Math.max(1.6, Math.min(S - 1.6, S * (k === 0 ? range(0.3, 0.5) : range(0.2, 0.38))));
+        const u = u0 + k * (each + gap) + each / 2;
+        const v = (range(-0.5, 0.5)) * Math.max(0, S - 1.6 - bs);
+        const [x, z] = at(...loc(u, v));
+        const [w, d] = loc(bl, bs);
+        const h = k === 0 ? (tall ? range(3.4, 5.8) : range(2.4, 3.2)) : range(1.2, 2.2);
+        blk.hvacUnits.push({ x, y: roof, z, w, h, d });
+        plantN++;
+      }
+    }
+
     let awningN = 0, mallN = 0;
     // (r7) how many of an outline's corners bend by 3 to 25 degrees: the vertices of an arc, not a box's corners
     const softCorners = (pts) => {
@@ -2508,10 +2555,13 @@ function buildCityBlocks(scene, opts = {}) {
       if (top && topBox && crown > CROWN_MIN && (type === 'tower' || type === 'midrise' || type === 'landmark') && (!PK || look.roof === 'flat')) {
         window.NYC.sfCrown(details, blk, topBox, { roof, crown, storey: storeyH || storeys[mat], bucket: buckets[mat] });
       } else if (top && top.w >= 6 && top.d >= 6 && !terrace && !(type === 'rowhouse' || type === 'flats' || type === 'shed') && (!PK || look.roof === 'flat')) {
-        // a bulkhead / mechanical penthouse on the largest roof (not on row houses, flats and sheds)
-        const hw = Math.min(top.w - 1.2, Math.max(2.4, top.w * range(0.25, 0.45)));
-        const hd = Math.min(top.d - 1.2, Math.max(2.4, top.d * range(0.25, 0.45)));
-        blk.hvacUnits.push({ x: top.cx, y: roof, z: top.cz, w: hw, h: height >= 45 ? range(3.4, 5.8) : range(2.4, 3.2), d: hd });
+        if (PK) pkgRoofClutter(blk, top, theta, roof, height, kind, look, hi);
+        else {
+          // a bulkhead / mechanical penthouse on the largest roof (not on row houses, flats and sheds)
+          const hw = Math.min(top.w - 1.2, Math.max(2.4, top.w * range(0.25, 0.45)));
+          const hd = Math.min(top.d - 1.2, Math.max(2.4, top.d * range(0.25, 0.45)));
+          blk.hvacUnits.push({ x: top.cx, y: roof, z: top.cz, w: hw, h: height >= 45 ? range(3.4, 5.8) : range(2.4, 3.2), d: hd });
+        }
       }
       quadtree.insert(blk);
       allBlocks.push(blk);
@@ -2533,7 +2583,8 @@ function buildCityBlocks(scene, opts = {}) {
       if (me) group.add(me);
       const kinds = {};
       for (let i = 0; i < header.count; i++) { const k = header.kinds[table[i * F + FI.kind]] || 'unknown'; kinds[k] = (kinds[k] || 0) + 1; }
-      console.info(`[roofs] ${header.region}: ${JSON.stringify(pb.stats)} kinds ${JSON.stringify(kinds)} awnings ${awningN} mall masses ${mallN}`);
+      console.info(`[roofs] ${header.region}: ${JSON.stringify(pb.stats)} kinds ${JSON.stringify(kinds)} awnings ${awningN} mall masses ${mallN} water towers ${waterN} plant boxes ${plantN}`);
+      window.NYC.pkgRoofStats = { waterTowers: waterN, plantBoxes: plantN, waterAt };
     }
     // a package's shop signs: named after the town's own streets, name and sides, one name per storefront, none twice
     // within sight (PkgBuildings.signPlan)
@@ -2804,6 +2855,23 @@ function buildCityBlocks(scene, opts = {}) {
   trestleParts.push(riserPipe);
   const legsGeo = mergeGeometries(trestleParts, false);
 
+  // (Chicago) the welded steel tank, a third of a package's water towers (wt.steel): a taller silver-grey drum with a
+  // shallow cone roof and a catwalk ring, on the same trestle
+  const steelMat = new THREE.MeshStandardNodeMaterial({ roughness: 0.48, metalness: 0.55 });
+  steelMat.colorNode = Fn(() => {
+    const u = uv();
+    const seam = smoothstep(0.04, 0.0, abs(fract(u.y.mul(4.0)).sub(0.5)).sub(0.46).abs());
+    const streak = mx_noise_float(vec2(u.x.mul(40.0), u.y.mul(3.0))).mul(0.5).add(0.5);
+    return mix(color(0x9aa1a6), color(0x6d7378), streak.mul(0.35).add(seam.mul(0.4)));
+  })();
+  const steelGeo = new THREE.CylinderGeometry(1.75, 1.75, 4.4, 14);
+  const steelCapGeo = new THREE.ConeGeometry(1.85, 0.8, 14);
+  const steelInst = new THREE.InstancedMesh(steelGeo, steelMat, MAX_WATER_TOWERS);
+  const steelCapInst = new THREE.InstancedMesh(steelCapGeo, legMat, MAX_WATER_TOWERS);
+  steelInst.castShadow = steelInst.receiveShadow = steelCapInst.castShadow = steelCapInst.receiveShadow = true;
+  steelInst.frustumCulled = steelCapInst.frustumCulled = false;
+  steelInst.count = steelCapInst.count = 0;
+  group.add(steelInst, steelCapInst);
   const barrelInst = new THREE.InstancedMesh(barrelGeo, woodMat, MAX_WATER_TOWERS);
   const coneInst = new THREE.InstancedMesh(coneGeo, roofCapMat, MAX_WATER_TOWERS);
   const legsInst = new THREE.InstancedMesh(legsGeo, legMat, MAX_WATER_TOWERS);
@@ -3064,7 +3132,7 @@ function buildCityBlocks(scene, opts = {}) {
     activeAwnings.length = 0;
 
     let corniceCount = 0;
-    let wtCount = 0;
+    let wtCount = 0, stCount = 0, legCount = 0;
     let hvacCount = 0;
     let feCount = 0;
     let awningCount = 0;
@@ -3089,13 +3157,22 @@ function buildCityBlocks(scene, opts = {}) {
       }
 
       // 2. Rooftop cedar water towers
-      for (let i = 0; i < blk.waterTowers.length && wtCount < MAX_WATER_TOWERS; i++) {
+      for (let i = 0; i < blk.waterTowers.length && legCount < MAX_WATER_TOWERS; i++) {
         const wt = blk.waterTowers[i];
         dummy.scale.set(1, 1, 1);
 
         dummy.position.set(wt.x, wt.y + 1.3, wt.z);
         dummy.updateMatrix();
-        legsInst.setMatrixAt(wtCount, dummy.matrix);
+        legsInst.setMatrixAt(legCount++, dummy.matrix);
+        if (wt.steel) {
+          dummy.position.set(wt.x, wt.y + 4.6, wt.z);
+          dummy.updateMatrix();
+          steelInst.setMatrixAt(stCount, dummy.matrix);
+          dummy.position.set(wt.x, wt.y + 7.2, wt.z);
+          dummy.updateMatrix();
+          steelCapInst.setMatrixAt(stCount++, dummy.matrix);
+          continue;
+        }
 
         dummy.position.set(wt.x, wt.y + 4.2, wt.z);
         dummy.updateMatrix();
@@ -3172,10 +3249,14 @@ function buildCityBlocks(scene, opts = {}) {
     corniceInst.count = corniceCount;
     flagRange(corniceInst.instanceMatrix, corniceCount);
 
-    legsInst.count = wtCount;
+    legsInst.count = legCount;
+    steelInst.count = stCount;
+    steelCapInst.count = stCount;
+    flagRange(steelInst.instanceMatrix, stCount);
+    flagRange(steelCapInst.instanceMatrix, stCount);
     barrelInst.count = wtCount;
     coneInst.count = wtCount;
-    flagRange(legsInst.instanceMatrix, wtCount);
+    flagRange(legsInst.instanceMatrix, legCount);
     flagRange(barrelInst.instanceMatrix, wtCount);
     flagRange(coneInst.instanceMatrix, wtCount);
 
