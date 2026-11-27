@@ -60,6 +60,8 @@ export function tagText(def) {
   const t = String(def?.title || '').trim().toUpperCase(), k = String(def?.kicker || '').trim().toUpperCase();
   return [t, k, 'gamemog.com'].filter(Boolean).join(' · ');
 }
+// the map data's credit a saved picture carries: a Hometown town's (NYC.PKG), else none
+export function mapCredit(N) { return N && N.PKG ? '© OpenStreetMap contributors' : ''; }
 export function fileName(def, d = new Date()) {
   const slug = String(def?.title || 'gamemog').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'gamemog';
   const p = (n) => String(n).padStart(2, '0');
@@ -228,6 +230,9 @@ export function createPhoto(ui) {
       x.shadowColor = 'rgba(0,0,0,0.6)'; x.shadowBlur = Math.max(2, fs * 0.2); x.shadowOffsetY = 1;
       x.fillStyle = 'rgba(255,255,255,0.86)';
       x.fillText(tagText(def()), c.width - pad, c.height - pad);
+      // (a town built from open map data: OpenStreetMap's credit on the picture too, small, in the other corner)
+      const credit = mapCredit(globalThis.window?.NYC);
+      if (credit) { x.font = `500 ${Math.max(10, Math.round(fs * 0.62))}px Inter, system-ui, sans-serif`; x.textAlign = 'left'; x.fillText(credit, pad, c.height - pad); }
     } catch (e) { console.warn('[photo] save', e); toast('Could not save the photo'); return null; }
     const blob = await new Promise((r) => c.toBlob(r, 'image/png'));
     if (!blob) { toast('Could not save the photo'); return null; }

@@ -93,7 +93,7 @@ if (repo) {
 // ...and the map's data in the places a game credits it (OSMF Attribution Guidelines, "Computer games and simulations":
 // a splash screen at startup, the game view, the credits or a menu; NOTICE "Map data in a Hometown town"): the loading
 // screen (here), the start gate's small print (wagmi/storyrun/index.js), the pause menu's foot and its Credits page
-// (wagmi/mission/pause.js, wagmi/credits.js) and the full map's corner (below). Never a line over the play itself.
+// (wagmi/mission/pause.js, wagmi/credits.js), the full map's corner (below) and a small line in the screen's corner.
 N.PKG_CREDIT = N.pkgCredit(P.attribution);
 const loader = document.querySelector('#loading-overlay .loader');
 if (loader && !document.getElementById('pkg-load-credit')) {
@@ -112,6 +112,27 @@ color:rgba(255,255,255,.66);text-decoration:none;text-align:center;pointer-event
 #pkg-load-credit:hover,#pkg-load-credit:focus-visible{color:#fff;text-decoration:underline}`;
   document.head.appendChild(css);
   loader.appendChild(line);
+}
+// ...and over the play itself, a small credit in the screen's corner (the open blocker of 13 Nov: the loading screen is
+// hidden on a story world's path and the HUD's title with its credit is put away in story mode, so a player in a town
+// saw the map with no credit on it). OpenStreetMap's guidelines for games ask for it where the map is shown; it stays
+// in photo mode, under the photo's own corner tag, and wagmi/mission/photo.js writes it on the saved picture too
+if (document.body && !document.getElementById('pkg-map-credit')) {
+  const a = document.createElement('a');
+  a.id = 'pkg-map-credit';
+  a.href = 'https://www.openstreetmap.org/copyright';
+  a.target = '_blank';
+  a.rel = 'noopener noreferrer';
+  a.title = N.PKG_CREDIT.full;
+  a.setAttribute('aria-label', `Map data: ${N.PKG_CREDIT.full} (opens in a new tab)`);
+  a.textContent = '© OpenStreetMap contributors';
+  const css = document.createElement('style');
+  css.textContent = `#pkg-map-credit{position:fixed;right:max(8px,env(safe-area-inset-right));bottom:max(3px,env(safe-area-inset-bottom));z-index:28;
+font:500 10px/1.3 Inter,system-ui,sans-serif;color:rgba(255,255,255,.66);text-decoration:none;text-shadow:0 1px 2px rgba(0,0,0,.75);pointer-events:auto;white-space:nowrap}
+#pkg-map-credit:hover,#pkg-map-credit:focus-visible{color:#fff;text-decoration:underline}
+html body.wg-photo > a#pkg-map-credit#pkg-map-credit{visibility:visible!important;bottom:max(3px,env(safe-area-inset-bottom));right:auto;left:max(8px,env(safe-area-inset-left))}`;
+  document.head.appendChild(css);
+  document.body.appendChild(a);
 }
 // (a story world's instant title, index.html #wg-boot, stands in for the loading screen on its path: the same line under
 // its small print, until the start gate takes its place with its own, wagmi/mission/ui.js gate({ credit }))
