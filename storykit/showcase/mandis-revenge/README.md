@@ -64,9 +64,11 @@ gate's rule); a few are closer than Jensen Return's 250 m judgement, because the
 
 ## Weather (MogCity `js/weather.js`)
 
-Every mission is at dusk or night, so each gets the world's `dressing.nightWeather`, a drizzle, unless it names its own:
-rain for the chases (M3 Lower Level, which the lower deck shelters, M6 Wrong Way Jay, M8 Bridge Up) and river mist for
-M7 Double or Nothing on the riverwalk. The streets are damp, never mirror-wet.
+Every mission at night gets the world's `dressing.nightWeather`, a drizzle (M4 Mirror Park, M5 Pier Pressure), unless it
+names its own: rain for the chases (M3 Lower Level, which the lower deck shelters, M6 Wrong Way Jay, M8 Bridge Up) and
+river mist for M7 Double or Nothing on the riverwalk. M1 and M2 are at dusk, Mog City's twilight with the sun still up
+and the sky bright, so they stay dry (MogCity `mandi-integrate`: nightWeather is for midnight only). The streets are
+damp, never mirror-wet.
 
 ## Pacing (the Jensen rules: a drive or tail about 2 minutes at most, never 3 minutes without a beat)
 

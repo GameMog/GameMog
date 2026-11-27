@@ -43,7 +43,7 @@ export const TIMES = ['golden', 'midday', 'twilight', 'midnight', 'dawn'];
 export const SEASONS = ['spring', 'summer', 'autumn', 'winter'];
 export const WEATHER = ['clear', 'overcast', 'rain', 'storm', 'fog', 'snow'];
 // the weather round the camera (Mog City js/weather.js, any city): a mission's own `weather`, or the world's
-// dressing.nightWeather for each of its missions at night or dusk (twilight, midnight) that names none; else clear.
+// dressing.nightWeather for each of its missions at night (midnight; not dusk, the engine's bright twilight) that names none; else clear.
 // drizzle: the night drizzle; rain: heavier, for a chase; mist: low river mist; wind: lakefront wind and grit.
 // (dressing.weather is another thing: the city's own dressing, Mog City wagmi/storyrun/dressing.js)
 export const SKY_WEATHER = ['clear', 'drizzle', 'rain', 'mist', 'wind'];
@@ -427,7 +427,7 @@ const mission = O({
   id: R('missionId'), title: S(48), vehicle: R('rideRef'), verbs: A(E(VERBS), 8, 0, { uniqueItems: true }),
   start: R('placeRef'), traffic: N(0, 1), stakes: R('line'), passLine: R('line'), note: R('line'), timerLine: S(80), label: S(24),
   time: E(TIMES, { description: "the mission's time of day, pinned: held through its cutscenes and set pieces (left out: the act's timeline's, else the dressing's)" }),
-  weather: E(SKY_WEATHER, { description: "the weather round the camera for this mission (Mog City js/weather.js): drizzle, rain (a chase), mist (on the river), wind (the lakefront), clear; left out, the dressing's nightWeather at night or dusk, else clear" }),
+  weather: E(SKY_WEATHER, { description: "the weather round the camera for this mission (Mog City js/weather.js): drizzle, rain (a chase), mist (on the river), wind (the lakefront), clear; left out, the dressing's nightWeather at night (midnight), else clear" }),
   reward: R('set'), hiddenMeters: A(R('slug'), 4), next: R('missionId'), hidden: B, steps: A({ $ref: '#/$defs/step' }, LIMITS.steps, 1),
   card: ONE(E(['slam']), { const: false }, { description: "the mission's title card: slam (slammed in with a hit), false (none: its first cutscene titles it); a hometown story slams every one" }),
   medals: O(Object.fromEntries(['gold', 'silver', 'bronze'].map((k) => [k, O({ secs: N(10, 7200, { description: 'the time to beat, in seconds, from the mission\'s start' }), damage: N(0, 1000, { description: "the most damage: what the car takes (100 is a whole car's worth) and 3 a hit on foot; left out, any" }) }, ['secs'])])), [],
@@ -476,7 +476,7 @@ export const SCHEMA = {
         ['place', 'compiler', 'tiles'], { description: "a hometown only (city 'hometown'): the town it plays, pinned (its place id, the build and the tile set's hash; on the national grid also its frame: grid, domain, origin, k0, gamma0, yOffset, waterLevel); copied exactly from the city package, and a Mog keeps it exactly" }) }, ['engine', 'city', 'cityBuild'],
       { description: 'what the story runs on; on a Mog, equal to the parent\'s (locked)' }),
     dressing: O({ time: E(TIMES), season: E(SEASONS), weather: E(WEATHER), holiday: A(E(HOLIDAYS), 2, 0, { uniqueItems: true }),
-      nightWeather: E(SKY_WEATHER, { description: "the weather round the camera for every mission at night or dusk (twilight, midnight) that names none of its own (Mog City js/weather.js): drizzle for a wet night. Left out, clear" }),
+      nightWeather: E(SKY_WEATHER, { description: "the weather round the camera for every mission at night (midnight; not dusk, whose twilight is still bright) that names none of its own (Mog City js/weather.js): drizzle for a wet night. Left out, clear" }),
       blackout: E(BLACKOUTS, { description: 'the power is out there (midtown: 34th to 59th St; downtown: below 34th St; manhattan: all of it, the boroughs over the rivers lit): dark windows, street lights and billboards, dead signals, emergency cars, stranded cars, generator-lit islands. Left out, the power is on' }) }, ['time', 'season', 'weather']),
     hero: { ...R('castRef'), description: 'the player character (a cast id)' },
     cine: O({ action: { ...B, description: "the action layer: chase cameras, speed lines, near misses held in slow motion, crash beats, title slams. On by itself in a hometown story" } }),

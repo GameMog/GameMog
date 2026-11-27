@@ -299,7 +299,7 @@
       "mist",
       "wind"
      ],
-     "description": "the weather round the camera for every mission at night or dusk (twilight, midnight) that names none of its own (Mog City js/weather.js): drizzle for a wet night. Left out, clear"
+     "description": "the weather round the camera for every mission at night (midnight; not dusk, whose twilight is still bright) that names none of its own (Mog City js/weather.js): drizzle for a wet night. Left out, clear"
     },
     "blackout": {
      "enum": [
@@ -1858,7 +1858,7 @@
           "mist",
           "wind"
          ],
-         "description": "the weather round the camera for this mission (Mog City js/weather.js): drizzle, rain (a chase), mist (on the river), wind (the lakefront), clear; left out, the dressing's nightWeather at night or dusk, else clear"
+         "description": "the weather round the camera for this mission (Mog City js/weather.js): drizzle, rain (a chase), mist (on the river), wind (the lakefront), clear; left out, the dressing's nightWeather at night (midnight), else clear"
         },
         "reward": {
          "$ref": "#/$defs/set"
