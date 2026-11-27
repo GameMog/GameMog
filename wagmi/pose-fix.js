@@ -19,8 +19,11 @@
 // the bodies that take it, by their forge sheet: clip name -> fix
 export const POSE_FIX = Object.freeze({
   mandi: Object.freeze({ sit: 'lady', sitTalk: 'lady', phone: 'ear', phoneCall: 'ear' }),
+  // (Mandi's Revenge review, 27 Nov, Jay: Dan's takes on Jay's narrower, A-pose-bound frame read 'zombie': the trunk pitched over
+  // the feet, the head out in front, the shoulders rolled forward, the arms hanging dead straight. Every standing clip)
+  jay: Object.freeze({ '*': 'upright' }),
 });
-const FIXES = new Set(['lady', 'ear']);
+const FIXES = new Set(['lady', 'ear', 'upright']);
 export const poseFixOn = () => { try { return new URLSearchParams(globalThis.location?.search || '').get('posefix') !== '0'; } catch { return true; } };
 export function poseFixOf(gltf) {
   if (!poseFixOn()) return null;
@@ -29,7 +32,7 @@ export function poseFixOf(gltf) {
   const sheet = x.forge?.landmarks?.sheet || x.forge?.sheet || null;
   const m = own || (typeof sheet === 'string' && POSE_FIX[sheet]) || null;
   if (!m) return null;
-  const out = {}; for (const [k, v] of Object.entries(m)) if (typeof k === 'string' && FIXES.has(v)) out[k] = v;
+  const out = {}; for (const [k, v] of Object.entries(m)) if (typeof k === 'string' && FIXES.has(v)) out[k] = v;   // ('*': every clip without its own)
   return Object.keys(out).length ? out : null;
 }
 
@@ -114,6 +117,32 @@ export function fixPoses(THREE, clips, bodyGltf, fix) {
     }
   }
   const side = (s) => (s === 'L' ? 1 : -1); // (her left is +x, facing +z)
+
+  // standing upright: the trunk over the hips (no more than UP_LEAN forward), the chest lifted, the head back over the
+  // shoulders, the shoulders back and down, a soft bend at the elbows, the hands relaxed
+  const UP_LEAN = 0.03, UP_CHEST = 0.07, UP_HEAD = 0.015, UP_CLAV_BACK = 0.12, UP_CLAV_DOWN = 0.06, UP_ELBOW = 0.22;
+  function upright(ctx) {
+    const X = V(1, 0, 0);
+    if (B.neck01) {   // (the trunk: hips to the neck's base pitched back toward UP_LEAN)
+      const n = wp(B.neck01).sub(wp(B.spine05)); const pitch = Math.atan2(n.z, n.y);
+      if (pitch > UP_LEAN) turn(B.spine05, _q.setFromAxisAngle(X, -(pitch - UP_LEAN) * 0.8));
+    }
+    if (B.spine01) turn(B.spine01, _q.setFromAxisAngle(X, -UP_CHEST));   // (chest up)
+    if (B.neck01 && B.head) {   // (the head over the shoulders: its offset forward of the neck's base taken back to UP_HEAD)
+      const nb = wp(B.neck01), h = wp(B.head), dz = h.z - nb.z, dy = h.y - nb.y;
+      if (dz > UP_HEAD && dy > 0.02) turn(B.neck01, _q.setFromAxisAngle(X, -Math.atan2(dz - UP_HEAD, dy)));
+      levelHead(0.6, 0);   // (and the face back to level: the neck's turn back must not tip the chin up)
+    }
+    for (const s of ['L', 'R']) {
+      const c = B['clavicle_' + s]; if (c) { turn(c, _q.setFromAxisAngle(V(0, 1, 0), side(s) * UP_CLAV_BACK)); turn(c, _q.setFromAxisAngle(V(0, 0, 1), -side(s) * UP_CLAV_DOWN)); }
+      const ua = B['upperarm01_' + s], la = B['lowerarm01_' + s], wr = B['wrist_' + s];
+      if (ua && la && wr && ctx.elbow !== false) {   // (a soft elbow: at least UP_ELBOW of bend, the forearm forward)
+        const a = wp(la).sub(wp(ua)).normalize(), b = wp(wr).sub(wp(la)).normalize(), bend = Math.acos(Math.max(-1, Math.min(1, a.dot(b))));
+        if (bend < UP_ELBOW) { const ax = V().crossVectors(b, V(0, 0, 1)); if (ax.lengthSq() > 1e-8) { ax.normalize(); turn(la, _q.setFromAxisAngle(ax, -(UP_ELBOW - bend))); } }
+      }
+      if (ctx.relax) curl(s, [14, 18, 12], 0.4);
+    }
+  }
 
   // sitting like a lady: the back up, the knees together, the hands on the thighs
   function lady(ctx) {
@@ -205,7 +234,7 @@ export function fixPoses(THREE, clips, bodyGltf, fix) {
     const set = (x, t) => { const v = x.i.evaluate(t); if (x.path === 'quaternion') x.b.quaternion.fromArray(v); else x.b.position.fromArray(v); };
     const pose = (t) => { reset(); for (const x of tr) if (!(base && LOWER.test(x.b.name))) set(x, t); for (const x of bt) set(x, t % x.d); arm.updateMatrixWorld(true); };
     // (which hand holds the phone: the one the take has highest; the hips' height for the lap)
-    const ctx = { thigh: {}, lap: 0.085, earUp: 0.02, earOut: 0.08, earFwd: 0.01 };
+    const ctx = { thigh: {}, lap: 0.085, earUp: 0.02, earOut: 0.08, earFwd: 0.01, relax: kind === 'upright' && /^(idle|walk|talk|stand)/i.test(clip.name), elbow: kind !== 'upright' || !/wave|cheer|point|phone|run/i.test(clip.name) };
     if (kind === 'ear') { let l = 0, r = 0; for (const t of times) { pose(t); l += wp(B.wrist_L).y; r += wp(B.wrist_R).y; } ctx.hand = l > r ? 'L' : 'R'; }
     // (a talk on the lap: a third of the take's own wrist movement about its middle, the right hand freer)
     let mean = null;
@@ -218,7 +247,7 @@ export function fixPoses(THREE, clips, bodyGltf, fix) {
     times.forEach((t, k) => {
       pose(t);
       if (mean) { ctx.sway = {}; for (const s of ['L', 'R']) { const d = wp(B['wrist_' + s]).sub(mean[s]).multiplyScalar(s === 'R' ? 0.3 : 0.15); d.y = Math.max(-0.02, Math.min(0.06, d.y)); d.clampLength(0, 0.07); ctx.sway[s] = d; } }
-      try { (kind === 'lady' ? lady : ear)(ctx); } catch (err) { if (k === 0) console.warn('[pose-fix]', clip.name, err); }
+      try { (kind === 'lady' ? lady : kind === 'upright' ? upright : ear)(ctx); } catch (err) { if (k === 0) console.warn('[pose-fix]', clip.name, err); }
       for (const { o, v } of keep.values()) o.quaternion.toArray(v, k * 4);
       B.root.position.toArray(rootP, k * 3);
     });
@@ -229,5 +258,5 @@ export function fixPoses(THREE, clips, bodyGltf, fix) {
     return k;
   }
   void restH;
-  return clips.map((c) => { const kind = fix[c.name]; if (!kind) return c; try { return bake(c, kind); } catch (err) { console.warn('[pose-fix]', c.name, err); return c; } });
+  return clips.map((c) => { const kind = fix[c.name] || (fix['*'] && !/sit|lie|crouch|kneel/i.test(c.name) ? fix['*'] : null); if (!kind) return c; try { return bake(c, kind); } catch (err) { console.warn('[pose-fix]', c.name, err); return c; } });
 }
