@@ -37,6 +37,45 @@ export const GWAGON_TUNE = Object.freeze({
   springs: Object.freeze({ rollGain: 0.0044, rollMax: 0.131, k: 52, damp: 8.8 }),
 });
 
+// the street a gloss black body mirrors at night (an equirect, PMREM'd by the renderer; once, shared): a dark sky with
+// the city's glow low over its rooftops, a skyline of lit windows, streetlights in a row along the horizon with their
+// pools on the wet road under it, and the road itself near black. Seeded, so every run draws the same street
+let nightEnvTex = null;
+export function nightStreetEnv(THREE) {
+  if (nightEnvTex || !globalThis.document) return nightEnvTex;
+  const W = 1024, H = 512, c = document.createElement('canvas'); c.width = W; c.height = H;
+  const x = c.getContext('2d'); let sd = 7;
+  const rnd = () => ((sd = (sd * 16807) % 2147483647) / 2147483647);
+  const hz = H * 0.5;
+  // (the sky: near black at the top, the city's sodium glow over the rooftops)
+  let gr = x.createLinearGradient(0, 0, 0, hz);
+  gr.addColorStop(0, '#05070C'); gr.addColorStop(0.55, '#0E1320'); gr.addColorStop(0.85, '#1C1E2A'); gr.addColorStop(1, '#302C2E');
+  x.fillStyle = gr; x.fillRect(0, 0, W, hz);
+  // (the road: wet asphalt, near black)
+  gr = x.createLinearGradient(0, hz, 0, H); gr.addColorStop(0, '#1A1715'); gr.addColorStop(0.2, '#08090B'); gr.addColorStop(1, '#030304');
+  x.fillStyle = gr; x.fillRect(0, hz, W, H - hz);
+  // (the skyline: towers of every height, dark, their windows lit here and there, warm and a few cool)
+  for (let bx = 0; bx < W;) {
+    const bw = 18 + rnd() * 46, bh = 14 + rnd() * rnd() * 150, top = hz - bh;
+    x.fillStyle = '#07080B'; x.fillRect(bx, top, bw, bh);
+    for (let wy = top + 4; wy < hz - 6; wy += 6) for (let wx = bx + 3; wx < bx + bw - 3; wx += 5) {
+      if (rnd() < 0.3) { const cool = rnd() < 0.2; x.fillStyle = cool ? 'rgba(190,215,255,0.85)' : `rgba(255,${190 + Math.floor(rnd() * 40)},${110 + Math.floor(rnd() * 50)},0.9)`; x.fillRect(wx, wy, 2.5, 3); }
+    }
+    bx += bw + rnd() * 6;
+  }
+  // (the streetlights: a row of bright heads along the horizon, sodium and LED, their pools and smears on the wet road)
+  for (let i = 0; i < 28; i++) {
+    const lx = (i + rnd() * 0.6) * (W / 28), ly = hz - 10 - rnd() * 22, warm = rnd() < 0.7;
+    const col = warm ? '255,214,150' : '226,236,255';
+    let rg = x.createRadialGradient(lx, ly, 0, lx, ly, 14); rg.addColorStop(0, `rgba(${col},1)`); rg.addColorStop(0.25, `rgba(${col},0.75)`); rg.addColorStop(1, `rgba(${col},0)`);
+    x.fillStyle = rg; x.fillRect(lx - 14, ly - 14, 28, 28);
+    const sg = x.createLinearGradient(0, hz, 0, hz + 110); sg.addColorStop(0, `rgba(${col},0.5)`); sg.addColorStop(1, `rgba(${col},0)`);
+    x.fillStyle = sg; x.fillRect(lx - 3, hz, 6, 110);
+  }
+  const t = new THREE.CanvasTexture(c); t.mapping = THREE.EquirectangularReflectionMapping; t.colorSpace = THREE.SRGBColorSpace;
+  return (nightEnvTex = t);
+}
+
 export async function buildGwagon(THREE, o = {}) {
   const gltf = await loadGLB(GWAGON_GLB);
   { const sec = CREDITS.find((c) => c.heading === 'Vehicles'); if (sec && !sec.lines.includes(GWAGON_CREDIT)) sec.lines.push(GWAGON_CREDIT); }
@@ -123,6 +162,29 @@ export async function buildGwagon(THREE, o = {}) {
     rim: P({ color: '#26292D', metalness: 1, roughness: 0.16, clearcoat: 1, clearcoatRoughness: 0.05, side: DS }),
     tyre: S({ color: '#121214', metalness: 0, roughness: 0.93, side: DS }),
   };
+  // (at night, M3's and M8's chase camera read it only by its tail lights: the city's own environment at midnight is a
+  // near-black sky, so the clear coat had nothing to mirror. Night lends its finishes a street of their own to reflect,
+  // nightStreetEnv below: the sky's glow over the rooftops, the lit windows and the streetlights along the horizon, the
+  // wet road; the clear coat draws them as crisp highlights along the flanks, the roof's edge and the glass, a rim of city
+  // light where the body turns away, while the paint itself stays black. The plate lit and a faint warm cabin as well.
+  // By the city's own night (lighting.js uNightFactor): by day and at dusk nothing changes)
+  const NIGHT = new Map([[X.paint, 2.2], [X.trim, 1.6], [X.chrome, 0.9], [X.glass, 2.2], [X.screen, 2.2], [X.rim, 1.4], [X.pipe, 0.9]]);
+  const nightEnv = nightStreetEnv(THREE);
+  X.plate.emissive = new THREE.Color('#FFFFFF'); X.plate.emissiveMap = plateTex; X.plate.emissiveIntensity = 0;
+  for (const k of ['cabin', 'leather']) { X[k].emissive = new THREE.Color('#3A2614'); X[k].emissiveIntensity = 0; }
+  let nightNow = -1;
+  const nightFinish = () => {
+    const ls = globalThis.window?.__NYC_APP?.lightingSystem, nf = ls?.uNightFactor?.value ?? 0;
+    const k = !nightEnv ? 0 : Math.max(0, Math.min(1, (nf - 0.45) / 0.35));
+    if (k === nightNow) return; nightNow = k;
+    for (const [m, i] of NIGHT) {
+      const env = k > 0 ? nightEnv : null;
+      if (m.envMap !== env) { m.envMap = env; m.needsUpdate = true; }
+      m.envMapIntensity = k > 0 ? i * k : 1;
+    }
+    X.plate.emissiveIntensity = 0.55 * k;
+    X.cabin.emissiveIntensity = X.leather.emissiveIntensity = 0.22 * k;
+  };
   // by the model's material names (tools/vehicles/gwagon/build.py)
   const BY = {
     Paint: X.paint, Chrome: X.chrome, Glass: X.glass, Windscreen: X.screen, Tail_light: X.tail, Headlight: X.lamp, Plate: X.plate, Trim: X.trim, Handle: X.chrome,
@@ -135,6 +197,7 @@ export async function buildGwagon(THREE, o = {}) {
     m.castShadow = !/Glass|Windscreen/.test(mt); m.receiveShadow = true;
     const to = BY[mt] ?? BY[mt.replace(/\.\d+$/, '')];
     if (to) m.material = to; else { unknown.add(mt); m.material = X.trim; }
+    if (NIGHT.has(m.material) || m.material === X.plate) m.onBeforeRender = nightFinish;
   });
   if (unknown.size) console.warn('[gwagon] materials finished as trim:', [...unknown].join(', '));
   // (the plates and the screen carry no UVs of their own: laid on flat, across their faces as seen from outside / the
