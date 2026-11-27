@@ -43,7 +43,9 @@ export async function runJensenReturnChecks(ok: Ok) {
     migrate: (p: string) => Promise<void> | void; MIGRATIONS: Migration[]; JH_TITLE: T; JH_RETURN: { title: string; slug: string }; JH_RETURN_FROM: string;
     JH_RETURN_ART: Record<string, string>; JH_LATER: string[]; jhTitledWorld: (t: string, w: T) => string };
   const ids = [PUB_ID, TITLE_ID, P1_ID, P2_ID, P3_ID, D1_ID, ID].map((id) => MIGRATIONS.findIndex((m) => m.id === id)), iP = ids[6];
-  ok('Jensen Return is one migration of its own, async, after the retitle, the three polish batches and day A', ids.every((n, k) => n >= 0 && (k === 0 || n > ids[k - 1])) && iP === MIGRATIONS.length - 1 && !!MIGRATIONS[iP].async, ids.join(' '));
+  // (the last of Jensen's migrations; later worlds' own come after it, Mandi's Revenge's 2026-11-27)
+  const lastJh = MIGRATIONS.map((m) => /jensen/.test(m.id)).lastIndexOf(true);
+  ok('Jensen Return is one migration of its own, async, after the retitle, the three polish batches and day A, the last of Jensen\'s', ids.every((n, k) => n >= 0 && (k === 0 || n > ids[k - 1])) && iP === lastJh && !!MIGRATIONS[iP].async, ids.join(' '));
   if (ids.some((n) => n < 0)) return;
   const PUB = MIGRATIONS[ids[0]], TT = MIGRATIONS[ids[1]], P = MIGRATIONS[iP];
   const R = JSON.parse(readFileSync('deploy/migrations/jensen-heist-story.json', 'utf8'));
