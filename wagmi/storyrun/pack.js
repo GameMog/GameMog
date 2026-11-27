@@ -433,12 +433,13 @@ export async function load() {
   const hero = W.castOf(W.heroName);
   // the hero's body: a registry Dan is Dan's own file; a forged hero is their GLB, with Dan's clips on it (one rig)
   W.heroGlb = hero && !hero.model && hero.glb ? W.asset(hero.glb) : null;
-  W.heroGLTF = async (loadGLB) => {
+  // (onBody(dan, g) -> Dan's clips put on this body's rest (wagmi/retarget.js, from game.js); without it, as they are)
+  W.heroGLTF = async (loadGLB, onBody = null) => {
     const dan = await loadGLB('assets/characters/dan.glb');
     if (!W.heroGlb) return dan;
     try {
       const g = await loadGLB(W.heroGlb);
-      g.animations = heroClips(dan.animations, g.animations, heroOwnOf(g));
+      g.animations = heroClips(onBody ? onBody(dan, g) : dan.animations, g.animations, heroOwnOf(g));
       // (their surfaces finished as the cast's are: polish.js)
       try { (await importRetry(() => import('./polish.js'))).polishBody(g.scene); } catch (err) { console.warn('[storyrun] hero polish', err); }
       unhang(g.scene);

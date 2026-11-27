@@ -9,6 +9,7 @@ import { loadGLB } from './glb.js';
 import { buildRoadster, createDriver } from './roadster.js';
 import { createStand } from './stand.js';
 import { createPlant } from './plant.js';
+import { danOn, danClips, gaitOn, loadLoco, gaitSpeed, gaitNames, walkStyled, walkSpeedOf } from './retarget.js';
 import { drive, installDriveMode } from './audio/drivemode.js';
 import { world } from './world/index.js';
 import { CHASE_START } from './chase-start.js';
@@ -657,7 +658,12 @@ installDriveMode(WAGMI);
 //  - hands: a reach for each hand (W.dan.reach), two-bone IK over the pose (holding, lifting, grabbing).
 // The fight sets W.dan.loco, W.dan.timeScale (hit-stop, slow motion) and the pre / post hooks it runs around the pose.
 {
-  const gltf = PACK?.ok && PACK.heroGlb ? await PACK.heroGLTF(loadGLB) : await loadGLB('assets/characters/dan.glb');
+  // (a forged hero: Dan's clips put on the body's own rest and its leg length, wagmi/retarget.js; legRatio its leg over his)
+  let legRatio = 1, onBody = false;
+  // (a forged hero's walk style: their cast entry's walk, when it names one, wagmi/retarget.js WALK_STYLES)
+  const heroStyle = PACK?.ok ? PACK.castOf?.(PACK.heroName)?.walk : null;
+  await loadLoco(loadGLB); // (the locomotion pack's walk in place of his: wagmi/retarget.js)
+  const gltf = PACK?.ok && PACK.heroGlb ? await PACK.heroGLTF(loadGLB, (dan, g) => { const r = danOn(THREE, dan, g); legRatio = r.legRatio; onBody = true; return walkStyled(THREE, r.clips, heroStyle); }) : await loadGLB('assets/characters/dan.glb');
   const body = gltf.scene;
   // (the export's armature node, the parent of the bone 'root', carries a fixed turn of 12.8 deg that no clip moves: 11
   // deg forward and 6 deg over to his right. Every clip stood him on it, his hips 24 cm ahead of his feet and 12 cm to
@@ -670,7 +676,8 @@ installDriveMode(WAGMI);
   story.dress('dan', body);
   for (const m of person.crowd.meshes) m.visible = false;
   person.mesh.add(body);
-  const mixer = new THREE.AnimationMixer(body), clips = gltf.animations.slice(), A = {};
+  // (Dan's own: his walk's arms hung in at his sides, wagmi/retarget.js HANG; a forged hero's came through danOn with it)
+  const mixer = new THREE.AnimationMixer(body), clips = (onBody ? gltf.animations : danClips(THREE, gltf.animations)).slice(), A = {};
   const clipOf = (n) => THREE.AnimationClip.findByName(clips, n);
   const act = (n) => A[n] || (A[n] = mixer.clipAction(clipOf(n)));
   const bones = {}; body.traverse((o) => { if (o.isBone) bones[o.name] = o; });
@@ -687,8 +694,16 @@ installDriveMode(WAGMI);
   // run_masculinity, sprint dash_masculinity. Each cycle starts on his left foot's strike, so the two blended share one
   // phase (gPhase, below): their feet come down together, the stride the blend's and the pace speed / stride
   // (a clip the model lacks is left out: a re-export with fewer clips still loads)
-  const GAITS = [['idle', 0, 1], ['walk', 1.4796, 1.4796], ['jog', 2.9654, 2.9654], ['run', 3.8326, 3.8326], ['sprint', 5.2867, 5.2867]].filter(([n]) => clipOf(n));
+  // (a forged hero's legs are not his: each gait's speed times the leg ratio, so a shorter stride turns over faster and her
+  // planted foot stays put; Dan's own: 1, as before)
+  const WALK_HOLD = 1.45;
+  const GAITS = [['idle', 0, 1], ...gaitNames().filter((n) => n !== 'idle').map((n) => { const sp = n === 'walk' ? walkSpeedOf(onBody ? heroStyle : null) : gaitSpeed(n); return [n, sp, sp]; })].filter(([n]) => clipOf(n)).map(([n, a, b]) => [n, a * legRatio, n === 'idle' ? b : b * legRatio, n === 'walk' && !gaitNames().includes('jog') ? a * legRatio * WALK_HOLD : 0]);
   let gPhase = 0;
+  // (no jog between them: the walk holds, its pace up, to WALK_HOLD of its own speed before it blends into the run. In
+  // game Mandi's walk (0.85 m/s on her legs) was a quarter run at a walking stick's 1.5 m/s)
+  // (a clip's pace at most GAIT_TOP of its own: 1.6, or 1.85 when the run is the top gait (the locomotion pack has no
+  // sprint: Tripo's run carries a Shift dash, its cadence up rather than Dan's crouched dash under it))
+  const GAIT_TOP = GAITS.some(([n]) => n === 'sprint') ? 1.6 : 1.85;
   // the fight's stance and footwork, and the speed each step was captured at
   const STEPS = [['fight', 0], ['guardF', 0.76], ['guardB', 0.84], ['guardL', 0.46], ['guardR', 0.66]].filter(([n]) => clipOf(n));
   const LOCO = [...GAITS.map((g) => g[0]), ...STEPS.map((s) => s[0])];
@@ -825,6 +840,37 @@ installDriveMode(WAGMI);
       return cur;
     };
   }
+  // his weight in a turn and a change of pace (procedural, over the clips; ?gait=classic leaves it off): leaning into a
+  // turn round his feet, as far as his speed times his turn rate asks (a third of the bank it takes not to fall, at
+  // most LEAN.roll), and a little forward as he gets going, back as he pulls up (LEAN.pitch); eased (LEAN.ease /s). Off
+  // standing, in the fight, in the air and in anything that directs him
+  const LEAN = { k: 0.33, roll: 0.16, pitch: 0.07, accel: 0.012, ease: 7 };
+  const leanOn = gaitOn();
+  let leanR = 0, leanP = 0, lastH = null, lastV = 0;
+  function lean(dt, p, v, L, air) {
+    if (!leanOn || dt <= 0) return;
+    const h = p.heading || 0, w = lastH == null ? 0 : Math.atan2(Math.sin(h - lastH), Math.cos(h - lastH)) / dt, a = (v - lastV) / dt;
+    lastH = h; lastV = v;
+    const on = !(L && L.fight) && !air && v > 0.3 && !tracks.length;
+    const r = on ? -Math.max(-LEAN.roll, Math.min(LEAN.roll, Math.atan((v * w) / 9.81) * LEAN.k)) : 0;
+    const pt = on ? Math.max(-LEAN.pitch, Math.min(LEAN.pitch, a * LEAN.accel)) : 0;
+    const e = Math.min(1, dt * LEAN.ease); leanR += (r - leanR) * e; leanP += (pt - leanP) * e;
+    if (Math.abs(leanR) < 1e-4 && Math.abs(leanP) < 1e-4) { if (body.rotation.z || body.rotation.x) { body.rotation.z = 0; body.rotation.x = 0; } leanR = leanP = 0; return; }
+    body.rotation.x = leanP; body.rotation.z = leanR;
+  }
+  // on the phone on foot (a call: storyrun/runner.js): the phoneCall clip's arms, neck and head eased over whatever his
+  // legs do (the locomotion pack's: Tripo's make_a_call_01, the phone at his ear), PHONE.ease /s in and out
+  // (the clip's spine is left out: it is a seated take, and in game its spine bent Jensen over his feet, 25 Nov)
+  const PHONE = { ease: 4, bones: /^(neck|head|clavicle|shoulder01|upperarm|lowerarm|wrist|finger)/ };
+  let phoneW = 0, phoneWant = 0, phoneT = 0, phoneI = null;
+  function phoneLayer(dt) {
+    phoneW += (phoneWant - phoneW) * Math.min(1, dt * PHONE.ease);
+    if (phoneW < 0.01) return;
+    if (!phoneI) { const c = clipOf('phoneCall'); if (!c) { phoneWant = phoneW = 0; return; } phoneI = c.tracks.filter((t) => t.name.endsWith('.quaternion') && PHONE.bones.test(t.name)).map((t) => ({ b: bones[t.name.slice(0, -11)], i: t.createInterpolant(), d: c.duration })).filter((x) => x.b); }
+    phoneT += dt; const q = _q2;
+    for (const x of phoneI) { q.fromArray(x.i.evaluate(phoneT % x.d)); x.b.quaternion.slerp(q, phoneW); }
+  }
+  Q.phone = (on) => { phoneWant = on && clipOf('phoneCall') ? 1 : 0; if (on && phoneW < 0.01) phoneT = 0; };
   let directed = false;
   person.label = 'Dan';
   person.model = {
@@ -843,14 +889,14 @@ installDriveMode(WAGMI);
       const v = L ? L.speed : Math.abs(p.speed);
       // the street's gaits: which, by speed (the two nearest blended), and how fast its clip runs
       let k = 0; while (k < GAITS.length - 1 && v > GAITS[k + 1][1]) k++;
-      const a = GAITS[k], b = GAITS[Math.min(GAITS.length - 1, k + 1)], f = b === a ? 0 : Math.min(1, Math.max(0, (v - a[1]) / (b[1] - a[1])));
+      const a = GAITS[k], b = GAITS[Math.min(GAITS.length - 1, k + 1)], a0 = a[3] || a[1], f = b === a ? 0 : Math.min(1, Math.max(0, (v - a0) / (b[1] - a0)));
       const want = {};
       for (const [n] of GAITS) want[n] = n === a[0] ? 1 - f : n === b[0] ? f : 0;
       // (one phase for the moving gaits: it goes round at the speed over the blend's stride (a clip's stride: its speed
       // times its cycle), its pace clamped as each clip's was (0.6-1.6 of its own); each clip shown at that phase)
       { let S = 0, D = 0, wt = 0;
         for (const [g, x] of [[a, 1 - f], [b, f]]) if (g[1] && x > 0) { const cy = act(g[0]).getClip().duration; S += g[2] * cy * x; D += cy * x; wt += x; }
-        if (wt > 0) { S /= wt; D /= wt; gPhase = (gPhase + (d * Math.max(0.6, Math.min(1.6, (v * D) / S || 0))) / D) % 1; }
+        if (wt > 0) { S /= wt; D /= wt; gPhase = (gPhase + (d * Math.max(0.6, Math.min(GAIT_TOP, (v * D) / S || 0))) / D) % 1; }
         for (const [n, th] of GAITS) if (th) { const x = act(n); x.timeScale = 0; x.time = gPhase * x.getClip().duration; } }
       // the fight's: the guard standing, the footwork by direction (cosine shares) as he moves; running, the gaits
       const fight = L && L.fight && v < 3.2 ? 1 : 0;
@@ -889,6 +935,7 @@ installDriveMode(WAGMI);
       if (fwOn) act('fight/upper').time = act('fight').time; // (in step with the guard below it)
       mixer.update(d);
       body.position.y = 0;
+      lean(dt, p, v, L, air);
       plant.restore();
       // standing still: not stepping, not in the fight's guard, no move on him (a blow, a vault, down, a pick-up), on
       // the ground, not getting in or out of the car; by the idle's share of the pose
@@ -902,6 +949,7 @@ installDriveMode(WAGMI);
       }
       // the hands' reach, over the pose
       for (const s of ['L', 'R']) { const h = hands[s]; h.w += (h.want - h.w) * Math.min(1, dt * 14); if (h.w > 0.01) { body.updateMatrixWorld(true); ik(s, h); } }
+      phoneLayer(dt);
       Q.post?.(d, p, air);
     },
   };

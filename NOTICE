@@ -77,6 +77,16 @@ the MIT License in LICENSE; they remain under their author's terms.
     ffFinisher) were retargeted from Spiderbench's clips.
 
 
+Locomotion pack (assets/anim/loco-walk.glb, tools/loco/build.mjs)
+------------------------------------------------------------------
+Dan's walk, run and idle, and every forged body's on his clips, with a look-around idle, a swagger walk
+style and a phone call pose: Tripo AI's animation presets "walk", "run", "idle", "look_around", "swagger"
+and "make_a_call_01" (https://www.tripo3d.ai), generated on the owner's paid Tripo account (Tripo's terms:
+paid-plan output belongs to the user, commercial use allowed), retargeted onto Dan's rig; the walk with a
+procedural arm swing. The 'ual' walk style (walkUal) is Quaternius's Universal Animation Library
+(Standard) Walk_Loop, CC0 1.0 (https://quaternius.com), retargeted the same way.
+
+
 Bandai Namco Research Motion Dataset (motion capture)
 ----------------------------------------------------
 Motion data: Bandai Namco Research Motion Dataset, (c) 2022 Bandai Namco Research Inc., CC BY-NC 4.0

@@ -42,6 +42,7 @@ import { armTo } from '../mission/m3-set.js';
 import { world as cityWorld } from '../world/index.js';
 import { createReach, reachReason } from './reach.js';
 import { closeLock } from './headlock.js';
+import { gaitPace } from '../retarget.js';
 import { beatOf, gapAfter, readingTime, playTurns, DECODE, cutInto } from '../radio/turns.js'; import { reactPools, callTup, OVERLAP_IN } from './talk.js'; import { importRetry } from '../net.js';
 
 const PI = Math.PI;
@@ -839,10 +840,11 @@ export function createRunner(ctx) {
     fig.post = (dt) => {
       if (walk) {
         const tt = now(); if (tt < walk.t0) { placeChair(); pushHands(fig, chair, armTo, hold); return; }
-        if (!walk.started) { walk.started = true; playClip(fig, 'walk'); }
+        // (cross-faded into the walk, at its pace on their legs: the planted foot stays put, wagmi/retarget.js gaitPace)
+        if (!walk.started) { walk.started = true; const a = fig.play ? fig.play('walk', true, 0.3) : playClip(fig, 'walk'); a?.setEffectiveTimeScale?.(gaitPace('walk', Math.hypot(walk.tx - walk.x0, walk.tz - walk.z0) / (walk.dur / 1000), fig.legRatio)); }
         const u = Math.min(1, (tt - walk.t0) / walk.dur), x = walk.x0 + (walk.tx - walk.x0) * u, z = walk.z0 + (walk.tz - walk.z0) * u;
         fig.root.position.set(x, cm.getGroundHeight(x, z, 'person'), z);
-        if (u >= 1) { walk = null; playClip(fig, 'idle'); let0 = now() + 1000; }
+        if (u >= 1) { walk = null; if (fig.play) fig.play('idle', true, 0.35); else playClip(fig, 'idle'); let0 = now() + 1000; }
       }
       placeChair();
       if (chair) { if (!walk && let0 && now() > let0) hold = Math.max(0, hold - (dt || 0.016) / 0.5); pushHands(fig, chair, armTo, hold); }
@@ -1855,11 +1857,13 @@ export function createRunner(ctx) {
     M.log.push(['call', who]);
     // (on a world's foldable phone (calls.style 'fold', fold.js) a video call on foot shows its caller on the phone too)
     let talking = true;
+    // (on foot, the phone to the hero's ear while it lasts: game.js W.dan.phone)
+    const onFoot = !inCar() && W.dan?.phone; if (onFoot) W.dan.phone(true);
     if (ui.fold && d.video && who !== heroName) vcallOf().feed(d.video, who, () => talking, tokOf(M.tok), 'vfeed', () => true).catch((err) => console.warn('[storyrun] vcall feed', err));
     try {
       for (const l of lines) await say(castName(l.who), l.text, t, { secs: l.secs, phone: castName(l.who) !== heroName, ...beatIn(l) });
       if (d.choice) return await choose(d.choice, t);
-    } finally { talking = false; ui.caller(null); sfx.play('hangup', { gain: 0.12 }); }
+    } finally { talking = false; if (onFoot) W.dan.phone(false); ui.caller(null); sfx.play('hangup', { gain: 0.12 }); }
   };
   // (jh-polish2 B5, opt-in per world: a world's `calls: { ringOut: 'answer' }` (Jensen Heist's) rings RING_SECS at most
   // (a pack's own `ring` shorter only, never under RING_MIN) and a ring that runs out answers itself; only X or N
