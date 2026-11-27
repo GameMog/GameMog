@@ -43,6 +43,8 @@ data/backups/
 !/public/storykit/vendor/gpl/
 # Story Kit world store (lib/storykit-store.ts): on the Render disk, never committed
 data/storykit/
+# (premium story bodies the migrations read by their SHA-256: on the server's disk only, never in this public repo)
+data/storykit-private/
 data/towns/
 # Hometown tile store (lib/hometown-tiles/store.ts): on the Render disk, never committed
 data/hometown/

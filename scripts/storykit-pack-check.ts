@@ -9,7 +9,7 @@ import { runnerPackOf } from './storykit-pack.ts';
 import { ownRecord, OWN_RECORD } from './storykit-own-world.ts';
 import { showcaseProblems, SHOWCASE_ID, SHOWCASE_RECORD } from './storykit-showcase.ts';
 import { jhProblems, jhGate, jhBodyProblems, JH_RECORD, JH_DIR, BODIES, BODY_SOURCES, JH_CREDIT } from './storykit-showcase-jensen.ts';
-import { mrGate, PREMIUM } from './storykit-showcase-mandi.ts';
+import { mrGate, mrProblems, PREMIUM, MR_RECORD } from './storykit-showcase-mandi.ts';
 import { gateHometown } from '../storykit/hometown/hometown-gate.ts';
 import { gatePack, toRunnerPack, lineHash, type GateResult } from '../storykit/pack/gate.ts';
 import { PLACES, CAM_POINTS } from '../storykit/pack/cities.ts';
@@ -382,6 +382,9 @@ export function runStoryPackChecks(ok: Ok) {
       ok("mandis-revenge: a mission's weather and the night's are closed words, a bridge stands at a place of the town, and a jump off a steep leaf is warned", !g1.ok && !g2.ok && !g3.ok && g4.ok && g4.warnings.some((w: string) => /degrees/.test(w)), [g1.ok, g2.ok, g3.ok, g4.warnings.join(' | ')].join(' / ')); }
     const glbs = readdirSync('public/storykit', { recursive: true }).map(String).filter((f) => /\.glb$/.test(f) && PREMIUM.some((id) => new RegExp(`(^|/)(mr-)?${id}\\.glb$`).test(f)));
     ok("mandis-revenge: no premium body (Mandi's, Jay's) is in the public repo", !glbs.length, glbs.join(' '));
+    // (27 Nov: the record --export writes; the premium bodies named in it as private:<sha256>.glb, never copied here)
+    const mp = mrProblems();
+    ok(`mandis-revenge: ${existsSync(MR_RECORD) ? `${MR_RECORD} and its world are current, its premium bodies private, its art in` : 'its record waits (--export)'}`, !mp.length, mp.slice(0, 3).join(' | '));
   }
   // Jensen Heist (18 Nov): a showcase in a hometown (San Jose), gated with its town's table; its record waits for the
   // bodies and the voices (the migration waits with it), and is held current once written

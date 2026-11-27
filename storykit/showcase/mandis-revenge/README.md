@@ -9,7 +9,7 @@ and brand in it is invented.
 |---|---|
 | `gen.mjs` | the script, as data: cast, places, opening, 8 missions in 4 acts. Every conversation is a video call (`vcall`); every side character is seen only on Mandi's foldable phone (`calls: { style: 'fold' }`, Mog City `docs/VCALL.md`), never on a card. |
 | `sheets.mjs` | writes `sheets/`, the seen people's Character Forge sheets |
-| `town.json.gz` | the Chicago CityPackage the pack is gated with and pinned to (`base.hometown`): the frame of a local build of compiler 0.14.0 (the downtown box, moved onto the Loop by the core step) |
+| `town.json.gz` | the Chicago CityPackage the pack is gated with and pinned to (`base.hometown`): production's Chicago, `htc-0.15.0-hg1-b6f7c162d` (27 Nov: its `citypackage.json`, the same 4936 places as the local 0.15.0 build the missions were played on) |
 | `LINES.md` | every spoken line, for casting (written by the script below; do not edit) |
 
 ```
@@ -115,4 +115,8 @@ a line, a text or a scene. These are first targets: a test drive of each mission
    from `deploy/migrations/mandis-revenge-story.json` and `mandis-revenge/world.json`, the side cast from
    `deploy/migrations/mandis-revenge/cast/`, and Mandi's and Jay's bodies (record rows `src: 'private:<sha256>.glb'`)
    from the server's own `data/storykit-private/<sha256>.glb`, never from the repo; until all are there it is tried
-   again at each boot and never recorded. The record exporter (`storykit-showcase-mandi.ts --export`) is still to write.
+   again at each boot and never recorded. The record is written by `storykit-showcase-mandi.ts --export` (27 Nov): the
+   side cast copied in with `--cast-from <dir of forged GLBs>`, Mandi's and Jay's bodies only hashed, from
+   `MR_MANDI_GLB` / `MR_JAY_GLB` or their own folders beside the checkout (on a machine without them the record's rows
+   stand). Done 27 Nov: the town is built in production and the pack pinned to it (step 1), the record, the world, the
+   side cast and the art are in; the two bodies go to the server's `data/storykit-private/` last.

@@ -60,11 +60,11 @@
  "base": {
   "engine": "mogcity-1",
   "city": "hometown",
-  "cityBuild": "hometown-htc-0.15.0-hg1-bcc421b02",
+  "cityBuild": "hometown-htc-0.15.0-hg1-b6f7c162d",
   "hometown": {
    "place": "us-1714000",
-   "compiler": "htc-0.15.0-hg1-bcc421b02",
-   "tiles": "8aaba10d413324a197b8f6859619e88a5f7e7d435f78cd4e7e74efb868748bd6",
+   "compiler": "htc-0.15.0-hg1-b6f7c162d",
+   "tiles": "e73b99f247d5491bfd0bb5a2cfaf956d62e7a47b4bdcdbbfbef5e90028948ea1",
    "formatVersion": 3,
    "grid": "hg1",
    "domain": "conus",
