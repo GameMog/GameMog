@@ -1,4 +1,7 @@
 (function () {
+// Portions adapted from manhattan-free-roam (https://github.com/huangserva/manhattan-free-roam), Copyright (c) 2026 The manhattan-free-roam authors, MIT License.
+// (createPreWarBuildingMaterial's window detail: the recessed reveal's slide, the whole floors lit late, the crown glow;
+// ported from its src/shaders.js buildingMaterial)
 // js/tsl-materials.js
 // Photorealistic TSL (Three.js Shading Language) procedural shaders for Three.js r186 WebGPURenderer
 // Incorporating techniques from three.js webgpu_generator_city.html:
@@ -243,6 +246,29 @@ const canyonSkyAONode = Fn(() => {
 // Material caches to prevent duplicate WebGPU WGSL shader compilation across blocks & landmarks
 const _curtainWallCache = new Map();
 const _preWarCache = new Map();
+// (Chicago) the pre-war material's facade modes (createPreWarBuildingMaterial `modes`, the box's boxBase.w: mode + 8 when
+// glazed terracotta), picked per building in buildings.js (facadeModeFor)
+const FACADE_MODES = { plain: 0, deco: 1, ribbon: 2, chicago: 3, glaze: 8 };
+// their numbers, shared by every `modes` material: the window margins (x: either side, y: above and below, in cells),
+// the Chicago window's bay (x ordinary bays), the art-deco spandrels' metal, the glaze's colours, sheen and roughness
+const FACADE_MODE_UNIFORMS = {
+  deco: uniform(new THREE.Vector2(0.18, 0.13)),
+  ribbon: uniform(new THREE.Vector2(0.025, 0.27)),
+  chicago: uniform(new THREE.Vector2(0.07, 0.17)),
+  chicagoBay: uniform(1.85),
+  decoSpandrel: uniform(new THREE.Color(0x3b3a36)),
+  glazeA: uniform(new THREE.Color(0xece4cf)),
+  glazeB: uniform(new THREE.Color(0xdccfb2)),
+  glazeC: uniform(new THREE.Color(0xc9cfc0)),
+  glazeSheen: uniform(0.22),
+  glazeRoughness: uniform(0.36),
+  // window detail: the glass's depth behind the wall face by mode (plain, deco, ribbon, chicago; m), the share of floors
+  // burning late and their brightness, the crown floodlight's brightness
+  recess: uniform(new THREE.Vector4(0.24, 0.3, 0.1, 0.2)),
+  floorShare: uniform(0.07),
+  floorGain: uniform(0.55),
+  crownGain: uniform(0.55)
+};
 
 // Camera-independent facade frame: the view/world normal round trip can change the dominant axis on 45-degree
 // walls. Resolve near-ties in the vertex shader and keep that choice flat across each face.
@@ -513,7 +539,7 @@ function facadeCell(windowWidth, floorHeight, boxLocal, cornerPier = 0, groundBa
   let vCoord = positionWorld.y;
   let plinthBand = float(0.0);
   if (groundBase) {
-    const boxBase = attribute('boxBase', 'vec3');
+    const boxBase = attribute('boxBase', 'vec4'); // x ground y, y plinth, z storey height, w the facade mode code
     vCoord = positionWorld.y.sub(boxBase.x.add(boxBase.y));
     plinthBand = float(1.0).sub(step(0.0, vCoord));
     floorHeight = mix(floorHeight, boxBase.z, step(0.5, boxBase.z));
@@ -785,10 +811,14 @@ function createPreWarBuildingMaterial(opts = {}) {
     // 2 painted wood siding, 3 stone / concrete panels) and `paintTrim` (rgb, lit-window share) attributes instead of
     // stoneColor / trimColor; every wall is the building's paint (party walls blank), no window AC units, no ghost signs
     paint = false,
-    muntins = false // multi-pane industrial sash (4 x 3 lights) on the upper floors (P4.3 warehouses)
+    muntins = false, // multi-pane industrial sash (4 x 3 lights) on the upper floors (P4.3 warehouses)
+    // (Chicago) facade modes per box from `boxBase.w` (FACADE_MODES, buildings.js picks one per building): the plain
+    // punched windows, art-deco piers and spandrels, ribbon windows, the Chicago window, each optionally in glazed cream
+    // terracotta. One shader for all of them: the modes' numbers are uniforms (FACADE_MODE_UNIFORMS)
+    modes = false
   } = opts;
 
-  const cacheKey = `${stoneColor}_${trimColor}_${windowWidth}_${floorHeight}_${litProbability}_${warmth}_${crownGlowHeight}_${seed}_${boxLocal}_${cornerPier}_${groundBase}_${paint}_${windowRatioX}_${windowRatioY}_${muntins}`;
+  const cacheKey = `${stoneColor}_${trimColor}_${windowWidth}_${floorHeight}_${litProbability}_${warmth}_${crownGlowHeight}_${seed}_${boxLocal}_${cornerPier}_${groundBase}_${paint}_${windowRatioX}_${windowRatioY}_${muntins}_${modes}`;
   if (_preWarCache.has(cacheKey)) {
     return _preWarCache.get(cacheKey);
   }
@@ -803,9 +833,24 @@ function createPreWarBuildingMaterial(opts = {}) {
   const paintTrim = paint ? attribute('paintTrim', 'vec4') : null;
   const cStone = paint ? paintWall.xyz : uniform(new THREE.Color(stoneColor));
   const cTrim = paint ? paintTrim.xyz : uniform(new THREE.Color(trimColor));
+  // (Chicago) the box's facade mode: code = mode + 8 x glazed terracotta (+ item 3's crown glow in the fraction)
+  const M = FACADE_MODE_UNIFORMS;
+  let isDeco = float(0.0), isRibbon = float(0.0), isChicago = float(0.0), glaze = float(0.0), crownGlow = float(0.0);
+  if (modes && groundBase) {
+    const code = floor(attribute('boxBase', 'vec4').w.add(0.001));
+    // (the fraction: the building's crown glow at night, 0 none; buildings.js sets it on a tall tower's top box)
+    crownGlow = fract(attribute('boxBase', 'vec4').w);
+    const mode = mod(code, 8.0);
+    const is = (k) => float(1.0).sub(step(0.5, abs(mode.sub(k))));
+    isDeco = is(FACADE_MODES.deco);
+    isRibbon = is(FACADE_MODES.ribbon);
+    isChicago = is(FACADE_MODES.chicago);
+    glaze = step(7.5, code);
+  }
   // surface masks (paint mode): brick coursing, painted siding boards, stone / concrete panel joints; stucco has none
+  // (glazed terracotta: none of them, its own block joints)
   const surf = paint ? paintWall.w : float(0.0);
-  const isBrick = paint ? float(1.0).sub(step(0.5, surf)) : float(1.0);
+  const isBrick = (paint ? float(1.0).sub(step(0.5, surf)) : float(1.0)).mul(float(1.0).sub(glaze));
   const isSiding = paint ? step(1.5, surf).mul(float(1.0).sub(step(2.5, surf))) : float(0.0);
   const isPanel = paint ? step(2.5, surf) : float(0.0);
   const cGlass = uniform(new THREE.Color(windowGlassColor));
@@ -821,25 +866,47 @@ function createPreWarBuildingMaterial(opts = {}) {
   const cCoolWindow = color(0xcfe2ff);
   const cCanyonBounce = color(0xe89c68);
 
-  const halfWinX = (1.0 - windowRatioX) * 0.5;
-  const halfWinY = (1.0 - windowRatioY) * 0.5;
+  // the window opening's margins in the cell (half the wall either side / above and below), by mode
+  const byMode = (plain, deco, ribbon, chicago) => (modes
+    ? float(plain).add(isDeco.mul(float(deco).sub(plain))).add(isRibbon.mul(float(ribbon).sub(plain))).add(isChicago.mul(float(chicago).sub(plain)))
+    : float(plain));
+  const halfWinX = byMode((1.0 - windowRatioX) * 0.5, M.deco.x, M.ribbon.x, M.chicago.x);
+  const halfWinY = byMode((1.0 - windowRatioY) * 0.5, M.deco.y, M.ribbon.y, M.chicago.y);
+  // (the Chicago window's bay: a wide fixed pane between two sashes, about twice an ordinary window)
+  const bayNode = modes ? uWindowWidth.mul(float(1.0).add(isChicago.mul(M.chicagoBay.sub(1.0)))) : uWindowWidth;
 
   mat.aoNode = canyonSkyAONode();
 
   // The facade cell, the window opening and the apartment behind it are built once and shared by every output below,
   // so the shader carries a single copy of them (and evaluates the interior mapping once per pixel)
-  const facade = facadeCell(uWindowWidth, uFloorHeight, boxLocal, cornerPier, groundBase);
+  const facade = facadeCell(bayNode, uFloorHeight, boxLocal, cornerPier, groundBase);
   const { isRoof, uCoord, vCoord, gridV, cellId, cellUV, fw, bayWidth, isGroundFloor, solid, back, blank, door, tone } = facade;
   const { wallS, wallW, wallH, fromTop, boxSeed, coping } = facade;
   const open = float(1.0).sub(solid).mul(float(1.0).sub(door)); // 0 in the corner piers, blank walls & doorways
   const front = float(1.0).sub(back).sub(blank).max(0.0); // street fronts (band courses, sills under the band...)
-  const effHalfX = mix(float(halfWinX), float(0.11), isGroundFloor);
-  const effHalfY = mix(float(halfWinY), float(0.10), isGroundFloor);
+  // (the band course every 6 floors: not on deco piers (they run the full height) nor on ribbon windows)
+  const frontBelt = front.mul(float(1.0).sub(isDeco).sub(isRibbon));
+  const effHalfX = mix(halfWinX, float(0.11), isGroundFloor);
+  const effHalfY = mix(halfWinY, float(0.10), isGroundFloor);
+  // (Chicago, `modes`) the glass sits back from the face of the wall, so seen from the side the reveal slides into view
+  // (manhattan-free-roam's slide: the view in the wall's frame, across / out times the recess, in cells), faded out as
+  // a cell shrinks toward a pixel (fwidth LOD). frUV: the cell at the glass's depth
+  let frUV = cellUV, revealNear = float(0.0);
+  if (modes) {
+    const vw = normalize(cameraPosition.sub(positionWorld));
+    const tSign = mix(sign(facadeWorldNormal.z).negate(), sign(facadeWorldNormal.x), facadeAlongZ);
+    const vAcross = dot(vw, vec3(facadeWorldNormal.z.negate(), 0.0, facadeWorldNormal.x).mul(tSign));
+    const vOut = max(dot(vw, facadeWorldNormal), 0.05);
+    revealNear = float(1.0).sub(clamp(max(fw.x, fw.y).sub(0.3).mul(2.5), 0.0, 1.0)).mul(float(1.0).sub(isRoof));
+    const recess = mix(byMode(M.recess.x, M.recess.y, M.recess.z, M.recess.w), float(0.12), isGroundFloor);
+    const slide = vec2(vAcross.div(bayWidth), vw.y.div(facade.floorH)).div(vOut).mul(recess).mul(revealNear);
+    frUV = cellUV.sub(clamp(slide, vec2(-0.25), vec2(0.25)));
+  }
   // Glazing UV inside the window opening, the 3D apartment behind it and the storefront lighting
   const winUV = clamp(
     vec2(
-      cellUV.x.sub(effHalfX).div(max(0.01, float(1.0).sub(effHalfX.mul(2.0)))),
-      cellUV.y.sub(effHalfY).div(max(0.01, float(1.0).sub(effHalfY.mul(2.0))))
+      frUV.x.sub(effHalfX).div(max(0.01, float(1.0).sub(effHalfX.mul(2.0)))),
+      frUV.y.sub(effHalfY).div(max(0.01, float(1.0).sub(effHalfY.mul(2.0))))
     ),
     vec2(0.0),
     vec2(1.0)
@@ -852,8 +919,14 @@ function createPreWarBuildingMaterial(opts = {}) {
     .mul(step(0.3, hash2D(cid.add(vec2(tone.mul(31.0), uSeed.mul(0.7))))))
     .mul(step(1.0, cid.y)).mul(front).mul(cityUniforms.uFireWindows);
   const bulbCol = mix(cCoolWindow, cWarmWindow, step(float(1.0).sub(uWarmth), hash2D(cellId.add(vec2(uSeed.mul(1.9), 83.1)))));
+  // (Chicago, `modes`) late at night the odd whole floor of offices still burning: a floor of a box by its hash, its
+  // light a flat office white (cool or warm by the floor), only past the evening (lighting.js midnight)
+  const lateNight = modes ? smoothstep(1.3, 1.5, cityUniforms.uInteriorGlow) : float(0.0);
+  const floorHash = hash2D(vec2(floor(gridV), facade.boxSeed.add(tone.mul(53.0)).add(uSeed)));
+  const floorLit = step(float(1.0).sub(M.floorShare), floorHash).mul(lateNight).mul(float(1.0).sub(isGroundFloor)).mul(step(1.0, gridV));
+  const floorCol = mix(color(0xe4ecff), color(0xffe2b2), step(0.5, fract(floorHash.mul(7.0))));
   // Window AC units (~12% of upper-floor windows), none in the floor the band course covers
-  const beltFloor = step(5.0, mod(floor(gridV), 6.0)).mul(front);
+  const beltFloor = step(5.0, mod(floor(gridV), 6.0)).mul(frontBelt);
   const acRand = hash2D(cellId.add(vec2(uSeed.mul(1.3).add(7.1), 91.7)));
   const hasAC = paint ? float(0.0) : step(0.88, acRand).mul(float(1.0).sub(isGroundFloor)).mul(float(1.0).sub(isRoof)).mul(open).mul(float(1.0).sub(beltFloor));
 
@@ -867,13 +940,18 @@ function createPreWarBuildingMaterial(opts = {}) {
     // Horizontal cornice belt every 6 floors (street fronts only) + ground floor storefront fascia at top of floor 0
     const cornicePhase = fract(gridV.div(6.0));
     const isCornice = max(
-      filteredPulse(cornicePhase, 0.86, 1.0, fw.y.div(6.0)).mul(front),
+      filteredPulse(cornicePhase, 0.86, 1.0, fw.y.div(6.0)).mul(frontBelt),
       isGroundFloor.mul(filteredPulse(cellUV.y, 0.86, 1.0, fw.y))
     );
 
-    // Double-hung meeting rail on upper floors + storefront transom & mullions on ground floor
-    const sashBarY = lineAA(cellUV.y.sub(0.52), 0.012).mul(float(1.0).sub(isGroundFloor));
-    const sashBarX = lineAA(cellUV.x.sub(0.50), 0.009).mul(float(1.0).sub(isGroundFloor)).mul(0.55);
+    // Double-hung meeting rail on upper floors + storefront transom & mullions on ground floor (by mode: none in ribbon
+    // windows; a Chicago window's rails in its two side sashes only, its fixed centre pane framed by two mullions)
+    const sideSash = float(1.0).sub(step(0.25, winUV.x).mul(step(winUV.x, 0.75)));
+    const sashBarY = lineAA(frUV.y.sub(0.52), 0.012).mul(float(1.0).sub(isGroundFloor)).mul(float(1.0).sub(isRibbon)).mul(float(1.0).sub(isChicago.mul(float(1.0).sub(sideSash))));
+    const sashBarX = max(
+      lineAA(frUV.x.sub(0.50), 0.009).mul(0.55).mul(float(1.0).sub(isRibbon)).mul(float(1.0).sub(isChicago)),
+      max(lineAA(winUV.x.sub(0.25), 0.014), lineAA(winUV.x.sub(0.75), 0.014)).mul(isChicago)
+    ).mul(float(1.0).sub(isGroundFloor));
     const storeTransom = lineAA(cellUV.y.sub(0.70), 0.015).mul(isGroundFloor);
     const storeMullion = lineAA(fract(cellUV.x.mul(2.0)).sub(0.5), 0.018).mul(isGroundFloor);
     const panes = muntins ? max(lineAA(fract(winUV.x.mul(4.0).add(0.5)).sub(0.5), 0.02), lineAA(fract(winUV.y.mul(3.0).add(0.5)).sub(0.5), 0.025)).mul(float(1.0).sub(isGroundFloor)) : float(0.0);
@@ -902,7 +980,13 @@ function createPreWarBuildingMaterial(opts = {}) {
       .mul(hasAC).mul(0.42);
 
     const isWindowOpening = inX.mul(inY).mul(float(1.0).sub(isRoof)).mul(float(1.0).sub(isCornice));
-    const isWindowGlass = isWindowOpening.mul(float(1.0).sub(sashMask)).mul(float(1.0).sub(inACBox));
+    // (the glass at its depth: the opening less the reveal that has slid into view)
+    const pane = modes ? filteredPulse(frUV.x, effHalfX, oneMinusEffX, fw.x).mul(filteredPulse(frUV.y, effHalfY, oneMinusEffY, fw.y)) : float(1.0);
+    // (min, not a product: with no slide the pane is the opening, and a product would square its filtered coverage
+    // and dim every distant window)
+    const glassArea = min(isWindowOpening, pane.mul(float(1.0).sub(isRoof)).mul(float(1.0).sub(isCornice)));
+    const reveal = isWindowOpening.sub(glassArea).max(0.0);
+    const isWindowGlass = glassArea.mul(float(1.0).sub(sashMask)).mul(float(1.0).sub(inACBox));
 
     // Anti-Aliased Running-Bond Brickwork & Ashlar Stone Coursing
     const brickH = 0.24;
@@ -927,8 +1011,10 @@ function createPreWarBuildingMaterial(opts = {}) {
       gridLine(colCoord.mul(brickL), brickL, 0.016),
       gridLine(vCoord, brickH, 0.016)
     );
+    // (glazed terracotta: its blocks, about 0.9 x 0.45 m, in fine joints)
+    const glazeJoint = modes ? max(gridLine(uCoord, 0.9, 0.007), gridLine(vCoord, 0.45, 0.007)).mul(glaze).mul(0.7) : float(0.0);
     const surfaceJoint = paint
-      ? max(max(brickJoint.mul(isBrick), gridLine(vCoord, 0.16, 0.012).mul(isSiding)), max(gridLine(uCoord, 1.5, 0.01), gridLine(vCoord, 0.75, 0.01)).mul(isPanel))
+      ? max(max(max(brickJoint.mul(isBrick), gridLine(vCoord, 0.16, 0.012).mul(isSiding)), max(gridLine(uCoord, 1.5, 0.01), gridLine(vCoord, 0.75, 0.01)).mul(isPanel).mul(float(1.0).sub(glaze))), glazeJoint)
       : brickJoint;
     const mortarJoint = surfaceJoint.mul(float(1.0).sub(isRoof)).mul(float(1.0).sub(parged)).mul(float(1.0).sub(coping));
 
@@ -941,7 +1027,8 @@ function createPreWarBuildingMaterial(opts = {}) {
     const brickShiftVec = vec3(float(1.0).add(brickWarmShift), float(1.0), float(1.0).sub(brickWarmShift));
 
     const streakNoise = mix(float(0.5), noise2D(vec2(uCoord.mul(1.4), vCoord.mul(0.05))), float(1.0).sub(smoothstep(0.5, 1.0, uFw.mul(1.4))));
-    const sootDirt = smoothstep(0.25, 0.78, streakNoise).mul(float(1.0).sub(smoothstep(0.0, 180.0, vCoord))).mul(paint ? 0.12 : 0.36);
+    const sootDirt = smoothstep(0.25, 0.78, streakNoise).mul(float(1.0).sub(smoothstep(0.0, 180.0, vCoord))).mul(paint ? 0.12 : 0.36)
+      .mul(float(1.0).sub(glaze.mul(0.55))); // (a glaze sheds the soot: cleaner, a little)
 
     const lintelShadow = smoothstep(oneMinusEffY.sub(0.14), oneMinusEffY, cellUV.y).mul(0.58);
     const jambShadow = float(1.0).sub(smoothstep(effHalfX, effHalfX.add(0.08), cellUV.x)).mul(0.42);
@@ -950,7 +1037,7 @@ function createPreWarBuildingMaterial(opts = {}) {
     const isSillTop = filteredPulse(cellUV.y, effHalfY.sub(0.032), effHalfY, fw.y).mul(sillSpan);
     const isSillUnderShadow = filteredPulse(cellUV.y, effHalfY.sub(0.075), effHalfY.sub(0.032), fw.y).mul(sillSpan);
 
-    const corniceShadow = smoothstep(0.76, 0.86, cornicePhase).mul(0.32).mul(front);
+    const corniceShadow = smoothstep(0.76, 0.86, cornicePhase).mul(0.32).mul(frontBelt);
 
     const canyonBand = smoothstep(0.0, 14.0, vCoord).mul(float(1.0).sub(smoothstep(22.0, 75.0, vCoord)));
     const canyonGlow = cCanyonBounce.mul(canyonBand.mul(cityUniforms.uCanyonBounce).mul(0.22));
@@ -999,7 +1086,23 @@ function createPreWarBuildingMaterial(opts = {}) {
       signPaint.assign(vec4(mix(ground, ink, max(letters, border)), cover));
     });
 
-    const wallTint = mix(mix(cStone, backTint, back), signPaint.xyz, signPaint.w);
+    // (glazed terracotta: the street walls and rear walls in the glaze, cream through ivory and a pale grey-green, by
+    // building; lot-line walls stay common brick)
+    const glazeCol = mix(mix(M.glazeA, M.glazeB, fract(tone.mul(5.3))), M.glazeC, step(0.82, fract(tone.mul(9.1))));
+    const wallBase = mix(cStone, glazeCol, glaze.mul(float(1.0).sub(blank)));
+    const wallTint0 = mix(mix(wallBase, backTint, back.mul(float(1.0).sub(glaze))), signPaint.xyz, signPaint.w);
+    // (art deco: the piers a shade lighter than the wall, running the full height; between them, from window to window,
+    // spandrel panels of dark cast metal or terracotta with a raised chevron)
+    const colX = filteredPulse(cellUV.x, effHalfX, float(1.0).sub(effHalfX), fw.x).mul(open);
+    const rowY = filteredPulse(cellUV.y, effHalfY, float(1.0).sub(effHalfY), fw.y);
+    const upper = float(1.0).sub(isGroundFloor).mul(float(1.0).sub(isRoof)).mul(front);
+    const spandrel = isDeco.mul(colX).mul(float(1.0).sub(rowY)).mul(upper);
+    const chevron = lineAA(abs(cellUV.x.sub(0.5)).mul(0.6).add(fract(cellUV.y.add(0.5)).sub(0.5).abs()).sub(0.16), 0.02).mul(float(1.0).sub(smoothstep(0.03, 0.08, fw.x)));
+    const spandrelCol = mix(cStone.mul(0.36), M.decoSpandrel, 0.55).mul(float(1.0).add(chevron.mul(0.5)));
+    const pierLift = float(1.0).add(isDeco.mul(float(1.0).sub(colX)).mul(upper).mul(0.08));
+    // (ribbon windows: the bands between them read as panels, a joint at each bay)
+    const ribbonJoint = isRibbon.mul(upper).mul(max(lineAA(cellUV.x, 0.012), lineAA(cellUV.x.sub(1.0), 0.012)));
+    const wallTint = mix(wallTint0.mul(pierLift), spandrelCol, spandrel).mul(float(1.0).sub(ribbonJoint.mul(0.25)));
     // Trim stone on the band courses, the storefront fascia and the coping capping every wall
     const trimMix = max(isCornice.mul(0.62).add(isGroundFloor.mul(0.28)), coping.mul(0.8));
     const masonryTint = mix(wallTint, cTrim, trimMix)
@@ -1034,9 +1137,15 @@ function createPreWarBuildingMaterial(opts = {}) {
     const roofNoise = noise2D(positionWorld.xz.mul(0.35));
     const roofCol = paint ? mix(color(0x5f5c58), color(0x7d7973), roofNoise) : mix(cTrim.mul(0.42), cTrim.mul(0.62), roofNoise);
 
-    const wallOrRoof = mix(masonryWeathered, roofCol, isRoof);
+    // (glazed terracotta: its sheen, the sky caught at a glancing angle)
+    const glazed = masonryWeathered.add(cityUniforms.uSkyHorizonColor.mul(fresnel.mul(0.5).add(0.04)).mul(glaze).mul(M.glazeSheen).mul(float(1.0).sub(blank)));
+    const wallOrRoof = mix(glazed, roofCol, isRoof);
     const withFrames = mix(wallOrRoof, frameCol, isWindowOpening.mul(sashMask));
-    const withGlass = mix(withFrames, glassCol, isWindowGlass);
+    // the reveal: the jambs mid-grey in their own shade, the soffit darkest, the sill's top catching the sky
+    const revealShade = mix(mix(float(0.5), float(0.32), step(oneMinusEffY, frUV.y)), float(0.78), step(frUV.y, effHalfY));
+    const revealCol = masonryTint.mul(revealShade).mul(float(0.85).add(cityUniforms.uSkyHorizonColor.mul(0.15)));
+    const withReveal = mix(withFrames, revealCol, reveal.mul(float(1.0).sub(sashMask)));
+    const withGlass = mix(withReveal, mix(glassCol, floorCol.mul(0.9), floorLit.mul(0.85)), isWindowGlass);
     const withAC = mix(withGlass, acColor, inACBox);
 
     // Entrance of a residential front: painted panel door under a glazed transom, in a stone surround (door bay only)
@@ -1068,17 +1177,19 @@ function createPreWarBuildingMaterial(opts = {}) {
   })();
 
   mat.roughnessNode = Fn(() => {
-    const belt = filteredPulse(gridV.div(6.0), 0.86, 1.0, fw.y.div(6.0)).mul(front);
-    const inX = filteredPulse(cellUV.x, halfWinX, 1.0 - halfWinX, fw.x).mul(open).mul(float(1.0).sub(belt));
-    const inY = filteredPulse(cellUV.y, halfWinY, 1.0 - halfWinY, fw.y);
+    const belt = filteredPulse(gridV.div(6.0), 0.86, 1.0, fw.y.div(6.0)).mul(frontBelt);
+    const inX = filteredPulse(cellUV.x, halfWinX, float(1.0).sub(halfWinX), fw.x).mul(open).mul(float(1.0).sub(belt));
+    const inY = filteredPulse(cellUV.y, halfWinY, float(1.0).sub(halfWinY), fw.y);
     const isWindow = inX.mul(inY).mul(float(1.0).sub(isRoof));
 
-    const winY = clamp(cellUV.y.sub(halfWinY).div(max(0.01, 1.0 - 2.0 * halfWinY)), 0.0, 1.0);
+    const winY = clamp(cellUV.y.sub(halfWinY).div(max(0.01, float(1.0).sub(halfWinY.mul(2.0)))), 0.0, 1.0);
     const pooledRough = float(1.0).sub(smoothstep(0.0, 0.32, winY)).mul(0.38);
     const glassRough = float(0.14).add(pooledRough);
 
-    const stoneGrain = noise2D(vec2(uCoord.mul(8.0), vCoord.mul(8.0))).mul(0.12);
-    return mix(float(0.78).add(stoneGrain), glassRough, isWindow);
+    // (glazed terracotta: a fired glaze, smoother than stone: a soft sheen)
+    const stoneGrain = noise2D(vec2(uCoord.mul(8.0), vCoord.mul(8.0))).mul(mix(float(0.12), float(0.05), glaze));
+    const wallRough = mix(float(0.78), M.glazeRoughness, glaze.mul(float(1.0).sub(isRoof)));
+    return mix(wallRough.add(stoneGrain), glassRough, isWindow);
   })();
 
   // Hardware derivative bumpNormal for domed brickwork, stone courses, recessed windows & AC louvers. Edges ramp over
@@ -1092,7 +1203,7 @@ function createPreWarBuildingMaterial(opts = {}) {
     const footprint = max(fwidth(uCoord), fwidth(vCoord)); // Meters per pixel
 
     // Stone band course every 6 floors on street fronts: no window recesses, sills or AC units in it
-    const belt = filteredPulse(gridV.div(6.0), 0.86, 1.0, ramp.y.div(6.0)).mul(front);
+    const belt = filteredPulse(gridV.div(6.0), 0.86, 1.0, ramp.y.div(6.0)).mul(frontBelt);
     const inX = filteredPulse(cellUV.x, effHalfX, float(1.0).sub(effHalfX), ramp.x).mul(open).mul(float(1.0).sub(belt));
     const inY = filteredPulse(cellUV.y, effHalfY, float(1.0).sub(effHalfY), ramp.y);
     const isWindow = inX.mul(inY);
@@ -1124,18 +1235,22 @@ function createPreWarBuildingMaterial(opts = {}) {
 
   mat.emissiveNode = Fn(() => {
     // The glow stays a hair inside the glazing
-    const glowHalfX = mix(float(halfWinX + 0.015), float(0.12), isGroundFloor);
-    const glowHalfY = mix(float(halfWinY + 0.015), float(0.11), isGroundFloor);
+    const glowHalfX = mix(halfWinX.add(0.015), float(0.12), isGroundFloor);
+    const glowHalfY = mix(halfWinY.add(0.015), float(0.11), isGroundFloor);
 
     const inX = filteredPulse(cellUV.x, glowHalfX, float(1.0).sub(glowHalfX), fw.x).mul(open);
     const inY = filteredPulse(cellUV.y, glowHalfY, float(1.0).sub(glowHalfY), fw.y);
     const isCornice = max(
-      filteredPulse(fract(gridV.div(6.0)), 0.86, 1.0, fw.y.div(6.0)).mul(front),
+      filteredPulse(fract(gridV.div(6.0)), 0.86, 1.0, fw.y.div(6.0)).mul(frontBelt),
       isGroundFloor.mul(filteredPulse(cellUV.y, 0.86, 1.0, fw.y))
     );
 
-    const sashBarY = lineAA(cellUV.y.sub(0.52), 0.014).mul(float(1.0).sub(isGroundFloor));
-    const sashBarX = lineAA(cellUV.x.sub(0.50), 0.010).mul(float(1.0).sub(isGroundFloor)).mul(0.55);
+    const sideSash = float(1.0).sub(step(0.25, winUV.x).mul(step(winUV.x, 0.75)));
+    const sashBarY = lineAA(cellUV.y.sub(0.52), 0.014).mul(float(1.0).sub(isGroundFloor)).mul(float(1.0).sub(isRibbon)).mul(float(1.0).sub(isChicago.mul(float(1.0).sub(sideSash))));
+    const sashBarX = max(
+      lineAA(cellUV.x.sub(0.50), 0.010).mul(0.55).mul(float(1.0).sub(isRibbon)).mul(float(1.0).sub(isChicago)),
+      max(lineAA(winUV.x.sub(0.25), 0.015), lineAA(winUV.x.sub(0.75), 0.015)).mul(isChicago)
+    ).mul(float(1.0).sub(isGroundFloor));
     const storeTransom = lineAA(cellUV.y.sub(0.70), 0.016).mul(isGroundFloor);
     const storeMullion = lineAA(fract(cellUV.x.mul(2.0)).sub(0.5), 0.020).mul(isGroundFloor);
     const panes = muntins ? max(lineAA(fract(winUV.x.mul(4.0).add(0.5)).sub(0.5), 0.02), lineAA(fract(winUV.y.mul(3.0).add(0.5)).sub(0.5), 0.025)).mul(float(1.0).sub(isGroundFloor)) : float(0.0);
@@ -1145,7 +1260,8 @@ function createPreWarBuildingMaterial(opts = {}) {
       .mul(filteredPulse(cellUV.y, glowHalfY, glowHalfY.add(0.22), fw.y))
       .mul(hasAC);
 
-    const isWindow = inX.mul(inY)
+    const glowPane = modes ? filteredPulse(frUV.x, glowHalfX, float(1.0).sub(glowHalfX), fw.x).mul(filteredPulse(frUV.y, glowHalfY, float(1.0).sub(glowHalfY), fw.y)) : float(1.0);
+    const isWindow = min(inX.mul(inY), glowPane)
       .mul(float(1.0).sub(isRoof))
       .mul(float(1.0).sub(isCornice))
       .mul(float(1.0).sub(sashMask))
@@ -1176,7 +1292,15 @@ function createPreWarBuildingMaterial(opts = {}) {
     const fseed = hash2D(cellId.add(7.7)).mul(40.0);
     const flick = sin(time.mul(8.3).add(fseed)).mul(sin(time.mul(3.1).add(fseed.mul(1.7)))).mul(0.3).add(sin(time.mul(1.1).add(fseed)).mul(0.15)).add(0.85);
     const fireCol = mix(vec3(2.4, 0.85, 0.14), vec3(0.7, 0.12, 0.02), smoothstep(0.1, 0.95, winUV.y)).mul(flick).mul(1.2);
-    return winEmit.add(crownFlood).add(doorEmit).add(fireCol.mul(fireK));
+    // (Chicago) the whole floors still lit late, and the building's crown floodlit: the top of its top box washed up the
+    // wall, strongest at the parapet (warm white, or a cool or amber tint by the building)
+    const floorEmit = floorCol.mul(floorLit).mul(isWindow).mul(transmission).mul(M.floorGain);
+    const night = smoothstep(0.7, 1.45, cityUniforms.uInteriorGlow);
+    const band = max(facade.wallH.mul(0.09), 7.0);
+    const crownWash = smoothstep(band, float(0.0), facade.fromTop).mul(smoothstep(0.0, 0.6, facade.fromTop).mul(0.35).add(0.65)).mul(step(0.05, crownGlow)).mul(float(1.0).sub(isRoof));
+    const crownTint = mix(color(0xffd9a0), mix(color(0xbcd2ff), color(0xffb062), step(0.8, crownGlow)), step(0.6, crownGlow));
+    const crownEmit = crownTint.mul(crownWash.mul(crownWash)).mul(night).mul(M.crownGain).mul(float(1.0).sub(isWindow.mul(0.5)));
+    return winEmit.add(crownFlood).add(doorEmit).add(fireCol.mul(fireK)).add(floorEmit).add(crownEmit);
   })();
 
   _preWarCache.set(cacheKey, mat);
@@ -1191,6 +1315,7 @@ function createPreWarBuildingMaterial(opts = {}) {
  * `base` (the building's ground y, default 0), `plinth` (metres of solid plinth above it, default 0) and `storeyH` (its
  * own storey height, default 0: the material's) go to the `boxBase` attribute: floors count from base + plinth, wherever
  * the box stands (facadeCell). Boxes for a `paint` material carry `paint: [wallHex, trimHex, surface, litShare]`.
+ * `style` (default 0) is the 4th component of `boxBase`: a `modes` pre-war material's facade mode code (FACADE_MODES).
  */
 function createFacadeBoxes(material, boxes) {
   const geometry = new THREE.BoxGeometry(1, 1, 1);
@@ -1201,7 +1326,7 @@ function createFacadeBoxes(material, boxes) {
   geometry.deleteAttribute('uv');
   const box = new THREE.InstancedBufferAttribute(new Float32Array(boxes.length * 4), 4);
   const faces = new THREE.InstancedBufferAttribute(new Float32Array(boxes.length * 4), 4);
-  const boxBase = new THREE.InstancedBufferAttribute(new Float32Array(boxes.length * 3), 3);
+  const boxBase = new THREE.InstancedBufferAttribute(new Float32Array(boxes.length * 4), 4);
   geometry.setAttribute('box', box);
   geometry.setAttribute('faces', faces);
   geometry.setAttribute('boxBase', boxBase);
@@ -1225,7 +1350,7 @@ function createFacadeBoxes(material, boxes) {
     else mesh.setMatrixAt(i, matrix.makeScale(b.w, b.h, b.d).setPosition(b.x, b.y, b.z));
     box.setXYZW(i, b.w, b.h, b.d, ((i * 29) % 1000) + 0.1 + 0.8 * (b.tone ?? 0.5));
     if (b.faces) faces.setXYZW(i, b.faces[0], b.faces[1], b.faces[2], b.faces[3]);
-    boxBase.setXYZ(i, b.base ?? 0, b.plinth ?? 0, b.storeyH ?? 0);
+    boxBase.setXYZW(i, b.base ?? 0, b.plinth ?? 0, b.storeyH ?? 0, b.style ?? 0);
     if (painted) {
       const [wall, trim, surface, lit] = b.paint || [0xd8cdb8, 0xf2efe6, 1, 0.4];
       col.setHex(wall);
@@ -3526,5 +3651,5 @@ function createCarFlareMaterial() {
   return mat;
 }
 
-Object.assign(window.NYC, { cityUniforms, WALL_KINDS, createCurtainWallMaterial, createPreWarBuildingMaterial, createFacadeBoxes, createChryslerCrownMaterial, createCarPaintMaterial, createFoliageMaterial, createTreeBarkMaterial, createTreeMaterial, createParkPavingMaterial, createParkWallMaterial, createIronFenceMaterial, createParkLampGlobeMaterial, createParkLampPoolMaterial, createTunnelShadeMaterial, createTktsStepMaterial, createMarbleAshlarMaterial, createTreeGrateMaterial, createRoadSurfaceMaterial, createTerrainMaterial, createGroundCoverMaterial, createParkLawnOffSandMaterial, createRoadPaintMaterial, createSidewalkMaterial, createCurbMaterial, createBillboardMaterial, createWaterMaterial, createParkLawnMaterial, createSteamMaterial, createGodRayMaterial, createContactShadowMaterial, createHeadlightBeamMaterial, createCarFlareMaterial });
+Object.assign(window.NYC, { cityUniforms, WALL_KINDS, FACADE_MODES, FACADE_MODE_UNIFORMS, createCurtainWallMaterial, createPreWarBuildingMaterial, createFacadeBoxes, createChryslerCrownMaterial, createCarPaintMaterial, createFoliageMaterial, createTreeBarkMaterial, createTreeMaterial, createParkPavingMaterial, createParkWallMaterial, createIronFenceMaterial, createParkLampGlobeMaterial, createParkLampPoolMaterial, createTunnelShadeMaterial, createTktsStepMaterial, createMarbleAshlarMaterial, createTreeGrateMaterial, createRoadSurfaceMaterial, createTerrainMaterial, createGroundCoverMaterial, createParkLawnOffSandMaterial, createRoadPaintMaterial, createSidewalkMaterial, createCurbMaterial, createBillboardMaterial, createWaterMaterial, createParkLawnMaterial, createSteamMaterial, createGodRayMaterial, createContactShadowMaterial, createHeadlightBeamMaterial, createCarFlareMaterial });
 })();
