@@ -9,7 +9,7 @@ and brand in it is invented.
 |---|---|
 | `gen.mjs` | the script, as data: cast, places, opening, 8 missions in 4 acts. Every conversation is a video call (`vcall`); every side character is seen only on Mandi's foldable phone (`calls: { style: 'fold' }`, Mog City `docs/VCALL.md`), never on a card. |
 | `sheets.mjs` | writes `sheets/`, the seen people's Character Forge sheets |
-| `town.json.gz` | the Chicago CityPackage the pack is gated with and pinned to (`base.hometown`): production's Chicago, `htc-0.15.0-hg1-b6f7c162d` (27 Nov: its `citypackage.json`, the same 4936 places as the local 0.15.0 build the missions were played on) |
+| `town.json.gz` | the Chicago CityPackage the pack is gated with and pinned to (`base.hometown`): production's Chicago, `htc-0.15.1-hg1-b60e24988` tiles `80596b9b…` (28 Nov, release r43, compiler 0.15.1 with the L, the wheel, the stadium, lots and anchors: its `citypackage.json`, the same 4936 places as 0.15.0's `htc-0.15.0-hg1-b6f7c162d`) |
 | `LINES.md` | every spoken line, for casting (written by the script below; do not edit) |
 
 ```
