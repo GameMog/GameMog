@@ -335,6 +335,12 @@ async function initApp() {
   window.NYC.GradeSeparation = gradeSeparation;
   // (bascule.js: Chicago's river bridges' leaves, bridge houses and their floor, on the decks grade-separation.js cut)
   const bascules = window.NYC.buildBascules && gradeSeparation.floors ? window.NYC.buildBascules(scene, gradeSeparation) : null;
+  // (elevated.js: a town's elevated railway, Chicago's L, from its package's GEO.elevated: deck, bents, rails, a train)
+  const elevated = window.NYC.buildElevated && roadNetwork ? window.NYC.buildElevated(scene, roadNetwork) : null;
+  // (town-features.js: a town's wheel, stadium bowl, pier edge and waterfront walls, from GEO.features and GEO.water)
+  const townFeatures = window.NYC.buildTownFeatures ? window.NYC.buildTownFeatures(scene) : null;
+  // (lots.js: a town's car parks, their stalls painted and a share of them taken by parked cars round the camera)
+  const lots = window.NYC.buildLots ? window.NYC.buildLots(scene, roadNetwork) : null;
   if (cityGrid.terrain) cityGrid.terrain.rebuild(); // the portals carved
   markInit('grade');
   await breathe();
@@ -352,7 +358,7 @@ async function initApp() {
 
   // 4. Initialize Third-Person Controllers (Person, Car, Cyclist, Helicopter) & Multi-Camera System
   // Outline buildings retain their exact rendered polygon; compound landmark parts remain separate.
-  const controllerManager = new ThirdPersonControllerManager(scene, [...allColliders.flatMap((c) => c.parts || [c]), ...gradeSeparation.colliders]);
+  const controllerManager = new ThirdPersonControllerManager(scene, [...allColliders.flatMap((c) => c.parts || [c]), ...gradeSeparation.colliders, ...(elevated ? elevated.colliders : []), ...(townFeatures ? townFeatures.colliders : [])]);
   const cameraSystem = new CameraSystem(renderer.domElement, controllerManager);
   cameraSystem.onResize(...renderSize());
   const touchControls = new TouchControls(controllerManager);
@@ -1227,6 +1233,9 @@ async function initApp() {
     // Update 3rd-person controllers, camera, signals, traffic & vehicle collisions, building LODs, and dynamic shadow focus
     gamepadControls.update(dt);
     if (bascules) bascules.update(dt); // (the leaves' angle first: the floor the car drives this frame)
+    if (elevated) elevated.update(dt, cameraSystem.currentPos);
+    if (townFeatures) townFeatures.update(dt, cameraSystem.currentPos);
+    if (lots) lots.update(dt, cameraSystem.currentPos);
     controllerManager.update(dt, elapsed);
     cameraSystem.update(dt, elapsed);
     updateDebugCamera(rawDt);

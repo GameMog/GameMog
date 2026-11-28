@@ -28,7 +28,7 @@ const WEARS = new Set(['rider']);
 export const STEP_KINDS = new Set(['drive', 'stops', 'walk', 'pursuit', 'timer', 'call', 'voicemail', 'voicenote', 'choice', 'cutscene',
   'place', 'set', 'say', 'wait', 'goto', 'end', 'label', 'transition', 'vignette', 'wallet', 'actEnd', 'comfort', 'tail',
   'stealth', 'patrol', 'convoy', 'trigger', 'beat', 'roadblock', 'passenger', 'npc', 'fight', 'dm', 'search', 'scene', 'tow', 'ally', 'car',
-  'collect', 'mount', 'dismount', 'herd', 'sneak', 'flee', 'drove', 'track', 'ambush', 'ride', 'vcall', 'bridge']);
+  'collect', 'mount', 'dismount', 'herd', 'sneak', 'flee', 'drove', 'track', 'ambush', 'ride', 'vcall', 'bridge', 'prop', 'flotilla']);
 // the steps that ride the horse (a world whose car is a car rides one alongside it: wagmi/game.js the two rides)
 export const HORSE_STEPS = new Set(['mount', 'ride']);
 /** A world's horse alongside its car: { label } (its `horse`, else Ranger), or null (no step rides one, or its car is the horse). */

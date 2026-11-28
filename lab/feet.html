@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mog City: feet lab</title>
+  <style>html, body { margin: 0; height: 100%; background: #15171c; overflow: hidden; } canvas { display: block; }
+    #lab { position: fixed; left: 10px; top: 8px; color: #fff; font: 600 14px system-ui; text-shadow: 0 1px 2px #000; pointer-events: none; white-space: pre; }</style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/gh/mrdoob/three.js@bc7d0b3c3838d5da9495b5e603afd77ed3154d57/build/three.webgpu.js",
+        "three/webgpu": "https://cdn.jsdelivr.net/gh/mrdoob/three.js@bc7d0b3c3838d5da9495b5e603afd77ed3154d57/build/three.webgpu.js",
+        "three/tsl": "https://cdn.jsdelivr.net/gh/mrdoob/three.js@bc7d0b3c3838d5da9495b5e603afd77ed3154d57/build/three.tsl.js",
+        "three/addons/": "https://cdn.jsdelivr.net/gh/mrdoob/three.js@bc7d0b3c3838d5da9495b5e603afd77ed3154d57/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+<div id="lab"></div>
+<script type="module">
+// The story cast's feet (H7): forged bodies built as wagmi/storyrun/cast.js builds them (the GLB, its arm-hang bones
+// levelled, the armature turn out, Dan's clips retargeted onto its rest with its walk style), put through one script of
+// what the story does to them, on a grid floor, with their feet locked (wagmi/footlock.js) or not, and their foot slip
+// measured (wagmi/footslip.js). The clock is fixed (1/60 s a frame), so two runs are the same frames.
+//   ?a=<glb>|<walk style>|<idle>,...   the bodies (a path on this server)      ?lock=0 (the clips' feet, as before)
+//   ?focus=<i> (the lens beside that body's feet; default the row)   ?auto=0 (stepped from outside: window.__step(n))
+// The script, every body at once (seconds): 0-5 its idle; 5 turned 35 degrees on the spot (cast.js lookAt); 7 walks
+// off (the walk crossfaded in, 0.3 s) at 1.1 m/s, its gait at that pace on its legs (retarget.js gaitPace, as the
+// story's walks); 13 slows to 0.55 m/s (under the pace's clamp: the clip runs faster than the body); 17 stops into
+// its idle (0.35 s); 21 a talk crossfaded over it, 25 back; 27-33 a fight's guard, shuffling, with a jab and a cross
+// thrown twice; 33-36 its idle. window.__slip: the meter's report at the end.
+import * as THREE from 'three/webgpu';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
+import { loadGLB } from '../wagmi/glb.js';
+import { danOn, loadLoco, walkStyled, walkSpeedOf, gaitPace } from '../wagmi/retarget.js';
+import { createFootLock, FOOTLOCK } from '../wagmi/footlock.js';
+import { createSlipMeter } from '../wagmi/footslip.js';
+
+const q = new URLSearchParams(location.search);
+FOOTLOCK.on = q.get('lock') !== '0';
+const list = (q.get('a') || '').split(',').filter(Boolean).map((s) => { const [url, walk = '', idle = 'idle'] = s.split('|'); return { url, walk: walk || null, idle }; });
+const focus = q.get('focus') == null ? -1 : +q.get('focus'), DT = 1 / 60, END = 36;
+const renderer = new THREE.WebGPURenderer({ antialias: true });
+renderer.setPixelRatio(1); renderer.setSize(innerWidth, innerHeight); renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.shadowMap.enabled = true;
+document.body.appendChild(renderer.domElement); await renderer.init();
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#BFD6EE');
+scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.03).texture; scene.environmentIntensity = 0.5;
+scene.add(new THREE.HemisphereLight('#DCE8FF', '#7A6A58', 0.6));
+const sun = new THREE.DirectionalLight('#FFEFD6', 2.6); sun.position.set(6, 9, -4); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -10, right: 10, top: 14, bottom: -4, near: 0.5, far: 40 }); scene.add(sun, sun.target);
+// (a floor ruled every 10 cm, a heavier line every metre: a foot that slides crosses lines)
+const cv = document.createElement('canvas'); cv.width = cv.height = 512; const g2 = cv.getContext('2d');
+g2.fillStyle = '#8C8880'; g2.fillRect(0, 0, 512, 512); g2.strokeStyle = 'rgba(30,30,30,.35)'; g2.lineWidth = 2;
+for (let i = 0; i <= 10; i++) { const p = i * 51.2; g2.beginPath(); g2.moveTo(p, 0); g2.lineTo(p, 512); g2.moveTo(0, p); g2.lineTo(512, p); g2.stroke(); }
+g2.strokeStyle = 'rgba(20,20,20,.8)'; g2.lineWidth = 5; g2.strokeRect(0, 0, 512, 512);
+const tex = new THREE.CanvasTexture(cv); tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(40, 40); tex.anisotropy = 8; tex.colorSpace = THREE.SRGBColorSpace;
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 }));
+floor.rotation.x = -Math.PI / 2; floor.position.z = 8; floor.receiveShadow = true; scene.add(floor);
+
+await loadLoco((u) => loadGLB('../' + u));
+const dan = await loadGLB('../assets/characters/dan.glb');
+const meter = createSlipMeter(), per = [];
+async function body(b, i) {
+  const g = await loadGLB(b.url + '?feet=' + i);
+  const root = new THREE.Group(), inner = skClone(g.scene); root.add(inner);
+  inner.traverse((o) => { if (/^armhang_[LR]$/.test(o.name)) o.quaternion.identity(); });
+  const arm = inner.getObjectByName('root')?.parent;
+  if (arm && arm !== inner) { arm.quaternion.identity(); arm.position.y += 0.02; }
+  inner.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; } });
+  const bones = {}; inner.traverse((o) => { if (o.isBone) bones[o.name] = o; });
+  const own = g.animations.slice(), names = new Set(own.map((a) => a.name));
+  const rt = danOn(THREE, dan, g);
+  for (const a of walkStyled(THREE, rt.clips, b.walk)) if (!names.has(a.name)) own.push(a);
+  const legRatio = rt.legRatio * walkSpeedOf(b.walk) / walkSpeedOf(null);
+  const mixer = new THREE.AnimationMixer(inner), clip = (n) => THREE.AnimationClip.findByName(own, n);
+  root.position.set((i - (list.length - 1) / 2) * 1.6, 0, 0); scene.add(root);
+  const f = { root, mixer, bones, legRatio, current: null, idle: clip(b.idle) ? b.idle : 'idle', x0: root.position.x, h: 0 };
+  // (cast.js f.play: a cut, or a crossfade from what played last)
+  f.play = (n, loop = true, fade = 0) => { const cl = clip(n); if (!cl) return null; const a = mixer.clipAction(cl), prev = f.current;
+    if (fade > 0 && prev && prev !== a && prev.isRunning()) { a.reset(); a.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity); a.clampWhenFinished = !loop; a.setEffectiveTimeScale(1); a.setEffectiveWeight(1); a.play(); prev.crossFadeTo(a, fade, false); }
+    else { mixer.stopAllAction(); a.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity); a.clampWhenFinished = !loop; a.setEffectiveTimeScale(1); a.play(); mixer.update(0); }
+    f.current = a; return a; };
+  f.play(f.idle);
+  let h = 2166136261; for (const ch of b.url) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
+  f.feet = createFootLock(THREE, root, bones, { seed: h });
+  f.meter = createSlipMeter();
+  return f;
+}
+const bodies = await Promise.all(list.map(body));
+const cam = new THREE.PerspectiveCamera(focus >= 0 ? 30 : 38, innerWidth / innerHeight, 0.05, 200);
+let t = 0, pivot = null;
+const V = new THREE.Vector3(), R = new THREE.Vector3();
+const IDLE = /^(idle|shift|arms|phone|talk|argue)$/;
+// the script: what each body does at t (once, as t crosses it), and where it is
+function script(f, t0, t1) {
+  const at = (s) => t0 < s && t1 >= s;
+  if (at(5)) { f.h += 0.61; f.root.rotation.y = f.h; }
+  if (at(7)) { const a = f.play('walk', true, 0.3); a?.setEffectiveTimeScale(gaitPace('walk', 1.1, f.legRatio)); f.v = 1.1; }
+  if (at(13)) { f.current?.setEffectiveTimeScale(gaitPace('walk', 0.55, f.legRatio)); f.v = 0.55; }
+  if (at(17)) { f.play(f.idle, true, 0.35); f.v = 0; }
+  if (at(21)) f.play('talk', true, 0.4);
+  if (at(25)) f.play(f.idle, true, 0.4);
+  if (at(27)) { f.play('guard', true, 0.25); f.fight = true; }
+  for (const [s, n] of [[28, 'jab'], [29, 'cross'], [30.2, 'jab'], [31.2, 'cross']]) if (at(s)) f.play(n, false, 0.12);
+  for (const s of [28.7, 29.7, 30.9, 31.9]) if (at(s)) f.play('guard', true, 0.18);
+  if (at(33)) { f.play(f.idle, true, 0.35); f.fight = false; }
+  if (f.v) { f.root.position.x += Math.sin(f.h) * f.v * DT; f.root.position.z += Math.cos(f.h) * f.v * DT; }
+  // (the fight's shuffle: a puppet's feet-less drift about its spot)
+  if (f.fight) { const k = Math.sin((t1 - 27) * Math.PI) * 0.35; f.root.position.x += Math.cos(f.h) * k * DT; f.root.position.z -= Math.sin(f.h) * k * DT; }
+}
+function step() {
+  const t0 = t; t += DT;
+  for (const f of bodies) {
+    script(f, t0, t);
+    f.mixer.update(DT); f.feet?.restore();
+    let best = null, w = 0; for (const a of f.mixer._actions) { if (!a.isRunning()) continue; const k = a.getEffectiveWeight(); if (k > w) { w = k; best = a; } }
+    f.feet?.apply(DT, { idle: !!best && IDLE.test(best.getClip().name) && !f.v });
+    f.root.updateMatrixWorld(true); R.setFromMatrixPosition(f.root.matrixWorld);
+    for (const s of ['L', 'R']) { const b = f.bones['foot_' + s]; if (!b) continue; b.getWorldPosition(V); meter.sample(f.root.uuid + s, V, R.y, R, DT); f.meter.sample(s, V, R.y, R, DT); }
+  }
+}
+function frame() {
+  const f = bodies[focus];
+  // (the lens beside that body's feet, held still on the floor while they are within 1.1 m of where it looks, so a foot
+  // that slides crosses the floor's lines; moved on to them past that)
+  if (f) { const p = f.root.position; if (!pivot || Math.hypot(p.x - pivot.x, p.z - pivot.z) > 1.1) pivot = { x: p.x + Math.sin(f.h) * 0.6, z: p.z + Math.cos(f.h) * 0.6, h: f.h };
+    const rx = Math.cos(pivot.h), rz = -Math.sin(pivot.h); cam.position.set(pivot.x + rx * 2.6, 0.42, pivot.z + rz * 2.6); cam.lookAt(pivot.x, 0.2, pivot.z); }
+  else { const z = bodies.length ? Math.max(...bodies.map((b) => b.root.position.z)) : 0; cam.position.set(1.5, 2.2, z + 6.5); cam.lookAt(0, 0.8, z); }
+  renderer.render(scene, cam);
+  document.getElementById('lab').textContent = `t ${t.toFixed(2)} s   feet ${FOOTLOCK.on ? 'locked' : 'clip'}`;
+}
+window.__step = (n = 1) => { for (let i = 0; i < n; i++) step(); frame(); return +t.toFixed(3); };
+window.__report = () => ({ lock: FOOTLOCK.on, t: +t.toFixed(2), all: meter.report(), bodies: bodies.map((f, i) => ({ url: list[i].url.split('/').pop().slice(0, 12), walk: list[i].walk, idle: f.idle, legRatio: +f.legRatio.toFixed(3), ...f.meter.report(), feet: f.feet ? { ...f.feet.stats } : null })) });
+window.__bodies = bodies;
+window.__ready = true;
+if (q.get('auto') !== '0') renderer.setAnimationLoop(() => { if (t < END) { step(); frame(); } else if (!window.__slip) window.__slip = window.__report(); });
+else frame();
+</script>
+</body>
+</html>

@@ -19,6 +19,12 @@ import { dialFor } from './speedo.js'; import { isOwn } from './storyrun/title.j
 // (?pack=: a Story Kit world played on this engine, wagmi/storyrun. Without ?pack= none of it is even imported, and every
 // PACK below is null: the game exactly as it is)
 const PACK = new URLSearchParams(location.search).has('pack') ? await importRetry(() => import('./storyrun/pack.js')).then((m) => m.load()) : null;
+// (a story world whose opening plays on this start without a gate (?nogate): black over everything from here until
+// the opening's own cover is up (storyrun/index.js takes #wg-precover away), so the city, the car and the play HUD are
+// not seen while the town and the story load: the audit's of1-00. With the gate, its title covers that time)
+{ const q = new URLSearchParams(location.search), d = PACK?.ok ? PACK.def : null;
+  const opens = !!d && q.has('nogate') && !q.has('freedrive') && Array.isArray(d.opening?.shots) && d.opening.shots.length > 0 && q.get('opening') !== '0' && (q.get('opening') === '1' || (!q.get('mission') && !q.get('step') && (() => { try { const s = JSON.parse(localStorage.getItem(`mc.pack.${d.id}.v1`) || 'null'); return !(s && ((Array.isArray(s.done) && s.done.length) || s.resume)); } catch { return true; } })()));
+  if (opens) { const c = document.createElement('div'); c.id = 'wg-precover'; c.style.cssText = 'position:fixed;inset:0;background:#000;z-index:2147483000;pointer-events:none'; document.body.appendChild(c); setTimeout(() => c.remove(), 60000); } }
 // (the hero's ride a horse, Ranger, in the car's place: a world whose car is { model: 'mogcity/horse' }, or ?horse (with
 // ?nointro: free roam on horseback). wagmi/horse; otherwise none of it is even imported, and HORSE is null)
 // (or a horse alongside the car: a story world that rides one as well as driving (its mount and ride steps, or its
@@ -1625,5 +1631,5 @@ WAGMI.trailerEarly = importRetry(() => import('./trailer.js')).then((m) => m.cre
 // ?start=chase in any city: free roam opened on a chase, wagmi/chase-start.js)
 const ROAM = !PACK && (world.id !== 'ny' || CHASE_START);
 for (const m of PACK ? ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './jack.js', './storyrun/index.js'] : ROAM ? ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './jack.js', './city.js'] : ['./pad.js', './audio/index.js', './combat/index.js', './street/index.js', './crash/index.js', './pursuit/index.js', './radio/index.js', './mission/calls.js', './intro.js', './mission/m2.js', './mission/m3.js', './mission/m4.js', './mission/m4-gallery.js']) {
-  try { const mod = await importRetry(() => import(m), m); if (mod.install) await mod.install(WAGMI); } catch (err) { console.error('[wagmi]', m, err); if (m === './storyrun/index.js') WAGMI.storyFailed = true; }
+  try { const mod = await importRetry(() => import(m), m); if (mod.install) await mod.install(WAGMI); } catch (err) { console.error('[wagmi]', m, err); if (m === './storyrun/index.js') { WAGMI.storyFailed = true; document.getElementById('wg-precover')?.remove(); } }
 }

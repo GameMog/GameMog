@@ -20,6 +20,11 @@ export function createJuice(W) {
   css.textContent = `
 #sr-juice{position:fixed;left:50%;top:17vh;transform:translateX(-50%) scale(.9);z-index:60;pointer-events:none;text-align:center;opacity:0;transition:opacity .16s,transform .2s cubic-bezier(.2,1.6,.4,1);white-space:nowrap}
 #sr-juice.on{opacity:1;transform:translateX(-50%) scale(1)}
+/* (a story's line up: the line wins. The alert smaller and quieter, its second line and the street's hit note away, the
+   pursuit's crash and heat notes not stacked on the line: WW-6's CRASH, HIT AND RUN and the call ring over Jay, audit 27 Nov) */
+body:has(#wg .wg-sub:not(.hide) .t:not(:empty)) #sr-juice.on{opacity:.8;transform:translateX(-50%) scale(.7)}
+body:has(#wg .wg-sub:not(.hide) .t:not(:empty)) #sr-juice .s{display:none}
+body:has(#wg .wg-sub:not(.hide) .t:not(:empty)) #wg-tick{opacity:0 !important}
 #sr-juice .h{font:italic 800 46px/1 'Barlow Condensed',system-ui,sans-serif;letter-spacing:.1em;text-shadow:0 3px 18px rgba(0,0,0,.7),0 0 2px rgba(0,0,0,.9)}
 #sr-juice .s{margin-top:6px;font:600 18px/1.2 'Barlow Condensed',system-ui,sans-serif;letter-spacing:.06em;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.8)}
 #sr-ptr{position:fixed;left:0;top:0;z-index:58;pointer-events:none;opacity:0;transition:opacity .4s;will-change:transform}

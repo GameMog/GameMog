@@ -116,7 +116,7 @@ export function createFold(W, { heads = {} } = {}) {
   // (the cover's answer and decline: the keys the call listens for, as if pressed)
   for (const b of root.querySelectorAll('.cover .btn')) b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); dispatchEvent(new KeyboardEvent('keydown', { code: b.dataset.k, key: b.dataset.k.slice(3).toLowerCase(), bubbles: true })); });
   const now = () => performance.now() / 1000;
-  let state = 'off', who = null, t0 = 0, raf = 0, openT = 0, closing = 0, scene = null, big = false, shownS = null, sway0 = Math.random() * 9;
+  let state = 'off', who = null, t0 = 0, raf = 0, openT = 0, closing = 0, scene = null, big = false, pip = false, shownS = null, sway0 = Math.random() * 9;
   const face = (el, name, color) => {
     const u = name && Object.prototype.hasOwnProperty.call(heads, name) ? heads[name] : null;
     if (u) { el.textContent = ''; el.style.background = `${color || '#6CB8FF'} url("${u}") center / cover no-repeat`; }
@@ -130,6 +130,9 @@ export function createFold(W, { heads = {} } = {}) {
     const touch = document.body.classList.contains('touch-enabled'), iw = innerWidth, ih = innerHeight;
     let w;
     if (scene || big) { const h = Math.max(220, ih - 28 - (touch ? 150 : 190)); w = Math.min(h / 2.4, (iw - 32) / 2, 300); }
+    // (a live video call (vcall.js playLive) in the corner: bigger than a phone call's, its picture a face you can read
+    // at the wheel, still out of the road's way)
+    else if (pip) w = touch ? (ih > iw ? 62 : Math.min(84, iw * 0.2)) : Math.min(136, iw * 0.115);
     else { const car = W.app?.controllerManager?.activeMode === 'car'; w = touch ? (ih > iw ? 48 : Math.min(car ? 60 : 70, iw * 0.17)) : Math.min(car ? 92 : 104, iw * 0.09); }
     w = Math.round(w); const h = Math.round(w * 2.4);
     if (root.style.getPropertyValue('--fw') !== w + 'px') { root.style.setProperty('--fw', w + 'px'); root.style.setProperty('--fh', h + 'px'); }
@@ -207,6 +210,8 @@ export function createFold(W, { heads = {} } = {}) {
     // (the inner screen's picture area for a video call's tiles, or null until it is open)
     screen() { if (!scene || !root.classList.contains('done')) return null; const b = vid.getBoundingClientRect(); return [b.left, b.top, b.width, b.height]; },
     subtitle(s) { status(s); },
+    // (a live video call: the corner phone at its bigger size while it is on)
+    pip(on) { pip = !!on; size(); },
     dispose() { cancelAnimationFrame(raf); root.remove(); document.body.classList.remove('wg-fold-style'); },
   };
 }

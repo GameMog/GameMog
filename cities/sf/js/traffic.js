@@ -41,7 +41,17 @@ const { mergeGeometries } = window.NYC.Addons;
 // Midtown ran 200 cars & 32 buses)
 // (Mog City, Hometown: a compiled place's own density, window.NYC.PKG.density 0..1 by its buildings per km2: a small
 // town's streets are quiet)
-const DENSITY = Math.max(0.1, Math.min(1, window.NYC.PKG?.density ?? 1));
+// (mandi-city: a big city's core, PKG.densityCore from the compiler (its towers round downtown), floors it: Chicago's
+// whole-window density 0.4 (its bungalows on the edge) left the Loop's streets near empty; a phone's (or the low
+// tier's, or a small screen's) floor is lower: its frame was CPU-bound on the extra cars)
+const SMALL = (typeof location !== 'undefined' && /[?&](gfx=phone|quality=(low|phone))\b/.test(location.search)) || window.NYC.quality?.tier === 'phone' ||
+  (typeof innerWidth === 'number' && Math.min(innerWidth, innerHeight) < 700);
+// (off unless ?corefloor=<k>: the replays at 0.6 all passed, but the Loop's drives queued behind the extra cars (PP-5's
+// drive to the pier 241 -> 447 s on Lake Shore Dr, KC-2's 2 unsticks at a turn). The streets' life comes from the
+// parked cars (lots.js) and the crowd instead, which block nobody)
+const CORE_K = typeof location !== 'undefined' ? +(new URLSearchParams(location.search).get('corefloor') || 0) : 0;
+const CORE_FLOOR = (window.NYC.PKG?.densityCore ?? 0) * Math.min(1, CORE_K) * (SMALL ? 0.75 : 1);
+const DENSITY = Math.max(0.1, Math.min(1, Math.max(window.NYC.PKG?.density ?? 1, CORE_FLOOR)));
 const NUM_CARS = Math.max(8, Math.round(60 * DENSITY));
 const NUM_BUSES = Math.max(1, Math.round(6 * DENSITY));
 const NUM_PEDS = Math.round(340 * DENSITY);

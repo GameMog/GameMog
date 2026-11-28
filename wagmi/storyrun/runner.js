@@ -32,8 +32,12 @@ import { createTimers, meterText, deltaText, progress, damageOf, seen as inSight
 import { createSets } from './sets.js';
 import { warmList, feedList } from './prewarm.js';
 import { createVcall } from './vcall.js';
+import { createStoryProps, stretchCar } from './storyprops.js';
+import { propKind } from './props.js';
+import { shotMove, pathOf, carSight, clearRoom, outOfBoxes, inBoxes } from './shotcam.js';
 import { chairProp, lanyardOn, lanyardOff, pushHands } from './npc-dress.js';
 import { createJuice } from './juice.js';
+import { lineUp } from './talkfirst.js';
 import { ownsSub, lineBusy, PASS_HOLD } from './subs.js';
 import { createGuide, propOf, reword, PROP_RIDES } from './guide.js';
 import { createAction, clearLens, lensOnPerson, readable, speakerLens, bodyOn, FAR, SWUNG } from './action.js';
@@ -48,6 +52,8 @@ import { beatOf, gapAfter, readingTime, playTurns, DECODE, cutInto } from '../ra
 
 const PI = Math.PI;
 export const KINDS_STUB = new Set(['patrol', 'wallet']);
+// (a limo's stretch, m: the sedan made a stretch limousine, about 7.4 m long)
+export const LIMO_STRETCH = 2.6;
 // (the crash that fires a world call's 'hit' pool, m/s: a knock under it is driving, not a crash)
 export const HIT_SPEED = 4.5;
 // a phone's ring at most, and at least (s), in a world whose ring-outs are answered (calls.ringOut 'answer': ringSecs,
@@ -359,6 +365,8 @@ export function createRunner(ctx) {
   // A spot that fails fails the mission at once with where and why (Fail kind 'reach', its `reach`: the mission, step,
   // the pack's place key and the town's place it names), so the Story Kit's builder can swap the place
   const reach = createReach(W, cityWorld);
+  // (the story's props, its flotillas: storyprops.js; their points for a shot's lens)
+  const sprops = createStoryProps(W, THREE, { app, cm, places, cast, castName: (n) => castName(n), heroName, car, inCar: () => inCar(), groundY: (x, z) => groundY(x, z), placeOf: (r) => placeOf(r) });
   const refInfo = (ref, p = null) => {
     const key = typeof ref === 'string' ? ref.replace(/^@/, '') : ref && typeof ref === 'object' && typeof ref['@'] === 'string' ? ref['@'] : null;
     const alias = key && def0.places && Object.prototype.hasOwnProperty.call(def0.places, key) ? def0.places[key] : null;
@@ -488,6 +496,22 @@ export function createRunner(ctx) {
   STEPS.dm = async (d, t) => { sfx.play('ding', { gain: 0.3 }); ui.dm(d.from || d.name || 'Unknown number', tokens(d.text), d.secs || 8); M.log.push(['dm', d.from, d.text]); await delay(d.wait ? (d.secs || 8) : 1.2, t); };
   STEPS.set = async (d) => applySet(d.set);
   STEPS.label = async (d) => { M.state.label = d.label; };
+  // a story's prop (storyprops.js): a duck, the duffel shut or open, a sponge, a bucket, a jacket... placed at a place,
+  // beside someone, on a car, or in a hand; swapped, dropped or put away
+  STEPS.prop = async (d) => { sprops.prop(d, M.parked); };
+  // a flotilla (flotilla.js): the ducks on the river, one instanced draw; pour: tipped in from the hero's hands (from the
+  // duffel he holds, or the one beside him: its id `from`), in arcs, over `pour` s
+  STEPS.flotilla = async (d, t) => {
+    let from = null;
+    if (d.pour) {
+      const bag = d.from ? sprops.props.get(String(d.from))?.obj : null, e = cm.getActiveEntity();
+      if (bag) { const v = new THREE.Vector3(); new THREE.Box3().setFromObject(bag).getCenter(v); from = [v.x, v.y + 0.3, v.z]; }
+      else from = [e.position.x + Math.sin(e.heading) * 0.7, e.position.y + 1.15, e.position.z + Math.cos(e.heading) * 0.7];
+    }
+    const info = sprops.flotilla(d, from);
+    if (info) M.log.push(['flotilla', d.id || 'flotilla', info.count]);
+    if (info && d.pour && d.wait) await delay(+d.pour + 1, t);
+  };
   STEPS.goto = async (d) => ({ goto: d.to });
   STEPS.end = async (d) => { if (d.fail) throw new Fail(tokens(d.fail)); return { end: true }; };
   // timer: { name, seconds, label, fail: hard | soft, why, set, flag, lateLabel } starts one; { name, stop: true } stops
@@ -653,6 +677,10 @@ export function createRunner(ctx) {
   const RIDE_NAME = /(^|[-_ ])(suv|van|truck|car|vehicle|parked|pickup|taxi|cab|sedan)([-_ ]|$)/i;
   const rideNear = (x, z, r = 14) => app.scene.children.some((o) => o.visible !== false && RIDE_NAME.test(o.name || '') && Math.hypot(o.position.x - x, o.position.z - z) < r && Math.hypot(o.position.x - car.position.x, o.position.z - car.position.z) > 0.5);
   async function placeProp(d, p, spot) {
+    // (one of the story's own props by its kind, props.js: the duffel, not a bag's green stand-in; its id the step's
+    // `propId` (a later prop step or shot swaps or moves it: the duffel unzipped), else search:<step>)
+    const own = typeof d.prop === 'string' ? propKind(d.prop) : null;
+    if (own) { const id = d.propId || `search:${M.i}`, o = sprops.prop({ id, kind: own, at: [spot.x, groundY(spot.x, spot.z), spot.z], heading: d.propHeading || 0 }, M.parked); return o ? { x: spot.x, z: spot.z, kind: own, id } : null; }
     // (a step that dresses its place with a set piece has the thing its words name: Mission 1's van search)
     const want = d.dress ? null : propOf(d, p); if (!want) return null;
     const kind = want[0], isRide = PROP_RIDES.some(([k]) => k === kind), id = `prop:${M.i}`;
@@ -702,6 +730,9 @@ export function createRunner(ctx) {
     const prop = await placeProp(d, p, spot);
     if (prop?.reword) objective = reword(objective, d, p);
     else if (prop) { hx = prop.x; hz = prop.z; }
+    // (a search of one of the story's parked cars (car: its name, a car step's): the ring at its door, on the side
+    // nearer the street (side: 1 right, -1 left), not at the place's middle 15 m off; OF-1's 'search Jay's car')
+    if (d.car && M.parked.has(d.car)) { const q = sprops.spot({ car: d.car, part: 'side', side: d.side ?? -1, along: d.along ?? 0.4 }, M.parked); if (q) { hx = q.x; hz = q.z; } }
     const pt = { x: hx, z: hz };
     // (the test drive: a spot no player can reach fails the mission: reach.js)
     mustReach(hx, hz, 'person', d, p, { label: d.label });
@@ -725,6 +756,9 @@ export function createRunner(ctx) {
     try { await wait(() => { watch(); const tt = now(), dt = Math.min(0.05, (tt - last) / 1000); last = tt; return act.step(dt, dist(P.position, hx, hz), !inCar()) || (M.auto && !inCar() && dist(P.position, hx, hz) < reach); }, t); }
     finally { act.stop(); ring.hide(); app.scene.remove(ring.group); gps.unblip('search'); gps.clear(); M.holding = null; }
     sfx.play('ding', { gain: 0.25 });
+    // (found: the prop opened (open: its open kind, the duffel unzipped), or taken (take: in the hero's hand))
+    if (prop?.id && d.open) sprops.prop({ id: prop.id, swap: d.open }, M.parked);
+    if (prop?.id && d.take) sprops.prop({ id: prop.id, kind: prop.kind, at: { hold: 'player', hand: 'right' } }, M.parked);
   };
   // which part of the player's car a search is of, or null (a search at the place). on: 'ride' says so (part: trunk,
   // door, hood; trunk if left out), on: 'place' says not; else the step's words: a trunk, boot, tailgate, glovebox, hood
@@ -896,6 +930,8 @@ export function createRunner(ctx) {
     if (setRun?.active) return setRun.point(ref, fallbackUp);
     // (a point the runner works out itself: a boss's wake beat)
     if (Array.isArray(ref) && ref.length === 3) return ref;
+    // (a point on one of the story's props or on a flotilla: storyprops.js)
+    if (sprops.has(ref)) { const q = sprops.point(ref); if (q) return q; }
     const e = cm.getActiveEntity(), hh = !ref || ref === 'player' || (typeof ref === 'object' && ref.rel === 'player') ? heroHead() : null;
     if (!ref || ref === 'player') return hh ? [hh.x, hh.y, hh.z] : [e.position.x, e.position.y + (inCar() ? (car.kind === 'horse' ? 2.55 : 1.2) : 1.55), e.position.z];
     if (typeof ref === 'string' && ref.startsWith('@')) { const p = places.at(ref); if (p) return [p.cx ?? p.x, cm.getGroundHeight(p.cx ?? p.x, p.cz ?? p.z, 'person') + fallbackUp, p.cz ?? p.z]; }
@@ -982,6 +1018,36 @@ export function createRunner(ctx) {
   // is driven through), and let go after
   let setRun = null;
   const setsOf = () => setRun || (setRun = createSets(W, { cast, castName, heroName, idleOf: (n) => world.castOf(n)?.idle || null }));
+  // the cars a shot's lens must not be inside or look through: his own (unless he is out of it and it is put away), and
+  // the story's parked ones, each a box in its own frame (shotcam.js carSight)
+  function carBoxes() {
+    const out = [];
+    try {
+      const e = cm.entities?.car, b = car.body || {};
+      if (e?.mesh?.visible !== false && car.kind !== 'horse') out.push({ x: car.position.x, z: car.position.z, h: car.heading, hx: b.hx || 1.0, z0: b.z0 ?? -2.3, z1: b.z1 ?? 2.4, y0: car.position.y - 0.1, y1: car.position.y + 1.55 });
+      for (const c of M?.parked?.values() || []) {
+        const o = c.obj; if (!o || o.visible === false) continue;
+        const bb = new THREE.Box3().setFromObject(o), h = o.rotation.y, s = Math.sin(h), cc = Math.cos(h);
+        // (its half sizes in its own frame, from the world box: near enough for a car turned any way)
+        const sx = (bb.max.x - bb.min.x) / 2, sz = (bb.max.z - bb.min.z) / 2, al = Math.abs(s) > Math.abs(cc) ? sx : sz, ac = Math.abs(s) > Math.abs(cc) ? sz : sx;
+        out.push({ x: (bb.min.x + bb.max.x) / 2, z: (bb.min.z + bb.max.z) / 2, h, hx: ac, z0: -al, z1: al, y0: bb.min.y, y1: bb.max.y });
+      }
+    } catch (err) { console.warn('[storyrun] car boxes', err); }
+    return out;
+  }
+  // the people near a shot's look point, each a standing box (0.3 m round, 1.9 m tall): the story's cast on the street
+  // and the hero on foot
+  function peopleBoxes(L) {
+    const out = [], add = (x, y, z) => { if (Math.hypot(x - L[0], z - L[2]) < 14) out.push({ person: true, x, z, h: 0, hx: 0.26, z0: -0.26, z1: 0.26, y0: y, y1: y + 1.9 }); };
+    try {
+      for (const n of cast.live || []) { const f = cast.get(n); const r = f?.root; if (!r || r.visible === false || !r.parent || r.parent !== app.scene) continue; add(r.position.x, r.position.y, r.position.z); }
+      if (!inCar()) { const e = cm.getActiveEntity(); add(e.position.x, e.position.y, e.position.z); }
+    } catch (err) { console.warn('[storyrun] people boxes', err); }
+    // (the face's own body left out: the box nearest under it)
+    let k = -1, best = 0.6; out.forEach((B, i) => { const d = Math.hypot(B.x - L[0], B.z - L[2]); if (d < best) { best = d; k = i; } });
+    if (k >= 0) out.splice(k, 1);
+    return out;
+  }
   function holdStreet() {
     const e = cm.getActiveEntity(), x = e.position.x, z = e.position.z;
     try { app.trafficSystem.hold?.([{ minX: x - 45, maxX: x + 45, minZ: z - 45, maxZ: z + 45 }]); } catch {}
@@ -1293,12 +1359,33 @@ export function createRunner(ctx) {
         const scL = s.look || (!fr && s.frame ? { rel: sc.rel } : s.look);
         // (a lineless reaction shot, react: true or frame 'react' with no line: 0.6-1.2 s, after a reveal)
         const said = shotLines(s), reactOnly = !said.length && (s.react === true || s.frame === 'react') && !s.text && !s.caption && !s.card && !s.title;
-        const dur = reactOnly ? Math.max(0.6, Math.min(1.2, s.dur || 0.9)) : s.dur || 3, A0 = fr ? fr.A : camPt(sc), B0 = fr ? fr.B : s.to ? camPt(s.to) : A0, LA = fr ? fr.LA : camPt(scL, 1.4), LB = fr ? fr.LB : s.lookTo ? camPt(s.lookTo, 1.4) : LA;
+        // (the shot's props first: the duffel unzipped as the insert begins, a flotilla laid for the look at the water)
+        if (!setRun?.active) { for (const x of [].concat(s.props || [])) if (x && typeof x === 'object') sprops.prop(x, M?.parked); for (const x of [].concat(s.flotilla || [])) if (x && typeof x === 'object') sprops.flotilla(x); }
+        const dur = reactOnly ? Math.max(0.6, Math.min(1.2, s.dur || 0.9)) : s.dur || 3, A0 = fr ? fr.A : camPt(sc), LA = fr ? fr.LA : camPt(scL, 1.4);
+        let B0 = fr ? fr.B : s.to ? camPt(s.to) : A0, LB = fr ? fr.LB : s.lookTo ? camPt(s.lookTo, 1.4) : LA;
+        // (a move over the shot, shotcam.js: push, pull, orbit, crane, drift, track; a world's cine.drift gives a still
+        // street shot a slow one. A path through lens points instead: path)
+        const street = !setRun?.active && !opening && !beat;
+        const mv = !fr && !s.to && !s.path ? (s.move || (street && !s.title && !s.where && !s.card && def0.cine?.drift) || null) : null;
+        if (mv) { const m = shotMove(mv, A0, LA, s.move ? s.amount : def0.cine?.amount ?? (String(def0.cine?.drift) === 'push' ? 0.06 : 0.35)); if (m) { B0 = m.B; if (!s.lookTo) LB = m.LB; } }
+        const path = Array.isArray(s.path) && s.path.length >= 2 ? s.path.map((r) => camPt(r)) : null;
         // (never through a wall: a lens with a building, a wall or the hill between it and its people pulled in or swung
-        // round them, action.js clearLens; a set's room is its own; only a lens on a person, lensOnPerson: a title, a
-        // place's name or a look at a spot in the street is as it was written)
-        const cl = setRun?.active || !lensOnPerson(s, scL) ? { lens: { A: A0, B: B0 }, how: 'clear' } : clearLens({ A: A0, B: B0, LA, LB }, reach.sight);
-        const A = cl.lens.A, B = cl.lens.B;
+        // round them, action.js clearLens; a set's room is its own; only a lens on a person (lensOnPerson) or on a prop
+        // or the flotilla: a title, a place's name or a look at a spot in the street is as it was written. The line
+        // stops at a car too (the story's, his own, unless the face is in it: shotcam.js carSight))
+        // (and at a person standing between: the reunion's frame on Jay was Mandi's hair, the one on her Jay's back
+        // (audit 27 Nov): the people round it as boxes too, for the line only; the one looked at is left out by carSight)
+        const boxes = street ? carBoxes() : [], seen = street ? boxes.concat(peopleBoxes(LA)) : [], csight = seen.length ? carSight(seen) : null, sight2 = csight ? (a, b) => Math.min(reach.sight(a, b), csight(a, b)) : reach.sight;
+        const cl = setRun?.active || path || !(lensOnPerson(s, scL) || sprops.has(scL)) ? { lens: { A: A0, B: B0 }, how: 'clear' } : clearLens({ A: A0, B: B0, LA, LB }, sight2);
+        let A = cl.lens.A, B = cl.lens.B;
+        // (its room, on the street: out of a car's body it is not meant to be in (inside: true), under a deck its subject
+        // is under, and ROOM m off the walls when the world asks (cine.room), its line to the face kept open)
+        if (street && !path) {
+          if (!s.inside) { const aIn = inBoxes(A, boxes); A = outOfBoxes(A, LA, boxes); B = outOfBoxes(B, LB, boxes, { keepSame: aIn }); }
+          const G = globalThis.window?.NYC?.GradeSeparation, fy = LA[1] - 1.5, roof = G?.roofAt ? (x, z) => G.roofAt(x, z, fy) : null;
+          const room = def0.cine?.room ? sight2 : null;
+          if (roof || room) { const A1 = clearRoom(A, LA, room, roof), B1 = B === A ? A1 : clearRoom(B, LB, room, roof); if (A1 !== A || B1 !== B) cl.how = cl.how === 'clear' ? 'room' : cl.how; A = A1; B = B1; }
+        }
         // (charlook, a world's `look: 'cinematic'`: a close shot on a face at the face's eye level, vcall-plan.js eyeLevel)
         if (charLook() && !fr && scL && typeof scL === 'object' && scL.rel && !(Math.abs(scL.up || 0) > 0.15) && !s.lookTo) {
           const hd = camPt({ rel: scL.rel }, 1.4);
@@ -1308,7 +1395,7 @@ export function createRunner(ctx) {
         // (an opening's name card: the lens settles on its person through the first part of the shot, then the frame
         // freezes on them, their body held mid-move, as their name and role come up: openCard())
         const card = opening && s.card && s.card.who ? s.card : null, hold = card ? Math.min(dur * 0.42, 1.6) : dur;
-        const pos = keys([[0, A], [hold, B]]), look = keys([[0, LA], [hold, LB]]);
+        const along = path ? pathOf(path) : null, pos = along ? (k) => along(ease.inOut(Math.min(1, k / Math.max(0.01, hold)))) : keys([[0, A], [hold, B]]), look = keys([[0, LA], [hold, LB]]);
         // (a close in a set kept on the face it is on: the lens and its look follow the head as drawn, headlock.js)
         const lock = setRun?.active ? closeLock(sc, scL, A, LA) : null;
         let lockT = null;
@@ -1459,9 +1546,16 @@ export function createRunner(ctx) {
   // city held as for a cutscene
   let vcallRun = null;
   const vcallOf = () => vcallRun || (vcallRun = createVcall(W, { setsOf, castName, heroName, ui, colorOf, tokens, mumble, delay, wait, tokOf, kill, log: (e) => M?.log.push(e), sfx, fold: ui.fold || null }));
-  STEPS.vcall = async (d, t) => {
+  STEPS.vcall = async (d, t, ride) => {
     await wrapSpan(t);
     vcallOf();
+    // (a live call, live: true: played while he drives or walks, the street and the controls his: vcall.js playLive.
+    // It goes on beside the steps after it (the tail it sets up starts while it talks), through to its last line or the
+    // mission's end; live: 'wait' holds the steps until it is over. In a step's during it outlives that step too)
+    if (d.live) {
+      if (d.live === 'wait' || ride) { await callLineOut(t); return vcallRun.play(d, t); }
+      side({ ...d, live: 'wait', at: 0, persist: true }, M.tok, true); return;
+    }
     const free = holdStreet();
     try { await vcallRun.play(d, t); } finally { free(); }
   };
@@ -1856,6 +1950,9 @@ export function createRunner(ctx) {
       if (pending()) { const t0 = now(); await wait(() => !pending() || now() - t0 > 6000, t); }
     }
     if (d.interrupts && W.calls?.live && W.calls.state?.()?.state === 'talk') return callWaiting(d, t, who, color, lines);
+    // (a live video call on the phone (vcall live): this call rings once it has hung up, not over it on the same phone;
+    // KC-2's Kiki on the tail's car phone while her live call was still on, the picture lost between them)
+    if (W.vcallLive) await wait(() => !W.vcallLive, t);
     // (the car phone: an inCar call, or one that answers itself while he drives or is at the wheel; an `auto` call on
     // foot, as a video call outside his building, is answered at once and played on the phone below: calls.js would
     // hold it for a car he is not in)
@@ -1869,10 +1966,14 @@ export function createRunner(ctx) {
       // first arrival; a cutscene, the mission's end or the next call still end it, the next call after its wrap)
       const span = Math.max(0, Math.min(6, Math.round(+d.span || 0)));
       const ok = (a) => a.filter(Boolean);
+      // (a ride-along call with nothing more to say once its lines are said (no extra blocks, no wrap lines, no react
+      // pools, no span): it hangs up then, its picture and the phone put away, not held open silent until the leg ends
+      // (PP-5's Bernie tile, up 3 minutes after his last line, audit 27 Nov). hangup: false keeps it on)
+      const done = ride && d.hangup !== false && !(d.extra || []).length && !(d.wrap || []).length && !d.react && !span;
       W.calls.define(id, { ...callReacts(d, toTup), who, color, f0, step: ui.stepId, main: ok(lines.map(toTup)), extra: (d.extra || []).map((b) => ok(b.map(toTup))).filter((b) => b.length), wrap: ok((d.wrap || []).map(toTup)),
-        pause: ok((d.hold?.pause || []).map(toTup)), resume: ok((d.hold?.resume || []).map(toTup)), trigger: d.inCar || d.auto ? 'enter-car' : 'phase-start', delay: 2, wrapAfterMain: !ride, finish: !!ride, span, beats: true });
+        pause: ok((d.hold?.pause || []).map(toTup)), resume: ok((d.hold?.resume || []).map(toTup)), trigger: d.inCar || d.auto ? 'enter-car' : 'phase-start', delay: 2, wrapAfterMain: !ride || done, finish: !!ride, span, beats: true });
       const hostDone = { v: false };
-      W.calls.start(id, { step: ui.stepId, wrapWhen: () => hostDone.v });
+      W.calls.start(id, { step: ui.stepId, wrapWhen: () => hostDone.v || done });
       // (a video call on the car's screen: the caller in their office, top right, while the call is on; vcall.js feed)
       if (d.video && who !== heroName) { const vc = vcallOf(); const tf = tokOf(M.tok); vc.feed(d.video, who, () => !!W.calls.state() && W.calls.state()?.id === id, tf, 'vfeed', () => !W.calls.state()?.held).catch((err) => console.warn('[storyrun] vcall feed', err)); }
       M.log.push(['call', who]);
@@ -1883,6 +1984,9 @@ export function createRunner(ctx) {
       if (d.choice) return choose(d.choice, t);
       return;
     }
+    // (not over a line of the story's: it rings once the line is said, as the car phone's calls do (calls.js waiting);
+    // ww6-05, the ring over Jay's line in the chase. 8 s at most)
+    await lineClear(t);
     sfx.play('ring', { gain: 0.16, times: d.auto ? 1 : 2 });
     ui.caller(who, color, d.auto ? (d.role || 'Incoming call') : 'Incoming call');
     let answer = d.auto ? true : null;
@@ -1926,7 +2030,10 @@ export function createRunner(ctx) {
   function ringOutAnswers() { return world?.def?.calls?.ringOut === 'answer'; }
   function ringSecs(d) { const r = Number.isFinite(+d.ring) && +d.ring > 0 ? +d.ring : RING_SECS; return Math.max(RING_MIN, Math.min(RING_SECS, r)); }
   function ringOf(d) { return ringOutAnswers() ? ringSecs(d) : (d.ring || RING_OLD); }
+  // (a line of the story's up, not the call's own: waited out, 8 s at most, then a breath)
+  async function lineClear(t) { if (!lineUp()) return; const t0 = now(); await wait(() => !lineUp() || now() - t0 > 8000, t); await delay(0.35, t); }
   async function callWaiting(d, t, who, color, lines) {
+    await lineClear(t);
     const live = W.calls.state()?.id;
     sfx.play('ring', { gain: 0.12, times: 1 });
     const show = (status) => ui.caller(who, color, status);
@@ -2933,6 +3040,17 @@ export function createRunner(ctx) {
   // a tail: a car on the planner's route through the step's places (m2-drive.js: it lives in the traffic, brakes for
   // what is ahead of it), the city's own body in the step's colour; too close for too long and it bolts, too far and it
   // is lost
+  // the chase lens up and back while he follows a car (a tail, a convoy): the car ahead seen over his own roof, never
+  // hidden behind a tall car's back for the whole step (KC-2's Derby van behind the Kastell, audit 27 Nov). By how much
+  // the car's own height asks (a tall car more); a world's cine.tail false keeps the lens as it is. -> the put-back
+  function liftChase() {
+    if (def0.cine?.tail === false || !Number.isFinite(car.chaseHeight) || car.kind === 'horse') return () => {};
+    const h0 = car.chaseHeight, d0 = car.chaseDistance, tall = Math.max(0, Math.min(1, (h0 - 1.9) / 0.6));
+    car.chaseHeight = h0 + 1.2 + 0.6 * tall; car.chaseDistance = d0 + 1.6 + 0.8 * tall;
+    console.info('[storyrun] chase lens lifted for a car ahead', JSON.stringify({ h: +car.chaseHeight.toFixed(2), d: +car.chaseDistance.toFixed(2) }));
+    let done = false;
+    return () => { if (done) return; done = true; if (car.chaseHeight === h0 + 1.2 + 0.6 * tall) { car.chaseHeight = h0; car.chaseDistance = d0; } };
+  }
   STEPS.tail = async (d, t) => {
     const route = d.route.map((r) => placeOf(r));
     const pts = [];
@@ -2943,11 +3061,14 @@ export function createRunner(ctx) {
     // `ahead` m on along it, before its first bend, facing away (it started on top of him, his car shoved 3 m))
     if (dist(me(), route[0].x, route[0].z) > 96) await goTo(route[0], { type: 'tail', id: d.id, radius: 90, stop: false, card: false }, t, { objective: `Get over to **${route[0].name}**. ${name.replace(/^the /, 'The ')} leaves from there.`, needsCar: true });
     const { createDriver } = await importRetry(() => import('../mission/m2-drive.js'));
-    const N = cityWorld.assets, g = new THREE.Group(), spec = N.BODY_SPECS?.[d.car === 'lowered' ? 'sedan' : d.car || 'sedan'];
+    const N = cityWorld.assets, g = new THREE.Group(), limo = d.car === 'limo', spec = N.BODY_SPECS?.[d.car === 'lowered' || limo ? 'sedan' : d.car || 'sedan'];
     if (spec && N.buildCarGeometry) { const m = new THREE.Mesh(N.buildCarGeometry(spec, true), N.createLoftedCarMaterial(spec, new THREE.Color(d.color || '#1b1d22').getHex())); m.castShadow = true; g.add(m); }
     else { const m = new THREE.Mesh(new THREE.BoxGeometry(1.9, 1.4, 4.6), new THREE.MeshStandardMaterial({ color: d.color || '#1b1d22' })); m.position.y = 0.8; g.add(m); }
+    // (a limo: stretched at its waist, props.js stretchCar; its length for the driver's room)
+    const stretch = limo || +d.stretch > 0 ? (+d.stretch > 0 ? Math.min(6, +d.stretch) : LIMO_STRETCH) : 0;
+    if (stretch) stretchCar(THREE, g, stretch);
     app.scene.add(g);
-    const D = createDriver(W, { obj: g, path: pts, halfW: 1.0, halfL: 2.4 });
+    const D = createDriver(W, { obj: g, path: pts, halfW: 1.0, halfL: 2.4 + stretch / 2 });
     const st = tailStart({ at: (s) => D.at(s), length: D.length, car: me(), ahead: clamp(d.ahead ?? 45, 20, 200) });
     D.place(st.far ? 0 : st.s0);
     // (the followed car, for the test drive's autopilot: autopilot.js jumps a long tail on, as it does a long leg)
@@ -2956,6 +3077,7 @@ export function createRunner(ctx) {
     gps.blip('tail', { x: D.pos.x, z: D.pos.z, kind: 'enemy', edge: true, name });
     let last = now(), lastLeft = 0;
     const S = {};
+    const lift = liftChase();
     try {
       await wait(() => {
         const tt = now(), dt = Math.min(0.05, (tt - last) / 1000); last = tt;
@@ -2972,7 +3094,7 @@ export function createRunner(ctx) {
         if (r.verdict === 'lost') throw new Fail(`You lost ${name}.`, 'lost');
         return D.done;
       }, t);
-    } finally { app.scene.remove(g); gps.unblip('tail'); gps.clear(); if (M.tail === D) M.tail = null; }
+    } finally { app.scene.remove(g); gps.unblip('tail'); gps.clear(); if (M.tail === D) M.tail = null; lift(); }
   };
 
   // a cue's sound (a trigger's `cue`): one of Mog City's sounds by name, or a walkie-talkie's: 'walkie' one beep with a
@@ -3405,6 +3527,7 @@ export function createRunner(ctx) {
     let hp = d.hp || 100, wrecked = false, lastHit = 0;
     gps.objective(parts(d.objective || `Follow **${A.name}**{blue}.`, 'blue'), { follow: () => (A.D ? A.D.pos : { x: A.x, z: A.z }), name: A.name });
     M.convoy = { A, near, far };
+    const lift = liftChase();
     try {
       await driveCar(A, known ? route : route.slice(1), { ...d, near: far }, t, {
         want: (D, pd) => (pd > far * 0.8 ? speed * 0.3 : pd < near ? speed * 1.15 : speed),
@@ -3425,7 +3548,7 @@ export function createRunner(ctx) {
           return D.done && pd < far;
         },
       });
-    } finally { hud.bar(null); ui.counter(null); gps.clear(); M.convoy = null; }
+    } finally { hud.bar(null); ui.counter(null); gps.clear(); M.convoy = null; lift(); }
     if (d.flag && d.fail !== 'soft') M.state.flags[flagName(d.flag)] = true;
   };
 
@@ -3525,7 +3648,9 @@ export function createRunner(ctx) {
     const id = d.name || d.id || d.car || 'car';
     if (d.remove) { const c = M.parked.get(id); if (c) { app.scene.remove(c.obj); M.parked.delete(id); } return; }
     const p = placeOf(d.at), h = d.heading != null ? (d.heading * PI) / 180 : p.heading ?? 0, back = d.back ?? 16, side = d.kerb ?? 3.2;
-    const T = await towCar({ car: d.car, color: d.color || '#2F5D3A' });
+    // (a limo: the city's sedan stretched at its waist, props.js stretchCar; `stretch` m stretches any car)
+    const limo = d.car === 'limo', T = await towCar({ car: limo ? 'sedan' : d.car, color: d.color || (limo ? '#F4F2EC' : '#2F5D3A') });
+    if (limo || +d.stretch > 0) stretchCar(THREE, T.obj, +d.stretch > 0 ? Math.min(6, +d.stretch) : LIMO_STRETCH);
     T.obj.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
     const b0 = carBase(p), { x, z } = carSpot(b0.x - Math.cos(h) * side - Math.sin(h) * back, b0.z + Math.sin(h) * side - Math.cos(h) * back, h, p, 'car');
     // (ahead of the car's body: the lane point is its middle)
@@ -3609,7 +3734,7 @@ export function createRunner(ctx) {
   /* ------------------------------------------------------- side steps -- */
   function side(d, hostTok, persist = false) {
     if (d.if && !cond(d.if)) return null;
-    const st = tokOf(persist || d.persist || d.until ? M.tok : hostTok);
+    const st = tokOf(persist || d.persist || d.until || (d.type === 'vcall' && d.live) ? M.tok : hostTok);
     const s = { def: d, tok: st, until: typeof d.until === 'string' ? d.until : null };
     M.sides.add(s);
     (async () => {
@@ -3678,6 +3803,7 @@ export function createRunner(ctx) {
     gps.clear(); app.mapSystem.waypoint = null; for (const id of [...gps.blips.keys()]) gps.unblip(id); marker.hide();
     for (const n of M.npcs) { const f = cast.get(n); if (f && f.post && f.post === f.npcPost) f.post = null; cast.hide(n); } M.npcs.clear();
     if (M.props) { for (const o of M.props) o.removeFromParent(); M.props = null; }
+    sprops.tidy();
     if (linger) { linger = null; W.cutscene = false; document.body.classList.remove('wg-linger'); setRun?.release?.().catch?.(() => {}); ui.cine(false); }
     dropRiders();
     // (a tow cut short: the car on the hook put away, the truck as it was)
@@ -3840,6 +3966,9 @@ export function createRunner(ctx) {
       if (to && j < 0) console.warn('[storyrun] no step', to);
       i = j >= 0 ? j : i + 1;
     }
+    // (a live video call still talking (vcall live, beside the steps): heard out to its last line before the mission
+    // ends, 3 minutes at most: WW-6's a6 is its last step)
+    { const t0 = now(), live = () => [...M.sides].some((x) => x.def.type === 'vcall' && x.def.live && !deadOf(x.tok)); if (live()) await wait(() => !live() || now() - t0 > 180000, M.tok).catch(() => {}); }
     // (its last line heard out before MISSION PASSED, PASS_HOLD s at most: subs.js lineBusy)
     M.ending = true;
     { const t0 = now(); await wait(() => !lineBusy(saying, W.voice?.left?.() || 0) || now() - t0 > PASS_HOLD * 1000, M.tok).catch(() => {}); }

@@ -55,6 +55,8 @@ async function loadCityData(onProgress) {
   };
   DATA.fullRegion = fullRegion;
   window.NYC.DATA = DATA;
+  // (town-features.js: the mapped blocks standing where a town's wheel or stadium is built have no height)
+  if (window.NYC.suppressTownFeatureBuildings) window.NYC.suppressTownFeatureBuildings(DATA);
   window.NYC.Terrain.load(DATA.terrain.header, DATA.terrain.q);
   window.NYC.installRegionTerrain(fullRegion);
   dataLoaded(DATA);

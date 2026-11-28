@@ -37,6 +37,7 @@ import {
   dFdx, dFdy, abs, normalFlat, faceDirection,
 } from 'three/tsl'; import { textureLoad } from '../net.js';
 import { charLook, rigDirect } from './charlight.js';
+import { installPSD } from './psd.js';
 
 /* ------------------------------------------------- the shared detail -- */
 // (people4) the scanned tiles every finished body shares (assets/people/detail: RG a normal's x and y, OpenGL's y up, B
@@ -116,6 +117,9 @@ const OFF = MODE === '0';
 
 export function polishBody(inner, { msaa = typeof window === 'undefined' || window.NYC?.quality?.antialias !== false, hair = true, skin = true, eyes = true, cloth = true } = {}) {
   const out = { cards: 0, skin: 0, hair: 0, eyes: 0, cloth: 0, mended: 0, weave: 0 };
+  // (a body whose GLB carries shoulder correctives (extras.psd on its skin): driven each frame by its arms, psd.js; any
+  // other body is untouched)
+  { let psd = 0; inner.traverse((o) => { if (o.isSkinnedMesh && o.geometry?.userData?.psd) psd++; }); if (psd) { installPSD(); out.psd = psd; } }
   if (OFF) return out;
   const r8 = MODE === 'r8';
   const head = r8 ? null : headFrame(inner);

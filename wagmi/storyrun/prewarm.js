@@ -36,6 +36,7 @@ export function warmList(steps, from, { castName = (w) => w, heroName = '', max 
 // the RC review). The caller is the far end of the line: a call the hero makes shows the first other speaker
 export function feedList(steps, from, { castName = (w) => w, heroName = '', max = 4 } = {}) {
   const out = [], seen = new Set();
+  const present = new Set((steps || []).filter((s) => s && ['npc', 'passenger', 'ally'].includes(s.type)).map((s) => castName(s.who) || s.who).filter(Boolean));
   const whoOf = (l) => (Array.isArray(l) ? l[0] : l && l.who);
   const visit = (s) => {
     if (!s || typeof s !== 'object') return;
@@ -45,6 +46,15 @@ export function feedList(steps, from, { castName = (w) => w, heroName = '', max 
       const office = typeof s.video === 'object' ? s.video.office || '' : '';
       const k = who + '|' + office;
       if (who && who !== heroName && !seen.has(k)) { seen.add(k); out.push({ who, video: s.video }); }
+    }
+    // (a live video call (vcall live: true, vcall.js playLive): each person on it not the hero, in their office; never
+    // one the mission stands on the street (an npc, a passenger, an ally: Jay in the passenger seat on WW-6's a6): an
+    // office pooled for him took his body off the street, and the reunion's shots on him looked under the ground)
+    if (s.type === 'vcall' && s.live) for (const p of s.people || []) {
+      if (out.length >= max) break;
+      const who = castName(p && p.who) || (p && p.who); if (!who || p.who === 'player' || who === heroName || present.has(who)) continue;
+      const lt = p.light || s.time || null, video = { office: p.office || 'exec', ...(lt ? { light: lt } : {}) }, k = who + '|' + video.office;
+      if (!seen.has(k)) { seen.add(k); out.push({ who, video }); }
     }
     for (const x of s.during || []) visit(x);
   };

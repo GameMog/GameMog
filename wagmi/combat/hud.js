@@ -121,6 +121,9 @@ body.wg-cine #wf .wf-offer{display:none}
 body:has(#sr-slam.on, #wg .sr-card.on, #wg .sr-pass.on, #wg .wg-big.on, #wg .wg-title.on) #wf .wf-offer{display:none}
 /* (and through a card's fade-out after it: game.js keeps body.wg-cardup 650 ms past the card's .on) */
 body.wg-cardup #wf .wf-offer{display:none}
+/* (nor over a story's line while no fight is on: PP-5's E · PICK UP TRASH CAN sat over Brick's apology, audit 27 Nov;
+   in a fight the offers stay, a weapon is part of it) */
+body:not(.wf-fight):has(#wg .wg-sub:not(.hide) .t:not(:empty)) #wf .wf-offer{opacity:0}
 #wf .wf-offer div{position:absolute;left:0;top:0;transform:translate(-50%,-100%);display:flex;align-items:center;gap:7px;padding:6px 10px 6px 7px;border-radius:10px;background:${PANEL};white-space:nowrap;font:700 15px/1 'Barlow Condensed',system-ui,sans-serif;letter-spacing:.1em}
 #wf .wf-offer kbd{font:800 13px/1 'Barlow Condensed',system-ui,sans-serif;color:#15171C;background:${Y};border-radius:4px;padding:3px 6px}
 #wf .wf-offer b{color:${Y};font-weight:800}

@@ -22,6 +22,8 @@ import { relaxArms } from '../combat/suitarms.js';
 import { unhang } from './pack.js';
 import { danOn, loadLoco, walkStyled, walkSpeedOf } from '../retarget.js';
 import { polishBody } from './polish.js'; import { importRetry } from '../net.js';
+import { createFootLock } from '../footlock.js';
+import { createSlipMeter } from '../footslip.js';
 
 // (8: a set's cutscene stands up to seven at once, the hero's double besides: sets.js)
 const MAX = 8;
@@ -177,6 +179,12 @@ export function createCast(W, world) {
     });
     // (its clips by name, Dan's under its own: a fight's puppet (runner.js STEPS.fight) crossfades them itself)
     f.clip = clip;
+    // (its feet planted where they land, its legs solved to them, its weight shifting standing: wagmi/footlock.js. A
+    // Suit's rig (thug.glb) has none of Dan's leg names: left as its clips have it)
+    if (!suit) { let h = 2166136261; for (const ch of name) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0; f.feet = createFootLock(THREE, root, bones, { seed: h });
+      // (arms folded, held: now and then let go a while, the weight on one hip, then folded again: fidget() below)
+      const fa = clip('arms'), fr = clip('shift') || clip('idle');
+      if (fa && fr && fr !== fa) f.fidget = fidget(mixer, mixer.clipAction(fa), mixer.clipAction(fr), h); }
     // (its leg over Dan's: a gait's capture speed times it is the pace its feet stay planted at, sets.js / runner.js walks)
     f.legRatio = legRatio * walkSp;
     // (played: evaluated at once, so its bones are the clip's from the first read, not the state they were first bound in: sets.js blend)
@@ -213,9 +221,60 @@ export function createCast(W, world) {
     if (W.paused) return;
     // (a body held still: an opening's name card freezes its frame on them, runner.js openCard)
     // (then a set's arms over the clip: a hug, a hand held: sets.js post)
-    for (const f of [...live.values(), ...doubles.values()]) if (!f.hold) try { f.update(dt); f.post?.(dt); gazeStep(f, dt); } catch {}
+    // (?slip=1: the hero's own feet too, on foot: game.js's stand and plant, not this)
+    if (HERO) try { const P = W.person, B = W.dan?.bones; if (P?.mesh?.visible && B && W.app?.controllerManager?.activeMode === 'person') { W.heroSlip = HERO; for (const s of ['L', 'R']) if (B['foot_' + s]) HERO.sample('hero' + s, B['foot_' + s].getWorldPosition(_sv), P.position.y, P.position, dt); } } catch {}
+    for (const f of [...live.values(), ...doubles.values()]) if (!f.hold) try { f.fidget?.(dt); f.update(dt); f.feet?.restore(); f.post?.(dt); if (f.feet) { const top = topClip(f); f.feet.apply(dt, { idle: IDLES.test(top), seated: SEATED.test(top) }); slipOf(f, dt, top); } gazeStep(f, dt); } catch {}
   })();
+  // every body the cast holds, the doubles too (a probe's: the foot-slip meter)
+  cast.figures = () => [...live.values(), ...doubles.values()];
+  cast.fidgets = () => FID.n;
   return cast;
+}
+
+// Arms folded and held (a cast's idle 'arms', or a scene's): nobody holds that for minutes (the audit's ww6-01, the
+// reunion's deckhands and Jay locked in one pose). While the folded arms play alone, every FID.every s (their own
+// rhythm, by name) they are let go for FID.hold s, the clip crossfaded (FID.ease) to the relaxed idle (Dan's shift,
+// else his idle), then folded again. Anything else played on them (a talk, a walk, a scene's pose, a fight) takes
+// over at once: the relaxed idle fades away and the folded arms are left at their full weight for whoever plays them.
+// (FID.n: how many times arms were let go this session, for a check)
+export const FID = { every: [7, 15], hold: [3.5, 6.5], ease: 0.7, first: [3, 9], n: 0 };
+function fidget(mixer, base, rel, seed) {
+  let t = 0, k = 0, phase = 'arms', mark = FID.first[0] + ((seed >>> 3) % 1000) / 1000 * (FID.first[1] - FID.first[0]), n = seed;
+  const rnd = () => ((n = Math.imul(n ^ (n >>> 15), 2246822507) >>> 0) % 1000) / 1000;
+  rel.setLoop(THREE.LoopRepeat, Infinity); rel.clampWhenFinished = false;
+  return (dt) => {
+    t += dt;
+    let others = false; for (const a of mixer._actions) if (a !== base && a !== rel && a.isRunning() && a.getEffectiveWeight() > 0.02) { others = true; break; }
+    if (!base.isRunning() || others) {
+      if (rel.isRunning() && k > 0) { rel.fadeOut(0.3); k = 0; }
+      if (!base.isRunning()) base.setEffectiveWeight(1);
+      phase = 'arms'; mark = t + FID.first[0]; return;
+    }
+    if (phase === 'arms' && t >= mark) { phase = 'rel'; FID.n++; mark = t + FID.hold[0] + rnd() * (FID.hold[1] - FID.hold[0]); if (!rel.isRunning() || rel.getEffectiveWeight() < 0.01) { rel.reset(); rel.setEffectiveTimeScale(1); rel.setEffectiveWeight(0); rel.play(); } }
+    else if (phase === 'rel' && t >= mark) { phase = 'arms'; mark = t + FID.every[0] + rnd() * (FID.every[1] - FID.every[0]); }
+    k += ((phase === 'rel' ? 1 : 0) - k) * Math.min(1, dt / FID.ease);
+    if (phase === 'arms' && k < 0.005) { k = 0; if (rel.isRunning()) rel.stop(); base.setEffectiveWeight(1); return; }
+    rel.setEffectiveWeight(k); base.setEffectiveWeight(1 - k);
+  };
+}
+
+// standing, by the clip that has the most of the body: an idle, a talk, a phone held (a walk, a fight, a sit: not)
+const IDLES = /^(idle|idleLook|shift|arms|phone|phoneCall|talk|argue|shrug|suitIdle|thugIdle|drunkIdle|leanBar)$/;
+const SEATED = /^(sit|sitTalk|drive|ride|lie|sleep)/;
+function topClip(f) {
+  let best = null, w = 0;
+  for (const a of f.mixer?._actions || []) { if (!a.isRunning()) continue; const k = a.getEffectiveWeight(); if (k > w) { w = k; best = a; } }
+  return best ? best.getClip().name : '';
+}
+// (?slip=1: every cast body's feet measured as they play, wagmi/footslip.js; window.WAGMI.feetSlip.report())
+const SLIP = /[?&]slip=1\b/.test(globalThis.location?.search || '') ? createSlipMeter() : null, HERO = SLIP ? createSlipMeter() : null;
+const _sv = new THREE.Vector3(), _sr = new THREE.Vector3();
+function slipOf(f, dt, top) {
+  // (not measured seated or riding: the feet are not on the ground there)
+  if (!SLIP || !f.root.visible || SEATED.test(top) || (f.root.parent && !f.root.parent.isScene)) return;
+  const W = globalThis.window?.WAGMI; if (W && !W.feetSlip) W.feetSlip = SLIP;
+  f.root.updateMatrixWorld(true); _sr.setFromMatrixPosition(f.root.matrixWorld);
+  for (const s of ['L', 'R']) { const b = f.bones['foot_' + s]; if (b) SLIP.sample(f.name + s, b.getWorldPosition(_sv), _sr.y, _sr, dt); }
 }
 
 // Who they look at in a cutscene (the owner's bar, 17 Nov: Colter Land's OF-2 close-up on Wade framed the crown of his
