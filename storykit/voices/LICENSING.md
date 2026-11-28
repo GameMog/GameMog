@@ -64,3 +64,21 @@ an accent, a dialect or a heritage cue), and each speaker's Kokoro fallback bloc
 clip) is an American stock blend too. Credit line: "Voices: Qwen3-TTS by the Qwen team, Alibaba Cloud
 (Apache-2.0), mlx-community conversions (Apache-2.0), run with mlx-audio (MIT). Every voice was invented from a
 written description; no real person's voice was used or imitated."
+
+## Mandi's Revenge's voices (rendered offline on the Mac, shipped as clips)
+
+As Jensen Heist's: the clips (`deploy/migrations/mandis-revenge/voice/`, lengths and provenance in
+`deploy/migrations/mandis-revenge-voice.json`) were rendered locally on the owner's Mac, never through a paid or cloud
+service, with the same local copies Mog City's own voice build uses. Only the finished Ogg Opus clips ship; no model,
+runtime or reference recording does.
+
+| Part | Licence | Used for |
+|---|---|---|
+| Qwen3-TTS-12Hz-1.7B-VoiceDesign (Qwen team, Alibaba Cloud; mlx-community bf16 conversion) | Apache-2.0 | designing each character's voice once, from a written description (sex, age, "American", timbre, manner) |
+| Qwen3-TTS-12Hz-0.6B-Base (mlx-community bf16 conversion) | Apache-2.0 | every line, cloned from that character's designed reference clip |
+| mlx-audio 0.5.8, mlx 0.32.4 | MIT | the runtime |
+| whisper-large-v3-turbo (mlx-community 4-bit conversion) | MIT | the QA ear only (word recall and error rate against the script); never shipped |
+
+No real person's voice was recorded, cloned or imitated: every voice was invented from a description and a seed. Every
+design is written as a standard American voice; none asks for an accent, a dialect or a heritage cue, and none names or
+hints at a real person. The credit line is Jensen Heist's, and the credits roll carries it (`credits.voices`).

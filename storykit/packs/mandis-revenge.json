@@ -50,6 +50,10 @@
     "name": "Deckhand Blue",
     "role": "deckhand"
    }
+  ],
+  "voices": [
+   "Voices: Qwen3-TTS by the Qwen team, Alibaba Cloud (Apache-2.0), mlx-community conversions (Apache-2.0), run with mlx-audio (MIT).",
+   "Every voice was invented from a written description; no real person's voice was used or imitated."
   ]
  },
  "calls": {

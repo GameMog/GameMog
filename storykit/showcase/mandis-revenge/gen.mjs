@@ -6,7 +6,9 @@
 //   node storykit/showcase/mandis-revenge/gen.mjs
 // The town's pin (base.hometown) is read from town.json.gz (the CityPackage the pack is gated with); the people's
 // sheets are sheets/ (written by sheets.mjs). Mandi's and Jay's bodies are private premium assets, never in this repo.
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+// (the voice record, written by scripts/storykit-showcase-mandi.ts --voice <dir>)
+const VOICE = 'deploy/migrations/mandis-revenge-voice.json';
 import { gunzipSync } from 'node:zlib';
 const HERE = 'storykit/showcase/mandis-revenge', OUT = 'storykit/packs/mandis-revenge.json';
 const sheet = (id) => JSON.parse(readFileSync(`${HERE}/sheets/${id}.json`, 'utf8'));
@@ -639,7 +641,10 @@ const pack = {
     { name: 'Mandi Reyes', role: 'model, Look 14' }, { name: 'Jay', role: 'her ex' }, { name: 'Diego Vale', role: 'the Duck Derby' },
     { name: 'Kiki Moss', role: 'nail tech and livestreamer' }, { name: 'Bernie Szabo', role: 'her agent' }, { name: 'Gloria Steele', role: "Diego's accountant" },
     { name: 'Brick', role: "Diego's enforcer" }, { name: 'Simone Vance', role: 'casting director' },
-    { name: 'Deckhand Red', role: 'deckhand' }, { name: 'Deckhand Blue', role: 'deckhand' }] },
+    { name: 'Deckhand Red', role: 'deckhand' }, { name: 'Deckhand Blue', role: 'deckhand' }],
+  // (the voices as the voice record credits them, split at its sentences (Mog City's line is 200 characters), as Jensen
+  // Heist's; none before the record is in)
+  ...(existsSync(VOICE) ? { voices: JSON.parse(readFileSync(VOICE, 'utf8')).credit.split(/(?<=\.) (?=[A-Z])/) } : {}) },
   // (a ring that runs out is answered; the calls on Mog City's foldable phone, MogCity docs/VCALL.md)
   calls: { ringOut: 'answer', style: 'fold' },
   // (its people lit and framed for the close lens: Mog City's charlight.js, a soft key at eye level, eye-level closes,

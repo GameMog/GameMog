@@ -1,0 +1,1218 @@
+{
+ "v": 1,
+ "model": "Qwen3-TTS-12Hz-0.6B-Base-bf16 (mlx-community, Apache-2.0), each voice cloned from a reference designed with Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16 (mlx-community, Apache-2.0) from a written description; mlx-audio 0.5.8 (MIT); QA by whisper-large-v3-turbo (mlx-community 4-bit, MIT), all on the Mac",
+ "loudness": "-16 LUFS integrated + each line's gain_db, -1 dBFS sample peak, Ogg Opus ~32 kb/s mono 24 kHz",
+ "credit": "Voices: Qwen3-TTS by the Qwen team, Alibaba Cloud (Apache-2.0), mlx-community conversions (Apache-2.0), run with mlx-audio (MIT). Every voice was invented from a written description; no real person's voice was used or imitated.",
+ "clips": {
+  "00386a46-0d6b274c": {
+   "secs": 2.354,
+   "who": "kiki",
+   "qa": "ok"
+  },
+  "06b9f89d-e6c278bb": {
+   "secs": 3.163,
+   "who": "simone",
+   "qa": "ok"
+  },
+  "087fd964-017add21": {
+   "secs": 1.37,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "0933b00e-017add21": {
+   "secs": 2.098,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "096c47f5-116f80ef": {
+   "secs": 8.349,
+   "who": "diego",
+   "qa": "listen: recall 0.933"
+  },
+  "0a09156b-dba421c0": {
+   "secs": 2,
+   "who": "jay",
+   "qa": "ok"
+  },
+  "0b7d93db-116f80ef": {
+   "secs": 5.381,
+   "who": "diego",
+   "qa": "ok"
+  },
+  "117ea04a-dba421c0": {
+   "secs": 1.764,
+   "who": "jay",
+   "qa": "ok"
+  },
+  "139ad313-dba421c0": {
+   "secs": 0.875,
+   "who": "jay",
+   "qa": "ok"
+  },
+  "13f20f49-017add21": {
+   "secs": 0.981,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "14fd37ef-017add21": {
+   "secs": 0.632,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "153d7eb2-0d6b274c": {
+   "secs": 4.382,
+   "who": "kiki",
+   "qa": "ok"
+  },
+  "16940f59-dba421c0": {
+   "secs": 5.301,
+   "who": "jay",
+   "qa": "ok"
+  },
+  "17d79338-0d6b274c": {
+   "secs": 3.882,
+   "who": "kiki",
+   "qa": "ok"
+  },
+  "18520570-dba421c0": {
+   "secs": 0.965,
+   "who": "jay",
+   "qa": "listen: loudness -17.5 LUFS (want -16.0)"
+  },
+  "192edbda-017add21": {
+   "secs": 1.739,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "195bcf05-017add21": {
+   "secs": 1.001,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "1addb949-cbe64f3b": {
+   "secs": 4.177,
+   "who": "bernie",
+   "qa": "ok"
+  },
+  "1b70b88d-cbe64f3b": {
+   "secs": 3.451,
+   "who": "bernie",
+   "qa": "ok"
+  },
+  "1b870e41-017add21": {
+   "secs": 3.787,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "1c1888d3-dba421c0": {
+   "secs": 1.189,
+   "who": "jay",
+   "qa": "ok"
+  },
+  "1cd8b481-8ea3dc8e": {
+   "secs": 5.382,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "1d2abc77-0d6b274c": {
+   "secs": 3.502,
+   "who": "kiki",
+   "qa": "ok"
+  },
+  "2061bc62-017add21": {
+   "secs": 4.253,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "20b6071f-017add21": {
+   "secs": 3.389,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "22476db3-017add21": {
+   "secs": 4.244,
+   "who": "mandi",
+   "qa": "listen: recall 0.923"
+  },
+  "23fae9fc-017add21": {
+   "secs": 2.663,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "273d8b91-017add21": {
+   "secs": 2.263,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "27b5a0e5-0c9e1c92": {
+   "secs": 1.91,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "283ef2d6-cbe64f3b": {
+   "secs": 2.638,
+   "who": "bernie",
+   "qa": "ok"
+  },
+  "29d08784-cbe64f3b": {
+   "secs": 4.243,
+   "who": "bernie",
+   "qa": "ok"
+  },
+  "2fc9e33c-0d6b274c": {
+   "secs": 1.937,
+   "who": "kiki",
+   "qa": "ok"
+  },
+  "30016791-cbe64f3b": {
+   "secs": 1.31,
+   "who": "bernie",
+   "qa": "ok"
+  },
+  "32ac7163-d1e0fdcd": {
+   "secs": 2.932,
+   "who": "brick",
+   "qa": "listen: recall 0.9; WER 0.2"
+  },
+  "32f59418-9f569e61": {
+   "secs": 5.5,
+   "who": "gloria",
+   "qa": "ok"
+  },
+  "3472012b-017add21": {
+   "secs": 1.431,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "364343f0-116f80ef": {
+   "secs": 2.678,
+   "who": "diego",
+   "qa": "ok"
+  },
+  "3723207d-017add21": {
+   "secs": 2.447,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "38bb48ab-017add21": {
+   "secs": 0.95,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "38bbe7e9-9f569e61": {
+   "secs": 3.92,
+   "who": "gloria",
+   "qa": "ok"
+  },
+  "39d23d30-cbe64f3b": {
+   "secs": 2.955,
+   "who": "bernie",
+   "qa": "ok"
+  },
+  "3c73f617-dba421c0": {
+   "secs": 3.525,
+   "who": "jay",
+   "qa": "ok"
+  },
+  "3dcb1cfe-0d6b274c": {
+   "secs": 2.891,
+   "who": "kiki",
+   "qa": "ok"
+  },
+  "3e9653bd-017add21": {
+   "secs": 4.826,
+   "who": "mandi",
+   "qa": "listen: recall 0.882"
+  },
+  "3fc7bb39-017add21": {
+   "secs": 3.943,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "406b6364-017add21": {
+   "secs": 3.77,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "413d664a-9f569e61": {
+   "secs": 5.67,
+   "who": "gloria",
+   "qa": "ok"
+  },
+  "41730fad-e6c278bb": {
+   "secs": 4.163,
+   "who": "simone",
+   "qa": "ok"
+  },
+  "4210e900-017add21": {
+   "secs": 2.729,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "42969248-dba421c0": {
+   "secs": 5.292,
+   "who": "jay",
+   "qa": "ok"
+  },
+  "4332319e-017add21": {
+   "secs": 0.923,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "4596173d-116f80ef": {
+   "secs": 6.466,
+   "who": "diego",
+   "qa": "ok"
+  },
+  "45e614e3-116f80ef": {
+   "secs": 8.86,
+   "who": "diego",
+   "qa": "listen: recall 0.941"
+  },
+  "461b00b6-d1e0fdcd": {
+   "secs": 2.65,
+   "who": "brick",
+   "qa": "ok"
+  },
+  "475b24a6-017add21": {
+   "secs": 2.467,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "484415b4-e6c278bb": {
+   "secs": 2.857,
+   "who": "simone",
+   "qa": "ok"
+  },
+  "48eca4ca-017add21": {
+   "secs": 3.009,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "4a33a364-017add21": {
+   "secs": 1.176,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "4a72106a-017add21": {
+   "secs": 1.312,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "4b2bf538-273e762f": {
+   "secs": 2.565,
+   "who": "simone",
+   "qa": "ok"
+  },
+  "4c8c8081-0d6b274c": {
+   "secs": 1.863,
+   "who": "kiki",
+   "qa": "ok"
+  },
+  "4c9db6af-017add21": {
+   "secs": 0.768,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "4cf3ed7d-dba421c0": {
+   "secs": 2.339,
+   "who": "jay",
+   "qa": "listen: head silence 0.22s"
+  },
+  "4d6447a5-dba421c0": {
+   "secs": 1.144,
+   "who": "jay",
+   "qa": "ok"
+  },
+  "4ed70d69-cbe64f3b": {
+   "secs": 3.852,
+   "who": "bernie",
+   "qa": "ok"
+  },
+  "4eee548c-cbe64f3b": {
+   "secs": 5.254,
+   "who": "bernie",
+   "qa": "ok"
+  },
+  "4ff6c6d2-dba421c0": {
+   "secs": 5.329,
+   "who": "jay",
+   "qa": "ok"
+  },
+  "5029efa1-017add21": {
+   "secs": 4.399,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "50f3570a-d1e0fdcd": {
+   "secs": 6.269,
+   "who": "brick",
+   "qa": "ok"
+  },
+  "5176b1e6-0e472086": {
+   "secs": 0.404,
+   "who": "kiki",
+   "qa": "ok"
+  },
+  "523d6bdc-017add21": {
+   "secs": 0.665,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "523d6bdc-0d6b274c": {
+   "secs": 0.383,
+   "who": "kiki",
+   "qa": "ok"
+  },
+  "543caffb-8ea3dc8e": {
+   "secs": 0.563,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "55d7214b-99f8d4a1": {
+   "secs": 3.498,
+   "who": "bernie",
+   "qa": "ok"
+  },
+  "563320ec-cbe64f3b": {
+   "secs": 4.114,
+   "who": "bernie",
+   "qa": "ok"
+  },
+  "566b5a0f-0d6b274c": {
+   "secs": 4.049,
+   "who": "kiki",
+   "qa": "ok"
+  },
+  "56aab694-d1e0fdcd": {
+   "secs": 1.953,
+   "who": "brick",
+   "qa": "ok"
+  },
+  "575dc078-017add21": {
+   "secs": 2.224,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "57ccbb04-017add21": {
+   "secs": 0.457,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "5819bbc9-116f80ef": {
+   "secs": 1.477,
+   "who": "diego",
+   "qa": "ok"
+  },
+  "5926e105-e6c278bb": {
+   "secs": 2.693,
+   "who": "simone",
+   "qa": "ok"
+  },
+  "593d76e1-cbe64f3b": {
+   "secs": 0.421,
+   "who": "bernie",
+   "qa": "ok"
+  },
+  "59609bc1-0d6b274c": {
+   "secs": 5.187,
+   "who": "kiki",
+   "qa": "ok"
+  },
+  "5b3d546e-0d6b274c": {
+   "secs": 2.234,
+   "who": "kiki",
+   "qa": "ok"
+  },
+  "5b5c032a-d1e0fdcd": {
+   "secs": 3.345,
+   "who": "brick",
+   "qa": "ok"
+  },
+  "5b74fed9-9f569e61": {
+   "secs": 2.001,
+   "who": "gloria",
+   "qa": "ok"
+  },
+  "5c1c0cbc-e6c278bb": {
+   "secs": 4.744,
+   "who": "simone",
+   "qa": "ok"
+  },
+  "5db0c027-d1e0fdcd": {
+   "secs": 4.15,
+   "who": "brick",
+   "qa": "ok"
+  },
+  "5e9cb8a3-5ed1e0b6": {
+   "secs": 9.409,
+   "who": "diego",
+   "qa": "ok"
+  },
+  "5f0827f8-017add21": {
+   "secs": 2.367,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "603deebd-9f569e61": {
+   "secs": 6.79,
+   "who": "gloria",
+   "qa": "ok"
+  },
+  "6262ba1a-017add21": {
+   "secs": 1.428,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "6308e46c-0d6b274c": {
+   "secs": 4.437,
+   "who": "kiki",
+   "qa": "ok"
+  },
+  "64313054-017add21": {
+   "secs": 0.826,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "64d9c1a2-017add21": {
+   "secs": 1.438,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "65a24b20-dba421c0": {
+   "secs": 0.859,
+   "who": "jay",
+   "qa": "listen: loudness -18.4 LUFS (want -16.0)"
+  },
+  "66b4ecbb-cbe64f3b": {
+   "secs": 1.413,
+   "who": "bernie",
+   "qa": "ok"
+  },
+  "670a3965-cbe64f3b": {
+   "secs": 3.011,
+   "who": "bernie",
+   "qa": "ok"
+  },
+  "6768f7d1-116f80ef": {
+   "secs": 5.168,
+   "who": "diego",
+   "qa": "ok"
+  },
+  "69a176c0-dba421c0": {
+   "secs": 1.432,
+   "who": "jay",
+   "qa": "ok"
+  },
+  "6acc6334-d1e0fdcd": {
+   "secs": 6.193,
+   "who": "brick",
+   "qa": "ok"
+  },
+  "6cd49cb2-0d6b274c": {
+   "secs": 4.734,
+   "who": "kiki",
+   "qa": "listen: recall 0.944; WER 0.167"
+  },
+  "6eee732d-cbe64f3b": {
+   "secs": 4.441,
+   "who": "bernie",
+   "qa": "ok"
+  },
+  "704dcaf2-017add21": {
+   "secs": 1.234,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "721fc38e-017add21": {
+   "secs": 5.195,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "72670064-017add21": {
+   "secs": 0.926,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "728c508d-0d6b274c": {
+   "secs": 4.607,
+   "who": "kiki",
+   "qa": "ok"
+  },
+  "74f86247-0c9e1c92": {
+   "secs": 3.6,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "762fad9e-cbe64f3b": {
+   "secs": 1.619,
+   "who": "bernie",
+   "qa": "listen: loudness -17.6 LUFS (want -16.0)"
+  },
+  "772dfb64-dba421c0": {
+   "secs": 0.875,
+   "who": "jay",
+   "qa": "ok"
+  },
+  "778acf62-cbe64f3b": {
+   "secs": 2.75,
+   "who": "bernie",
+   "qa": "listen: recall 0.929"
+  },
+  "79729554-017add21": {
+   "secs": 2.579,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "79aa6e45-017add21": {
+   "secs": 0.852,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "7a085ec9-017add21": {
+   "secs": 1.312,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "7b11ea4c-116f80ef": {
+   "secs": 4.136,
+   "who": "diego",
+   "qa": "ok"
+  },
+  "7c6f0c91-017add21": {
+   "secs": 1.225,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "7d46e390-017add21": {
+   "secs": 1.972,
+   "who": "mandi",
+   "qa": "listen: head silence 0.34s"
+  },
+  "81489ce0-cbe64f3b": {
+   "secs": 4.348,
+   "who": "bernie",
+   "qa": "ok"
+  },
+  "840ae091-017add21": {
+   "secs": 3.331,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "8437cf3d-017add21": {
+   "secs": 1.467,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "84ac31e3-017add21": {
+   "secs": 1.001,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "84c7bdd3-9f569e61": {
+   "secs": 2.761,
+   "who": "gloria",
+   "qa": "ok"
+  },
+  "86baf01d-9f569e61": {
+   "secs": 6.71,
+   "who": "gloria",
+   "qa": "ok"
+  },
+  "87192cad-9f569e61": {
+   "secs": 5.93,
+   "who": "gloria",
+   "qa": "ok"
+  },
+  "8776f811-017add21": {
+   "secs": 1.486,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "87aacde1-dba421c0": {
+   "secs": 2.689,
+   "who": "jay",
+   "qa": "ok"
+  },
+  "8b6d5f49-9f569e61": {
+   "secs": 3.806,
+   "who": "gloria",
+   "qa": "ok"
+  },
+  "8b72c2b3-017add21": {
+   "secs": 1.807,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "8ba56fcf-017add21": {
+   "secs": 6.661,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "8bb8b1fe-0d6b274c": {
+   "secs": 1.289,
+   "who": "kiki",
+   "qa": "ok"
+  },
+  "8befcb10-0d6b274c": {
+   "secs": 2.345,
+   "who": "kiki",
+   "qa": "ok"
+  },
+  "8cffc330-017add21": {
+   "secs": 4.011,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "8f5452e8-116f80ef": {
+   "secs": 6.924,
+   "who": "diego",
+   "qa": "ok"
+  },
+  "90e9ae75-017add21": {
+   "secs": 4.244,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "961ab830-cbe64f3b": {
+   "secs": 2.927,
+   "who": "bernie",
+   "qa": "ok"
+  },
+  "97bf17b4-d1e0fdcd": {
+   "secs": 3.563,
+   "who": "brick",
+   "qa": "ok"
+  },
+  "9801c4ff-0d6b274c": {
+   "secs": 2.086,
+   "who": "kiki",
+   "qa": "ok"
+  },
+  "98cb1506-0d6b274c": {
+   "secs": 4.854,
+   "who": "kiki",
+   "qa": "ok"
+  },
+  "99a53321-017add21": {
+   "secs": 3.079,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "99c328c3-dba421c0": {
+   "secs": 4.525,
+   "who": "jay",
+   "qa": "ok"
+  },
+  "99e35ba6-dba421c0": {
+   "secs": 3.965,
+   "who": "jay",
+   "qa": "ok"
+  },
+  "9c4ec461-017add21": {
+   "secs": 1.342,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "9d54e3bd-116f80ef": {
+   "secs": 4.541,
+   "who": "diego",
+   "qa": "ok"
+  },
+  "9f2da9ae-0d6b274c": {
+   "secs": 6.308,
+   "who": "kiki",
+   "qa": "ok"
+  },
+  "9f9a1672-d1e0fdcd": {
+   "secs": 3.322,
+   "who": "brick",
+   "qa": "ok"
+  },
+  "9ff1ad6d-0d6b274c": {
+   "secs": 4.567,
+   "who": "kiki",
+   "qa": "ok"
+  },
+  "a0155c53-116f80ef": {
+   "secs": 2.259,
+   "who": "diego",
+   "qa": "ok"
+  },
+  "a05ef98f-dba421c0": {
+   "secs": 2.618,
+   "who": "jay",
+   "qa": "ok"
+  },
+  "a12a6492-116f80ef": {
+   "secs": 7.307,
+   "who": "diego",
+   "qa": "ok"
+  },
+  "a1b6ef02-116f80ef": {
+   "secs": 5.487,
+   "who": "diego",
+   "qa": "ok"
+  },
+  "a3f65d43-017add21": {
+   "secs": 1.952,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "a3f78e2d-017add21": {
+   "secs": 1.603,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "a4078863-017add21": {
+   "secs": 3.121,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "a4aa42a4-cbe64f3b": {
+   "secs": 5.002,
+   "who": "bernie",
+   "qa": "ok"
+  },
+  "a89f61cb-017add21": {
+   "secs": 0.71,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "aa648f06-cbe64f3b": {
+   "secs": 1.796,
+   "who": "bernie",
+   "qa": "ok"
+  },
+  "ad2b5f7a-017add21": {
+   "secs": 5.943,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "b0080670-d1e0fdcd": {
+   "secs": 2.139,
+   "who": "brick",
+   "qa": "ok"
+  },
+  "b1627dc9-e6c278bb": {
+   "secs": 3.744,
+   "who": "simone",
+   "qa": "ok"
+  },
+  "b189df5e-116f80ef": {
+   "secs": 7.349,
+   "who": "diego",
+   "qa": "ok"
+  },
+  "b2d5c3cd-017add21": {
+   "secs": 2.282,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "b32f99d8-cbe64f3b": {
+   "secs": 2.264,
+   "who": "bernie",
+   "qa": "ok"
+  },
+  "b9ae219f-dba421c0": {
+   "secs": 2.088,
+   "who": "jay",
+   "qa": "ok"
+  },
+  "bc3d9ef1-dba421c0": {
+   "secs": 3.318,
+   "who": "jay",
+   "qa": "ok"
+  },
+  "bcb864cc-0d6b274c": {
+   "secs": 2.567,
+   "who": "kiki",
+   "qa": "ok"
+  },
+  "bd11c440-dba421c0": {
+   "secs": 4.572,
+   "who": "jay",
+   "qa": "ok"
+  },
+  "be3c7913-116f80ef": {
+   "secs": 7.541,
+   "who": "diego",
+   "qa": "ok"
+  },
+  "bedc98a0-116f80ef": {
+   "secs": 4.69,
+   "who": "diego",
+   "qa": "ok"
+  },
+  "bf8b3b7e-dba421c0": {
+   "secs": 4.002,
+   "who": "jay",
+   "qa": "ok"
+  },
+  "c12f4fbc-6b0b1449": {
+   "secs": 2.447,
+   "who": "simone",
+   "qa": "ok"
+  },
+  "c231cac2-dba421c0": {
+   "secs": 1.591,
+   "who": "jay",
+   "qa": "ok"
+  },
+  "c32d60da-cbe64f3b": {
+   "secs": 4.937,
+   "who": "bernie",
+   "qa": "ok"
+  },
+  "c37153cb-116f80ef": {
+   "secs": 4.2,
+   "who": "diego",
+   "qa": "ok"
+  },
+  "c4bbadeb-017add21": {
+   "secs": 3.447,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "c5d9487d-0d6b274c": {
+   "secs": 1.382,
+   "who": "kiki",
+   "qa": "ok"
+  },
+  "c81da3d2-017add21": {
+   "secs": 1.263,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "c86bc913-cbe64f3b": {
+   "secs": 2.75,
+   "who": "bernie",
+   "qa": "listen: loudness -17.8 LUFS (want -16.0)"
+  },
+  "c9301bf2-0d6b274c": {
+   "secs": 4.215,
+   "who": "kiki",
+   "qa": "ok"
+  },
+  "ca655b72-017add21": {
+   "secs": 1.943,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "cbc32c08-dba421c0": {
+   "secs": 4.423,
+   "who": "jay",
+   "qa": "ok"
+  },
+  "cbdfa958-116f80ef": {
+   "secs": 1.583,
+   "who": "diego",
+   "qa": "ok"
+  },
+  "cbe3ed3d-017add21": {
+   "secs": 2.923,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "cc744b85-017add21": {
+   "secs": 0.846,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "cd170711-116f80ef": {
+   "secs": 5.753,
+   "who": "diego",
+   "qa": "ok"
+  },
+  "d1085fd8-cbe64f3b": {
+   "secs": 2.532,
+   "who": "bernie",
+   "qa": "listen: recall 0.909"
+  },
+  "d302968c-2062fa2f": {
+   "secs": 4.392,
+   "who": "jay",
+   "qa": "ok"
+  },
+  "d37c31dd-e6c278bb": {
+   "secs": 0.744,
+   "who": "simone",
+   "qa": "ok"
+  },
+  "d3aa7619-6b0b1449": {
+   "secs": 0.634,
+   "who": "simone",
+   "qa": "ok"
+  },
+  "d4e804c5-017add21": {
+   "secs": 0.438,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "d53f60a9-116f80ef": {
+   "secs": 6.86,
+   "who": "diego",
+   "qa": "ok"
+  },
+  "d5dc45e9-017add21": {
+   "secs": 1.108,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "d5e9665c-cbe64f3b": {
+   "secs": 2.507,
+   "who": "bernie",
+   "qa": "ok"
+  },
+  "d6456599-017add21": {
+   "secs": 2.496,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "d6f1abe3-dba421c0": {
+   "secs": 4.628,
+   "who": "jay",
+   "qa": "ok"
+  },
+  "d6f5b67a-0d6b274c": {
+   "secs": 4.465,
+   "who": "kiki",
+   "qa": "ok"
+  },
+  "d71c1541-d1e0fdcd": {
+   "secs": 3.704,
+   "who": "brick",
+   "qa": "ok"
+  },
+  "d7670a06-017add21": {
+   "secs": 5.477,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "d7bcc454-0d6b274c": {
+   "secs": 2.919,
+   "who": "kiki",
+   "qa": "ok"
+  },
+  "d95a7b58-dba421c0": {
+   "secs": 4.273,
+   "who": "jay",
+   "qa": "ok"
+  },
+  "d9733c16-017add21": {
+   "secs": 0.807,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "da3d83a6-017add21": {
+   "secs": 3.457,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "da4490cb-cbe64f3b": {
+   "secs": 3.572,
+   "who": "bernie",
+   "qa": "ok"
+  },
+  "daabddd3-e6c278bb": {
+   "secs": 1.948,
+   "who": "simone",
+   "qa": "ok"
+  },
+  "db9b8cc5-9f569e61": {
+   "secs": 2.23,
+   "who": "gloria",
+   "qa": "ok"
+  },
+  "dbab2247-017add21": {
+   "secs": 1.664,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "dbace4f8-017add21": {
+   "secs": 1.292,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "dbec4013-9f569e61": {
+   "secs": 5.44,
+   "who": "gloria",
+   "qa": "ok"
+  },
+  "dca36daf-9f569e61": {
+   "secs": 3.1,
+   "who": "gloria",
+   "qa": "ok"
+  },
+  "dcb19b4a-017add21": {
+   "secs": 2.36,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "df37f91e-dba421c0": {
+   "secs": 1.245,
+   "who": "jay",
+   "qa": "ok"
+  },
+  "df6d4be9-017add21": {
+   "secs": 2.447,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "e1c3dc9c-017add21": {
+   "secs": 4.36,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "e2729da1-017add21": {
+   "secs": 2.579,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "e285189e-d1e0fdcd": {
+   "secs": 3.084,
+   "who": "brick",
+   "qa": "ok"
+  },
+  "e2e125e9-e6c278bb": {
+   "secs": 1.132,
+   "who": "simone",
+   "qa": "ok"
+  },
+  "e3a4adad-116f80ef": {
+   "secs": 2.445,
+   "who": "diego",
+   "qa": "listen: recall 0.75; WER 0.5"
+  },
+  "e439fa59-dba421c0": {
+   "secs": 3.3,
+   "who": "jay",
+   "qa": "ok"
+  },
+  "e575468e-dba421c0": {
+   "secs": 3.581,
+   "who": "jay",
+   "qa": "ok"
+  },
+  "e57e9e7c-cbe64f3b": {
+   "secs": 2.507,
+   "who": "bernie",
+   "qa": "ok"
+  },
+  "e67e9b1b-0d6b274c": {
+   "secs": 5.345,
+   "who": "kiki",
+   "qa": "ok"
+  },
+  "e7abbb3d-017add21": {
+   "secs": 4.011,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "ea4190a7-017add21": {
+   "secs": 1.846,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "ec2a7f89-017add21": {
+   "secs": 1.515,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "ec79588b-9f569e61": {
+   "secs": 3.318,
+   "who": "gloria",
+   "qa": "ok"
+  },
+  "ec9dc218-cbe64f3b": {
+   "secs": 2.329,
+   "who": "bernie",
+   "qa": "listen: loudness -17.9 LUFS (want -16.0); head silence 0.19s"
+  },
+  "ed952f21-116f80ef": {
+   "secs": 4.977,
+   "who": "diego",
+   "qa": "ok"
+  },
+  "eed8f6ba-017add21": {
+   "secs": 1.37,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "efc0a3f6-0d6b274c": {
+   "secs": 0.595,
+   "who": "kiki",
+   "qa": "ok"
+  },
+  "efc53633-dba421c0": {
+   "secs": 4.507,
+   "who": "jay",
+   "qa": "ok"
+  },
+  "efe093e1-d1e0fdcd": {
+   "secs": 5.269,
+   "who": "brick",
+   "qa": "ok"
+  },
+  "efe82a24-017add21": {
+   "secs": 1.412,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "f027e434-9f569e61": {
+   "secs": 2.99,
+   "who": "gloria",
+   "qa": "ok"
+  },
+  "f320e580-017add21": {
+   "secs": 2.03,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "f327f37f-e6c278bb": {
+   "secs": 3.152,
+   "who": "simone",
+   "qa": "ok"
+  },
+  "f38358b8-017add21": {
+   "secs": 0.989,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "f5bc3f45-017add21": {
+   "secs": 2.438,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "f6b8fcd4-017add21": {
+   "secs": 1.583,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "f6c2257d-8ea3dc8e": {
+   "secs": 1.814,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "f6d34bb5-cbe64f3b": {
+   "secs": 4.563,
+   "who": "bernie",
+   "qa": "listen: recall 0.923"
+  },
+  "f7a33046-0d6b274c": {
+   "secs": 3.965,
+   "who": "kiki",
+   "qa": "ok"
+  },
+  "f9ae33ff-017add21": {
+   "secs": 1.35,
+   "who": "mandi",
+   "qa": "ok"
+  },
+  "fad24bc0-9f569e61": {
+   "secs": 4.41,
+   "who": "gloria",
+   "qa": "ok"
+  }
+ }
+}

@@ -32,7 +32,16 @@ node --import ./scripts/ts-resolve.mjs scripts/storykit-showcase-mandi.ts --draf
   phone's inner screen) or a `vcall` (on the phone, big). No caller cards.
 - **The audition is on her laptop**: `vcall` with `device: 'laptop'` (new, MogCity `mandi`): the full-screen call in a
   laptop's frame (bezel and webcam dot), not on the phone. Every other vcall is on the phone.
-- **Voices later**: every line is a subtitle; `LINES.md` lists them all for casting.
+- **Every line voiced** (27 Nov, the owner: "there was also NO VOICES?!"): 242 clips for the 244 spoken lines in
+  `deploy/migrations/mandis-revenge/voice/`, their lengths, QA and provenance in `deploy/migrations/mandis-revenge-voice.json`
+  (`scripts/storykit-showcase-mandi.ts --voice <dir>`; licensing in `storykit/voices/LICENSING.md`). Rendered on the Mac as
+  Jensen Heist's were: each voice designed once from a written description (Qwen3-TTS 1.7B VoiceDesign, standard American,
+  no accent, no real person), every line cloned from it (Qwen3-TTS 0.6B Base, Mog City's own voice build), each take
+  through Whisper and finished at -16 LUFS. Mandi is a warm bright mezzo, quick and wry. The pipeline and the audition
+  reels are in the character folder (`Mandi/voice/`, `Mandi/review/voice/`). A changed line needs its clip re-rendered
+  and `--voice` again (the check names a clip no line plays). The live game is voiced by `2026-11-27-mandis-revenge-voice`.
+  Mandi's and Jay's call faces lip-sync with no pack change: their bodies carry the visemes, and Mog City's baked face
+  (`wagmi/face-baked.js`) shapes them from the clip's level and the line's words.
 
 ## Where it plays (keys of the town's frame; the real names are never shown)
 
