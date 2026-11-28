@@ -91,10 +91,12 @@ const places = {
   'lower-level': { '@': 'parking103', name: 'the lower level', heading: 186 },
   mirror: { '@': 'park143', name: 'the mirror plaza' },
   harbor: { '@': 'park15', name: 'the harbor drive' },
-  // (the pier: she parks at its foot on E Illinois St and walks out to the wheel (anchor wheel's foot, (6199.7, -6162.3)):
+  // (the pier: she parks at its foot on E Illinois St and walks out onto the deck:
   // every car route along the pier looped 2-6 km on the r42 lanes)
   'pier-foot': { '@': 'restaurant1151', name: 'the foot of the pier' },
-  pier: { '@': 'restaurant1805', name: 'the pier, by the wheel', offset: { right: 51.5, fwd: 27.6 } },
+  // (the stand-off on the pier's boards along Dock St, by the south rail, the lit wheel 90 m north-east of it: an offset
+  // of a Dock St key measured in the engine, so it lands on the boards on either bundle)
+  pier: { '@': 'restaurant568', name: 'the pier, by the wheel', offset: { right: -7.8, fwd: 2.8 } },
   'south-lot': { '@': 'parking182', name: 'the south end of the avenue' },
   // (anchor stadium-lot is this key's own point, (5827.7, -2631.3))
   'stadium-lot': { '@': 'parking165', name: "the stadium's lot" },
@@ -393,9 +395,10 @@ const BR1 = { type: 'call', who: 'brick', auto: true, inCar: true, at: 4, video:
 // (MogCity mandi-props: the open duffel full of sevens set in the Kastell's trunk as the first shot cuts in; an engine
 // without props plays the same shots on her face)
 const DUCKS = { type: 'cutscene', id: 'ducks', shots: [
-  { props: [{ id: 'duffel', kind: 'duffel-open', at: { car: 'player', part: 'trunk' } }],
-    cam: { rel: 'player', right: 0.9, up: 0.35, fwd: 1.4 }, look: { rel: 'player', up: -0.2 }, move: 'push', amount: 0.15, fov: 36, dur: 3, say: 'mandi', line: '...No.', how: 'deadpan' },
-  { cam: { rel: 'player', right: -1.0, up: 0.6, fwd: 1.6 }, look: { rel: 'player', up: -0.5, fwd: 0.8 }, move: 'push', amount: 0.2, fov: 42, dur: 4,
+  { props: [{ id: 'duffel', kind: 'duffel', at: { car: 'player', part: 'trunk' } }],
+    cam: { prop: 'duffel', up: 1.3, fwd: 0.15 }, look: { prop: 'duffel', up: -0.1 }, fov: 42, dur: 2.5, inside: true, say: 'mandi', line: '...No.', how: 'deadpan' },
+  { props: [{ id: 'duffel', swap: 'duffel-open' }],
+    cam: { prop: 'duffel', up: 1.15, fwd: 0.15 }, look: { prop: 'duffel', up: -0.1 }, move: 'push', amount: 0.22, fov: 42, dur: 4.5, inside: true,
     say: 'mandi', line: "Ducks. It's all ducks. Every one of them a number seven.", pre: 0.6 },
   { cam: { rel: 'player', right: 0.4, up: 0.1, fwd: 1.2 }, look: { rel: 'player' }, move: 'push', amount: 0.1, warm: true, fov: 34, dur: 3.5,
     say: 'mandi', line: 'I stole a duffel full of ducks. Bernie is going to love this.' },
@@ -604,10 +607,16 @@ const C2 = { type: 'vcall', id: 'c2', title: "Velvet Lake Casting · Look 14 · 
   ] };
 
 // (Brick's own entrance, the playtest's B5: he is seen putting his knitting down before the fight, and he talks on screen)
+// (staged on the pier deck: a race duck left on the boards marks the spot, its heading toward the wheel's hub (134 degrees),
+// and the wide lenses sit in its frame, 9 m back from the pair and looking past them up at the lit wheel (Mog City
+// mandi-props prop lenses; an engine without them plays these shots on the hero))
 const BRICK = { type: 'cutscene', id: 'brick', shots: [
-  { frame: 'two', on: 'brick', at: 'player', dur: 3.5, lines: [L('brick', 'Hello, Mandi. Sorry about this. I really am.'), L('mandi', 'Are you holding knitting?')] },
+  { props: [{ id: 'mark', kind: 'duck', at: '@pier', heading: 134 }],
+    cam: { prop: 'mark', fwd: -6, right: 2, up: 1.6 }, look: { prop: 'mark', fwd: 25, right: -22, up: 10 }, move: 'push', amount: 0.15, fov: 55, dur: 4,
+    lines: [L('brick', 'Hello, Mandi. Sorry about this. I really am.'), L('mandi', 'Are you holding knitting?')] },
   { frame: 'close', on: 'brick', dur: 4, lines: [L('brick', "It's the scarf. For my mother. Would you hold it? I don't want it to get punched."), L('mandi', "I'm not holding your scarf, Brick.", { overlap: true })] },
   { frame: 'ots', on: 'player', at: 'brick', dur: 3.5, lines: [L('brick', "That's fair. I'll put it on the bench."), L('mandi', 'Thank you.'), L('brick', 'Okay. Ready when you are.')] },
+  { cam: { prop: 'mark', fwd: -8, right: 3, up: 1.2 }, look: { prop: 'mark', fwd: 25, right: -22, up: 16 }, move: 'crane', amount: 3, fov: 60, dur: 2.5 },
 ] };
 
 const M5 = { id: 'PP-5', title: 'Pier Pressure', vehicle: 'kastell', start: '@ohio', time: 'midnight', weather: 'wind', card: 'slam', verbs: ['drive', 'fight'],
@@ -791,9 +800,9 @@ const KV = { type: 'call', who: 'kiki', auto: true, inCar: true, at: 3, video: {
 // the water, never at her: B1)
 const PHONES = { type: 'cutscene', id: 'phones', shots: [
   { flotilla: [{ id: 'sevens', at: '@upstream-wall', count: 980, pour: 3 }],
-    cam: { rel: 'player', right: 0, up: 3.5, fwd: 10 }, look: { rel: 'player', fwd: 26, up: -4 }, move: 'track', amount: 4, fov: 50, dur: 4.5,
+    cam: { flotilla: 'sevens', along: -16, right: 10, up: 5 }, look: { flotilla: 'sevens', along: 6 }, move: 'track', amount: 4, fov: 48, dur: 4.5,
     lines: [L('jay', 'Look at them go.', { how: 'warm' }), L('mandi', 'All of them sevens.')] },
-  { cam: { rel: 'player', right: -3, up: 2.2, fwd: 6 }, look: { rel: 'player', fwd: 30, right: -8, up: -3 }, move: 'push', amount: 0.2, fov: 44, dur: 5,
+  { cam: { flotilla: 'sevens', along: -4, right: 2.5, up: 0.55 }, look: { flotilla: 'sevens', along: 5, up: 0.1 }, move: 'push', amount: 0.2, fov: 40, dur: 5,
     lines: [L('kiki', 'Forty-one thousand watching. Hold on, hold on, the comments just found out about the keel.'), L('mandi', 'And Diego?'), L('kiki', 'Diego just found out about the comments.')] },
   { frame: 'close', on: 'player', dur: 3, ...S1(L('kiki', "Girl. Two deckhands, running your way. They're not here for the race.")) },
 ] };
