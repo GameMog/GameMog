@@ -1,12 +1,14 @@
 // Mog City: the Kastell, a world's hero car { model: 'mogcity/gwagon' } (Mandi's Revenge: Mandi's car). A tall, square
-// luxury off-roader in gloss black: a flat upright face with round lamps, slab sides, a spare wheel on its tailgate, side
-// pipes. It is a look-alike: no maker's name, crest, badge or model lettering, and none was on the model (its grille two
-// plain bars, its wheel centres plain cones, its spare cover plain, its plates blank).
+// luxury off-roader in gloss black: a flat upright face with round lamps in chrome bezels and LED rings, indicators
+// standing on the fenders' corners, slab sides with a shut line round every panel, exposed hinges on every door, flared
+// arches, side steps and side pipes, a side-hinged tailgate carrying a covered spare. It is a look-alike: no maker's name,
+// crest, badge or model lettering anywhere (its grille three plain louvres, its wheel centres plain caps, its spare's
+// cover a plain disc, its plates its own).
 //
-// Its body is a ready-made model's: assets/vehicles/gwagon/gwagon.glb, made from a low-poly model by DemuriaGT on
-// Sketchfab (CC BY 4.0, assets/vehicles/gwagon/CREDITS.md), scaled to metres, its one palette texture dropped and its
-// body split into parts by the palette's colours (paint, chrome, glass, lamps, trim), the front doors cut free and a cabin
-// built in (tools/vehicles/gwagon/build.py). Every surface is finished here by its part's name.
+// Its body is modelled from nothing in a script (tools/vehicles/gwagon/build.py in Blender, packed by pack.mjs):
+// assets/vehicles/gwagon/gwagon.glb, every part named by its material, and every surface finished here by that name.
+// The lamps work: the brake lights come up as it slows hard, the indicators blink on the side it turns to at a junction's
+// pace, the reversing lamps light going backward, and at night the headlamps' bowls and rings burn brighter.
 //
 // It drives as an SUV, not as the roadster: heavier, slower to turn, strong off the line, no boost, softer springs, the
 // camera a little higher and further back for its height, a deep petrol V8's note (wagmi/audio/utility.js 'v8suv');
@@ -16,14 +18,10 @@
 //   const rs = await buildGwagon(THREE, { paint?, plate? })
 import { buildGT } from './gt.js';
 import { loadGLB } from '../glb.js';
-import { CREDITS } from '../credits.js';
 import { modelDents } from './wedge.js';
 import { setClass, mogFraming } from './ride.js';
 
 export const GWAGON_GLB = new URL('../../assets/vehicles/gwagon/gwagon.glb', import.meta.url).href;
-
-// its line in the pause menu's Credits and the end roll (CC BY 4.0 asks for it wherever the car is shown)
-export const GWAGON_CREDIT = { group: 'The Kastell\'s body', what: 'The Kastell\'s body: 3D model by DemuriaGT (Sketchfab), modified', who: 'DemuriaGT', note: 'modified: scaled, retextured in the game\'s own materials, doors cut free, a cabin added; the game\'s car is a look-alike with no connection to any car maker', licence: 'CC BY 4.0', licenceUrl: 'https://creativecommons.org/licenses/by/4.0/', src: 'https://sketchfab.com/3d-models/aa1a732d4fdc44e0a20cee312a929d77' };
 
 export const GWAGON_BLACK = '#060708';
 
@@ -40,7 +38,20 @@ export const GWAGON_TUNE = Object.freeze({
 // the street a gloss black body mirrors at night (an equirect, PMREM'd by the renderer; once, shared): a dark sky with
 // the city's glow low over its rooftops, a skyline of lit windows, streetlights in a row along the horizon with their
 // pools on the wet road under it, and the road itself near black. Seeded, so every run draws the same street
-let nightEnvTex = null;
+let nightEnvTex = null, flakeTex = null;
+// the paint's flakes: a 256 px field of small tilted normals (2 px cells), tiling every 0.3 m of the model's UVs; seeded, made once
+export function flakeMap(THREE) {
+  if (flakeTex || !globalThis.document) return flakeTex;
+  const N = 256, c = document.createElement('canvas'); c.width = c.height = N; const x = c.getContext('2d'), img = x.createImageData(N, N);
+  let sd = 11; const rnd = () => ((sd = (sd * 16807) % 2147483647) / 2147483647);
+  for (let j = 0; j < N; j += 2) for (let i = 0; i < N; i += 2) {
+    const a = rnd() * Math.PI * 2, t = rnd() * 0.55, nx = Math.cos(a) * t, ny = Math.sin(a) * t, nz = Math.sqrt(Math.max(0, 1 - nx * nx - ny * ny));
+    for (let dj = 0; dj < 2; dj++) for (let di = 0; di < 2; di++) { const k = ((j + dj) * N + i + di) * 4; img.data[k] = (nx * 0.5 + 0.5) * 255; img.data[k + 1] = (ny * 0.5 + 0.5) * 255; img.data[k + 2] = (nz * 0.5 + 0.5) * 255; img.data[k + 3] = 255; }
+  }
+  x.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.NoColorSpace; t.anisotropy = 4;
+  return (flakeTex = t);
+}
 export function nightStreetEnv(THREE) {
   if (nightEnvTex || !globalThis.document) return nightEnvTex;
   const W = 1024, H = 512, c = document.createElement('canvas'); c.width = W; c.height = H;
@@ -78,7 +89,6 @@ export function nightStreetEnv(THREE) {
 
 export async function buildGwagon(THREE, o = {}) {
   const gltf = await loadGLB(GWAGON_GLB);
-  { const sec = CREDITS.find((c) => c.heading === 'Vehicles'); if (sec && !sec.lines.includes(GWAGON_CREDIT)) sec.lines.push(GWAGON_CREDIT); }
   const rs = buildGT(THREE, { ...o, hingeAngle: o.hingeAngle ?? 1.1 }), g = rs.group, M = rs.materials, V3 = (x, y, z) => new THREE.Vector3(x, y, z);
   // (gt.js's own body hidden: its anchor kept, its yoke kept for the model's wheel, its boost flame hidden for good)
   for (const ch of g.children) {
@@ -142,25 +152,50 @@ export async function buildGwagon(THREE, o = {}) {
   });
   const X = {
     // (no metal in it: a solid black, so the clear coat's reflections stay the sky's colour and the body stays black)
-    paint: P({ color: paintHex, metalness: 0, roughness: 0.5, specularIntensity: 0.25, clearcoat: 0.85, clearcoatRoughness: 0.04, side: DS }),
+    // (a metallic black under a thick, glassy clear coat: the base's flakes (flakeMap: a fine field of tilted normals laid
+    // at one scale over every panel by the model's box-projected UVs) glint through the coat where the light catches them,
+    // the coat itself stays a smooth mirror)
+    paint: P({ color: paintHex, metalness: 0.5, roughness: 0.34, normalMap: flakeMap(THREE), normalScale: new THREE.Vector2(0.32, 0.32), specularIntensity: 0.5, clearcoat: 1, clearcoatRoughness: 0.025, side: DS }),
     chrome: P({ color: '#E6E9EE', metalness: 1, roughness: 0.07, side: DS }),
     trim: P({ color: '#15171A', metalness: 0.45, roughness: 0.38, clearcoat: 0.6, clearcoatRoughness: 0.1, side: DS }),    // the grille's, the bumpers'
     // (privacy glass: the driver still shows through the front doors' and the windscreen's)
-    glass: P({ color: '#06080B', metalness: 0, roughness: 0.04, specularIntensity: 0.08, transparent: true, opacity: 0.66, depthWrite: false, side: DS }),
-    screen: P({ color: '#0A0D11', metalness: 0, roughness: 0.03, specularIntensity: 0.08, transparent: true, opacity: 0.42, depthWrite: false, side: DS }),
+    // (glass that reads as glass: a full specular sheen and a smoky tint over a cabin you can see; the rear's darker)
+    glass: P({ color: '#0C1116', metalness: 0, roughness: 0.015, specularIntensity: 1, envMapIntensity: 1.6, transparent: true, opacity: 0.58, depthWrite: false, side: DS }),
+    screen: P({ color: '#101820', metalness: 0, roughness: 0.01, specularIntensity: 1, envMapIntensity: 1.6, transparent: true, opacity: 0.34, depthWrite: false, side: DS }),
     // (the round lamps: a polished reflector behind clear glass, a soft daytime glow, not a white disc)
     lamp: P({ color: '#3A4048', metalness: 1, roughness: 0.06, clearcoat: 1, emissive: '#EEF4FF', emissiveIntensity: 0.32 }),
     tail: P({ color: '#5A0008', metalness: 0, roughness: 0.1, clearcoat: 1, emissive: '#FF2030', emissiveIntensity: 1.1 }),
     plate: S({ map: plateTex, roughness: 0.4, metalness: 0.1 }),
     pipe: P({ color: '#C4C8CE', metalness: 1, roughness: 0.16, side: DS }),
     cabin: S({ color: '#121315', metalness: 0, roughness: 0.9, side: DS }),
-    leather: P({ color: '#17120F', metalness: 0, roughness: 0.52, sheen: 0.35, sheenRoughness: 0.5, sheenColor: '#3A2C22', side: DS }),
+    // (cognac leather with a pale contrast stitch: the cabin reads through the glass of a black car)
+    leather: P({ color: '#5A3620', metalness: 0, roughness: 0.48, sheen: 0.5, sheenRoughness: 0.45, sheenColor: '#9A6A44', side: DS }),
+    stitch: S({ color: '#D9C49C', metalness: 0, roughness: 0.7 }),
     dash: S({ color: '#101113', metalness: 0, roughness: 0.75, side: DS }),
     display: S({ color: '#000000', emissive: '#FFFFFF', emissiveMap: screenTex, emissiveIntensity: 1.1 }),
     wheelLeather: S({ color: '#111214', metalness: 0, roughness: 0.7, side: DS }),
     metal: P({ color: '#9AA0A8', metalness: 1, roughness: 0.25, side: DS }),
     rim: P({ color: '#26292D', metalness: 1, roughness: 0.16, clearcoat: 1, clearcoatRoughness: 0.05, side: DS }),
     tyre: S({ color: '#121214', metalness: 0, roughness: 0.93, side: DS }),
+    // (the lamps' clear domes and the tail lamps' red outer lens: thin glass over the parts that light)
+    lens: P({ color: '#FFFFFF', metalness: 0, roughness: 0.02, specularIntensity: 1, clearcoat: 1, clearcoatRoughness: 0.02, transparent: true, opacity: 0.16, depthWrite: false, side: DS }),
+    tailLens: P({ color: '#6A0A10', metalness: 0, roughness: 0.03, clearcoat: 1, clearcoatRoughness: 0.02, transparent: true, opacity: 0.28, depthWrite: false, side: DS }),
+    drl: S({ color: '#C8D2DC', emissive: '#EAF2FF', emissiveIntensity: 1.6 }),
+    brake: P({ color: '#4A0006', metalness: 0, roughness: 0.12, clearcoat: 1, emissive: '#FF1426', emissiveIntensity: 0.35 }),
+    reverse: P({ color: '#B8BEC4', metalness: 0, roughness: 0.1, clearcoat: 1, emissive: '#FFFFFF', emissiveIntensity: 0 }),
+    // (each side's indicators their own, so one side blinks)
+    indL: P({ color: '#B05A08', metalness: 0, roughness: 0.12, clearcoat: 1, emissive: '#FF8A14', emissiveIntensity: 0 }),
+    indR: P({ color: '#B05A08', metalness: 0, roughness: 0.12, clearcoat: 1, emissive: '#FF8A14', emissiveIntensity: 0 }),
+    gap: S({ color: '#020203', metalness: 0, roughness: 0.95 }),
+    rubber: S({ color: '#0B0B0C', metalness: 0, roughness: 0.82, side: DS }),
+    grille: P({ color: '#060607', metalness: 0.4, roughness: 0.5, side: DS }),
+    mirror: P({ color: '#D2D7DC', metalness: 1, roughness: 0.02 }),
+    step: P({ color: '#8A9098', metalness: 1, roughness: 0.34, side: DS }),
+    lip: P({ color: '#D9DDE2', metalness: 1, roughness: 0.1, side: DS }),
+    disc: P({ color: '#5C6066', metalness: 1, roughness: 0.42, side: DS }),
+    caliper: P({ color: '#8A0E14', metalness: 0.1, roughness: 0.32, clearcoat: 1, clearcoatRoughness: 0.08 }),
+    headliner: S({ color: '#4E4840', metalness: 0, roughness: 0.95, side: DS }),
+    carpet: S({ color: '#0D0C0B', metalness: 0, roughness: 1, side: DS }),
   };
   // (at night, M3's and M8's chase camera read it only by its tail lights: the city's own environment at midnight is a
   // near-black sky, so the clear coat had nothing to mirror. Night lends its finishes a street of their own to reflect,
@@ -168,27 +203,58 @@ export async function buildGwagon(THREE, o = {}) {
   // wet road; the clear coat draws them as crisp highlights along the flanks, the roof's edge and the glass, a rim of city
   // light where the body turns away, while the paint itself stays black. The plate lit and a faint warm cabin as well.
   // By the city's own night (lighting.js uNightFactor): by day and at dusk nothing changes)
-  const NIGHT = new Map([[X.paint, 2.2], [X.trim, 1.6], [X.chrome, 0.9], [X.glass, 2.2], [X.screen, 2.2], [X.rim, 1.4], [X.pipe, 0.9]]);
+  const NIGHT = new Map([[X.paint, 2.2], [X.trim, 1.6], [X.chrome, 0.9], [X.glass, 2.2], [X.screen, 2.2], [X.rim, 1.4], [X.pipe, 0.9], [X.lens, 2.2], [X.lip, 1.2], [X.step, 0.9], [X.mirror, 1.4]]);
   const nightEnv = nightStreetEnv(THREE);
   X.plate.emissive = new THREE.Color('#FFFFFF'); X.plate.emissiveMap = plateTex; X.plate.emissiveIntensity = 0;
   for (const k of ['cabin', 'leather']) { X[k].emissive = new THREE.Color('#3A2614'); X[k].emissiveIntensity = 0; }
-  let nightNow = -1;
+  let nightNow = -1, tailK = 0;
+  // (the high quality lighting's hero probe, js/sky-occlusion.js, takes the place of envMap on the car's lit finishes: it
+  // mirrors the real street, which at night is near black away from the lamps. The night street is kept under it: the
+  // brighter of the two, so the flanks still carry a rim of city light, nightStreetEnv's, by the city's night)
+  const NN = globalThis.window?.NYC, HQL = NN?.HQL, TN = NN?.TSL;
+  const uNightEnv = TN?.uniform ? TN.uniform(0) : null;
+  let withNight = null;
+  const keepNight = () => {
+    const env = HQL?.hero?.env; if (!env || !uNightEnv || !nightEnv || !TN.pmremTexture) return;
+    for (const m of NIGHT.keys()) {
+      if (m.envNode !== env) continue;
+      try { withNight ??= TN.max(env, TN.pmremTexture(nightEnv).mul(uNightEnv)); } catch { return; }
+      m.envNode = withNight; m.needsUpdate = true;
+    }
+  };
+  // (and a faint cool rim on the body at night: where its sides turn away from the lens, a fresnel edge of light, so the
+  // black car separates from a dark street however dimly the street is lit; nothing by day)
+  const uRim = TN?.uniform ? TN.uniform(0) : null;
+  if (uRim && TN.normalView && TN.positionViewDirection) {
+    try {
+      const edge = TN.float(1).sub(TN.abs(TN.dot(TN.normalView, TN.positionViewDirection))).clamp(0, 1);
+      const rim = TN.vec3(0.42, 0.5, 0.66).mul(TN.pow(edge, 5.0)).mul(uRim);
+      for (const m of [X.paint, X.trim]) m.emissiveNode = rim;
+    } catch (e) { console.warn('[gwagon] rim', e); }
+  }
   const nightFinish = () => {
     const ls = globalThis.window?.__NYC_APP?.lightingSystem, nf = ls?.uNightFactor?.value ?? 0;
     const k = !nightEnv ? 0 : Math.max(0, Math.min(1, (nf - 0.45) / 0.35));
+    keepNight();
     if (k === nightNow) return; nightNow = k;
+    if (uNightEnv) uNightEnv.value = 0.55 * k;
+    if (uRim) uRim.value = 0.5 * k;
     for (const [m, i] of NIGHT) {
       const env = k > 0 ? nightEnv : null;
       if (m.envMap !== env) { m.envMap = env; m.needsUpdate = true; }
       m.envMapIntensity = k > 0 ? i * k : 1;
     }
     X.plate.emissiveIntensity = 0.55 * k;
+    // (the headlamps on: the bowls lit through, the LED rings full)
+    X.lamp.emissiveIntensity = 0.32 + 3.2 * k; X.drl.emissiveIntensity = 1.6 + 1.6 * k; tailK = k;
     X.cabin.emissiveIntensity = X.leather.emissiveIntensity = 0.22 * k;
   };
   // by the model's material names (tools/vehicles/gwagon/build.py)
   const BY = {
     Paint: X.paint, Chrome: X.chrome, Glass: X.glass, Windscreen: X.screen, Tail_light: X.tail, Headlight: X.lamp, Plate: X.plate, Trim: X.trim, Handle: X.chrome,
     Exhaust: X.pipe, Interior: X.cabin, Under: M.under, Tire: X.tyre, Rim: X.rim, Leather: X.leather, Dash: X.dash, Screen: X.display, Steering_wheel: X.wheelLeather, Metal: X.metal,
+    Lens: X.lens, Tail_lens: X.tailLens, DRL: X.drl, Brake: X.brake, Reverse: X.reverse, Indicator: X.indL, Gap: X.gap, Rubber: X.rubber, Grille: X.grille,
+    Mirror: X.mirror, Mirror_cap: X.paint, Stitch: X.stitch, Mesh: X.trim, Hook: X.caliper, Step: X.step, Rim_lip: X.lip, Disc: X.disc, Caliper: X.caliper, Headliner: X.headliner, Carpet: X.carpet,
   };
   const unknown = new Set();
   src.traverse((m) => {
@@ -197,6 +263,7 @@ export async function buildGwagon(THREE, o = {}) {
     m.castShadow = !/Glass|Windscreen/.test(mt); m.receiveShadow = true;
     const to = BY[mt] ?? BY[mt.replace(/\.\d+$/, '')];
     if (to) m.material = to; else { unknown.add(mt); m.material = X.trim; }
+    if (to === X.indL) { m.geometry.computeBoundingBox(); const bx = m.geometry.boundingBox; m.material = (bx.min.x + bx.max.x) / 2 * Math.sign(src.rotation.y === 0 ? 1 : -1) >= 0 ? X.indL : X.indR; }
     if (NIGHT.has(m.material) || m.material === X.plate) m.onBeforeRender = nightFinish;
   });
   if (unknown.size) console.warn('[gwagon] materials finished as trim:', [...unknown].join(', '));
@@ -222,7 +289,8 @@ export async function buildGwagon(THREE, o = {}) {
     const rim = rims[i], at = centre(rim), W = new THREE.Group(), spin = new THREE.Group(); W.add(spin);
     W.position.copy(g.worldToLocal(at.clone())); g.add(W); W.updateMatrixWorld(true);
     const parts = find(new RegExp(`^wheel_${c}_`));
-    for (const p of parts) spin.attach(p);
+    // (the caliper steers with the wheel but does not turn with it)
+    for (const p of parts) (/caliper/.test(p.name) ? W : spin).attach(p);
     const tb = box(parts.filter((p) => /tire/i.test(p.name)));
     const r = tb.isEmpty() ? 0.39 : (tb.max.y - tb.min.y) / 2;
     rs.wheels.push({ W, spin, front: W.position.z > 0, r });
@@ -268,6 +336,27 @@ export async function buildGwagon(THREE, o = {}) {
     const c = g.worldToLocal(centre(steer));
     rs.yoke.position.copy(c); rs.yoke.updateMatrixWorld(true);
     const spin = rs.yoke.children[0]; for (const p of steer) spin.attach(p);
+  }
+
+  /* --------------------------------------------------------------- lamps -- */
+  // gt.js's update(dt, speed, steer) turns the wheels; the lamps answer the same numbers: the brakes as it slows harder
+  // than coasting (or held at a standstill after it), the indicators on the side it steers to at a junction's pace (a
+  // 1.4 Hz blink), the reversing lamps going backward
+  {
+    const turn = rs.update; let v0 = 0, held = 0, blink = 0, brakeK = 0;
+    rs.update = (dt, speed = 0, steer = 0) => {
+      turn(dt, speed, steer);
+      if (!(dt > 0)) return;
+      const a = (Math.abs(speed) - Math.abs(v0)) / dt; v0 = speed;
+      held = a < -3.2 && Math.abs(speed) > 0.4 ? 0.35 : Math.abs(speed) < 0.3 && held > 0 ? 0.35 : Math.max(0, held - dt);
+      brakeK += ((held > 0 ? 1 : 0) - brakeK) * Math.min(1, dt * 18);
+      X.brake.emissiveIntensity = 0.35 + 0.8 * tailK + 2.6 * brakeK;   // (by night the brake sections glow as tail lamps too)
+      X.reverse.emissiveIntensity = speed < -0.4 ? 1.8 : 0;
+      const side = Math.abs(steer) > 0.45 && Math.abs(speed) < 13 ? Math.sign(steer) : 0;
+      blink = side ? (blink + dt * 1.4) % 1 : 0;
+      const on = side && blink < 0.55 ? 2.6 : 0;
+      X.indL.emissiveIntensity = side > 0 ? on : 0; X.indR.emissiveIntensity = side < 0 ? on : 0;
+    };
   }
 
   /* --------------------------------------------------------------- dents -- */

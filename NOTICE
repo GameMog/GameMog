@@ -19,11 +19,17 @@ and 7f4a50e; write-up https://ben3d.ca/blog/enhanced-slop-new-york-lighting), un
 translucency term of three.js's MeshSSSNodeMaterial (MIT, Copyright (c) 2010-2026 three.js authors).
 
 
-manhattan-free-roam (Chicago's river bridges)
----------------------------------------------
+manhattan-free-roam (Chicago's river bridges, a town's ambient sound)
+---------------------------------------------------------------------
 Portions adapted from manhattan-free-roam (https://github.com/huangserva/manhattan-free-roam), Copyright (c) 2026 The manhattan-free-roam authors, MIT License.
   - cities/sf/js/bascule.js: the bridge helpers of its src/bridges.js (Grid, segments, orientedEdge, roadPaths,
     pointAt, bounds, insideRing, waterMap, shorelineStations and structureBoxes' beam), ported to this engine.
+  - tools/vehicles/gwagon/pack.mjs: the model packing of its tools/build-models.mjs (a weld before the rest, and every
+    texture resized and re-encoded with sharp through glTF Transform's textureCompress), used for the Kastell's body.
+  - wagmi/audio/ambience.js: the synthesized city bed of its src/audio.js (commit bb92af6): the city hum (two noise
+    bands, 118 and 154 Hz, one per ear, lowered 28% at night) and its distant traffic (an event every so often over
+    a road-noise band, rarer at night), ported to this engine's mixer; the L, the water and the night's murmur are
+    this engine's own.
     The MIT License's text:
     Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
     documentation files (the "Software"), to deal in the Software without restriction, including without limitation
@@ -494,3 +500,13 @@ oncyber (Mission 4's gallery: wagmi/gallery/frame.js, wagmi/gallery/tokens.js)
   fetched at runtime in the player's browser from the work's own public metadata and image (never copied into this
   repository or cached on its servers), with a credit line per piece; that is switched off and its list is empty
   (wagmi/gallery/tokens.js).
+
+Story props and set pieces (wagmi/storyrun/props.js, flotilla.js, shotcam.js)
+-----------------------------------------------------------------------------
+  The race duck with its number, the Derby duffel (shut and open), the sponge, the bucket, the soap suds, the leather
+  jacket (draped and folded), the betting slip and the stretch limo (the city's own sedan stretched) are Mog City's
+  own, modelled in code: no downloaded or generated model, texture or font file is used, and they carry no maker's
+  name, logo or mark. The cutscene moves and paths (shotcam.js: a centripetal Catmull-Rom timed by its length) are
+  written here. The ideas of one instanced draw with a phase per instance for a crowd of small things, and of
+  spline-timed story cameras, follow huangserva/manhattan-free-roam (MIT; src/people.js, src/director.js), read for
+  reference only: none of its code or models is copied.

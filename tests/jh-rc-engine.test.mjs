@@ -196,7 +196,8 @@ test('P12: a set is compiled for the target it is drawn into (the scene pass, a 
   assert.match(draw, /warmRT = \[new THREE\.RenderTarget\(16, 16, \{ type: THREE\.HalfFloatType, samples: 4 \}\), new THREE\.RenderTarget\(8, 8, \{ type: THREE\.HalfFloatType \}\)\]/);
   const vc = src('wagmi/storyrun/vcall.js');
   assert.equal((vc.match(/prepare\([^;]*\{ tile: true \}\)/g) || []).length, 1);
-  assert.equal((vc.match(/prepare\([^;]*\{ tile: true, hold: false \}\)/g) || []).length, 2);
+  // (the car screen's feed, a call waiting's prefetch, and a live call's offices (mandi-props H2): never holding the loop)
+  assert.equal((vc.match(/prepare\([^;]*\{ tile: true, hold: false \}\)/g) || []).length, 3);
 });
 
 test('P9: free roam between missions routes the GPS to the next one and marks it', () => {

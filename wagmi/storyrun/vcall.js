@@ -77,6 +77,23 @@ body.wg-vcall #wg .wg-sub.vc-muted .t::before { content: '(muted) '; color: ${RE
 body.wg-vfeed-on #wg .wg-caller { opacity: 0 !important; pointer-events: none; }
 #wg .wg-vfeed .nm i { width: 7px; height: 7px; border-radius: 50%; background: ${ACCENT}; box-shadow: 0 0 6px ${ACCENT}; }
 @keyframes vcspin { to { transform: rotate(360deg); } }
+#wg .wg-vlive { position: absolute; z-index: 5; pointer-events: none; display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; opacity: 0; transition: opacity .3s; font-family: 'Barlow Condensed', system-ui, sans-serif; }
+#wg .wg-vlive.on { opacity: 1; }
+/* (its lines read over the street: a dark box behind them, as a cutscene's have; the car's tail lights and plate
+   showed through the words at the wheel, red behind "'s race") */
+body.wg-vlive-on #wg .wg-sub:not(.hide) { display: table; margin: 0 auto; padding: 6px 16px 8px; border-radius: 8px; background: rgba(8,10,14,0.72); }
+#wg .wg-vlive span { padding: 3px 7px 4px; border-radius: 7px; background: rgba(8,10,14,0.7); font: 600 13px/1 'Barlow Condensed'; letter-spacing: .4px; color: rgba(255,255,255,.78); display: inline-flex; align-items: center; gap: 5px; }
+#wg .wg-vlive span i { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,.35); }
+#wg .wg-vlive span.live { color: #fff; box-shadow: inset 0 0 0 2px ${ACCENT}; } #wg .wg-vlive span.live i { background: ${ACCENT}; box-shadow: 0 0 6px ${ACCENT}; }
+#wg .wg-vlive span.muted { color: rgba(255,255,255,.45); } #wg .wg-vlive span.muted i { background: ${RED}; }
+#wg .wg-vlive span.wait { opacity: .5; font-style: italic; }
+#wg .wg-vlive-share { position: absolute; z-index: 5; pointer-events: none; width: min(300px, 34vw); padding: 30px 14px 12px; border-radius: 10px; background: #F4F2EC; color: #15181D; box-shadow: inset 0 0 0 3px ${ACCENT}, 0 10px 28px rgba(0,0,0,.45); opacity: 0; transform: translateY(6px); transition: opacity .3s, transform .3s; font-family: 'Barlow Condensed', system-ui, sans-serif; overflow: hidden; }
+#wg .wg-vlive-share.on { opacity: 1; transform: none; }
+#wg .wg-vlive-share .bar { position: absolute; left: 0; right: 0; top: 0; padding: 6px 12px; background: #15181D; color: ${ACCENT}; font: 700 12px/1 'Barlow Condensed'; letter-spacing: 1.4px; }
+#wg .wg-vlive-share h3 { margin: 0 0 6px; font: 800 22px/1.02 'Barlow Condensed'; }
+#wg .wg-vlive-share .big { font: 800 40px/1 'Barlow Condensed'; color: #1F6FD0; margin-bottom: 4px; }
+#wg .wg-vlive-share ul { margin: 0; padding-left: 1.05em; font: 600 15px/1.22 'Barlow Condensed'; }
+body.touch-enabled #wg .wg-vlive-share { width: min(220px, 46vw); padding: 24px 10px 9px; } body.touch-enabled #wg .wg-vlive-share h3 { font-size: 17px; } body.touch-enabled #wg .wg-vlive-share ul { font-size: 13px; } body.touch-enabled #wg .wg-vlive-share .big { font-size: 28px; }
 body.touch-enabled.wg-vcall #wg .wg-line { bottom: 78px; }
 body.touch-enabled #wg .wg-vc .tools { display: none; }
 `;
@@ -153,6 +170,7 @@ export function createVcall(W, { setsOf, castName, heroName, ui, colorOf, tokens
   }
 
   async function play(d, t) {
+    if (d.live) return playLive(d, t);
     // (a world's foldable phone (calls.style 'fold') holds its vcalls, except one on the hero's laptop (device
     // 'laptop': Mandi's audition): that one is the full-screen call as before, in a laptop's frame)
     const fold = d.device === 'laptop' ? null : FOLD;
@@ -164,6 +182,10 @@ export function createVcall(W, { setsOf, castName, heroName, ui, colorOf, tokens
     // (each person in an office of their own, sat at its desk, their eyes to the lens)
     const defs = {}, ids = plan.people.map((p, i) => `vc${i}`);
     plan.people.forEach((p, i) => { defs[ids[i]] = { room: 'office-' + p.office, light: p.light || plan.time || null, people: [{ who: p.isHero ? 'player' : p.who, at: [0, 0], face: 0, pose: 'sit', seat: SEAT.y, look: 'lens' }] }; });
+    // (the backdrop: the hero's own room, empty, wide and soft, behind the whole call in place of black: where she is
+    // as she takes it (Mandi's studio, her car). Drawn once, a still, under the tiles: BACKDROP)
+    const heroP = plan.people.find((p) => p.isHero), BACKDROP = 'vcbg';
+    if (heroP) defs[BACKDROP] = { room: 'office-' + heroP.office, light: heroP.light || plan.time || null, people: [] };
     const root = dom(d.device === 'laptop'), tilesEl = root.querySelector('.tiles'), shareEl = root.querySelector('.share'), toastEl = root.querySelector('.toast');
     root.querySelector('.tt').textContent = plan.title;
     // (a world's calls on its foldable phone (fold.js): the call open on it, big, in the middle; its tiles inside its screen)
@@ -177,7 +199,7 @@ export function createVcall(W, { setsOf, castName, heroName, ui, colorOf, tokens
     const fx0 = new Map();
     for (const p of plan.people) if (!p.isHero) { fx0.set(p.who, W.voice?.fxOf?.(p.who)); W.voice?.fx?.(p.who, 'video'); }
     const people = plan.people.map((p, i) => ({ ...p, id: ids[i], i, el: null, state: { in: !p.late, gone: false, muted: p.muted, frozen: false, blur: p.blur, hand: false, leaving: 0 }, cam: null, camK: p.cam }));
-    let gazed = [], active = null, last = null, sharing = null, raf = 0, t0 = now(), toastT = 0, lastF = now(), follow = null;
+    let gazed = [], active = null, last = null, sharing = null, raf = 0, t0 = now(), toastT = 0, lastF = now(), follow = null, bgCam = null, bgFrames = 0;
     const toast = (text) => { toastEl.textContent = text; toastEl.classList.add('on'); toastT = now() + 2.2; };
     for (const p of people) {
       const el = document.createElement('div'); el.className = 'tile'; el.style.display = 'none';
@@ -228,6 +250,12 @@ export function createVcall(W, { setsOf, castName, heroName, ui, colorOf, tokens
       if (fold) fold.subtitle(`${list.filter((p) => p.state.in).length} on call`);
       const el = Math.max(0, now() - t0); root.querySelector('.clk').textContent = `${String(Math.floor(el / 60)).padStart(2, '0')}:${String(Math.floor(el % 60)).padStart(2, '0')}`;
       if (toastT && now() > toastT) { toastEl.classList.remove('on'); toastT = 0; }
+      // (the backdrop under them: the hero's room through her own webcam's spot, pulled back and wide, blurred; held, frozen, after its first second and a half)
+      const hp = heroP && people.find((p) => p.isHero);
+      if (tiles.length && hp?.cam && S.set(BACKDROP)) {
+        if (!bgCam) { const c = hp.cam; bgCam = { pos: c.look.map((v, i) => v + (c.pos[i] - v) * 1.8), look: c.look, fov: 62 }; }
+        tiles.unshift({ id: BACKDROP, rect: [0, 0, innerWidth, innerHeight], cam: bgCam, blur: true, frozen: bgFrames > 90, under: true, radius: 0, slot: 0 }); bgFrames++;
+      }
       if (S.gridOn || tiles.length) S.grid(tiles.length ? tiles : null, { bg: '#0E1014' });
     };
     // (the subtitle's own look for a line said on mute)
@@ -322,6 +350,132 @@ export function createVcall(W, { setsOf, castName, heroName, ui, colorOf, tokens
       D.block(false); await D.release(0);
       W.cutscene = false; ui.cine(false);
       setTimeout(() => ui.fade?.(0, 0.5), 120);
+    }
+  }
+  // a live video call (a vcall's `live: true`): the same call, played while he drives or walks, never a cutscene. The
+  // city goes on and the controls are his; the call is on the phone in the corner (a world's foldable phone, fold.js:
+  // unfolded, the picture in its inner screen; else the car screen's picture, top right), the one talking in it, through
+  // their own webcam in their own office (the last one heard while the hero, or someone there with him, talks), the
+  // others named under it (lit while they talk, muted, waiting to join), a shared screen as a card beside it, the lines
+  // as subtitles. Its people who are there with him (in his car, on the street within NEAR m: Jay in the passenger seat)
+  // and the hero himself have no picture: they talk in the car. Up to 4 offices, built without holding the street
+  // (pooled under the mission's card when prewarm.js feedList finds the call). A cutscene over it hides it; it goes on.
+  const NEAR = 30;
+  async function playLive(d, t) {
+    const plan = planCall(d, { name: (w) => castName(w) || w, hero: heroName });
+    for (const w of plan.warn || []) console.warn('[storyrun] vcall:', w);
+    if (plan.error) { console.warn('[storyrun] vcall:', plan.error); return; }
+    const local = tokOf(t), S = setsOf(), cast = W.storyrun?.cast;
+    if (!styled) { const st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st); styled = true; }
+    const me = () => W.app?.controllerManager?.getActiveEntity?.()?.position;
+    const there = (who) => { const f = cast?.get?.(who), p = me(); return !!(f && f.root && f.root.visible !== false && f.root.parent && p && Math.hypot(f.root.position.x - p.x, f.root.position.z - p.z) < NEAR); };
+    const people = plan.people.map((p, i) => ({ ...p, id: `vlive${i}`, i, state: { in: !p.late, gone: false, muted: p.muted, frozen: false }, camK: p.cam, cam: null, wc: null, fig: null, here: !!p.isHero || there(p.who) }));
+    const far = people.filter((p) => !p.here).slice(0, 4);
+    // (their offices: from the mission's pool when there, else built now without holding the street)
+    const defs = {}; for (const p of far) { const def = feedDef({ office: p.office, light: p.light || plan.time || null }, p.who); S.adopt?.(feedKey(def), p.id); defs[p.id] = def; }
+    const chips = document.createElement('div'); chips.className = 'wg-vlive';
+    const share = document.createElement('div'); share.className = 'wg-vlive-share'; share.innerHTML = '<div class="bar"></div><div class="sl"></div>';
+    const vfe = FOLD ? null : document.createElement('div'); if (vfe) { vfe.className = 'wg-vfeed'; vfe.innerHTML = '<div class="nm"><i></i><span></span><small></small></div>'; }
+    for (const el of [chips, share, vfe]) if (el) (document.getElementById('wg') || document.body).appendChild(el);
+    const byWho = new Map(people.map((p) => [p.who, p]));
+    let shown = far[0] || null, active = null, raf = 0, lastF = now(), skip = false, was = false, sharing = null;
+    const fx0 = new Map(); for (const p of people) if (!p.isHero && !p.here) { fx0.set(p.who, W.voice?.fxOf?.(p.who)); W.voice?.fx?.(p.who, 'video'); }
+    const color = (w) => colorOf(w) || '#6CB8FF';
+    // (the phone: open on the call, its title the call's, its face the one shown)
+    const phone = (who) => { if (FOLD) FOLD.caller(who || plan.title, color(who), `${people.filter((p) => p.state.in && !p.state.gone).length} on call`, plan.title); else ui.caller?.(plan.title, color(who), 'On call'); };
+    const paintChips = () => {
+      chips.innerHTML = people.filter((p) => !p.state.gone).map((p) => `<span class="${p.who === active ? 'live' : ''} ${p.state.muted ? 'muted' : ''} ${!p.state.in ? 'wait' : ''}"><i></i>${esc(p.isHero ? 'You' : p.label)}</span>`).join('');
+    };
+    const V = new THREE.Vector3();
+    const aim = (p) => { const st = S.set(p.id), P = st && [...st.people.values()][0]; if (!P?.fig) return false; st.scene.updateMatrixWorld(true); p.fig = P.fig; p.wc = webcam(eyesOf(P.fig, V), p.camK || 'close', faceH(P.fig)); p.cam = p.wc.base; P.fig.gaze = () => (p.cam ? { x: p.cam.pos[0], y: p.cam.pos[1], z: p.cam.pos[2] } : null); st.inGrid = true; return true; };
+    const frame = () => {
+      raf = requestAnimationFrame(frame);
+      const tt = now(), dt = Math.min(0.05, Math.max(0, tt - lastF)); lastF = tt;
+      for (const p of far) if (p.wc && p.fig && !p.state.frozen) p.cam = p.wc.at(eyesOf(p.fig, V), dt);
+      const touch = document.body.classList.contains('touch-enabled');
+      const fr = FOLD ? FOLD.rect() : null, w = Math.round(Math.min(touch ? 200 : 320, innerWidth * 0.3)), h = Math.round((w * 9) / 16);
+      const r = FOLD ? fr : [innerWidth - w - (touch ? 10 : 18), touch ? 70 : 86, w, h];
+      const on = !W.cutscene && !!r && !!shown && !!shown.cam && !!S.set(shown.id) && shown.state.in && !shown.state.gone;
+      if (vfe) { Object.assign(vfe.style, { left: r[0] + 'px', top: r[1] + 'px', width: w + 'px', height: h + 'px' }); vfe.classList.toggle('on', on); vfe.classList.toggle('live', on && active === shown?.who); if (shown) vfe.querySelector('span').textContent = shown.label; }
+      if (on) S.feed(FOLD ? { id: shown.id, rect: r, cam: shown.cam, blur: false, radius: FOLD.radius() } : { id: shown.id, rect: r, cam: shown.cam, blur: false });
+      else if (was) S.feed(null);
+      if (FOLD && on !== was) FOLD.live(on);
+      was = on;
+      // (the people under the picture, and the shared screen beside the phone: left of it, at its top)
+      const box = FOLD ? FOLD.el.getBoundingClientRect() : (vfe ? vfe.getBoundingClientRect() : null);
+      chips.classList.toggle('on', !W.cutscene && !!box);
+      if (box) { Object.assign(chips.style, { right: Math.max(4, Math.round(innerWidth - box.right)) + 'px', top: Math.round(box.bottom + 6) + 'px', maxWidth: Math.round(Math.max(160, box.width + 40)) + 'px' }); Object.assign(share.style, { right: Math.round(innerWidth - box.left + 10) + 'px', top: Math.round(box.top) + 'px' }); }
+      share.classList.toggle('on', !!sharing && !W.cutscene);
+    };
+    try {
+      FOLD?.pip?.(true); document.body.classList.add('wg-vlive-on'); W.vcallLive = (W.vcallLive || 0) + 1;
+      phone(shown?.who);
+      paintChips();
+      sfx?.play?.('ding', { gain: 0.14 });
+      raf = requestAnimationFrame(frame);
+      // (the offices built and the webcams framed as each is ready: the call does not wait for them)
+      let preparing = null;
+      const prep = () => preparing || (preparing = (async () => {
+        try { await S.prepare(defs, { tile: true, hold: false }); } catch (err) { console.warn('[storyrun] vcall live: offices', err); }
+        for (let k = 0; k < 3 && !local.dead; k++) { for (const p of far) aim(p); await delay(0.45, local).catch(() => {}); }
+      })().finally(() => { preparing = null; }));
+      prep();
+      log(['vcall', plan.title, people.map((p) => p.who), 'live']);
+      const items = plan.items;
+      // (between its lines: paused while a cutscene or a full-screen call is on (its picture hidden, it picks up after),
+      // and never over the car phone's line: a ride-along call says its line out first, 6 s at most)
+      const clear = async () => {
+        await wait(() => !W.cutscene || local.dead, local).catch(() => {});
+        // (a full-screen call or a set's scene let its offices go: built again)
+        if (far.some((p) => !S.set(p.id))) { for (const p of far) { p.cam = null; p.wc = null; } prep(); }
+        const t1 = now(); await wait(() => !W.calls?.talking || now() - t1 > 6 || local.dead, local).catch(() => {});
+      };
+      for (let i = 0; i < items.length && !skip && !local.dead; ) {
+        await clear();
+        if (items[i].ev) {
+          const e = items[i].ev, p = e.who ? byWho.get(e.who) : null; i++;
+          if (e.do === 'wait') { await delay(e.secs, local); continue; }
+          if (!p) continue;
+          const st = p.state;
+          if (e.do === 'mute' || e.do === 'unmute') st.muted = e.do === 'mute';
+          else if (e.do === 'join') { st.in = true; st.gone = false; sfx?.play?.('ding', { gain: 0.14 }); if (!p.here) { shown = p; phone(p.who); } }
+          else if (e.do === 'drop') { st.in = false; st.gone = true; sfx?.play?.('hangup', { gain: 0.12 }); if (sharing === p) sharing = null; if (shown === p) shown = far.find((q) => q.state.in && !q.state.gone) || null; }
+          else if (e.do === 'freeze') { st.frozen = true; sfx?.play?.('glitch', { gain: 0.06 }); } else if (e.do === 'unfreeze') st.frozen = false;
+          else if (e.do === 'share') {
+            sharing = p; const sl = e.slide || {};
+            share.querySelector('.bar').textContent = `${p.label.toUpperCase()}'S SCREEN`;
+            share.querySelector('.sl').innerHTML = `${sl.title ? `<h3>${esc(tokens(sl.title))}</h3>` : ''}${sl.big ? `<div class="big">${esc(tokens(sl.big))}</div>` : ''}${sl.lines?.length ? `<ul>${sl.lines.map((l) => `<li>${esc(tokens(l))}</li>`).join('')}</ul>` : ''}`;
+            sfx?.play?.('whoosh', { gain: 0.08, dur: 0.3 });
+          } else if (e.do === 'unshare') { if (sharing === p) sharing = null; }
+          paintChips();
+          await delay(e.do === 'join' || e.do === 'share' ? 0.6 : 0.3, local);
+          continue;
+        }
+        const run = []; while (i < items.length && items[i].line) run.push(items[i++].line);
+        await playTurns(W, run.map((L) => ({ ...L, text: tokens(L.text) })), {
+          dead: () => skip || local.dead, sleep: (ms) => delay(ms / 1000, local).catch(() => {}),
+          show: (L, k, secs) => {
+            const p = byWho.get(L.who); active = L.who;
+            // (the car phone's own call kept quiet while this one talks)
+            W.calls?.hush?.(secs + 1.5);
+            if (p && !p.here && p !== shown) { shown = p; phone(p.who); }
+            paintChips();
+            ui.sub(L.who, L.text, colorOf(L.who), !p?.here);
+            if (!L.muted) mumble(L.who, L.text, secs);
+            log(['say', L.who, L.text]);
+            return () => { if (active === L.who) active = null; };
+          },
+          hide: () => { ui.sub(null); active = null; paintChips(); },
+        });
+      }
+      if (!local.dead) { sfx?.play?.('hangup', { gain: 0.16 }); await delay(0.6, local).catch(() => {}); }
+    } finally {
+      cancelAnimationFrame(raf);
+      for (const p of far) if (p.fig) p.fig.gaze = null;
+      if (was) S.feed(null); if (FOLD) { FOLD.live(false); FOLD.caller(null); setTimeout(() => FOLD.pip?.(false), 1300); } else ui.caller?.(null);
+      for (const [w, k] of fx0) W.voice?.fx?.(w, k);
+      chips.remove(); share.remove(); vfe?.remove(); document.body.classList.remove('wg-vlive-on'); W.vcallLive = Math.max(0, (W.vcallLive || 1) - 1);
+      if (!feeds && !W.cutscene && !S.active && !S.gridOn) { try { await S.release(); } catch (err) { console.warn('[storyrun] vcall live: release', err); } }
     }
   }
   // a call on the car's screen while he drives (a call step's `video`: { office, blur, light }): the caller's office

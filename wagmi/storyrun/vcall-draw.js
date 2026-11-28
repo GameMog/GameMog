@@ -126,12 +126,12 @@ export function createGrid(W) {
       frameNo++;
       const cv = renderer.domElement, W0 = cv.clientWidth || innerWidth, H0 = cv.clientHeight || innerHeight;
       ortho.left = 0; ortho.right = W0; ortho.top = 0; ortho.bottom = -H0; ortho.updateProjectionMatrix();
-      const many = tiles.length > 2;
+      const many = tiles.filter((t) => !t.under).length > 2;
       for (const t of tiles) {
         const S = sets.get(t.id); if (!S || t.hidden) continue;
         const r = rtOf(t.id), [x, y, w, h] = t.rect;
         size(r, w, h);
-        r.mesh.visible = true; r.mesh.position.set(x + w / 2, -(y + h / 2), 0); r.mesh.scale.set(w, h, 1);
+        r.mesh.visible = true; r.mesh.renderOrder = t.under ? -1 : 0; r.mesh.position.set(x + w / 2, -(y + h / 2), 0); r.mesh.scale.set(w, h, 1);
         r.U.size.value.set(w, h); r.U.rad.value = t.radius ?? 10; r.U.blur.value = t.blur ? 1 : 0; r.U.dim.value = t.dim ? 1 : 0; r.U.back.value.copy(bgColor);
         // (the picture held while frozen; the ones not talking at half pace on a big call)
         const due = !r.drawn || (!t.frozen && (!many || t.live || (frameNo + (t.slot || 0)) % 2 === 0));

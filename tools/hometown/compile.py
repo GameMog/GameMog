@@ -122,7 +122,10 @@ import shapely.ops  # noqa: E402
 # art-deco tower's wedding cake with a copper pyramid on half of them, a glass tower's podium and plant-floor crown;
 # each tier a part, minH its base; the record's new last field `seed` (a hash of the building's row id) gives every
 # record of a building (its parts, its tiers) one look, stable when other records come and go
-COMPILER_VERSION = '0.15.0'
+# 0.15.1 (Chicago's landmarks, features.py): the elevated railway, landmark structures (a pier's wheel, a stadium's bowl),
+# car parks and the anchors a story names, in GEO.elevated / features / lots and PKG.places; the core's density
+# (PKG.densityCore). A new buildId, so a town already built at 0.15.0 is built again with them
+COMPILER_VERSION = '0.15.1'
 OVERTURE_RELEASE = '2026-10-21.0'
 TILE, TCM = grid.TILE, grid.TILE_CM
 SIGNAL_REACH = 15.0  # m (stage 0): an OSM traffic_signals node this near a junction, on one of its approaches, signals it

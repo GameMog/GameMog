@@ -188,12 +188,12 @@
       }, true);
     })();
   </script>
-  <script src="js/net-retry.js?v=20261127-r42" defer></script>
+  <script src="js/net-retry.js?v=20261128-r43" defer></script>
   <script src="wagmi/stats.js" async></script>
   <!-- (how this machine runs the game: the graphics tier it picks, js/gfx-auto.js, and the anonymous report of it, wagmi/perf.js;
        ?v= the engine scripts' own cache stamp, v and assetVersion below: a release changes all four together, tests/gfx-auto.test.mjs) -->
-  <script src="wagmi/perf.js?v=20261127-r42" defer></script>
-  <script src="js/gfx-auto.js?v=20261127-r42" defer></script>
+  <script src="wagmi/perf.js?v=20261128-r43" defer></script>
+  <script src="js/gfx-auto.js?v=20261128-r43" defer></script>
   <meta name="theme-color" content="#0b0b0c" />
   <meta name="description" content="MOG CITY: Unfinished Business, an open-world mission game in the browser. Dan, a first-year banker at JPBank, has been fired and charged with insider trading, and the bank's security just took the laptop that proves he was set up. Get it back. Built on Slop New York (three.js WebGPU + TSL)." />
   <link rel="canonical" href="https://mc.gamemog.com/" />
@@ -229,7 +229,7 @@
       // (San Francisco's own modules from cities/sf/js; the ones both cities share as they are (the people, the touch
       // and pad controls, the cameras with their hill clearance, the culling, the lamps) from js/. Not SF's settings
       // dialog or its robotaxi ride: Mog City's pause menu and Dan's car are the game's)
-      const v = '20261127-r42';
+      const v = '20261128-r43';
       const sf = (f) => `./cities/sf/js/${f}?v=${v}`, shared = (f) => `./js/${f}?v=${v}`;
       // (a Hometown package: its own geodata.js (window.NYC.GEO, PLACE_DATA and PKG, tools/hometown/compile.py) in
       // place of San Francisco's geodata and places, then the same engine)
@@ -277,6 +277,12 @@
         sf('grade-separation.js'),
         // (Chicago's river bridges as trunnion bascules: rising leaves, bridge houses, the M8 jump; a town that asks only)
         sf('bascule.js'),
+        // (a town's elevated railway, Chicago's L: GEO.elevated from tools/hometown/features.py)
+        sf('elevated.js'),
+        // (a town's wheel, stadium, pier edge and waterfront: GEO.features, tools/hometown/features.py)
+        sf('town-features.js'),
+        // (a town's car parks: stalls and parked cars, GEO.lots)
+        sf('lots.js'),
         sf('traffic.js'),
         sf('sf-transit.js'),
         shared('drive-model.js'),
@@ -290,7 +296,7 @@
         sf('main.js')
       ];
     })() : (() => {
-      const assetVersion = '20261127-r42';
+      const assetVersion = '20261128-r43';
       return [
         './js/nyc-geodata.js',
         // (New York's buildings as mapped: heights, facade and roof colours, pitched roofs; tools/geo-looks.py)

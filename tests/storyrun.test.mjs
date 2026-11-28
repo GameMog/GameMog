@@ -68,7 +68,7 @@ test('the test worlds pass the checks; bad worlds are refused', () => {
   assert.ok(bad((w) => { w.city = 'sf'; }).some((e) => /city sf/.test(e)));
   assert.ok(bad((w) => { w.storykit = 2; }).length);
   assert.ok(bad((w) => { w.car = 'tank'; }).some((e) => /car/.test(e)));
-  assert.ok(STEP_KINDS.has('scene') && STEP_KINDS.has('tow') && STEP_KINDS.has('collect') && STEP_KINDS.has('ambush') && STEP_KINDS.has('ride') && STEP_KINDS.has('vcall') && STEP_KINDS.has('bridge') && STEP_KINDS.size === 50);
+  assert.ok(STEP_KINDS.has('scene') && STEP_KINDS.has('tow') && STEP_KINDS.has('collect') && STEP_KINDS.has('ambush') && STEP_KINDS.has('ride') && STEP_KINDS.has('vcall') && STEP_KINDS.has('bridge') && STEP_KINDS.has('prop') && STEP_KINDS.has('flotilla') && STEP_KINDS.size === 52);
   // (a mission's weather and a bridge cue are checked words: js/weather.js, cities/sf/js/bascule.js)
   assert.ok(bad((w) => { w.missions[0].weather = 'hail'; }).some((e) => /weather/.test(e)));
   assert.ok(!bad((w) => { w.missions[0].weather = 'drizzle'; }).some((e) => /weather/.test(e)));
@@ -230,7 +230,8 @@ test('a ride-along call finishes what it is saying when its step ends; a call st
   assert.match(calls, /cur\.carrying \|\| cur\.wrapOnly \|\| cur\.finishing/); // (the next step's call waits for it)
   assert.match(calls, /if \(C\.finishing && C\.yieldNow\) \{ end\(C, true\); return; \}/); // (a story's next call: after the line it is saying)
   const run = fs.readFileSync(path.join(ROOT, 'wagmi/storyrun/runner.js'), 'utf8');
-  assert.match(run, /wrapAfterMain: !ride, finish: !!ride, span, beats: true \}/);
+  // (a ride-along call with nothing more to say hangs up after its last line: done, mandi-props H4)
+  assert.match(run, /wrapAfterMain: !ride \|\| done, finish: !!ride, span, beats: true \}/);
   assert.match(run, /if \(QUIET_STEPS\.has\(d\.type\) && !d\.ref\) ui\.objective\(d\.objective \? parts\(d\.objective\) : null\)/);
 });
 
@@ -533,7 +534,7 @@ test("the wedge (the Tensore, Jensen's car): a world's model car { model: 'mogci
   assert.match(fs.readFileSync(path.join(ROOT, 'assets/CREDITS.md'), 'utf8'), /assets\/vehicles\/wedge\/wedge\.glb/);
 });
 
-test("the Kastell (Mandi's car): a world's model car { model: 'mogcity/gwagon' }, its own body, credited, badge-free, an SUV's numbers", async () => {
+test("the Kastell (Mandi's car): a world's model car { model: 'mogcity/gwagon' }, its own body (modelled in a script), badge-free, an SUV's numbers", async () => {
   const native = JSON.parse(fs.readFileSync(path.join(ROOT, 'tools/storyrun/test-packs/native.json'), 'utf8'));
   const w = (f) => { const x = structuredClone(native); f(x); return check(x); };
   assert.deepEqual(w((x) => { x.car = { model: 'mogcity/gwagon', label: "Mandi's car", paint: '#0B0C0E' }; }), []);
@@ -544,12 +545,23 @@ test("the Kastell (Mandi's car): a world's model car { model: 'mogcity/gwagon' }
   assert.match(src, /if \(modelRs\?\.fit\) modelRs\.fit\(car\);/);
   // (an SUV: no boost, its own engine, dents as the Tensore's)
   assert.match(gw, /setClass\(car, 'suv'\)/); assert.match(gw, /car\.voice = 'v8suv'/); assert.match(gw, /modelDents\(THREE, rs, g\)/);
-  assert.match(gw, /GWAGON_CREDIT = \{[^}]*DemuriaGT[^}]*CC BY 4\.0/);
+  // (its body is Mog City's own, modelled in tools/vehicles/gwagon/build.py from nothing: no third party's model to credit)
+  assert.doesNotMatch(fs.readFileSync(path.join(ROOT, 'tools/vehicles/gwagon/build.py'), 'utf8'), /import_scene\.gltf/);
+  // (its lamps work: brakes, indicators by side, reversing; the caliper steers but does not spin)
+  assert.match(gw, /X\.brake\.emissiveIntensity/); assert.match(gw, /X\.indL\.emissiveIntensity/); assert.match(gw, /caliper/);
+  // (round 2: the paint's flakes ride the model's own UVs, kept by the pack; the night street kept under the hero probe)
+  assert.match(gw, /normalMap: flakeMap\(THREE\)/); assert.match(gw, /uRim\.value = /); assert.match(fs.readFileSync(path.join(ROOT, 'tools/vehicles/gwagon/pack.mjs'), 'utf8'), /prune\(\{ keepAttributes: true \}\)/);
+  // (the hero probe under a floating origin (every Hometown town): its cube camera in render space, or it sees no town
+  // and a dark paint mirrors the bare ground: the Kastell's green cast in Chicago)
+  const hq = fs.readFileSync(path.join(ROOT, 'js/sky-occlusion.js'), 'utf8');
+  assert.match(hq, /H\.cam\.position\.set\(_p\.x - ox, _p\.y \+ 1\.0, _p\.z - oz\)/);
   const glb = fs.readFileSync(path.join(ROOT, 'assets/vehicles/gwagon/gwagon.glb'));
   const jl = glb.readUInt32LE(12), gj = JSON.parse(glb.subarray(20, 20 + jl).toString('utf8'));
   assert.equal((gj.images || []).length, 0, 'no texture of the source is shipped');
   assert.ok(!(gj.nodes || []).some((n) => /logo|badge|emblem|crest|star/i.test(n.name || '')), 'no badge mesh');
-  for (const c of ['FL', 'FR', 'BL', 'BR']) assert.ok(gj.nodes.some((n) => n.name === `wheel_${c}_rim`), `its ${c} wheel`);
+  for (const c of ['FL', 'FR', 'BL', 'BR']) for (const k of ['rim', 'tire', 'caliper']) assert.ok(gj.nodes.some((n) => n.name === `wheel_${c}_${k}`), `its ${c} wheel's ${k}`);
+  for (const n of ['body_Headlight', 'body_Tail_light', 'body_Brake', 'ind_L_Indicator', 'ind_R_Indicator', 'body_Plate', 'Screen', 'body_Mesh', 'body_Hook', 'Seat_L_Stitch']) assert.ok(gj.nodes.some((x) => x.name === n), n);
+  { const paint = gj.meshes.find((m) => m.name === 'body_Paint'); assert.ok(paint && paint.primitives[0].attributes.TEXCOORD_0 != null, 'the paint keeps its UVs'); }
   for (const sd of ['L', 'R']) assert.ok(gj.nodes.some((n) => n.name === `door_${sd}_Paint`), `its ${sd} door`);
   for (const n of ['Seat_L', 'Steering_wheel_rim', 'Dash']) assert.ok(gj.nodes.some((x) => x.name === n), n);
   // the brand rule: no real maker's or model's name in what ships or the scripts that make it
@@ -559,7 +571,7 @@ test("the Kastell (Mandi's car): a world's model car { model: 'mogcity/gwagon' }
   const credits = fs.readFileSync(path.join(ROOT, 'assets/vehicles/gwagon/CREDITS.md'), 'utf8');
   for (const [where, t] of [['gwagon.glb asset', JSON.stringify(gj.asset)], ['gwagon.glb names', JSON.stringify([gj.nodes, gj.meshes, gj.materials].map((l) => (l || []).map((x) => x.name)))],
     ['gwagon.js', gw], ['pack.mjs', fs.readFileSync(path.join(ROOT, 'tools/vehicles/gwagon/pack.mjs'), 'utf8')], ['build.py', fs.readFileSync(path.join(ROOT, 'tools/vehicles/gwagon/build.py'), 'utf8')],
-    ['CREDITS.md', credits], ['LICENSE.txt', fs.readFileSync(path.join(ROOT, 'assets/vehicles/gwagon/LICENSE.txt'), 'utf8')]]) {
+    ['CREDITS.md', credits]]) {
     assert.deepEqual(named(t), [], `${where} names no real maker or model`);
   }
   assert.match(fs.readFileSync(path.join(ROOT, 'assets/CREDITS.md'), 'utf8'), /assets\/vehicles\/gwagon\/gwagon\.glb/);

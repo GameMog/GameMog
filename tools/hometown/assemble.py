@@ -469,12 +469,34 @@ def assemble(pid, places, data, store, bid, out_root, window='full', frame=None,
             gs = sorted(g for v in cl.values() for g, k in v.get('grades', []) if k == kind)
             stats['grade']['p95Grade_' + kind] = gs[int(0.95 * (len(gs) - 1))] if gs else None
     tile_ids = [t['id'] for t in tiles]
+    # ---- (0.15.1) the landmark structures and the elevated railway (features.py), and the anchors a story names
+    import features as FEAT
+    frl = [{'pa': nodes[l['a']], 'pb': nodes[l['b']], 'inner': l['inner'], 'flags': l['flags'], 'cls': l['cls'], 'lanes': l['lanes'],
+            'name': names[l['ni']]} for l in rl]
+    elevated, feats, anchors, lots = FEAT.extract(W, fr, C.tile_window(c0t, r0t, c1t, r1t), frl, log)
+    # (the core's density: towers of 60 m and more within 1200 m of downtown, 150 of them a full city's; the engine's
+    # traffic and crowd floor round there, traffic.js. The town's own density is over its whole window: a big city's
+    # houses on its edge thinned its Loop)
+    from shapely.geometry import Point as _Pt
+    _cg = _Pt(center[0] * k0 + grid.TILE * fr['c0'], center[1] * k0 + grid.TILE * fr['r0']).buffer(1200)
+    density_core = round(min(1.0, sum(1 for r_ in W.src.query('buildings', _cg) if (r_['height'] or 0) >= 60) / 150.0), 3)
+    if anchors:
+        places = dict(places)
+        for k_, v_ in anchors.items():
+            if k_ not in places:
+                places[k_] = v_
     GEO = {'version': 2, 'city': D1['name'], 'pkg': pid, 'frame': {k: frame[k] for k in ('lat0', 'lon0', 'units', 'bearingDeg', 'yOffset', 'grid', 'domain', 'c0', 'r0', 'k0')},
            'box': {'name': 'pkg', **box},
            'data': {'terrain': {'url': 'data/terrain.bin', 'waterLevel': water_level, 'minH': minH, 'maxH': maxH},
                     'buildings': {'url': 'data/buildings.bin', 'count': len(btable)}, 'groundMask': {'url': 'data/groundmask.bin'}},
            'land': land, 'blocks': blocks, 'roadGraph': rg, 'parks': parks, 'piers': [], 'water': water, 'rail': [], 'trolley': [], 'muniStops': [],
            'bikeways': [], 'trees': trees, 'streetProps': props, 'transit': [], 'landmarks': {}, 'bridges': {}}
+    if elevated:
+        GEO['elevated'] = elevated
+    if feats:
+        GEO['features'] = feats
+    if lots:
+        GEO['lots'] = lots
     GEO['frame']['up'] = 'NAVD88 m minus %d' % y_off
     # (the arrivals a player can be sent to: a district bundle's are only those inside its window less 150 m, the engine's
     # traffic margin, wagmi/world/growing.js; the frame's spawns all stay in PKG.spawns for the story)
@@ -487,7 +509,7 @@ def assemble(pid, places, data, store, bid, out_root, window='full', frame=None,
            'tileSize': grid.TILE / k0, 'density': density, 'spawn': spawn, 'spawns': sp, 'places': places, 'attribution': C.ATTRIBUTION,
            'frame': frame, 'box': box, 'tiles': tile_ids, 'tileSetHash': D2['tileSetHash'], 'lock': D2['lock'],
            'tileHeaders': {grid.tile_id(dom, c, r): {'bcount': dec[(c, r)][0]['bcount'], 'groundAreaM2': dec[(c, r)][0]['groundAreaM2']} for (c, r) in order},
-           'downtown': {'x': C.q1(center[0]), 'z': C.q1(center[1])}, 'far': FAR, 'climate': clim, 'climateZone': czone,
+           'downtown': {'x': C.q1(center[0]), 'z': C.q1(center[1])}, 'densityCore': density_core, 'far': FAR, 'climate': clim, 'climateZone': czone,
            # (the growing town: which tiles this variant holds; the engine keeps the player, traffic and missions in it)
            'variant': variant, 'tilesId': F['lock']['tiles'], 'district': F['district'],
            'window': {'variant': variant, 'tileRange': [c0t, r0t, c1t, r1t], 'box': {'x0': C.q1(X0), 'z0': C.q1(Z0), 'x1': C.q1(X1), 'z1': C.q1(Z1)},

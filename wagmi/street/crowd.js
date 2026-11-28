@@ -33,6 +33,7 @@ export const STORY = Object.freeze({ R: 170, K: 1.6 });
 // (a town's: how far along a side from the next one along it, in about the same lane, a newcomer is put at least)
 const GAP = 3.5;
 const rand = (a, b) => a + Math.random() * (b - a);
+const TOWN_ID = () => world.id === 'pkg';
 
 export function createCrowd(W) {
   const app = W.app, cm = app.controllerManager;
@@ -269,7 +270,20 @@ export function createCrowd(W) {
     return k;
   };
   // (a metre of this block's sidewalk takes this many at most)
-  const perM = (b) => (busy(b) || story(b) > 1 ? PER_M.busy : PER_M.quiet) * story(b) * (world.crowd ?? 1) * (b.park > 0.6 ? 0.6 : 1);
+  // (mandi-city, H1: a big city's core, PKG.densityCore from the compiler, walks busier: within CORE_R m of its downtown
+  // every block walks 1 + the core's density times as thick; Chicago's Loop at night had a handful on a block)
+  // (a phone, the low tier or a small screen: a third of it, its frame is CPU-bound on the people)
+  const SMALLC = /[?&](gfx=phone|quality=(low|phone))\b/.test(globalThis.location?.search || '') || globalThis.window?.NYC?.quality?.tier === 'phone' ||
+    (typeof globalThis.innerWidth === 'number' && Math.min(globalThis.innerWidth, globalThis.innerHeight) < 700);
+  const P0 = globalThis.window?.NYC?.PKG, CORE = (TOWN_ID() ? +(P0?.densityCore || 0) : 0) * (SMALLC ? 0.33 : 1), DT = P0?.downtown, CORE_R = 1500;
+  const coreOf = new Map();
+  const core = (b) => {
+    if (!CORE || !DT) return 1;
+    let k = coreOf.get(b);
+    if (k == null) { k = Math.hypot(b.cx - DT.x, b.cz - DT.z) < CORE_R ? 1 + CORE : 1; coreOf.set(b, k); }
+    return k;
+  };
+  const perM = (b) => (busy(b) || story(b) > 1 ? PER_M.busy : PER_M.quiet) * story(b) * (world.crowd ?? 1) * (b.park > 0.6 ? 0.6 : 1) * core(b);
   // (how many to a side of a block at most: SIDE_K times its share of its length, 2 at least; no cap outside a town)
   const TOWN = world.id === 'pkg';
   const sideCap = (b, S) => (TOWN ? Math.max(2, Math.ceil(S.len * perM(b) * SIDE_K)) : Infinity);

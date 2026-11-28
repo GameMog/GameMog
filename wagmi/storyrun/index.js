@@ -24,6 +24,7 @@ import { wear } from './wear.js';
 import { outBesideCar } from '../intro.js';
 import { createPlaces } from './places.js';
 import { createCast } from './cast.js';
+import { installTalkFirst } from './talkfirst.js';
 import { createHud } from './hud.js';
 import { createRunner } from './runner.js';
 import { tell, result as tellResult, log as hostLog } from './host.js';
@@ -61,6 +62,14 @@ export async function install(W) {
     return;
   }
   const def = world.def;
+  // (an opening about to play, the start without a gate (?nogate: the test drives, the trailers): its cover up now,
+  // before the world is dressed and the boot veil goes, so the city, the car and the play HUD are not seen while the
+  // story loads (4-7 s: the audit's of1-00, the play HUD and the car before OF-1's opening). The choice opensNow()
+  // makes below, made early from the address and the save; a start that turns out not to open takes it down there)
+  const coverEarly = Q.has('nogate') && !Q.has('freedrive') && Array.isArray(def.opening?.shots) && def.opening.shots.length > 0 && Q.get('opening') !== '0' && (Q.get('opening') === '1' || (!Q.get('mission') && !Q.get('step') && (() => { try { const s = JSON.parse(localStorage.getItem(`mc.pack.${def.id}.v1`) || 'null'); return !(s && ((Array.isArray(s.done) && s.done.length) || s.resume)); } catch { return true; } })()));
+  if (coverEarly) { W.cutscene = true; ui.cine(true); ui.fade(1, 0); }
+  // (game.js's black from the first frame: the story's own cover has it now)
+  requestAnimationFrame(() => document.getElementById('wg-precover')?.remove());
   // the title: the world's own, alone (never MOG CITY's lockup: Mog City is the engine), on the tab, the instant title
   // and the start gate (title.js)
   showTitle(def, document.querySelector('#wg .wg-gtitle'), isOwn(world));
@@ -114,6 +123,8 @@ export async function install(W) {
     if (flags.autopilot || Q.has('nosave')) return; save.resume = { id, cp }; writeSave();
   };
   const runner = createRunner({ W, world, places, cast, hud, host, save, flags, onCheckpoint });
+  // (the story's line first: no prompt, note or passing alert over it, talkfirst.js)
+  installTalkFirst(W);
   // a pet that goes with the hero (pets[] "follows": pet.js), only when the world has one
   let pets = null;
   if (Object.values(def.cast || {}).some((c) => c && c.pet && c.pet.follows)) {
@@ -227,6 +238,7 @@ export async function install(W) {
   // free roam at midday, the radar, the bar and 'F · Get in', before the cold open (day audit, 22 Nov). runner.js
   // opening() takes it down on its first shot)
   if (opens) { W.cutscene = true; ui.cine(true); ui.fade(1, gate ? 0.35 : 0); }
+  else if (coverEarly) { W.cutscene = false; ui.cine(false); ui.fade(0, 0.4); }
   if (Q.has('nogate')) sfx.unlock?.();
   // (jh-drive round 2) &freedrive: the world as built (its town, its car, its hero, its time of day) with no story: no
   // opening, no mission, free roam from behind the wheel, for driving and handling tests (SJ, Colter Land, SF 2040)

@@ -425,11 +425,13 @@ function applyOpen(mat, factor = null, opts = {}) {
 // camera). It is the environment of the player vehicle's materials only (their envNode), in place of the sky: the
 // buildings, the street and the traffic round it are what its paint and glass reflect. Here three.js prefilters it
 // for roughness (PMREM) once a cycle of faces, where the fork reads its plain mip chain.
+// (measured once the probe saw the whole town under a floating origin, heroUpdate: capture paused against running,
+// the same parked frame, 1.3 ms a frame at one face every 2 frames (and the same at every 3), so it stays at 2)
 const HERO_SIZE = 128, HERO_INTERVAL = 2;
 const uHeroGain = uniform(2.2);
 const uHeroSkyFloor = uniform(0.85);
 const H = { rt: null, cam: null, env: null, face: -1, frame: 0, mesh: null, mats: new Map(), faces: 0, ms: 0 };
-const _p = new THREE.Vector3();
+const _p = new THREE.Vector3(), _pa = new THREE.Vector3();
 function heroMaterials(root, fn) {
   root.traverse((o) => {
     if (!o.isMesh || !o.material) return;
@@ -493,7 +495,13 @@ function heroUpdate(app) {
   if (H.face >= 0 && (H.frame++ % HERO_INTERVAL) !== 0) return;
   const t0 = performance.now();
   mesh.getWorldPosition(_p);
-  H.cam.position.set(_p.x, _p.y + 1.0, _p.z);
+  // (in render space under a floating origin, wagmi/world/origin.js: a Hometown town's renders draw the scene shifted by
+  // -origin and shift a camera with it only when it has no parent, so a cube camera's faces (children of the CubeCamera)
+  // were left at the absolute position, metres to kilometres off the shifted street: the probe saw the open terrain and
+  // the sky and none of the town, and a dark paint mirrored a green-grey ground (the Kastell's green cast in Chicago))
+  const FO = window.WAGMI && window.WAGMI.world && window.WAGMI.world.origin, ox = FO && FO.enabled ? FO.x : 0, oz = FO && FO.enabled ? FO.z : 0;
+  _pa.set(_p.x, _p.y + 1.0, _p.z);
+  H.cam.position.set(_p.x - ox, _p.y + 1.0, _p.z - oz);
   H.cam.updateMatrixWorld(true);
   const visible = mesh.visible;
   mesh.visible = false;
@@ -512,7 +520,7 @@ function heroUpdate(app) {
       H.cam.update(renderer, scene); // all six, the first time
       H.faces += 6;
     } else {
-      if (window.NYC.hideFromProbe) window.NYC.hideFromProbe(H.cam.position);
+      if (window.NYC.hideFromProbe) window.NYC.hideFromProbe(_pa);
       try {
         renderer.setRenderTarget(H.rt, H.face);
         renderer.render(scene, H.cam.children[H.face]);

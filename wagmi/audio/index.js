@@ -14,6 +14,7 @@ import { createCity } from './city.js';
 import { createTraffic } from './traffic.js';
 import { createPlayerCar } from './playercar.js';
 import { createSteps } from './steps.js';
+import { createAmbience } from './ambience.js';
 import { createMotors } from './motors.js';
 import { warmCrunch } from './crunch.js';
 import { world } from '../world/index.js'; import { importRetry } from '../net.js';
@@ -25,7 +26,7 @@ export function install(W) {
     W.audio = { ctx: null, bus: null, play() { return null; }, loop() { return NOOP; }, duck() {}, force() {}, unlock() {}, volume() {}, ready: false };
     return;
   }
-  let M = null, E = null, city = null, traffic = null, car = null, steps = null, unlocked = false;
+  let M = null, E = null, city = null, traffic = null, car = null, steps = null, air = null, unlocked = false;
   function ensure() {
     if (M) return M;
     const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null;
@@ -39,6 +40,8 @@ export function install(W) {
       warmCrunch(M);
       E = createEngine(M);
       city = createCity(M, E); traffic = createTraffic(M, E); car = createPlayerCar(M, E); steps = createSteps(E);
+      // (a Hometown town's own air under the street: its hum, far traffic, the L, the water, the night's lit places: ambience.js)
+      try { air = createAmbience(M, E, W); } catch (e) { console.warn('[audio] ambience', e); air = null; }
     } catch (e) { console.warn('[audio] no sound:', e); M = null; }
     return M;
   }
@@ -75,7 +78,9 @@ export function install(W) {
     loop(name, o) { if (!ensure()) return NOOP; return E.loop(name, o || {}); },
     duck(bus, amount, secs) { pauseCheck(); if (!paused) M?.duck(bus, amount, secs); },
     // a city event now: 'siren' (one far off), 'subway', 'build', 'whistle', 'heli', 'honk', 'coo', 'flutter'
-    force(name) { ensure(); city?.force(name); },
+    force(name) { ensure(); if (air && /^(train|far|lap|glass)$/.test(name)) air.force(name); else city?.force(name); },
+    // (the town's own air, for tests: where it thinks it is, its tracks, its train: ambience.js; null outside a Hometown town)
+    get air() { return air; },
     unlock,
     volume(v) { if (ensure()) M.bus.master.gain.setTargetAtTime(Math.max(0, v), M.now(), 0.05); },
     // (for tests: what is sounding)
@@ -183,6 +188,7 @@ export function install(W) {
       const cabin = inCar && !onHorse();
       if (+cabin !== inside) { M.inside(+cabin); inside = +cabin; }
       city.update(dt, where);
+      air?.update(dt);
       const tr = app.trafficSystem, pe = inCar ? c : P;
       // (SF 2040: the cars left standing, trafficSystem.abandon, make no sound)
       const still = !!tr?.abandoned;

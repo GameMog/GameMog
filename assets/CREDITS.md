@@ -213,13 +213,13 @@ The Tensore's downloaded body (`assets/vehicles/wedge/wedge.glb`, used only by a
 doors cut free, refinished in the game's own materials; the source was verified against the author's Sketchfab
 original; `assets/vehicles/wedge/CREDITS.md` has the details. The game's car is a look-alike named "Tensore" and has no connection with any car maker.
 
-The Kastell's downloaded body (`assets/vehicles/gwagon/gwagon.glb`, used only by a Story Kit world whose car is
-`{ model: 'mogcity/gwagon' }`, never by Mog City's own game) is based on a low-poly 3D model by
-[DemuriaGT](https://sketchfab.com/demuriagt), from
-[Sketchfab](https://sketchfab.com/3d-models/aa1a732d4fdc44e0a20cee312a929d77), under
-[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Modified: scaled, its palette texture removed and the body
-refinished in the game's own materials, the front doors cut free, a cabin added; `assets/vehicles/gwagon/CREDITS.md` has
-the details. The game's car is a look-alike named "Kastell" and has no connection with any car maker.
+The Kastell's body (`assets/vehicles/gwagon/gwagon.glb`, used only by a Story Kit world whose car is
+`{ model: 'mogcity/gwagon' }`, never by Mog City's own game) is Mog City's own: modelled from nothing in a Blender script
+(`tools/vehicles/gwagon/build.py`) and packed by `tools/vehicles/gwagon/pack.mjs` (its weld and texture step after
+manhattan-free-roam's `tools/build-models.mjs`, MIT, see NOTICE); no downloaded model, no texture. Until 27 Nov 2026 it
+was a low-poly model by [DemuriaGT](https://sketchfab.com/demuriagt) under CC BY 4.0; nothing of it remains.
+`assets/vehicles/gwagon/CREDITS.md` has the details. The game's car is a look-alike named "Kastell" and has no
+connection with any car maker.
 
 
 ### Town cars (`assets/vehicles/fleet/`)
