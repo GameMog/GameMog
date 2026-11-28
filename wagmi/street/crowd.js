@@ -278,9 +278,15 @@ export function createCrowd(W) {
   const P0 = globalThis.window?.NYC?.PKG, CORE = (TOWN_ID() ? +(P0?.densityCore || 0) : 0) * (SMALLC ? 0.33 : 1), DT = P0?.downtown, CORE_R = 1500;
   const coreOf = new Map();
   const core = (b) => {
-    if (!CORE || !DT) return 1;
+    if ((!CORE && !globalThis.window?.NYC?.MainStreets) || !DT) return 1;
     let k = coreOf.get(b);
-    if (k == null) { k = Math.hypot(b.cx - DT.x, b.cz - DT.z) < CORE_R ? 1 + CORE : 1; coreOf.set(b, k); }
+    if (k == null) {
+      k = Math.hypot(b.cx - DT.x, b.cz - DT.z) < CORE_R ? 1 + CORE : 1;
+      // (a town's main shopping street, cities/sf/js/main-streets.js: the blocks along it walk 2.5 times as thick again)
+      const MS = globalThis.window?.NYC?.MainStreets;
+      if (MS && MS.near(b.cx, b.cz, 75)) k *= SMALLC ? 1.6 : 2.5;
+      coreOf.set(b, k);
+    }
     return k;
   };
   const perM = (b) => (busy(b) || story(b) > 1 ? PER_M.busy : PER_M.quiet) * story(b) * (world.crowd ?? 1) * (b.park > 0.6 ? 0.6 : 1) * core(b);

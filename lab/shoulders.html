@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mog City: shoulders lab</title>
+  <style>html, body { margin: 0; height: 100%; background: #15171c; overflow: hidden; } canvas { display: block; }
+    #lab { position: fixed; left: 10px; top: 8px; color: #fff; font: 600 15px system-ui; text-shadow: 0 1px 2px #000; pointer-events: none; white-space: pre; }</style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/gh/mrdoob/three.js@bc7d0b3c3838d5da9495b5e603afd77ed3154d57/build/three.webgpu.js",
+        "three/webgpu": "https://cdn.jsdelivr.net/gh/mrdoob/three.js@bc7d0b3c3838d5da9495b5e603afd77ed3154d57/build/three.webgpu.js",
+        "three/tsl": "https://cdn.jsdelivr.net/gh/mrdoob/three.js@bc7d0b3c3838d5da9495b5e603afd77ed3154d57/build/three.tsl.js",
+        "three/addons/": "https://cdn.jsdelivr.net/gh/mrdoob/three.js@bc7d0b3c3838d5da9495b5e603afd77ed3154d57/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+<div id="lab"></div>
+<script type="module">
+// The story cast's shoulders (wagmi/shoulders.js): forged bodies built as wagmi/storyrun/cast.js builds them, each pose
+// held at a frame, the shoulders as the clip has them or kept down. From outside: window.__pose(name, on) -> each
+// body's shoulder lift (up the spine, forward; cm, against its rest) before and after, and the frame drawn.
+//   ?a=<glb>|<walk style>,...   poses: sit, sitTalk, arms (folded), cheer (raised), hug (idle + both hands round a
+//   partner's back, as sets.js does it with m3-set.js armTo), idle, shift, talk
+import * as THREE from 'three/webgpu';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
+import { loadGLB } from '../wagmi/glb.js';
+import { danOn, loadLoco, walkStyled } from '../wagmi/retarget.js';
+import { createShoulders, SHOULDERS } from '../wagmi/shoulders.js';
+import { armTo } from '../wagmi/mission/m3-set.js';
+
+const q = new URLSearchParams(location.search);
+const list = (q.get('a') || '').split(',').filter(Boolean).map((s) => { const [url, walk = ''] = s.split('|'); return { url, walk: walk || null }; });
+const renderer = new THREE.WebGPURenderer({ antialias: true });
+renderer.setPixelRatio(1); renderer.setSize(innerWidth, innerHeight); renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.shadowMap.enabled = true;
+document.body.appendChild(renderer.domElement); await renderer.init();
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#BFD6EE');
+scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.03).texture; scene.environmentIntensity = 0.6;
+scene.add(new THREE.HemisphereLight('#DCE8FF', '#7A6A58', 0.7));
+const sun = new THREE.DirectionalLight('#FFEFD6', 2.4); sun.position.set(3, 7, 6); scene.add(sun);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.MeshStandardMaterial({ color: '#8C8880', roughness: 0.9 })); floor.rotation.x = -Math.PI / 2; scene.add(floor);
+// (a seat for the sitting poses)
+const seat = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.46, 0.5), new THREE.MeshStandardMaterial({ color: '#5A4A3C', roughness: 0.8 })); seat.position.set(0, 0.23, -0.2); scene.add(seat);
+await loadLoco((u) => loadGLB('../' + u));
+const dan = await loadGLB('../assets/characters/dan.glb');
+async function body(b, i) {
+  const g = await loadGLB(b.url + '?sh=' + i);
+  const root = new THREE.Group(), inner = skClone(g.scene); root.add(inner);
+  inner.traverse((o) => { if (/^armhang_[LR]$/.test(o.name)) o.quaternion.identity(); });
+  const arm = inner.getObjectByName('root')?.parent;
+  if (arm && arm !== inner) { arm.quaternion.identity(); arm.position.y += 0.02; }
+  inner.traverse((o) => { if (o.isMesh) { o.frustumCulled = false; } });
+  const bones = {}; inner.traverse((o) => { if (o.isBone) bones[o.name] = o; });
+  const own = g.animations.slice(), names = new Set(own.map((a) => a.name));
+  for (const a of walkStyled(THREE, danOn(THREE, dan, g).clips, b.walk)) if (!names.has(a.name)) own.push(a);
+  const mixer = new THREE.AnimationMixer(inner);
+  root.position.set((i - (list.length - 1) / 2) * 1.1, 0, 0); scene.add(root);
+  const sh = createShoulders(THREE, root, bones, { ref: THREE.AnimationClip.findByName(own, 'idle') });
+  return { root, bones, mixer, sh, clip: (n) => THREE.AnimationClip.findByName(own, n), name: b.url.split('/').pop() };
+}
+const bodies = await Promise.all(list.map(body));
+const cam = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, 0.05, 100);
+const cm = (v) => Math.round(v * 1000) / 10;
+// a pose held: its clip at t, the hug's arms after it, then the shoulders kept down (on) or not
+window.__pose = (pose, on, t = 1.2) => {
+  SHOULDERS.on = !!on;
+  const out = [];
+  for (const f of bodies) {
+    f.mixer.stopAllAction();
+    const base = pose === 'hug' ? 'idle' : pose, c = f.clip(base) || f.clip('idle');
+    const a = f.mixer.clipAction(c); a.reset(); a.play(); f.mixer.setTime(Math.min(t, c.duration * 0.5));
+    f.root.updateMatrixWorld(true);
+    if (pose === 'hug') {
+      // (round a partner's upper back 0.3 m ahead, as sets.js: the hands either side of the spine, the elbows out and down)
+      const B = f.bones, sp = B.spine02.getWorldPosition(new THREE.Vector3()), P = new THREE.Vector3(sp.x, sp.y + 0.08, sp.z + 0.42);
+      for (const [s, k] of [['L', 1], ['R', -1]]) armTo(B, s, P.clone().add(new THREE.Vector3(k * 0.1, 0, 0.12)), P.clone().add(new THREE.Vector3(k * 0.5, -0.3, -0.2)), 1, ['upperarm01_', 'lowerarm01_', 'wrist_']);
+      f.root.updateMatrixWorld(true);
+    }
+    const seated = /^sit/.test(pose); f.root.position.y = 0; f.root.position.z = 0;
+    const dy = () => { const a = f.bones.upperarm01_L.getWorldPosition(new THREE.Vector3()), b = f.bones.upperarm01_R.getWorldPosition(new THREE.Vector3()); return cm(b.y - a.y); };
+    const before = f.sh.lift(), dy0 = dy();
+    f.sh.apply(); const after = f.sh.lift(), dy1 = dy();
+    out.push({ body: f.name.slice(0, 14), before: { L: before.L.map(cm), R: before.R.map(cm) }, after: { L: after.L.map(cm), R: after.R.map(cm) }, rMinusL: [dy0, dy1], seated });
+  }
+  const sit = /^sit/.test(pose);
+  cam.position.set(0, sit ? 1.1 : 1.4, 4.8); cam.lookAt(0, sit ? 0.9 : 1.2, 0);
+  document.getElementById('lab').textContent = `${pose}   shoulders ${on ? 'kept down' : 'as the clip has them'}`;
+  renderer.render(scene, cam);
+  for (const f of bodies) f.sh.restore();
+  return out;
+};
+window.__ready = true;
+</script>
+</body>
+</html>

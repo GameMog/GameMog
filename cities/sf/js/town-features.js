@@ -48,7 +48,7 @@ function suppressBuildings(DATA) {
   return n;
 }
 
-function buildTownFeatures(scene) {
+function buildTownFeatures(scene, grade) {
   if (q.get('features') === '0') return null;
   const T = N.Terrain, wl = Number.isFinite(T.waterLevel) ? T.waterLevel : 0;
   const ground = (x, z) => T.groundAt(x, z);
@@ -209,7 +209,7 @@ function buildTownFeatures(scene) {
   // (a marina mapped as a pier is water inside its ring: Navy Pier Marina. Only the piers themselves)
   const piers = F.filter((f) => f.kind === 'pier' && !/marina/i.test(f.name || '')).map(ringPts);
   const nearWalk = (x, z) => walks.some((w) => inRing(w, x, z) || w.some((p) => Math.hypot(p.x - x, p.z - z) < 6)) || piers.some((pr) => inRing(pr, x, z));
-  let wallM = 0, railM = 0, lamps = 0;
+  let wallM = 0, railM = 0, lamps = 0, soffit = 0, kiosks = 0;
   const pools = []; // [x, y, z, yaw, size across, size along] additive light pools (walks, pier, the water's reflections)
   const COPING = 0xb8b2a4, FACE = 0x6d6a62, RAIL = 0x30363a;
   for (const wt of (N.GEO && N.GEO.water) || []) {
@@ -246,6 +246,23 @@ function buildTownFeatures(scene) {
           // its pool on the walk, and its reflection on the water: a streak out from the wall toward the far bank
           pools.push(mx + lx * 4, top, mz + lz * 4, Math.atan2(ux, uz), 13, 13);
           pools.push(mx - lx * 9, wl - 0.02, mz - lz * 9, Math.atan2(ux, uz), 1.8, 16, 1);
+          // (under a deck, Wacker Dr's over the Riverwalk: a lamp on the deck's soffit over the walk, its pool brighter)
+          const wx = mx + lx * 4, wz = mz + lz * 4, roof = grade && grade.roofAt ? grade.roofAt(wx, wz, top + 0.5) : Infinity;
+          if (Number.isFinite(roof) && roof - top > 2.5 && roof - top < 14) {
+            box(wx, roof - 0.35, roof - 0.12, wz, ux, uz, 1.2, 0.35, 0xffffff, true);
+            pools.push(wx, top, wz, Math.atan2(ux, uz), 15, 15);
+            soffit++;
+          }
+          // a cafe or kiosk front along the walk's landward side every other lamp: a lit window under an awning,
+          // facing the river (only where the walk is wide enough: its point 8 m in still on the walk)
+          if (lamps % 2 === 0 && nearWalk(mx + lx * 9, mz + lz * 9)) {
+            const kx = mx + lx * 8.5, kz = mz + lz * 8.5;
+            box(kx + lx * 0.6, top, top + 3.1, kz + lz * 0.6, ux, uz, 4.2, 1.2, 0x3b2f26);
+            box(kx, top + 0.5, top + 2.5, kz, ux, uz, 3.6, 0.1, 0x8a5a2a, true);
+            box(kx - lx * 0.9, top + 2.6, top + 2.8, kz - lz * 0.9, ux, uz, 4.4, 1.8, [0x7a2a24, 0x24506a, 0x2f5a3a][kiosks % 3]);
+            pools.push(kx - lx * 2.5, top, kz - lz * 2.5, Math.atan2(ux, uz), 8, 6);
+            kiosks++;
+          }
         }
       }
     }
@@ -274,7 +291,7 @@ function buildTownFeatures(scene) {
       if (L > 6 && Math.abs(ux * pierAx + uz * pierAz) > 0.8) for (let t = 2; t + 3 < L; t += 5) box(a.x + ux * (t + 1.5) + lx * 9, top + 0.8, top + 2.4, a.z + uz * (t + 1.5) + lz * 9, ux, uz, 3.0, 0.12, 0x2c2012, true);
     }
   }
-  stats.wallKm = +(wallM / 1000).toFixed(2); stats.railKm = +(railM / 1000).toFixed(2); stats.lamps = lamps;
+  stats.soffitLamps = soffit; stats.kiosks = kiosks; stats.wallKm = +(wallM / 1000).toFixed(2); stats.railKm = +(railM / 1000).toFixed(2); stats.lamps = lamps;
 
   // the pools of light on the pier's walk (additive, at night only)
   if (pools.length) {
@@ -283,7 +300,7 @@ function buildTownFeatures(scene) {
     const n = P.length, pg = new THREE.PlaneGeometry(1, 1); pg.rotateX(-Math.PI / 2);
     const pm = new THREE.MeshBasicNodeMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
     const r = N.TSL.length(N.TSL.uv().sub(0.5)).mul(2), fall = float(1).sub(smoothstep(0.1, 1.0, r));
-    pm.colorNode = vec3(1.0, 0.75, 0.45).mul(fall.mul(fall)).mul(night).mul(0.85);
+    pm.colorNode = vec3(1.0, 0.75, 0.45).mul(fall.mul(fall)).mul(night).mul(1.5);
     const im = new THREE.InstancedMesh(pg, pm, n), m4 = new THREE.Matrix4(), q4 = new THREE.Quaternion(), v4 = new THREE.Vector3(), s4 = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
     for (let i = 0; i < n; i++) { const [x, y, z, yaw, a, b, refl] = P[i]; q4.setFromAxisAngle(up, yaw + (refl ? Math.PI / 2 : 0)); m4.compose(v4.set(x, y + 0.08, z), q4, s4.set(a, 1, b)); im.setMatrixAt(i, m4); }
     im.computeBoundingSphere(); group.add(im);

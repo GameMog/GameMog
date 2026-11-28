@@ -338,7 +338,9 @@ async function initApp() {
   // (elevated.js: a town's elevated railway, Chicago's L, from its package's GEO.elevated: deck, bents, rails, a train)
   const elevated = window.NYC.buildElevated && roadNetwork ? window.NYC.buildElevated(scene, roadNetwork) : null;
   // (town-features.js: a town's wheel, stadium bowl, pier edge and waterfront walls, from GEO.features and GEO.water)
-  const townFeatures = window.NYC.buildTownFeatures ? window.NYC.buildTownFeatures(scene) : null;
+  const townFeatures = window.NYC.buildTownFeatures ? window.NYC.buildTownFeatures(scene, gradeSeparation) : null;
+  // (main-streets.js: a town's main shopping street dressed for the night: shop light, lamps, signs, marquees, shelters)
+  const mainStreets = window.NYC.buildMainStreets && roadNetwork ? window.NYC.buildMainStreets(scene, roadNetwork) : null;
   // (lots.js: a town's car parks, their stalls painted and a share of them taken by parked cars round the camera)
   const lots = window.NYC.buildLots ? window.NYC.buildLots(scene, roadNetwork) : null;
   if (cityGrid.terrain) cityGrid.terrain.rebuild(); // the portals carved

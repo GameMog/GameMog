@@ -23,6 +23,7 @@ import { unhang } from './pack.js';
 import { danOn, loadLoco, walkStyled, walkSpeedOf } from '../retarget.js';
 import { polishBody } from './polish.js'; import { importRetry } from '../net.js';
 import { createFootLock } from '../footlock.js';
+import { createShoulders } from '../shoulders.js';
 import { createSlipMeter } from '../footslip.js';
 
 // (8: a set's cutscene stands up to seven at once, the hero's double besides: sets.js)
@@ -182,6 +183,8 @@ export function createCast(W, world) {
     // (its feet planted where they land, its legs solved to them, its weight shifting standing: wagmi/footlock.js. A
     // Suit's rig (thug.glb) has none of Dan's leg names: left as its clips have it)
     if (!suit) { let h = 2166136261; for (const ch of name) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0; f.feet = createFootLock(THREE, root, bones, { seed: h });
+      // (its shoulders kept down where the clips shrug them: wagmi/shoulders.js; made now, while its bones are at rest)
+      f.shoulders = createShoulders(THREE, root, bones, { ref: clip('idle') });
       // (arms folded, held: now and then let go a while, the weight on one hip, then folded again: fidget() below)
       const fa = clip('arms'), fr = clip('shift') || clip('idle');
       if (fa && fr && fr !== fa) f.fidget = fidget(mixer, mixer.clipAction(fa), mixer.clipAction(fr), h); }
@@ -223,7 +226,7 @@ export function createCast(W, world) {
     // (then a set's arms over the clip: a hug, a hand held: sets.js post)
     // (?slip=1: the hero's own feet too, on foot: game.js's stand and plant, not this)
     if (HERO) try { const P = W.person, B = W.dan?.bones; if (P?.mesh?.visible && B && W.app?.controllerManager?.activeMode === 'person') { W.heroSlip = HERO; for (const s of ['L', 'R']) if (B['foot_' + s]) HERO.sample('hero' + s, B['foot_' + s].getWorldPosition(_sv), P.position.y, P.position, dt); } } catch {}
-    for (const f of [...live.values(), ...doubles.values()]) if (!f.hold) try { f.fidget?.(dt); f.update(dt); f.feet?.restore(); f.post?.(dt); if (f.feet) { const top = topClip(f); f.feet.apply(dt, { idle: IDLES.test(top), seated: SEATED.test(top) }); slipOf(f, dt, top); } gazeStep(f, dt); } catch {}
+    for (const f of [...live.values(), ...doubles.values()]) if (!f.hold) try { f.fidget?.(dt); f.update(dt); f.feet?.restore(); f.shoulders?.restore(); f.post?.(dt); if (f.feet) { const top = topClip(f); f.feet.apply(dt, { idle: IDLES.test(top), seated: SEATED.test(top) }); slipOf(f, dt, top); } f.shoulders?.apply(); gazeStep(f, dt); } catch {}
   })();
   // every body the cast holds, the doubles too (a probe's: the foot-slip meter)
   cast.figures = () => [...live.values(), ...doubles.values()];
