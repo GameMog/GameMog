@@ -9,9 +9,8 @@ State of the code (14 Nov 2026; release r6 is live, release r8 is committed and 
 `HOMETOWN_DAILY_COLD` 100). `deploy/town-builder/workflow-build.sh` pins MogCity compiler 0.13.2 (Cold Harbor round 2, see
 [HOMETOWN-HOSTING.md](HOMETOWN-HOSTING.md#release-r13-compiler-0130-stage-0)),
 `MOGCITY_SHA=0902da00dad61702f89503692fe23c1efbfea0e5`, fetched from github.com/GameMog/GameMog (branch
-`hometown-compiler`). (Branch `mandi-int`, 27 Nov, local only: re-pinned to compiler 0.15.0,
-`4aed19f0e54476942d73477184d9a50adfa87a96` on MogCity `mandi-integrate`, which is not on GitHub yet; a production build
-cannot fetch it until the owner pushes the compiler.)
+`hometown-compiler`). (28 Nov, release r43: re-pinned to compiler 0.15.1,
+`670435592706a20fa3f61773ae158853a5819f52`, MogCity release r43 on `mogcity` and `hometown-compiler`.)
 
 ---------------------------------------------------------------------------------------------------------------------
 
