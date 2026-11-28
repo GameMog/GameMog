@@ -30,6 +30,7 @@ import { runKeyArtChecks } from './storykit-keyart-check.ts';
 import { runLongWayHomeChecks } from './long-way-home-check.ts';
 import { runJensenTitleChecks } from './jensen-heist-title-check.ts';
 import { runJensenPolish1Checks } from './jensen-heist-polish1-check.ts';
+import { runMandiVoiceChecks } from './mandis-revenge-voice-check.ts';
 import { runJensenPolish2Checks } from './jensen-heist-polish2-check.ts';
 import { runJensenPolish3Checks } from './jensen-heist-polish3-check.ts';
 import { runJensenDay1Checks } from './jensen-heist-day1-check.ts';
@@ -623,6 +624,8 @@ await runJensenPolish3Checks(ok);
 await runJensenDay1Checks(ok);
 // (23 Nov): Jensen Heist renamed Jensen Return, its address /g/jensen-return (the old one redirects), its art retitled
 await runJensenReturnChecks(ok);
+// (27 Nov): Mandi's Revenge voiced in place, every spoken line a clip (deploy/migrate.mjs 2026-11-27-mandis-revenge-voice)
+await runMandiVoiceChecks(ok);
 // Story Kit (14 Nov): a published story world's voices recorded again by the owner's browser (hometown stories sealed with no lines)
 runRevoiceChecks(ok);
 // Hometown (12 Nov): the builder reads a town's CityPackage, the town lock on Mogs, and the real-place safety rules

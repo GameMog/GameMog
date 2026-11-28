@@ -177,12 +177,28 @@ const BRIDGE_CUE = {
   at: { ...R('placeRef'), description: 'the river bridge nearest this place' }, to: N(0, 80, { description: 'degrees (70 when left out; 0 brings it down)' }),
   dur: N(0.2, 60, { description: 's to get there (8)' }), delay: N(0, 60), ease: E(['inOut', 'out', 'linear'])
 };
+// (Mog City mandi-props: the story props, by kind, and where one goes: a place, beside a person, on a car (her own rides
+// with it), in a hand)
+export const PROP_KINDS = ['duck', 'duffel', 'duffel-open', 'sponge', 'bucket', 'jacket', 'jacket-folded', 'suds', 'slip'];
+const PROP_AT = ONE(R('placeRef'),
+  O({ rel: S(40, { pattern: '^(player|[a-z0-9][a-z0-9-]{0,39})$' }), fwd: N(-20, 20), right: N(-20, 20), up: N(-5, 5) }, ['rel']),
+  O({ car: S(48), part: E(['hood', 'roof', 'trunk', 'seat', 'side']), side: E([1, -1]), along: N(-6, 6), across: N(-3, 3) }, ['car']),
+  O({ hold: S(40, { pattern: '^(player|[a-z0-9][a-z0-9-]{0,39})$' }), hand: E(['right', 'left']), fwd: N(-1, 1), right: N(-1, 1), up: N(-1, 1) }, ['hold']));
+const SHOT_PROP = O({ id: R('slug'), kind: E(PROP_KINDS), swap: E(PROP_KINDS), at: PROP_AT, heading: N(-360, 360), scale: N(0.2, 5), number: S(3), remove: B, drop: B }, ['id']);
+const SHOT_FLOTILLA = O({ id: R('slug'), at: R('placeRef'), count: I(1, 1200), length: N(8, 200), width: N(3, 60), speed: N(0, 3), flow: E([1, -1]), scale: N(0.5, 4),
+  pour: N(0, 8), from: R('slug'), remove: B, number: S(3) }, ['id']);
 // a cutscene shot: `say` + `line` is a cast member's spoken line under the shot (a subtitle until its clip is ready)
 // (or, with no cam, a shot by its grammar: frame, on whom, at whom; the engine works the lens out from where they stand)
 const shot = O({ cam: camRef, to: camRef, look: camRef, lookTo: camRef, dur: N(0.5, 12), fov: N(20, 90), sub: R('line'), say: R('castRef'), line: R('speech'), caption: R('label'), act: setAct, ...DLV,
   lines: A(R('spoken'), 4, 2, { description: 'an exchange played in this one shot, in place of say + line: 2 to 4 lines, the speakers alternating (a two-shot or an over-the-shoulder)' }),
   frame: E(FRAMES, { description: "the shot by its grammar, in place of cam: ots (over on's shoulder onto at), close (on's face), push (pushing in on on's face), react (a quick close-up of on's reaction), two (on and at together), low (a low hero angle on on), wide (high and wide over on)" }),
-  on: { ...R('slug'), description: "a frame's subject: a cast id with a body on the street, or 'player'" }, at: { ...R('slug'), description: "a frame's other person (ots: whom we look at over on's shoulder; two: who is with on)" } }, []);
+  on: { ...R('slug'), description: "a frame's subject: a cast id with a body on the street, or 'player'" }, at: { ...R('slug'), description: "a frame's other person (ots: whom we look at over on's shoulder; two: who is with on)" },
+  // (Mog City mandi-props, 28 Nov: props and the duck flotilla set as the shot starts, a lens move, a lens inside a car.
+  // An engine without them ignores the fields and plays the shot as before)
+  props: A(SHOT_PROP, 4, 0, { description: "props set as the shot starts (Mog City's storyrun/props.js): { id, kind, at, heading, scale } puts one down; { id, swap } turns it into another kind; { id, at } moves it; { id, drop } leaves a held one on the ground; { id, remove } takes it away" }),
+  flotilla: A(SHOT_FLOTILLA, 1, 0, { description: 'the race ducks laid on the river nearest at, drifting downstream (pour: s they take to go in)' }),
+  move: E(['push', 'pull', 'orbit', 'crane', 'drop', 'drift', 'track'], { description: 'the lens moves through the shot' }), amount: N(-360, 360, { description: "the move's size: a share of the way for push/pull, degrees for orbit, metres for the rest" }),
+  inside: { ...B, description: 'the lens may be inside a car (an insert into a bag on its seat)' }, warm: B }, []);
 // a choice's fields: a choice step, or the choice at the end of an answered call (call.choice)
 const CHOICE = {
   prompt: S(120), who: R('castRef'), timeout: N(3, 30), default: ONE(I(0, 3), { type: 'null' }), defaultText: S(80),
@@ -265,7 +281,8 @@ const STEPS = fx(['drive', 'stops', 'pursuit', 'tail', 'tow', 'timer', 'fight', 
   // a video call (VCALL_*): its people each in an office, its lines and the call's events between them, in order
   vcall: step('vcall', {
     title: S(40, { description: "the call's name in its top bar ('Q3 Board Sync')" }), layout: E(['grid', 'speaker'], { description: 'grid: equal tiles; speaker: whoever talks fills the stage, the rest in a strip' }),
-    end: E(['leave', 'drop'], { description: 'how it ends: you leave the meeting, or the call drops' }), time: E(['day', 'golden', 'night'], { description: "the light through every office's window (else the mission's time)" }),
+    end: E(['leave', 'drop'], { description: 'how it ends: you leave the meeting, or the call drops' }),
+    live: ONE(B, { const: 'wait' }, { description: "Mog City mandi-props: the call plays over the street while she drives or walks, on the phone in the corner (true: the steps after it start at once; 'wait': they wait for it). An engine without it plays the call full screen" }), time: E(['day', 'golden', 'night'], { description: "the light through every office's window (else the mission's time)" }),
     device: E(['laptop'], { description: "laptop: the call on the hero's laptop, full screen (a world whose calls are on its foldable phone, calls.style 'fold', still plays this one as a laptop call: an audition, a meeting at a desk)" }),
     people: A(O({
       who: { ...R('slug'), description: "a cast id with a body, or 'player'" }, office: E(VCALL_OFFICES, { description: "the office they sit in: exec (a corner office, the skyline), startup (an open-plan loft), backstage (a stage manager's room), boardroom (the long table), kitchen (a home kitchen), study (walnut and books, Mr. Big's), van (a broadcast van's back), greenroom (an arena's green room); away from a desk: truck (a food truck's kitchen), diner (a diner booth), lot (a lot out back, a loading dock), green (a lawn by a station, a bench), car (a car's front seat), house (row one of an arena's seats). The tile's sub says where they are, so it names the office drawn behind them" }),
@@ -299,7 +316,7 @@ const STEPS = fx(['drive', 'stops', 'pursuit', 'tail', 'tow', 'timer', 'fight', 
     lines: A(O({ below: N(0, 1), who: R('castRef'), text: R('speech') }, ['below', 'who', 'text']), 6)
   }, ['who']),
   tail: step('tail', {
-    name: S(40), car: E(['lowered', 'sedan', 'suv']), color: R('colour'), route: A(R('placeRef'), 12, 2), ahead: N(20, 200), speed: N(3, 30),
+    name: S(40), car: E(['lowered', 'sedan', 'suv']), stretch: N(0, 6, { description: "Mog City mandi-props: the car stretched this many metres at its waist (a limo)" }), color: R('colour'), route: A(R('placeRef'), 12, 2), ahead: N(20, 200), speed: N(3, 30),
     ring: N(10, 60), spotTime: N(1, 10), lostDist: N(60, 400), lostTime: N(3, 30), objective: R('objective')
   }, ['route']),
   // stealth (Mog City's own lookouts, Mission 2's: a cone on the ground each, yellow going red, a '?' filling to '!' over
@@ -357,7 +374,7 @@ const STEPS = fx(['drive', 'stops', 'pursuit', 'tail', 'tow', 'timer', 'fight', 
       lines: A(O({ below: N(0, 1), who: R('castRef'), text: R('speech') }, ['below', 'who', 'text']), 6) }) }, ['who']),
   // a parked car (one of the story's): a city body in a colour or a pack vehicle by id, at the kerb `back` m short of
   // `at`'s corner, along its lane or `heading`; solid. { name, remove: true } takes it away
-  car: step('car', { name: { ...R('slug'), description: 'what a later car step calls it, to take it away' }, car: S(48, { pattern: '^(sedan|suv|taxi|pickup|van|minivan|[a-z0-9][a-z0-9.-]{0,47})$' }), color: R('colour'), at: R('placeRef'), heading: R('heading'),
+  car: step('car', { stretch: N(0, 6, { description: "Mog City mandi-props: the car stretched this many metres at its waist (a limo)" }), name: { ...R('slug'), description: 'what a later car step calls it, to take it away' }, car: S(48, { pattern: '^(sedan|suv|taxi|pickup|van|minivan|[a-z0-9][a-z0-9.-]{0,47})$' }), color: R('colour'), at: R('placeRef'), heading: R('heading'),
     back: N(0, 60), kerb: N(0, 8), remove: B }),
   // a street fight on foot (Mog City's W.combat): the hero against cast members with a body
   fight: step('fight', {
@@ -379,7 +396,10 @@ const STEPS = fx(['drive', 'stops', 'pursuit', 'tail', 'tow', 'timer', 'fight', 
     part: E(['trunk', 'door', 'hood'], { description: "with on: 'ride', which part of the car (trunk if left out; door for the glovebox, the seats or the door pockets)" }),
     // (the thing its words name, there: Mog City's runner parks a vehicle the objective names ('from his truck') at the
     // spot, its tailgate at the ring, or sets down a bag, case or crate; with no room, the objective says the place)
-    prop: ONE({ const: false }, E(['pickup', 'van', 'minivan', 'suv', 'taxi', 'sedan', 'bag', 'case', 'crate'], { description: "the thing at the spot when the words don't say it plainly (the runner reads them: a truck is a pickup, a box a crate); false: nothing put there" })) }, ['at', 'label']),
+    prop: ONE({ const: false }, E(['pickup', 'van', 'minivan', 'suv', 'taxi', 'sedan', 'bag', 'case', 'crate'], { description: "the thing at the spot when the words don't say it plainly (the runner reads them: a truck is a pickup, a box a crate); false: nothing put there" })),
+    // (Mog City's runner paints the vehicle it parks there this colour: guide.js propRide, runner.js placeProp d.propColor;
+    // Mandi's Revenge's red coupe, 28 Nov. Grey when left out)
+    propColor: R('colour') }, ['at', 'label']),
   // a tow (Mog City's runner): a car stands at the target place; the hero's wrecker (a ride with the tow ability) backs up
   // to its nose, F held at the wheel hooks it on the wheel-lift, then it is towed to `to` and let down there
   tow: step('tow', {
@@ -479,7 +499,7 @@ export const SCHEMA = {
       nightWeather: E(SKY_WEATHER, { description: "the weather round the camera for every mission at night (midnight; not dusk, whose twilight is still bright) that names none of its own (Mog City js/weather.js): drizzle for a wet night. Left out, clear" }),
       blackout: E(BLACKOUTS, { description: 'the power is out there (midtown: 34th to 59th St; downtown: below 34th St; manhattan: all of it, the boroughs over the rivers lit): dark windows, street lights and billboards, dead signals, emergency cars, stranded cars, generator-lit islands. Left out, the power is on' }) }, ['time', 'season', 'weather']),
     hero: { ...R('castRef'), description: 'the player character (a cast id)' },
-    cine: O({ action: { ...B, description: "the action layer: chase cameras, speed lines, near misses held in slow motion, crash beats, title slams. On by itself in a hometown story" } }),
+    cine: O({ drift: E(['push', 'drift'], { description: 'Mog City mandi-props: every street shot without a move of its own gets a slow push (or a sideways drift)' }), amount: N(0, 1), room: { ...B, description: 'the lens keeps 1.5 m off walls where it can' }, tail: { ...B, description: 'false: the chase lens left alone while following a car' }, action: { ...B, description: "the action layer: chase cameras, speed lines, near misses held in slow motion, crash beats, title slams. On by itself in a hometown story" } }),
     opening,
     ride: { ...R('rideId'), description: 'the free-drive ride (a vehicle id); the first vehicle when left out' },
     horse: O({ name: S(24, { pattern: "^[A-Z][A-Za-z' .-]{0,23}$", description: "the horse's name, on the HUD and in the words ('Dusty')" }) }, ['name'],
@@ -546,7 +566,10 @@ export const SCHEMA = {
     placeRef: ONE(S(41, { pattern: '^@[a-z0-9][a-z0-9_-]{0,39}$' }), O({ '@': R('placeKey'), face: R('placeKey'), heading: R('heading'), mode: E(['car', 'walk']) }, ['@'])),
     stopRef: ONE(S(41, { pattern: '^@[a-z0-9][a-z0-9_-]{0,39}$' }), O({ '@': R('placeKey'), name: S(60), bonus: N(0, 600), set: R('set') }, ['@'])),
     camRef: ONE(S(41, { pattern: '^(player|@[a-z0-9][a-z0-9_-]{0,39}|[a-z][a-z0-9-]{1,39})$', description: "'player', a place, or the city's named camera point" }),
-      O({ rel: S(40, { pattern: '^(player|[a-z0-9][a-z0-9-]{0,39})$', description: "'player' (his position, in his frame) or a cast id with a body on the street (their head, in their frame)" }), right: N(-80, 80), up: N(-10, 120), fwd: N(-80, 80) }, ['rel'])),
+      O({ rel: S(40, { pattern: '^(player|[a-z0-9][a-z0-9-]{0,39})$', description: "'player' (his position, in his frame) or a cast id with a body on the street (their head, in their frame)" }), right: N(-80, 80), up: N(-10, 120), fwd: N(-80, 80) }, ['rel']),
+      // (Mog City mandi-props: a point in a prop's own frame, or on the water along the flotilla's current)
+      O({ prop: R('slug'), fwd: N(-30, 30), right: N(-30, 30), up: N(-10, 10) }, ['prop']),
+      O({ flotilla: R('slug'), along: N(-200, 200), right: N(-60, 60), up: N(-5, 30) }, ['flotilla'])),
     castRef: R('slug'),
     beingRef: { ...R('slug'), description: 'a cast id (with a body) or a pet id' },
     heading: N(-360, 360, { description: 'degrees, 0 faces +z' }),

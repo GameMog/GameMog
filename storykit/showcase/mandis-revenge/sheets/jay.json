@@ -78,16 +78,16 @@
  "wardrobe": {
   "top": {
    "item": "tee",
-   "color": "#E8E4DA"
+   "color": "#3A3B3D"
   },
   "bottom": {
-   "item": "jeans",
-   "color": "#2F3A4C",
-   "pattern": "denim"
+   "item": "cargo-pants",
+   "color": "#5E5B42",
+   "pattern": "canvas"
   },
   "shoes": {
-   "item": "white-sneakers",
-   "color": "#F4F4F0"
+   "item": "work-boots",
+   "color": "#3B2F25"
   }
  },
  "posture": {

@@ -9,7 +9,7 @@ import { runnerPackOf } from './storykit-pack.ts';
 import { ownRecord, OWN_RECORD } from './storykit-own-world.ts';
 import { showcaseProblems, SHOWCASE_ID, SHOWCASE_RECORD } from './storykit-showcase.ts';
 import { jhProblems, jhGate, jhBodyProblems, JH_RECORD, JH_DIR, BODIES, BODY_SOURCES, JH_CREDIT } from './storykit-showcase-jensen.ts';
-import { mrGate, mrProblems, PREMIUM, MR_RECORD } from './storykit-showcase-mandi.ts';
+import { mrGate, mrProblems, mrPacingProblems, PREMIUM, MR_RECORD, MR_LEG_MAX } from './storykit-showcase-mandi.ts';
 import { gateHometown } from '../storykit/hometown/hometown-gate.ts';
 import { gatePack, toRunnerPack, lineHash, type GateResult } from '../storykit/pack/gate.ts';
 import { PLACES, CAM_POINTS } from '../storykit/pack/cities.ts';
@@ -380,6 +380,9 @@ export function runStoryPackChecks(ok: Ok) {
       const g1 = bad((q) => { q.acts[3].missions[1].weather = 'hail'; }), g2 = bad((q) => { q.dressing.nightWeather = 'snowstorm'; }), g3 = bad((q) => { q.acts[3].missions[1].steps.find((x: any) => x.type === 'bridge').at = '@nowhere'; }),
         g4 = bad((q) => { q.acts[3].missions[1].steps.find((x: any) => x.type === 'bridge').to = 40; });
       ok("mandis-revenge: a mission's weather and the night's are closed words, a bridge stands at a place of the town, and a jump off a steep leaf is warned", !g1.ok && !g2.ok && !g3.ok && g4.ok && g4.warnings.some((w: string) => /degrees/.test(w)), [g1.ok, g2.ok, g3.ok, g4.warnings.join(' | ')].join(' / ')); }
+    // (28 Nov, the story pass: every drive, tail and convoy leg measured on the engine's GPS and inside the owner's 2 minutes)
+    { const pp = P ? mrPacingProblems(P) : ['no pack'];
+      ok(`mandis-revenge: every drive, tail and convoy leg has its measured route and takes at most ${MR_LEG_MAX} s at its pace`, !pp.length, pp.slice(0, 3).join(' | ')); }
     const glbs = readdirSync('public/storykit', { recursive: true }).map(String).filter((f) => /\.glb$/.test(f) && PREMIUM.some((id) => new RegExp(`(^|/)(mr-)?${id}\\.glb$`).test(f)));
     ok("mandis-revenge: no premium body (Mandi's, Jay's) is in the public repo", !glbs.length, glbs.join(' '));
     // (27 Nov: the record --export writes; the premium bodies named in it as private:<sha256>.glb, never copied here)
