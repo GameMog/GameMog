@@ -1,7 +1,8 @@
 /**
  * Mandi's Revenge's voices (deploy/migrate.mjs 2026-11-27-mandis-revenge-voice). Part of `npm run check`. The record's
  * world differs from the unvoiced one 2026-11-27-mandis-revenge sealed (MR_VOICE_FROM, what gamemog.com plays) in its
- * voice plan's clips and the credits' voices: the same bodies. On a fresh copy of deploy/seed.db.gz in a temporary folder
+ * story (the 28 Nov story pass), its voice plan's clips, the credits' voices and the bodies that changed since (MR_BODIES_WAS:
+ * what gamemog.com's draft holds for each; the migration adds the record's in their place). On a fresh copy of deploy/seed.db.gz in a temporary folder
  * (its Story Kit store beside it): it waits while the Story Kit is off and while the game is not there; after
  * 2026-11-27-mandis-revenge on a fresh disk (which already seals the voiced record) it is "already there"; on the state
  * gamemog.com has (the unvoiced world sealed in the kept draft, no clips, its pack and module) it seals the voiced world
@@ -23,6 +24,13 @@ type Ok = (name: string, cond: boolean, detail?: string) => void;
 type Migration = { id: string; async?: boolean; run: (db: unknown, p: string) => unknown };
 const PUB_ID = '2026-11-27-mandis-revenge', ID = '2026-11-27-mandis-revenge-voice';
 const sha = (b: string | Uint8Array) => createHash('sha256').update(b).digest('hex');
+/** The bodies gamemog.com's sealed draft holds that the record has changed since (name -> the old SHA-256 and bytes). */
+export const MR_BODIES_WAS: Record<string, { hash: string; bytes: number }> = {
+  mandi: { hash: 'e0f5712010a4fda910de89ad180f182d0fe059024c37ebdba4018e746c6f873d', bytes: 6431220 },
+  jay: { hash: 'efdd4836b1603c0a6516d46656fe493ae640315c597a9a99c6dd15b1e7666156', bytes: 4333104 },
+  diego: { hash: 'a8dc8bfcc5d869d7ea1f1799ac1b324f8360016d6d3c107de08c99164910827f', bytes: 2900496 },
+  brick: { hash: 'dd8603fa7ca2e5668b29dc4f56f7a8a4dfbc333159e54c72ec79b3d4bb0e7d54', bytes: 2873216 },
+};
 
 export async function runMandiVoiceChecks(ok: Ok) {
   console.log('\nMandi\'s Revenge voices (deploy/migrate.mjs ' + ID + ')');
@@ -75,6 +83,8 @@ export async function runMandiVoiceChecks(ok: Ok) {
       store.db.prepare('INSERT OR IGNORE INTO blobs (hash, ext, bytes, at) VALUES (?, ?, ?, ?)').run(MR_VOICE_FROM, 'json', Buffer.byteLength(oldText), 1);
       store.db.prepare("UPDATE files SET hash = ?, bytes = ? WHERE draft_id = ? AND kind = 'pack' AND name = 'world.json'").run(MR_VOICE_FROM, Buffer.byteLength(oldText), draftId);
       store.db.prepare("DELETE FROM files WHERE draft_id = ? AND (name LIKE 'was-%' OR kind = 'voice')").run(draftId);
+      // (the bodies as gamemog.com's draft has them: the ones changed since, at their old hashes)
+      for (const [name, w] of Object.entries(MR_BODIES_WAS)) store.db.prepare("UPDATE files SET hash = ?, bytes = ? WHERE draft_id = ? AND kind = 'glb' AND name = ?").run(w.hash, w.bytes, draftId, name);
       store.db.prepare('UPDATE drafts SET pack = ?, world = ? WHERE id = ?').run('{"was":1}', MR_VOICE_FROM, draftId);
       const meta = { ...m0, storykit: { ...m0.storykit, world: MR_VOICE_FROM } };
       db.prepare('UPDATE games SET meta = ?, code = ?, hidden = 0 WHERE id = ?').run(JSON.stringify(meta), 'GameMog.world({ storykit: {"was":1} });\n', g0.id);
@@ -90,6 +100,11 @@ export async function runMandiVoiceChecks(ok: Ok) {
           && store.read(`${R.world.hash}.json`)?.hash === R.world.hash && store.read(`${MR_VOICE_FROM}.json`)?.hash === MR_VOICE_FROM);
       const n = (store.db.prepare("SELECT COUNT(*) n FROM files WHERE draft_id = ? AND kind = 'voice'").get(draftId) as any).n;
       ok(`... every clip (${clips.length}) a voice file of the draft, each served`, n === clips.length && clips.every((f: any) => store.read(`${f.hash}.ogg`)?.hash === f.hash) && note.includes(`${clips.length} voice clips added`), `${n} ${note}`);
+      const bodiesNow = R.files.filter((f: any) => f.kind === 'glb' && MR_BODIES_WAS[f.name]);
+      ok(`... the changed bodies (${Object.keys(MR_BODIES_WAS).join(', ')}) replaced by the record's, each served`,
+        bodiesNow.length === Object.keys(MR_BODIES_WAS).length && bodiesNow.every((f: any) => f.hash !== MR_BODIES_WAS[f.name].hash
+          && (store.db.prepare("SELECT hash FROM files WHERE draft_id = ? AND kind = 'glb' AND name = ?").get(draftId, f.name) as any)?.hash === f.hash
+          && store.read(`${f.hash}.glb`)?.hash === f.hash) && note.includes(`${bodiesNow.length} bodies changed`), note);
       ok('... its title, tagline, art and hidden as they were; the rest of its meta too',
         g.title === before.title && g.tagline === before.tagline && Buffer.from(g.cover).equals(Buffer.from(before.cover)) && Buffer.from(g.art_wide).equals(Buffer.from(before.art_wide)) && g.hidden === 0
           && m.title === m0.title && m.blurb === m0.blurb && m.storykit.credit === m0.storykit.credit && m.storykit.packId === 'mandis-revenge' && m.storykit.showcase === true);
@@ -103,11 +118,13 @@ export async function runMandiVoiceChecks(ok: Ok) {
       ok('a game playing some other world (patched since) is left alone', /^left alone/.test(note) && JSON.parse(h.meta).storykit.world === other, note); }
 
     { setLive();
-      const other = 'e'.repeat(64);
-      store.db.prepare("UPDATE files SET hash = ? WHERE draft_id = ? AND kind = 'glb' AND name = 'kiki'").run(other, draftId);
+      // (a changed private body not in the server's store yet: it waits, nothing written)
+      const jay = R.files.find((f: any) => f.kind === 'glb' && f.name === 'jay'), pj = path.join(dir, 'storykit-private', `${jay.hash}.glb`), kept = readFileSync(pj);
+      rmSync(pj);
       const note = await run(V, db), g = row();
-      ok('a draft whose body changed since is refused (nothing written)', /^threw: the store draft does not hold kiki/.test(note) && JSON.parse(g.meta).storykit.world === MR_VOICE_FROM
-        && !(store.db.prepare("SELECT COUNT(*) n FROM files WHERE draft_id = ? AND kind = 'voice'").get(draftId) as any).n, note); }
+      ok('a changed private body not on the server yet: it waits (nothing written)', /^threw: waiting: the private body jay/.test(note) && JSON.parse(g.meta).storykit.world === MR_VOICE_FROM
+        && !(store.db.prepare("SELECT COUNT(*) n FROM files WHERE draft_id = ? AND kind = 'voice'").get(draftId) as any).n, note);
+      writeFileSync(pj, kept); }
     db.close(); store.db.close();
   } finally {
     console.log = log; console.error = err;

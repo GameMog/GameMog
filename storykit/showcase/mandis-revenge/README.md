@@ -32,7 +32,7 @@ node --import ./scripts/ts-resolve.mjs scripts/storykit-showcase-mandi.ts --draf
   phone's inner screen) or a `vcall` (on the phone, big). No caller cards.
 - **The audition is on her laptop**: `vcall` with `device: 'laptop'` (new, MogCity `mandi`): the full-screen call in a
   laptop's frame (bezel and webcam dot), not on the phone. Every other vcall is on the phone.
-- **Every line voiced** (27 Nov, the owner: "there was also NO VOICES?!"): 242 clips for the 244 spoken lines in
+- **Every line voiced** (27 Nov, the owner: "there was also NO VOICES?!"; 28 Nov, every new line of the story pass too): every spoken line's clip in
   `deploy/migrations/mandis-revenge/voice/`, their lengths, QA and provenance in `deploy/migrations/mandis-revenge-voice.json`
   (`scripts/storykit-showcase-mandi.ts --voice <dir>`; licensing in `storykit/voices/LICENSING.md`). Rendered on the Mac as
   Jensen Heist's were: each voice designed once from a written description (Qwen3-TTS 1.7B VoiceDesign, standard American,
@@ -46,66 +46,80 @@ node --import ./scripts/ts-resolve.mjs scripts/storykit-showcase-mandi.ts --draf
 ## Where it plays (keys of the town's frame; the real names are never shown)
 
 The district (built first) is the Loop and the river (2.5 km square round the spawn); the town is 4.9 km a side, from
-the West Loop to the lakefront and from the Near North Side to the stadium. Distances are straight lines between the
-places' street points; "nearest sensitive" is the nearest school, place of worship, hospital, police or fire station
-in Overture's data (it files many small training firms in the Loop as schools).
+the West Loop to the lakefront and from the Near North Side to the stadium. 28 Nov, the story pass (the playtest's B2):
+every place the script names is now that real place, on the street at it. "Route" is the GPS's route at the start's
+heading, measured in the engine (r42, production Chicago), not a straight line.
 
-| pack place | key | in district | what is there | nearest sensitive |
-|---|---|---|---|---:|
-| studio | `parking28` | yes | a lot on S Wabash Ave under the tracks, at street level (Mission 1 starts here; 27 Nov: moved off `park19`, a lot on Lower Wacker, whose way to Jay's lot looped 4.9 km) | 51 m (a jazz school) |
-| jay-lot | `parking251` | yes | a lot on S Franklin St by Van Buren, under the tracks: search, Diego's call, the fight (moved off a lot on Lower Wacker, where the fight camera sat under the upper deck) | 140 m |
-| salon | `parking108` | no | a West Loop lot (Kiki's salon) | 223 m |
-| warehouse | `parking15` | no | a lot on Carroll Ave in the warehouse blocks: stealth and fight | 122 m |
-| ramp, lower-level | `parking225`, `parking103` | yes | lots by Wacker Dr: the roadblock, the ducks | 118 m, 154 m |
-| mirror | `park143` | yes | the plaza by the mirrored sculpture | 135 m |
-| harbor | `park15` | no | the harbor drive (the convoy's end) | 387 m |
-| pier | `park30` | no | the park at the pier's foot: the contract call, Brick's fight | 173 m (a memorial park) |
-| south-lot | `parking182` | no | a lot on S Michigan Ave (Mission 6 starts here) | 140 m |
-| stadium-lot | `parking165` | no | the stadium's lot on Waldron Dr | 131 m (a memorial) |
-| riverwalk | `park62` | yes | the riverwalk's west end (the convoy's end) | 167 m |
-| upstream | `park152` | yes | a park on the north branch: the ducks go in, the fight | 358 m |
-| ohio | `parking83` | no | a lot on E Ohio St, a block west of Michigan Ave: Mission 8 starts here, the limo just ahead (27 Nov: the chase was from upstream, 2.3 km) | 107 m |
-| north-ave | `bank212` | no | Michigan Ave north of the river: the run-up to the jump (the limo's way onto the bridge, going south) | 34 m |
-| bridge | `parking73` | yes | a lot on Michigan Ave just south of its bridge: the bascule the jump is off (the one nearest it), where the limo pulls up, Diego's fight (27 Nov: the lot past the bridge, `parking186`, left out: the limo's way to it looped 330 m round the one-way blocks) | 87 m |
+| pack place | key | what is there | route from the step before |
+|---|---|---|---:|
+| studio | `parking28` | a lot on S Wabash Ave, under the Wabash tracks (Mission 1 starts here) | |
+| jay-lot | `restaurant1602` + offset = anchor `jay-lot` | the car park beside the Lake St L: the search, Diego's call, the fight (was a lot on Franklin with no tracks) | 1.8 km |
+| salon | `restaurant1373` | Kiki's salon on W Lake St, under the same L (was a West Loop lot 2.4 km away) | 2.0 km |
+| warehouse | `parking15` | a lot on Carroll Ave in the warehouse blocks: stealth and fight | 1.1 km (the tail) |
+| ramp, lower-level | `parking225`, `parking103` | lots by Wacker Dr: the roadblock, the duffel; lower-level carries `heading: 186` (its first leg was a U-turn on Wacker) | |
+| mirror | `park143` | the plaza by the mirrored sculpture | 2.0 km (was 2.5) |
+| harbor | `park15` | the harbor drive (the convoy's end) | 1.1 km (the convoy) |
+| ohio | `parking83` | a lot on E Ohio St, a block west of Michigan Ave: Missions 5 and 8 start here | |
+| pier-foot | `restaurant1151` | the foot of the pier on E Illinois St: the drive ends here (every car route along the pier looped 2-6 km on the lanes; M5 used to start at the harbor, 3-5 km round Lake Shore Dr, the U-turn the playtest got stuck on) | 1.5 km |
+| pier | `restaurant1805` + offset = anchor `wheel` (foot) | the pier by the wheel, walked out to: the contract call, Brick's entrance and fight, the lake at the kerb | 0.4 km on foot |
+| south-lot | `parking182` | a lot on S Michigan Ave (Mission 6 starts here) | |
+| stadium-lot | `parking165` = anchor `stadium-lot` | the stadium's own lot on Waldron Dr | 2.1 km (the tail) |
+| crew | `parking130` | a lot on N Franklin St by the river: the crew meets here (Mission 7 starts here; it was the salon, 2.9 km from the Riverwalk) | |
+| riverwalk | `park137` | the Riverwalk on Wacker at LaSalle: the finish line, Kiki's stream | 0.9 km (the convoy) |
+| upstream-wall | `bank168` + offset = anchor `riverwalk-east` (foot) | the river wall upstream (the river runs backwards, away from the lake: upstream is east), walked to with the duffel: the ducks go in, the fight | 0.23 km on foot |
+| north-ave, bridge | `bank212`, `parking73` | Michigan Ave north of the river and the bascule: the run-up, the jump, the boss fight | 0.8 km |
+| dawn, dawn-jay | `restaurant1805` + offsets = anchor `wheel` (foot) | the pier by the wheel at first light (the epilogue's `place` step puts her there); Jay 2.4 m east of her, so over his shoulder the skyline across the harbor is behind her | |
+
+The anchors (`Mandi/review/city2/ANCHORS.md`) are compiled into the `mandi-city` Chicago bundle, which production does
+not run yet; this pack is gated against and pinned to production's. So each anchored place is an `offset` (60 m at most)
+from a key both bundles have, measured in the engine (the key's own lane point and heading) to land on the anchor's
+point within a metre: on the new bundle the L, the wheel and the river wall stand there; on production's the same spot
+is the same street. Once production runs the new bundle and `town.json.gz` is re-pinned, point the aliases' `@` at the
+anchor keys and drop the offsets.
 
 Mission 1 is entirely inside the district (the spawn-district rule). None of the places is itself sensitive (the
-gate's rule); a few are closer than Jensen Return's 250 m judgement, because the Loop's data is dense with small
-"schools": the README's figures are the ones to review.
+gate's rule).
 
-## Weather (MogCity `js/weather.js`)
+## Weather and time (MogCity `js/weather.js`; the playtest's H5)
 
-Every mission at night gets the world's `dressing.nightWeather`, a drizzle (M4 Mirror Park, M5 Pier Pressure), unless it
-names its own: rain for the chases (M3 Lower Level, which the lower deck shelters, M6 Wrong Way Jay, M8 Bridge Up) and
-river mist for M7 Double or Nothing on the riverwalk. M1 and M2 are at dusk, Mog City's twilight with the sun still up
-and the sky bright, so they stay dry (MogCity `mandi-integrate`: nightWeather is for midnight only). The streets are
-damp, never mirror-wet.
+The story is one night in late November, when Chicago is dark by 4:30: every mission is at `midnight` (the opening's
+7:40 PM too; it played as golden dusk), and the epilogue at `dawn` (6:52 AM, BU-8's `place` step). The weather builds
+over the night instead of jumping: clear at 7:52 (M1), drizzle from 8:20 (M2 to M4), the lake wind at the pier (M5),
+rain for the lakefront chase and the race (M6, M7), easing to drizzle for the bridge (M8). The epilogue keeps M8's
+drizzle: the engine sets weather once per mission (an engine item below).
 
-## Pacing (the Jensen rules: a drive or tail about 2 minutes at most, never 3 minutes without a beat)
+## Pacing (the owner's rules: a drive or tail about 2 minutes at most, never 3 minutes without a beat)
 
-Straight-line legs: studio to Jay's lot 0.8 km (by road 1.1 km: down Wabash and west along Van Buren, 52 s at a
-player's pace, 27 Nov), Jay's lot to the salon 1.2, the salon to the warehouse (tail) 0.76,
-the lower level to the mirror 1.09, the mirror to the harbor (convoy) 0.72, the harbor to the pier 1.24, the south lot
-to the stadium (tail) 1.14, the salon to the riverwalk (convoy) 0.92, the riverwalk to upstream (the RACE timer) 0.45,
-Ohio St to the bridge (the limo) 0.6 (by road 0.8 km: east on Ohio St and down Michigan Ave onto the bridge from the
-north, a run-up of 200 m to the leaf; 52 s from the limo's objective to the landing at a player's pace, 27 Nov: it was
-2.3 km from upstream, about 2 min 40 s. The limo is lost at 220 m for 8 s, standing still about 24 s after it sets off). Every drive or tail has a call or timed lines on it; no step runs long without
-a line, a text or a scene. These are first targets: a test drive of each mission sets the real times (and the medals).
+Every drive, tail, convoy and chase has talk in motion, Jane-and-Dan style: Jay's call from the boat and Bernie behind
+it (M1), Kiki live from her chair (M2, the 2-minute silent drive), Brick knitting at the lights (M3), Jay from Diego's
+other bathroom and Diego asking after his accountant mid-convoy (M4), Bernie on the drive and Mandi on the boards (M5),
+Kiki's cousin the temp the whole tail and the crew meeting Jay over the chase (M6), Kiki's stream and Jay in the seat
+(M7), Diego taunting from the limo (M8). Five stop-and-talk calls became calls in motion (k1, a6, d3 and Jay's
+kidnapping, which left the audition for the drive). The test drive's numbers are in the story review
+(`Mandi/review/story/`).
 
-## What is not built yet (engine and art)
+## What is not built yet (engine and art), and where the pack is ready for it
 
+- **Props and set pieces** (MogCity `mandi-props`, `Mandi/review/props/HOOKS.md`): the pack carries them as shot fields
+  and step fields an older engine ignores, so every mission still plays on r42 as before: the open duffel of sevens in
+  the Kastell's trunk (LL-3 `ducks`), the 980 sevens poured into the river (DN-7 `phones`) and 600 still drifting at dawn
+  (BU-8 `dawn`, with Jay's jacket over her arm), the bucket, suds and the sponge passed hand to hand at the limo (WW-6
+  `reunion`/`sponge`, Jay stood 1.1 m from her), the white stretch limo (`stretch: 2.6` on both limos), lens moves
+  (`move`), `cine: { drift, room }`, and the calls played over the street (`live`: g1, c1, c2 wait for their end; plan
+  runs over the convoy). The schema fields are in `storykit/pack/schema.mjs` (Mog City mandi-props). Not used: the
+  `prop`/`flotilla` step kinds (an older engine has no part for them), a prop-relative lens, and a search ring at a car's
+  door: Jay's coupe is the search's own prop (`prop: 'sedan', propColor`), parked at the ring in red on either engine.
+- **The elevated L** over Wabash and Lake St (the studio and Jay's lot are under it; another agent's), **the wheel** on
+  the pier, and **Diego going over the rail** (the finisher looks at the water while Jay calls it).
+- **The anchored places** (above) on the `mandi-city` bundle: the offsets land on the anchors' points; switching to the
+  anchor keys themselves waits for that bundle in production (and MR_ROUTES re-measured).
+- **Weather inside a mission** (the dawn after BU-8's rain) and **the time after the credits** (index.js sets midday).
+- **The GPS** still plans U-turns across divided roads and cannot reach the pier's Dock St from the city; the pack routes
+  round it (headings, the pier on foot), the router itself is engine work.
 - **Rooms**: Mandi's studio, the casting studio, Kiki's salon, the riverboat lounge and the powder room are Mog City's
-  existing offices for now (`study`, `startup`, `greenroom`, `exec`, `greenroom`). New offices are engine work.
-- **The CLIENT · DV tile** is a late tile that never joins (it reads "Waiting to join"): Mog City has no camera-off tile.
-- **Brick** joins the audition from his own phone (a tile can hold one person, so he cannot lean into Jay's).
-- **Set pieces**: the rising bridge and the jump are played (MogCity `chicago-weather`, `cities/sf/js/bascule.js`): M8's
-  `bridge` step waits for the Kastell coming down Michigan Ave behind the limo (`near`), rings the bells, drops the gates
-  and raises the north and south leaves to 12 degrees, timed to be up as she gets there; she drives up the north leaf and
-  over the gap, the engine's hero shot (`jump`: slow motion, the lens flying alongside her on the river's side, the
-  Kastell lit by a lent key light against the Loop's towers) handed back as she lands about 28 m past the far hinge. The city's cars hold at the gates. The
-  elevated train, the sea of ducks, the Ferris wheel and the limo's flag are described, not modelled. The tail and convoy cars are city
-  bodies in colour (the yellow Derby van is a yellow SUV while it moves, a van when parked; the white limo a white sedan).
-- **Medals** are time and damage (Mog City's); the outline's named medals ("Callback", "Fresh Set"...) are not a field.
-- **Lines**: 244 spoken lines, a first playable script; the outline's budget for the voiced game is 600 to 700.
+  existing offices. **The CLIENT · DV tile**: Mog City has no camera-off tile, so the client is on the audition in Simone's
+  words ("camera off, he likes to listen first"), and the line pays off in MP-4.
+- **Medals** are time and damage (Mog City's).
 
 ## Before it can ship (the owner's to approve)
 

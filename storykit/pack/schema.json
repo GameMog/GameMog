@@ -320,6 +320,26 @@
    "additionalProperties": false,
    "required": [],
    "properties": {
+    "drift": {
+     "enum": [
+      "push",
+      "drift"
+     ],
+     "description": "Mog City mandi-props: every street shot without a move of its own gets a slow push (or a sideways drift)"
+    },
+    "amount": {
+     "type": "number",
+     "minimum": 0,
+     "maximum": 1
+    },
+    "room": {
+     "type": "boolean",
+     "description": "the lens keeps 1.5 m off walls where it can"
+    },
+    "tail": {
+     "type": "boolean",
+     "description": "false: the chase lens left alone while following a car"
+    },
     "action": {
      "type": "boolean",
      "description": "the action layer: chase cameras, speed lines, near misses held in slow motion, crash beats, title slams. On by itself in a hometown story"
@@ -2175,6 +2195,60 @@
        "type": "number",
        "minimum": -80,
        "maximum": 80
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "prop"
+     ],
+     "properties": {
+      "prop": {
+       "$ref": "#/$defs/slug"
+      },
+      "fwd": {
+       "type": "number",
+       "minimum": -30,
+       "maximum": 30
+      },
+      "right": {
+       "type": "number",
+       "minimum": -30,
+       "maximum": 30
+      },
+      "up": {
+       "type": "number",
+       "minimum": -10,
+       "maximum": 10
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "flotilla"
+     ],
+     "properties": {
+      "flotilla": {
+       "$ref": "#/$defs/slug"
+      },
+      "along": {
+       "type": "number",
+       "minimum": -200,
+       "maximum": 200
+      },
+      "right": {
+       "type": "number",
+       "minimum": -60,
+       "maximum": 60
+      },
+      "up": {
+       "type": "number",
+       "minimum": -5,
+       "maximum": 30
       }
      }
     }
@@ -4790,6 +4864,271 @@
          "at": {
           "$ref": "#/$defs/slug",
           "description": "a frame's other person (ots: whom we look at over on's shoulder; two: who is with on)"
+         },
+         "props": {
+          "type": "array",
+          "items": {
+           "type": "object",
+           "additionalProperties": false,
+           "required": [
+            "id"
+           ],
+           "properties": {
+            "id": {
+             "$ref": "#/$defs/slug"
+            },
+            "kind": {
+             "enum": [
+              "duck",
+              "duffel",
+              "duffel-open",
+              "sponge",
+              "bucket",
+              "jacket",
+              "jacket-folded",
+              "suds",
+              "slip"
+             ]
+            },
+            "swap": {
+             "enum": [
+              "duck",
+              "duffel",
+              "duffel-open",
+              "sponge",
+              "bucket",
+              "jacket",
+              "jacket-folded",
+              "suds",
+              "slip"
+             ]
+            },
+            "at": {
+             "oneOf": [
+              {
+               "$ref": "#/$defs/placeRef"
+              },
+              {
+               "type": "object",
+               "additionalProperties": false,
+               "required": [
+                "rel"
+               ],
+               "properties": {
+                "rel": {
+                 "type": "string",
+                 "maxLength": 40,
+                 "pattern": "^(player|[a-z0-9][a-z0-9-]{0,39})$"
+                },
+                "fwd": {
+                 "type": "number",
+                 "minimum": -20,
+                 "maximum": 20
+                },
+                "right": {
+                 "type": "number",
+                 "minimum": -20,
+                 "maximum": 20
+                },
+                "up": {
+                 "type": "number",
+                 "minimum": -5,
+                 "maximum": 5
+                }
+               }
+              },
+              {
+               "type": "object",
+               "additionalProperties": false,
+               "required": [
+                "car"
+               ],
+               "properties": {
+                "car": {
+                 "type": "string",
+                 "maxLength": 48
+                },
+                "part": {
+                 "enum": [
+                  "hood",
+                  "roof",
+                  "trunk",
+                  "seat",
+                  "side"
+                 ]
+                },
+                "side": {
+                 "enum": [
+                  1,
+                  -1
+                 ]
+                },
+                "along": {
+                 "type": "number",
+                 "minimum": -6,
+                 "maximum": 6
+                },
+                "across": {
+                 "type": "number",
+                 "minimum": -3,
+                 "maximum": 3
+                }
+               }
+              },
+              {
+               "type": "object",
+               "additionalProperties": false,
+               "required": [
+                "hold"
+               ],
+               "properties": {
+                "hold": {
+                 "type": "string",
+                 "maxLength": 40,
+                 "pattern": "^(player|[a-z0-9][a-z0-9-]{0,39})$"
+                },
+                "hand": {
+                 "enum": [
+                  "right",
+                  "left"
+                 ]
+                },
+                "fwd": {
+                 "type": "number",
+                 "minimum": -1,
+                 "maximum": 1
+                },
+                "right": {
+                 "type": "number",
+                 "minimum": -1,
+                 "maximum": 1
+                },
+                "up": {
+                 "type": "number",
+                 "minimum": -1,
+                 "maximum": 1
+                }
+               }
+              }
+             ]
+            },
+            "heading": {
+             "type": "number",
+             "minimum": -360,
+             "maximum": 360
+            },
+            "scale": {
+             "type": "number",
+             "minimum": 0.2,
+             "maximum": 5
+            },
+            "number": {
+             "type": "string",
+             "maxLength": 3
+            },
+            "remove": {
+             "type": "boolean"
+            },
+            "drop": {
+             "type": "boolean"
+            }
+           }
+          },
+          "minItems": 0,
+          "maxItems": 4,
+          "description": "props set as the shot starts (Mog City's storyrun/props.js): { id, kind, at, heading, scale } puts one down; { id, swap } turns it into another kind; { id, at } moves it; { id, drop } leaves a held one on the ground; { id, remove } takes it away"
+         },
+         "flotilla": {
+          "type": "array",
+          "items": {
+           "type": "object",
+           "additionalProperties": false,
+           "required": [
+            "id"
+           ],
+           "properties": {
+            "id": {
+             "$ref": "#/$defs/slug"
+            },
+            "at": {
+             "$ref": "#/$defs/placeRef"
+            },
+            "count": {
+             "type": "integer",
+             "minimum": 1,
+             "maximum": 1200
+            },
+            "length": {
+             "type": "number",
+             "minimum": 8,
+             "maximum": 200
+            },
+            "width": {
+             "type": "number",
+             "minimum": 3,
+             "maximum": 60
+            },
+            "speed": {
+             "type": "number",
+             "minimum": 0,
+             "maximum": 3
+            },
+            "flow": {
+             "enum": [
+              1,
+              -1
+             ]
+            },
+            "scale": {
+             "type": "number",
+             "minimum": 0.5,
+             "maximum": 4
+            },
+            "pour": {
+             "type": "number",
+             "minimum": 0,
+             "maximum": 8
+            },
+            "from": {
+             "$ref": "#/$defs/slug"
+            },
+            "remove": {
+             "type": "boolean"
+            },
+            "number": {
+             "type": "string",
+             "maxLength": 3
+            }
+           }
+          },
+          "minItems": 0,
+          "maxItems": 1,
+          "description": "the race ducks laid on the river nearest at, drifting downstream (pour: s they take to go in)"
+         },
+         "move": {
+          "enum": [
+           "push",
+           "pull",
+           "orbit",
+           "crane",
+           "drop",
+           "drift",
+           "track"
+          ],
+          "description": "the lens moves through the shot"
+         },
+         "amount": {
+          "type": "number",
+          "minimum": -360,
+          "maximum": 360,
+          "description": "the move's size: a share of the way for push/pull, degrees for orbit, metres for the rest"
+         },
+         "inside": {
+          "type": "boolean",
+          "description": "the lens may be inside a car (an insert into a bag on its seat)"
+         },
+         "warm": {
+          "type": "boolean"
          }
         }
        },
@@ -5396,6 +5735,19 @@
         "speaker"
        ],
        "description": "grid: equal tiles; speaker: whoever talks fills the stage, the rest in a strip"
+      },
+      "live": {
+       "oneOf": [
+        {
+         "type": "boolean"
+        },
+        {
+         "const": "wait"
+        },
+        {
+         "description": "Mog City mandi-props: the call plays over the street while she drives or walks, on the phone in the corner (true: the steps after it start at once; 'wait': they wait for it). An engine without it plays the call full screen"
+        }
+       ]
       },
       "time": {
        "enum": [
@@ -6987,6 +7339,12 @@
         "suv"
        ]
       },
+      "stretch": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 6,
+       "description": "Mog City mandi-props: the car stretched this many metres at its waist (a limo)"
+      },
       "color": {
        "$ref": "#/$defs/colour"
       },
@@ -8352,6 +8710,12 @@
        "minItems": 0,
        "maxItems": 6
       },
+      "stretch": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 6,
+       "description": "Mog City mandi-props: the car stretched this many metres at its waist (a limo)"
+      },
       "name": {
        "$ref": "#/$defs/slug",
        "description": "what a later car step calls it, to take it away"
@@ -8716,6 +9080,9 @@
          "description": "the thing at the spot when the words don't say it plainly (the runner reads them: a truck is a pickup, a box a crate); false: nothing put there"
         }
        ]
+      },
+      "propColor": {
+       "$ref": "#/$defs/colour"
       },
       "sting": {
        "$ref": "#/$defs/sting"

@@ -58,13 +58,26 @@ export const MR_VOICE = `deploy/migrations/${MR_ID}-voice.json`;
 /** The side cast's forged bodies, by cast id. */
 export const castBody = (id: string) => `${MR_DIR}/cast/${id}.glb`;
 /**
- * Where the premium bodies are read from to hash them (never copied here): MR_<ID>_GLB, else the character's own folder
- * (Mandi/out/mandi.glb, Jay/out/jay.glb) in the checkout or beside it. The first that exists.
+ * The premium bodies the world is sealed with, by SHA-256: adopting a new build of Mandi or Jay is a change here (the
+ * owner's call), never whatever happens to be in the character folder that day. 28 Nov (owner-approved, the story pass's
+ * export): Mandi with her holes fixed (Mandi/out/mandi.glb), Jay without the overshirt (Jay/out/jay.glb, jmh-37).
+ */
+export const PREMIUM_PIN: Record<string, string> = {
+  mandi: '156760365f47c5e3bd889211527e60598bc3fcd12b2060bb49af0aef18241a24',
+  jay: '56ff0cb30be25fd9bc48c0d87d8e30fb7aa6bf99eafd68f1fee03ef4afaa8d25',
+};
+/**
+ * Where a premium body is read from to hash it (never copied here): MR_<ID>_GLB, else the character's own folder
+ * (Mandi/out/mandi.glb, Jay/out/jay.glb, and their out/backup/ builds) in the checkout or beside it: the first whose
+ * SHA-256 is the pin's. None on this machine: null (the record's own rows stand).
  */
 export function privateSource(id: string): string | null {
   const env = process.env[`MR_${id.toUpperCase()}_GLB`];
   const dir = id[0].toUpperCase() + id.slice(1);
-  return [env, `${dir}/out/${id}.glb`, `../${dir}/out/${id}.glb`].find((p) => p && existsSync(p)) ?? null;
+  const cands = [env, `${dir}/out/${id}.glb`, `../${dir}/out/${id}.glb`];
+  for (const d of [`${dir}/out/backup`, `../${dir}/out/backup`]) if (existsSync(d)) for (const f of readdirSync(d).sort().reverse()) if (f.endsWith('.glb')) cands.push(`${d}/${f}`);
+  for (const p of cands) if (p && existsSync(p) && createHash('sha256').update(readFileSync(p)).digest('hex') === PREMIUM_PIN[id]) return p;
+  return null;
 }
 /** A body's limits (lib/storykit-store.ts LIMITS.glb.each, SHOWCASE_LIMITS.glb.total): over them is warned, not refused. */
 export const BODY_LIMITS = { each: 6 * 1024 * 1024, total: 128 * 1024 * 1024 };
@@ -230,6 +243,43 @@ export function mrVoiceProblems(): string[] {
   for (const k of Object.keys(man)) if (!existsSync(`${dir}/${k}.ogg`)) out.push(`${MR_VOICE} names ${k}, which is not in ${dir}`);
   if (bytes > 24 * 1024 * 1024 || n > 1500) out.push(`${dir}: ${n} clips, ${bytes} bytes: a world's voice is at most 1500 clips and 24 MB`);
   return out.slice(0, 8);
+}
+
+/**
+ * The pacing rule (the owner: "about 2 min, never 3 min without a beat"; the playtest's B3/B4, 28 Nov): every drive, tail
+ * and convoy leg of the pack, the GPS's own route length on Mog City (r42) and production Chicago, metres, measured in
+ * headless Chrome (the routes the player is shown, at each start's heading; not straight lines). Keyed "<from>><to>" by
+ * the pack's place names. A leg the pack drives must be here (a new leg is measured before it ships), and none may take
+ * more than MR_LEG_MAX seconds at its pace (a tail's or convoy's own speed, a drive at MR_DRIVE_PACE).
+ */
+export const MR_ROUTES: Record<string, number> = {
+  'studio>jay-lot': 1842, 'jay-lot>salon': 2046, 'salon>warehouse': 1063, 'lower-level>mirror': 1992, 'mirror>harbor': 1115,
+  'ohio>pier-foot': 1482, 'south-lot>stadium-lot': 2071, 'crew>riverwalk': 941, 'ohio>bridge': 803,
+};
+/** A drive's pace on the town's streets (m/s), the test drive's realpace average with the lights and the turns. */
+export const MR_DRIVE_PACE = 15;
+/** The longest a leg may take (s): the owner's "about 2 minutes", with the GPS's own detours. */
+export const MR_LEG_MAX = 150;
+export function mrPacingProblems(pack: any): string[] {
+  const out: string[] = [];
+  for (const m of pack.acts.flatMap((a: any) => a.missions)) {
+    let at: string | null = String(m.start).replace(/^@/, '');
+    for (const st of m.steps) {
+      const leg = (a: string | null, b: string, pace: number) => {
+        if (!a || a === b) return;
+        const k = `${a}>${b}`, len = MR_ROUTES[k];
+        if (!(len > 0)) { out.push(`${m.id}: the ${st.type} ${k} has no measured route (MR_ROUTES)`); return; }
+        if (len / pace > MR_LEG_MAX) out.push(`${m.id}: the ${st.type} ${k} is ${len} m, ${Math.round(len / pace)} s at ${pace} m/s: over ${MR_LEG_MAX} s`);
+      };
+      const ref = (r: any) => (typeof r === 'string' ? r.replace(/^@/, '') : r && r['@'] ? String(r['@']) : null);
+      if (st.type === 'drive') { const to = ref(st.to); if (to) { leg(at, to, MR_DRIVE_PACE); at = to; } }
+      // (a tail or convoy with waypoints is measured end to end: its route goes through them)
+      else if (st.type === 'tail' || st.type === 'convoy') { const r = (st.route || []).map(ref); leg(r[0], r[r.length - 1], st.speed || MR_DRIVE_PACE); at = r[r.length - 1]; }
+      else if (st.type === 'walk' || st.type === 'place') at = ref(st.to ?? st.at);
+      else if (st.type === 'pursuit' || st.type === 'roadblock') at = st.type === 'roadblock' && st.to ? ref(st.to) : null;
+    }
+  }
+  return out;
 }
 
 /** LINES.md: every spoken line, in the order it plays, for casting (clips are keyed by a hash of the text and voice). */

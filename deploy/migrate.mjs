@@ -2677,7 +2677,13 @@ export const MIGRATIONS = [
     // Heist's are (rendered offline on the Mac, Qwen3-TTS clones of voices designed from written descriptions; the
     // clips in deploy/migrations/mandis-revenge/voice, their provenance in deploy/migrations/mandis-revenge-voice.json,
     // the credits roll naming the voices). The record's world differs from the one 2026-11-27-mandis-revenge sealed
-    // (MR_VOICE_FROM) in its voice plan's clips and the credits' voices; no body changed. As Jensen Heist's polish
+    // (MR_VOICE_FROM) in its voice plan's clips and the credits' voices. 28 Nov, the story pass (the owner played it:
+    // "disappointing, incomplete, not impressive, no polish"): the same migration (never on gamemog.com yet) now seals the
+    // rewritten story too (the places re-pointed, the boss fight, the reunion, the dawn epilogue, every new line voiced)
+    // and the bodies that changed with it (Jay's new private body, owner-approved 28 Nov, from the server's
+    // data/storykit-private/ as 2026-11-27-mandis-revenge reads it; a re-forged side-cast body from
+    // deploy/migrations/mandis-revenge/cast/), each checked by its SHA-256 and replacing the draft's row of the same name.
+    // As Jensen Heist's polish
     // batches, the new world is sealed into the game's kept store draft in place (the old one kept as a was-<sha256>.json
     // row, still served), each clip stored and added to the draft as a voice file, the draft's pack becomes the record's,
     // and the game's meta and module name them; its title, words, art and hidden stay. Only the game whose meta names the
@@ -2708,15 +2714,27 @@ export const MIGRATIONS = [
       const d = typeof meta.storykit.pack === 'string' ? s.db.prepare("SELECT id, world, pack FROM drafts WHERE id = ? AND state = 'kept' AND game_id = ?").get(meta.storykit.pack, g.id) : null;
       if (!d) throw new Error('Mandi\'s Revenge\'s kept store draft is not in the store');
       if (d.world !== MR_VOICE_FROM) return `left alone: the store draft holds ${String(d.world).slice(0, 12)}, not ${MR_VOICE_FROM.slice(0, 12)}`;
-      // (every body the world names is the draft's already, checked by its SHA-256; each clip is read from this build and
-      // checked before anything is written)
+      // (every file the world names that the draft does not hold, read and checked before anything is written: each
+      // clip from this build; each changed body from this build (the side cast) or the private store (Mandi, Jay))
       const has = s.db.prepare('SELECT 1 FROM files WHERE draft_id = ? AND hash = ? AND name = ?');
       const CLIP = /^deploy\/migrations\/mandis-revenge\/voice\/([0-9a-f]{8}-[0-9a-f]{8})\.ogg$/;
-      const clips = [];
+      const BODY = /^deploy\/migrations\/mandis-revenge\/cast\/([a-z0-9-]+)\.glb$/;
+      const PRIV = join(dirname(resolve(path)), 'storykit-private');
+      const clips = [], bodies = [];
       for (const f of R.files) {
         if (has.get(d.id, f.hash, f.name)) continue;
+        if (f.kind === 'glb') {
+          const priv = String(f.src) === `private:${f.hash}.glb`, m = BODY.exec(String(f.src));
+          if (f.ext !== 'glb' || !/^[0-9a-f]{64}$/.test(f.hash) || !(priv || (m && m[1] === f.name))) throw new Error(`mandis-revenge-story.json: a bad body (${f.name})`);
+          const at = priv ? join(PRIV, `${f.hash}.glb`) : f.src;
+          if (!existsSync(at)) throw new Error(priv ? `waiting: the private body ${f.name} (${f.hash.slice(0, 12)}) is not in ${PRIV} yet` : `${f.src} is not in this build`);
+          const b = readFileSync(at);
+          if (sha(b) !== f.hash || b.length !== f.bytes || b.readUInt32LE(0) !== 0x46546c67) throw new Error(`${priv ? `the private body ${f.name}` : f.src} is not the body the world names`);
+          bodies.push({ f, bytes: b });
+          continue;
+        }
         const m = CLIP.exec(String(f.src));
-        if (f.kind !== 'voice' || !m || f.name !== `${m[1]}.ogg` || f.ext !== 'ogg' || !/^[0-9a-f]{64}$/.test(f.hash)) throw new Error(`the store draft does not hold ${f.name} (${String(f.hash).slice(0, 12)}): a body changed, or a bad clip`);
+        if (f.kind !== 'voice' || !m || f.name !== `${m[1]}.ogg` || f.ext !== 'ogg' || !/^[0-9a-f]{64}$/.test(f.hash)) throw new Error(`the store draft does not hold ${f.name} (${String(f.hash).slice(0, 12)}): a bad clip`);
         if (!existsSync(f.src)) throw new Error(`${f.src} is not in this build`);
         const b = readFileSync(f.src);
         if (sha(b) !== f.hash || b.length !== f.bytes || b.subarray(0, 4).toString('latin1') !== 'OggS') throw new Error(`${f.src} is not the clip the world names`);
@@ -2727,7 +2745,7 @@ export const MIGRATIONS = [
       const named = new Set(R.files.map((f) => f.hash));
       for (const m of text.matchAll(/\/storykit\/f\/([0-9a-f]{64})\.([a-z]{3,4})/g)) if (!named.has(m[1])) throw new Error(`the world names /storykit/f/${m[1]}.${m[2]}, which the record does not hold`);
       if (worldBytes.length > LIMITS.sealed) throw new Error(`the world is ${worldBytes.length} bytes, over a sealed world's ${LIMITS.sealed}`);
-      const blobs = [[R.world.hash, 'json', worldBytes], ...clips.map((c) => [c.f.hash, 'ogg', c.bytes])], fresh = blobs.filter(([h]) => !s.db.prepare('SELECT 1 FROM blobs WHERE hash = ?').get(h));
+      const blobs = [[R.world.hash, 'json', worldBytes], ...clips.map((c) => [c.f.hash, 'ogg', c.bytes]), ...bodies.map((c) => [c.f.hash, 'glb', c.bytes])], fresh = blobs.filter(([h]) => !s.db.prepare('SELECT 1 FROM blobs WHERE hash = ?').get(h));
       if (s.used() + fresh.reduce((n, [, , b]) => n + b.length, 0) > LIMITS.disk) throw new Error('waiting: the Story Kit store has no room for Mandi\'s Revenge\'s voices');
       for (const [h, ext, b] of fresh) {
         const p = s.blobPath(h, ext);
@@ -2747,6 +2765,9 @@ export const MIGRATIONS = [
         row.run(d.id, 'world.json', R.world.hash, worldBytes.length, t);
         const clip = s.db.prepare("INSERT OR REPLACE INTO files (draft_id, kind, name, hash, ext, bytes, meta, inherited, at) VALUES (?, 'voice', ?, ?, 'ogg', ?, ?, 0, ?)");
         for (const c of clips) clip.run(d.id, c.f.name, c.f.hash, c.f.bytes, c.f.meta ? JSON.stringify(c.f.meta) : null, t);
+        // (a changed body replaces the draft's row of the same name: the old blob stays, still served to the old world)
+        const body = s.db.prepare("INSERT OR REPLACE INTO files (draft_id, kind, name, hash, ext, bytes, meta, inherited, at) VALUES (?, 'glb', ?, ?, 'glb', ?, NULL, 0, ?)");
+        for (const c of bodies) body.run(d.id, c.f.name, c.f.hash, c.f.bytes, t);
         s.db.prepare('UPDATE drafts SET pack = ?, world = ?, touched_at = ? WHERE id = ?').run(JSON.stringify(R.pack), R.world.hash, t, d.id);
         s.db.exec('COMMIT');
       } catch (e) { s.db.exec('ROLLBACK'); throw e; }
@@ -2767,7 +2788,7 @@ export const MIGRATIONS = [
         } catch { try { s.db.exec('ROLLBACK'); } catch { /* as it is */ } }
         throw e;
       }
-      return `/g/${g.slug} (hidden as it was): plays ${R.world.hash.slice(0, 12)} (was ${MR_VOICE_FROM.slice(0, 12)}, kept) in store draft ${d.id}; ${clips.length} voice clips added`;
+      return `/g/${g.slug} (hidden as it was): plays ${R.world.hash.slice(0, 12)} (was ${MR_VOICE_FROM.slice(0, 12)}, kept) in store draft ${d.id}; ${clips.length} voice clips added${bodies.length ? `, ${bodies.length} bodies changed (${bodies.map((c) => c.f.name).join(', ')})` : ''}`;
     },
   },
 ];
